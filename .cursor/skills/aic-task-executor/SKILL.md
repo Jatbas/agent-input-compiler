@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Execute a task file produced by the `aic-task-planner` skill. Read the task, internalize its specs, implement every step, self-review in three passes, dispatch an independent review subagent for scoring, iterate until clean, update progress, and stage for commit.
+Execute a task file produced by the `aic-task-planner` skill. Read the task, internalize its specs, implement every step, self-review in three passes, run a tool-assisted evidence review for scoring, iterate until clean, update progress, and stage for commit.
 
 **Announce at start:** "Using the task-executor skill on `<task file path>`."
 
@@ -166,79 +166,62 @@ Before declaring success, verify with evidence — do not just claim it works:
 - Confirm zero warnings, not just zero errors.
 - If the task specifies test cases, confirm each one appears in the output by name.
 
-### 6. Independent review (subagent)
+### 6. Tool-assisted evidence review
 
-The agent that wrote the code has confirmation bias. Dispatch a **review subagent** with clean context to rate the implementation objectively.
+The three-pass self-review (§4) catches most issues, but memory-based review has blind spots. This step forces objectivity by **re-reading files from disk** and **using Grep to verify pattern dimensions**. Tool output does not lie — if Grep finds no `/**`, that is proof.
 
-Launch `subagent_type="generalPurpose"` with this prompt structure:
+**Step 6a — Re-read all implemented files from disk.**
 
-```
-You are reviewing an implementation for quality. Rate it on the 10-point rubric below.
-Score each dimension 0 or 1. Be strict — if you see ANY issue in a dimension, score 0.
+Use the Read tool on every file created or modified. Do NOT rely on what you remember writing. This breaks the "I just wrote it so I know it's fine" shortcut.
 
-TASK FILE (the spec that was implemented):
-[paste the full task file content]
+**Step 6b — Run tool-assisted checks (batch these in parallel where possible).**
 
-IMPLEMENTED FILES (the code to review):
-[for each file created/modified, paste its full content with the file path as header]
+Use Grep on the created/modified files for each pattern check. Run multiple Grep calls in a single message for speed.
 
-RUBRIC — score each dimension 0 (fail) or 1 (pass):
-1. Signature match: Do class methods match the task file's Interface/Signature exactly? (names, types, readonly, returns)
-2. Readonly everywhere: Are all properties readonly? All array types `readonly T[]`? No `.sort()`, `.push()`, `.splice()`, `.reverse()`? Check: class properties, function parameters, local variables, return types, generic type parameters.
-3. Branded types: Are factory functions used for all domain values? (`toTokenCount()`, `toRelativePath()`, etc.) No raw string/number for paths, tokens, scores, IDs — in code AND tests.
-4. Comment style: Any `/** */` or `/* */` found? Only `//` comments are allowed. Search for `/**` and `/*` in every file.
-5. DI & immutability: Constructor receives only interfaces? Methods return new objects (never mutate inputs)?
-6. Tests complete: Does every row in the task's Tests table have a corresponding test case? Do assertions verify actual behavior (not just "no throw")?
-7. Config changes applied: Are all ESLint/package.json changes from the task file present in the actual config files?
-8. Lint + typecheck + tests: Did all pass with zero errors and zero warnings? (Verification output provided below)
-9. First-pass quality: How many fix iterations were needed? 0-1 = pass, 2+ = fail.
-10. Layer boundaries: Do all imports use correct aliases (#core/, #pipeline/)? Any banned imports?
+| Dimension                   | Tool check                                                                                                                                                                      | Evidence required                                                                                         |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| 1. Signature match          | Re-read the interface file and implementation file side by side                                                                                                                 | List each method: param names, types, return types — state MATCH or MISMATCH with the specific difference |
+| 2. Readonly / mutability    | `Grep` for `\.push\(`, `\.splice\(`, `\.sort\(`, `\.reverse\(` in new files. `Grep` for array types missing `readonly` (pattern: `: [A-Z]\w+\[\]` without preceding `readonly`) | Paste Grep output ("0 matches" = pass)                                                                    |
+| 3. Branded types            | `Grep` for factory function usage (`toTokenCount`, `toRelativePath`, etc.) in implementation AND test files. `Grep` for suspicious raw literals in type positions               | Paste evidence of factory function usage or raw values found                                              |
+| 4. Comment style            | `Grep` for `/\*\*` and `/\*[^/]` in new files                                                                                                                                   | Paste Grep output ("0 matches" = pass)                                                                    |
+| 5. DI & immutability        | Re-read constructor — list each param and whether it's an interface or concrete class                                                                                           | List each constructor param with its type                                                                 |
+| 6. Tests complete           | Re-read test file — list every `it(` or `test(` name. Cross-check against Tests table in task file                                                                              | Two-column list: Tests table row → matching test name (or MISSING)                                        |
+| 7. Config changes           | Re-read `shared/package.json` and `eslint.config.mjs` if task required changes                                                                                                  | State each required change and whether it's present                                                       |
+| 8. Lint + typecheck + tests | Already verified in §5 — reference that output                                                                                                                                  | "Passed in §5 with 0 errors, 0 warnings" or paste output                                                  |
+| 9. First-pass quality       | Self-track: count fix iterations during §3                                                                                                                                      | State count: "0 iterations" or "1 iteration for [reason]"                                                 |
+| 10. Layer boundaries        | `Grep` for banned import patterns in new files (e.g. `from ['"](?!#)\.\.` for cross-layer relative imports, specific banned packages)                                           | Paste Grep output ("0 matches" = pass)                                                                    |
 
-VERIFICATION OUTPUT:
-[paste the pnpm lint && pnpm typecheck && pnpm test output]
+**Step 6c — Score and report.**
 
-Return:
-- Per-dimension score (0 or 1) with one-line justification
-- Total score (0-10)
-- List of specific fixes needed (empty if score = 10)
-```
+Score each dimension 0 (fail with evidence of violation) or 1 (pass with evidence of compliance). Be strict — if Grep found ANY match for a banned pattern, score 0 for that dimension regardless of whether you think it's a false positive. Investigate first.
 
-The subagent returns a score and a list of fixes. **Do not override the subagent's score.**
+Tally the total. Record per-dimension scores with one-line justifications.
 
-**If score < 8:** Apply the fixes, re-run verification, and dispatch the review subagent again. Iterate until score ≥ 8. **Maximum 3 iterations** — if still below 8, go to Blocked.
+**If score < 8:** Fix the failing dimensions, re-run the tool checks for those dimensions only, re-score. **Maximum 3 iterations** — if still below 8, go to Blocked.
 
 **If score ≥ 8:** Proceed to §7.
 
-### 7. Fix Issues
+### 7. Report
 
-If the review subagent found problems:
-
-1. Fix them.
-2. Re-run `pnpm lint && pnpm typecheck && pnpm test`.
-3. Self-review again (all three passes).
-4. Dispatch the review subagent again. Repeat until score ≥ 8. **Maximum 3 iterations** — if still below 8 after 3, go to Blocked.
-
-### 8. Report
-
-When the review subagent score ≥ 8, report to the user:
+When the evidence review score ≥ 8, report to the user:
 
 - What was implemented (files created/modified)
 - Test results (pass count, confirming no regressions)
-- **Implementation score: N/10** (from review subagent) with per-dimension breakdown
+- **Implementation score: N/10** (from evidence review) with per-dimension breakdown
 - Review findings and fixes applied (if any)
 - Any concerns or follow-up items
 
-### 9. Update Progress
+### 8. Update Progress
 
 Use the `aic-update-mvp-progress` skill to update `documentation/mvp-progress.md`.
 
 **Critical:** Use today's actual date for the daily log entry. If today's entry already exists, append to it. If it is a new day, create a new entry at the top of the Daily Log section (reverse chronological). Do not put today's work under yesterday's date.
 
-### 10. Update Task Status
+### 9. Update Task Status
 
 Change the task file header from `> **Status:** In Progress` to `> **Status:** Done`.
 
-### 11. Archive the Task File
+### 10. Archive the Task File
 
 Move the completed task file to `documentation/tasks/done/`:
 
@@ -247,7 +230,7 @@ mkdir -p documentation/tasks/done
 mv documentation/tasks/NNN-name.md documentation/tasks/done/
 ```
 
-### 12. Stage and Propose Commit
+### 11. Stage and Propose Commit
 
 Stage all changed files with `git add`. Then **propose** a conventional commit message to the user:
 

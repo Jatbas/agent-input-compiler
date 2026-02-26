@@ -323,6 +323,10 @@ export default tseslint.config(
               message: "Use the IgnoreProvider interface.",
             },
             {
+              name: "typescript",
+              message: "Use LanguageProvider interface.",
+            },
+            {
               name: "zod",
               message:
                 "Zod validates at boundaries only (MCP/CLI/config). Core/pipeline trusts branded types. See ADR-009.",
@@ -411,6 +415,10 @@ export default tseslint.config(
               name: "ignore",
               message:
                 "Use the IgnoreProvider interface. External libs are wrapped in adapters/.",
+            },
+            {
+              name: "typescript",
+              message: "Use LanguageProvider interface.",
             },
           ],
           patterns: [
@@ -648,6 +656,228 @@ export default tseslint.config(
         },
       ],
       "no-restricted-syntax": ["error", ...BASE_RESTRICTED, ADAPTER_HASH_WHITELIST],
+    },
+  },
+
+  // ─── Adapters: only tiktoken-adapter.ts may import tiktoken ─────────
+  {
+    files: ["shared/src/adapters/**/*.ts"],
+    ignores: ["shared/src/adapters/tiktoken-adapter.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "better-sqlite3",
+              message: "SQL lives in storage/ only. Adapters don't use SQLite.",
+            },
+            {
+              name: "zod",
+              message: "Zod validates at boundaries only (MCP/CLI/config). See ADR-009.",
+            },
+            {
+              name: "tiktoken",
+              message: "Only tiktoken-adapter.ts may import tiktoken.",
+            },
+          ],
+          patterns: [
+            BAN_RELATIVE_PARENT,
+            {
+              group: ["@aic/cli", "@aic/cli/*", "**/cli/**"],
+              message: "Adapters must not import CLI code.",
+            },
+            {
+              group: ["@aic/mcp", "@aic/mcp/*", "**/mcp/**"],
+              message: "Adapters must not import MCP code.",
+            },
+            {
+              group: ["**/storage/**"],
+              message: "Adapters must not import storage code.",
+            },
+            {
+              group: ["**/pipeline/**"],
+              message: "Adapters must not import pipeline code.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  // ─── Adapters: only fast-glob-adapter.ts may import fast-glob ─────
+  {
+    files: ["shared/src/adapters/**/*.ts"],
+    ignores: [
+      "shared/src/adapters/fast-glob-adapter.ts",
+      "shared/src/adapters/tiktoken-adapter.ts",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "better-sqlite3",
+              message: "SQL lives in storage/ only. Adapters don't use SQLite.",
+            },
+            {
+              name: "zod",
+              message: "Zod validates at boundaries only (MCP/CLI/config). See ADR-009.",
+            },
+            {
+              name: "tiktoken",
+              message: "Only tiktoken-adapter.ts may import tiktoken.",
+            },
+            {
+              name: "fast-glob",
+              message: "Only fast-glob-adapter.ts may import fast-glob.",
+            },
+          ],
+          patterns: [
+            BAN_RELATIVE_PARENT,
+            {
+              group: ["@aic/cli", "@aic/cli/*", "**/cli/**"],
+              message: "Adapters must not import CLI code.",
+            },
+            {
+              group: ["@aic/mcp", "@aic/mcp/*", "**/mcp/**"],
+              message: "Adapters must not import MCP code.",
+            },
+            {
+              group: ["**/storage/**"],
+              message: "Adapters must not import storage code.",
+            },
+            {
+              group: ["**/pipeline/**"],
+              message: "Adapters must not import pipeline code.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  // ─── Adapters: only ignore-adapter.ts may import ignore ───────────
+  {
+    files: ["shared/src/adapters/**/*.ts"],
+    ignores: [
+      "shared/src/adapters/ignore-adapter.ts",
+      "shared/src/adapters/fast-glob-adapter.ts",
+      "shared/src/adapters/tiktoken-adapter.ts",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "better-sqlite3",
+              message: "SQL lives in storage/ only. Adapters don't use SQLite.",
+            },
+            {
+              name: "zod",
+              message: "Zod validates at boundaries only (MCP/CLI/config). See ADR-009.",
+            },
+            {
+              name: "tiktoken",
+              message: "Only tiktoken-adapter.ts may import tiktoken.",
+            },
+            {
+              name: "fast-glob",
+              message: "Only fast-glob-adapter.ts may import fast-glob.",
+            },
+            {
+              name: "ignore",
+              message: "Only ignore-adapter.ts may import ignore.",
+            },
+          ],
+          patterns: [
+            BAN_RELATIVE_PARENT,
+            {
+              group: ["@aic/cli", "@aic/cli/*", "**/cli/**"],
+              message: "Adapters must not import CLI code.",
+            },
+            {
+              group: ["@aic/mcp", "@aic/mcp/*", "**/mcp/**"],
+              message: "Adapters must not import MCP code.",
+            },
+            {
+              group: ["**/storage/**"],
+              message: "Adapters must not import storage code.",
+            },
+            {
+              group: ["**/pipeline/**"],
+              message: "Adapters must not import pipeline code.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  // ─── Adapters: only typescript-provider.ts may import typescript ───
+  // Other adapters (tiktoken, fast-glob, ignore) are ignored so they keep their
+  // own block; only typescript-provider is allowed to import typescript.
+  {
+    files: ["shared/src/adapters/**/*.ts"],
+    ignores: [
+      "shared/src/adapters/typescript-provider.ts",
+      "shared/src/adapters/tiktoken-adapter.ts",
+      "shared/src/adapters/fast-glob-adapter.ts",
+      "shared/src/adapters/ignore-adapter.ts",
+    ],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "better-sqlite3",
+              message: "SQL lives in storage/ only. Adapters don't use SQLite.",
+            },
+            {
+              name: "zod",
+              message: "Zod validates at boundaries only (MCP/CLI/config). See ADR-009.",
+            },
+            {
+              name: "tiktoken",
+              message: "Only tiktoken-adapter.ts may import tiktoken.",
+            },
+            {
+              name: "fast-glob",
+              message: "Only fast-glob-adapter.ts may import fast-glob.",
+            },
+            {
+              name: "ignore",
+              message: "Only ignore-adapter.ts may import ignore.",
+            },
+            {
+              name: "typescript",
+              message: "Only typescript-provider.ts may import typescript.",
+            },
+          ],
+          patterns: [
+            BAN_RELATIVE_PARENT,
+            {
+              group: ["@aic/cli", "@aic/cli/*", "**/cli/**"],
+              message: "Adapters must not import CLI code.",
+            },
+            {
+              group: ["@aic/mcp", "@aic/mcp/*", "**/mcp/**"],
+              message: "Adapters must not import MCP code.",
+            },
+            {
+              group: ["**/storage/**"],
+              message: "Adapters must not import storage code.",
+            },
+            {
+              group: ["**/pipeline/**"],
+              message: "Adapters must not import pipeline code.",
+            },
+          ],
+        },
+      ],
     },
   },
 

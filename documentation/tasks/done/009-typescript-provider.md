@@ -1,6 +1,6 @@
 # Task 009: TypeScriptProvider
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** D (Adapters)
 > **Layer:** adapter
 > **Depends on:** Phase B (LanguageProvider interface, domain types Done)

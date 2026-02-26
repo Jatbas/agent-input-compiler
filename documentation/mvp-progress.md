@@ -1,8 +1,8 @@
 # AIC MVP Progress
 
-**Status:** Phase C pipeline complete (transformers, ladder, assembler)  
+**Status:** Phase D adapters (TypeScriptProvider done)  
 **Phase:** 0 (MVP)  
-**Overall:** ~56%
+**Overall:** ~65%
 
 ---
 
@@ -54,10 +54,10 @@
 
 | Component          | Status      | Package              |
 | ------------------ | ----------- | -------------------- |
-| TiktokenAdapter    | Not started | shared/src/adapters/ |
-| FastGlobAdapter    | Not started | shared/src/adapters/ |
-| IgnoreAdapter      | Not started | shared/src/adapters/ |
-| TypeScriptProvider | Not started | shared/src/adapters/ |
+| TiktokenAdapter    | Done        | shared/src/adapters/ |
+| FastGlobAdapter    | Done        | shared/src/adapters/ |
+| IgnoreAdapter      | Done        | shared/src/adapters/ |
+| TypeScriptProvider | Done        | shared/src/adapters/ |
 | GenericProvider    | Not started | shared/src/adapters/ |
 
 ### Phase E — Storage
@@ -98,6 +98,22 @@
 ---
 
 ## Daily Log
+
+### 2026-02-25
+
+**Components:** TiktokenAdapter, TokenCounter interface, FastGlobAdapter, GlobProvider interface, IgnoreAdapter, IgnoreProvider interface, TypeScriptProvider
+**Completed:**
+
+- TokenCounter interface in core/interfaces; TiktokenAdapter in adapters with tiktoken cl100k_base and word_count × 1.3 fallback
+- ESLint restriction so only tiktoken-adapter.ts may import tiktoken
+- Unit tests: empty, non-empty, deterministic, fallback (mock tiktoken throw)
+- GlobProvider interface in core/interfaces; FastGlobAdapter in adapters (fast-glob sync API, path.relative for cwd-relative paths)
+- ESLint restriction so only fast-glob-adapter.ts may import fast-glob
+- Unit tests: empty patterns, matching pattern, negation, deterministic order, error propagation (file-as-cwd)
+- IgnoreProvider interface in core/interfaces; IgnoreAdapter in adapters (.gitignore via ignore package sync API)
+- ESLint restriction so only ignore-adapter.ts may import ignore
+- Unit tests: accepts when not ignored, accepts when ignored, missing .gitignore
+- TypeScriptProvider in adapters (LanguageProvider for .ts/.tsx/.js/.jsx): parseImports (regex), extractSignaturesWithDocs/Only (ts.createSourceFile + AST), extractNames (exported symbols + SYMBOL_KIND); ESLint restriction so only typescript-provider.ts may import typescript
 
 ### 2026-02-24
 
