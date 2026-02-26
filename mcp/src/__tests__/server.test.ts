@@ -32,7 +32,7 @@ describe("MCP server", () => {
     expect(names).toContain("aic_inspect");
   });
 
-  it("valid_args_returns_stub_content", async () => {
+  it("valid_args_returns_compiled_prompt", async () => {
     tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
     const server = createMcpServer(toAbsolutePath(tmpDir));
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
@@ -43,7 +43,15 @@ describe("MCP server", () => {
       name: "aic_compile",
       arguments: { intent: "fix bug", projectRoot: tmpDir },
     });
-    expect((result as { isError?: boolean }).isError).toBe(true);
+    type ContentItem = { type: string; text?: string };
+    const raw = (result as { content?: ContentItem[] }).content;
+    const content: ContentItem[] = Array.isArray(raw) ? raw : [];
+    const text = content
+      .filter((c): c is { type: "text"; text: string } => c.type === "text")
+      .map((c) => c.text)
+      .join("");
+    expect(text.length).toBeGreaterThan(0);
+    expect((result as { isError?: boolean }).isError).not.toBe(true);
   });
 
   it("invalid_args_returns_32602", async () => {
@@ -70,7 +78,7 @@ describe("MCP server", () => {
     ).rejects.toThrow();
   });
 
-  it("aic_inspect_stub_error", async () => {
+  it("aic_inspect_returns_trace", async () => {
     tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
     const server = createMcpServer(toAbsolutePath(tmpDir));
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
@@ -88,7 +96,8 @@ describe("MCP server", () => {
       .filter((c): c is { type: "text"; text: string } => c.type === "text")
       .map((c) => c.text)
       .join("");
-    expect(text).toMatch(/RepoMap not available|error|Internal/);
+    const parsed = JSON.parse(text) as { trace: { intent: string } };
+    expect(parsed.trace.intent).toBe("refactor auth");
   });
 
   it("idempotency", () => {

@@ -21,6 +21,9 @@ import { PromptAssembler } from "#pipeline/prompt-assembler.js";
 import { TiktokenAdapter } from "#adapters/tiktoken-adapter.js";
 import { TypeScriptProvider } from "#adapters/typescript-provider.js";
 import { GenericProvider } from "#adapters/generic-provider.js";
+import { FastGlobAdapter } from "#adapters/fast-glob-adapter.js";
+import { IgnoreAdapter } from "#adapters/ignore-adapter.js";
+import { FileSystemRepoMapSupplier } from "#adapters/file-system-repo-map-supplier.js";
 
 export type PipelineDepsWithoutRepoMap = Omit<PipelineStepsDeps, "repoMapSupplier">;
 
@@ -77,4 +80,17 @@ export function createPipelineDeps(
     promptAssembler,
     tokenCounter: tiktokenAdapter,
   };
+}
+
+export function createFullPipelineDeps(
+  fileContentReader: FileContentReader,
+  rulePackProvider: RulePackProvider,
+  budgetConfig: BudgetConfig,
+): PipelineStepsDeps {
+  const partial = createPipelineDeps(fileContentReader, rulePackProvider, budgetConfig);
+  const repoMapSupplier = new FileSystemRepoMapSupplier(
+    new FastGlobAdapter(),
+    new IgnoreAdapter(),
+  );
+  return { ...partial, repoMapSupplier };
 }

@@ -10,15 +10,13 @@ import type { BudgetConfig } from "@aic/shared/core/interfaces/budget-config.int
 import { toAbsolutePath } from "@aic/shared/core/types/paths.js";
 import { toTokenCount } from "@aic/shared/core/types/units.js";
 import { type TaskClass } from "@aic/shared/core/types/enums.js";
-import type { RepoMapSupplier } from "@aic/shared/core/interfaces/repo-map-supplier.interface.js";
 import { InspectRunner } from "@aic/shared/pipeline/inspect-runner.js";
-import { StorageError } from "@aic/shared/core/errors/storage-error.js";
 import { CompilationRequestSchema } from "./schemas/compilation-request.js";
 import { InspectRequestSchema } from "./schemas/inspect-request.schema.js";
 import { createCompileHandler } from "./handlers/compile-handler.js";
 import { handleInspect } from "./handlers/inspect-handler.js";
 import { createProjectScope } from "@aic/shared/storage/create-project-scope.js";
-import { createPipelineDeps } from "@aic/shared/bootstrap/create-pipeline-deps.js";
+import { createFullPipelineDeps } from "@aic/shared/bootstrap/create-pipeline-deps.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CompilationRunner as CompilationRunnerImpl } from "@aic/shared/pipeline/compilation-runner.js";
@@ -70,19 +68,7 @@ export function createMcpServer(projectRoot: AbsolutePath): McpServer {
   const fileContentReader = createFileContentReader(projectRoot);
   const rulePackProvider = createRulePackProvider(projectRoot);
   const budgetConfig = createDefaultBudgetConfig();
-  const pipelineDeps = createPipelineDeps(
-    fileContentReader,
-    rulePackProvider,
-    budgetConfig,
-  );
-  const stubRepoMapSupplier: RepoMapSupplier = {
-    getRepoMap() {
-      return Promise.reject(
-        new StorageError("RepoMap not available; RepoMapBuilder not implemented"),
-      );
-    },
-  };
-  const deps = { ...pipelineDeps, repoMapSupplier: stubRepoMapSupplier };
+  const deps = createFullPipelineDeps(fileContentReader, rulePackProvider, budgetConfig);
   const inspectRunner = new InspectRunner(deps, scope.clock);
   const sha256Adapter = new Sha256Adapter();
   const compilationRunner = new CompilationRunnerImpl(

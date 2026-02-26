@@ -16,15 +16,13 @@ import type { FileContentReader } from "@aic/shared/core/interfaces/file-content
 import type { RelativePath } from "@aic/shared/core/types/paths.js";
 import { openDatabase } from "@aic/shared/storage/open-database.js";
 import { createProjectScope } from "@aic/shared/storage/create-project-scope.js";
-import { createPipelineDeps } from "@aic/shared/bootstrap/create-pipeline-deps.js";
+import { createFullPipelineDeps } from "@aic/shared/bootstrap/create-pipeline-deps.js";
 import { SystemClock } from "@aic/shared/adapters/system-clock.js";
 import { SqliteStatusStore } from "@aic/shared/storage/sqlite-status-store.js";
-import { StorageError } from "@aic/shared/core/errors/storage-error.js";
 import { CompilationRunner as CompilationRunnerImpl } from "@aic/shared/pipeline/compilation-runner.js";
 import { Sha256Adapter } from "@aic/shared/adapters/sha256-adapter.js";
 import type { RulePackProvider } from "@aic/shared/core/interfaces/rule-pack-provider.interface.js";
 import type { BudgetConfig } from "@aic/shared/core/interfaces/budget-config.interface.js";
-import type { RepoMapSupplier } from "@aic/shared/core/interfaces/repo-map-supplier.interface.js";
 import type { RulePack } from "@aic/shared/core/types/rule-pack.js";
 import type { TaskClass } from "@aic/shared/core/types/enums.js";
 import type { PipelineTrace } from "@aic/shared/core/types/inspect-types.js";
@@ -79,19 +77,7 @@ function createCompilationRunner(projectRoot: string): CompilationRunner {
   };
   const rulePackProvider = createRulePackProvider(projectRoot);
   const budgetConfig = createDefaultBudgetConfig();
-  const pipelineDeps = createPipelineDeps(
-    fileContentReader,
-    rulePackProvider,
-    budgetConfig,
-  );
-  const stubRepoMapSupplier: RepoMapSupplier = {
-    getRepoMap() {
-      return Promise.reject(
-        new StorageError("RepoMap not available; use MCP or add RepoMapBuilder"),
-      );
-    },
-  };
-  const deps = { ...pipelineDeps, repoMapSupplier: stubRepoMapSupplier };
+  const deps = createFullPipelineDeps(fileContentReader, rulePackProvider, budgetConfig);
   const sha256Adapter = new Sha256Adapter();
   return new CompilationRunnerImpl(
     deps,
