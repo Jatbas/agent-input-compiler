@@ -6,6 +6,6 @@
     "composite": true
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "**/__tests__/**"],
+  "exclude": ["node_modules", "dist"],
   "references": [{ "path": "../shared" }]
 }

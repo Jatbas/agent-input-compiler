@@ -1,6 +1,7 @@
 import tseslint from "typescript-eslint";
 import eslintConfigPrettier from "eslint-config-prettier";
 import checkFile from "eslint-plugin-check-file";
+import sonarjs from "eslint-plugin-sonarjs";
 import globals from "globals";
 
 // ─── Reusable no-restricted-syntax patterns ─────────────────────────
@@ -148,6 +149,7 @@ export default tseslint.config(
     ignores: [
       "node_modules/",
       "dist/",
+      "**/dist/**",
       ".cursor/",
       ".claude/",
       "documentation/",
@@ -183,6 +185,7 @@ export default tseslint.config(
     plugins: {
       "@typescript-eslint": tseslint.plugin,
       "check-file": checkFile,
+      sonarjs: sonarjs,
     },
     rules: {
       // ── File naming: kebab-case ──
@@ -208,6 +211,29 @@ export default tseslint.config(
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/no-misused-promises": "error",
       "@typescript-eslint/strict-boolean-expressions": "warn",
+      "@typescript-eslint/no-unsafe-assignment": "error",
+      "@typescript-eslint/no-unsafe-call": "error",
+      "@typescript-eslint/no-unsafe-member-access": "error",
+      "@typescript-eslint/no-unsafe-return": "error",
+      "@typescript-eslint/no-unsafe-argument": "error",
+      "@typescript-eslint/require-await": "error",
+      "@typescript-eslint/no-redundant-type-constituents": "warn",
+      "@typescript-eslint/no-confusing-void-expression": [
+        "warn",
+        { ignoreArrowShorthand: true },
+      ],
+
+      // ── SonarJS: logic bugs and cognitive complexity ──
+      "sonarjs/no-identical-conditions": "error",
+      "sonarjs/no-identical-expressions": "error",
+      "sonarjs/no-duplicated-branches": "error",
+      "sonarjs/no-collapsible-if": "warn",
+      "sonarjs/no-collection-size-mischeck": "error",
+      "sonarjs/no-redundant-jump": "warn",
+      "sonarjs/no-unused-collection": "error",
+      "sonarjs/no-gratuitous-expressions": "error",
+      "sonarjs/prefer-immediate-return": "warn",
+      "sonarjs/cognitive-complexity": ["warn", 15],
 
       // ── Immutability ──
       "no-var": "error",
@@ -975,6 +1001,20 @@ export default tseslint.config(
       "@typescript-eslint/no-unnecessary-condition": "off",
       "@typescript-eslint/explicit-function-return-type": "off",
       "@typescript-eslint/strict-boolean-expressions": "off",
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-call": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/no-unsafe-return": "off",
+      "@typescript-eslint/no-unsafe-argument": "off",
+      "@typescript-eslint/require-await": "off",
+      "@typescript-eslint/no-redundant-type-constituents": "off",
+      "@typescript-eslint/no-confusing-void-expression": "off",
+      "sonarjs/cognitive-complexity": "off",
+      "sonarjs/no-identical-conditions": "off",
+      "sonarjs/no-identical-expressions": "off",
+      "sonarjs/no-duplicated-branches": "off",
+      "sonarjs/no-unused-collection": "off",
+      "sonarjs/no-gratuitous-expressions": "off",
       "max-classes-per-file": "off",
       "no-console": "off",
       "no-param-reassign": "off",

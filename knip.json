@@ -1,0 +1,17 @@
+{
+  "ignore": [".cursor/**"],
+  "workspaces": {
+    ".": {},
+    "shared": {
+      "entry": ["src/storage/migrations/*.ts"],
+      "ignoreDependencies": ["commander", "diff", "zod"]
+    },
+    "mcp": {},
+    "cli": {
+      "entry": [],
+      "project": [],
+      "ignoreDependencies": ["@aic/shared", "commander", "zod"]
+    }
+  },
+  "ignoreExportsUsedInFile": true
+}

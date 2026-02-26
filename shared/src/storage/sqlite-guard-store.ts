@@ -56,9 +56,9 @@ export class SqliteGuardStore implements GuardStore {
         type: row.type as GuardFinding["type"],
         severity: row.severity as GuardFinding["severity"],
         file: toRelativePath(row.file),
-        line: row.line !== null ? toLineNumber(row.line) : undefined,
+        ...(row.line !== null ? { line: toLineNumber(row.line) } : {}),
         message: row.message,
-        pattern: row.pattern ?? undefined,
+        ...(row.pattern !== null ? { pattern: row.pattern } : {}),
       }),
     );
   }

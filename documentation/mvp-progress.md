@@ -1,8 +1,8 @@
 # AIC MVP Progress
 
-**Status:** Phase E storage complete  
+**Status:** Phase F in progress (compile handler done)  
 **Phase:** 0 (MVP)  
-**Overall:** ~77%
+**Overall:** ~83%
 
 ---
 
@@ -73,10 +73,10 @@
 
 | Component               | Status      | Package          |
 | ----------------------- | ----------- | ---------------- |
-| Server composition root | Not started | mcp/src/         |
-| compile handler         | Not started | mcp/src/         |
+| Server composition root | Done        | mcp/src/         |
+| compile handler         | Done        | mcp/src/         |
 | inspect handler         | Not started | mcp/src/         |
-| Zod schemas (MCP)       | Not started | mcp/src/schemas/ |
+| Zod schemas (MCP)       | Done        | mcp/src/schemas/ |
 
 ### Phase G — CLI
 
@@ -99,9 +99,20 @@
 
 ## Daily Log
 
+### 2026-02-26
+
+**Components:** compile handler, CompilationRunner interface, CompilationRequestSchema (MCP)
+**Completed:**
+
+- CompilationRunner interface in shared/core/interfaces; run(request) returns Promise<{ compiledPrompt, meta }>
+- CompilationRequestSchema (Zod raw shape) in mcp/src/schemas: intent, projectRoot, modelId, editorId, configPath
+- compile-handler.ts: createCompileHandler(runner), validate at boundary, map args to CompilationRequest via branded factories, AicError → sanitizeError + McpError(InternalError), unknown → McpError(Internal error)
+- server.ts: stub CompilationRunner, server.tool("aic_compile", CompilationRequestSchema, createCompileHandler(stubRunner))
+- Server tests: valid_args_returns_stub_content (callTool with intent+projectRoot, assert compiledPrompt "Not implemented", meta defined), invalid_args_returns_32602 (callTool with {}, assert rejects)
+
 ### 2026-02-25
 
-**Components:** TiktokenAdapter, TokenCounter interface, FastGlobAdapter, GlobProvider interface, IgnoreAdapter, IgnoreProvider interface, TypeScriptProvider, GenericProvider, SqliteCacheStore, SqliteTelemetryStore, SqliteConfigStore, SqliteGuardStore
+**Components:** TiktokenAdapter, TokenCounter interface, FastGlobAdapter, GlobProvider interface, IgnoreAdapter, IgnoreProvider interface, TypeScriptProvider, GenericProvider, SqliteCacheStore, SqliteTelemetryStore, SqliteConfigStore, SqliteGuardStore, MCP server composition root
 **Completed:**
 
 - TokenCounter interface in core/interfaces; TiktokenAdapter in adapters with tiktoken cl100k_base and word_count × 1.3 fallback
@@ -119,6 +130,7 @@
 - SqliteTelemetryStore: TelemetryStore impl writing to telemetry_events; write() with full column mapping and token_reduction_pct; in-memory tests for write persists row, multiple writes, token_reduction_pct (tokensRaw > 0 and 0), duplicate id throws
 - SqliteConfigStore: ConfigStore impl with config_history table; getLatestHash (ORDER BY created_at DESC LIMIT 1), writeSnapshot (INSERT OR REPLACE with Clock); in-memory tests for empty null, write then getLatestHash, latest wins
 - SqliteGuardStore: GuardStore impl with guard_findings table; write (DELETE then INSERT per finding, replace semantics), queryByCompilation (ORDER BY created_at); in-memory tests for write-then-query, query unknown [], replace same compilation_id, empty findings
+- MCP server composition root (mcp/src/server.ts): ensureAicDir (0700), createFileContentReader, createRulePackProvider, createDefaultBudgetConfig, createProjectScope (db, migrations, stores), createMcpServer (adapters + pipeline wired, stub aic_compile/aic_inspect/last-compilation); main() with StdioServerTransport; tests with InMemoryTransport (list_tools, stub_compile, idempotency, permissions)
 
 ### 2026-02-24
 

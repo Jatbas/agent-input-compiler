@@ -118,23 +118,24 @@ SOLID and design patterns are **non-negotiable** in AIC. They are the primary me
 
 Each class has exactly one reason to change. Every pipeline step is a single class with a single public method.
 
-| Class                                  | Single responsibility                                                                                    |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `RepoMapBuilder`                       | Scan project root and build file-tree snapshot → `RepoMap` (runs before Step 1; result cached in SQLite) |
-| `TaskClassifier`                       | Classify intent → `TaskClassification`                                                                   |
-| `RulePackResolver`                     | Load and merge rule packs → `RulePack`                                                                   |
-| `BudgetAllocator`                      | Resolve token budget → `number`                                                                          |
-| `HeuristicSelector`                    | Score and select files → `ContextResult`                                                                 |
-| `ContextGuard`                         | Scan selected files for secrets and exclusions → `GuardResult`                                           |
-| `ContentTransformerPipeline`           | Transform file content for token efficiency → `TransformResult`                                          |
-| `SummarisationLadder`                  | Compress context to fit budget → annotated context                                                       |
-| `ConstraintInjector`                   | Deduplicate and format constraints → `string[]`                                                          |
-| `PromptAssembler`                      | Combine parts into final prompt → `string`                                                               |
-| `Executor`                             | Send compiled prompt to model → response                                                                 |
-| `TelemetryLogger`                      | Write telemetry event to SQLite → void                                                                   |
-| `SessionTracker` _(Phase 1+)_          | Track multi-step session state → `SessionState` (see [§2.7](#27-agentic-workflow-support))               |
-| `ConversationCompressor` _(Phase 2+)_  | Summarize prior conversation turns → `string` (see [§2.7](#27-agentic-workflow-support))                 |
-| `AdaptiveBudgetAllocator` _(Phase 1+)_ | Adjust token budget for conversation length → `number` (see [§2.7](#27-agentic-workflow-support))        |
+| Class                                  | Single responsibility                                                                                                               |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `RepoMapBuilder`                       | Scan project root and build file-tree snapshot → `RepoMap` (runs before Step 1; result cached in SQLite)                            |
+| `TaskClassifier`                       | Classify intent → `TaskClassification`                                                                                              |
+| `RulePackResolver`                     | Load and merge rule packs → `RulePack`                                                                                              |
+| `BudgetAllocator`                      | Resolve token budget → `number`                                                                                                     |
+| `HeuristicSelector`                    | Score and select files → `ContextResult`                                                                                            |
+| `ContextGuard`                         | Scan selected files for secrets and exclusions → `GuardResult`                                                                      |
+| `ContentTransformerPipeline`           | Transform file content for token efficiency → `TransformResult`                                                                     |
+| `SummarisationLadder`                  | Compress context to fit budget → annotated context                                                                                  |
+| `ConstraintInjector`                   | Deduplicate and format constraints → `string[]`                                                                                     |
+| `PromptAssembler`                      | Combine parts into final prompt → `string`                                                                                          |
+| `Executor`                             | Send compiled prompt to model → response                                                                                            |
+| `TelemetryLogger`                      | Write telemetry event to SQLite → void                                                                                              |
+| `SessionTracker` _(Phase 1+)_          | Track multi-step session state → `SessionState` (see [§2.7](#27-agentic-workflow-support))                                          |
+| `ConversationCompressor` _(Phase 2+)_  | Summarize prior conversation turns → `string` (see [§2.7](#27-agentic-workflow-support))                                            |
+| `AdaptiveBudgetAllocator` _(Phase 1+)_ | Adjust token budget for conversation length and project utilization patterns → `number` (see [§2.7](#27-agentic-workflow-support))  |
+| `SpecificationCompiler` _(Phase 1+)_   | Compile structured specification context within a token budget → `SpecCompilationResult` (see [§2.7](#27-agentic-workflow-support)) |
 
 No pipeline class touches storage, no storage class touches prompt logic, no CLI class contains business logic.
 
@@ -194,7 +195,7 @@ The MCP server handler (`mcp/server.ts`) and CLI command files (`compile.ts`, `r
 | Pattern                     | Where it appears                                                    | Why                                                                                                                                         |
 | --------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Adapter**                 | `EditorAdapter` (Cursor / ClaudeCode / Generic)                     | Normalise MCP request format from any editor into AIC's internal `CompilationRequest` — add a new editor without touching the pipeline      |
-| **Adapter**                 | `ModelAdapter` (Gpt4 / Claude / Ollama / Generic)                   | Apply model-specific token counting, prompt format, and context block formatting — swap without touching the pipeline                       |
+| **Adapter**                 | `ModelAdapter` (OpenAi / Anthropic / Ollama / Generic)              | Apply model-specific token counting, prompt format, and context block formatting — swap without touching the pipeline                       |
 | **Strategy**                | `ContextSelector` (Heuristic / Vector / Hybrid)                     | Swap selection algorithm without changing the pipeline                                                                                      |
 | **Strategy**                | `LanguageProvider` (TypeScript / Generic / future Python)           | Swap language-specific behaviour without changing Steps 4 and 6                                                                             |
 | **Chain of Responsibility** | Pipeline steps 1–10                                                 | Each step processes its input and passes output to the next; a step can short-circuit (e.g. cache hit exits early)                          |
@@ -309,7 +310,7 @@ If neither mechanism resolves a model, `GenericModelAdapter` is used. This is sa
 
 | Mechanism           | Source                              | Example                               |
 | ------------------- | ----------------------------------- | ------------------------------------- |
-| Cursor adapter      | `~/.cursor/settings.json` → `model` | `"claude-3-5-sonnet-20241022"`        |
+| Cursor adapter      | `~/.cursor/settings.json` → `model` | `"claude-sonnet-4-20250514"`          |
 | Claude Code adapter | `~/.claude/settings.json` → `model` | `"claude-opus-4"`                     |
 | Generic adapter     | None (no detection)                 | Falls back to `cl100k_base` tokenizer |
 | Config override     | `aic.config.json` → `model.id`      | Always wins                           |
@@ -320,10 +321,11 @@ AIC exposes two MCP tools and two MCP resources:
 
 **Tools:**
 
-| Tool          | Arguments                                                                                                                                                                                          | Returns                                             | Use                                                          |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------ |
-| `aic_compile` | `{ intent: string }` + optional agentic fields (Phase 1+: `sessionId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens` — see [§2.7](#27-agentic-workflow-support)) | `{ compiledPrompt: string, meta: CompilationMeta }` | Primary — called by trigger rule on every request            |
-| `aic_inspect` | `{ intent: string }`                                                                                                                                                                               | `{ trace: PipelineTrace }`                          | Debug — developer calls explicitly to see pipeline breakdown |
+| Tool                            | Arguments                                                                                                                                                                                          | Returns                                               | Use                                                                     |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------- |
+| `aic_compile`                   | `{ intent: string }` + optional agentic fields (Phase 1+: `sessionId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens` — see [§2.7](#27-agentic-workflow-support)) | `{ compiledPrompt: string, meta: CompilationMeta }`   | Primary — called by trigger rule on every request                       |
+| `aic_inspect`                   | `{ intent: string }`                                                                                                                                                                               | `{ trace: PipelineTrace }`                            | Debug — developer calls explicitly to see pipeline breakdown            |
+| `aic_compile_spec` _(Phase 1+)_ | `{ spec: SpecificationInput, budget?: TokenCount }` (see [§2.7](#27-agentic-workflow-support))                                                                                                     | `{ compiledSpec: string, meta: SpecCompilationMeta }` | Agentic — compile a structured task specification within a token budget |
 
 **Resources:**
 
@@ -469,9 +471,9 @@ AIC is model-agnostic by default. When the active model is known (auto-detected 
 
 Different models have different characteristics that affect compilation quality:
 
-- Tokenizer differences (GPT-4 uses `cl100k_base`; Claude uses its own; Llama uses SentencePiece)
+- Tokenizer differences (OpenAI models use `cl100k_base`/`o200k_base`; Anthropic uses its own; Llama uses SentencePiece)
 - Context window sizes and soft limits
-- Prompt format preferences (XML tags for Claude, markdown for GPT-4o)
+- Prompt format preferences (XML tags for Claude, markdown for GPT models)
 - Known behaviours (e.g. some models degrade on very long system prompts)
 
 ### ModelAdapter Interface
@@ -490,7 +492,7 @@ interface ModelAdapter {
 }
 ```
 
-MVP ships with `Gpt4Adapter`, `ClaudeAdapter`, `OllamaAdapter`, and `GenericModelAdapter` (fallback using `cl100k_base`). When model is unknown or undetected, `GenericModelAdapter` is used — results are good, not perfect.
+MVP ships with `OpenAiAdapter`, `AnthropicAdapter`, `OllamaAdapter`, and `GenericModelAdapter` (fallback using `cl100k_base`). When model is unknown or undetected, `GenericModelAdapter` is used — results are good, not perfect.
 
 **Core principle:** Model-specific tweaks are optional improvements, not requirements. AIC produces correct output for any model using `GenericModelAdapter`. Adapters only exist to increase token savings further.
 
@@ -685,6 +687,9 @@ The core pipeline (Steps 1–10) remains unchanged. A new **Session Layer** sits
 │  ┌─────────────────────────────────────┐ │
 │  │ Adaptive Budget Allocator           │ │
 │  └─────────────────────────────────────┘ │
+│  ┌─────────────────────────────────────┐ │
+│  │ Specification Compiler              │ │
+│  └─────────────────────────────────────┘ │
 ├──────────────────────────────────────────┤
 │  Existing Pipeline (Steps 1–10)          │
 │  (unchanged — receives enriched input)   │
@@ -777,7 +782,9 @@ A new pre-pipeline capability that summarizes previous conversation turns to fre
 
 ### Adaptive Budget Allocator
 
-Extends the existing `BudgetAllocator` (Step 3) to factor in conversation length during agentic sessions:
+Extends the existing `BudgetAllocator` (Step 3) in two dimensions: **conversation-length awareness** (Phase 1) and **utilization-based learning** (Phase 0.5 feedback → Phase 1 auto-tuning).
+
+#### Conversation-length adaptation (Phase 1)
 
 ```
 availableBudget = modelContextWindow - reservedResponse - conversationTokens - templateOverhead
@@ -787,18 +794,139 @@ availableBudget = modelContextWindow - reservedResponse - conversationTokens - t
 - When `conversationTokens` is not provided (single-shot mode), the allocator behaves exactly as it does today.
 - This prevents the "context window full, agent crashes" failure mode that kills multi-step tasks.
 
+#### Utilization-based learning (Phase 0.5 feedback → Phase 1 auto-tuning)
+
+The MVP's formula-derived `suggestedBudget` (see [MVP Spec — Model-Specific Budget Profiles](mvp-specification-phase0.md#model-specific-budget-profiles)) provides a sensible starting point but cannot account for project-specific characteristics. A 50-file microservice and a 5,000-file monorepo have very different context needs. The adaptive path uses `compilation_log` data — already collected in MVP — to close this gap:
+
+**Phase 0.5 — Utilization feedback:** `aic status` analyses recent `compilation_log` entries and surfaces actionable recommendations:
+
+- If compilations consistently use <50% of budget → recommend lowering `windowRatio`
+- If compilations consistently hit L2+ Summarisation Ladder tiers → recommend raising `windowRatio`
+- Recommendations reference the exact config key: `contextBudget.windowRatio`
+
+This is read-only feedback — the user decides whether to act. No new schema or pipeline changes required.
+
+**Phase 1 — Auto-tuning:** The allocator maintains a running utilization average per project/model/task-class triple. When enough history is available (≥10 compilations for a given triple), the allocator adjusts the effective budget automatically:
+
+```
+effectiveBudget = clamp(
+  baseFormulaBudget × utilizationFactor,
+  floor,
+  ceiling
+)
+```
+
+The `utilizationFactor` trends toward 1.0 when utilization is healthy (70–90% of budget used, ladder at L0/L1 for most files) and diverges when utilization is consistently too low or too high. Explicit user configuration (`maxTokens`, `perTaskClass`, `--budget`) always overrides the auto-tuned value.
+
+**Research validation:** This approach aligns with current adaptive token allocation research (SelfBudgeter, AdaCtrl, ACON) which consistently shows that difficulty/complexity-aware budgeting outperforms static allocation, and that feedback loops from actual execution data are the most reliable signal for calibration. "Lost in the Middle" research further validates that conservative, focused context typically outperforms aggressive window-stuffing.
+
+### Specification Compiler
+
+The same budget → select → compress → assemble pattern that AIC applies to code context applies equally to **specification context** — the structured type information, interface definitions, schemas, and library APIs that an agent needs to execute a task. Before an agent writes code, it needs a _task briefing_, and that briefing has the same token-budget dynamics as a compiled prompt.
+
+Without specification compilation, task specifications either (a) include every type verbatim and blow past useful size limits, or (b) require manual judgment about what to include — a judgment that varies by author and is never consistent. `SpecificationCompiler` makes this algorithmic and deterministic.
+
+**How it works:**
+
+`SpecificationCompiler` receives a structured `SpecificationInput` — a set of type references, each annotated with a usage relationship — and a token budget. It reuses the existing pipeline's `ContentTransformerPipeline` (Step 5.5) and `SummarisationLadder` (Step 6) to produce a compiled specification that fits within the budget.
+
+```typescript
+interface SpecificationCompiler {
+  compile(input: SpecificationInput, budget: TokenCount): SpecCompilationResult;
+}
+
+interface SpecificationInput {
+  types: SpecTypeRef[];
+  codeBlocks: SpecCodeBlock[];
+  prose: SpecProseBlock[];
+}
+
+interface SpecTypeRef {
+  name: string;
+  path: RelativePath;
+  content: string;
+  usage: SpecTypeUsage;
+  estimatedTokens: TokenCount;
+}
+
+interface SpecCodeBlock {
+  label: string;
+  content: string;
+  estimatedTokens: TokenCount;
+}
+
+interface SpecProseBlock {
+  label: string;
+  content: string;
+  estimatedTokens: TokenCount;
+}
+
+interface SpecCompilationResult {
+  compiledSpec: string;
+  meta: SpecCompilationMeta;
+}
+
+interface SpecCompilationMeta {
+  totalTokensRaw: TokenCount;
+  totalTokensCompiled: TokenCount;
+  reductionPct: Percentage;
+  typeTiers: Record<string, SpecInclusionTier>;
+  transformTokensSaved: TokenCount;
+}
+```
+
+**`SpecTypeUsage` determines the inclusion tier** — this is the relevance score for types, analogous to `RelevanceScore` for files:
+
+```typescript
+type SpecTypeUsage =
+  | "implements"
+  | "calls-methods"
+  | "constructs"
+  | "passes-through"
+  | "names-only";
+
+type SpecInclusionTier = "verbatim" | "signature-path" | "path-only";
+```
+
+| Usage relationship                            | Inclusion tier   | What's included                                      | Analogous to                            |
+| --------------------------------------------- | ---------------- | ---------------------------------------------------- | --------------------------------------- |
+| `implements` / `calls-methods` / `constructs` | `verbatim`       | Full type definition with all fields and imports     | Summarisation Ladder L0 (full)          |
+| `passes-through`                              | `signature-path` | Type name, file path, method count, one-line purpose | Summarisation Ladder L1/L2 (signatures) |
+| `names-only`                                  | `path-only`      | Type name, file path, factory function               | Summarisation Ladder L3 (names)         |
+
+**Compression algorithm** (reuses existing pipeline steps):
+
+1. Assign initial tiers based on `SpecTypeUsage` (deterministic, no scoring needed)
+2. Run `ContentTransformerPipeline` on all `verbatim`-tier code blocks — strip comments, normalize whitespace, deduplicate shared imports across blocks
+3. Calculate total tokens
+4. If over budget, promote the lowest-value `verbatim` types to `signature-path` (types with `constructs` usage first, then `calls-methods`, then `implements` — `implements` types are compressed last because the agent directly implements them)
+5. Recalculate. Still over? Promote `signature-path` types to `path-only`
+6. If still over at all minimum tiers, emit a warning — the specification cannot fit within the budget without losing critical information
+
+The algorithm is deterministic: same input + same budget = same compiled specification. Tie-breaking follows the same rule as the Summarisation Ladder (larger token count compressed first; alphabetical path as final tiebreaker).
+
+**Exposed via MCP:**
+
+The `aic_compile_spec` MCP tool (see [§2.2](#22-mcp-server--primary-interface)) exposes this capability. Callers pass a `SpecificationInput` and optional budget; the tool returns the compiled specification and metadata. The CLI equivalent is `aic compile-spec` (Phase 1).
+
+**What this enables:**
+
+- Task planning tools can call `aic_compile_spec` to produce optimally-sized task briefings for executor agents
+- The same pipeline that compiles code context now compiles specification context — AIC uses its own product on its own process
+- Specification compilation is deterministic and inspectable via `aic inspect` — two planners producing the same exploration report get the same compiled task file
+
 ### Cache Keying for Sessions
 
 The current cache key is `hash(intent + config + fileTreeHash)`. For agentic sessions, the key extends to `hash(intent + config + fileTreeHash + sessionId + stepIndex)`. Same task, different step = different cache entry. When `sessionId` is absent, cache behaviour is unchanged.
 
 ### Phasing
 
-| Phase       | Agentic capability                                                                                                                             | Notes                                                                                  |
-| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| **0 (MVP)** | None. Single-shot compilation. Agentic editors can call `aic_compile` per-step with different `intent` strings — functional but not optimized. | No code changes needed; agents work, just without session awareness                    |
-| **0.5**     | `aic://session-summary` resource (already planned) provides read-only view of recent compilations, giving agents basic history                 | Lightweight; uses existing `compilation_log` data                                      |
-| **1**       | Session Tracker + extended `CompilationRequest` + Adaptive Budget Allocator + session-aware cache keying                                       | Core agentic support; backward-compatible; no pipeline changes                         |
-| **2**       | Conversation Compressor + editor-specific conversation adapters                                                                                | Requires MCP extensions or editor-specific negotiation for conversation history access |
+| Phase       | Agentic capability                                                                                                                                                                                               | Notes                                                                                    |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| **0 (MVP)** | Formula-derived budget from model context window. Single-shot compilation. Agentic editors can call `aic_compile` per-step with different `intent` strings — functional but not optimized.                       | Budget scales automatically with new models; agents work, just without session awareness |
+| **0.5**     | `aic://session-summary` resource provides read-only view of recent compilations. **Budget utilization feedback** in `aic status` recommends `windowRatio` adjustments based on `compilation_log` history         | Lightweight; uses existing `compilation_log` data; no new schema                         |
+| **1**       | Session Tracker + extended `CompilationRequest` + **Adaptive Budget Allocator** (conversation-length + utilization-based auto-tuning) + Specification Compiler (`aic_compile_spec`) + session-aware cache keying | Core agentic support; backward-compatible; no pipeline changes                           |
+| **2**       | Conversation Compressor + editor-specific conversation adapters                                                                                                                                                  | Requires MCP extensions or editor-specific negotiation for conversation history access   |
 
 ### What Works Today Without Changes
 
@@ -818,7 +946,7 @@ Even before any agentic-specific code ships, AIC provides value in agentic workf
 | **Compiled Input**       | The final prompt package AIC produces — includes selected context, constraints, and task metadata, ready for an AI agent to consume                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | **Task Class**           | A category assigned to the user's intent (e.g., `refactor`, `bugfix`, `feature`, `docs`, `test`). Determines which rule packs and budget profiles apply                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | **Rule Pack**            | A named, composable set of instructions and constraints for a specific task class. Ships as JSON files in `./aic-rules/` or is embedded as defaults. Example: `refactor.json` includes "preserve public API", "add deprecation notices"                                                                                                                                                                                                                                                                                                                                                          |
-| **Context Budget**       | The maximum token allowance for context included in the compiled input. Default: 8,000 tokens. Configurable per-project and per-task-class                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| **Context Budget**       | The maximum token allowance for context included in the compiled input. Derived from the model's context window via formula (`maxContextWindow × windowRatio`, clamped between 4,000 floor and 16,000 ceiling). Falls back to 8,000 tokens when the model is unknown. Configurable per-project, per-task-class, and via `contextBudget.windowRatio`. Phase 1 auto-tunes based on compilation history                                                                                                                                                                                             |
 | **Summarisation Ladder** | A tiered compression strategy applied when selected context exceeds the budget. Levels: `full` → `signatures+docs` → `signatures-only` → `names-only`. Files are sorted by relevance score ascending (least relevant compressed first). **Tie-breaking:** when two files share the same relevance score, the file with more `estimatedTokens` is compressed first (compressing a larger file yields more budget savings). If tokens also tie, alphabetical path order (ascending) is used as a final deterministic tiebreaker. Each level is tried in order until the context fits within budget |
 | **Constraint**           | A rule injected into the compiled prompt to steer agent behavior. Examples: "output unified diff only", "do not modify files outside src/", "use TypeScript strict mode". Sourced from rule packs + user config                                                                                                                                                                                                                                                                                                                                                                                  |
 | **ContextSelector**      | A pluggable interface that, given a task + repository + budget, returns the most relevant files/chunks of code. MVP ships with `HeuristicSelector`; future: `VectorSelector`                                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -826,7 +954,7 @@ Even before any agentic-specific code ships, AIC provides value in agentic workf
 | **RepoMap**              | A lightweight representation of the project's file tree: paths, sizes, last-modified timestamps, and detected language. Built by `RepoMapBuilder` before Step 1 runs; cached in the `repomap_cache` SQLite table                                                                                                                                                                                                                                                                                                                                                                                 |
 | **RepoMapBuilder**       | Scans the project root (respecting `.gitignore`), computes token estimates for each file via tiktoken, and produces a `RepoMap`. Runs once per compilation request; result served from cache when the file-tree hash has not changed                                                                                                                                                                                                                                                                                                                                                             |
 | **CodeChunk**            | A sub-file unit of context — a single function, class, or logical block extracted by the summarisation ladder. Contains: `startLine`, `endLine`, `symbolName`, `content`, `tokenCount`                                                                                                                                                                                                                                                                                                                                                                                                           |
-| **Tokenizer**            | The token-counting method used for all budget calculations. MVP uses **tiktoken** with the **cl100k_base** encoding (GPT-4 / Claude compatible). All "token" references in this document use this definition                                                                                                                                                                                                                                                                                                                                                                                     |
+| **Tokenizer**            | The token-counting method used for all budget calculations. MVP uses **tiktoken** with the **cl100k_base** encoding (OpenAI / Claude compatible). All "token" references in this document use this definition                                                                                                                                                                                                                                                                                                                                                                                    |
 | **LanguageProvider**     | A pluggable interface that encapsulates all language-specific behavior: import parsing, signature extraction, and symbol enumeration. MVP ships with `TypeScriptProvider`; additional providers added post-MVP                                                                                                                                                                                                                                                                                                                                                                                   |
 | **Context Guard**        | Pipeline Step 5. Scans every file selected by `ContextSelector` for secrets, excluded paths, and prompt injection patterns before it reaches the Content Transformer. Blocks sensitive files; attaches findings to `CompilationMeta`                                                                                                                                                                                                                                                                                                                                                             |
 | **GuardScanner**         | A single, focused scanner in the Context Guard's chain. Each scanner checks one concern (path exclusion, secret patterns, prompt injection). New scanners are added by implementing the interface and registering — no core changes                                                                                                                                                                                                                                                                                                                                                              |
@@ -930,12 +1058,12 @@ Boost and penalize patterns apply a ±0.2 additive modifier to the `HeuristicSel
 
 ### Common mistakes
 
-| Mistake                                              | Consequence                                                        | Fix                                                                                              |
-| ---------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ |
-| Constraints that repeat what the model already knows | Wastes tokens in constraint block                                  | Remove; check `aic inspect` output to see effective constraints                                  |
-| `includePatterns: ["**"]` (include everything)       | Selector has no whitelist benefit; falls back to scoring all files | Scope to the relevant directory tree                                                             |
-| `budgetOverride` set too high (e.g., 50,000)         | Context bloat; "Lost in the Middle" hallucination                  | Keep budgets under 15,000 tokens for most tasks; only exceed for `docs` or broad refactors       |
-| Contradictory constraints across packs               | Model receives conflicting instructions                            | Run `aic inspect` to see the merged constraint list; resolve conflicts at the project pack level |
+| Mistake                                              | Consequence                                                        | Fix                                                                                                                                                                 |
+| ---------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Constraints that repeat what the model already knows | Wastes tokens in constraint block                                  | Remove; check `aic inspect` output to see effective constraints                                                                                                     |
+| `includePatterns: ["**"]` (include everything)       | Selector has no whitelist benefit; falls back to scoring all files | Scope to the relevant directory tree                                                                                                                                |
+| `budgetOverride` set too high (e.g., 50,000)         | Context bloat; "Lost in the Middle" hallucination                  | Stay within the 16,000-token ceiling for most tasks; the formula-derived budget already optimises for the model's window. Only exceed for `docs` or broad refactors |
+| Contradictory constraints across packs               | Model receives conflicting instructions                            | Run `aic inspect` to see the merged constraint list; resolve conflicts at the project pack level                                                                    |
 
 ---
 
@@ -957,8 +1085,8 @@ graph TB
             GenericMcpAdapter
         end
         subgraph ModelAdapters ["Model Adapters"]
-            Gpt4Adapter
-            ClaudeAdapter
+            OpenAiAdapter
+            AnthropicAdapter
             OllamaAdapter
             GenericModelAdapter
         end
@@ -1020,7 +1148,7 @@ graph TB
 
     S4 --> ProviderRegistry
     S6 --> ProviderRegistry
-    S9 -.-> |"run mode only"| Gpt4Adapter
+    S9 -.-> |"run mode only"| OpenAiAdapter
     S10 --> EventBus
     Pipeline --> Tokenizer
     Pipeline --> ConfigLoader
@@ -1049,7 +1177,7 @@ Intent (natural language)
 ├──────────────────────────────────────────────────┤
 │ 3. Budget Allocator                              │
 │    Reads contextBudget from config/rule pack     │
-│    → token budget (default: 8,000)               │
+│    → token budget (formula-derived or 8,000)     │
 ├──────────────────────────────────────────────────┤
 │ 4. ContextSelector                               │
 │    HeuristicSelector (MVP) or VectorSelector     │
@@ -1204,7 +1332,7 @@ Core remains untouched; enterprise features wrap around it:
 
 - **Decision:** All token counts use tiktoken's `cl100k_base` encoding
 - **Context:** Different models use different tokenizers. Word-based estimates are inaccurate. Running the actual model tokenizer requires API calls.
-- **Rationale:** `cl100k_base` is used by GPT-4, GPT-4o, and is a reasonable approximation for Claude. It's fast, runs locally, and gives consistent counts. The fallback (word × 1.3) handles edge cases where tiktoken isn't available.
+- **Rationale:** `cl100k_base` is used by OpenAI models and is a reasonable approximation for Claude. It's fast, runs locally, and gives consistent counts. The fallback (word × 1.3) handles edge cases where tiktoken isn't available.
 - **Tradeoffs:** Token counts may differ slightly from the actual model tokenizer (typically <5% variance).
 
 #### ADR-004: Heuristic-first context selection (not vector-first)
@@ -1310,8 +1438,8 @@ packages/
 │       │   └── model/                # ModelAdapter implementations
 │       │       ├── interfaces/
 │       │       │   └── model-adapter.interface.ts
-│       │       ├── gpt4.adapter.ts
-│       │       ├── claude.adapter.ts
+│       │       ├── openai.adapter.ts
+│       │       ├── anthropic.adapter.ts
 │       │       ├── ollama.adapter.ts
 │       │       ├── generic-model.adapter.ts
 │       │       └── model-adapter.registry.ts
@@ -2129,7 +2257,7 @@ interface InspectRequest {
 
 ### Tokenizer
 
-All token counts in AIC use **tiktoken** with the **cl100k_base** encoding. This encoding is compatible with GPT-4, GPT-4o, and Claude models.
+All token counts in AIC use **tiktoken** with the **cl100k_base** encoding. This encoding is compatible with OpenAI and Claude models.
 
 | Term               | Method                                                                  |
 | ------------------ | ----------------------------------------------------------------------- |
@@ -2636,7 +2764,7 @@ Developer           CLI           Selector        CtxGuard       Transformer    
 | Package                  | Purpose                                                          | Why This One                                                               |
 | ------------------------ | ---------------------------------------------------------------- | -------------------------------------------------------------------------- |
 | **typescript**           | TypeScriptProvider: AST parsing for signatures, imports, symbols | First-class TS/JS support; required for L1/L2 extraction                   |
-| **tiktoken**             | Token counting with cl100k_base encoding                         | Accurate GPT-4/Claude token counts; fast, local, no API calls              |
+| **tiktoken**             | Token counting with cl100k_base encoding                         | Accurate OpenAI/Claude token counts; fast, local, no API calls             |
 | **better-sqlite3**       | SQLite database driver                                           | Synchronous API (simpler than async for CLI); fast; no native build issues |
 | **commander**            | CLI argument parsing                                             | Most popular, well-maintained, supports subcommands and flags cleanly      |
 | **glob** / **fast-glob** | File pattern matching for include/exclude                        | Used by ContextSelector and config discovery                               |
@@ -2735,6 +2863,12 @@ Workflow: Commits `aic.config.json` + `aic-rules/` to repo → team shares rule 
 > "I need to enforce model-usage policies, audit all agent interactions, and ensure no proprietary code leaks into prompts."
 
 Workflow: Deploys enterprise control plane wrapping AIC Core → policies enforced via adapters
+
+### Persona 4: Agentic Task Author (Phase 1+)
+
+> "I want to give my executor agent a task specification that contains exactly the type information it needs — no more, no less — so it doesn't waste tokens on irrelevant context and doesn't miss critical signatures."
+
+Workflow: Planning agent calls `aic_compile_spec` with the exploration report and a 4,000-token budget → receives a compiled task specification where types are tiered by usage relationship (verbatim for interfaces the executor implements, signature+path for pass-through dependencies, path-only for branded primitives) → executor agent receives an optimally-sized briefing
 
 ---
 
@@ -2866,14 +3000,15 @@ The on-disk file is only rewritten when the user explicitly runs `aic init --upg
 
 ## 20. Competitive Positioning
 
-| Tool              | Approach                                 | AIC Differentiator                                        |
-| ----------------- | ---------------------------------------- | --------------------------------------------------------- |
-| **Cursor**        | IDE-embedded, proprietary context engine | AIC is tool-agnostic, open-source, runs anywhere          |
-| **Aider**         | Git-aware, sends full files to model     | AIC compiles minimal context; measurably fewer tokens     |
-| **Continue.dev**  | IDE plugin with configurable context     | AIC is CLI-first with deterministic, reproducible outputs |
-| **Raw LLM usage** | Manual copy-paste of context             | AIC automates context selection with budget enforcement   |
+| Tool              | Approach                                 | AIC Differentiator                                                                                          |
+| ----------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Cursor**        | IDE-embedded, proprietary context engine | AIC is tool-agnostic, open-source, runs anywhere                                                            |
+| **Aider**         | Git-aware, sends full files to model     | AIC compiles minimal context; measurably fewer tokens                                                       |
+| **Continue.dev**  | IDE plugin with configurable context     | AIC is CLI-first with deterministic, reproducible outputs                                                   |
+| **Raw LLM usage** | Manual copy-paste of context             | AIC automates context selection with budget enforcement                                                     |
+| **Task planners** | Manual specification authoring           | AIC compiles _specifications_ for agents, not just code context — budget-constrained, tiered, deterministic |
 
-**AIC's unique position:** The only tool focused on _compiling_ the input (not managing the output), with deterministic behavior, token budgets, and a pluggable architecture that spans solo → enterprise.
+**AIC's unique position:** The only tool focused on _compiling_ the input (not managing the output) — both code context for models and specification context for agents — with deterministic behavior, token budgets, and a pluggable architecture that spans solo → enterprise.
 
 ---
 
@@ -2977,13 +3112,13 @@ Add it automatically with `git commit -s`. By signing off, you certify that you 
 
 ## 22. Roadmap
 
-| Phase   | Name                  | Version | Deliverables                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Exit Criteria                                                                                     |
-| ------- | --------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **0**   | MVP                   | `0.1.0` | `compile`, `run`, `compare`, `init`, `inspect`, `status` commands; HeuristicSelector; SQLite storage; default rule packs; Guard with `allowPatterns`; first-run message; model budget profiles; trigger rule robustness; anonymous telemetry (opt-in); full test suite                                                                                                                                                                                              | All CLI commands functional; benchmark suite passes; ≥30% token reduction on canonical tasks      |
-| **0.5** | Quality Release       | `0.2.0` | `GenericImportProvider` (Python/Go/Rust/Java regex imports); intent-aware file discovery; `aic://session-summary` resource (basic agentic history via `compilation_log`); Guard `warn` severity; `aic report` (static HTML); CSS/TypeDecl/test-structure transformers                                                                                                                                                                                               | Context selection quality improved for non-TypeScript repos; session value visible to users       |
-| **1**   | OSS Release           | `1.0.0` | Public repo; docs site; CI/CD; npm package; `postinstall` team deployment; auto-detected dependency constraints; reverse dependency walking; `aic history`; `aic suggest`; optional cost estimation in `aic status` (model-specific pricing, deferred from MVP since AIC is model-agnostic); **Session Tracker** + extended `CompilationRequest` agentic fields + Adaptive Budget Allocator + session-aware cache keying (see [§2.7](#27-agentic-workflow-support)) | 10+ external contributors; 100+ GitHub stars; stable API (no breaking changes for 4 weeks)        |
-| **2**   | Semantic + Governance | `2.0.0` | VectorSelector (Zvec integration); HybridSelector; governance adapters; policy engine; `aic trends`; `extends` config for org-level deployment; centralised config server; **Conversation Compressor** + editor-specific conversation adapters for multi-step agentic workflows                                                                                                                                                                                     | Vector retrieval improves relevance by ≥15% over heuristic; policy engine passes compliance audit |
-| **3**   | Enterprise Platform   | `3.0.0` | Control plane; RBAC; SSO; audit logs; fleet management via MDM; live enterprise dashboard; hosted option                                                                                                                                                                                                                                                                                                                                                            | 3+ enterprise pilot customers; SLA-backed uptime; SOC 2 readiness                                 |
+| Phase   | Name                  | Version | Deliverables                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Exit Criteria                                                                                     |
+| ------- | --------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| **0**   | MVP                   | `0.1.0` | `compile`, `run`, `compare`, `init`, `inspect`, `status` commands; HeuristicSelector; SQLite storage; default rule packs; Guard with `allowPatterns`; first-run message; formula-derived model budget profiles (`windowRatio`); trigger rule robustness; anonymous telemetry (opt-in); full test suite                                                                                                                                                                                                                                                                                                            | All CLI commands functional; benchmark suite passes; ≥30% token reduction on canonical tasks      |
+| **0.5** | Quality Release       | `0.2.0` | `GenericImportProvider` (Python/Go/Rust/Java regex imports); intent-aware file discovery; `aic://session-summary` resource (basic agentic history via `compilation_log`); Guard `warn` severity; `aic report` (static HTML); CSS/TypeDecl/test-structure transformers; **budget utilization feedback** in `aic status` (analyses `compilation_log` to recommend `windowRatio` adjustments)                                                                                                                                                                                                                        | Context selection quality improved for non-TypeScript repos; session value visible to users       |
+| **1**   | OSS Release           | `1.0.0` | Public repo; docs site; CI/CD; npm package; `postinstall` team deployment; auto-detected dependency constraints; reverse dependency walking; `aic history`; `aic suggest`; optional cost estimation in `aic status` (model-specific pricing, deferred from MVP since AIC is model-agnostic); **Session Tracker** + extended `CompilationRequest` agentic fields + **Adaptive Budget Allocator** (conversation-length + utilization-based auto-tuning) + **Specification Compiler** (`aic_compile_spec` MCP tool + `aic compile-spec` CLI) + session-aware cache keying (see [§2.7](#27-agentic-workflow-support)) | 10+ external contributors; 100+ GitHub stars; stable API (no breaking changes for 4 weeks)        |
+| **2**   | Semantic + Governance | `2.0.0` | VectorSelector (Zvec integration); HybridSelector; governance adapters; policy engine; `aic trends`; `extends` config for org-level deployment; centralised config server; **Conversation Compressor** + editor-specific conversation adapters for multi-step agentic workflows                                                                                                                                                                                                                                                                                                                                   | Vector retrieval improves relevance by ≥15% over heuristic; policy engine passes compliance audit |
+| **3**   | Enterprise Platform   | `3.0.0` | Control plane; RBAC; SSO; audit logs; fleet management via MDM; live enterprise dashboard; hosted option                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | 3+ enterprise pilot customers; SLA-backed uptime; SOC 2 readiness                                 |
 
 ### Versioning Policy
 

@@ -68,7 +68,7 @@ Deliver a working **MCP server** that sits transparently between the developer's
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | **MCP Server**         | Primary interface — registers with editor once; runs automatically on every AI request                                                      |
 | Editor adapters        | Cursor, Claude Code, Generic MCP fallback                                                                                                   |
-| Model adapters         | GPT-4/4o, Claude 3.x, Ollama, Generic fallback (auto-detected from request)                                                                 |
+| Model adapters         | OpenAI, Anthropic, Ollama, Generic fallback (auto-detected from request)                                                                    |
 | Rules & Hooks Analyzer | Scans `.cursorrules`, Cursor rules, Claude Code settings; findings via `aic://rules-analysis` MCP resource                                  |
 | Task Classifier        | Heuristic keyword/pattern matching → 6 task classes                                                                                         |
 | HeuristicSelector      | File-path, import-graph, recency-based context selection                                                                                    |
@@ -204,11 +204,12 @@ See [Project Plan §3.1](project-plan.md) for the full annotated rule pack examp
 2. `budgetOverride` in resolved RulePack
 3. `contextBudget.perTaskClass[taskClass]` in config
 4. `contextBudget.maxTokens` in config
-5. Hard-coded default: 8,000 tokens
+5. Formula-derived `suggestedBudget` from model profile (see [Model-Specific Budget Profiles](#model-specific-budget-profiles))
+6. Hard-coded default: 8,000 tokens
 
 **Output:** `budget: TokenCount` (in tokens, counted via **tiktoken cl100k_base**)
 
-**Tokenizer:** All token counts in AIC use **tiktoken** with the **cl100k_base** encoding (GPT-4/GPT-4o/Claude compatible). Fallback: `word_count × 1.3` if tiktoken is unavailable.
+**Tokenizer:** All token counts in AIC use **tiktoken** with the **cl100k_base** encoding (OpenAI/Claude compatible). Fallback: `word_count × 1.3` if tiktoken is unavailable.
 
 ---
 
@@ -507,8 +508,8 @@ Sends compiled input to the configured model endpoint via the appropriate provid
 
 | Provider  | API key required          | Notes                                                                                                                       |
 | --------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| OpenAI    | Yes — `OPENAI_API_KEY`    | GPT-4, GPT-4o                                                                                                               |
-| Anthropic | Yes — `ANTHROPIC_API_KEY` | Claude 3.x                                                                                                                  |
+| OpenAI    | Yes — `OPENAI_API_KEY`    | GPT-4o, GPT-o3, and other OpenAI models                                                                                     |
+| Anthropic | Yes — `ANTHROPIC_API_KEY` | Claude Sonnet, Claude Opus, and other Anthropic models                                                                      |
 | Ollama    | **No**                    | Free, runs locally; install Ollama and pull a model (e.g. `ollama pull llama3`). Default endpoint: `http://localhost:11434` |
 
 `aic compile` requires no provider at all — it outputs a plain-text prompt usable anywhere.
@@ -579,7 +580,7 @@ model_max_tokens (from provider)     e.g., 128,000
 | `guard_findings_count` | int             | 0 (total findings across all severities; equals `guard_blocked_count` in MVP since all scanners use `block`; will diverge if warn-severity scanners are added) |
 | `cache_hit`            | bool            | false                                                                                                                                                          |
 | `duration_ms`          | int             | 320                                                                                                                                                            |
-| `model`                | string          | `gpt-4` (null if compile-only)                                                                                                                                 |
+| `model`                | string          | `gpt-4o` (null if compile-only)                                                                                                                                |
 
 ---
 
@@ -760,23 +761,38 @@ After the first successful compilation in a project (detected by checking `compi
 
 ### Model-Specific Budget Profiles
 
-AIC auto-detects the model from the editor's MCP request and applies an optimal budget profile. No user configuration required.
+AIC auto-detects the model from the editor's MCP request and derives an optimal budget from the model's context window. No user configuration required.
 
-| Model family                    | `suggestedBudget` | `maxContextWindow` | `reservedForResponse` |
-| ------------------------------- | ----------------- | ------------------ | --------------------- |
-| GPT-4o                          | 12,000            | 128,000            | 4,000                 |
-| GPT-4                           | 8,000             | 8,192              | 2,000                 |
-| Claude 3.5 Sonnet               | 10,000            | 200,000            | 4,000                 |
-| Claude 3 Opus                   | 12,000            | 200,000            | 4,000                 |
-| Ollama (Llama 3+)               | 4,000             | 128,000            | 2,000                 |
-| Ollama (legacy / unknown model) | 4,000             | 8,192              | 1,000                 |
-| Generic / unknown               | 8,000             | 128,000            | 4,000                 |
+**Budget derivation formula:**
 
-> **Ollama context window note:** Most modern Ollama models (Llama 3, Mistral, Gemma 2, etc.) support 128K+ context windows. AIC queries the Ollama `/api/show` endpoint at startup to read the model's actual `num_ctx` parameter. If the endpoint is unreachable or the model is unrecognised, the conservative 8,192 fallback is used. The `suggestedBudget` remains 4,000 for all Ollama models because local models typically benefit from smaller, more focused context.
+```
+suggestedBudget = clamp(maxContextWindow × windowRatio, floor, ceiling)
+```
 
-**Resolution order:** `--budget` CLI flag > `budgetOverride` in rule pack > `contextBudget.perTaskClass` > `contextBudget.maxTokens` > model profile `suggestedBudget` > hard-coded 8,000.
+- `windowRatio`: default `0.08` (8% of context window). Configurable via `contextBudget.windowRatio` in `aic.config.json`.
+- `floor`: 4,000 tokens. Below this, context is too compressed to be useful.
+- `ceiling`: 16,000 tokens. Above this, "Lost in the Middle" effects degrade model attention — research confirms models struggle with information buried in long contexts, and focused context outperforms a stuffed window.
 
-The model profile's `suggestedBudget` slots in just above the hard-coded default — it is a smarter fallback, not a mandatory cap. Any explicit user configuration always wins.
+**Design principle:** Budget profiles derive from the model's context window size via formula — never hard-coded per model. When a new model ships with a larger context window, its budget scales automatically without code changes. The `windowRatio` is the single tuning knob: lower values produce more focused context (less noise, risk of missing relevant files), higher values include more context (better coverage, risk of attention degradation).
+
+| Model family                    | `maxContextWindow` | `windowRatio` | Derived `suggestedBudget` | `reservedForResponse` |
+| ------------------------------- | ------------------ | ------------- | ------------------------- | --------------------- |
+| OpenAI (GPT-4o, GPT-o3)         | 128,000            | 0.08          | 10,240                    | 4,000                 |
+| Claude Sonnet                   | 200,000            | 0.08          | 16,000 (ceiling)          | 4,000                 |
+| Claude Opus                     | 200,000            | 0.08          | 16,000 (ceiling)          | 4,000                 |
+| Ollama (Llama 3+)               | 128,000            | 0.03          | 4,000 (floor)             | 2,000                 |
+| Ollama (legacy / unknown model) | 8,192              | 0.03          | 4,000 (floor)             | 1,000                 |
+| Generic / unknown               | —                  | —             | 8,000 (hard-coded)        | 4,000                 |
+
+> **Ollama context window note:** Most modern Ollama models (Llama 3, Mistral, Gemma 2, etc.) support 128K+ context windows. AIC queries the Ollama `/api/show` endpoint at startup to read the model's actual `num_ctx` parameter. If the endpoint is unreachable or the model is unrecognised, the conservative 8,192 fallback is used. Ollama models use a lower `windowRatio` (0.03) because local models benefit from smaller, more focused context.
+
+> **Phase 0.5 — Budget utilization feedback.** `aic status` will analyse `compilation_log` history and surface actionable recommendations: _"Last 10 compilations used 38% of budget — consider reducing via `contextBudget.windowRatio: 0.05`"_ or _"8/10 compilations hit L2+ compression — consider increasing via `contextBudget.windowRatio: 0.12`"_. This leverages data already collected in `compilation_log`; no new schema required.
+
+> **Phase 1 — Auto-tuning.** The Adaptive Budget Allocator ([Project Plan §2.7](project-plan.md#27-agentic-workflow-support)) learns the optimal budget per project/model/task-class from compilation history and adjusts automatically — no manual tuning needed.
+
+**Resolution order:** `--budget` CLI flag > `budgetOverride` in rule pack > `contextBudget.perTaskClass` > `contextBudget.maxTokens` > formula-derived `suggestedBudget` from model profile > hard-coded 8,000.
+
+The formula-derived `suggestedBudget` slots in just above the hard-coded default — it is a smarter fallback, not a mandatory cap. Any explicit user configuration always wins. Users can also override `windowRatio` globally to tune the aggressiveness of the formula for their workflow.
 
 **`maxContextWindow` and `reservedForResponse`** are used by the Model Context Window Guard (see §4, Step 9 section). They replace the generic 128,000 / 4,000 defaults when the model is auto-detected.
 
@@ -898,7 +914,7 @@ Anonymous telemetry log (last 5 entries)
 
 #46  2026-02-23 19:40:00  sent
      task_class: bugfix | lang: python | reduction: 38.7%
-     model: claude-3.5-sonnet | editor: claude-code | guard_blocks: 1
+     model: claude-sonnet-4 | editor: claude-code | guard_blocks: 1
 
 #45  2026-02-23 19:35:00  dropped (endpoint unreachable)
      task_class: feature | lang: typescript | reduction: 44.1%
@@ -1163,7 +1179,7 @@ When the MCP server process starts (via `npx @aic/mcp`), it executes the followi
          │
          ▼
 7. Register model adapters
-   └─ Gpt4Adapter, ClaudeAdapter, OllamaAdapter, GenericModelAdapter
+   └─ OpenAiAdapter, AnthropicAdapter, OllamaAdapter, GenericModelAdapter
          │
          ▼
 8. Attach telemetry observer
@@ -1241,6 +1257,7 @@ const AicConfigSchema = z
     contextBudget: z
       .object({
         maxTokens: z.number().int().positive().default(8000),
+        windowRatio: z.number().positive().max(1).default(0.08),
         perTaskClass: z.record(z.number().int().positive()).optional(),
       })
       .optional(),
@@ -1337,12 +1354,12 @@ Zod is imported only in boundary modules (`mcp/src/`, `cli/src/`, `shared/src/ad
 
 ## 9. Roadmap (aligned with Project Plan)
 
-| Phase                                         | Version | Status     | Key Deliverables                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| --------------------------------------------- | ------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Phase 0: MCP Server + Developer Utilities** | `0.1.0` | 🟡 Current | This specification — all features in Sections 2–4d, including anonymous telemetry                                                                                                                                                                                                                                                                                                                                                                                       |
-| **Phase 0.5: Quality Release**                | `0.2.0` | ⬜ Next    | GenericImportProvider (Python/Go/Rust/Java regex), intent-aware file discovery, `aic://session-summary` resource (basic agentic history via `compilation_log`), Guard `warn` severity, `aic report` (static HTML), CSS/TypeDecl/test-structure transformers                                                                                                                                                                                                             |
-| Phase 1: OSS Release                          | `1.0.0` | ⬜ Planned | Public repo, docs, npm package, CI/CD, `postinstall` team deployment, auto-detected dependency constraints, reverse dependency walking, `aic history`, `aic suggest`, optional cost estimation in `aic status` (model-specific pricing, deferred from MVP since AIC is model-agnostic); **agentic support**: Session Tracker + extended `CompilationRequest` fields + Adaptive Budget Allocator + session-aware cache keying (see [Project Plan §2.7](project-plan.md)) |
-| Phase 2: Semantic + Governance                | `2.0.0` | ⬜ Planned | VectorSelector (Zvec integration), HybridSelector, governance adapters, policy engine, `aic trends`, `extends` config for org-level deployment, centralised config server; **agentic support**: Conversation Compressor + editor-specific conversation adapters                                                                                                                                                                                                         |
-| Phase 3: Enterprise                           | `3.0.0` | ⬜ Future  | Control plane, RBAC, SSO, audit logs, fleet management via MDM, live enterprise dashboard, hosted option                                                                                                                                                                                                                                                                                                                                                                |
+| Phase                                         | Version | Status     | Key Deliverables                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| --------------------------------------------- | ------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Phase 0: MCP Server + Developer Utilities** | `0.1.0` | 🟡 Current | This specification — all features in Sections 2–4d, including anonymous telemetry                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **Phase 0.5: Quality Release**                | `0.2.0` | ⬜ Next    | GenericImportProvider (Python/Go/Rust/Java regex), intent-aware file discovery, `aic://session-summary` resource (basic agentic history via `compilation_log`), Guard `warn` severity, `aic report` (static HTML), CSS/TypeDecl/test-structure transformers, **budget utilization feedback** in `aic status` (analyses `compilation_log` to recommend `windowRatio` adjustments)                                                                                                                                                                                                                                  |
+| Phase 1: OSS Release                          | `1.0.0` | ⬜ Planned | Public repo, docs, npm package, CI/CD, `postinstall` team deployment, auto-detected dependency constraints, reverse dependency walking, `aic history`, `aic suggest`, optional cost estimation in `aic status` (model-specific pricing, deferred from MVP since AIC is model-agnostic); **agentic support**: Session Tracker + extended `CompilationRequest` fields + **Adaptive Budget Allocator** (conversation-length + utilization-based auto-tuning) + Specification Compiler (`aic_compile_spec` MCP tool + `aic compile-spec` CLI) + session-aware cache keying (see [Project Plan §2.7](project-plan.md)) |
+| Phase 2: Semantic + Governance                | `2.0.0` | ⬜ Planned | VectorSelector (Zvec integration), HybridSelector, governance adapters, policy engine, `aic trends`, `extends` config for org-level deployment, centralised config server; **agentic support**: Conversation Compressor + editor-specific conversation adapters                                                                                                                                                                                                                                                                                                                                                   |
+| Phase 3: Enterprise                           | `3.0.0` | ⬜ Future  | Control plane, RBAC, SSO, audit logs, fleet management via MDM, live enterprise dashboard, hosted option                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 Versioning policy: see [Project Plan §22](project-plan.md).

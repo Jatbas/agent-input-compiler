@@ -6,9 +6,9 @@
 ![Telemetry](https://img.shields.io/badge/telemetry-opt--in-lightgrey)
 ![MCP Compatible](https://img.shields.io/badge/MCP-compatible-purple)
 
-> Deterministic context compiler for AI coding tools (Cursor, Claude Code, MCP-compatible editors).
+> Deterministic context compiler for AI coding tools. Any editor. Any model. No lock-in.
 >
-> Local-first MCP server that sits transparently between your AI editor and any model, automatically selecting relevant files and compressing context — typically reducing tokens by ≥30% without changing your workflow.
+> Local-first MCP server + CLI that sits between your tools and any model, automatically selecting relevant files and compressing context — typically reducing tokens by ≥30% without changing your workflow.
 
 ---
 
@@ -75,8 +75,9 @@ AIC fixes this by acting as a deterministic context compiler. It filters the noi
 | **Continue.dev**                | IDE plugin with manual/configurable context        | AIC is CLI-first and runs automatically on every prompt.                                                                                                                                                 |
 | **MCP-native tools** (emerging) | Various context and retrieval servers built on MCP | AIC focuses exclusively on _compiling_ context — not retrieval, code search, or agent orchestration. It is composable: other MCP servers can feed data into the editor alongside AIC's compiled context. |
 | **Raw LLM usage**               | Manual copy-paste of context                       | AIC automates selection, enforces token budgets, and formats the prompt perfectly.                                                                                                                       |
+| **Task planners**               | Manual specification authoring                     | AIC compiles _specifications_ for agents — budget-constrained, tiered by usage, deterministic — not just code context.                                                                                   |
 
-**AIC's unique position:** The only tool focused entirely on _compiling the input_ securely and deterministically, maximizing model accuracy by ruthlessly eliminating noise. As the MCP ecosystem grows, AIC's scope — context compilation — is intentionally narrow and composable: it does one thing well and plays nicely with other MCP servers.
+**AIC's unique position:** The only tool focused entirely on _compiling the input_ — both code context for models and specification context for agents — securely and deterministically. Editor-agnostic, model-agnostic, agent-agnostic: use it from Cursor, Claude Code, a CI pipeline, or a shell script. AIC's scope — context compilation — is intentionally narrow and composable: it does one thing well and plays nicely with other MCP servers.
 
 ---
 
@@ -218,13 +219,13 @@ Findings are available via the `aic://rules-analysis` MCP resource after each co
 
 ## Roadmap
 
-| Phase                            | Focus                                                                                                              | Status         |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------- |
-| MCP Server + Utilities (`0.1.0`) | Core pipeline, transformers, Guard, telemetry                                                                      | 🟡 In progress |
-| Quality Release (`0.2.0`)        | Multi-language imports, intent-aware discovery, session summary, CSS/TypeDecl/test-structure transformers          | ⬜ Next        |
-| OSS Release (`1.0.0`)            | Public repo, team deployment, `aic history`, `aic suggest`, optional cost estimation, **agentic session tracking** | ⬜ Planned     |
-| Semantic + Governance (`2.0.0`)  | Vector search, policy engine, org-level config, **conversation compression for agents**                            | ⬜ Planned     |
-| Enterprise Platform (`3.0.0`)    | RBAC, SSO, fleet management, live dashboard                                                                        | ⬜ Future      |
+| Phase                            | Focus                                                                                                                                                                                                 | Status         |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| MCP Server + Utilities (`0.1.0`) | Core pipeline, transformers, Guard, telemetry                                                                                                                                                         | 🟡 In progress |
+| Quality Release (`0.2.0`)        | Multi-language imports, intent-aware discovery, session summary, CSS/TypeDecl/test-structure transformers                                                                                             | ⬜ Next        |
+| OSS Release (`1.0.0`)            | Public repo, team deployment, `aic history`, `aic suggest`, optional cost estimation, **agentic session tracking**, **Specification Compiler** (`aic_compile_spec` MCP tool + `aic compile-spec` CLI) | ⬜ Planned     |
+| Semantic + Governance (`2.0.0`)  | Vector search, policy engine, org-level config, **conversation compression for agents**                                                                                                               | ⬜ Planned     |
+| Enterprise Platform (`3.0.0`)    | RBAC, SSO, fleet management, live dashboard                                                                                                                                                           | ⬜ Future      |
 
 ---
 

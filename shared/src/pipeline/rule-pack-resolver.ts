@@ -14,15 +14,20 @@ function dedupe<T>(arr: readonly T[]): T[] {
 }
 
 function mergePacks(base: RulePack, overlay: RulePack): RulePack {
+  const name = overlay.name ?? base.name;
+  const version = overlay.version ?? base.version;
+  const description = overlay.description ?? base.description;
+  const budgetOverride = overlay.budgetOverride ?? base.budgetOverride;
+  const heuristic = overlay.heuristic ?? base.heuristic;
   return {
-    name: overlay.name ?? base.name,
-    version: overlay.version ?? base.version,
-    description: overlay.description ?? base.description,
+    ...(name !== undefined ? { name } : {}),
+    ...(version !== undefined ? { version } : {}),
+    ...(description !== undefined ? { description } : {}),
     constraints: dedupe([...base.constraints, ...overlay.constraints]),
     includePatterns: dedupe([...base.includePatterns, ...overlay.includePatterns]),
     excludePatterns: dedupe([...base.excludePatterns, ...overlay.excludePatterns]),
-    budgetOverride: overlay.budgetOverride ?? base.budgetOverride,
-    heuristic: overlay.heuristic ?? base.heuristic,
+    ...(budgetOverride !== undefined ? { budgetOverride } : {}),
+    ...(heuristic !== undefined ? { heuristic } : {}),
   };
 }
 
