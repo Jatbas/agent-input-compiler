@@ -1027,7 +1027,7 @@ export default tseslint.config(
       "max-classes-per-file": "off",
       "no-console": "off",
       "no-param-reassign": "off",
-      "no-restricted-syntax": "off",
+      "no-restricted-syntax": ["error", BARE_ERROR, ...DATE_RESTRICTIONS, MATH_RANDOM],
       "no-restricted-imports": "off",
     },
   },

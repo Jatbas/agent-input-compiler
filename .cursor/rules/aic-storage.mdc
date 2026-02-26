@@ -119,8 +119,9 @@ Adapters in `shared/src/adapters/`:
 
 Specific library restrictions are enforced in `eslint.config.mjs` — not in this rule file. When adding a new external dependency, add it to the ESLint restricted imports for every layer except its wrapper file.
 
-## Determinism in Adapters (Hard Rule)
+## Determinism (Hard Rule)
 
-- **`Date.now()` and `new Date()` are forbidden in all adapters** — enforced by ESLint globally
+- **`Date.now()` and `new Date()` are forbidden in all adapters and storage** — enforced by ESLint globally
 - Only the Clock implementation file is exempt
-- All other adapters that need time must inject `Clock` via constructor
+- All other adapters and storage classes that need time must inject `Clock` via constructor
+- **SQL queries must not use `date('now')` or `datetime('now')`.** Pass the current time as a bound parameter from the injected `Clock`. This keeps queries deterministic and testable.

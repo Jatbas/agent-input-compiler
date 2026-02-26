@@ -128,20 +128,22 @@ Complete every item. Each produces evidence for the report. Items are organized 
 4. **Verify every external library API by reading installed `.d.ts` files** — locate under `node_modules/`, read them, record exact class names, constructor signatures, method signatures, and import paths. If not installed, search the web. This applies to ALL layers.
 5. **Check recipe fit** — determine which recipe applies (adapter, storage, pipeline, composition root) using the pre-read `SKILL-recipes.md`. If no recipe fits → **BLOCKER**.
 6. **Search for existing solutions** (conditional — if the target layer already has 2+ files of this recipe type) — Grep for similar functionality before proposing new code. Check: does an existing adapter/storage/pipeline class already solve part of this problem? Could an existing interface gain a method instead of creating a new interface? Record findings in the EXISTING SOLUTIONS field of the Exploration Report.
+7. **Cross-package duplication check** (conditional — if the task creates a new utility, helper, or factory function) — Grep the entire codebase for functionally equivalent code. Check `mcp/src/`, `cli/src/`, and `shared/src/` — not just the target layer. If equivalent logic already exists in another package, the task must either (a) extract the shared logic to `shared/` and modify both consumers, or (b) justify the duplication in Architecture Notes. Record in the EXISTING SOLUTIONS field.
+8. **Wiring completeness check** (conditional — composition root tasks) — For every function called in the wiring steps, verify that its return value is either (a) consumed by a subsequent step, or (b) the function is explicitly called for side effects only (document which side effects). If a function returns a rich object and only side effects are needed, note this in Architecture Notes as a follow-up to wire the return value when consumers are ready.
 
 **Batch B — fire in one parallel round after Batch A completes** (depends on interfaces, types, and library APIs discovered in Batch A):
 
-7. **Read every domain type the component reads or writes** — copy full type definitions verbatim. Never write "see task NNN."
-8. **For adapters wrapping a library**: determine sync vs async from the interface return type.
-9. **Check branded types** — for every parameter, verify the correct branded type from `core/types/`. Check factory function usage.
-10. **Plan the step breakdown** — count methods, assign to steps (max 2 per step, max 1 file per step). Record the mapping.
-11. **Verify module resolution** — if config changes are proposed, read the relevant `tsconfig.json` and record `moduleResolution`. If uncertain → state as blocker.
-12. **Trace consumers of modified types** (conditional — if any file in the Files table is "Modify" and touches an interface or type) — Grep for all importers of the modified interface/type. Classify each as "will break" (uses removed/changed members) or "compatible" (unaffected). If breakage is expected, add "Modify" rows to the Files table for each broken consumer. Record findings in the CONSUMER ANALYSIS field of the Exploration Report.
+9. **Read every domain type the component reads or writes** — copy full type definitions verbatim. Never write "see task NNN."
+10. **For adapters wrapping a library**: determine sync vs async from the interface return type.
+11. **Check branded types** — for every parameter, verify the correct branded type from `core/types/`. Check factory function usage.
+12. **Plan the step breakdown** — count methods, assign to steps (max 2 per step, max 1 file per step). Record the mapping.
+13. **Verify module resolution** — if config changes are proposed, read the relevant `tsconfig.json` and record `moduleResolution`. If uncertain → state as blocker.
+14. **Trace consumers of modified types** (conditional — if any file in the Files table is "Modify" and touches an interface or type) — Grep for all importers of the modified interface/type. Classify each as "will break" (uses removed/changed members) or "compatible" (unaffected). If breakage is expected, add "Modify" rows to the Files table for each broken consumer. Record findings in the CONSUMER ANALYSIS field of the Exploration Report.
 
 **Pre-read items** (already in context from §1 — extract findings, do not re-read):
 
-13. **`shared/package.json`** — record dependencies and pinned versions.
-14. **`eslint.config.mjs`** — record restricted-import rules for the target layer. If ESLint changes are needed, determine the exact structural change.
+15. **`shared/package.json`** — record dependencies and pinned versions.
+16. **`eslint.config.mjs`** — record restricted-import rules for the target layer. If ESLint changes are needed, determine the exact structural change.
 
 ### A.2 Produce the Exploration Report
 
@@ -223,7 +225,7 @@ EXISTING SOLUTIONS (conditional — only if checklist item 6 triggered):
 - Or: No existing solutions — this is genuinely new.
 - Or: Not applicable — first component of this recipe type in this layer.
 
-CONSUMER ANALYSIS (conditional — only if checklist item 12 triggered):
+CONSUMER ANALYSIS (conditional — only if checklist item 14 triggered):
 - [importer file path]: [will break — uses changed member X | compatible — unaffected]
   Source: [verified via Grep for import statements]
 - Or: Not applicable — no existing interfaces or types are modified.
