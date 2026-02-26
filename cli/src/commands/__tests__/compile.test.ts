@@ -3,6 +3,9 @@ import { compileCommand } from "../compile.js";
 import { CompilationArgsSchema } from "../../schemas/compilation-args.js";
 import type { CompilationRunner } from "@aic/shared/core/interfaces/compilation-runner.interface.js";
 import type { CompilationMeta } from "@aic/shared/core/types/compilation-types.js";
+import type { TelemetryEvent } from "@aic/shared/core/types/telemetry-types.js";
+import type { Milliseconds } from "@aic/shared/core/types/units.js";
+import type { ISOTimestamp, UUIDv7 } from "@aic/shared/core/types/identifiers.js";
 import { toTokenCount, toMilliseconds } from "@aic/shared/core/types/units.js";
 import { toPercentage } from "@aic/shared/core/types/scores.js";
 import { EDITOR_ID, INCLUSION_TIER, TASK_CLASS } from "@aic/shared/core/types/enums.js";
@@ -40,7 +43,7 @@ const stubRunner: CompilationRunner = {
 };
 
 describe("compileCommand", () => {
-  it("valid_args_stdout_stub", async () => {
+  it("compileCommand without telemetryDeps", async () => {
     const parsed = CompilationArgsSchema.parse({
       intent: "fix bug",
       projectRoot: "/tmp/proj",
@@ -70,6 +73,59 @@ describe("compileCommand", () => {
       dbPath: null,
     };
     await expect(compileCommand(invalidArgs, stubRunner)).rejects.toThrow();
+  });
+
+  it("compileCommand with telemetryDeps", async () => {
+    const parsed = CompilationArgsSchema.parse({
+      intent: "fix bug",
+      projectRoot: "/tmp/proj",
+      configPath: null,
+      dbPath: null,
+    });
+    const written: { event: TelemetryEvent }[] = [];
+    const mockTelemetryStore = {
+      write(event: TelemetryEvent) {
+        written.push({ event });
+      },
+    };
+    const mockClock = {
+      now: (): ISOTimestamp => "2026-01-01T00:00:00.000Z" as ISOTimestamp,
+      addMinutes: (_m: number): ISOTimestamp =>
+        "2026-01-01T00:00:00.000Z" as ISOTimestamp,
+      durationMs: (): Milliseconds => 0 as Milliseconds,
+    };
+    const mockIdGenerator = {
+      generate: (): UUIDv7 => "00000000-0000-7000-8000-000000000000" as UUIDv7,
+    };
+    const mockStringHasher = { hash: (input: string) => `hash-${input}` };
+    const telemetryDeps = {
+      telemetryStore: mockTelemetryStore,
+      clock: mockClock,
+      idGenerator: mockIdGenerator,
+      stringHasher: mockStringHasher,
+    };
+    const acc: { chunks: readonly string[] } = { chunks: [] };
+    const origWrite = process.stdout.write;
+    process.stdout.write = (chunk: string | Uint8Array) => {
+      const s = typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk);
+      acc.chunks = [...acc.chunks, s];
+      return true;
+    };
+    try {
+      await compileCommand(parsed, stubRunner, telemetryDeps);
+      expect(written.length).toBe(1);
+      const recorded = written[0];
+      expect(recorded).toBeDefined();
+      if (recorded !== undefined) {
+        expect(recorded.event.taskClass).toBe(stubMeta.taskClass);
+        expect(recorded.event.tokensRaw).toBe(stubMeta.tokensRaw);
+        expect(recorded.event.tokensCompiled).toBe(stubMeta.tokensCompiled);
+        expect(recorded.event.cacheHit).toBe(stubMeta.cacheHit);
+      }
+      expect(acc.chunks.join("")).toContain("Not implemented");
+    } finally {
+      process.stdout.write = origWrite;
+    }
   });
 
   it("runner_throws_aic_error", async () => {

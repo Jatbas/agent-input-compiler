@@ -9,8 +9,13 @@ import { sanitizeError } from "@aic/shared/core/errors/sanitize-error.js";
 import { toAbsolutePath, toFilePath } from "@aic/shared/core/types/paths.js";
 import type { EditorId } from "@aic/shared/core/types/enums.js";
 import type { CompilationRequest } from "@aic/shared/core/types/compilation-types.js";
+import type { TelemetryDeps } from "@aic/shared/core/types/telemetry-types.js";
+import { writeCompilationTelemetry } from "@aic/shared/core/write-compilation-telemetry.js";
 
-export function createCompileHandler(runner: CompilationRunner): (
+export function createCompileHandler(
+  runner: CompilationRunner,
+  telemetryDeps: TelemetryDeps,
+): (
   args: {
     intent: string;
     projectRoot: string;
@@ -30,6 +35,9 @@ export function createCompileHandler(runner: CompilationRunner): (
         configPath: args.configPath !== null ? toFilePath(args.configPath) : null,
       };
       const result = await runner.run(request);
+      writeCompilationTelemetry(result.meta, request, telemetryDeps, (msg) =>
+        process.stderr.write(msg),
+      );
       return {
         content: [
           {

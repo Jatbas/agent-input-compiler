@@ -85,16 +85,21 @@ function createScopeAndDeps(projectRoot: string): {
   return { scope, deps };
 }
 
-function createCompilationRunner(projectRoot: string): CompilationRunner {
+function createCompilationRunner(projectRoot: string): {
+  runner: CompilationRunner;
+  scope: ProjectScope;
+  stringHasher: InstanceType<typeof Sha256Adapter>;
+} {
   const { scope, deps } = createScopeAndDeps(projectRoot);
-  const sha256Adapter = new Sha256Adapter();
-  return new CompilationRunnerImpl(
+  const stringHasher = new Sha256Adapter();
+  const runner = new CompilationRunnerImpl(
     deps,
     scope.clock,
     scope.cacheStore,
     scope.configStore,
-    sha256Adapter,
+    stringHasher,
   );
+  return { runner, scope, stringHasher };
 }
 
 function createInspectRunner(projectRoot: string): InspectRunner {
@@ -111,9 +116,15 @@ program
   .option("--config <path>", "path to aic.config.json")
   .option("--db <path>", "path to SQLite database")
   .action(
-    createIntentAction(CompilationArgsSchema, (args) =>
-      compileCommand(args, createCompilationRunner(args.projectRoot)),
-    ),
+    createIntentAction(CompilationArgsSchema, (args) => {
+      const result = createCompilationRunner(args.projectRoot);
+      return compileCommand(args, result.runner, {
+        telemetryStore: result.scope.telemetryStore,
+        clock: result.scope.clock,
+        idGenerator: result.scope.idGenerator,
+        stringHasher: result.stringHasher,
+      });
+    }),
   );
 
 program

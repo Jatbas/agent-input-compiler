@@ -82,7 +82,12 @@ export function createMcpServer(projectRoot: AbsolutePath): McpServer {
   server.tool(
     "aic_compile",
     CompilationRequestSchema,
-    createCompileHandler(compilationRunner),
+    createCompileHandler(compilationRunner, {
+      telemetryStore: scope.telemetryStore,
+      clock: scope.clock,
+      idGenerator: scope.idGenerator,
+      stringHasher: sha256Adapter,
+    }),
   );
   server.tool("aic_inspect", InspectRequestSchema, (args) =>
     handleInspect(args, inspectRunner),
