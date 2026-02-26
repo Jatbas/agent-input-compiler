@@ -1,0 +1,104 @@
+---
+description: MCP server rules — thin handler, boundary error handling, composition root wiring
+globs: mcp/src/**/*.ts
+alwaysApply: false
+---
+
+# MCP Server Rules
+
+**Quick reference:** MCP handler is a thin facade — all logic in `shared/`. MCP types translated at the boundary. Composition root wires all dependencies. Catch errors at handler level, return MCP error codes. Never crash the server process.
+
+## Handler Structure
+
+The MCP handler (`mcp/src/server.ts`) is a **composition root** and **thin facade**:
+
+```typescript
+// mcp/src/server.ts — composition root
+import { IntentClassifier } from "@aic/shared/pipeline/step1-classify/intent-classifier";
+import { CompilationRequestSchema } from "./schemas/compilation-request.schema";
+// ... other pipeline imports
+
+// wire all dependencies
+const tokenizer = new TiktokenAdapter();
+const classifier = new IntentClassifier(/* interfaces */);
+// ...
+
+// handler: validate → translate → execute → respond
+server.setRequestHandler("aic_compile", async (args) => {
+  const parsed = CompilationRequestSchema.parse(args); // Zod validation
+  const request = toCompilationRequest(parsed); // produce branded types
+  const result = await pipeline.execute(request);
+  return translateToMcpResponse(result);
+});
+```
+
+## Zod Validation Boundary (ADR-009)
+
+- Every MCP handler validates its input with a Zod schema before any pipeline execution
+- Zod schemas live in `mcp/src/schemas/` — not in `shared/src/core/` or `shared/src/pipeline/`
+- After Zod validation, use branded type constructor functions (`toAbsolutePath()`, `toTokenCount()`, etc.) to translate into pipeline types
+- On validation failure: return MCP error code `-32602` (Invalid params) with sanitised field paths
+- `intent` string is capped at `z.string().max(10_000)` to prevent memory abuse
+
+## Boundary Rules
+
+1. **MCP types do not leak into pipeline:** Translate MCP request args into `CompilationRequest` at the handler boundary. Translate `CompilationResult` back to MCP response at the handler boundary
+2. **No shared types:** The MCP SDK types are never imported in `shared/` or `cli/`
+3. **Translation functions** live in `mcp/src/` (e.g., `translate-request.ts`, `translate-response.ts`)
+
+## Error Handling
+
+Catch every error at the handler level — the MCP server process must never crash:
+
+```typescript
+server.setRequestHandler("aic_compile", async (args) => {
+  try {
+    const request = translateMcpArgs(args);
+    const result = await pipeline.execute(request);
+    return translateToMcpResponse(result);
+  } catch (err) {
+    if (err instanceof AicError) {
+      return mcpError(mapAicErrorToMcpCode(err), err.message);
+    }
+    return mcpError(-32603, "Internal error");
+  }
+});
+```
+
+Error code mapping:
+
+| Scenario | MCP code |
+|----------|----------|
+| Malformed arguments (missing intent, bad types) | `-32602` (Invalid params) |
+| Unknown tool name | `-32601` (Method not found) |
+| Pipeline error (`AicError` subclass) | `-32603` (Internal error) |
+| Compilation timeout (>30s) | `-32603` (Internal error) |
+
+## Error Response Sanitization
+
+MCP responses cross a trust boundary — they must never leak internals:
+
+- Strip `error.stack` before returning (log full stack internally at `error` level)
+- Replace absolute file paths with relative or generic descriptions
+- Never include env var names, Node version, OS, or `.aic/` paths
+- Always return `AicError.code` alongside the message for machine-readable error handling
+- The catch block in the handler must call a dedicated `sanitizeError()` function — never return `err.message` directly
+
+See `aic-errors.mdc §Error response sanitization` for the full rules.
+
+## Composition Root Discipline
+
+`mcp/src/server.ts` is the only file in `mcp/` that uses `new`:
+
+- Every pipeline class, adapter, and store is instantiated here
+- Dependencies are wired via constructor injection
+- No `new` anywhere else in `mcp/src/`
+- This is the same pattern used by `cli/src/commands/*.ts`
+
+## Import Restrictions
+
+Files in `mcp/src/`:
+
+- **May** import from `@aic/shared` (pipeline, core, adapters, storage)
+- **Must not** import from `@aic/cli` or `cli/src/`
+- **Must not** import Node.js APIs except in the composition root (for process lifecycle)

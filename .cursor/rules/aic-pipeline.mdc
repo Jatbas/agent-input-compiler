@@ -1,0 +1,100 @@
+---
+description: Pipeline step creation and modification rules — SOLID, hexagonal boundaries, determinism
+globs: shared/src/pipeline/**/*.ts, shared/src/core/**/*.ts
+alwaysApply: false
+---
+
+# Pipeline Rules
+
+**Quick reference:** One class, one file, one public method. Constructor takes interfaces only. No `fs`/`path`/`process`/`Date.now()`/`Math.random()`. Never mutate inputs — return new objects. Emit events via `PipelineEventBus`, never call `TelemetryLogger` directly. Define interface first in `core/interfaces/`, then implement.
+
+## Pipeline Step Structure
+
+Every pipeline step follows this exact pattern:
+
+```typescript
+import type { SomeDependency } from "@aic/shared/core/interfaces/some-dependency.interface";
+import type { StepInput } from "@aic/shared/core/types/step-input";
+import type { StepResult } from "@aic/shared/core/types/step-result";
+
+export class StepName {
+  constructor(
+    private readonly dependency: SomeDependency,
+    // all deps are interfaces — never concrete classes
+  ) {}
+
+  execute(input: StepInput): StepResult {
+    // pure transformation — no I/O, no side effects
+    // return new object, never mutate input
+  }
+}
+```
+
+## Absolute Prohibitions in core/ and pipeline/
+
+These are enforced by ESLint and will fail CI:
+
+1. **No Node.js APIs:** no `fs`, `path`, `child_process`, `process`, `os`, `crypto` — use interfaces
+2. **No external packages:** all external libraries are accessed through interfaces only (enforced by ESLint)
+3. **No `new` keyword:** Pipeline classes receive all dependencies via constructor. Exception: plain value objects (`new Map()`, `new Set()`, `new Error()` subclasses)
+4. **No `Date.now()`, `new Date()`, or `Math.random()`:** Enforced globally by ESLint (only `system-clock.ts` exempt). Inject `Clock` for time.
+5. **No direct `console.*` calls:** Use the event bus for logging
+6. **No `try/catch`:** Errors propagate to the composition root. Exception: wrapping a dependency call that may throw, where the pipeline step must translate the error into an `AicError` subclass
+
+## Creating a New Pipeline Step
+
+1. Define the interface in `shared/src/core/interfaces/<step-name>.interface.ts`
+2. Define input/output types in `shared/src/core/types/`
+3. Implement the step in `shared/src/pipeline/<step-name>/<step-name>.ts`
+4. Add event type to `PipelineEventType` if the step emits events
+5. Register in the composition roots (`mcp/src/server.ts`, `cli/src/commands/*.ts`)
+6. Add unit tests in `shared/src/pipeline/<step-name>/__tests__/`
+7. No changes to existing pipeline steps are expected or needed (OCP)
+
+## Event Emission
+
+Pipeline steps emit events via the `PipelineEventBus` — they never call `TelemetryLogger` or any observer directly. The `TelemetryLogger` subscribes to events independently (Observer pattern).
+
+```typescript
+// correct — step emits event
+this.eventBus.emit("step:classify:complete", { taskClass, confidence });
+
+// wrong — step calls logger
+this.telemetryLogger.log("classify", { taskClass, confidence });
+```
+
+## Prompt Assembly Security (Step 9)
+
+The `PromptAssembler` must enforce structural security:
+
+- **Intent is opaque:** The user's intent string is placed inside a clearly delimited section of the template. It is never interpolated into system instructions or constraint blocks.
+- **Context delimiters:** All file content is wrapped in clearly delimited code blocks (e.g., triple backtick fences with file path headers). This prevents content from being interpreted as instructions.
+- **Constraint ordering:** The constraints section is always placed **after** the context section. This ensures model instructions are read after code, reducing injection effectiveness.
+- **No raw string concatenation:** Use the template structure defined in the Project Plan. Never build prompts by concatenating raw strings — use the typed `PromptTemplate` interface.
+
+See `security.md §Prompt Injection Prevention` for the full threat model.
+
+## Context Guard Immutability (Step 5)
+
+Context Guard is a security boundary — its behaviour must not be weakened:
+
+- **Never-include patterns are non-overridable:** `.env`, `.env.*`, `*.pem`, `*.key`, `*.pfx`, `*.p12`, `*secret*`, `*credential*`, `*password*`, `*.cert` — these patterns cannot be bypassed by `guard.allowPatterns` or `guard.allowFiles`.
+- **Guard step cannot be skipped:** The pipeline must always run Context Guard. There is no flag or config to disable it. If someone proposes a `--skip-guard` flag, reject it.
+- **All findings are logged:** Every blocked file is recorded in `CompilationMeta.guard` and persisted to `guard_findings` table. No silent filtering.
+- **Guard runs before Content Transformer:** Step 5 runs before Step 5.5. Blocked files never reach the transformer or the model.
+
+See `security.md §Context Guard` for the full specification.
+
+## Immutability
+
+Pipeline steps must never mutate their inputs. Always return new objects:
+
+```typescript
+// correct
+const filtered = files.filter((f) => !blocked.has(f.path));
+return { ...input, files: filtered };
+
+// wrong
+input.files.splice(index, 1);
+return input;
+```

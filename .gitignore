@@ -1,0 +1,4 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.cursor/hooks/.edited-files-*

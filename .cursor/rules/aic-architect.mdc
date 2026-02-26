@@ -1,0 +1,61 @@
+---
+description: Router — decide which project rules apply. Only rule with alwaysApply true. Safeguard when other rules are not included in context.
+alwaysApply: true
+---
+
+# Rule Router
+
+Use this map to decide which rules apply to the current task. The **critical reminders** below are also injected at session start by `.cursor/hooks/session-init.cjs` (single source of truth). **If a rule was not included in context, still follow the conventions below** for that area; read the rule file when you need full detail.
+
+## Context → Rules to Apply
+
+| Context | Rules to apply (file in .cursor/rules/) |
+|---------|----------------------------------------|
+| **Any task (before coding)** | aic-architect (this file, always active) |
+| **Editing `shared/src/core/**` or `shared/src/pipeline/**`** | aic-pipeline, aic-interfaces, aic-errors |
+| **Editing `shared/src/adapters/**` or `shared/src/storage/**`** | aic-storage, aic-errors |
+| **Editing `shared/src/**/interfaces/**`** | aic-interfaces |
+| **Editing `mcp/src/**`** | aic-mcp, aic-errors |
+| **Editing `cli/src/**`** | aic-cli, aic-errors |
+| **Editing `**/*.test.ts` or `**/__tests__/**`** | aic-tests |
+| **Suggesting or writing commit messages** | aic-architect (critical reminders cover this) |
+
+## Critical reminders (safeguard when rule not in context)
+
+These bullets are the single source of truth: the sessionStart hook (`.cursor/hooks/session-init.cjs`) reads this section and injects them at session start. Keep each bullet concise and one-line so the hook output stays compact.
+
+- **First pass:** Apply these rules when writing code so the first version passes lint and conventions; avoid rework and double token use.
+- **SOLID:** One public method per class; one class per file; one interface per `*.interface.ts` file. Constructor receives only interfaces — never concrete classes. No exceptions in pipeline steps.
+- **Hexagonal:** `core/` and `pipeline/` have zero imports from `adapters/`, `storage/`, `cli/`, `mcp/`, Node.js APIs, or external packages. All I/O through interfaces only. Core interfaces must NOT expose infrastructure concepts (SQL syntax, HTTP verbs, file-system paths) — use domain terminology.
+- **Adapter wrapping:** Every external library has exactly ONE adapter or storage file that wraps it behind a core interface. No other file imports the library directly — enforced by ESLint `no-restricted-imports`. To swap a library, change one file.
+- **DIP:** No `new` for infrastructure/service classes outside composition roots (`mcp/src/server.ts`, `cli/src/commands/*.ts`). All dependencies via constructor injection. Storage classes receive the database instance — never construct it. Adapters inject `Clock` for time, never call `Date.now()` directly.
+- **OCP:** New capabilities via new classes implementing existing interfaces — never modify existing pipeline classes. The core pipeline is frozen once correct; all evolution happens at the edges.
+- **Errors:** Never throw bare `Error`. Use `AicError` subclasses with machine-readable `code` property. Pipeline steps never catch-and-ignore — errors propagate to composition root. MCP server never crashes on a single bad request.
+- **Determinism:** No `Date.now()`, `new Date()`, or `Math.random()` anywhere — enforced by ESLint globally. Only `system-clock.ts` is exempt. All other code injects time via `Clock` interface.
+- **Immutability:** No `.push()`, `.splice()`, `.sort()` (mutating), `.reverse()` (mutating). Use spread/reduce. Pipeline steps never mutate their inputs — return new objects.
+- **Types:** No `any`. Explicit return types on all functions. Interfaces in `*.interface.ts` files (one interface per file). Max 5 methods per interface (ISP). Related type aliases live in `core/types/`, not in interface files.
+- **Comments:** `//` style only — `/* */` and `/** */` block comments are banned by ESLint. One short line max, explain *why* not *what*. No JSDoc. No narrating comments (`// Get the user`, `// Return result`).
+- **Branded types (ADR-010):** Use `shared/src/core/types/` branded types — never raw `string`/`number` for domain values (paths, tokens, durations, scores, IDs, enums). `as const` objects for enums, not TS `enum`. Null = `Type | null`; optional = `?: Type`.
+- **Validation boundary (ADR-009):** Runtime validation at MCP handler, CLI parser, config loader only. Core/pipeline never imports the validation library — trusts branded types.
+- **Database:** All SQL lives exclusively in `shared/src/storage/`. Every schema change requires a migration file in `shared/src/storage/migrations/`. Never run raw DDL outside the `MigrationRunner`.
+- **IDs:** All entity PKs use UUIDv7 (`TEXT(36)` in SQLite). Never `INTEGER AUTOINCREMENT` for entities. Exception: `config_history` uses SHA-256 content hash. See Project Plan ADR-007.
+- **Timestamps:** Always `YYYY-MM-DDTHH:mm:ss.sssZ` (UTC, milliseconds, trailing `Z`). Use the `Clock` interface — never `new Date()` or `Date.now()` directly. Use the `ISOTimestamp` branded type. See Project Plan ADR-008.
+- **Docs as source of truth:** Read `documentation/` before proposing or changing code. The Project Plan is the architecture spec. The MVP Spec is the implementation spec.
+- **Commits:** Format `type(scope): description`, max 72 chars, target 50-60, imperative, no period. Never use `--no-verify`.
+- **File ops:** Use targeted edits (search_replace / minimal edit) on the minimum necessary lines. Do not read a file and write a new file when an in-place edit suffices.
+- **No .md without instruction:** Do not create or modify any .md file (documentation/, README, .cursor/rules/, etc.) unless the user explicitly asks you to.
+- **Read scope:** Read only the file sections you need for this change; avoid full-file reads when not needed (use offset/limit for large files).
+- **Secrets:** Never hardcode API keys, tokens, or credentials in source. Config references env var *names* (`apiKeyEnv: "OPENAI_API_KEY"`), never values. All logging must sanitize secrets — replace with `***`.
+- **`.aic/` security:** Directory is `0700` (owner-only), auto-gitignored, no symlink traversal. Storage code must enforce these invariants.
+- **Telemetry data:** Telemetry payloads must never contain file paths, file content, prompts, intents, project names, or PII. Only typed aggregates and enum values. See `security.md §Anonymous Telemetry`.
+- **Dependencies:** All versions pinned exact (`"9.39.3"`, never `"^9.0.0"`). Adding a runtime dep requires justification. One dep per PR. See Project Plan §16.
+- **File naming:** All `.ts` files use kebab-case (`intent-classifier.ts`). Interfaces: `*.interface.ts`. Tests: `*.test.ts`. Migrations: `NNN-description.ts`. Documentation: kebab-case except conventional root files (`README.md`).
+- **No rule bypass:** Never add `eslint-disable`, `eslint-disable-next-line`, `@ts-ignore`, or `@ts-nocheck` comments. If a rule fires, fix the code — do not silence the rule. If a rule genuinely does not apply, request a targeted override in `eslint.config.mjs`.
+- **Lint:** Prefer `npx eslint` for checks; `read_lints` can be stale. Run `pnpm lint` before declaring work complete.
+
+When in doubt, open the specific rule file listed above for the full text.
+
+## Maintenance
+
+- Whenever a **rule** in `.cursor/rules/` is changed or added, review this router: update the context table and/or critical reminders so the map stays accurate.
+- **Hooks sync:** Critical reminders above are injected by `.cursor/hooks/session-init.cjs` at session start. When you edit the critical reminders list, the hook stays in sync automatically (it reads this file). No need to edit hook code unless you change the section heading or structure.

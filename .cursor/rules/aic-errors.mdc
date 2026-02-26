@@ -1,0 +1,96 @@
+---
+description: Error handling rules — custom error classes, no bare throws, composition root catches
+globs: shared/src/**/*.ts, mcp/src/**/*.ts, cli/src/**/*.ts
+alwaysApply: false
+---
+
+# Error Handling Rules
+
+**Quick reference:** All errors extend `AicError` with a `code` property. Never throw bare `Error`. Pipeline steps let errors propagate — no catch-and-ignore. Composition roots catch at boundary. MCP server never crashes. EventBus catches subscriber errors and logs at `warn`.
+
+## Error Hierarchy
+
+All AIC errors extend a single base class with a machine-readable code:
+
+```typescript
+export class AicError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string,
+  ) {
+    super(message);
+    this.name = this.constructor.name;
+  }
+}
+
+export class ConfigError extends AicError {
+  constructor(message: string) {
+    super(message, "CONFIG_INVALID");
+  }
+}
+```
+
+Defined subclasses:
+
+| Class | Code | When thrown |
+|-------|------|------------|
+| `ConfigError` | `CONFIG_INVALID` | Invalid config JSON, missing required fields |
+| `GuardBlockedAllError` | `GUARD_BLOCKED_ALL` | Context Guard blocked every selected file |
+| `BudgetExceededError` | `BUDGET_EXCEEDED` | Compiled prompt exceeds model context window |
+| `NoFilesSelectedError` | `NO_FILES_SELECTED` | Context selector returned zero files |
+| `ModelError` | `MODEL_ERROR` | Model endpoint unreachable or returns error |
+| `StorageError` | `STORAGE_ERROR` | SQLite write failure (non-fatal, warn and continue) |
+| `TimeoutError` | `TIMEOUT` | Compilation exceeds 30s wall clock |
+
+## Rules by Layer
+
+### Pipeline steps (`shared/src/pipeline/`)
+
+- **Never** throw bare `new Error("...")` — always use an `AicError` subclass
+- **Never** catch-and-ignore — if you catch, you must rethrow, wrap in `AicError`, or log and return a meaningful result
+- **Never** use `try/catch` for control flow — let errors propagate to the composition root
+- Exception: wrapping a dependency call that may throw, where the step must translate the error
+
+### Composition roots (`mcp/src/server.ts`, `cli/src/commands/*.ts`)
+
+- Catch at the outermost boundary
+- Translate `AicError` subclasses into user-facing messages (CLI) or MCP error codes (server)
+- Log the full error at `error` level before returning
+- Never let an unhandled exception crash the process
+
+### MCP server error mapping
+
+| Error | MCP code | MCP message |
+|-------|----------|-------------|
+| Malformed arguments | `-32602` | `aic_compile requires { intent: string }` |
+| Unknown tool name | `-32601` | `Unknown tool: {name}` |
+| Pipeline exception | `-32603` | `Internal error: {sanitised message}` |
+| Compilation timeout | `-32603` | `Compilation timed out after 30s` |
+
+### Error response sanitization (security requirement)
+
+MCP error responses are visible to external consumers. They must never leak internal details:
+
+- **No stack traces:** Strip `error.stack` before returning. Log the full stack internally at `error` level, but the MCP response gets only the sanitized message.
+- **No internal file paths:** Replace absolute paths with relative-to-project-root or generic descriptions (`"internal module"`, `"pipeline step"`).
+- **No environment details:** Never include env var names, Node version, OS, or `.aic/` path in error messages returned to clients.
+- **Use `AicError.code`:** Return the machine-readable code (e.g., `CONFIG_INVALID`) alongside the human message. Clients can switch on the code without parsing message text.
+
+### EventBus subscriber errors
+
+If a subscriber callback throws, `SyncEventBus`:
+1. Catches the exception
+2. Logs it at `warn` level
+3. Continues invoking remaining subscribers
+4. Never re-throws to the emitting pipeline step
+
+### Non-fatal errors (warn and continue)
+
+| Scenario | Behaviour |
+|----------|-----------|
+| No config file found | Use all defaults; log info |
+| Rule pack not found | Warning + skip; continue with remaining packs |
+| Guard blocks some (not all) files | Silent removal; pipeline continues |
+| SQLite write failure | Warning only; continue execution |
+| Corrupt cache entry | Delete entry, recompute, warn |
+| Context exceeds budget after all tiers | Include what fits at names-only; warn of truncation |

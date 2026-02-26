@@ -1,0 +1,46 @@
+{
+  "name": "aic",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Agent Input Compiler — local-first MCP server for context compilation",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc -b --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev:mcp": "tsx mcp/src/server.ts",
+    "dev:cli": "tsx cli/src/main.ts",
+    "bench": "echo 'No benchmarks configured yet (Phase 0.5+)'",
+    "prepare": "husky"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild"
+    ]
+  },
+  "devDependencies": {
+    "@commitlint/cli": "19.8.1",
+    "@commitlint/config-conventional": "19.8.1",
+    "@types/better-sqlite3": "7.6.13",
+    "eslint": "9.39.3",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-check-file": "3.3.1",
+    "globals": "15.15.0",
+    "husky": "9.1.7",
+    "lint-staged": "15.5.2",
+    "prettier": "3.8.1",
+    "tsx": "4.19.4",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.56.1",
+    "vitest": "3.2.4"
+  }
+}

@@ -1,0 +1,105 @@
+---
+description: Interface design rules — ISP, LSP, OCP, naming conventions
+globs: "**/interfaces/**/*.ts"
+alwaysApply: false
+---
+
+# Interface Rules
+
+**Quick reference:** Interfaces in `*.interface.ts` files. Max 5 methods (ISP). Explicit param and return types. No `any`. New capability = new interface, not extending existing. Implementations must honour full contract (LSP). Fallback implementations return empty/default, never throw (Null Object).
+
+## File Naming
+
+- All interfaces live in files ending with `.interface.ts`
+- Example: `context-selector.interface.ts`, `language-provider.interface.ts`
+- Do not create `.type.ts` files for interfaces — use `*.interface.ts`
+- Pure type aliases and value types live in `shared/src/core/types/`
+
+## Interface Segregation (ISP)
+
+- **One interface per `*.interface.ts` file** — enforced by ESLint. Never group `ExecutableDb`, `Migration`, and `MigrationRunner` in a single file; each gets its own.
+- Max 5 methods per interface
+- Each method should be used by at least one consumer
+- If an interface has methods that some implementers don't need, split it
+- `StorageAdapter` is split: `CacheStore`, `TelemetryStore`, `MigrationRunner` — never a god-interface
+
+Example of correct segregation:
+
+```typescript
+// correct — focused interface with branded types
+interface ContextSelector {
+  selectContext(task: TaskClassification, repo: RepoMap, budget: TokenCount, rulePack: RulePack): ContextResult;
+}
+
+// wrong — god interface
+interface ContextEngine {
+  selectContext(...): ContextResult;
+  summarise(...): SummarisedContext;
+  guard(...): GuardResult;
+  assemble(...): string;
+}
+```
+
+## Liskov Substitution (LSP)
+
+Every implementation must be a valid drop-in substitute:
+
+- Do not narrow the contract (accept fewer inputs than the interface specifies)
+- Do not throw exceptions the interface doesn't specify
+- Do not return types that callers cannot handle
+- `GenericProvider` must return valid (possibly empty) results for all `LanguageProvider` methods — never `undefined`, never throw
+
+## Open/Closed (OCP)
+
+- New capabilities are added by creating a new class implementing an existing interface
+- Never modify an existing interface to add unrelated methods
+- Never modify an existing pipeline class to add new behaviour
+- Extension points: `EditorAdapter`, `ModelAdapter`, `ContextSelector`, `LanguageProvider`, `OutputFormatter`, `GuardScanner`, `ContentTransformer`
+
+## Null Object Pattern
+
+Fallback/generic implementations (`GenericProvider`, `GenericModelAdapter`) must:
+
+- Return empty arrays, not `undefined` or `null`
+- Return safe default values, not throw
+- Be usable in all contexts where the primary implementation is used
+- Example: `GenericProvider.parseImports()` returns `[]`, not an error
+
+## No Infrastructure Leakage in Core Interfaces
+
+Core interfaces (`shared/src/core/interfaces/`) must NOT expose infrastructure concepts:
+
+- No SQL terminology (`exec(sql)`, `prepare(sql)`, `query`) — use domain verbs (`apply`, `record`, `retrieve`)
+- No HTTP terminology (`get`, `post`, `request`, `response`) — use domain actions
+- No file-system terminology (`readFile`, `writeFile`, `mkdir`) — use domain abstractions (`load`, `persist`)
+- If an interface method signature reveals the underlying technology, the abstraction is wrong
+
+## Type Safety
+
+- No `any` in interface signatures — define proper types
+- Every method has explicit parameter types and explicit return type
+- Use `readonly` for properties that should not be reassigned
+- Use generics when the interface must work with multiple types
+
+## Branded Types (ADR-010)
+
+All domain values use branded types from `shared/src/core/types/` — never raw `string` or `number`:
+
+- **Paths:** `AbsolutePath`, `RelativePath`, `FilePath`, `GlobPattern`, `FileExtension`
+- **Quantities:** `TokenCount`, `Milliseconds`, `Bytes`, `LineNumber`, `StepIndex`
+- **Scores:** `Percentage`, `Confidence`, `RelevanceScore`
+- **Identifiers:** `ISOTimestamp`, `UUIDv7`, `SessionId`, `RepoId`, `SemanticVersion`
+- **Enums:** `TaskClass`, `EditorId`, `ModelProvider`, `InclusionTier`, `SymbolType`, `SymbolKind`, `ToolOutputType`, `OutputFormat`, `GuardSeverity`, `GuardFindingType`, `PipelineEventType`
+
+When adding or modifying interfaces:
+
+- Use the correct branded type — never `string` for a path or `number` for a token count
+- Constructor functions (`toTokenCount()`, `toISOTimestamp()`, etc.) are used at boundaries to create branded values
+- `as const` objects for enums, not TypeScript `enum`
+- Null vs undefined: `Type | null` = "checked, absent"; `?: Type` = "may not be provided"; never `?: Type | null`
+
+## Validation Boundary (ADR-009)
+
+- Zod validates at boundaries only: MCP handler, CLI arg parser, config loader
+- Core and pipeline interfaces trust branded types — they never import Zod
+- After Zod validation, use constructor functions to produce branded types for the pipeline

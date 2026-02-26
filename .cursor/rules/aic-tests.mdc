@@ -1,0 +1,100 @@
+---
+description: Testing rules — co-location, naming, isolated units, golden snapshots, typed mocks
+globs: "**/*.test.ts, **/__tests__/**/*.ts"
+alwaysApply: false
+---
+
+# Testing Rules
+
+**Quick reference:** Co-located `__tests__/` next to source. Pattern `*.test.ts`. Isolated unit tests with fixture inputs/outputs. Integration tests with golden snapshots. Bug fixes include a regression test. No `any` in tests. Verify actual behaviour, not desired behaviour.
+
+## File Structure
+
+```
+shared/src/pipeline/step1-classify/
+├── intent-classifier.ts
+├── __tests__/
+│   ├── intent-classifier.test.ts
+│   └── fixtures/
+│       ├── feature-request.json
+│       └── bugfix.json
+```
+
+- Tests live in `__tests__/` directories co-located with the code they test
+- Test files are named `<module>.test.ts`
+- Fixture files live in `__tests__/fixtures/`
+
+## Unit Tests (Pipeline Steps)
+
+Each pipeline step gets isolated unit tests:
+
+```typescript
+import { IntentClassifier } from "../intent-classifier";
+import type { Clock } from "@aic/shared/core/interfaces/clock.interface";
+
+describe("IntentClassifier", () => {
+  const mockClock: Clock = { now: () => 1700000000000 };
+
+  it("classifies a feature request intent", () => {
+    const classifier = new IntentClassifier(mockClock);
+    const result = classifier.execute({ intent: "add dark mode toggle" });
+    expect(result.taskClass).toBe("feature");
+  });
+});
+```
+
+Rules for unit tests:
+
+1. **Mock only interfaces** — never mock concrete classes
+2. **No `any` in mocks** — create properly typed mock objects
+3. **One assertion focus per test** — test one behaviour path
+4. **No shared mutable state** between tests — each test sets up its own fixtures
+5. **Test edge cases:** empty input, boundary values, error paths
+
+## Integration Tests
+
+Full pipeline tests using golden snapshot comparison:
+
+```typescript
+describe("Pipeline integration", () => {
+  it("produces expected output for a feature task", async () => {
+    const result = await pipeline.execute(fixtureRequest);
+    expect(result.compiledPrompt).toMatchSnapshot();
+  });
+});
+```
+
+- Golden snapshots stored in `__tests__/__snapshots__/`
+- Update snapshots deliberately: `pnpm test -- -u`
+- Review snapshot diffs in PRs — they are the contract
+
+## Regression Tests
+
+Bug fixes **must** include a regression test:
+
+1. Write a test that reproduces the bug (fails before the fix)
+2. Fix the bug
+3. Verify the test passes
+4. Name the test clearly: `it("does not crash when guard blocks all files (regression #42)")`
+
+## Type Safety in Tests
+
+- No `any` — if a mock is complex, create a typed helper
+- Use `satisfies` or `as const` for fixture data
+- Partial mocks: use `Pick<Interface, 'method1' | 'method2'>` when the test only exercises some methods
+
+## What to Test
+
+| Layer | What to test | How |
+|-------|-------------|-----|
+| Pipeline step | Input → Output transformation | Unit test with typed mocks |
+| Adapter | External library integration | Integration test (real SQLite in-memory, real tokenizer) |
+| MCP handler | Request → Response mapping | Integration test with mock pipeline |
+| CLI command | Arg parsing + output formatting | Integration test with mock pipeline |
+| Error paths | Error type, code, message | Unit test that expects specific `AicError` subclass |
+
+## What Not to Test
+
+- Private methods (test through public interface)
+- Third-party library behaviour (trust their tests)
+- Implementation details (test outcomes, not internal state)

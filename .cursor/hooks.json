@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "node .cursor/hooks/session-init.cjs"
+      }
+    ],
+    "afterFileEdit": [
+      {
+        "command": "node .cursor/hooks/record-edit.cjs ${filePath}"
+      }
+    ],
+    "stop": [
+      {
+        "command": "node .cursor/hooks/stop-check.cjs ${conversationId}"
+      }
+    ]
+  }
+}

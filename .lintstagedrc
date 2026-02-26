@@ -1,0 +1,6 @@
+{
+  "{shared,cli,mcp}/**/*.ts": ["eslint --fix --max-warnings 0", "prettier --write"],
+  "**/*.{json,md,yml,yaml}": ["prettier --write"],
+  "**/*.{js,cjs,mjs}": ["prettier --write"],
+  "*.ts": ["prettier --write"]
+}

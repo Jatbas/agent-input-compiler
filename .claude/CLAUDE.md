@@ -1,0 +1,84 @@
+# AIC — Claude Code Rules
+
+> This file is the Claude Code equivalent of `.cursor/rules/aic-architect.mdc`.
+> Claude Code reads it on every session. Keep it condensed and action-oriented.
+
+## Non-Negotiable Architectural Invariants
+
+- **First pass:** Write code that passes lint and conventions on the first version. Avoid rework.
+- **SOLID:** One public method per class; one class per file; one interface per `*.interface.ts` file. Constructor receives only interfaces — never concrete classes.
+- **Hexagonal:** `core/` and `pipeline/` have zero imports from `adapters/`, `storage/`, `cli/`, `mcp/`, Node.js APIs, or external packages. All I/O through interfaces only. Core interfaces must NOT expose infrastructure concepts (SQL syntax, HTTP verbs, file-system paths) — use domain terminology.
+- **Adapter wrapping:** Every external library has exactly ONE adapter or storage file that wraps it behind a core interface. No other file imports the library directly — enforced by ESLint `no-restricted-imports`. To swap a library, change one file.
+- **DIP:** No `new` for infrastructure/service classes outside composition roots (`mcp/src/server.ts`, `cli/src/commands/*.ts`). All dependencies via constructor injection. Storage classes receive the database instance — never construct it. Adapters inject `Clock` for time, never call `Date.now()` directly.
+- **OCP:** New capabilities via new classes implementing existing interfaces — never modify existing pipeline classes.
+- **Errors:** Never throw bare `Error`. Use `AicError` subclasses with machine-readable `code` property. Pipeline steps never catch-and-ignore. MCP server never crashes on a single bad request.
+- **Determinism:** No `Date.now()`, `new Date()`, or `Math.random()` anywhere — enforced by ESLint globally. Only `system-clock.ts` is exempt. All other code injects time via `Clock` interface.
+- **Immutability:** No `.push()`, `.splice()`, `.sort()` (mutating), `.reverse()` (mutating). Use spread/reduce. Pipeline steps never mutate inputs.
+- **Types:** No `any`. Explicit return types on all functions. Interfaces in `*.interface.ts` files (one interface per file). Max 5 methods per interface (ISP). Related type aliases live in `core/types/`, not in interface files.
+- **Comments:** `//` style only — `/* */` and `/** */` block comments are banned by ESLint. One short line max, explain _why_ not _what_. No JSDoc. No narrating comments.
+- **Branded types (ADR-010):** Use types from `shared/src/core/types/` — never raw `string`/`number` for domain values. `AbsolutePath`, `TokenCount`, `Milliseconds`, `Percentage`, `ISOTimestamp`, `TaskClass`, `EditorId`, `InclusionTier`, etc. `as const` objects for enums, not TypeScript `enum`. Null convention: `Type | null` = checked absent, `?: Type` = optional.
+- **Validation boundary (ADR-009):** Runtime validation at MCP handler, CLI parser, and config loader only. Core/pipeline never imports the validation library. After validation, produce branded types via constructor functions (`toTokenCount()`, `toAbsolutePath()`, etc.).
+- **IDs:** All entity PKs use UUIDv7 (`TEXT(36)` in SQLite). Never `INTEGER AUTOINCREMENT`. Exception: `config_history` uses SHA-256 content hash.
+- **Timestamps:** Always `YYYY-MM-DDTHH:mm:ss.sssZ` (UTC, ms, `Z`). Use `Clock` interface and `ISOTimestamp` branded type. Never `new Date()` directly.
+- **Database:** All SQL lives exclusively in `shared/src/storage/`. Every schema change requires a migration in `shared/src/storage/migrations/` (`NNN-description.ts`). Schema change + migration = same commit. Never edit a merged migration. Never run raw DDL outside the `MigrationRunner`.
+
+## Security Invariants
+
+- **Secrets:** Never hardcode API keys or tokens. Config references env var _names_, never values. All logging sanitizes secrets with `***`.
+- **`.aic/` directory:** `0700` permissions, auto-gitignored, no symlink traversal.
+- **Telemetry:** No file paths, content, prompts, intents, or PII in payloads. Typed schema enforcement only.
+- **Context Guard:** Never-include patterns (`.env`, `*.pem`, etc.) are non-overridable. Guard cannot be skipped or disabled.
+- **Prompt assembly:** Intent is opaque text in a template — never interpolated into system instructions. Context in delimited code blocks. Constraints after context.
+- **MCP error sanitization:** No stack traces, internal paths, or env details in error responses.
+
+## Dependencies
+
+- All versions pinned exact (`"9.39.3"`, never `"^9.0.0"`). No caret or tilde ranges.
+- Adding a runtime dependency requires justification: what it replaces, why no existing dep covers it, MIT/Apache-2.0 only.
+- One dependency per PR. Commit format: `chore(deps): update <package> to <version>`.
+
+## Documentation
+
+- `documentation/project-plan.md` is the architecture spec.
+- `documentation/mvp-specification-phase0.md` is the implementation spec.
+- Read docs before proposing or changing code.
+
+## File Naming
+
+- All `.ts` files use kebab-case (`intent-classifier.ts`). Interfaces: `*.interface.ts`. Tests: `*.test.ts`. Migrations: `NNN-description.ts`.
+- Documentation: kebab-case except conventional root files (`README.md`).
+
+## Commits
+
+Format: `type(scope): description` — max 72 chars, imperative, no period. Never `--no-verify`.
+
+## Source Structure
+
+```
+shared/src/core/         ← interfaces and types (no implementations)
+shared/src/pipeline/     ← pipeline steps (pure transformations)
+shared/src/adapters/     ← external library wrappers
+shared/src/storage/      ← SQLite access (only place for SQL)
+cli/src/commands/        ← CLI composition roots
+mcp/src/                 ← MCP server composition root
+```
+
+## ESLint
+
+Hexagonal boundaries are enforced by `no-restricted-imports` in `eslint.config.mjs`. Additional enforcement:
+
+- `Date.now()`, `new Date()`, `Math.random()` blocked globally (only `system-clock.ts` exempt)
+- Database constructor blocked in `storage/` (DIP — receive via constructor)
+- One interface per `*.interface.ts` file (ISP — sibling export detection)
+- Array mutations (`.push`, `.splice`, `.sort`, `.reverse`, `.pop`, `.shift`, `.unshift`) blocked
+- Storage cannot import from `pipeline/`, `adapters/`, `cli/`, `mcp/`
+- Adapters cannot import from `storage/`, `pipeline/`, `cli/`, `mcp/`
+
+Run `pnpm lint` before declaring work complete. Never add `eslint-disable`, `eslint-disable-next-line`, `@ts-ignore`, or `@ts-nocheck` comments — fix the code instead.
+
+## Tests
+
+- Co-located `__tests__/` directories next to source
+- Pattern: `*.test.ts`
+- Bug fixes must include a regression test
+- No `any` in tests
