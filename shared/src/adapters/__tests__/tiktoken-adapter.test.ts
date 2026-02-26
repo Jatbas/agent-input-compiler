@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { AicError } from "#core/errors/aic-error.js";
 import { TiktokenAdapter } from "../tiktoken-adapter.js";
 import { toTokenCount } from "#core/types/units.js";
 
@@ -31,7 +32,7 @@ describe("TiktokenAdapter", () => {
     vi.resetModules();
     vi.doMock("tiktoken", () => ({
       encoding_for_model: () => {
-        throw new Error("tiktoken unavailable");
+        throw new AicError("tiktoken unavailable", "TEST_SETUP");
       },
     }));
     const { TiktokenAdapter: TiktokenAdapterMocked } =

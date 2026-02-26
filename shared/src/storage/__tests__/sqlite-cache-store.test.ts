@@ -7,7 +7,12 @@ import { toAbsolutePath } from "#core/types/paths.js";
 import { toISOTimestamp } from "#core/types/identifiers.js";
 import { toTokenCount } from "#core/types/units.js";
 import type { CachedCompilation } from "#core/types/compilation-types.js";
+import type { Clock } from "#core/interfaces/clock.interface.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
+
+const stubClock: Clock = {
+  now: () => toISOTimestamp("2025-06-15T12:00:00.000Z"),
+};
 import { SqliteCacheStore } from "../sqlite-cache-store.js";
 
 function makeEntry(overrides: Partial<CachedCompilation> = {}): CachedCompilation {
@@ -37,7 +42,7 @@ describe("SqliteCacheStore", () => {
     tmpDir = mkdtempSync(join(tmpdir(), "aic-cache-store-"));
     db = new Database(":memory:");
     migration001.up(db);
-    store = new SqliteCacheStore(db, toAbsolutePath(tmpDir));
+    store = new SqliteCacheStore(db, toAbsolutePath(tmpDir), stubClock);
   }
 
   it("set then get returns same CachedCompilation", () => {

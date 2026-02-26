@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { AicError } from "#core/errors/aic-error.js";
 import { RulePackResolver } from "../rule-pack-resolver.js";
 import type { RulePackProvider } from "#core/interfaces/rule-pack-provider.interface.js";
 import type { TaskClassification } from "#core/types/task-classification.js";
@@ -14,7 +15,7 @@ function makeProvider(packs: Record<string, RulePack>): RulePackProvider {
   return {
     getBuiltInPack(name: string): RulePack {
       const pack = packs[name];
-      if (pack === undefined) throw new Error(`Unknown pack: ${name}`);
+      if (pack === undefined) throw new AicError(`Unknown pack: ${name}`, "TEST_SETUP");
       return pack;
     },
     getProjectPack(_projectRoot: AbsolutePath, _taskClass: string): RulePack | null {

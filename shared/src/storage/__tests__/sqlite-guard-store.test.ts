@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
+import { AicError } from "#core/errors/aic-error.js";
 import type { GuardFinding } from "#core/types/guard-types.js";
 import type { UUIDv7 } from "#core/types/identifiers.js";
 import { toUUIDv7, toISOTimestamp } from "#core/types/identifiers.js";
@@ -14,7 +15,8 @@ function mockIdGenerator(ids: readonly string[]): { generate(): UUIDv7 } {
   return {
     generate(): UUIDv7 {
       const id = ids[index];
-      if (id === undefined) throw new Error("mock id generator exhausted");
+      if (id === undefined)
+        throw new AicError("mock id generator exhausted", "TEST_SETUP");
       index += 1;
       return toUUIDv7(id);
     },
@@ -28,7 +30,7 @@ function mockClock(timestamps: readonly string[]): {
   return {
     now() {
       const ts = timestamps[index];
-      if (ts === undefined) throw new Error("mock clock exhausted");
+      if (ts === undefined) throw new AicError("mock clock exhausted", "TEST_SETUP");
       index += 1;
       return toISOTimestamp(ts);
     },

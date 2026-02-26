@@ -1,5 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
+import { AicError } from "#core/errors/aic-error.js";
 import { toISOTimestamp } from "#core/types/identifiers.js";
 import type { ISOTimestamp } from "#core/types/identifiers.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
@@ -13,7 +14,7 @@ function mockClock(timestamps: readonly ISOTimestamp[]): {
     clock: {
       now(): ISOTimestamp {
         const ts = timestamps[index];
-        if (ts === undefined) throw new Error("mock clock exhausted");
+        if (ts === undefined) throw new AicError("mock clock exhausted", "TEST_SETUP");
         index += 1;
         return ts;
       },

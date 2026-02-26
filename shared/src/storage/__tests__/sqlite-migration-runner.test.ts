@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { AicError } from "#core/errors/aic-error.js";
 import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import { toISOTimestamp } from "#core/types/identifiers.js";
@@ -9,7 +10,7 @@ import { migration as migration001 } from "../migrations/001-initial-schema.js";
 
 const clock = {
   now(): ReturnType<typeof toISOTimestamp> {
-    return toISOTimestamp(new Date().toISOString());
+    return toISOTimestamp("2025-01-15T10:00:00.000Z");
   },
 };
 
@@ -37,7 +38,7 @@ describe("SqliteMigrationRunner", () => {
 
     expect(rows).toHaveLength(1);
     const row = rows[0];
-    if (row === undefined) throw new Error("expected one row");
+    if (row === undefined) throw new AicError("expected one row", "TEST_SETUP");
     expect(row.id).toBe("001-initial-schema");
     expect(row.applied_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
   });

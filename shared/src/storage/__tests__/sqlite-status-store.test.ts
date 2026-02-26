@@ -1,8 +1,14 @@
 import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
+import type { Clock } from "#core/interfaces/clock.interface.js";
+import { toISOTimestamp } from "#core/types/identifiers.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
 import { SqliteStatusStore } from "../sqlite-status-store.js";
+
+const stubClock: Clock = {
+  now: () => toISOTimestamp("2025-06-15T12:00:00.000Z"),
+};
 
 describe("SqliteStatusStore", () => {
   let db: Database.Database;
@@ -15,7 +21,7 @@ describe("SqliteStatusStore", () => {
   function setup(): void {
     db = new Database(":memory:");
     migration001.up(db);
-    store = new SqliteStatusStore(db as unknown as ExecutableDb);
+    store = new SqliteStatusStore(db as unknown as ExecutableDb, stubClock);
   }
 
   it("sqlite_status_store_empty", () => {
