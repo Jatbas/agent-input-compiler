@@ -20,9 +20,17 @@ Execute a task file produced by the `aic-task-planner` skill. Read the task, int
 
 ## Process
 
-### 1. Read and validate the task
+### 1. Read, validate, and internalize the task
 
-Read the task file. Verify:
+**Pre-read all inputs in one parallel batch** to eliminate extra rounds:
+
+- The task file (e.g. `documentation/tasks/NNN-name.md`)
+- `documentation/mvp-progress.md`
+- `shared/package.json`
+- `eslint.config.mjs`
+- `.cursor/rules/aic-architect.mdc`
+
+**Validate** from the pre-read results:
 
 - Status is `Pending` (do not re-execute `Done` or `Blocked` tasks)
 - All dependencies listed in "Depends on" are actually `Done` in `documentation/mvp-progress.md`
@@ -41,7 +49,7 @@ Use the task number and kebab-case name from the task file (e.g. `feat/task-011-
 
 ### 2. Internalize the task
 
-Before writing any code, read and absorb these sections of the task file. Do not skip this step — it prevents rework caused by implementing without understanding the spec.
+Before writing any code, absorb these sections from the pre-read task file. Do not skip this step — it prevents rework caused by implementing without understanding the spec.
 
 **Read the Interface / Signature section (or Wiring Specification for composition roots).** Memorize:
 
@@ -56,15 +64,15 @@ Before writing any code, read and absorb these sections of the task file. Do not
 
 For non-composition-root tasks, all types are Tier 0 (verbatim) — this distinction only applies to composition root tasks.
 
-**Read the Config Changes section.** Note:
+**Read the Config Changes section.** Note (using the pre-read `shared/package.json` and `eslint.config.mjs`):
 
-- Which dependencies must exist (and verify they actually do in `shared/package.json`)
+- Which dependencies must exist (and verify they actually do — already in context from Step 1)
 - Which ESLint changes must be applied (and in which step)
 - If "None", confirm no config steps appear in the Steps section
 
 **Read the Architecture Notes.** Note design decisions (e.g. "replace semantics, not append", "sync API only", "no Clock needed"). These constrain your implementation.
 
-**Cross-check prerequisites:** If Config Changes lists a dependency as "already at X", verify it's actually there. If it lists an ESLint change, confirm the Steps section has a step for it. If anything doesn't match, **stop and tell the user** — the task file may need replanning.
+**Cross-check prerequisites:** If Config Changes lists a dependency as "already at X", verify it's actually there (package.json is in context). If it lists an ESLint change, confirm the Steps section has a step for it. If anything doesn't match, **stop and tell the user** — the task file may need replanning.
 
 **Task quality gate — scan for ambiguity before implementing:**
 
@@ -120,26 +128,29 @@ After completing all steps, run a single verification pass using tool output as 
 
 **4a — Run toolchain.**
 
-Run `pnpm lint && pnpm typecheck && pnpm test` and **read the output**. Confirm:
+Run the full toolchain in one command:
+
+```
+pnpm lint && pnpm typecheck && pnpm test && pnpm knip
+```
+
+**Read the output.** Confirm:
 
 - Zero errors AND zero warnings (including sonarjs cognitive-complexity warnings).
 - Test count has not dropped compared to previous run.
 - Each test name from the Tests table appears in the output by name.
+- No new unused files, exports, or dependencies introduced by this task (knip). Pre-existing knip findings (e.g. error files for future phases) are acceptable — only new findings matter.
 
-Then run `pnpm knip` and **read the output**. Confirm:
+This runs ONCE. Do not re-run unless you fix something. If the lint/typecheck/test portion fails, the chain stops before knip — fix the failure, then re-run the full chain.
 
-- No new unused files, exports, or dependencies introduced by this task.
-- Pre-existing knip findings (e.g. error files for future phases) are acceptable — only new findings matter.
+**4b — Re-read all files + mechanical checks in one parallel batch.**
 
-This runs ONCE per tool. Do not re-run unless you fix something.
+Fire all of these in a single round of tool calls:
 
-**4b — Re-read all files from disk.**
+- Use the Read tool on every file created or modified. Do NOT rely on what you remember writing. This breaks the "I just wrote it so I know it's fine" shortcut.
+- Batch all Grep calls for the mechanical checks below. Use Grep on the created/modified files for each dimension.
 
-Use the Read tool on every file created or modified. Do NOT rely on what you remember writing. This breaks the "I just wrote it so I know it's fine" shortcut.
-
-**4c — Mechanical checks (parallel Grep).**
-
-Batch all Grep calls in a single message for speed. Use Grep on the created/modified files for each dimension. **When a check finds violations, fix them immediately** — replace `.push()` with spread, add missing `readonly`, swap `/** */` for `//`, wrap raw literals with factory functions, add type annotations, refactor `let` to `const`, etc. After fixing, re-run only the failed checks to confirm they are clean before moving on.
+**When a check finds violations, fix them immediately** — replace `.push()` with spread, add missing `readonly`, swap `/** */` for `//`, wrap raw literals with factory functions, add type annotations, refactor `let` to `const`, etc. After fixing, re-run only the failed checks to confirm they are clean before moving on.
 
 | Dimension                          | Tool check                                                                                                                                                                                                                                                                       | Evidence required                                                                                                                                                                        |
 | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -155,9 +166,9 @@ Batch all Grep calls in a single message for speed. Use Grep on the created/modi
 | 10. Layer boundaries               | Grep for banned import patterns in new files (e.g. `from ['"](?!#)\.\.` for cross-layer relative imports, specific banned packages)                                                                                                                                              | Paste Grep output ("0 matches" = pass)                                                                                                                                                   |
 | 11. No `let` in production         | Grep for `^\s*let ` in new/modified production files (exclude `__tests__/` and `*.test.ts`)                                                                                                                                                                                      | Paste Grep output ("0 matches" = pass, or list each as justified control flag)                                                                                                           |
 
-**4d — Confirm clean and track first-pass quality.**
+**4c — Confirm clean and track first-pass quality.**
 
-After §4c, every dimension must be clean (all violations fixed, all re-checks passing). If a dimension reveals an architectural issue that cannot be fixed mechanically (e.g. signature mismatch, wrong layer boundary, missing DI), go to **Blocked diagnostic** — these indicate a task-file or design problem, not a code-style issue.
+After §4b, every dimension must be clean (all violations fixed, all re-checks passing). If a dimension reveals an architectural issue that cannot be fixed mechanically (e.g. signature mismatch, wrong layer boundary, missing DI), go to **Blocked diagnostic** — these indicate a task-file or design problem, not a code-style issue.
 
 Track first-pass quality: for each dimension, record whether it was clean on first check or required a fix. This is informational — it helps calibrate the "write correct code on the first pass" rules over time but does not gate progress. Report the count in §5a (e.g. "11/11 first-pass clean" or "9/11 first-pass clean, fixed 2: readonly array in X, block comment in Y").
 
@@ -165,13 +176,13 @@ Once all dimensions are confirmed clean, proceed to §5.
 
 ### 5. Finalize
 
-When all dimensions are confirmed clean, complete these four sub-steps in order.
+When all dimensions are confirmed clean, complete these three sub-steps in order.
 
 **5a — Report to the user:**
 
 - What was implemented (files created/modified)
 - Test results (pass count, confirming no regressions)
-- **First-pass quality: N/11** (from §4d) — list any dimensions that needed fixing and what was fixed
+- **First-pass quality: N/11** (from §4c) — list any dimensions that needed fixing and what was fixed
 - Review findings and fixes applied (if any)
 - Any concerns or follow-up items
 
@@ -181,51 +192,36 @@ Use the `aic-update-mvp-progress` skill to update `documentation/mvp-progress.md
 
 **Critical:** Use today's actual date for the daily log entry. If today's entry already exists, append to it. If it is a new day, create a new entry at the top of the Daily Log section (reverse chronological). Do not put today's work under yesterday's date.
 
-**5c — Update task status.**
+**5c — Update task status, archive, commit, and show diff.**
 
-Change the task file header from `> **Status:** In Progress` to `> **Status:** Done`.
+Run these sequentially in one flow — no user gate between them:
 
-**5d — Archive the task file.**
+1. Change the task file header from `> **Status:** In Progress` to `> **Status:** Done`.
+2. Archive the task file:
+   ```
+   mkdir -p documentation/tasks/done && mv documentation/tasks/NNN-name.md documentation/tasks/done/
+   ```
+3. Stage and commit on the feature branch:
+   ```
+   git add -A && git commit -m "feat(<scope>): <what was built>" && git diff main...HEAD --stat
+   ```
+   Use the conventional commit format: `type(scope): description`, max 72 chars, imperative, no period.
 
-Move the completed task file to `documentation/tasks/done/`:
+### 6. Merge and Clean Up
 
-```
-mkdir -p documentation/tasks/done
-mv documentation/tasks/NNN-name.md documentation/tasks/done/
-```
+This step handles the merge and cleanup. Present the diff to the user for approval.
 
-### 6. Commit, Merge, and Clean Up
-
-This step handles the full git lifecycle on the feature branch. Present everything to the user for approval before merging.
-
-**6a — Commit on the feature branch:**
-
-Stage all changed files and commit:
-
-```
-git add -A
-git commit -m "feat(<scope>): <what was built>"
-```
-
-Use the conventional commit format: `type(scope): description`, max 72 chars, imperative, no period.
-
-**6b — Show the diff and propose merge:**
-
-Show the user the full diff against main and the commit message:
-
-```
-git diff main...HEAD --stat
-```
+**6a — Propose merge:**
 
 Present:
 
-- The list of files changed (from `--stat`)
+- The list of files changed (from the `--stat` output in 5c)
 - The commit message used
 - Ask: **"Merge to main? (yes / adjust message / discard branch)"**
 
 **Do NOT merge automatically.** Wait for the user's response.
 
-**6c — On approval, merge and clean up:**
+**6b — On approval, merge and clean up:**
 
 ```
 git checkout main
@@ -234,9 +230,9 @@ git commit -m "feat(<scope>): <what was built>"
 git branch -D feat/task-NNN-kebab-name
 ```
 
-The squash merge produces a single clean commit on main. Use the same commit message from 6a (or the user's adjusted version).
+The squash merge produces a single clean commit on main. Use the same commit message from 5c (or the user's adjusted version).
 
-**6d — If the user says "discard":**
+**6c — If the user says "discard":**
 
 ```
 git checkout main

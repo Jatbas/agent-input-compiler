@@ -62,7 +62,19 @@ The process has **two passes** plus a presentation step. Each pass produces a co
 
 ## §1. Recommend the best next task
 
-Read `mvp-progress.md`. Identify all components with status `Not started` whose dependencies are `Done`.
+**Pre-read all inputs in one parallel batch** — these are needed in Pass 1 regardless of which component the user picks, and pre-reading eliminates a full round of tool calls later:
+
+- `documentation/mvp-progress.md`
+- `documentation/project-plan.md`
+- `documentation/mvp-specification-phase0.md`
+- `documentation/security.md`
+- `.cursor/rules/aic-architect.mdc`
+- `shared/package.json`
+- `eslint.config.mjs`
+- `SKILL-recipes.md` (this file's sibling — static reference)
+- `SKILL-guardrails.md` (this file's sibling — static reference)
+
+From `mvp-progress.md`, identify all components with status `Not started` whose dependencies are `Done`.
 
 **Rank** the unblocked components using these criteria (in priority order):
 
@@ -102,28 +114,38 @@ Wait for confirmation. If the user confirms their pick, proceed to Pass 1 with t
 
 **Goal:** In a single pass, gather every fact needed, verify the findings mechanically, resolve every design decision, and present the full picture for user review. When the user approves, Pass 2 is purely mechanical.
 
-**Use parallel Read calls** — read all required files in a single message. This keeps context in one window for cross-referencing.
+**Note:** `shared/package.json`, `eslint.config.mjs`, `SKILL-recipes.md`, and `SKILL-guardrails.md` were pre-read during §1. They are already in context — do not re-read them.
 
 ### A.1 Mandatory exploration checklist
 
-Complete every item. Each produces evidence for the report.
+Complete every item. Each produces evidence for the report. Items are organized into two batches to minimize sequential tool-call rounds.
 
-1. **Read `shared/package.json`** — record dependencies and pinned versions.
-2. **Read `eslint.config.mjs`** — record restricted-import rules for the target layer. If ESLint changes are needed, determine the exact structural change.
-3. **Read every interface the component implements** — copy the full interface verbatim.
-4. **Read every domain type the component reads or writes** — copy full type definitions verbatim. Never write "see task NNN."
-5. **Read the target database schema** — if the component touches a table, read the migration file. Record exact columns.
-6. **For adapters wrapping a library**: determine sync vs async from the interface return type.
-7. **Check branded types** — for every parameter, verify the correct branded type from `core/types/`. Check factory function usage.
-8. **Check existing files** — for every file the recipe pattern would create, check if it already EXISTS. Record each.
-9. **Plan the step breakdown** — count methods, assign to steps (max 2 per step, max 1 file per step). Record the mapping.
-10. **Verify every external library API by reading installed `.d.ts` files** — locate under `node_modules/`, read them, record exact class names, constructor signatures, method signatures, and import paths. If not installed, search the web. This applies to ALL layers.
-11. **Check recipe fit** — determine which recipe applies: adapter, storage, pipeline, or composition root. Read `SKILL-recipes.md` for the matching recipe's requirements. If no recipe fits → **BLOCKER**.
-12. **Verify module resolution** — if config changes are proposed, read the relevant `tsconfig.json` and record `moduleResolution`. If uncertain → state as blocker.
-13. **Search for existing solutions** (conditional — if the target layer already has 2+ files of this recipe type) — Grep for similar functionality before proposing new code. Check: does an existing adapter/storage/pipeline class already solve part of this problem? Could an existing interface gain a method instead of creating a new interface? Record findings in the EXISTING SOLUTIONS field of the Exploration Report.
-14. **Trace consumers of modified types** (conditional — if any file in the Files table is "Modify" and touches an interface or type) — Grep for all importers of the modified interface/type. Classify each as "will break" (uses removed/changed members) or "compatible" (unaffected). If breakage is expected, add "Modify" rows to the Files table for each broken consumer. Record findings in the CONSUMER ANALYSIS field of the Exploration Report.
+**Batch A — fire in one parallel round** (no data dependencies; interface paths and library names come from the mvp-spec pre-read in §1):
+
+1. **Read every interface the component implements** — copy the full interface verbatim.
+2. **Read the target database schema** — if the component touches a table, read the migration file. Record exact columns.
+3. **Check existing files** — for every file the recipe pattern would create, check if it already EXISTS (Glob). Record each.
+4. **Verify every external library API by reading installed `.d.ts` files** — locate under `node_modules/`, read them, record exact class names, constructor signatures, method signatures, and import paths. If not installed, search the web. This applies to ALL layers.
+5. **Check recipe fit** — determine which recipe applies (adapter, storage, pipeline, composition root) using the pre-read `SKILL-recipes.md`. If no recipe fits → **BLOCKER**.
+6. **Search for existing solutions** (conditional — if the target layer already has 2+ files of this recipe type) — Grep for similar functionality before proposing new code. Check: does an existing adapter/storage/pipeline class already solve part of this problem? Could an existing interface gain a method instead of creating a new interface? Record findings in the EXISTING SOLUTIONS field of the Exploration Report.
+
+**Batch B — fire in one parallel round after Batch A completes** (depends on interfaces, types, and library APIs discovered in Batch A):
+
+7. **Read every domain type the component reads or writes** — copy full type definitions verbatim. Never write "see task NNN."
+8. **For adapters wrapping a library**: determine sync vs async from the interface return type.
+9. **Check branded types** — for every parameter, verify the correct branded type from `core/types/`. Check factory function usage.
+10. **Plan the step breakdown** — count methods, assign to steps (max 2 per step, max 1 file per step). Record the mapping.
+11. **Verify module resolution** — if config changes are proposed, read the relevant `tsconfig.json` and record `moduleResolution`. If uncertain → state as blocker.
+12. **Trace consumers of modified types** (conditional — if any file in the Files table is "Modify" and touches an interface or type) — Grep for all importers of the modified interface/type. Classify each as "will break" (uses removed/changed members) or "compatible" (unaffected). If breakage is expected, add "Modify" rows to the Files table for each broken consumer. Record findings in the CONSUMER ANALYSIS field of the Exploration Report.
+
+**Pre-read items** (already in context from §1 — extract findings, do not re-read):
+
+13. **`shared/package.json`** — record dependencies and pinned versions.
+14. **`eslint.config.mjs`** — record restricted-import rules for the target layer. If ESLint changes are needed, determine the exact structural change.
 
 ### A.2 Produce the Exploration Report
+
+**Write the report to a file**, not to the chat. Save to `documentation/tasks/.exploration-NNN.md` (where NNN matches the upcoming task number — check existing files in `documentation/tasks/` for the next number). This avoids slow chat streaming for a 200–300 line document and gives the user a better review surface (editor search, folding, scrolling).
 
 Every field must be filled. Every field with pasted code must include a `Source:` line citing the exact file path read. If you cannot cite a source, write **"NOT VERIFIED — BLOCKER"**.
 
@@ -195,13 +217,13 @@ WIRING SPECIFICATION (composition roots only):
 STEP PLAN (max 2 methods per step, max 1 file per step):
 - Step N: [methodA], [methodB] — file: [single file path]
 
-EXISTING SOLUTIONS (conditional — only if checklist item 13 triggered):
+EXISTING SOLUTIONS (conditional — only if checklist item 6 triggered):
 - [file path]: [what it already solves, fully or partially]
   Source: [verified via Read/Grep]
 - Or: No existing solutions — this is genuinely new.
 - Or: Not applicable — first component of this recipe type in this layer.
 
-CONSUMER ANALYSIS (conditional — only if checklist item 14 triggered):
+CONSUMER ANALYSIS (conditional — only if checklist item 12 triggered):
 - [importer file path]: [will break — uses changed member X | compatible — unaffected]
   Source: [verified via Grep for import statements]
 - Or: Not applicable — no existing interfaces or types are modified.
@@ -245,7 +267,7 @@ Before presenting to the user, verify the Exploration Report yourself using obje
 4. **Grep for existing files** — for each file in EXISTING FILES, use Glob to confirm EXISTS/DOES NOT EXIST claims.
 5. **Cross-check library .d.ts** — re-read each cited `node_modules/` path, Grep for the class/method name, confirm signatures match.
 
-For every discrepancy found, fix the Exploration Report before proceeding. Do NOT present unchecked claims to the user.
+For every discrepancy found, fix the exploration file (use targeted edits on `documentation/tasks/.exploration-NNN.md`) before proceeding. Do NOT present unchecked claims to the user.
 
 ### A.4 Resolve design decisions
 
@@ -294,21 +316,27 @@ Record any simplifications made. If simplification changes the STEP PLAN or FILE
 
 ### A.5 User checkpoint
 
-**Present the Exploration Report AND resolved decisions together.** Say:
+The full Exploration Report is in `documentation/tasks/.exploration-NNN.md` (written in A.2). **Present a decisions-focused summary in chat**, not the full report. The summary must include every design decision so the user can approve the plan without opening the file for routine components. Say:
 
-> **Pass 1 complete — Exploration Report + Decisions:**
+> **Pass 1 complete.** Full report: `documentation/tasks/.exploration-NNN.md`
 >
-> [paste the full Exploration Report]
+> **Component:** [name] | **Layer:** [layer] | **Recipe:** [recipe]
 >
-> **Resolved decisions:**
+> **Design decisions:**
 >
-> - Constructor: [params and why]
+> - Constructor: [params and why each is needed]
 > - Method behaviors: [one sentence each]
-> - Config: [exact changes]
-> - Test strategy: [summary]
-> - [any other key decisions]
+> - Sync/async: [decision and why] (adapters only)
+> - Config changes: [exact changes or "none"]
+> - Dispatch pattern: [chosen pattern] (if applicable)
 >
-> **Review everything above. Say "proceed" to write the task file, or flag issues.**
+> **Files:** [count] create, [count] modify
+>
+> **Test strategy:** [count] test cases — [one-line summary of coverage]
+>
+> **Blockers:** [list or "None"]
+>
+> **Review the decisions above. Open the exploration file for full evidence. Say "proceed" or flag issues.**
 
 **Wait for the user to say "proceed."** Do NOT continue to Pass 2 until they do.
 
@@ -318,12 +346,11 @@ Record any simplifications made. If simplification changes the STEP PLAN or FILE
 
 **Goal:** Mechanically map the Exploration Report + resolved decisions into the task file template, then immediately verify using Grep-based checks. No creative composition — if it's not in the report, don't add it; if it is, don't omit it.
 
-### C.1 Read reference files
+### C.1 Confirm reference files in context
 
-Before writing, read these reference files for the current task:
+`SKILL-recipes.md` and `SKILL-guardrails.md` were pre-read during §1 and are already in context. Review the recipe matching the RECIPE field in the Exploration Report, and review all guardrails before writing. Do not re-read these files unless the context window has been truncated.
 
-- **`SKILL-recipes.md`** — read the recipe matching the RECIPE field in the Exploration Report
-- **`SKILL-guardrails.md`** — read all guardrails and apply them during writing
+The Exploration Report is on disk at `documentation/tasks/.exploration-NNN.md`. If context has been truncated and you need to re-read report sections, use Read with offset/limit to target specific sections rather than re-reading the entire file.
 
 ### C.2 Mapping table
 
@@ -372,9 +399,13 @@ Use the task file template below.
 
 Immediately after saving the task file, run every check below yourself using Grep and Read. Tool output is objective evidence — no second agent needed to interpret "0 matches = pass".
 
-**Step 1: Re-read ground truth.** Re-read from disk every interface file, type file, and library `.d.ts` the task references. Do NOT reuse what you remember — re-read the actual files.
+**Step 1: Re-read ground truth + run mechanical checks A–N in one parallel batch.** Fire all of these in a single round of tool calls:
 
-**Step 2: Run mechanical checks A–N in parallel.** Use Grep on the saved task file and Read on source files. Report pass/fail for each check with evidence (match count, line number, or "0 matches").
+- Re-read from disk every interface file, type file, and library `.d.ts` the task references (do NOT reuse what you remember — re-read the actual files).
+- Run Grep checks on the saved task file (ambiguity scan, self-contained check, step count, config changes, etc.).
+- Run Read + Grep cross-checks on source files (signature verification, library API accuracy, branded types, etc.).
+
+Report pass/fail for each check with evidence (match count, line number, or "0 matches").
 
 A. **AMBIGUITY SCAN** (three layers — see `SKILL-guardrails.md` "No ambiguity" for full list):
 Layer 1 — Grep the task file for each banned phrase category (Cat 1–7). ANY match in non-code lines = fail.
@@ -427,7 +458,7 @@ M. **SIMPLICITY CHECK:** Count "Create" rows in the Files table. For a single-co
 
 N. **CONSUMER COMPLETENESS (conditional — only if task modifies existing interfaces/types):** For each modified interface/type, Grep the codebase for importers. Every importer that will break must appear as a "Modify" row in the Files table. Missing consumers = fail. If no interfaces/types are modified, this check passes automatically.
 
-**Step 3: Score the rubric.** Score each dimension 0 (fail) or 1 (pass):
+**Step 2: Score the rubric.** Score each dimension 0 (fail) or 1 (pass):
 
 1. Interface accuracy (check B)
 2. Signature consistency (check B)
@@ -456,9 +487,10 @@ N. **CONSUMER COMPLETENESS (conditional — only if task modifies existing inter
 
 ## §6. Offer execution
 
-After verification passes, say:
+After verification passes:
 
-**"Task saved to `documentation/tasks/NNN-name.md`. Score: N/M (X%). Use the @aic-task-executor skill to execute it."**
+1. **Delete the exploration file:** Remove `documentation/tasks/.exploration-NNN.md`. The task file is self-contained — the exploration file has served its purpose.
+2. **Announce:** "Task saved to `documentation/tasks/NNN-name.md`. Score: N/M (X%). Use the @aic-task-executor skill to execute it."
 
 ---
 
