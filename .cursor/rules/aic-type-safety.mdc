@@ -1,0 +1,231 @@
+---
+description: Type safety and anti-pattern fix guidance — how to resolve lint errors from type-safety rules
+globs: "**/*.ts"
+alwaysApply: false
+---
+
+# Type Safety Rules
+
+**Quick reference:** No `as string`/`as number`/`as boolean` — branded types are already their base type. No double-cast `as unknown as T`. No `Partial<T>` in production. No `{ ...obj, field }` spread-to-override on domain types. No `enum`, `for...in`, default exports, `Object.assign`, nested ternaries. No `!` non-null assertions.
+
+## Branded Type Cast Removal
+
+Branded types use intersection: `Brand<T, B> = T & { __brand: B }`. A `RelativePath` IS a `string`. A `TokenCount` IS a `number`. Casting to the base type strips the brand and adds noise.
+
+### `as string` — remove the cast
+
+```typescript
+// before (lint error)
+const p = file.path as string;
+matchesGlob(p, pattern as string);
+(a.path as string).localeCompare(b.path as string);
+
+// after
+const p = file.path;
+matchesGlob(p, pattern);
+a.path.localeCompare(b.path);
+```
+
+Branded strings support all `String.prototype` methods directly. Functions accepting `string` also accept branded strings.
+
+### `as number` — remove the cast
+
+```typescript
+// before (lint error)
+const t = f.estimatedTokens as number;
+const total = files.reduce((s, f) => s + (f.estimatedTokens as number), 0);
+
+// after
+const t = f.estimatedTokens;
+const total = files.reduce((s, f) => s + f.estimatedTokens, 0);
+```
+
+Arithmetic, comparisons, and `Math.*` functions work directly on branded numbers. The result type is `number` which is correct for derived values.
+
+### `as boolean` — use a type guard
+
+```typescript
+// before (lint error)
+const active = value as boolean;
+
+// after
+const active = Boolean(value);
+// or
+if (typeof value === "boolean") { ... }
+```
+
+## Double-Cast `as unknown as T`
+
+Banned everywhere except `open-database.ts` (the single adapter boundary).
+
+```typescript
+// before (lint error)
+const result = rawData as unknown as MyInterface;
+
+// after — use a typed adapter function
+function adaptRawData(raw: ExternalType): MyInterface {
+  return {
+    field1: raw.field1,
+    field2: raw.field2,
+  };
+}
+```
+
+If bridging an untyped FFI boundary, isolate the cast in a single adapter file and add an ESLint override section for that file only.
+
+## Object Literal Type Assertions
+
+Banned by `consistent-type-assertions` with `objectLiteralTypeAssertions: "never"`.
+
+```typescript
+// before (lint error)
+const config = { timeout: 5000, retries: 3 } as Config;
+
+// after — use type annotation
+const config: Config = { timeout: 5000, retries: 3 };
+```
+
+The annotation provides compile-time structural checking. The assertion silences it.
+
+## Non-Null Assertion `!`
+
+Banned by `@typescript-eslint/no-non-null-assertion`.
+
+```typescript
+// before (lint error)
+const name = node.name!.getText(sf);
+const first = items[0]!;
+
+// after — use optional chaining + fallback
+const name = node.name?.getText(sf) ?? "";
+
+// or — use a null guard
+if (items.length === 0) { return []; }
+const first = items[0];
+```
+
+If a value is structurally guaranteed to exist (e.g., array index after length check), TypeScript's control flow analysis narrows the type automatically.
+
+## Spread-to-Override on Domain Types
+
+Not enforced by a lint rule (ESLint AST cannot distinguish domain objects from accumulators), but enforced by code review and this rule.
+
+```typescript
+// avoid in production — hides field evolution
+const updated: SelectedFile = { ...file, tier: next, estimatedTokens: newTokens };
+
+// prefer — explicit construction breaks at compile time when type evolves
+const updated: SelectedFile = {
+  path: file.path,
+  language: file.language,
+  estimatedTokens: newTokens,
+  relevanceScore: file.relevanceScore,
+  tier: next,
+};
+```
+
+**Exceptions (spread is acceptable):**
+
+- Reduce accumulators with file-local types (e.g., `StripperState` in `comment-stripper.ts`)
+- Test factories using `Partial<T>` (tests are exempt from `Partial` ban)
+
+## `Partial<T>` in Production (core/pipeline only)
+
+Banned by `no-restricted-syntax` in `core/` and `pipeline/`.
+
+```typescript
+// before (lint error in core/pipeline)
+function update(base: Config, overrides: Partial<Config>): Config {
+  return { ...base, ...overrides };
+}
+
+// after — explicit parameter type
+function update(base: Config, newTimeout: Milliseconds): Config {
+  return {
+    timeout: newTimeout,
+    retries: base.retries,
+    endpoint: base.endpoint,
+  };
+}
+```
+
+If a function truly needs flexible overrides, define a separate narrower type listing only the mutable fields.
+
+## TypeScript `enum`
+
+Banned globally. Use `as const` objects following the existing pattern in `core/types/enums.ts`:
+
+```typescript
+// before (lint error)
+enum TaskClass { Feature = "feature", Bugfix = "bugfix" }
+
+// after
+const TASK_CLASS = { FEATURE: "feature", BUGFIX: "bugfix" } as const;
+type TaskClass = (typeof TASK_CLASS)[keyof typeof TASK_CLASS];
+```
+
+## `for...in`
+
+Banned globally. Iterates inherited properties and has surprising behavior.
+
+```typescript
+// before (lint error)
+for (const key in obj) { ... }
+
+// after
+for (const key of Object.keys(obj)) { ... }
+// or
+for (const [key, value] of Object.entries(obj)) { ... }
+```
+
+## Default Exports
+
+Banned globally. Named exports are grep-friendly and refactor-safe.
+
+```typescript
+// before (lint error)
+export default class Foo { ... }
+
+// after
+export class Foo { ... }
+```
+
+## `Object.assign`
+
+Banned globally. Mutates the first argument.
+
+```typescript
+// before (lint error)
+const merged = Object.assign({}, a, b);
+
+// after
+const merged = { ...a, ...b };
+```
+
+## Nested Ternaries
+
+Banned globally. Extract to a function or dispatch map.
+
+```typescript
+// before (lint error)
+const label = x > 10 ? "high" : x > 5 ? "medium" : "low";
+
+// after — dispatch function
+function classifyValue(x: number): string {
+  if (x > 10) { return "high"; }
+  if (x > 5) { return "medium"; }
+  return "low";
+}
+```
+
+## Layer Exemptions
+
+| Rule | Production | Tests | open-database.ts |
+|------|-----------|-------|------------------|
+| `as string` / `as number` / `as boolean` | Error | Off | Error |
+| Double-cast `as X as Y` | Error | Off | Off |
+| `Partial<T>` | Error (core/pipeline) | Off | N/A |
+| `!` non-null assertion | Error | Off | Error |
+| `consistent-type-assertions` | Error | Off | Error |
+| `enum`, `for...in`, default export | Error | Error | Error |
+| `Object.assign`, nested ternary | Error | Error | Error |

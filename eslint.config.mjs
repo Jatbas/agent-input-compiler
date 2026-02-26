@@ -89,6 +89,66 @@ const CORE_PIPELINE_EXTRA = [
     selector: "UnaryExpression[operator='delete']",
     message: "delete mutates objects. Use object rest/spread to omit properties.",
   },
+  {
+    selector: 'TSTypeReference[typeName.name="Partial"]',
+    message:
+      "Partial<T> enables weak spread-to-override patterns. Use explicit full construction in production code. See .cursor/rules/aic-type-safety.mdc.",
+  },
+];
+
+// ─── Type-safety and anti-pattern restricted-syntax patterns ─────────
+
+const PRIMITIVE_CAST_BANS = [
+  {
+    selector: 'TSAsExpression[typeAnnotation.type="TSStringKeyword"]',
+    message:
+      "Branded string types (RelativePath, ISOTimestamp, etc.) are assignable to string — remove `as string`. See .cursor/rules/aic-type-safety.mdc.",
+  },
+  {
+    selector: 'TSAsExpression[typeAnnotation.type="TSNumberKeyword"]',
+    message:
+      "Branded number types (TokenCount, Milliseconds, etc.) are assignable to number — remove `as number`. See .cursor/rules/aic-type-safety.mdc.",
+  },
+  {
+    selector: 'TSAsExpression[typeAnnotation.type="TSBooleanKeyword"]',
+    message:
+      "Do not cast to boolean. Use a type guard or Boolean() coercion. See .cursor/rules/aic-type-safety.mdc.",
+  },
+];
+
+const DOUBLE_CAST_BAN = {
+  selector: 'TSAsExpression[expression.type="TSAsExpression"]',
+  message:
+    "Double-cast `as X as Y` bypasses all type checking. Use a properly typed adapter boundary. See .cursor/rules/aic-type-safety.mdc.",
+};
+
+const ANTI_PATTERN_BANS = [
+  {
+    selector: "TSEnumDeclaration",
+    message:
+      "TypeScript enum is banned. Use `as const` object + type alias. See core/types/enums.ts for the pattern.",
+  },
+  {
+    selector: "ForInStatement",
+    message:
+      "for...in iterates inherited properties. Use Object.keys/entries/values with for...of or reduce.",
+  },
+  {
+    selector: "ExportDefaultDeclaration",
+    message:
+      "Default exports are banned. Use named exports — they are refactor-friendly and grep-friendly.",
+  },
+  {
+    selector:
+      'CallExpression[callee.object.name="Object"][callee.property.name="assign"]',
+    message:
+      "Object.assign mutates the first argument. Use spread { ...a, ...b } instead.",
+  },
+  {
+    selector: "ConditionalExpression ConditionalExpression",
+    message:
+      "Nested ternaries reduce readability. Extract to a helper function or a dispatch map.",
+  },
 ];
 
 // ─── #alias whitelist per layer ─────────────────────────────────────
@@ -121,6 +181,9 @@ const BASE_RESTRICTED = [
   ...DATE_RESTRICTIONS,
   MATH_RANDOM,
   IF_CHAIN_BAN,
+  ...PRIMITIVE_CAST_BANS,
+  DOUBLE_CAST_BAN,
+  ...ANTI_PATTERN_BANS,
 ];
 
 const CORE_PIPELINE_RESTRICTED = [
@@ -227,6 +290,13 @@ export default tseslint.config(
         "warn",
         { ignoreArrowShorthand: true },
       ],
+      "@typescript-eslint/no-non-null-assertion": "error",
+      "@typescript-eslint/no-unnecessary-type-assertion": "error",
+      "@typescript-eslint/consistent-type-assertions": [
+        "error",
+        { assertionStyle: "as", objectLiteralTypeAssertions: "never" },
+      ],
+      "@typescript-eslint/no-implied-eval": "error",
 
       // ── SonarJS: logic bugs and cognitive complexity ──
       "sonarjs/no-identical-conditions": "error",
@@ -287,6 +357,12 @@ export default tseslint.config(
 
       // ── General quality ──
       "no-console": "warn",
+      "no-eval": "error",
+      "no-new-func": "error",
+      "prefer-rest-params": "error",
+      "no-extend-native": "error",
+      "no-labels": "error",
+      "no-sequences": "error",
       eqeqeq: ["error", "always"],
       curly: ["error", "all"],
       "@typescript-eslint/no-unused-vars": [
@@ -624,10 +700,22 @@ export default tseslint.config(
   },
 
   // ─── open-database.ts: single place that creates Database for CLI/MCP reuse ───
+  // Exempt from DOUBLE_CAST_BAN — this is the one adapter boundary where
+  // `as unknown as ExecutableDb` is necessary to bridge better-sqlite3.
   {
     files: ["shared/src/storage/open-database.ts"],
     rules: {
-      "no-restricted-syntax": ["error", ...BASE_RESTRICTED, STORAGE_HASH_WHITELIST],
+      "no-restricted-syntax": [
+        "error",
+        BARE_ERROR,
+        ...ARRAY_MUTATIONS,
+        ...DATE_RESTRICTIONS,
+        MATH_RANDOM,
+        IF_CHAIN_BAN,
+        ...PRIMITIVE_CAST_BANS,
+        ...ANTI_PATTERN_BANS,
+        STORAGE_HASH_WHITELIST,
+      ],
     },
   },
 
@@ -1152,6 +1240,10 @@ export default tseslint.config(
 
   // ─── Test files: relax rules ──────────────────────────────────────
   // Tests need freedom to import setup deps (node:fs, better-sqlite3, etc.)
+  // Exempt from: primitive cast bans, double-cast ban, non-null assertion,
+  // consistent-type-assertions (tests need `as Type` for mocks).
+  // Keep: enum ban, for-in ban, default export ban, Object.assign ban,
+  // nested ternary ban — these are never legitimate even in tests.
   {
     files: ["**/*.test.ts", "**/__tests__/**/*.ts"],
     rules: {
@@ -1167,6 +1259,9 @@ export default tseslint.config(
       "@typescript-eslint/require-await": "off",
       "@typescript-eslint/no-redundant-type-constituents": "off",
       "@typescript-eslint/no-confusing-void-expression": "off",
+      "@typescript-eslint/no-non-null-assertion": "off",
+      "@typescript-eslint/no-unnecessary-type-assertion": "off",
+      "@typescript-eslint/consistent-type-assertions": "off",
       "sonarjs/cognitive-complexity": "off",
       "sonarjs/no-identical-conditions": "off",
       "sonarjs/no-identical-expressions": "off",
@@ -1176,7 +1271,13 @@ export default tseslint.config(
       "max-classes-per-file": "off",
       "no-console": "off",
       "no-param-reassign": "off",
-      "no-restricted-syntax": ["error", BARE_ERROR, ...DATE_RESTRICTIONS, MATH_RANDOM],
+      "no-restricted-syntax": [
+        "error",
+        BARE_ERROR,
+        ...DATE_RESTRICTIONS,
+        MATH_RANDOM,
+        ...ANTI_PATTERN_BANS,
+      ],
       "no-restricted-imports": "off",
     },
   },
