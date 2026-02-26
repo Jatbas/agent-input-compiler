@@ -1,9 +1,11 @@
 import { program, type Command } from "commander";
 import { CompilationArgsSchema } from "./schemas/compilation-args.js";
 import { InspectArgsSchema } from "./schemas/inspect-args.js";
+import { InitArgsSchema } from "./schemas/init-args.js";
 import { StatusArgsSchema } from "./schemas/status-args.js";
 import { compileCommand } from "./commands/compile.js";
 import { inspectCommand } from "./commands/inspect.js";
+import { initCommand } from "./commands/init.js";
 import { statusCommand } from "./commands/status.js";
 import type { CompilationRunner } from "@aic/shared/core/interfaces/compilation-runner.interface.js";
 import type { InspectRunner } from "@aic/shared/core/interfaces/inspect-runner.interface.js";
@@ -93,6 +95,21 @@ program
       inspectCommand(args, inspectStubRunner),
     ),
   );
+
+program
+  .command("init")
+  .description("Scaffold aic.config.json and add .aic/ to .gitignore")
+  .option("--root <path>", "project root directory", process.cwd())
+  .option("--upgrade", "migrate config to current schema and back up original")
+  .action(async function (this: Command) {
+    await runAction(async () => {
+      const parsed = InitArgsSchema.parse({
+        ...resolveBaseArgs(this.opts() as CliOpts),
+        upgrade: this.opts()["upgrade"] === true,
+      });
+      await initCommand(parsed);
+    });
+  });
 
 program
   .command("status")
