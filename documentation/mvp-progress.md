@@ -1,8 +1,8 @@
 # AIC MVP Progress
 
-**Status:** Phase F in progress (compile + inspect handlers done)  
+**Status:** Phase G in progress (Zod schemas CLI done)  
 **Phase:** 0 (MVP)  
-**Overall:** ~83%
+**Overall:** ~89%
 
 ---
 
@@ -86,7 +86,7 @@
 | inspect command   | Not started | cli/src/commands/ |
 | status command    | Not started | cli/src/commands/ |
 | init command      | Not started | cli/src/commands/ |
-| Zod schemas (CLI) | Not started | cli/src/schemas/  |
+| Zod schemas (CLI) | Done        | cli/src/schemas/  |
 
 ### Phase H — Integration Tests
 
@@ -101,7 +101,7 @@
 
 ### 2026-02-26
 
-**Components:** compile handler, CompilationRunner interface, CompilationRequestSchema (MCP), inspect handler, InspectRunner, RepoMapSupplier, InspectRequestSchema
+**Components:** compile handler, CompilationRunner interface, CompilationRequestSchema (MCP), inspect handler, InspectRunner, RepoMapSupplier, InspectRequestSchema, Zod schemas (CLI)
 **Completed:**
 
 - CompilationRunner interface in shared/core/interfaces; run(request) returns Promise<{ compiledPrompt, meta }>
@@ -113,6 +113,7 @@
 - InspectRunner in shared/pipeline: Steps 1–8 (classify, resolve, allocate, getRepoMap, selectContext, guard.scan, transform, ladder, assemble), tokenSummary and rulePacks built; no FileContentReader; stub RepoMapSupplier in server
 - InspectRequestSchema (Zod raw shape) in mcp/schemas; handleInspect in mcp/handlers (parsed args → InspectRequest → runner.inspect, AicError sanitized, path.join for dbPath)
 - server.ts: InspectRunner wired with stub RepoMapSupplier (StorageError reject), server.tool("aic_inspect", InspectRequestSchema, handleInspect); aic_inspect_invalid_params and aic_inspect_stub_error tests
+- Zod schemas (CLI): CompilationArgsSchema, InspectArgsSchema, InitArgsSchema, StatusArgsSchema in cli/src/schemas/ with z.infer types; four test files (valid/missing/over-max, defaults, upgrade); cli tsconfig exclude adjusted so **tests** are in project for ESLint
 
 ### 2026-02-25
 
