@@ -95,3 +95,4 @@ export type {
   CachedCompilation,
 } from "./compilation-types.js";
 export type { TelemetryEvent } from "./telemetry-types.js";
+export type { InspectRequest, PipelineTrace } from "./inspect-types.js";

@@ -17,6 +17,21 @@ Produce a self-contained task file that any agent can pick up and execute withou
 
 A confident-looking wrong plan is the worst possible output. An incomplete plan that says "I don't know X, here's what I need" is infinitely better. **Never trade correctness for completeness.**
 
+## Simplicity Principle: Simplest Correct Path First
+
+**The default is the simplest solution that is correct. Complexity must be justified.**
+
+The planner's natural bias is toward comprehensiveness — more types, more files, more abstractions. Recipes reinforce this by mechanically generating artifacts. The result: plans that are technically correct but unnecessarily complex.
+
+**Rules:**
+
+- **Prefer extending over creating.** Before proposing a new interface, type, or file, check if an existing one can gain a method or field. Adding a method to an existing interface is simpler than creating a new interface + adapter + test file.
+- **Prefer fewer files.** If a change can live in an existing file without making it unwieldy, put it there. A new file is a new import, a new mental context switch, and a new thing to maintain.
+- **Prefer no abstraction over premature abstraction.** A branded type used in exactly one place, a utility function called once, an interface with one implementor that will never have a second — these are indirection, not abstraction. Inline until a second use case appears.
+- **Prefer direct flow over transformation layers.** If data already has the right shape, pass it through. Don't create intermediate types or mapping functions unless the shapes genuinely differ.
+
+**The simplicity test:** For every new file, new type, or new interface in the plan, ask: _"What happens if I don't create this and instead use what already exists?"_ If the answer is "nothing breaks, and the code is still clear" — don't create it.
+
 ## When to Use
 
 - User says "plan next task", "what's next", or "create a task"
@@ -77,6 +92,8 @@ Complete every item. Each produces evidence for the report.
 10. **Verify every external library API by reading installed `.d.ts` files** — locate under `node_modules/`, read them, record exact class names, constructor signatures, method signatures, and import paths. If not installed, search the web. This applies to ALL layers.
 11. **Check recipe fit** — determine which recipe applies: adapter, storage, pipeline, or composition root. Read `SKILL-recipes.md` for the matching recipe's requirements. If no recipe fits → **BLOCKER**.
 12. **Verify module resolution** — if config changes are proposed, read the relevant `tsconfig.json` and record `moduleResolution`. If uncertain → state as blocker.
+13. **Search for existing solutions** (conditional — if the target layer already has 2+ files of this recipe type) — Grep for similar functionality before proposing new code. Check: does an existing adapter/storage/pipeline class already solve part of this problem? Could an existing interface gain a method instead of creating a new interface? Record findings in the EXISTING SOLUTIONS field of the Exploration Report.
+14. **Trace consumers of modified types** (conditional — if any file in the Files table is "Modify" and touches an interface or type) — Grep for all importers of the modified interface/type. Classify each as "will break" (uses removed/changed members) or "compatible" (unaffected). If breakage is expected, add "Modify" rows to the Files table for each broken consumer. Record findings in the CONSUMER ANALYSIS field of the Exploration Report.
 
 ### A.2 Produce the Exploration Report
 
@@ -150,6 +167,23 @@ WIRING SPECIFICATION (composition roots only):
 STEP PLAN (max 2 methods per step, max 1 file per step):
 - Step N: [methodA], [methodB] — file: [single file path]
 
+EXISTING SOLUTIONS (conditional — only if checklist item 13 triggered):
+- [file path]: [what it already solves, fully or partially]
+  Source: [verified via Read/Grep]
+- Or: No existing solutions — this is genuinely new.
+- Or: Not applicable — first component of this recipe type in this layer.
+
+CONSUMER ANALYSIS (conditional — only if checklist item 14 triggered):
+- [importer file path]: [will break — uses changed member X | compatible — unaffected]
+  Source: [verified via Grep for import statements]
+- Or: Not applicable — no existing interfaces or types are modified.
+
+APPROACH EVALUATION (conditional — only if recipe fit required deliberation OR component is a composition root):
+- Approach A: [description] — files: [count], new artifacts: [count]
+- Approach B: [description] — files: [count], new artifacts: [count]
+- Chosen: [A or B] — [why]
+- Or: Not applicable — recipe fit is obvious, single clear approach.
+
 LAYER BLOCKERS:
 - Storage needs node:fs/node:path? [YES → STOP | NO]
 - Core/pipeline imports external package? [YES → STOP | NO]
@@ -218,6 +252,18 @@ If unsure whether a parameter is needed, **ask the user**.
 
 **Dispatch pattern:** If 3+ branches on enum/discriminator, choose `Record<Enum, Handler>` or handler array. Write the chosen pattern.
 
+### A.4b Simplicity sweep
+
+After resolving all decisions, review the plan for over-engineering. For every new artifact the plan introduces, answer one question:
+
+- **Each new file in Files table:** "Can this live in an existing file?" If an existing file in the same layer/directory handles the same concern, add to it instead.
+- **Each new interface:** "Does an existing interface already cover this responsibility?" If it can gain a method, prefer that.
+- **Each new type/branded type:** "Is this type used in more than one place?" If used only by the component being built, consider inlining or using an existing type.
+
+**Red flag:** If the plan creates 3+ new files for a single-concern component (beyond source + test), justify each file or simplify.
+
+Record any simplifications made. If simplification changes the STEP PLAN or FILES, update them before proceeding.
+
 ### A.5 User checkpoint
 
 **Present the Exploration Report AND resolved decisions together.** Say:
@@ -258,6 +304,9 @@ Mechanically map the Exploration Report to the template:
 | Report field                   | Template section                                          |
 | ------------------------------ | --------------------------------------------------------- |
 | EXISTING FILES                 | Files table (only "Create" for DOES NOT EXIST)            |
+| EXISTING SOLUTIONS             | Architecture Notes (reuse decisions)                      |
+| CONSUMER ANALYSIS              | Files table ("Modify" rows for broken consumers)          |
+| APPROACH EVALUATION            | Architecture Notes (chosen approach + rationale)          |
 | INTERFACES                     | Interface / Signature (first code block)                  |
 | CONSTRUCTOR + METHOD BEHAVIORS | Interface / Signature (second code block — class)         |
 | DEPENDENT TYPES                | Dependent Types (tiered: T0 verbatim, T1 table, T2 table) |
@@ -297,7 +346,7 @@ Immediately after saving the task file, run every check below yourself using Gre
 
 **Step 1: Re-read ground truth.** Re-read from disk every interface file, type file, and library `.d.ts` the task references. Do NOT reuse what you remember — re-read the actual files.
 
-**Step 2: Run mechanical checks A–L in parallel.** Use Grep on the saved task file and Read on source files. Report pass/fail for each check with evidence (match count, line number, or "0 matches").
+**Step 2: Run mechanical checks A–N in parallel.** Use Grep on the saved task file and Read on source files. Report pass/fail for each check with evidence (match count, line number, or "0 matches").
 
 A. **AMBIGUITY SCAN** (three layers — see `SKILL-guardrails.md` "No ambiguity" for full list):
 Layer 1 — Grep the task file for each banned phrase category (Cat 1–7). ANY match in non-code lines = fail.
@@ -346,6 +395,10 @@ K. **LIBRARY API ACCURACY:** Re-read the `.d.ts` files. Cross-check class names,
 
 L. **WIRING ACCURACY (composition roots only):** Re-read each concrete class source file. Every `new ClassName(...)` call in the task must match actual constructor signature.
 
+M. **SIMPLICITY CHECK:** Count "Create" rows in the Files table. For a single-concern component (one interface, one class), more than 3 "Create" rows (source + test + one config/migration) requires justification in Architecture Notes. If no justification = fail.
+
+N. **CONSUMER COMPLETENESS (conditional — only if task modifies existing interfaces/types):** For each modified interface/type, Grep the codebase for importers. Every importer that will break must appear as a "Modify" row in the Files table. Missing consumers = fail. If no interfaces/types are modified, this check passes automatically.
+
 **Step 3: Score the rubric.** Score each dimension 0 (fail) or 1 (pass):
 
 1. Interface accuracy (check B)
@@ -360,6 +413,8 @@ L. **WIRING ACCURACY (composition roots only):** Re-read each concrete class sou
 10. Codebase sync (check F)
 11. Library API accuracy (check K)
 12. Wiring accuracy — composition roots only (check L)
+13. Simplicity (check M)
+14. Consumer completeness — conditional (check N)
 
 ### C.6 Score and act
 
@@ -388,13 +443,15 @@ Triggered when the user asks to review one or more task files.
 - "review task 008" → single task
 - "review tasks" / "review all tasks" → all pending in `documentation/tasks/` (skip `done/`)
 
-**Step 7a: Gather codebase state.** Run the Pass 1 exploration checklist once for the full batch. Use parallel Read calls. Cache the results.
+**Step 7a: Check for codebase drift.** For each file referenced in the task's Files table (both "Create" and "Modify" paths), check if the file or its directory has changed since the task was written. Use `git log -1 --format='%ai' -- <path>` for modified files and Glob for created files that now exist. If drift is detected, flag the specific files and re-read them before proceeding.
 
-**Step 7b: Evaluate each task.** Run the mechanical checks (C.5) on each task file yourself. Use parallel Grep + Read calls. For multiple tasks, batch the Grep calls — up to 4 task files in parallel.
+**Step 7b: Gather codebase state.** Run the Pass 1 exploration checklist once for the full batch. Use parallel Read calls. Cache the results.
 
-**Step 7c: Present findings.** For each task: score, guardrail violations table, specific fixes. For multiple tasks: summary table first.
+**Step 7c: Evaluate each task.** Run the mechanical checks (C.5) on each task file yourself. Use parallel Grep + Read calls. For multiple tasks, batch the Grep calls — up to 4 task files in parallel.
 
-**Step 7d: Rewrite.** Ask: **"Rewrite all, rewrite specific tasks (list numbers), or skip?"**
+**Step 7d: Present findings.** For each task: score, guardrail violations table, specific fixes. If drift was detected in 7a, highlight affected sections. For multiple tasks: summary table first.
+
+**Step 7e: Rewrite.** Ask: **"Rewrite all, rewrite specific tasks (list numbers), or skip?"**
 
 When rewriting:
 
@@ -513,6 +570,8 @@ If during execution you encounter something unexpected:
 1. **Stop immediately** — do not guess or improvise
 2. Append a `## Blocked` section with what you tried, what went wrong, what decision you need
 3. Report to the user and wait for guidance
+
+**Circuit breaker:** If you find yourself making 3+ workarounds or adaptations to make something work (type casts, extra plumbing, output patching), stop. The approach is likely wrong. List the adaptations, report to the user, and re-evaluate before continuing.
 ````
 
 ---

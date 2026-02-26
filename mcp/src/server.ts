@@ -20,8 +20,13 @@ import {
   type TaskClass,
 } from "@aic/shared/core/types/enums.js";
 import type { CompilationRunner } from "@aic/shared/core/interfaces/compilation-runner.interface.js";
+import type { RepoMapSupplier } from "@aic/shared/core/interfaces/repo-map-supplier.interface.js";
+import { InspectRunner } from "@aic/shared/pipeline/inspect-runner.js";
+import { StorageError } from "@aic/shared/core/errors/storage-error.js";
 import { CompilationRequestSchema } from "./schemas/compilation-request.js";
+import { InspectRequestSchema } from "./schemas/inspect-request.schema.js";
 import { createCompileHandler } from "./handlers/compile-handler.js";
+import { handleInspect } from "./handlers/inspect-handler.js";
 import Database from "better-sqlite3";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -176,15 +181,15 @@ export function createMcpServer(projectRoot: AbsolutePath): McpServer {
   const fileContentReader = createFileContentReader(projectRoot);
   const rulePackProvider = createRulePackProvider(projectRoot);
   const budgetConfig = createDefaultBudgetConfig();
-  const _intentClassifier = new IntentClassifier();
-  const _rulePackResolver = new RulePackResolver(rulePackProvider);
-  const _budgetAllocator = new BudgetAllocator(budgetConfig);
-  const _heuristicSelector = new HeuristicSelector(languageProviders, { maxFiles: 20 });
+  const intentClassifier = new IntentClassifier();
+  const rulePackResolver = new RulePackResolver(rulePackProvider);
+  const budgetAllocator = new BudgetAllocator(budgetConfig);
+  const heuristicSelector = new HeuristicSelector(languageProviders, { maxFiles: 20 });
   const exclusionScanner = new ExclusionScanner();
   const secretScanner = new SecretScanner();
   const promptInjectionScanner = new PromptInjectionScanner();
   const scanners = [exclusionScanner, secretScanner, promptInjectionScanner] as const;
-  const _contextGuard = new ContextGuard(scanners, fileContentReader, []);
+  const contextGuard = new ContextGuard(scanners, fileContentReader, []);
   const whitespaceNormalizer = new WhitespaceNormalizer();
   const commentStripper = new CommentStripper();
   const jsonCompactor = new JsonCompactor();
@@ -195,17 +200,40 @@ export function createMcpServer(projectRoot: AbsolutePath): McpServer {
     jsonCompactor,
     lockFileSkipper,
   ] as const;
-  const _contentTransformerPipeline = new ContentTransformerPipeline(
+  const contentTransformerPipeline = new ContentTransformerPipeline(
     transformers,
     fileContentReader,
     tokenCounter,
   );
-  const _summarisationLadder = new SummarisationLadder(
+  const summarisationLadder = new SummarisationLadder(
     languageProviders,
     tokenCounter,
     fileContentReader,
   );
-  const _promptAssembler = new PromptAssembler(fileContentReader);
+  const promptAssembler = new PromptAssembler(fileContentReader);
+
+  const stubRepoMapSupplier: RepoMapSupplier = {
+    getRepoMap() {
+      return Promise.reject(
+        new StorageError("RepoMap not available; RepoMapBuilder not implemented"),
+      );
+    },
+  };
+
+  const clock = new SystemClock();
+  const inspectRunner = new InspectRunner(
+    intentClassifier,
+    rulePackResolver,
+    budgetAllocator,
+    heuristicSelector,
+    contextGuard,
+    contentTransformerPipeline,
+    summarisationLadder,
+    promptAssembler,
+    stubRepoMapSupplier,
+    clock,
+    tiktokenAdapter,
+  );
 
   const stubRunner: CompilationRunner = {
     run(_request) {
@@ -237,9 +265,9 @@ export function createMcpServer(projectRoot: AbsolutePath): McpServer {
   };
   const server = new McpServer({ name: "aic", version: "0.1.0" });
   server.tool("aic_compile", CompilationRequestSchema, createCompileHandler(stubRunner));
-  server.tool("aic_inspect", () => ({
-    content: [{ type: "text", text: "Not implemented" }],
-  }));
+  server.tool("aic_inspect", InspectRequestSchema, (args) =>
+    handleInspect(args, inspectRunner),
+  );
   server.resource("last-compilation", "aic://last-compilation", () => ({
     contents: [],
   }));

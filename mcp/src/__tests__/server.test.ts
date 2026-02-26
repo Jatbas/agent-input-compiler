@@ -68,6 +68,39 @@ describe("MCP server", () => {
     ).rejects.toThrow();
   });
 
+  it("aic_inspect_invalid_params", async () => {
+    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    const server = createMcpServer(toAbsolutePath(tmpDir));
+    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+    await server.connect(transportServer);
+    const client = new Client({ name: "test", version: "1.0" });
+    await client.connect(transportClient);
+    await expect(
+      client.callTool({ name: "aic_inspect", arguments: {} }),
+    ).rejects.toThrow();
+  });
+
+  it("aic_inspect_stub_error", async () => {
+    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    const server = createMcpServer(toAbsolutePath(tmpDir));
+    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+    await server.connect(transportServer);
+    const client = new Client({ name: "test", version: "1.0" });
+    await client.connect(transportClient);
+    const result = await client.callTool({
+      name: "aic_inspect",
+      arguments: { intent: "refactor auth", projectRoot: tmpDir },
+    });
+    type ContentItem = { type: string; text?: string };
+    const raw = (result as { content?: ContentItem[] }).content;
+    const content: ContentItem[] = Array.isArray(raw) ? raw : [];
+    const text = content
+      .filter((c): c is { type: "text"; text: string } => c.type === "text")
+      .map((c) => c.text)
+      .join("");
+    expect(text).toMatch(/RepoMap not available|error|Internal/);
+  });
+
   it("idempotency", () => {
     tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
     const projectRoot = toAbsolutePath(tmpDir);

@@ -1,6 +1,6 @@
 # AIC MVP Progress
 
-**Status:** Phase F in progress (compile handler done)  
+**Status:** Phase F in progress (compile + inspect handlers done)  
 **Phase:** 0 (MVP)  
 **Overall:** ~83%
 
@@ -71,12 +71,12 @@
 
 ### Phase F — MCP Server
 
-| Component               | Status      | Package          |
-| ----------------------- | ----------- | ---------------- |
-| Server composition root | Done        | mcp/src/         |
-| compile handler         | Done        | mcp/src/         |
-| inspect handler         | Not started | mcp/src/         |
-| Zod schemas (MCP)       | Done        | mcp/src/schemas/ |
+| Component               | Status | Package          |
+| ----------------------- | ------ | ---------------- |
+| Server composition root | Done   | mcp/src/         |
+| compile handler         | Done   | mcp/src/         |
+| inspect handler         | Done   | mcp/src/         |
+| Zod schemas (MCP)       | Done   | mcp/src/schemas/ |
 
 ### Phase G — CLI
 
@@ -101,7 +101,7 @@
 
 ### 2026-02-26
 
-**Components:** compile handler, CompilationRunner interface, CompilationRequestSchema (MCP)
+**Components:** compile handler, CompilationRunner interface, CompilationRequestSchema (MCP), inspect handler, InspectRunner, RepoMapSupplier, InspectRequestSchema
 **Completed:**
 
 - CompilationRunner interface in shared/core/interfaces; run(request) returns Promise<{ compiledPrompt, meta }>
@@ -109,6 +109,10 @@
 - compile-handler.ts: createCompileHandler(runner), validate at boundary, map args to CompilationRequest via branded factories, AicError → sanitizeError + McpError(InternalError), unknown → McpError(Internal error)
 - server.ts: stub CompilationRunner, server.tool("aic_compile", CompilationRequestSchema, createCompileHandler(stubRunner))
 - Server tests: valid_args_returns_stub_content (callTool with intent+projectRoot, assert compiledPrompt "Not implemented", meta defined), invalid_args_returns_32602 (callTool with {}, assert rejects)
+- InspectRequest and PipelineTrace in shared/core/types/inspect-types.ts; RepoMapSupplier and InspectRunner interfaces in core/interfaces
+- InspectRunner in shared/pipeline: Steps 1–8 (classify, resolve, allocate, getRepoMap, selectContext, guard.scan, transform, ladder, assemble), tokenSummary and rulePacks built; no FileContentReader; stub RepoMapSupplier in server
+- InspectRequestSchema (Zod raw shape) in mcp/schemas; handleInspect in mcp/handlers (parsed args → InspectRequest → runner.inspect, AicError sanitized, path.join for dbPath)
+- server.ts: InspectRunner wired with stub RepoMapSupplier (StorageError reject), server.tool("aic_inspect", InspectRequestSchema, handleInspect); aic_inspect_invalid_params and aic_inspect_stub_error tests
 
 ### 2026-02-25
 
@@ -177,3 +181,6 @@
 - AicError base and subclasses (Config, GuardBlockedAll, BudgetExceeded, NoFilesSelected, Model, Storage, Timeout)
 - sanitizeError utility (strip paths, env vars; AicError code passthrough)
 - Tests for UuidV7Generator and sanitizeError
+
+test line
+test line 2

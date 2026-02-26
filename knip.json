@@ -3,7 +3,7 @@
   "workspaces": {
     ".": {},
     "shared": {
-      "entry": ["src/storage/migrations/*.ts"],
+      "entry": ["src/storage/migrations/*.ts", "src/core/errors/index.ts"],
       "ignoreDependencies": ["commander", "diff", "zod"]
     },
     "mcp": {},

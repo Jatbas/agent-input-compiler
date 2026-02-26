@@ -8,6 +8,20 @@ Reference file for the task-planner skill. Read this before writing the task fil
 
 If the Files table exceeds ~10 new files, **split into multiple tasks**. Each task should be completable in one focused session (~30 min of agent work). When the user asks for "everything" in a phase, produce a sequence of tasks (002, 003, 004...) rather than one mega-task.
 
+## Simplicity
+
+Every new artifact (file, type, interface) in the plan must be justified against what already exists. The planner's natural bias is toward comprehensiveness; this guardrail counteracts it.
+
+**Red flags of over-engineering:**
+
+- The plan creates 3+ new files for a single-concern component (beyond source + test)
+- The plan introduces a new interface when an existing interface in the same layer could gain a method
+- The plan creates a branded type used in exactly one place
+- The plan creates a transformation/mapping function between two types with the same shape
+- The plan creates a utility function called exactly once
+
+**Enforced by:** A.4b simplicity sweep (during planning) and mechanical check M (after writing).
+
 ## No prose signatures
 
 Every class and function in the Files table **must** have an exact TypeScript code block in the Interface/Signature section showing the class declaration, constructor, and method signatures. Never describe a constructor or method in prose (e.g. "Constructor: `(config: BudgetConfig)`"). If you can't write the exact code, you don't understand the component well enough — go back to Pass 1 (Explore).
