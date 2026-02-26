@@ -31,15 +31,22 @@ If a dependency is not done, **stop and tell the user**.
 
 Update the task file status to `In Progress`.
 
+**Create a feature branch** to isolate all work:
+
+```
+git checkout -b feat/task-NNN-kebab-name
+```
+
+Use the task number and kebab-case name from the task file (e.g. `feat/task-011-sqlite-cache-store`). All implementation work happens on this branch. If the branch already exists (e.g. resuming a blocked task), check it out instead of creating it.
+
 ### 2. Internalize the task
 
 Before writing any code, read and absorb these sections of the task file. Do not skip this step — it prevents rework caused by implementing without understanding the spec.
 
-**Read the Interface / Signature section.** Memorize:
+**Read the Interface / Signature section (or Wiring Specification for composition roots).** Memorize:
 
-- The exact interface the component implements (first code block)
-- The exact class declaration, constructor parameters, and method signatures (second code block)
-- Return types including `readonly` modifiers
+- For interface-implementing components: the exact interface (first code block), class declaration, constructor parameters, and method signatures (second code block). Return types including `readonly` modifiers.
+- For composition roots: every concrete class constructor signature (from the wiring code block), every exported function signature, and every external library API (class names, import paths, method calls). These are your ground truth — every `new ClassName(...)` call must match the wiring specification exactly.
 
 **Read the Dependent Types section.** Memorize every field of every domain type the implementation reads, writes, or returns. You will need these to write correct field mappings and test data.
 
@@ -55,7 +62,7 @@ Before writing any code, read and absorb these sections of the task file. Do not
 
 **Task quality gate — scan for ambiguity before implementing:**
 
-Before writing any code, scan the Steps section and Interface/Signature notes for executor-facing choices. Read every non-code instruction sentence. Flag any sentence where:
+Before writing any code, scan the Steps section and Interface/Signature (or Wiring Specification) notes for executor-facing choices. Read every non-code instruction sentence. Flag any sentence where:
 
 - It contains " or " presenting two alternative actions (e.g. "mock or skip", "use X or equivalent")
 - It uses hedging language: "if needed", "optionally", "may be", "consider", "you could", "might want"
@@ -85,6 +92,7 @@ Work through the **Steps** section in order.
 - `prefer-const` — use `const` for all variables unless reassignment is required.
 - Return new objects from all methods — never mutate inputs.
 - Exported const objects that implement interfaces must have explicit type annotations (e.g. `export const migration: Migration = { ... }`, not untyped object literals).
+- No if/else-if chains with 3+ branches — enforced by ESLint. Use `Record<Enum, Handler>` dispatch maps for exhaustive enum dispatch, or handler arrays with predicate functions for type/predicate dispatch. Extend by adding entries, not modifying branches (OCP).
 
 If you catch yourself writing mutable code and then fixing it, you are doing it wrong. Write it immutably from the start.
 
@@ -95,6 +103,7 @@ If you catch yourself writing mutable code and then fixing it, you are doing it 
 - **Storage tests:** Create in-memory DB via `new Database(":memory:")` from `better-sqlite3`. Run the migration (`migration.up(db)`) before each test. Create the store with the real DB wrapped as `ExecutableDb`, plus mock `Clock` and/or `IdGenerator` that return deterministic values. Use branded type factory functions for test data (`toUUIDv7(...)`, `toISOTimestamp(...)`, etc.).
 - **Adapter tests:** For file-based adapters (glob, ignore), create a temp directory with fixture files. For parser/encoder adapters (tiktoken, TypeScript provider), use in-memory string fixtures. Clean up temp dirs after tests.
 - **Pipeline tests:** Inject mock dependencies implementing the required interfaces. Verify inputs are not mutated. Test edge cases (empty arrays, zero budgets, no files).
+- **Composition root tests (MCP/CLI):** Tests are integration-style. For process spawn tests: use `child_process.spawn` to start the server, send JSON-RPC input, parse output, and clean up. For scope creation tests: create a temp directory, call the scope function, verify directory structure and returned objects. For idempotency tests: call scope creation twice on the same path, verify no crash. Always clean up temp directories after tests.
 
 For each step:
 
@@ -108,7 +117,7 @@ For each step:
 For larger tasks, consider dispatching a focused subagent per step or group of related steps. Each subagent gets only the context it needs. Use `subagent_type="generalPurpose"` and include in the prompt:
 
 - The exact step text from the task file
-- The relevant Interface/Signature section (both code blocks)
+- The relevant Interface/Signature section (both code blocks), or the Wiring Specification section for composition roots (all three code blocks: concrete classes, exported functions, library APIs)
 - The Dependent Types section (full type definitions)
 - Design decisions from Architecture Notes
 - The file paths involved
@@ -124,11 +133,9 @@ After completing all steps, review in three separate passes:
 **Pass 1 — Spec compliance:**
 
 - Did I implement every file in the Files table? No extra files?
-- **Signature cross-check** — for each method in the written code, verify against the task file's Interface/Signature section:
-  - Parameter names match exactly
-  - Parameter types match exactly (including `readonly` modifiers)
-  - Return types match exactly (e.g. `readonly T[]` not `T[]`)
-  - If the interface method has parameters, the class method lists the same parameters — even if unused
+- **Signature cross-check** — varies by task type:
+  - _Interface-implementing components:_ for each method in the written code, verify against the Interface/Signature section. Parameter names, types (including `readonly`), and return types must match exactly. If the interface method has parameters, the class method lists the same parameters — even if unused.
+  - _Composition roots:_ for each `new ClassName(...)` call, verify constructor arguments match the Wiring Specification. For each exported function, verify the signature matches. For each library API call, verify class names, import paths, and method calls match the Wiring Specification's library code block.
 - Are all properties `readonly` where specified?
 - Do all imports use the correct layer aliases (`#core/`, `#pipeline/`, etc.)?
 - **Config Changes verified** — every change listed in the Config Changes section was applied:
@@ -156,6 +163,7 @@ ESLint does not catch everything. After lint passes, manually scan the written c
 - **`.sort()` anywhere:** Even `[...arr].sort()` is wrong. Use `.toSorted()`.
 - **Untyped exported objects:** Every exported `const` that implements an interface must have an explicit type annotation (`: Migration`, `: ContentTransformer`, etc.).
 - **Raw string/number in type positions:** Check that reduce accumulator types, intermediate variables, and function parameters use branded types where the domain requires it — not bare `number` or `string`.
+- **If/else-if chains:** Search for `else if` chains in new files. Any chain with 3+ branches must be refactored to a `Record<Enum, Handler>` dispatch map or a handler array.
 
 ### 5. Verification Before Completion
 
@@ -178,18 +186,18 @@ Use the Read tool on every file created or modified. Do NOT rely on what you rem
 
 Use Grep on the created/modified files for each pattern check. Run multiple Grep calls in a single message for speed.
 
-| Dimension                   | Tool check                                                                                                                                                                      | Evidence required                                                                                         |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| 1. Signature match          | Re-read the interface file and implementation file side by side                                                                                                                 | List each method: param names, types, return types — state MATCH or MISMATCH with the specific difference |
-| 2. Readonly / mutability    | `Grep` for `\.push\(`, `\.splice\(`, `\.sort\(`, `\.reverse\(` in new files. `Grep` for array types missing `readonly` (pattern: `: [A-Z]\w+\[\]` without preceding `readonly`) | Paste Grep output ("0 matches" = pass)                                                                    |
-| 3. Branded types            | `Grep` for factory function usage (`toTokenCount`, `toRelativePath`, etc.) in implementation AND test files. `Grep` for suspicious raw literals in type positions               | Paste evidence of factory function usage or raw values found                                              |
-| 4. Comment style            | `Grep` for `/\*\*` and `/\*[^/]` in new files                                                                                                                                   | Paste Grep output ("0 matches" = pass)                                                                    |
-| 5. DI & immutability        | Re-read constructor — list each param and whether it's an interface or concrete class                                                                                           | List each constructor param with its type                                                                 |
-| 6. Tests complete           | Re-read test file — list every `it(` or `test(` name. Cross-check against Tests table in task file                                                                              | Two-column list: Tests table row → matching test name (or MISSING)                                        |
-| 7. Config changes           | Re-read `shared/package.json` and `eslint.config.mjs` if task required changes                                                                                                  | State each required change and whether it's present                                                       |
-| 8. Lint + typecheck + tests | Already verified in §5 — reference that output                                                                                                                                  | "Passed in §5 with 0 errors, 0 warnings" or paste output                                                  |
-| 9. First-pass quality       | Self-track: count fix iterations during §3                                                                                                                                      | State count: "0 iterations" or "1 iteration for [reason]"                                                 |
-| 10. Layer boundaries        | `Grep` for banned import patterns in new files (e.g. `from ['"](?!#)\.\.` for cross-layer relative imports, specific banned packages)                                           | Paste Grep output ("0 matches" = pass)                                                                    |
+| Dimension                   | Tool check                                                                                                                                                                                                                                                                       | Evidence required                                                                                                                                                                        |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Signature match          | For interface components: re-read the interface file and implementation file side by side. For composition roots: re-read the Wiring Specification and implementation — verify every `new ClassName(...)` call, every exported function signature, and every library import/call | Interface components: list each method with param names, types, return types — MATCH or MISMATCH. Composition roots: list each constructor call and library API call — MATCH or MISMATCH |
+| 2. Readonly / mutability    | `Grep` for `\.push\(`, `\.splice\(`, `\.sort\(`, `\.reverse\(` in new files. `Grep` for array types missing `readonly` (pattern: `: [A-Z]\w+\[\]` without preceding `readonly`)                                                                                                  | Paste Grep output ("0 matches" = pass)                                                                                                                                                   |
+| 3. Branded types            | `Grep` for factory function usage (`toTokenCount`, `toRelativePath`, etc.) in implementation AND test files. `Grep` for suspicious raw literals in type positions                                                                                                                | Paste evidence of factory function usage or raw values found                                                                                                                             |
+| 4. Comment style            | `Grep` for `/\*\*` and `/\*[^/]` in new files                                                                                                                                                                                                                                    | Paste Grep output ("0 matches" = pass)                                                                                                                                                   |
+| 5. DI & immutability        | For interface components: re-read constructor — list each param and whether it's an interface or concrete class. For composition roots: verify that only the composition root file uses `new` for infrastructure classes — no `new` leaking into helpers                         | Interface components: list each constructor param with its type. Composition roots: list each `new` call and confirm it's in the composition root file                                   |
+| 6. Tests complete           | Re-read test file — list every `it(` or `test(` name. Cross-check against Tests table in task file                                                                                                                                                                               | Two-column list: Tests table row → matching test name (or MISSING)                                                                                                                       |
+| 7. Config changes           | Re-read `shared/package.json` and `eslint.config.mjs` if task required changes                                                                                                                                                                                                   | State each required change and whether it's present                                                                                                                                      |
+| 8. Lint + typecheck + tests | Already verified in §5 — reference that output                                                                                                                                                                                                                                   | "Passed in §5 with 0 errors, 0 warnings" or paste output                                                                                                                                 |
+| 9. First-pass quality       | Self-track: count fix iterations during §3                                                                                                                                                                                                                                       | State count: "0 iterations" or "1 iteration for [reason]"                                                                                                                                |
+| 10. Layer boundaries        | `Grep` for banned import patterns in new files (e.g. `from ['"](?!#)\.\.` for cross-layer relative imports, specific banned packages)                                                                                                                                            | Paste Grep output ("0 matches" = pass)                                                                                                                                                   |
 
 **Step 6c — Score and report.**
 
@@ -230,15 +238,56 @@ mkdir -p documentation/tasks/done
 mv documentation/tasks/NNN-name.md documentation/tasks/done/
 ```
 
-### 11. Stage and Propose Commit
+### 11. Commit, Merge, and Clean Up
 
-Stage all changed files with `git add`. Then **propose** a conventional commit message to the user:
+This step handles the full git lifecycle on the feature branch. Present everything to the user for approval before merging.
+
+**11a — Commit on the feature branch:**
+
+Stage all changed files and commit:
 
 ```
-feat(<scope>): <what was built>
+git add -A
+git commit -m "feat(<scope>): <what was built>"
 ```
 
-**Do NOT commit automatically.** Present the staged files and proposed message, then wait for the user to approve or adjust. The user decides when to commit.
+Use the conventional commit format: `type(scope): description`, max 72 chars, imperative, no period.
+
+**11b — Show the diff and propose merge:**
+
+Show the user the full diff against main and the commit message:
+
+```
+git diff main...HEAD --stat
+```
+
+Present:
+
+- The list of files changed (from `--stat`)
+- The commit message used
+- Ask: **"Merge to main? (yes / adjust message / discard branch)"**
+
+**Do NOT merge automatically.** Wait for the user's response.
+
+**11c — On approval, merge and clean up:**
+
+```
+git checkout main
+git merge --squash feat/task-NNN-kebab-name
+git commit -m "feat(<scope>): <what was built>"
+git branch -D feat/task-NNN-kebab-name
+```
+
+The squash merge produces a single clean commit on main. Use the same commit message from 11a (or the user's adjusted version).
+
+**11d — If the user says "discard":**
+
+```
+git checkout main
+git branch -D feat/task-NNN-kebab-name
+```
+
+Report that the branch was deleted and no changes were merged.
 
 ---
 
@@ -263,8 +312,15 @@ Before declaring Blocked, check whether the failure is in your code or in the ta
    - What went wrong (exact error message)
    - Whether the issue is in your code or the task file's spec
    - What decision you need from the user
-3. Change the task file status to `Blocked`.
-4. Report to the user and **wait for guidance**. Do not continue.
+3. Commit the partial work on the feature branch so nothing is lost:
+   ```
+   git add -A
+   git commit -m "wip(task-NNN): blocked — <short reason>"
+   ```
+4. Switch back to main: `git checkout main`
+5. Change the task file status to `Blocked`.
+6. Report to the user: include the branch name (`feat/task-NNN-kebab-name`) so they know where the partial work lives. The user can resume later by checking out the branch, or discard it with `git branch -D`.
+7. **Wait for guidance**. Do not continue.
 
 ---
 
@@ -276,4 +332,6 @@ Before declaring Blocked, check whether the failure is in your code or in the ta
 - If something in the task file seems wrong, ask the user rather than silently fixing it
 - All verification must pass before reporting success
 - Evidence over claims — always read and report actual command output
-- Commit only when the user says so
+- All work happens on a feature branch — never commit directly to main
+- Merge only when the user approves — present the diff and wait for confirmation
+- On discard, delete the feature branch cleanly — main stays untouched

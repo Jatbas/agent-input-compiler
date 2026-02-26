@@ -61,6 +61,13 @@ const NEW_DATABASE = {
     "Receive the Database instance via constructor injection. Only composition roots (mcp/src/server.ts, cli/src/commands/) may call new Database(). See DIP.",
 };
 
+const IF_CHAIN_BAN = {
+  selector:
+    'IfStatement:not(IfStatement > .alternate)[alternate.type="IfStatement"][alternate.alternate.type="IfStatement"]',
+  message:
+    "If/else-if chain with 3+ branches is banned. Use a Record<Enum, Handler> dispatch map or a handler array.",
+};
+
 const ISP_ONE_INTERFACE_PER_FILE = {
   selector:
     "ExportNamedDeclaration:has(TSInterfaceDeclaration) ~ ExportNamedDeclaration:has(TSInterfaceDeclaration)",
@@ -108,6 +115,7 @@ const BASE_RESTRICTED = [
   ...ARRAY_MUTATIONS,
   ...DATE_RESTRICTIONS,
   MATH_RANDOM,
+  IF_CHAIN_BAN,
 ];
 
 const CORE_PIPELINE_RESTRICTED = [
@@ -443,6 +451,70 @@ export default tseslint.config(
         },
       ],
       "no-restricted-syntax": ["error", ...STORAGE_RESTRICTED],
+    },
+  },
+
+  // ─── SqliteCacheStore: allow node:fs and node:path for cache blob I/O ───
+  {
+    files: ["shared/src/storage/sqlite-cache-store.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "node:crypto",
+              message: "Use a Hasher interface. Crypto is wrapped in adapters/.",
+            },
+            {
+              name: "crypto",
+              message: "Use a Hasher interface. Crypto is wrapped in adapters/.",
+            },
+            {
+              name: "zod",
+              message: "Zod validates at boundaries only (MCP/CLI/config). See ADR-009.",
+            },
+            {
+              name: "tiktoken",
+              message:
+                "Use the Tokenizer interface. External libs are wrapped in adapters/.",
+            },
+            {
+              name: "fast-glob",
+              message:
+                "Use the GlobProvider interface. External libs are wrapped in adapters/.",
+            },
+            {
+              name: "ignore",
+              message:
+                "Use the IgnoreProvider interface. External libs are wrapped in adapters/.",
+            },
+            {
+              name: "typescript",
+              message: "Use LanguageProvider interface.",
+            },
+          ],
+          patterns: [
+            BAN_RELATIVE_PARENT,
+            {
+              group: ["**/pipeline/**"],
+              message: "Storage must not import pipeline code.",
+            },
+            {
+              group: ["**/adapters/**"],
+              message: "Storage must not import adapters.",
+            },
+            {
+              group: ["@aic/cli", "@aic/cli/*", "**/cli/**"],
+              message: "Storage must not import CLI code.",
+            },
+            {
+              group: ["@aic/mcp", "@aic/mcp/*", "**/mcp/**"],
+              message: "Storage must not import MCP code.",
+            },
+          ],
+        },
+      ],
     },
   },
 

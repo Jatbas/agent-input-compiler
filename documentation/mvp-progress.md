@@ -1,8 +1,8 @@
 # AIC MVP Progress
 
-**Status:** Phase D adapters (TypeScriptProvider done)  
+**Status:** Phase E storage complete  
 **Phase:** 0 (MVP)  
-**Overall:** ~65%
+**Overall:** ~77%
 
 ---
 
@@ -52,22 +52,22 @@
 
 ### Phase D — Adapters
 
-| Component          | Status      | Package              |
-| ------------------ | ----------- | -------------------- |
-| TiktokenAdapter    | Done        | shared/src/adapters/ |
-| FastGlobAdapter    | Done        | shared/src/adapters/ |
-| IgnoreAdapter      | Done        | shared/src/adapters/ |
-| TypeScriptProvider | Done        | shared/src/adapters/ |
-| GenericProvider    | Not started | shared/src/adapters/ |
+| Component          | Status | Package              |
+| ------------------ | ------ | -------------------- |
+| TiktokenAdapter    | Done   | shared/src/adapters/ |
+| FastGlobAdapter    | Done   | shared/src/adapters/ |
+| IgnoreAdapter      | Done   | shared/src/adapters/ |
+| TypeScriptProvider | Done   | shared/src/adapters/ |
+| GenericProvider    | Done   | shared/src/adapters/ |
 
 ### Phase E — Storage
 
-| Component            | Status      | Package             |
-| -------------------- | ----------- | ------------------- |
-| SqliteCacheStore     | Not started | shared/src/storage/ |
-| SqliteTelemetryStore | Not started | shared/src/storage/ |
-| SqliteConfigStore    | Not started | shared/src/storage/ |
-| SqliteGuardStore     | Not started | shared/src/storage/ |
+| Component            | Status | Package             |
+| -------------------- | ------ | ------------------- |
+| SqliteCacheStore     | Done   | shared/src/storage/ |
+| SqliteTelemetryStore | Done   | shared/src/storage/ |
+| SqliteConfigStore    | Done   | shared/src/storage/ |
+| SqliteGuardStore     | Done   | shared/src/storage/ |
 
 ### Phase F — MCP Server
 
@@ -101,7 +101,7 @@
 
 ### 2026-02-25
 
-**Components:** TiktokenAdapter, TokenCounter interface, FastGlobAdapter, GlobProvider interface, IgnoreAdapter, IgnoreProvider interface, TypeScriptProvider
+**Components:** TiktokenAdapter, TokenCounter interface, FastGlobAdapter, GlobProvider interface, IgnoreAdapter, IgnoreProvider interface, TypeScriptProvider, GenericProvider, SqliteCacheStore, SqliteTelemetryStore, SqliteConfigStore, SqliteGuardStore
 **Completed:**
 
 - TokenCounter interface in core/interfaces; TiktokenAdapter in adapters with tiktoken cl100k_base and word_count × 1.3 fallback
@@ -114,6 +114,11 @@
 - ESLint restriction so only ignore-adapter.ts may import ignore
 - Unit tests: accepts when not ignored, accepts when ignored, missing .gitignore
 - TypeScriptProvider in adapters (LanguageProvider for .ts/.tsx/.js/.jsx): parseImports (regex), extractSignaturesWithDocs/Only (ts.createSourceFile + AST), extractNames (exported symbols + SYMBOL_KIND); ESLint restriction so only typescript-provider.ts may import typescript
+- GenericProvider in adapters (LanguageProvider fallback): empty extensions, parseImports/extractSignaturesWithDocs return []; extractSignaturesOnly (regex function/class/def/fn), extractNames (regex export patterns); never throws
+- SqliteCacheStore: CacheStore impl with cache_metadata table and cache-dir JSON blobs; ESLint override for node:fs/node:path in sqlite-cache-store.ts only; set/get/invalidate/invalidateAll; expiry via SQL; tests for set-then-get, missing key, invalidate, invalidateAll, expiry, missing blob, corrupt blob
+- SqliteTelemetryStore: TelemetryStore impl writing to telemetry_events; write() with full column mapping and token_reduction_pct; in-memory tests for write persists row, multiple writes, token_reduction_pct (tokensRaw > 0 and 0), duplicate id throws
+- SqliteConfigStore: ConfigStore impl with config_history table; getLatestHash (ORDER BY created_at DESC LIMIT 1), writeSnapshot (INSERT OR REPLACE with Clock); in-memory tests for empty null, write then getLatestHash, latest wins
+- SqliteGuardStore: GuardStore impl with guard_findings table; write (DELETE then INSERT per finding, replace semantics), queryByCompilation (ORDER BY created_at); in-memory tests for write-then-query, query unknown [], replace same compilation_id, empty findings
 
 ### 2026-02-24
 

@@ -7,6 +7,38 @@ import type { InclusionTier } from "#core/types/enums.js";
 import type { RelativePath } from "#core/types/paths.js";
 import { INCLUSION_TIER } from "#core/types/enums.js";
 
+type TierTextFn = (
+  content: string,
+  provider: LanguageProvider | undefined,
+  filePath: string,
+) => string;
+
+const TIER_TEXT: Readonly<Record<InclusionTier, TierTextFn>> = {
+  [INCLUSION_TIER.L0]: (content) => content,
+  [INCLUSION_TIER.L1]: (content, provider, filePath) => {
+    if (provider === undefined) {
+      return TIER_TEXT[INCLUSION_TIER.L2](content, provider, filePath);
+    }
+    const chunks = provider.extractSignaturesWithDocs(content);
+    return chunks.map((c) => c.content).join("\n");
+  },
+  [INCLUSION_TIER.L2]: (content, provider) => {
+    if (provider !== undefined) {
+      const chunks = provider.extractSignaturesOnly(content);
+      return chunks.map((c) => c.content).join("\n");
+    }
+    const matches = content.match(/(?:function|class|def|pub\s+fn)\s+\w+/g) ?? [];
+    return matches.join("\n");
+  },
+  [INCLUSION_TIER.L3]: (content, provider, filePath) => {
+    if (provider !== undefined) {
+      const names = provider.extractNames(content);
+      return filePath + "\n" + names.map((n) => n.name).join(", ");
+    }
+    return filePath + "\n";
+  },
+};
+
 const TIER_ORDER: readonly InclusionTier[] = [
   INCLUSION_TIER.L0,
   INCLUSION_TIER.L1,
@@ -56,28 +88,7 @@ export class SummarisationLadder implements ISummarisationLadder {
       const path = file.path as RelativePath;
       const content = this.fileContentReader.getContent(path);
       const provider = getProvider(path as string, this.languageProviders);
-      let text: string;
-      if (tier === INCLUSION_TIER.L0) text = content;
-      else if (tier === INCLUSION_TIER.L1) {
-        if (provider === undefined) return tokenAtTier(file, INCLUSION_TIER.L2);
-        const chunks = provider.extractSignaturesWithDocs(content);
-        text = chunks.map((c) => c.content).join("\n");
-      } else if (tier === INCLUSION_TIER.L2) {
-        if (provider !== undefined) {
-          const chunks = provider.extractSignaturesOnly(content);
-          text = chunks.map((c) => c.content).join("\n");
-        } else {
-          const matches = content.match(/(?:function|class|def|pub\s+fn)\s+\w+/g) ?? [];
-          text = matches.join("\n");
-        }
-      } else {
-        if (provider !== undefined) {
-          const names = provider.extractNames(content);
-          text = (file.path as string) + "\n" + names.map((n) => n.name).join(", ");
-        } else {
-          text = (file.path as string) + "\n";
-        }
-      }
+      const text = TIER_TEXT[tier](content, provider, file.path as string);
       return this.tokenCounter(text);
     };
 

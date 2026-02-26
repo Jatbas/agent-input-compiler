@@ -137,6 +137,40 @@ function getJSDoc(node: ts.Node, sourceFile: ts.SourceFile): string {
   return match ? match[0].trim() : "";
 }
 
+type SigHandler = {
+  readonly matches: (node: ts.Node) => boolean;
+  readonly symbolType: SymbolType;
+  readonly getName: (node: ts.Node, sf: ts.SourceFile) => string | null;
+  readonly stripBody: boolean;
+};
+
+const SIGNATURE_HANDLERS: readonly SigHandler[] = [
+  {
+    matches: ts.isFunctionDeclaration,
+    symbolType: SYMBOL_TYPE.FUNCTION,
+    getName: (node, sf) => (node as ts.FunctionDeclaration).name?.getText(sf) ?? null,
+    stripBody: true,
+  },
+  {
+    matches: ts.isClassDeclaration,
+    symbolType: SYMBOL_TYPE.CLASS,
+    getName: (node, sf) => (node as ts.ClassDeclaration).name?.getText(sf) ?? null,
+    stripBody: true,
+  },
+  {
+    matches: ts.isInterfaceDeclaration,
+    symbolType: SYMBOL_TYPE.INTERFACE,
+    getName: (node, sf) => (node as ts.InterfaceDeclaration).name.getText(sf),
+    stripBody: false,
+  },
+  {
+    matches: (node) => ts.isMethodDeclaration(node) && ts.isClassDeclaration(node.parent),
+    symbolType: SYMBOL_TYPE.METHOD,
+    getName: (node, sf) => (node as ts.MethodDeclaration).name.getText(sf),
+    stripBody: true,
+  },
+];
+
 function extractSignatures(fileContent: string, withDocs: boolean): readonly CodeChunk[] {
   const sourceFile = ts.createSourceFile(
     "file.ts",
@@ -147,50 +181,26 @@ function extractSignatures(fileContent: string, withDocs: boolean): readonly Cod
   let chunks: readonly CodeChunk[] = [];
 
   function visit(node: ts.Node): void {
-    let name: string | null = null;
-    let symbolType: SymbolType = SYMBOL_TYPE.FUNCTION;
-    let content: string;
+    const handler = SIGNATURE_HANDLERS.find((h) => h.matches(node));
+    if (handler !== undefined) {
+      const name = handler.getName(node, sourceFile);
+      const doc = withDocs ? getJSDoc(node, sourceFile) : "";
+      const raw = node.getText(sourceFile);
+      const sig = handler.stripBody ? raw.replace(/\s*\{[\s\S]*$/, " { }") : raw;
+      const content = doc !== "" ? `${doc}\n${sig}` : sig;
 
-    if (ts.isFunctionDeclaration(node)) {
-      name = node.name?.getText(sourceFile) ?? null;
-      symbolType = SYMBOL_TYPE.FUNCTION;
-      const doc = withDocs ? getJSDoc(node, sourceFile) : "";
-      const sig = node.getText(sourceFile).replace(/\s*\{[\s\S]*$/, " { }");
-      content = doc ? `${doc}\n${sig}` : sig;
-    } else if (ts.isClassDeclaration(node)) {
-      name = node.name?.getText(sourceFile) ?? null;
-      symbolType = SYMBOL_TYPE.CLASS;
-      const doc = withDocs ? getJSDoc(node, sourceFile) : "";
-      const sig = node.getText(sourceFile).replace(/\s*\{[\s\S]*$/, " { }");
-      content = doc ? `${doc}\n${sig}` : sig;
-    } else if (ts.isInterfaceDeclaration(node)) {
-      name = node.name.getText(sourceFile);
-      symbolType = SYMBOL_TYPE.INTERFACE;
-      const doc = withDocs ? getJSDoc(node, sourceFile) : "";
-      const sig = node.getText(sourceFile);
-      content = doc ? `${doc}\n${sig}` : sig;
-    } else if (ts.isMethodDeclaration(node) && ts.isClassDeclaration(node.parent)) {
-      name = node.name.getText(sourceFile);
-      symbolType = SYMBOL_TYPE.METHOD;
-      const doc = withDocs ? getJSDoc(node, sourceFile) : "";
-      const sig = node.getText(sourceFile).replace(/\s*\{[\s\S]*$/, " { }");
-      content = doc ? `${doc}\n${sig}` : sig;
-    } else {
-      ts.forEachChild(node, visit);
-      return;
-    }
-
-    if (name !== null && name !== "") {
-      const chunk: CodeChunk = {
-        filePath: EMPTY_PATH,
-        symbolName: name,
-        symbolType,
-        startLine: toLineNumber(getLine(node, sourceFile)),
-        endLine: toLineNumber(getEndLine(node, sourceFile)),
-        content,
-        tokenCount: toTokenCount(0),
-      };
-      chunks = [...chunks, chunk];
+      if (name !== null && name !== "") {
+        const chunk: CodeChunk = {
+          filePath: EMPTY_PATH,
+          symbolName: name,
+          symbolType: handler.symbolType,
+          startLine: toLineNumber(getLine(node, sourceFile)),
+          endLine: toLineNumber(getEndLine(node, sourceFile)),
+          content,
+          tokenCount: toTokenCount(0),
+        };
+        chunks = [...chunks, chunk];
+      }
     }
     ts.forEachChild(node, visit);
   }
@@ -198,6 +208,66 @@ function extractSignatures(fileContent: string, withDocs: boolean): readonly Cod
   visit(sourceFile);
   return chunks;
 }
+
+function hasExport(node: ts.Node): boolean {
+  const mods = ts.canHaveModifiers(node) ? ts.getModifiers(node) : undefined;
+  return mods?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) ?? false;
+}
+
+type NameHandler = {
+  readonly matches: (node: ts.Node) => boolean;
+  readonly extract: (node: ts.Node, sf: ts.SourceFile) => readonly ExportedSymbol[];
+};
+
+const NAME_HANDLERS: readonly NameHandler[] = [
+  {
+    matches: (node) =>
+      ts.isFunctionDeclaration(node) && node.name !== undefined && hasExport(node),
+    extract: (node, sf) => [
+      {
+        name: (node as ts.FunctionDeclaration).name!.getText(sf),
+        kind: mapSyntaxKindToSymbolKind(node.kind),
+      },
+    ],
+  },
+  {
+    matches: (node) =>
+      ts.isClassDeclaration(node) && node.name !== undefined && hasExport(node),
+    extract: (node, sf) => [
+      {
+        name: (node as ts.ClassDeclaration).name!.getText(sf),
+        kind: mapSyntaxKindToSymbolKind(node.kind),
+      },
+    ],
+  },
+  {
+    matches: (node) => ts.isInterfaceDeclaration(node) && hasExport(node),
+    extract: (node, sf) => [
+      {
+        name: (node as ts.InterfaceDeclaration).name.getText(sf),
+        kind: mapSyntaxKindToSymbolKind(node.kind),
+      },
+    ],
+  },
+  {
+    matches: (node) => ts.isTypeAliasDeclaration(node) && hasExport(node),
+    extract: (node, sf) => [
+      {
+        name: (node as ts.TypeAliasDeclaration).name.getText(sf),
+        kind: SYMBOL_KIND.TYPE,
+      },
+    ],
+  },
+  {
+    matches: (node) => ts.isVariableStatement(node) && hasExport(node),
+    extract: (node, sf) =>
+      (node as ts.VariableStatement).declarationList.declarations
+        .filter((d): d is ts.VariableDeclaration & { readonly name: ts.Identifier } =>
+          ts.isIdentifier(d.name),
+        )
+        .map((d) => ({ name: d.name.getText(sf), kind: SYMBOL_KIND.CONST })),
+  },
+];
 
 function extractNamesImpl(fileContent: string): readonly ExportedSymbol[] {
   const sourceFile = ts.createSourceFile(
@@ -208,51 +278,10 @@ function extractNamesImpl(fileContent: string): readonly ExportedSymbol[] {
   );
   let out: readonly ExportedSymbol[] = [];
 
-  function hasExport(node: ts.Node): boolean {
-    const mods = ts.canHaveModifiers(node) ? ts.getModifiers(node) : undefined;
-    return mods?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword) ?? false;
-  }
-
   function visit(node: ts.Node): void {
-    if (ts.isFunctionDeclaration(node) && node.name && hasExport(node)) {
-      out = [
-        ...out,
-        {
-          name: node.name.getText(sourceFile),
-          kind: mapSyntaxKindToSymbolKind(node.kind),
-        },
-      ];
-    } else if (ts.isClassDeclaration(node) && node.name && hasExport(node)) {
-      out = [
-        ...out,
-        {
-          name: node.name.getText(sourceFile),
-          kind: mapSyntaxKindToSymbolKind(node.kind),
-        },
-      ];
-    } else if (ts.isInterfaceDeclaration(node) && hasExport(node)) {
-      out = [
-        ...out,
-        {
-          name: node.name.getText(sourceFile),
-          kind: mapSyntaxKindToSymbolKind(node.kind),
-        },
-      ];
-    } else if (ts.isTypeAliasDeclaration(node) && hasExport(node)) {
-      out = [
-        ...out,
-        {
-          name: node.name.getText(sourceFile),
-          kind: SYMBOL_KIND.TYPE,
-        },
-      ];
-    } else if (ts.isVariableStatement(node) && hasExport(node)) {
-      const added: ExportedSymbol[] = node.declarationList.declarations
-        .filter((d): d is ts.VariableDeclaration & { name: ts.Identifier } =>
-          ts.isIdentifier(d.name),
-        )
-        .map((d) => ({ name: d.name.getText(sourceFile), kind: SYMBOL_KIND.CONST }));
-      out = [...out, ...added];
+    const handler = NAME_HANDLERS.find((h) => h.matches(node));
+    if (handler !== undefined) {
+      out = [...out, ...handler.extract(node, sourceFile)];
     }
     ts.forEachChild(node, visit);
   }
