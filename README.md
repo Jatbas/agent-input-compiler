@@ -1,7 +1,7 @@
 # Agent Input Compiler (AIC)
 
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
-![Status](https://img.shields.io/badge/status-MVP%20in%20progress-yellow)
+![Status](https://img.shields.io/badge/status-Phase%200.5%20in%20progress-yellow)
 ![Local-first](https://img.shields.io/badge/local--first-yes-brightgreen)
 ![Telemetry](https://img.shields.io/badge/telemetry-opt--in-lightgrey)
 ![MCP Compatible](https://img.shields.io/badge/MCP-compatible-purple)
@@ -219,13 +219,13 @@ Findings are available via the `aic://rules-analysis` MCP resource after each co
 
 ## Roadmap
 
-| Phase                            | Focus                                                                                                                                                                                                 | Status         |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
-| MCP Server + Utilities (`0.1.0`) | Core pipeline, transformers, Guard, telemetry                                                                                                                                                         | 🟡 In progress |
-| Quality Release (`0.2.0`)        | Multi-language imports, intent-aware discovery, session summary, CSS/TypeDecl/test-structure transformers                                                                                             | ⬜ Next        |
-| OSS Release (`1.0.0`)            | Public repo, team deployment, `aic history`, `aic suggest`, optional cost estimation, **agentic session tracking**, **Specification Compiler** (`aic_compile_spec` MCP tool + `aic compile-spec` CLI) | ⬜ Planned     |
-| Semantic + Governance (`2.0.0`)  | Vector search, policy engine, org-level config, **conversation compression for agents**                                                                                                               | ⬜ Planned     |
-| Enterprise Platform (`3.0.0`)    | RBAC, SSO, fleet management, live dashboard                                                                                                                                                           | ⬜ Future      |
+| Phase                           | Focus                                                                                                                                                                                                 | Status         |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| MVP (`0.1.0`)                   | Core pipeline, transformers, Guard, telemetry, MCP server, CLI                                                                                                                                        | ✅ Complete    |
+| Quality Release (`0.2.0`)       | Live wiring, server lifecycle, multi-language imports, intent-aware discovery, session summary, CSS/TypeDecl/test-structure transformers, benchmarks                                                  | 🟡 In progress |
+| OSS Release (`1.0.0`)           | Public repo, team deployment, `aic history`, `aic suggest`, optional cost estimation, **agentic session tracking**, **Specification Compiler** (`aic_compile_spec` MCP tool + `aic compile-spec` CLI) | ⬜ Planned     |
+| Semantic + Governance (`2.0.0`) | Vector search, policy engine, org-level config, **conversation compression for agents**                                                                                                               | ⬜ Planned     |
+| Enterprise Platform (`3.0.0`)   | RBAC, SSO, fleet management, live dashboard                                                                                                                                                           | ⬜ Future      |
 
 ---
 

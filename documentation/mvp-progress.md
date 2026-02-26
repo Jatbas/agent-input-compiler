@@ -2,6 +2,7 @@
 
 **Current phase:** 0.5 (Quality Release)
 **Version target:** 0.2.0
+**Phase I (Live Wiring):** 4/9 done — InspectRunner wired in CLI
 
 ---
 
@@ -11,16 +12,20 @@
 
 Prerequisite for everything else. Quick fixes to make the tool fully functional.
 
-| Component                       | Status | Package              |
-| ------------------------------- | ------ | -------------------- |
-| FileSystemRepoMapSupplier       | Done   | shared/src/adapters/ |
-| createFullPipelineDeps          | Done   | shared/src/bootstrap |
-| Wire real RepoMap in MCP/CLI    | Done   | mcp/, cli/           |
-| Wire real InspectRunner (CLI)   | Done   | cli/src/main.ts      |
-| Telemetry write on compile      | Todo   | shared/src/pipeline/ |
-| Guard findings write on scan    | Todo   | shared/src/storage/  |
-| Config loading from aic.config  | Todo   | shared/src/          |
-| Real token counting in repo map | Todo   | shared/src/adapters/ |
+| Component                       | Status | Package                        |
+| ------------------------------- | ------ | ------------------------------ |
+| FileSystemRepoMapSupplier       | Done   | shared/src/adapters/           |
+| createFullPipelineDeps          | Done   | shared/src/bootstrap           |
+| Wire real RepoMap in MCP/CLI    | Done   | mcp/, cli/                     |
+| Wire real InspectRunner (CLI)   | Done   | cli/src/main.ts                |
+| Telemetry write on compile      | Todo   | shared/src/pipeline/           |
+| Guard findings write on scan    | Todo   | shared/src/storage/            |
+| Config loading from aic.config  | Todo   | shared/src/                    |
+| Real token counting in repo map | Todo   | shared/src/adapters/           |
+| 002-server-sessions migration   | Todo   | shared/src/storage/migrations/ |
+| SessionTracker interface        | Todo   | shared/src/core/interfaces/    |
+| SqliteSessionStore              | Todo   | shared/src/storage/            |
+| Server lifecycle hooks          | Todo   | mcp/src/                       |
 
 ### Phase J — Intent & Selection Quality
 

@@ -1161,6 +1161,8 @@ When the MCP server process starts (via `npx @aic/mcp`), it executes the followi
 3. Open SQLite database (.aic/aic.sqlite)
    └─ Create .aic/ with 0700 if missing
    └─ Run pending schema migrations (MigrationRunner)
+   └─ Record server session (insert server_sessions row)
+   └─ Mark orphaned sessions as crash (stopped_at IS NULL → stop_reason = 'crash')
          │
          ▼
 4. Build shared infrastructure
@@ -1194,11 +1196,15 @@ When the MCP server process starts (via `npx @aic/mcp`), it executes the followi
    └─ Resource: aic://rules-analysis
          │
          ▼
-10. Start MCP transport (stdio)
+10. Register shutdown handler (SIGINT / SIGTERM)
+    └─ On signal: update server_sessions.stopped_at + stop_reason = 'graceful'
+         │
+         ▼
+11. Start MCP transport (stdio)
     └─ Server ready — accepting requests
 ```
 
-**Timing target:** Steps 1–10 complete in <500ms (see [Project Plan §14](project-plan.md)).
+**Timing target:** Steps 1–11 complete in <500ms (see [Project Plan §14](project-plan.md)).
 
 **Error during startup:** If config is invalid → exit with error message. If SQLite cannot be opened → exit with error message. If a provider fails to register → log warning, continue without it. The server never starts in a partially broken state — it either fully initialises or exits with a clear error.
 

@@ -12,7 +12,7 @@ import { runPipelineSteps } from "#core/run-pipeline-steps.js";
 
 export class InspectRunner implements IInspectRunner {
   constructor(
-    public readonly deps: PipelineStepsDeps,
+    private readonly deps: PipelineStepsDeps,
     private readonly clock: Clock,
   ) {}
 

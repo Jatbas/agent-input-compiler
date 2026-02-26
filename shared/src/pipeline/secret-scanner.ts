@@ -1,9 +1,9 @@
 import type { GuardScanner } from "#core/interfaces/guard-scanner.interface.js";
 import type { SelectedFile } from "#core/types/selected-file.js";
 import type { GuardFinding } from "#core/types/guard-types.js";
-import { GUARD_SEVERITY } from "#core/types/enums.js";
-import { GUARD_FINDING_TYPE } from "#core/types/enums.js";
-import { type ScanPattern, scanWithPatterns } from "./pattern-scanner.js";
+import { GUARD_SEVERITY, GUARD_FINDING_TYPE } from "#core/types/enums.js";
+import type { ScanPattern } from "#core/interfaces/scan-pattern.interface.js";
+import { scanWithPatterns } from "./pattern-scanner.js";
 
 const SECRET_PATTERNS: readonly ScanPattern[] = [
   { pattern: /AKIA[0-9A-Z]{16}/, label: "AWS Access Key ID" },

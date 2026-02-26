@@ -29,6 +29,9 @@ importers:
       eslint-plugin-check-file:
         specifier: 3.3.1
         version: 3.3.1(eslint@9.39.3(jiti@2.6.1))
+      eslint-plugin-max-methods-per-class:
+        specifier: 1.0.2
+        version: 1.0.2(eslint@9.39.3(jiti@2.6.1))
       eslint-plugin-sonarjs:
         specifier: 4.0.0
         version: 4.0.0(eslint@9.39.3(jiti@2.6.1))
@@ -1395,6 +1398,11 @@ packages:
     engines: {node: '>=18'}
     peerDependencies:
       eslint: '>=9.0.0'
+
+  eslint-plugin-max-methods-per-class@1.0.2:
+    resolution: {integrity: sha512-cKGIbnq5kc+POvHRT5G+/f94iJNCnDCHYp4Enrepp2mDNa+PrQj+b3YYQ57hHn2OYkp0f88nWmIKCbG/Xgs1Cw==}
+    peerDependencies:
+      eslint: ^7.0.0
 
   eslint-plugin-sonarjs@4.0.0:
     resolution: {integrity: sha512-ihyH9HO52OeeWer/gWRndkW/ZhGqx9HDg+Iptu+ApSfiomT2LzhHgHCoyJrhh7DjCyKhjU3Hmmz1pzcXRf7B3g==}
@@ -3975,6 +3983,10 @@ snapshots:
       eslint: 9.39.3(jiti@2.6.1)
       is-glob: 4.0.3
       micromatch: 4.0.8
+
+  eslint-plugin-max-methods-per-class@1.0.2(eslint@9.39.3(jiti@2.6.1)):
+    dependencies:
+      eslint: 9.39.3(jiti@2.6.1)
 
   eslint-plugin-sonarjs@4.0.0(eslint@9.39.3(jiti@2.6.1)):
     dependencies:

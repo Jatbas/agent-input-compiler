@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Pipeline Rules
 
-**Quick reference:** One class, one file, one public method. Constructor takes interfaces only. No `fs`/`path`/`process`/`Date.now()`/`Math.random()`. Never mutate inputs — return new objects. Emit events via `PipelineEventBus`, never call `TelemetryLogger` directly. Define interface first in `core/interfaces/`, then implement.
+**Quick reference:** One class, one file, one public method. Constructor takes interfaces only — all params `private readonly`, never `public`. No exported interfaces in pipeline files — extract to `core/interfaces/`. Max 60 lines per function (extract helpers for longer logic). No `fs`/`path`/`process`/`Date.now()`/`Math.random()`. Never mutate inputs — return new objects. Define interface first in `core/interfaces/`, then implement.
 
 ## Pipeline Step Structure
 
@@ -40,6 +40,10 @@ These are enforced by ESLint and will fail CI:
 4. **No `Date.now()`, `new Date()`, or `Math.random()`:** Enforced globally by ESLint (only `system-clock.ts` exempt). Inject `Clock` for time.
 5. **No direct `console.*` calls:** Use the event bus for logging
 6. **No `try/catch`:** Errors propagate to the composition root. Exception: wrapping a dependency call that may throw, where the pipeline step must translate the error into an `AicError` subclass
+7. **No `public` constructor params in pipeline:** All constructor parameters must be `private readonly`. Enforced by `no-restricted-syntax`.
+8. **No exported interfaces in pipeline files:** Interfaces belong in `core/interfaces/*.interface.ts`. Enforced by `no-restricted-syntax`.
+9. **Max 60 lines per function in pipeline:** Extract helpers for longer logic. Enforced by `max-lines-per-function`.
+10. **Max 2 methods per class in pipeline:** Constructor + one public method. Enforced by `max-methods-per-class`.
 
 ## Creating a New Pipeline Step
 

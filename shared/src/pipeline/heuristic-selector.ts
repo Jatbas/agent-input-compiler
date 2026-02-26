@@ -7,6 +7,7 @@ import type { TokenCount } from "#core/types/units.js";
 import type { ContextResult } from "#core/types/selected-file.js";
 import type { FileEntry } from "#core/types/repo-map.js";
 import type { SelectedFile } from "#core/types/selected-file.js";
+import type { HeuristicSelectorConfig } from "#core/interfaces/heuristic-selector-config.interface.js";
 import { INCLUSION_TIER } from "#core/types/enums.js";
 import { toRelevanceScore } from "#core/types/scores.js";
 import { toTokenCount } from "#core/types/units.js";
@@ -15,9 +16,16 @@ import { matchesGlob } from "./glob-match.js";
 
 const FALLBACK_RECENCY = toISOTimestamp("1970-01-01T00:00:00.000Z");
 
-function pathRelevance(path: string, keywords: readonly string[]): number {
+const DEFAULT_WEIGHTS = {
+  pathRelevance: 0.4,
+  importProximity: 0.3,
+  recency: 0.2,
+  sizePenalty: 0.1,
+};
+
+function pathRelevance(filePath: string, keywords: readonly string[]): number {
   if (keywords.length === 0) return 0;
-  const lower = path.toLowerCase();
+  const lower = filePath.toLowerCase();
   const hits = keywords.filter((kw) => lower.includes(kw.toLowerCase()));
   return Math.min(1, hits.length / keywords.length);
 }
@@ -30,22 +38,80 @@ function minMaxNorm(values: readonly number[], value: number): number {
   return (value - min) / (max - min);
 }
 
-export interface HeuristicSelectorConfig {
-  readonly maxFiles: number;
-  readonly weights?: {
-    readonly pathRelevance: number;
-    readonly importProximity: number;
-    readonly recency: number;
-    readonly sizePenalty: number;
-  };
+function filterCandidates(
+  files: readonly FileEntry[],
+  rulePack: RulePack,
+): readonly FileEntry[] {
+  return files.filter((f) => {
+    if (
+      rulePack.includePatterns.length > 0 &&
+      !rulePack.includePatterns.some((pat) => matchesGlob(f.path, pat))
+    )
+      return false;
+    if (rulePack.excludePatterns.some((pat) => matchesGlob(f.path, pat))) return false;
+    return true;
+  });
 }
 
-const DEFAULT_WEIGHTS = {
-  pathRelevance: 0.4,
-  importProximity: 0.3,
-  recency: 0.2,
-  sizePenalty: 0.1,
-};
+function scoreCandidate(
+  entry: FileEntry,
+  index: number,
+  pathRelevances: readonly number[],
+  recencyValues: readonly string[],
+  tokenValues: readonly number[],
+  weights: typeof DEFAULT_WEIGHTS,
+  rulePack: RulePack,
+): number {
+  const pathRel = pathRelevances[index] ?? 0;
+  const recVal = recencyValues[index] ?? FALLBACK_RECENCY;
+  const sortedRec = recencyValues.toSorted();
+  const recIdx = sortedRec.indexOf(recVal);
+  const rec = sortedRec.length <= 1 ? 1 : recIdx / (sortedRec.length - 1);
+  const sizeP = 1 - minMaxNorm(tokenValues, tokenValues[index] ?? 0);
+  const baseScore =
+    pathRel * weights.pathRelevance +
+    0 * weights.importProximity +
+    rec * weights.recency +
+    sizeP * weights.sizePenalty;
+  const boostCount =
+    rulePack.heuristic?.boostPatterns.filter((pat) => matchesGlob(entry.path, pat))
+      .length ?? 0;
+  const penaltyCount =
+    rulePack.heuristic?.penalizePatterns.filter((pat) => matchesGlob(entry.path, pat))
+      .length ?? 0;
+  return Math.max(0, Math.min(1, baseScore + boostCount * 0.2 - penaltyCount * 0.2));
+}
+
+function fitToBudget(
+  scored: readonly { entry: FileEntry; score: number }[],
+  budget: TokenCount,
+  maxFiles: number,
+): { files: readonly SelectedFile[]; totalTokens: number } {
+  return scored.reduce<{
+    readonly files: readonly SelectedFile[];
+    readonly totalTokens: number;
+  }>(
+    (acc, { entry, score }) => {
+      if (acc.files.length >= maxFiles) return acc;
+      const tokens = entry.estimatedTokens;
+      if (acc.totalTokens + tokens > budget) return acc;
+      return {
+        files: [
+          ...acc.files,
+          {
+            path: entry.path,
+            language: entry.language,
+            estimatedTokens: entry.estimatedTokens,
+            relevanceScore: toRelevanceScore(score),
+            tier: INCLUSION_TIER.L0,
+          },
+        ],
+        totalTokens: acc.totalTokens + tokens,
+      };
+    },
+    { files: [], totalTokens: 0 },
+  );
+}
 
 export class HeuristicSelector implements ContextSelector {
   constructor(
@@ -60,91 +126,31 @@ export class HeuristicSelector implements ContextSelector {
     rulePack: RulePack,
   ): ContextResult {
     const weights = this.config.weights ?? DEFAULT_WEIGHTS;
-    const maxFiles = this.config.maxFiles;
-
-    const candidates = repo.files.filter((f) => {
-      const path = f.path;
-      if (
-        rulePack.includePatterns.length > 0 &&
-        !rulePack.includePatterns.some((pat) => matchesGlob(path, pat))
-      )
-        return false;
-      if (rulePack.excludePatterns.some((pat) => matchesGlob(path, pat))) return false;
-      return true;
-    });
-
+    const candidates = filterCandidates(repo.files, rulePack);
     const pathRelevances = candidates.map((f) =>
       pathRelevance(f.path, task.matchedKeywords),
     );
     const recencyValues = candidates.map((f) => f.lastModified);
     const tokenValues = candidates.map((f) => f.estimatedTokens);
-
-    const recencyNorm = (i: number): number => {
-      const sorted = recencyValues.toSorted();
-      const val = recencyValues[i] ?? FALLBACK_RECENCY;
-      const idx = sorted.indexOf(val);
-      if (sorted.length <= 1) return 1;
-      return idx / (sorted.length - 1);
-    };
-    const sizePenaltyNorm = (i: number): number =>
-      1 - minMaxNorm(tokenValues, tokenValues[i] ?? 0);
-
-    const scored: readonly { entry: FileEntry; score: number }[] = candidates.map(
-      (entry, i) => {
-        const pathRel = pathRelevances[i] ?? 0;
-        const importProx = 0;
-        const rec = recencyNorm(i);
-        const sizeP = sizePenaltyNorm(i);
-        const baseScore =
-          pathRel * weights.pathRelevance +
-          importProx * weights.importProximity +
-          rec * weights.recency +
-          sizeP * weights.sizePenalty;
-
-        const filePath = entry.path;
-        const boostCount =
-          rulePack.heuristic?.boostPatterns.filter((pat) => matchesGlob(filePath, pat))
-            .length ?? 0;
-        const penaltyCount =
-          rulePack.heuristic?.penalizePatterns.filter((pat) => matchesGlob(filePath, pat))
-            .length ?? 0;
-        const score = Math.max(
-          0,
-          Math.min(1, baseScore + boostCount * 0.2 - penaltyCount * 0.2),
-        );
-        return { entry, score };
-      },
-    );
-
+    const scored = candidates.map((entry, i) => ({
+      entry,
+      score: scoreCandidate(
+        entry,
+        i,
+        pathRelevances,
+        recencyValues,
+        tokenValues,
+        weights,
+        rulePack,
+      ),
+    }));
     const sorted = scored.toSorted((a, b) => b.score - a.score);
-
-    const budgetNum = budget;
-    const { files, totalTokens: totalTokensNum } = sorted.reduce<{
-      readonly files: readonly SelectedFile[];
-      readonly totalTokens: number;
-    }>(
-      (acc, { entry, score }) => {
-        if (acc.files.length >= maxFiles) return acc;
-        const tokens = entry.estimatedTokens;
-        if (acc.totalTokens + tokens > budgetNum) return acc;
-        return {
-          files: [
-            ...acc.files,
-            {
-              path: entry.path,
-              language: entry.language,
-              estimatedTokens: entry.estimatedTokens,
-              relevanceScore: toRelevanceScore(score),
-              tier: INCLUSION_TIER.L0,
-            },
-          ],
-          totalTokens: acc.totalTokens + tokens,
-        };
-      },
-      { files: [], totalTokens: 0 },
+    const { files, totalTokens: totalTokensNum } = fitToBudget(
+      sorted,
+      budget,
+      this.config.maxFiles,
     );
-
-    const truncated = files.length < candidates.length || totalTokensNum >= budgetNum;
+    const truncated = files.length < candidates.length || totalTokensNum >= budget;
     return {
       files,
       totalTokens: toTokenCount(totalTokensNum),

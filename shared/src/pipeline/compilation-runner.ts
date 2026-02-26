@@ -2,13 +2,16 @@ import type { CompilationRunner as ICompilationRunner } from "#core/interfaces/c
 import type {
   CompilationRequest,
   CompilationMeta,
+  CachedCompilation,
 } from "#core/types/compilation-types.js";
+import type { TaskClass } from "#core/types/enums.js";
 import type { Clock } from "#core/interfaces/clock.interface.js";
 import type { CacheStore } from "#core/interfaces/cache-store.interface.js";
 import type { ConfigStore } from "#core/interfaces/config-store.interface.js";
 import type { StringHasher } from "#core/interfaces/string-hasher.interface.js";
-import type { PipelineStepsDeps } from "#core/run-pipeline-steps.js";
+import type { PipelineStepsDeps, PipelineStepsResult } from "#core/run-pipeline-steps.js";
 import type { RepoMap, FileEntry } from "#core/types/repo-map.js";
+import type { Milliseconds } from "#core/types/units.js";
 import { toTokenCount } from "#core/types/units.js";
 import { toMilliseconds } from "#core/types/units.js";
 import { toPercentage } from "#core/types/scores.js";
@@ -26,9 +29,70 @@ function serializeRepoMap(repoMap: RepoMap): string {
     .join("\n");
 }
 
+function buildCacheHitMeta(
+  request: CompilationRequest,
+  repoMap: RepoMap,
+  cached: CachedCompilation,
+  taskClass: TaskClass,
+): CompilationMeta {
+  return {
+    intent: request.intent,
+    taskClass,
+    filesSelected: 0,
+    filesTotal: repoMap.totalFiles,
+    tokensRaw: repoMap.totalTokens,
+    tokensCompiled: cached.tokenCount,
+    tokenReductionPct: toPercentage(0),
+    cacheHit: true,
+    durationMs: toMilliseconds(0),
+    modelId: request.modelId ?? "",
+    editorId: request.editorId,
+    transformTokensSaved: toTokenCount(0),
+    summarisationTiers: { L0: 0, L1: 0, L2: 0, L3: 0 },
+    guard: null,
+  };
+}
+
+function buildFreshMeta(
+  request: CompilationRequest,
+  r: PipelineStepsResult,
+  durationMs: Milliseconds,
+): CompilationMeta {
+  const rawNum = r.repoMap.totalTokens;
+  const beforeTransform = sumFileTokens(r.safeFiles);
+  const afterTransforms = sumTransformTokens(r.transformResult.metadata);
+  return {
+    intent: request.intent,
+    taskClass: r.task.taskClass,
+    filesSelected: r.selectedFiles.length,
+    filesTotal: r.repoMap.totalFiles,
+    tokensRaw: r.repoMap.totalTokens,
+    tokensCompiled: r.promptTotal,
+    tokenReductionPct:
+      rawNum > 0 ? toPercentage((rawNum - r.promptTotal) / rawNum) : toPercentage(0),
+    cacheHit: false,
+    durationMs,
+    modelId: request.modelId ?? "",
+    editorId: request.editorId,
+    transformTokensSaved: toTokenCount(Math.max(0, beforeTransform - afterTransforms)),
+    summarisationTiers: buildSummarisationTiers(r.ladderFiles),
+    guard: r.guardResult,
+  };
+}
+
+function buildCacheKey(
+  intent: string,
+  projectRoot: string,
+  fileTreeHash: string,
+  configHash: string,
+  hasher: StringHasher,
+): string {
+  return hasher.hash([intent, projectRoot, fileTreeHash, configHash].join("\0"));
+}
+
 export class CompilationRunner implements ICompilationRunner {
   constructor(
-    public readonly deps: PipelineStepsDeps,
+    private readonly deps: PipelineStepsDeps,
     private readonly clock: Clock,
     private readonly cacheStore: CacheStore,
     private readonly configStore: ConfigStore,
@@ -41,34 +105,20 @@ export class CompilationRunner implements ICompilationRunner {
     const repoMap = await this.deps.repoMapSupplier.getRepoMap(request.projectRoot);
     const fileTreeHash = this.stringHasher.hash(serializeRepoMap(repoMap));
     const configHash = this.configStore.getLatestHash() ?? "";
-    const key = this.stringHasher.hash(
-      [request.intent, request.projectRoot, fileTreeHash, configHash].join("\0"),
+    const key = buildCacheKey(
+      request.intent,
+      request.projectRoot,
+      fileTreeHash,
+      configHash,
+      this.stringHasher,
     );
     const cached = this.cacheStore.get(key);
     if (cached !== null) {
       const task = this.deps.intentClassifier.classify(request.intent);
-      const meta: CompilationMeta = {
-        intent: request.intent,
-        taskClass: task.taskClass,
-        filesSelected: 0,
-        filesTotal: repoMap.totalFiles,
-        tokensRaw: repoMap.totalTokens,
-        tokensCompiled: cached.tokenCount,
-        tokenReductionPct: toPercentage(0),
-        cacheHit: true,
-        durationMs: toMilliseconds(0),
-        modelId: request.modelId ?? "",
-        editorId: request.editorId,
-        transformTokensSaved: toTokenCount(0),
-        summarisationTiers: {
-          L0: 0,
-          L1: 0,
-          L2: 0,
-          L3: 0,
-        },
-        guard: null,
+      return {
+        compiledPrompt: cached.compiledPrompt,
+        meta: buildCacheHitMeta(request, repoMap, cached, task.taskClass),
       };
-      return { compiledPrompt: cached.compiledPrompt, meta };
     }
     const start = this.clock.now();
     const r = await runPipelineSteps(
@@ -76,31 +126,7 @@ export class CompilationRunner implements ICompilationRunner {
       { intent: request.intent, projectRoot: request.projectRoot },
       repoMap,
     );
-    const end = this.clock.now();
-    const rawNum = r.repoMap.totalTokens;
-    const beforeTransform = sumFileTokens(r.safeFiles);
-    const afterTransforms = sumTransformTokens(r.transformResult.metadata);
-    const transformTokensSaved = toTokenCount(
-      Math.max(0, beforeTransform - afterTransforms),
-    );
-    const tokenReductionPct =
-      rawNum > 0 ? toPercentage((rawNum - r.promptTotal) / rawNum) : toPercentage(0);
-    const meta: CompilationMeta = {
-      intent: request.intent,
-      taskClass: r.task.taskClass,
-      filesSelected: r.selectedFiles.length,
-      filesTotal: r.repoMap.totalFiles,
-      tokensRaw: r.repoMap.totalTokens,
-      tokensCompiled: r.promptTotal,
-      tokenReductionPct,
-      cacheHit: false,
-      durationMs: this.clock.durationMs(start, end),
-      modelId: request.modelId ?? "",
-      editorId: request.editorId,
-      transformTokensSaved,
-      summarisationTiers: buildSummarisationTiers(r.ladderFiles),
-      guard: r.guardResult,
-    };
+    const durationMs = this.clock.durationMs(start, this.clock.now());
     this.cacheStore.set({
       key,
       compiledPrompt: r.assembledPrompt,
@@ -110,6 +136,9 @@ export class CompilationRunner implements ICompilationRunner {
       fileTreeHash,
       configHash,
     });
-    return { compiledPrompt: r.assembledPrompt, meta };
+    return {
+      compiledPrompt: r.assembledPrompt,
+      meta: buildFreshMeta(request, r, durationMs),
+    };
   }
 }

@@ -2,6 +2,7 @@ import tseslint from "typescript-eslint";
 import eslintConfigPrettier from "eslint-config-prettier";
 import checkFile from "eslint-plugin-check-file";
 import sonarjs from "eslint-plugin-sonarjs";
+import maxMethodsPerClass from "eslint-plugin-max-methods-per-class";
 import globals from "globals";
 
 // ─── Reusable no-restricted-syntax patterns ─────────────────────────
@@ -74,6 +75,18 @@ const ISP_ONE_INTERFACE_PER_FILE = {
     "ExportNamedDeclaration:has(TSInterfaceDeclaration) ~ ExportNamedDeclaration:has(TSInterfaceDeclaration)",
   message:
     "One interface per *.interface.ts file (ISP). Split each interface into its own file.",
+};
+
+const PUBLIC_CONSTRUCTOR_PARAM_BAN = {
+  selector: 'TSParameterProperty[accessibility="public"]',
+  message:
+    "No public constructor parameters in core/pipeline. Use private readonly and expose via a method if needed (SRP).",
+};
+
+const EXPORTED_INTERFACE_IN_PIPELINE_BAN = {
+  selector: "ExportNamedDeclaration:has(TSInterfaceDeclaration)",
+  message:
+    "Interfaces belong in core/interfaces/*.interface.ts, not in pipeline files. Extract to a separate interface file (SRP/hexagonal).",
 };
 
 const CORE_PIPELINE_EXTRA = [
@@ -254,6 +267,7 @@ export default tseslint.config(
       "@typescript-eslint": tseslint.plugin,
       "check-file": checkFile,
       sonarjs: sonarjs,
+      "max-methods-per-class": maxMethodsPerClass,
     },
     rules: {
       // ── File naming: kebab-case ──
@@ -471,6 +485,25 @@ export default tseslint.config(
         },
       ],
       "no-restricted-syntax": ["error", ...CORE_PIPELINE_RESTRICTED],
+    },
+  },
+
+  // ─── Pipeline SRP: no exported interfaces, max function length, max methods ──
+  {
+    files: ["shared/src/pipeline/**/*.ts"],
+    ignores: ["**/__tests__/**", "**/*.test.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        ...CORE_PIPELINE_RESTRICTED,
+        PUBLIC_CONSTRUCTOR_PARAM_BAN,
+        EXPORTED_INTERFACE_IN_PIPELINE_BAN,
+      ],
+      "max-lines-per-function": [
+        "error",
+        { max: 60, skipBlankLines: true, skipComments: true },
+      ],
+      "max-methods-per-class/max-methods-per-class": ["error", 2],
     },
   },
 

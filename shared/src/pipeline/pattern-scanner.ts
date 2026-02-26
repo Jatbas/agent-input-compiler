@@ -1,12 +1,8 @@
 import type { SelectedFile } from "#core/types/selected-file.js";
 import type { GuardFinding } from "#core/types/guard-types.js";
 import type { GuardSeverity, GuardFindingType } from "#core/types/enums.js";
+import type { ScanPattern } from "#core/interfaces/scan-pattern.interface.js";
 import { toLineNumber } from "#core/types/units.js";
-
-export interface ScanPattern {
-  readonly pattern: RegExp;
-  readonly label: string;
-}
 
 function lineNumberAt(content: string, index: number): number {
   return content.slice(0, index).split("\n").length;
