@@ -88,7 +88,7 @@ Work through the **Steps** section in order.
 **Write correct code on the first pass.** Every rework loop wastes tokens and time. Most coding conventions (no `any`, `prefer-const`, one class per file, layer aliases, `as const` enums, dispatch maps, no `Date.now()`, etc.) are enforced by ESLint and the architect rules — `pnpm lint` catches them during step verification. The rules below are NOT caught by ESLint and cause silent defects if you miss them:
 
 - All properties `readonly`. All array types `readonly T[]` — everywhere: class properties, function parameters, local variables, return types, generic type parameters (e.g. `reduce<{ readonly files: readonly T[] }>`). No exceptions.
-- No `.push()`, `.splice()`, `.sort()`, `.reverse()`. Always `.toSorted()` instead of `.sort()` — even `[...arr].sort()` is banned. Always `.toReversed()` instead of `.reverse()`. Use spread or reduce for building arrays.
+- No `.push()`, `.splice()`, `.sort()`, `.reverse()` in production code. Always `.toSorted()` instead of `.sort()` — even `[...arr].sort()` is banned. Always `.toReversed()` instead of `.reverse()`. Use spread or reduce for building arrays. Test files are exempt.
 - Branded types for all domain values — never raw `string`/`number` for paths, tokens, scores, IDs. Use factory functions: `toTokenCount(N)`, `toRelativePath("...")`, `toUUIDv7("...")`, `toISOTimestamp("...")`.
 - `//` comments only — ESLint catches multi-line `/* */` but NOT single-line `/** */`. Write `// comment` not `/** comment */`.
 - Return new objects from all methods — never mutate inputs.
@@ -139,12 +139,12 @@ Use the Read tool on every file created or modified. Do NOT rely on what you rem
 
 **4c — Mechanical checks (parallel Grep).**
 
-Batch all Grep calls in a single message for speed. Use Grep on the created/modified files for each dimension.
+Batch all Grep calls in a single message for speed. Use Grep on the created/modified files for each dimension. **When a check finds violations, fix them immediately** — replace `.push()` with spread, add missing `readonly`, swap `/** */` for `//`, wrap raw literals with factory functions, add type annotations, refactor `let` to `const`, etc. After fixing, re-run only the failed checks to confirm they are clean before moving on.
 
 | Dimension                          | Tool check                                                                                                                                                                                                                                                                       | Evidence required                                                                                                                                                                        |
 | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 1. Signature match                 | For interface components: re-read the interface file and implementation file side by side. For composition roots: re-read the Wiring Specification and implementation — verify every `new ClassName(...)` call, every exported function signature, and every library import/call | Interface components: list each method with param names, types, return types — MATCH or MISMATCH. Composition roots: list each constructor call and library API call — MATCH or MISMATCH |
-| 2. Readonly / mutability           | Grep for `\.push\(`, `\.splice\(`, `\.sort\(`, `\.reverse\(` in new files. Grep for array types missing `readonly` (pattern: `: [A-Z]\w+\[\]` without preceding `readonly`)                                                                                                      | Paste Grep output ("0 matches" = pass)                                                                                                                                                   |
+| 2. Readonly / mutability           | Grep for `\.push\(`, `\.splice\(`, `\.sort\(`, `\.reverse\(` in new/modified production files (exclude `__tests__/` and `*.test.ts`). Grep for array types missing `readonly` (pattern: `: [A-Z]\w+\[\]` without preceding `readonly`) in new production files                   | Paste Grep output ("0 matches" = pass)                                                                                                                                                   |
 | 3. Branded types                   | Grep for factory function usage (`toTokenCount`, `toRelativePath`, etc.) in implementation AND test files. Grep for suspicious raw literals in type positions                                                                                                                    | Paste evidence of factory function usage or raw values found                                                                                                                             |
 | 4. Comment style                   | Grep for `/\*\*` and `/\*[^/]` in new files                                                                                                                                                                                                                                      | Paste Grep output ("0 matches" = pass)                                                                                                                                                   |
 | 5. DI & immutability               | For interface components: re-read constructor — list each param and whether it's an interface or concrete class. For composition roots: verify that only the composition root file uses `new` for infrastructure classes — no `new` leaking into helpers                         | Interface components: list each constructor param with its type. Composition roots: list each `new` call and confirm it's in the composition root file                                   |
@@ -155,27 +155,23 @@ Batch all Grep calls in a single message for speed. Use Grep on the created/modi
 | 10. Layer boundaries               | Grep for banned import patterns in new files (e.g. `from ['"](?!#)\.\.` for cross-layer relative imports, specific banned packages)                                                                                                                                              | Paste Grep output ("0 matches" = pass)                                                                                                                                                   |
 | 11. No `let` in production         | Grep for `^\s*let ` in new/modified production files (exclude `__tests__/` and `*.test.ts`)                                                                                                                                                                                      | Paste Grep output ("0 matches" = pass, or list each as justified control flag)                                                                                                           |
 
-**4d — Score and act.**
+**4d — Confirm clean and track first-pass quality.**
 
-Score each dimension 0 (fail with evidence of violation) or 1 (pass with evidence of compliance). 11 dimensions total. Be strict — if Grep found ANY match for a banned pattern, score 0 for that dimension regardless of whether you think it's a false positive. Investigate first.
+After §4c, every dimension must be clean (all violations fixed, all re-checks passing). If a dimension reveals an architectural issue that cannot be fixed mechanically (e.g. signature mismatch, wrong layer boundary, missing DI), go to **Blocked diagnostic** — these indicate a task-file or design problem, not a code-style issue.
 
-Also self-track first-pass quality: count fix iterations during §3. Record as "0 iterations" or "N iterations for [reasons]".
+Track first-pass quality: for each dimension, record whether it was clean on first check or required a fix. This is informational — it helps calibrate the "write correct code on the first pass" rules over time but does not gate progress. Report the count in §5a (e.g. "11/11 first-pass clean" or "9/11 first-pass clean, fixed 2: readonly array in X, block comment in Y").
 
-Tally the total. Record per-dimension scores with one-line justifications.
-
-**If score < 8:** Fix the failing dimensions, re-run the tool checks for those dimensions only, re-score. **Maximum 3 iterations** — if still below 8, go to Blocked.
-
-**If score >= 8:** Proceed to §5.
+Once all dimensions are confirmed clean, proceed to §5.
 
 ### 5. Finalize
 
-When the verification score >= 8, complete these four sub-steps in order.
+When all dimensions are confirmed clean, complete these four sub-steps in order.
 
 **5a — Report to the user:**
 
 - What was implemented (files created/modified)
 - Test results (pass count, confirming no regressions)
-- **Implementation score: N/10** (from §4d) with per-dimension breakdown
+- **First-pass quality: N/11** (from §4d) — list any dimensions that needed fixing and what was fixed
 - Review findings and fixes applied (if any)
 - Any concerns or follow-up items
 
