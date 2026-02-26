@@ -36,7 +36,7 @@ The planner's natural bias is toward comprehensiveness — more types, more file
 
 - User says "plan next task", "what's next", or "create a task"
 - Before any multi-file implementation work
-- When the user picks a component from `documentation/mvp-progress.md`
+- When the user picks a component from `documentation/mvp-progress.md` — still run §1 ranking to validate the pick
 - User says "review task NNN", "review tasks", or "review all tasks" — triggers the **Review** process (see §7)
 
 ## Inputs (read these every time)
@@ -83,6 +83,18 @@ Read `mvp-progress.md`. Identify all components with status `Not started` whose 
 > **"Go with the recommendation, pick an alternative, or tell me something else."**
 
 Do NOT proceed until the user picks.
+
+### User picks a non-optimal task
+
+If the user picks a component — either from the alternatives list or by naming one directly (e.g. "plan task X") — and it does **not** rank first, warn before proceeding:
+
+> **Heads up:** [picked component] ranks #N. The recommended task is **[top-ranked component]** because [one-line reason].
+>
+> Picking [picked component] first means [concrete consequence: e.g. "you'll establish the CLI pattern in a less central command" or "the compile command will have to be written without this foundation"].
+>
+> **Switch to the recommendation, or continue with your pick?**
+
+Wait for confirmation. If the user confirms their pick, proceed to Pass 1 with that component.
 
 ---
 
