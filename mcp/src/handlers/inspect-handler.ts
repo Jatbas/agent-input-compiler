@@ -23,7 +23,7 @@ export async function handleInspect(
     args.configPath !== undefined && args.configPath !== null
       ? toFilePath(args.configPath)
       : null;
-  const dbPath = toFilePath(path.join(projectRoot as string, ".aic", "aic.sqlite"));
+  const dbPath = toFilePath(path.join(projectRoot, ".aic", "aic.sqlite"));
 
   const request = {
     intent: args.intent,

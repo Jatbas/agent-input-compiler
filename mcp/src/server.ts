@@ -29,7 +29,7 @@ import { createProjectFileReader } from "@aic/shared/adapters/project-file-reade
 export function createFileContentReader(projectRoot: AbsolutePath): FileContentReader {
   return {
     getContent(pathRel: RelativePath): string {
-      const full = path.join(projectRoot as string, pathRel as string);
+      const full = path.join(projectRoot, pathRel);
       return fs.readFileSync(full, "utf8");
     },
   };
@@ -49,10 +49,7 @@ export function createRulePackProvider(_projectRoot: AbsolutePath): RulePackProv
       return defaultRulePack();
     },
     getProjectPack(projectRootArg: AbsolutePath, taskClass: TaskClass): RulePack | null {
-      return loadRulePackFromPath(
-        createProjectFileReader(projectRootArg as string),
-        taskClass,
-      );
+      return loadRulePackFromPath(createProjectFileReader(projectRootArg), taskClass);
     },
   };
 }

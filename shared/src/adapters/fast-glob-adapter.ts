@@ -11,7 +11,7 @@ export class FastGlobAdapter implements GlobProvider {
     if (patterns.length === 0) {
       return [];
     }
-    const cwdStr = cwd as string;
+    const cwdStr = cwd;
     const raw = fg.sync([...patterns], { cwd: cwdStr });
     const relative = raw.map((p) => {
       const abs = path.isAbsolute(p) ? p : path.resolve(cwdStr, p);

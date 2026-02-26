@@ -8,10 +8,10 @@ export class IgnoreAdapter implements IgnoreProvider {
   constructor() {}
 
   accepts(relativePath: RelativePath, root: AbsolutePath): boolean {
-    const rootStr = root as string;
+    const rootStr = root;
     const gitignorePath = path.join(rootStr, ".gitignore");
     const content = existsSync(gitignorePath) ? readFileSync(gitignorePath, "utf8") : "";
     const ig = ignore().add(content);
-    return !ig.ignores(relativePath as string);
+    return !ig.ignores(relativePath);
   }
 }

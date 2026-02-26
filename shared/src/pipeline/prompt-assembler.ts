@@ -29,7 +29,7 @@ export class PromptAssembler implements IPromptAssembler {
     const intent = task.matchedKeywords.join(" ") || task.taskClass;
     const contextParts = files.flatMap((file) => {
       const content = this.fileContentReader.getContent(file.path);
-      return [`### ${file.path as string} [Tier: ${file.tier}]`, content, ""];
+      return [`### ${file.path} [Tier: ${file.tier}]`, content, ""];
     });
     const constraintSection =
       constraints.length > 0

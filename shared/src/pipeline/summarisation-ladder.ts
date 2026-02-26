@@ -4,7 +4,6 @@ import type { FileContentReader } from "#core/interfaces/file-content-reader.int
 import type { SelectedFile } from "#core/types/selected-file.js";
 import type { TokenCount } from "#core/types/units.js";
 import type { InclusionTier } from "#core/types/enums.js";
-import type { RelativePath } from "#core/types/paths.js";
 import { INCLUSION_TIER } from "#core/types/enums.js";
 
 type TierTextFn = (
@@ -57,7 +56,7 @@ function getProvider(
 ): LanguageProvider | undefined {
   const ext = path.slice(path.lastIndexOf("."));
   return providers.find((p) =>
-    p.extensions.some((e) => (e as string).toLowerCase() === ext.toLowerCase()),
+    p.extensions.some((e) => e.toLowerCase() === ext.toLowerCase()),
   );
 }
 
@@ -69,16 +68,16 @@ export class SummarisationLadder implements ISummarisationLadder {
   ) {}
 
   compress(files: readonly SelectedFile[], budget: TokenCount): readonly SelectedFile[] {
-    const budgetNum = budget as number;
+    const budgetNum = budget;
     const initialTotal = sumTokens(files);
     if (initialTotal <= budgetNum) return files;
 
     const sorted = files.toSorted(byRelevanceThenSize);
     const tokenAtTier = (file: SelectedFile, tier: InclusionTier): TokenCount => {
-      const filePath = file.path as RelativePath;
+      const filePath = file.path;
       const content = this.fileContentReader.getContent(filePath);
-      const provider = getProvider(filePath as string, this.languageProviders);
-      const text = TIER_TEXT[tier](content, provider, file.path as string);
+      const provider = getProvider(filePath, this.languageProviders);
+      const text = TIER_TEXT[tier](content, provider, file.path);
       return this.tokenCounter(text);
     };
 
@@ -96,30 +95,29 @@ export class SummarisationLadder implements ISummarisationLadder {
 }
 
 function sumTokens(files: readonly SelectedFile[]): number {
-  return files.reduce((s, f) => s + (f.estimatedTokens as number), 0);
+  return files.reduce((s, f) => s + f.estimatedTokens, 0);
 }
 
 function byRelevanceThenSize(a: SelectedFile, b: SelectedFile): number {
-  const scoreA = a.relevanceScore as number;
-  const scoreB = b.relevanceScore as number;
+  const scoreA = a.relevanceScore;
+  const scoreB = b.relevanceScore;
   if (scoreA !== scoreB) return scoreA - scoreB;
-  const tokA = a.estimatedTokens as number;
-  const tokB = b.estimatedTokens as number;
+  const tokA = a.estimatedTokens;
+  const tokB = b.estimatedTokens;
   if (tokA !== tokB) return tokB - tokA;
-  return (a.path as string).localeCompare(b.path as string);
+  return a.path.localeCompare(b.path);
 }
 
 function findLowestIdx(files: readonly SelectedFile[]): number {
   return files.reduce((best, _f, i) => {
-    const score =
-      (files[i]!.relevanceScore as number) - (files[best]!.relevanceScore as number);
+    const fi = files[i];
+    const fb = files[best];
+    if (fi === undefined || fb === undefined) return best;
+    const score = fi.relevanceScore - fb.relevanceScore;
     if (score !== 0) return score < 0 ? i : best;
-    const tok =
-      (files[best]!.estimatedTokens as number) - (files[i]!.estimatedTokens as number);
+    const tok = fb.estimatedTokens - fi.estimatedTokens;
     if (tok !== 0) return tok > 0 ? best : i;
-    return (files[i]!.path as string).localeCompare(files[best]!.path as string) < 0
-      ? i
-      : best;
+    return fi.path.localeCompare(fb.path) < 0 ? i : best;
   }, 0);
 }
 
@@ -132,7 +130,8 @@ function demoteLoop(
   if (remainingRounds <= 0) return files;
   if (sumTokens(files) <= budgetNum) return files;
   const lowestIdx = findLowestIdx(files);
-  const file = files[lowestIdx]!;
+  const file = files[lowestIdx];
+  if (file === undefined) return files;
   const next = nextTier(file.tier);
   if (next === null) return files;
   const newTokens = tokenAtTier(file, next);
@@ -147,8 +146,8 @@ function dropToFit(
   budgetNum: number,
 ): readonly SelectedFile[] {
   const prefixSums = sorted.reduce<readonly number[]>((sums, f) => {
-    const prev = sums.length > 0 ? sums[sums.length - 1]! : 0;
-    return [...sums, prev + (f.estimatedTokens as number)];
+    const prev = sums.length > 0 ? (sums[sums.length - 1] ?? 0) : 0;
+    return [...sums, prev + f.estimatedTokens];
   }, []);
   const keepCount = prefixSums.filter((s) => s <= budgetNum).length;
   return sorted.slice(0, keepCount);

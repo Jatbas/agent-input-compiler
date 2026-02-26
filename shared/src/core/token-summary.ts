@@ -5,14 +5,14 @@ import { toTokenCount } from "#core/types/units.js";
 import { INCLUSION_TIER } from "#core/types/enums.js";
 
 export function sumFileTokens(files: readonly SelectedFile[]): TokenCount {
-  const n = files.reduce((acc, f) => acc + (f.estimatedTokens as number), 0);
+  const n = files.reduce((acc, f) => acc + f.estimatedTokens, 0);
   return toTokenCount(n);
 }
 
 export function sumTransformTokens(
   metadata: readonly { readonly transformedTokens: TokenCount }[],
 ): TokenCount {
-  const n = metadata.reduce((acc, m) => acc + (m.transformedTokens as number), 0);
+  const n = metadata.reduce((acc, m) => acc + m.transformedTokens, 0);
   return toTokenCount(n);
 }
 

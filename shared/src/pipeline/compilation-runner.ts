@@ -20,9 +20,7 @@ import {
 } from "#core/token-summary.js";
 
 function serializeRepoMap(repoMap: RepoMap): string {
-  const sorted = [...repoMap.files].toSorted((a, b) =>
-    (a.path as string).localeCompare(b.path as string),
-  );
+  const sorted = [...repoMap.files].toSorted((a, b) => a.path.localeCompare(b.path));
   return sorted
     .map((f: FileEntry) => `${f.path}|${f.sizeBytes}|${f.lastModified}`)
     .join("\n");
@@ -79,16 +77,14 @@ export class CompilationRunner implements ICompilationRunner {
       repoMap,
     );
     const end = this.clock.now();
-    const rawNum = r.repoMap.totalTokens as number;
+    const rawNum = r.repoMap.totalTokens;
     const beforeTransform = sumFileTokens(r.safeFiles);
     const afterTransforms = sumTransformTokens(r.transformResult.metadata);
     const transformTokensSaved = toTokenCount(
-      Math.max(0, (beforeTransform as number) - (afterTransforms as number)),
+      Math.max(0, beforeTransform - afterTransforms),
     );
     const tokenReductionPct =
-      rawNum > 0
-        ? toPercentage((rawNum - (r.promptTotal as number)) / rawNum)
-        : toPercentage(0);
+      rawNum > 0 ? toPercentage((rawNum - r.promptTotal) / rawNum) : toPercentage(0);
     const meta: CompilationMeta = {
       intent: request.intent,
       taskClass: r.task.taskClass,

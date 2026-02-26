@@ -16,7 +16,7 @@ function getExtension(path: string): string {
 }
 
 function matchesExtension(ext: string, pattern: FileExtension): boolean {
-  return (pattern as string).toLowerCase() === ext.toLowerCase();
+  return pattern.toLowerCase() === ext.toLowerCase();
 }
 
 function getApplicableTransformers(
@@ -53,7 +53,7 @@ export class ContentTransformerPipeline implements IContentTransformerPipeline {
       (t) => t.fileExtensions.length === 0,
     );
 
-    const directSet = new Set(context.directTargetPaths.map((p) => p as string));
+    const directSet = new Set(context.directTargetPaths.map((p) => p));
 
     const result = files.map((file): { file: SelectedFile; meta: TransformMetadata } => {
       const rawContent = this.fileContentReader.getContent(file.path);
@@ -63,8 +63,8 @@ export class ContentTransformerPipeline implements IContentTransformerPipeline {
         : getApplicableTransformers(
             formatSpecific,
             nonFormatSpecific,
-            getExtension(file.path as string),
-            directSet.has(file.path as string),
+            getExtension(file.path),
+            directSet.has(file.path),
           );
       const { content, applied } = applicable.reduce<{
         readonly content: string;

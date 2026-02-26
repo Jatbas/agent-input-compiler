@@ -22,11 +22,9 @@ export class InspectRunner implements IInspectRunner {
       projectRoot: request.projectRoot,
     });
     const raw = r.repoMap.totalTokens;
-    const rawNum = raw as number;
+    const rawNum = raw;
     const reductionPct =
-      rawNum > 0
-        ? toPercentage((rawNum - (r.promptTotal as number)) / rawNum)
-        : toPercentage(0);
+      rawNum > 0 ? toPercentage((rawNum - r.promptTotal) / rawNum) : toPercentage(0);
     const rulePacks = ["built-in:default", `built-in:${r.task.taskClass}`] as const;
     return {
       intent: request.intent,

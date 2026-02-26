@@ -4,11 +4,12 @@ const ABSOLUTE_PATH_REGEX = /\/[^\s]+|[A-Za-z]:\\[^\s]+/g;
 const ENV_VAR_REGEX = /\b[A-Z_][A-Z0-9_]*\s*=/g;
 
 function sanitizeMessage(message: string): string {
-  return message
+  const parts = message
     .replace(ABSOLUTE_PATH_REGEX, "[path]")
     .replace(ENV_VAR_REGEX, "[env]=***")
-    .split("\n")[0]!
-    .trim();
+    .split("\n");
+  const firstLine = parts[0] ?? "";
+  return firstLine.trim();
 }
 
 export function sanitizeError(err: unknown): { code: string; message: string } {

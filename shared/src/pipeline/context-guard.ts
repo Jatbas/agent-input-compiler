@@ -8,7 +8,7 @@ import { GUARD_SEVERITY } from "#core/types/enums.js";
 import { matchesGlob } from "./glob-match.js";
 
 function pathAllowed(path: string, allowPatterns: readonly GlobPattern[]): boolean {
-  return allowPatterns.some((p) => matchesGlob(path, p as string));
+  return allowPatterns.some((p) => matchesGlob(path, p));
 }
 
 export class ContextGuard implements IContextGuard {
@@ -23,7 +23,7 @@ export class ContextGuard implements IContextGuard {
     readonly safeFiles: readonly SelectedFile[];
   } {
     const allFindings = files.flatMap((file): GuardFinding[] => {
-      const path = file.path as string;
+      const path = file.path;
       if (pathAllowed(path, this.allowPatterns)) return [];
 
       const content = this.fileContentReader.getContent(file.path);

@@ -35,7 +35,7 @@ export class ExclusionScanner implements GuardScanner {
   readonly name = "ExclusionScanner";
 
   scan(file: SelectedFile, _content: string): readonly GuardFinding[] {
-    const path = file.path as string;
+    const path = file.path;
     return NEVER_INCLUDE_PATTERNS.filter((pattern) => pathMatches(pattern, path)).map(
       (pattern): GuardFinding => ({
         severity: GUARD_SEVERITY.BLOCK,

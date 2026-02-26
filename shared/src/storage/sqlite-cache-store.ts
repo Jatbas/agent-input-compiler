@@ -48,7 +48,7 @@ export class SqliteCacheStore implements CacheStore {
   ) {}
 
   get(key: string): CachedCompilation | null {
-    const now = this.clock.now() as string;
+    const now = this.clock.now();
     const rows = this.db
       .prepare(
         "SELECT cache_key, file_path, file_tree_hash, created_at, expires_at FROM cache_metadata WHERE cache_key = ? AND expires_at > datetime(?)",

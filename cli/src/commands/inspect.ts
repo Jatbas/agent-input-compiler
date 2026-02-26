@@ -17,7 +17,7 @@ export async function inspectCommand(
     const dbPath =
       args.dbPath !== null
         ? toFilePath(args.dbPath)
-        : toFilePath(path.join(projectRoot as string, ".aic", "aic.sqlite"));
+        : toFilePath(path.join(projectRoot, ".aic", "aic.sqlite"));
     const request: InspectRequest = {
       intent: args.intent,
       projectRoot,

@@ -15,7 +15,7 @@ export class SqliteStatusStore implements StatusStore {
       .all() as { c: number }[];
     const compilationsTotal = compilationsTotalRow[0]?.c ?? 0;
 
-    const todayDate = (this.clock.now() as string).slice(0, 10);
+    const todayDate = this.clock.now().slice(0, 10);
     const compilationsTodayRow = this.db
       .prepare(
         "SELECT COUNT(*) as c FROM compilation_log WHERE date(created_at) = date(?)",

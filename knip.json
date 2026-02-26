@@ -3,14 +3,14 @@
   "workspaces": {
     ".": {},
     "shared": {
-      "entry": ["src/storage/migrations/*.ts", "src/core/errors/index.ts"],
+      "entry": ["src/storage/migrations/*.ts"],
       "ignoreDependencies": ["commander", "diff", "zod"]
     },
     "mcp": {},
     "cli": {
       "entry": [],
       "project": [],
-      "ignoreDependencies": ["@aic/shared", "commander", "zod"]
+      "ignoreDependencies": ["zod"]
     }
   },
   "ignoreExportsUsedInFile": true

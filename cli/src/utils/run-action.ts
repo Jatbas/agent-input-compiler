@@ -44,7 +44,7 @@ export function createIntentAction<T>(
     await runAction(async () => {
       const parsed = schema.parse({
         intent,
-        ...resolveBaseArgs(this.opts() as CliOpts),
+        ...resolveBaseArgs(this.opts()),
       });
       await handler(parsed);
     });

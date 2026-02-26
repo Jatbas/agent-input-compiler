@@ -35,12 +35,7 @@ import { toISOTimestamp } from "@aic/shared/core/types/identifiers.js";
 import { TASK_CLASS, INCLUSION_TIER } from "@aic/shared/core/types/enums.js";
 import { loadRulePackFromPath } from "@aic/shared/core/load-rule-pack.js";
 import { createProjectFileReader } from "@aic/shared/adapters/project-file-reader-adapter.js";
-import {
-  type CliOpts,
-  resolveBaseArgs,
-  runAction,
-  createIntentAction,
-} from "./utils/run-action.js";
+import { resolveBaseArgs, runAction, createIntentAction } from "./utils/run-action.js";
 
 function defaultRulePack(): RulePack {
   return {
@@ -79,7 +74,7 @@ function createCompilationRunner(projectRoot: string): CompilationRunner {
   const scope = createProjectScope(toAbsolutePath(projectRoot));
   const fileContentReader: FileContentReader = {
     getContent(pathRel: RelativePath): string {
-      return fs.readFileSync(path.join(projectRoot, pathRel as string), "utf8");
+      return fs.readFileSync(path.join(projectRoot, pathRel), "utf8");
     },
   };
   const rulePackProvider = createRulePackProvider(projectRoot);
@@ -178,7 +173,7 @@ program
   .action(async function (this: Command) {
     await runAction(async () => {
       const parsed = InitArgsSchema.parse({
-        ...resolveBaseArgs(this.opts() as CliOpts),
+        ...resolveBaseArgs(this.opts()),
         upgrade: this.opts()["upgrade"] === true,
       });
       await initCommand(parsed);
@@ -193,10 +188,10 @@ program
   .option("--db <path>", "path to SQLite database")
   .action(async function (this: Command) {
     await runAction(async () => {
-      const parsed = StatusArgsSchema.parse(resolveBaseArgs(this.opts() as CliOpts));
+      const parsed = StatusArgsSchema.parse(resolveBaseArgs(this.opts()));
       const statusRunner = {
         status(request: StatusRequest) {
-          const db = openDatabase(request.dbPath as string, new SystemClock());
+          const db = openDatabase(request.dbPath, new SystemClock());
           const store = new SqliteStatusStore(db, new SystemClock());
           return Promise.resolve(store.getSummary());
         },

@@ -17,7 +17,7 @@ export class LockFileSkipper implements ContentTransformer {
   readonly fileExtensions = LOCK_EXTENSIONS;
 
   transform(content: string, _tier: InclusionTier, filePath: RelativePath): string {
-    const path = filePath as string;
+    const path = filePath;
     if (!isLockPath(path)) return content;
     const segments = path.split("/");
     const name = segments.length > 0 ? (segments[segments.length - 1] ?? path) : path;

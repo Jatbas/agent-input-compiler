@@ -14,44 +14,45 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function formatAvgReductionLine(aggregates: StatusAggregates): string {
+  if (aggregates.telemetryDisabled)
+    return "(telemetry disabled — enable in aic.config.json)";
+  if (aggregates.avgReductionPct !== null)
+    return `${aggregates.avgReductionPct.toFixed(1)}%`;
+  return "—";
+}
+
+function formatTotalSavedLine(aggregates: StatusAggregates): string {
+  if (aggregates.telemetryDisabled) return "(telemetry disabled)";
+  if (aggregates.totalTokensSaved !== null)
+    return aggregates.totalTokensSaved.toLocaleString();
+  return "—";
+}
+
 function formatStatusOutput(
   request: StatusRequest,
   aggregates: StatusAggregates,
 ): string {
-  const configPathStr =
-    request.configPath !== null ? (request.configPath as string) : "—";
+  const configPathStr = request.configPath ?? "—";
   const configExists =
-    request.configPath !== null ? fs.existsSync(request.configPath as string) : false;
+    request.configPath !== null ? fs.existsSync(request.configPath) : false;
   const configLine = `${configPathStr}${configExists ? "" : " (not found)"}`;
 
-  const triggerPath = path.join(
-    request.projectRoot as string,
-    ".cursor",
-    "rules",
-    "aic.mdc",
-  );
+  const triggerPath = path.join(request.projectRoot, ".cursor", "rules", "aic.mdc");
   const triggerExists = fs.existsSync(triggerPath);
   const triggerLine = `.cursor/rules/aic.mdc ${triggerExists ? "✓" : "✗"}`;
 
-  const dbPathStr = request.dbPath as string;
+  const dbPathStr = request.dbPath;
   const dbSize = fs.existsSync(dbPathStr) ? formatSize(fs.statSync(dbPathStr).size) : "—";
-  const databaseRel = path.relative(request.projectRoot as string, dbPathStr);
+  const databaseRel = path.relative(request.projectRoot, dbPathStr);
   const databaseLine = `${databaseRel || dbPathStr} (${dbSize})`;
 
   const cacheLine =
     aggregates.cacheHitRatePct !== null
       ? `${Math.round(aggregates.cacheHitRatePct)}%`
       : "—";
-  const avgReductionLine = aggregates.telemetryDisabled
-    ? "(telemetry disabled — enable in aic.config.json)"
-    : aggregates.avgReductionPct !== null
-      ? `${aggregates.avgReductionPct.toFixed(1)}%`
-      : "—";
-  const totalSavedLine = aggregates.telemetryDisabled
-    ? "(telemetry disabled)"
-    : aggregates.totalTokensSaved !== null
-      ? aggregates.totalTokensSaved.toLocaleString()
-      : "—";
+  const avgReductionLine = formatAvgReductionLine(aggregates);
+  const totalSavedLine = formatTotalSavedLine(aggregates);
 
   const guardTotal = Object.values(aggregates.guardByType).reduce((a, b) => a + b, 0);
   const guardParts = Object.entries(aggregates.guardByType).map(
@@ -97,7 +98,7 @@ export async function statusCommand(
       args.dbPath !== null
         ? toFilePath(args.dbPath)
         : toFilePath(path.join(args.projectRoot, ".aic", "aic.sqlite"));
-    if (!fs.existsSync(dbPath as string)) {
+    if (!fs.existsSync(dbPath)) {
       process.stdout.write(
         "No AIC database found. Run 'aic init' or use AIC via your editor first.\n",
       );

@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "tsc -b",
+    "clean": "rm -rf shared/dist cli/dist mcp/dist && find . -name '*.tsbuildinfo' -not -path './node_modules/*' -delete && rm -rf coverage .turbo",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

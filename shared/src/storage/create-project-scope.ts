@@ -31,11 +31,11 @@ export interface ProjectScope {
 
 export function createProjectScope(projectRoot: AbsolutePath): ProjectScope {
   const aicDir = ensureAicDir(projectRoot);
-  const dbPath = path.join(aicDir as string, "aic.sqlite");
+  const dbPath = path.join(aicDir, "aic.sqlite");
   const clock = new SystemClock();
   const db = openDatabase(dbPath, clock);
   const idGenerator = new UuidV7Generator(clock);
-  const cacheDirPath = path.join(aicDir as string, "cache");
+  const cacheDirPath = path.join(aicDir, "cache");
   fs.mkdirSync(cacheDirPath, { recursive: true });
   const cacheDir = toAbsolutePath(cacheDirPath);
   const cacheStore = new SqliteCacheStore(db, cacheDir, clock);

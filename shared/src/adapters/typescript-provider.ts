@@ -265,22 +265,22 @@ const NAME_HANDLERS: readonly NameHandler[] = [
   {
     matches: (node) =>
       ts.isFunctionDeclaration(node) && node.name !== undefined && hasExport(node),
-    extract: (node, sf) => [
-      {
-        name: (node as ts.FunctionDeclaration).name!.getText(sf),
-        kind: mapSyntaxKindToSymbolKind(node.kind),
-      },
-    ],
+    extract: (node, sf) => {
+      const fd = node as ts.FunctionDeclaration;
+      const n = fd.name;
+      if (n === undefined) return [];
+      return [{ name: n.getText(sf), kind: mapSyntaxKindToSymbolKind(node.kind) }];
+    },
   },
   {
     matches: (node) =>
       ts.isClassDeclaration(node) && node.name !== undefined && hasExport(node),
-    extract: (node, sf) => [
-      {
-        name: (node as ts.ClassDeclaration).name!.getText(sf),
-        kind: mapSyntaxKindToSymbolKind(node.kind),
-      },
-    ],
+    extract: (node, sf) => {
+      const cd = node as ts.ClassDeclaration;
+      const n = cd.name;
+      if (n === undefined) return [];
+      return [{ name: n.getText(sf), kind: mapSyntaxKindToSymbolKind(node.kind) }];
+    },
   },
   {
     matches: (node) => ts.isInterfaceDeclaration(node) && hasExport(node),

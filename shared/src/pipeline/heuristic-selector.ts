@@ -10,7 +10,10 @@ import type { SelectedFile } from "#core/types/selected-file.js";
 import { INCLUSION_TIER } from "#core/types/enums.js";
 import { toRelevanceScore } from "#core/types/scores.js";
 import { toTokenCount } from "#core/types/units.js";
+import { toISOTimestamp } from "#core/types/identifiers.js";
 import { matchesGlob } from "./glob-match.js";
+
+const FALLBACK_RECENCY = toISOTimestamp("1970-01-01T00:00:00.000Z");
 
 function pathRelevance(path: string, keywords: readonly string[]): number {
   if (keywords.length === 0) return 0;
@@ -60,26 +63,25 @@ export class HeuristicSelector implements ContextSelector {
     const maxFiles = this.config.maxFiles;
 
     const candidates = repo.files.filter((f) => {
-      const path = f.path as string;
+      const path = f.path;
       if (
         rulePack.includePatterns.length > 0 &&
-        !rulePack.includePatterns.some((pat) => matchesGlob(path, pat as string))
+        !rulePack.includePatterns.some((pat) => matchesGlob(path, pat))
       )
         return false;
-      if (rulePack.excludePatterns.some((pat) => matchesGlob(path, pat as string)))
-        return false;
+      if (rulePack.excludePatterns.some((pat) => matchesGlob(path, pat))) return false;
       return true;
     });
 
     const pathRelevances = candidates.map((f) =>
-      pathRelevance(f.path as string, task.matchedKeywords),
+      pathRelevance(f.path, task.matchedKeywords),
     );
-    const recencyValues = candidates.map((f) => f.lastModified as string);
-    const tokenValues = candidates.map((f) => f.estimatedTokens as number);
+    const recencyValues = candidates.map((f) => f.lastModified);
+    const tokenValues = candidates.map((f) => f.estimatedTokens);
 
     const recencyNorm = (i: number): number => {
       const sorted = recencyValues.toSorted();
-      const val = recencyValues[i] ?? "";
+      const val = recencyValues[i] ?? FALLBACK_RECENCY;
       const idx = sorted.indexOf(val);
       if (sorted.length <= 1) return 1;
       return idx / (sorted.length - 1);
@@ -99,15 +101,13 @@ export class HeuristicSelector implements ContextSelector {
           rec * weights.recency +
           sizeP * weights.sizePenalty;
 
-        const filePath = entry.path as string;
+        const filePath = entry.path;
         const boostCount =
-          rulePack.heuristic?.boostPatterns.filter((pat) =>
-            matchesGlob(filePath, pat as string),
-          ).length ?? 0;
+          rulePack.heuristic?.boostPatterns.filter((pat) => matchesGlob(filePath, pat))
+            .length ?? 0;
         const penaltyCount =
-          rulePack.heuristic?.penalizePatterns.filter((pat) =>
-            matchesGlob(filePath, pat as string),
-          ).length ?? 0;
+          rulePack.heuristic?.penalizePatterns.filter((pat) => matchesGlob(filePath, pat))
+            .length ?? 0;
         const score = Math.max(
           0,
           Math.min(1, baseScore + boostCount * 0.2 - penaltyCount * 0.2),
@@ -118,14 +118,14 @@ export class HeuristicSelector implements ContextSelector {
 
     const sorted = scored.toSorted((a, b) => b.score - a.score);
 
-    const budgetNum = budget as number;
+    const budgetNum = budget;
     const { files, totalTokens: totalTokensNum } = sorted.reduce<{
       readonly files: readonly SelectedFile[];
       readonly totalTokens: number;
     }>(
       (acc, { entry, score }) => {
         if (acc.files.length >= maxFiles) return acc;
-        const tokens = entry.estimatedTokens as number;
+        const tokens = entry.estimatedTokens;
         if (acc.totalTokens + tokens > budgetNum) return acc;
         return {
           files: [

@@ -1,6 +1,7 @@
 import { randomFillSync } from "node:crypto";
 import type { Clock } from "#core/interfaces/clock.interface.js";
 import type { IdGenerator } from "#core/interfaces/id-generator.interface.js";
+import { AicError } from "#core/errors/aic-error.js";
 import { toUUIDv7 } from "#core/types/identifiers.js";
 
 const UUID_BYTES = 16;
@@ -34,25 +35,31 @@ function formatUuid(hex: string): string {
   ].join("-");
 }
 
+function byteAt(buf: Uint8Array, i: number): number {
+  const b = buf[i];
+  if (b === undefined) throw new AicError("UuidV7: index out of range", "INTERNAL_ERROR");
+  return b;
+}
+
 function buildUuidV7Bytes(timestampMs: number, randomBytes: Uint8Array): Uint8Array {
   const ts = uint48BeBytes(timestampMs);
   return new Uint8Array([
-    ts[0]!,
-    ts[1]!,
-    ts[2]!,
-    ts[3]!,
-    ts[4]!,
-    ts[5]!,
-    (randomBytes[6]! & 0x0f) | VERSION_7,
-    randomBytes[7]!,
-    (randomBytes[8]! & 0x3f) | VARIANT_RFC,
-    randomBytes[9]!,
-    randomBytes[10]!,
-    randomBytes[11]!,
-    randomBytes[12]!,
-    randomBytes[13]!,
-    randomBytes[14]!,
-    randomBytes[15]!,
+    byteAt(ts, 0),
+    byteAt(ts, 1),
+    byteAt(ts, 2),
+    byteAt(ts, 3),
+    byteAt(ts, 4),
+    byteAt(ts, 5),
+    (byteAt(randomBytes, 6) & 0x0f) | VERSION_7,
+    byteAt(randomBytes, 7),
+    (byteAt(randomBytes, 8) & 0x3f) | VARIANT_RFC,
+    byteAt(randomBytes, 9),
+    byteAt(randomBytes, 10),
+    byteAt(randomBytes, 11),
+    byteAt(randomBytes, 12),
+    byteAt(randomBytes, 13),
+    byteAt(randomBytes, 14),
+    byteAt(randomBytes, 15),
   ]);
 }
 

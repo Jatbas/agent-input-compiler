@@ -3,3 +3,4 @@ dist/
 *.tsbuildinfo
 .aic/
 .cursor/hooks/.edited-files-*
+--version/
