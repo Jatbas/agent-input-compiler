@@ -20,7 +20,7 @@ export class SqliteMigrationRunner implements IMigrationRunner {
         (r) => r.id,
       ),
     );
-    const sorted = [...migrations].sort((a, b) => (a.id < b.id ? -1 : 1));
+    const sorted = migrations.toSorted((a, b) => (a.id < b.id ? -1 : 1));
     for (const migration of sorted) {
       if (applied.has(migration.id)) continue;
       migration.up(db);

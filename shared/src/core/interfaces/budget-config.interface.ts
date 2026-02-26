@@ -1,0 +1,7 @@
+import type { TokenCount } from "#core/types/units.js";
+import type { TaskClass } from "#core/types/enums.js";
+
+export interface BudgetConfig {
+  getMaxTokens(): TokenCount;
+  getBudgetForTaskClass(taskClass: TaskClass): TokenCount | null;
+}

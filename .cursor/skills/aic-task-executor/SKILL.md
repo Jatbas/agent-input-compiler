@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Execute a task file produced by the `aic-task-planner` skill. Read the task, implement every step, self-review in two stages, iterate until clean, update progress, and stage for commit.
+Execute a task file produced by the `aic-task-planner` skill. Read the task, internalize its specs, implement every step, self-review in three passes, dispatch an independent review subagent for scoring, iterate until clean, update progress, and stage for commit.
 
 **Announce at start:** "Using the task-executor skill on `<task file path>`."
 
@@ -31,50 +31,133 @@ If a dependency is not done, **stop and tell the user**.
 
 Update the task file status to `In Progress`.
 
-### 2. Implement
+### 2. Internalize the task
+
+Before writing any code, read and absorb these sections of the task file. Do not skip this step — it prevents rework caused by implementing without understanding the spec.
+
+**Read the Interface / Signature section.** Memorize:
+
+- The exact interface the component implements (first code block)
+- The exact class declaration, constructor parameters, and method signatures (second code block)
+- Return types including `readonly` modifiers
+
+**Read the Dependent Types section.** Memorize every field of every domain type the implementation reads, writes, or returns. You will need these to write correct field mappings and test data.
+
+**Read the Config Changes section.** Note:
+
+- Which dependencies must exist (and verify they actually do in `shared/package.json`)
+- Which ESLint changes must be applied (and in which step)
+- If "None", confirm no config steps appear in the Steps section
+
+**Read the Architecture Notes.** Note design decisions (e.g. "replace semantics, not append", "sync API only", "no Clock needed"). These constrain your implementation.
+
+**Cross-check prerequisites:** If Config Changes lists a dependency as "already at X", verify it's actually there. If it lists an ESLint change, confirm the Steps section has a step for it. If anything doesn't match, **stop and tell the user** — the task file may need replanning.
+
+**Task quality gate — scan for ambiguity before implementing:**
+
+Before writing any code, scan the Steps section and Interface/Signature notes for executor-facing choices. Read every non-code instruction sentence. Flag any sentence where:
+
+- It contains " or " presenting two alternative actions (e.g. "mock or skip", "use X or equivalent")
+- It uses hedging language: "if needed", "optionally", "may be", "consider", "you could", "might want"
+- It leaves a design decision to you (e.g. "decide whether to...", "choose between...")
+
+If you find any ambiguity: **stop and tell the user** that the task file contains unresolved decisions. List each ambiguous sentence and what decision it requires. Do not guess — the planner must resolve it. This prevents implementing the wrong approach and having to rewrite.
+
+### 3. Implement
 
 Work through the **Steps** section in order.
+
+**Write correct code on the first pass.** Every rework loop wastes tokens and time. Before writing any code, internalize these rules so you don't have to fix them later:
+
+- All properties `readonly`. All array types `readonly T[]` — everywhere: class properties, function parameters, local variables, return types, generic type parameters (e.g. `reduce<{ readonly files: readonly T[] }>`). No exceptions.
+- No `.push()`, `.splice()`, `.sort()`, `.reverse()`. Always `.toSorted()` instead of `.sort()` — even `[...arr].sort()` is banned, use `arr.toSorted()`. Always `.toReversed()` instead of `.reverse()`. Use spread or reduce for building arrays.
+- No `any`. Explicit return types on all functions.
+- Branded types for all domain values — never raw `string`/`number` for paths, tokens, scores, IDs. Use factory functions: `toTokenCount(N)`, `toRelativePath("...")`, `toUUIDv7("...")`, `toISOTimestamp("...")`.
+- `//` comments only — `/* */` and `/** */` are banned. ESLint catches multi-line block comments but NOT single-line `/** */` — you must catch these yourself. Write `// comment` not `/** comment */`.
+- No `Date.now()`, `new Date()`, `Math.random()` — use injected `Clock`.
+- Tests live in `__tests__/` directories, not next to source files.
+- Imports use layer aliases (`#core/`, `#pipeline/`), never relative paths across layers.
+- `as const` objects for enums, never TS `enum` keyword.
+- One class per file (enforced by `max-classes-per-file`).
+- One public method per class (SOLID SRP). Constructor plus one public method.
+- Constructor injection only — never `new` for infrastructure/service classes outside composition roots.
+- No `no-param-reassign` violations — never mutate function parameters or their properties.
+- `prefer-const` — use `const` for all variables unless reassignment is required.
+- Return new objects from all methods — never mutate inputs.
+- Exported const objects that implement interfaces must have explicit type annotations (e.g. `export const migration: Migration = { ... }`, not untyped object literals).
+
+If you catch yourself writing mutable code and then fixing it, you are doing it wrong. Write it immutably from the start.
+
+**For test implementation steps**, cross-reference the **Tests table** in the task file. Every row in the Tests table must have a corresponding test case with that exact name. Do not invent extra test cases. Do not skip any. Use the task file's Dependent Types section to build correct test data.
+
+**Test structure by task layer:**
+
+- **Storage tests:** Create in-memory DB via `new Database(":memory:")` from `better-sqlite3`. Run the migration (`migration.up(db)`) before each test. Create the store with the real DB wrapped as `ExecutableDb`, plus mock `Clock` and/or `IdGenerator` that return deterministic values. Use branded type factory functions for test data (`toUUIDv7(...)`, `toISOTimestamp(...)`, etc.).
+- **Adapter tests:** For file-based adapters (glob, ignore), create a temp directory with fixture files. For parser/encoder adapters (tiktoken, TypeScript provider), use in-memory string fixtures. Clean up temp dirs after tests.
+- **Pipeline tests:** Inject mock dependencies implementing the required interfaces. Verify inputs are not mutated. Test edge cases (empty arrays, zero budgets, no files).
 
 For each step:
 
 1. Do exactly what the step says.
 2. Run the **Verify** command listed in that step.
 3. If verification fails, fix the issue before moving to the next step.
-4. If you cannot fix it after 2 attempts, go to **Blocked** (see below).
+4. If you cannot fix it after 2 attempts, go to **Blocked diagnostic** (see below).
 
 **Subagent dispatch (recommended for tasks with 5+ steps):**
 
-For larger tasks, consider dispatching a focused subagent per step or group of related steps. Each subagent gets only the context it needs (the step description, relevant file paths, signatures from the task file). This prevents context drift on long tasks. Use `subagent_type="generalPurpose"` and include in the prompt:
+For larger tasks, consider dispatching a focused subagent per step or group of related steps. Each subagent gets only the context it needs. Use `subagent_type="generalPurpose"` and include in the prompt:
 
 - The exact step text from the task file
-- The relevant Interface/Signature section
+- The relevant Interface/Signature section (both code blocks)
+- The Dependent Types section (full type definitions)
+- Design decisions from Architecture Notes
 - The file paths involved
 - The verify command to run
+- The first-pass coding rules (copy the bullet list from "Write correct code on the first pass" above — subagents do not inherit these rules automatically)
 
-Review the subagent's output before proceeding to the next step.
+Review the subagent's output before proceeding to the next step. After review, run the Pass 3 manual scan on any files the subagent created — subagents are especially prone to single-line `/** */` comments and non-readonly local array types.
 
-### 3. Two-Stage Self-Review
+### 4. Three-Pass Self-Review
 
-After completing all steps, review in two separate passes:
+After completing all steps, review in three separate passes:
 
 **Pass 1 — Spec compliance:**
 
-- Did I implement everything in the Files table?
-- Does the code match the Interface/Signature section exactly?
-- Did I add anything that was NOT requested? Remove it.
+- Did I implement every file in the Files table? No extra files?
+- **Signature cross-check** — for each method in the written code, verify against the task file's Interface/Signature section:
+  - Parameter names match exactly
+  - Parameter types match exactly (including `readonly` modifiers)
+  - Return types match exactly (e.g. `readonly T[]` not `T[]`)
+  - If the interface method has parameters, the class method lists the same parameters — even if unused
 - Are all properties `readonly` where specified?
 - Do all imports use the correct layer aliases (`#core/`, `#pipeline/`, etc.)?
+- **Config Changes verified** — every change listed in the Config Changes section was applied:
+  - Dependencies: correct package at correct version in `package.json`
+  - ESLint: config block added in the correct position in `eslint.config.mjs`
+  - If "None", confirm no config files were modified
+- **Tests table covered** — every test case from the Tests table has a corresponding test in the test file, named correctly
 
 **Pass 2 — Code quality:**
 
 - Run `pnpm lint && pnpm typecheck && pnpm test`.
 - Check: no layer boundary violations, no banned imports, no inline rule disabling.
 - Check: branded types used where specified, DI via constructor injection, no concrete dependencies.
+- Check: `as const` objects for enums (not TS `enum`), factory functions for branded types (not raw casts).
 - Names are clear and match what things do.
 - No unnecessary comments. Existing comments explain why, not what.
 - No over-engineering. YAGNI.
 
-### 4. Verification Before Completion
+**Pass 3 — ESLint gap supplement (manual scan):**
+
+ESLint does not catch everything. After lint passes, manually scan the written code for:
+
+- **Single-line block comments:** Search for `/**` and `/*` in the new files. Replace with `//`. ESLint only catches multi-line block comments.
+- **Non-readonly array types:** Check every array type annotation — function parameters, local `const`/`let` declarations, reduce/map type parameters, return types. ALL must be `readonly T[]`.
+- **`.sort()` anywhere:** Even `[...arr].sort()` is wrong. Use `.toSorted()`.
+- **Untyped exported objects:** Every exported `const` that implements an interface must have an explicit type annotation (`: Migration`, `: ContentTransformer`, etc.).
+- **Raw string/number in type positions:** Check that reduce accumulator types, intermediate variables, and function parameters use branded types where the domain requires it — not bare `number` or `string`.
+
+### 5. Verification Before Completion
 
 Before declaring success, verify with evidence — do not just claim it works:
 
@@ -83,35 +166,79 @@ Before declaring success, verify with evidence — do not just claim it works:
 - Confirm zero warnings, not just zero errors.
 - If the task specifies test cases, confirm each one appears in the output by name.
 
-### 5. Fix Issues
+### 6. Independent review (subagent)
 
-If review or verification found problems:
+The agent that wrote the code has confirmation bias. Dispatch a **review subagent** with clean context to rate the implementation objectively.
+
+Launch `subagent_type="generalPurpose"` with this prompt structure:
+
+```
+You are reviewing an implementation for quality. Rate it on the 10-point rubric below.
+Score each dimension 0 or 1. Be strict — if you see ANY issue in a dimension, score 0.
+
+TASK FILE (the spec that was implemented):
+[paste the full task file content]
+
+IMPLEMENTED FILES (the code to review):
+[for each file created/modified, paste its full content with the file path as header]
+
+RUBRIC — score each dimension 0 (fail) or 1 (pass):
+1. Signature match: Do class methods match the task file's Interface/Signature exactly? (names, types, readonly, returns)
+2. Readonly everywhere: Are all properties readonly? All array types `readonly T[]`? No `.sort()`, `.push()`, `.splice()`, `.reverse()`? Check: class properties, function parameters, local variables, return types, generic type parameters.
+3. Branded types: Are factory functions used for all domain values? (`toTokenCount()`, `toRelativePath()`, etc.) No raw string/number for paths, tokens, scores, IDs — in code AND tests.
+4. Comment style: Any `/** */` or `/* */` found? Only `//` comments are allowed. Search for `/**` and `/*` in every file.
+5. DI & immutability: Constructor receives only interfaces? Methods return new objects (never mutate inputs)?
+6. Tests complete: Does every row in the task's Tests table have a corresponding test case? Do assertions verify actual behavior (not just "no throw")?
+7. Config changes applied: Are all ESLint/package.json changes from the task file present in the actual config files?
+8. Lint + typecheck + tests: Did all pass with zero errors and zero warnings? (Verification output provided below)
+9. First-pass quality: How many fix iterations were needed? 0-1 = pass, 2+ = fail.
+10. Layer boundaries: Do all imports use correct aliases (#core/, #pipeline/)? Any banned imports?
+
+VERIFICATION OUTPUT:
+[paste the pnpm lint && pnpm typecheck && pnpm test output]
+
+Return:
+- Per-dimension score (0 or 1) with one-line justification
+- Total score (0-10)
+- List of specific fixes needed (empty if score = 10)
+```
+
+The subagent returns a score and a list of fixes. **Do not override the subagent's score.**
+
+**If score < 8:** Apply the fixes, re-run verification, and dispatch the review subagent again. Iterate until score ≥ 8. **Maximum 3 iterations** — if still below 8, go to Blocked.
+
+**If score ≥ 8:** Proceed to §7.
+
+### 7. Fix Issues
+
+If the review subagent found problems:
 
 1. Fix them.
 2. Re-run `pnpm lint && pnpm typecheck && pnpm test`.
-3. Self-review again (both passes).
-4. Repeat until clean. **Maximum 3 iterations** — if still failing after 3, go to Blocked.
+3. Self-review again (all three passes).
+4. Dispatch the review subagent again. Repeat until score ≥ 8. **Maximum 3 iterations** — if still below 8 after 3, go to Blocked.
 
-### 6. Report
+### 8. Report
 
-When clean, report to the user:
+When the review subagent score ≥ 8, report to the user:
 
 - What was implemented (files created/modified)
 - Test results (pass count, confirming no regressions)
-- Self-review findings and fixes applied (if any)
+- **Implementation score: N/10** (from review subagent) with per-dimension breakdown
+- Review findings and fixes applied (if any)
 - Any concerns or follow-up items
 
-### 7. Update Progress
+### 9. Update Progress
 
 Use the `aic-update-mvp-progress` skill to update `documentation/mvp-progress.md`.
 
 **Critical:** Use today's actual date for the daily log entry. If today's entry already exists, append to it. If it is a new day, create a new entry at the top of the Daily Log section (reverse chronological). Do not put today's work under yesterday's date.
 
-### 8. Update Task Status
+### 10. Update Task Status
 
 Change the task file header from `> **Status:** In Progress` to `> **Status:** Done`.
 
-### 9. Archive the Task File
+### 11. Archive the Task File
 
 Move the completed task file to `documentation/tasks/done/`:
 
@@ -120,7 +247,7 @@ mkdir -p documentation/tasks/done
 mv documentation/tasks/NNN-name.md documentation/tasks/done/
 ```
 
-### 10. Stage and Propose Commit
+### 12. Stage and Propose Commit
 
 Stage all changed files with `git add`. Then **propose** a conventional commit message to the user:
 
@@ -134,12 +261,24 @@ feat(<scope>): <what was built>
 
 ## Blocked Handling
 
-If during execution you encounter something unexpected or cannot fix an issue:
+If during execution you encounter something unexpected or cannot fix an issue after 2 attempts:
+
+**Step 1 — Diagnose before blocking:**
+
+Before declaring Blocked, check whether the failure is in your code or in the task file:
+
+- **Signature mismatch:** Does the task file's Interface/Signature still match the actual interface in the codebase? If the interface changed since planning, the task file needs replanning — not more implementation attempts.
+- **Type mismatch:** Do the Dependent Types in the task file match the actual types in `core/types/`? If fields are missing or renamed, report the discrepancy.
+- **Config conflict:** Does the ESLint change in the task file conflict with the current `eslint.config.mjs` structure? If blocks were reordered or rules changed since planning, report it.
+- **Layer violation:** Does the implementation require something banned by the layer's ESLint rules (e.g. storage needing `node:fs`)? This is a design issue, not a code issue.
+
+**Step 2 — Block and report:**
 
 1. **Stop immediately** — do not guess or improvise.
 2. Append a `## Blocked` section to the task file with:
-   - What you tried
-   - What went wrong
+   - What you tried (specific code or command)
+   - What went wrong (exact error message)
+   - Whether the issue is in your code or the task file's spec
    - What decision you need from the user
 3. Change the task file status to `Blocked`.
 4. Report to the user and **wait for guidance**. Do not continue.

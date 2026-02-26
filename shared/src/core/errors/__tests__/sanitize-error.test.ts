@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { sanitizeError } from "./sanitize-error.js";
-import { AicError } from "./aic-error.js";
-import { ConfigError } from "./config-error.js";
+import { sanitizeError } from "../sanitize-error.js";
+import { AicError } from "../aic-error.js";
+import { ConfigError } from "../config-error.js";
 
 describe("sanitizeError", () => {
   it("returns code and message for AicError subclass", () => {

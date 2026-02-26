@@ -1,8 +1,8 @@
 # AIC MVP Progress
 
-**Status:** Phase B core interfaces complete — ready for Phase C  
+**Status:** Phase C pipeline complete (transformers, ladder, assembler)  
 **Phase:** 0 (MVP)  
-**Overall:** ~40%
+**Overall:** ~56%
 
 ---
 
@@ -39,16 +39,16 @@
 
 ### Phase C — Pipeline Steps 1–8
 
-| Component                  | Status      | Package              |
-| -------------------------- | ----------- | -------------------- |
-| IntentClassifier impl      | Not started | shared/src/pipeline/ |
-| RulePackResolver impl      | Not started | shared/src/pipeline/ |
-| BudgetAllocator impl       | Not started | shared/src/pipeline/ |
-| HeuristicSelector impl     | Not started | shared/src/pipeline/ |
-| ContextGuard impl          | Not started | shared/src/pipeline/ |
-| ContentTransformerPipeline | Not started | shared/src/pipeline/ |
-| SummarisationLadder impl   | Not started | shared/src/pipeline/ |
-| PromptAssembler impl       | Not started | shared/src/pipeline/ |
+| Component                  | Status | Package              |
+| -------------------------- | ------ | -------------------- |
+| IntentClassifier impl      | Done   | shared/src/pipeline/ |
+| RulePackResolver impl      | Done   | shared/src/pipeline/ |
+| BudgetAllocator impl       | Done   | shared/src/pipeline/ |
+| HeuristicSelector impl     | Done   | shared/src/pipeline/ |
+| ContextGuard impl          | Done   | shared/src/pipeline/ |
+| ContentTransformerPipeline | Done   | shared/src/pipeline/ |
+| SummarisationLadder impl   | Done   | shared/src/pipeline/ |
+| PromptAssembler impl       | Done   | shared/src/pipeline/ |
 
 ### Phase D — Adapters
 
@@ -101,12 +101,17 @@
 
 ### 2026-02-24
 
-**Components:** Phase B core interfaces
+**Components:** Phase B core interfaces, Phase C core pipeline types, IntentClassifier, RulePackResolver, BudgetAllocator, HeuristicSelector, ContextGuard, ContentTransformerPipeline, SummarisationLadder, PromptAssembler
 **Completed:**
 
 - Phase B domain types (task-classification, rule-pack, selected-file, guard-types, transform-types, repo-map, compilation-types, telemetry-types)
 - Phase B port interfaces (intent-classifier, rule-pack-resolver, budget-allocator, context-selector, context-guard, guard-scanner, content-transformer, content-transformer-pipeline, summarisation-ladder, prompt-assembler, cache-store, telemetry-store, config-store, guard-store)
 - ISP split: moved CachedCompilation to compilation-types.ts, TelemetryEvent to telemetry-types.ts
+- Phase C domain types (ImportRef, CodeChunk, ExportedSymbol) and types barrel exports
+- Phase C port interfaces (LanguageProvider, RulePackProvider, BudgetConfig, FileContentReader)
+- IntentClassifier, RulePackResolver, BudgetAllocator pipeline implementations and tests
+- HeuristicSelector (four-signal scoring, include/exclude/boost/penalize), ContextGuard, ExclusionScanner, SecretScanner, PromptInjectionScanner and tests
+- WhitespaceNormalizer, CommentStripper, JsonCompactor, LockFileSkipper; ContentTransformerPipeline, SummarisationLadder, PromptAssembler and tests
 
 ### 2026-02-23
 

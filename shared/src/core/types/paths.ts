@@ -1,18 +1,18 @@
 import { type Brand } from "./brand.js";
 
-/** Absolute filesystem path (e.g. `/Users/dev/project`). */
+// Absolute filesystem path (e.g. /Users/dev/project).
 export type AbsolutePath = Brand<string, "AbsolutePath">;
 
-/** Relative path from project root (e.g. `src/auth/service.ts`). */
+// Relative path from project root (e.g. src/auth/service.ts).
 export type RelativePath = Brand<string, "RelativePath">;
 
-/** Generic file path — use AbsolutePath or RelativePath when direction is known. */
+// Generic file path — use AbsolutePath or RelativePath when direction is known.
 export type FilePath = Brand<string, "FilePath">;
 
-/** Glob pattern (e.g. "src/\*\*\/\*.ts"). */
+// Glob pattern (e.g. src/**/*.ts).
 export type GlobPattern = Brand<string, "GlobPattern">;
 
-/** File extension including dot (e.g. `.ts`, `.json`). */
+// File extension including dot (e.g. .ts, .json).
 export type FileExtension = Brand<string, "FileExtension">;
 
 export function toAbsolutePath(value: string): AbsolutePath {

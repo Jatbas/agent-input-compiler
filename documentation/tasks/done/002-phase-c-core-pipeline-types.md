@@ -1,6 +1,6 @@
 # Task 002: Phase C — Core Pipeline Types & Interfaces
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** C (Pipeline Steps 1–8)
 > **Layer:** core
 > **Depends on:** Phase A (all Done), Phase B (all Done)

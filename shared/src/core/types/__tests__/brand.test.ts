@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { toTokenCount, toAbsolutePath, toISOTimestamp, toPercentage } from "./index.js";
-import type { TokenCount, AbsolutePath, ISOTimestamp, Percentage } from "./index.js";
+import { toTokenCount, toAbsolutePath, toISOTimestamp, toPercentage } from "../index.js";
+import type { TokenCount, AbsolutePath, ISOTimestamp, Percentage } from "../index.js";
 
 describe("branded types", () => {
   it("preserves the underlying value for numeric brands", () => {

@@ -1,6 +1,6 @@
 # Task 005: Phase C — ContentTransformerPipeline, SummarisationLadder, PromptAssembler
 
-> **Status:** Pending
+> **Status:** In Progress
 > **Phase:** C (Pipeline Steps 1–8)
 > **Layer:** pipeline
 > **Depends on:** Phase B (all Done), Task 002 (core pipeline types)

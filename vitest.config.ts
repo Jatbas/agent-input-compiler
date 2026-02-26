@@ -10,7 +10,11 @@ export default defineConfig({
     },
   },
   test: {
-    include: ["shared/src/**/*.test.ts", "cli/src/**/*.test.ts", "mcp/src/**/*.test.ts"],
+    include: [
+      "shared/src/**/__tests__/**/*.test.ts",
+      "cli/src/**/__tests__/**/*.test.ts",
+      "mcp/src/**/__tests__/**/*.test.ts",
+    ],
     globals: false,
     coverage: {
       provider: "v8",

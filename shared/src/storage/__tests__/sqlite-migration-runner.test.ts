@@ -4,8 +4,8 @@ import { tmpdir } from "node:os";
 import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import { toISOTimestamp } from "#core/types/identifiers.js";
-import { SqliteMigrationRunner } from "./sqlite-migration-runner.js";
-import { migration as migration001 } from "./migrations/001-initial-schema.js";
+import { SqliteMigrationRunner } from "../sqlite-migration-runner.js";
+import { migration as migration001 } from "../migrations/001-initial-schema.js";
 
 const clock = {
   now(): ReturnType<typeof toISOTimestamp> {

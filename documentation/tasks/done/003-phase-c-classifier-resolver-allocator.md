@@ -1,6 +1,6 @@
 # Task 003: Phase C — IntentClassifier, RulePackResolver, BudgetAllocator
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** C (Pipeline Steps 1–8)
 > **Layer:** pipeline
 > **Depends on:** Phase B (all Done), Task 002 (core pipeline types)

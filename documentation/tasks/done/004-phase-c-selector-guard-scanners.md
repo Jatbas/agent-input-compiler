@@ -1,6 +1,6 @@
 # Task 004: Phase C — HeuristicSelector, ContextGuard, Guard Scanners
 
-> **Status:** Pending
+> **Status:** In Progress
 > **Phase:** C (Pipeline Steps 1–8)
 > **Layer:** pipeline
 > **Depends on:** Phase B (all Done), Task 002 (core pipeline types)

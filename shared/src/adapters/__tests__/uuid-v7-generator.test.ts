@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { SystemClock } from "./system-clock.js";
-import { UuidV7Generator } from "./uuid-v7-generator.js";
+import { SystemClock } from "../system-clock.js";
+import { UuidV7Generator } from "../uuid-v7-generator.js";
 
 const UUID_V7_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

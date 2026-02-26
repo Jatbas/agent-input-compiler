@@ -1,9 +1,9 @@
-import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
+import type { Migration } from "#core/interfaces/migration.interface.js";
 
-export const migration = {
+export const migration: Migration = {
   id: "001-initial-schema",
 
-  up(db: ExecutableDb): void {
+  up(db): void {
     db.exec(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
         id          TEXT PRIMARY KEY,
@@ -99,7 +99,7 @@ export const migration = {
     `);
   },
 
-  down(db: ExecutableDb): void {
+  down(db): void {
     db.exec(`
       DROP TABLE IF EXISTS anonymous_telemetry_log;
       DROP TABLE IF EXISTS repomap_cache;
