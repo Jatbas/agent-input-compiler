@@ -1,8 +1,8 @@
 # AIC MVP Progress
 
-**Status:** Scaffolding complete — ready for Phase A  
+**Status:** Phase A foundation complete — ready for Phase B (core interfaces)  
 **Phase:** 0 (MVP)  
-**Overall:** ~7%
+**Overall:** ~15%
 
 ---
 
@@ -10,14 +10,14 @@
 
 ### Phase A — Foundation
 
-| Component                    | Status      | Package                        |
-| ---------------------------- | ----------- | ------------------------------ |
-| MigrationRunner              | Not started | shared/src/storage/            |
-| 001-initial-schema migration | Done        | shared/src/storage/migrations/ |
-| UUIDv7 generator             | Not started | shared/src/adapters/           |
-| Clock implementation         | Not started | shared/src/adapters/           |
-| AicError hierarchy           | Not started | shared/src/core/errors/        |
-| sanitizeError utility        | Not started | shared/src/core/errors/        |
+| Component                    | Status | Package                        |
+| ---------------------------- | ------ | ------------------------------ |
+| MigrationRunner              | Done   | shared/src/storage/            |
+| 001-initial-schema migration | Done   | shared/src/storage/migrations/ |
+| UUIDv7 generator             | Done   | shared/src/adapters/           |
+| Clock implementation         | Done   | shared/src/adapters/           |
+| AicError hierarchy           | Done   | shared/src/core/errors/        |
+| sanitizeError utility        | Done   | shared/src/core/errors/        |
 
 ### Phase B — Core Interfaces
 
@@ -118,3 +118,12 @@
 - Renamed `SECURITY.md` to `security.md`, updated all cross-references
 - Added database/migration enforcement rules to Cursor rules and CLAUDE.md
 - Added comment policy (no JSDoc unless cross-package API, explain why not what)
+- MigrationRunner interface (ExecutableDb, Migration, MigrationRunner) in core/interfaces
+- SqliteMigrationRunner in shared/src/storage with bootstrap and ordered apply
+- Clock interface in core/interfaces for applied_at timestamps
+- Tests for SqliteMigrationRunner (apply, idempotent second run, all MVP tables created)
+- IdGenerator interface and UuidV7Generator adapter (RFC 9562, zero-dependency)
+- SystemClock adapter implementing Clock
+- AicError base and subclasses (Config, GuardBlockedAll, BudgetExceeded, NoFilesSelected, Model, Storage, Timeout)
+- sanitizeError utility (strip paths, env vars; AicError code passthrough)
+- Tests for UuidV7Generator and sanitizeError

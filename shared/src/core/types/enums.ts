@@ -1,9 +1,4 @@
-/**
- * String literal union types and const objects for all AIC enumerations.
- * Uses `as const` objects (not TypeScript enum) for better serialization
- * and tree-shaking.
- */
-
+// String literal unions and as const objects for AIC enumerations (not TS enum).
 export const TASK_CLASS = {
   REFACTOR: "refactor",
   BUGFIX: "bugfix",

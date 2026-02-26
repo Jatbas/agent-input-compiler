@@ -1,9 +1,9 @@
-import { type Database } from "better-sqlite3";
+import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
 
 export const migration = {
   id: "001-initial-schema",
 
-  up(db: Database): void {
+  up(db: ExecutableDb): void {
     db.exec(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
         id          TEXT PRIMARY KEY,
@@ -99,7 +99,7 @@ export const migration = {
     `);
   },
 
-  down(db: Database): void {
+  down(db: ExecutableDb): void {
     db.exec(`
       DROP TABLE IF EXISTS anonymous_telemetry_log;
       DROP TABLE IF EXISTS repomap_cache;
