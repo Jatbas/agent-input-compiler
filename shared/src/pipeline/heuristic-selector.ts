@@ -10,22 +10,7 @@ import type { SelectedFile } from "#core/types/selected-file.js";
 import { INCLUSION_TIER } from "#core/types/enums.js";
 import { toRelevanceScore } from "#core/types/scores.js";
 import { toTokenCount } from "#core/types/units.js";
-
-function matchesGlob(path: string, pattern: string): boolean {
-  const p = pattern as string;
-  if (p.includes("**")) {
-    const parts = p.split("**").map((s) => s.replace(/\*/g, "[^/]*"));
-    const prefix = parts[0] ?? "";
-    const suffix = parts[1] ?? "";
-    if (prefix.length > 0 && suffix.length > 0)
-      return path.startsWith(prefix) && path.endsWith(suffix);
-    if (prefix.length > 0) return path.startsWith(prefix);
-    if (suffix.length > 0) return path.endsWith(suffix);
-    return true;
-  }
-  const re = new RegExp("^" + p.replace(/\*\*/g, ".*").replace(/\*/g, "[^/]*") + "$");
-  return re.test(path);
-}
+import { matchesGlob } from "./glob-match.js";
 
 function pathRelevance(path: string, keywords: readonly string[]): number {
   if (keywords.length === 0) return 0;

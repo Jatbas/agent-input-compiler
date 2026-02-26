@@ -1,47 +1,34 @@
 import { program, type Command } from "commander";
-import * as path from "node:path";
 import { CompilationArgsSchema } from "./schemas/compilation-args.js";
 import { InspectArgsSchema } from "./schemas/inspect-args.js";
+import { StatusArgsSchema } from "./schemas/status-args.js";
 import { compileCommand } from "./commands/compile.js";
 import { inspectCommand } from "./commands/inspect.js";
+import { statusCommand } from "./commands/status.js";
 import type { CompilationRunner } from "@aic/shared/core/interfaces/compilation-runner.interface.js";
 import type { InspectRunner } from "@aic/shared/core/interfaces/inspect-runner.interface.js";
-import type { CompilationMeta } from "@aic/shared/core/types/compilation-types.js";
+import type { StatusRequest } from "@aic/shared/core/types/status-types.js";
+import { openDatabase } from "@aic/shared/storage/open-database.js";
+import { SystemClock } from "@aic/shared/adapters/system-clock.js";
+import { SqliteStatusStore } from "@aic/shared/storage/sqlite-status-store.js";
 import type { PipelineTrace } from "@aic/shared/core/types/inspect-types.js";
-import { toTokenCount, toMilliseconds } from "@aic/shared/core/types/units.js";
+import { toTokenCount } from "@aic/shared/core/types/units.js";
 import { toPercentage, toConfidence } from "@aic/shared/core/types/scores.js";
 import { toISOTimestamp } from "@aic/shared/core/types/identifiers.js";
-import { TASK_CLASS, EDITOR_ID, INCLUSION_TIER } from "@aic/shared/core/types/enums.js";
-import { sanitizeError } from "@aic/shared/core/errors/sanitize-error.js";
-import { z } from "zod";
-
-const stubMeta: CompilationMeta = {
-  intent: "",
-  taskClass: TASK_CLASS.GENERAL,
-  filesSelected: 0,
-  filesTotal: 0,
-  tokensRaw: toTokenCount(0),
-  tokensCompiled: toTokenCount(0),
-  tokenReductionPct: toPercentage(0),
-  cacheHit: false,
-  durationMs: toMilliseconds(0),
-  modelId: "",
-  editorId: EDITOR_ID.GENERIC,
-  transformTokensSaved: toTokenCount(0),
-  summarisationTiers: {
-    [INCLUSION_TIER.L0]: 0,
-    [INCLUSION_TIER.L1]: 0,
-    [INCLUSION_TIER.L2]: 0,
-    [INCLUSION_TIER.L3]: 0,
-  },
-  guard: null,
-};
+import { TASK_CLASS, INCLUSION_TIER } from "@aic/shared/core/types/enums.js";
+import { STUB_COMPILATION_META } from "@aic/shared/testing/stub-compilation-meta.js";
+import {
+  type CliOpts,
+  resolveBaseArgs,
+  runAction,
+  createIntentAction,
+} from "./utils/run-action.js";
 
 const stubRunner: CompilationRunner = {
   run(_request) {
     return Promise.resolve({
       compiledPrompt: "Not implemented",
-      meta: stubMeta,
+      meta: STUB_COMPILATION_META,
     });
   },
 };
@@ -91,27 +78,9 @@ program
   .option("--root <path>", "project root directory", process.cwd())
   .option("--config <path>", "path to aic.config.json")
   .option("--db <path>", "path to SQLite database")
-  .action(async function (this: Command, intent: string) {
-    try {
-      const opts = this.opts() as { root?: string; config?: string; db?: string };
-      const rootOpt = opts.root ?? process.cwd();
-      const parsed = CompilationArgsSchema.parse({
-        intent,
-        projectRoot: path.resolve(rootOpt),
-        configPath: opts.config ?? null,
-        dbPath: opts.db ?? null,
-      });
-      await compileCommand(parsed, stubRunner);
-      process.exit(0);
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        process.stderr.write(String(err.message));
-        process.exit(1);
-      }
-      process.stderr.write(sanitizeError(err).message);
-      process.exit(2);
-    }
-  });
+  .action(
+    createIntentAction(CompilationArgsSchema, (args) => compileCommand(args, stubRunner)),
+  );
 
 program
   .command("inspect <intent>")
@@ -119,26 +88,30 @@ program
   .option("--root <path>", "project root directory", process.cwd())
   .option("--config <path>", "path to aic.config.json")
   .option("--db <path>", "path to SQLite database")
-  .action(async function (this: Command, intent: string) {
-    try {
-      const opts = this.opts() as { root?: string; config?: string; db?: string };
-      const rootOpt = opts.root ?? process.cwd();
-      const parsed = InspectArgsSchema.parse({
-        intent,
-        projectRoot: path.resolve(rootOpt),
-        configPath: opts.config ?? null,
-        dbPath: opts.db ?? null,
-      });
-      await inspectCommand(parsed, inspectStubRunner);
-      process.exit(0);
-    } catch (err) {
-      if (err instanceof z.ZodError) {
-        process.stderr.write(String(err.message));
-        process.exit(1);
-      }
-      process.stderr.write(sanitizeError(err).message);
-      process.exit(2);
-    }
+  .action(
+    createIntentAction(InspectArgsSchema, (args) =>
+      inspectCommand(args, inspectStubRunner),
+    ),
+  );
+
+program
+  .command("status")
+  .description("Show project-level summary from local database")
+  .option("--root <path>", "project root directory", process.cwd())
+  .option("--config <path>", "path to aic.config.json")
+  .option("--db <path>", "path to SQLite database")
+  .action(async function (this: Command) {
+    await runAction(async () => {
+      const parsed = StatusArgsSchema.parse(resolveBaseArgs(this.opts() as CliOpts));
+      const statusRunner = {
+        status(request: StatusRequest) {
+          const db = openDatabase(request.dbPath as string, new SystemClock());
+          const store = new SqliteStatusStore(db);
+          return Promise.resolve(store.getSummary());
+        },
+      };
+      await statusCommand(parsed, statusRunner);
+    });
   });
 
 void program.parseAsync(process.argv);

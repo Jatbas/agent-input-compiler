@@ -1,9 +1,7 @@
 import { z } from "zod";
+import { BaseArgsSchema } from "./base-args.js";
 
-export const CompilationArgsSchema = z.object({
+export const CompilationArgsSchema = BaseArgsSchema.extend({
   intent: z.string().min(1).max(10_000),
-  projectRoot: z.string().min(1),
-  configPath: z.string().nullable().default(null),
-  dbPath: z.string().nullable().default(null),
 });
 export type CompilationArgs = z.infer<typeof CompilationArgsSchema>;

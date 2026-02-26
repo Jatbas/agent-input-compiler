@@ -4,9 +4,7 @@ import type { CompilationRunner } from "@aic/shared/core/interfaces/compilation-
 import { toAbsolutePath, toFilePath } from "@aic/shared/core/types/paths.js";
 import { EDITOR_ID } from "@aic/shared/core/types/enums.js";
 import type { CompilationRequest } from "@aic/shared/core/types/compilation-types.js";
-import { AicError } from "@aic/shared/core/errors/aic-error.js";
-import { sanitizeError } from "@aic/shared/core/errors/sanitize-error.js";
-import { z } from "zod";
+import { handleCommandError } from "@aic/cli/utils/handle-command-error.js";
 
 export async function compileCommand(
   args: CompilationArgs,
@@ -24,16 +22,6 @@ export async function compileCommand(
     const result = await runner.run(request);
     process.stdout.write(result.compiledPrompt);
   } catch (err) {
-    if (err instanceof z.ZodError) {
-      process.stderr.write(String(err.message));
-      throw err;
-    }
-    if (err instanceof AicError) {
-      const sanitized = sanitizeError(err);
-      process.stderr.write(sanitized.message);
-      throw err;
-    }
-    process.stderr.write("Internal error");
-    throw err;
+    handleCommandError(err);
   }
 }

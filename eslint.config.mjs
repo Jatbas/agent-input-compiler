@@ -480,6 +480,14 @@ export default tseslint.config(
     },
   },
 
+  // ─── open-database.ts: single place that creates Database for CLI/MCP reuse ───
+  {
+    files: ["shared/src/storage/open-database.ts"],
+    rules: {
+      "no-restricted-syntax": ["error", ...BASE_RESTRICTED, STORAGE_HASH_WHITELIST],
+    },
+  },
+
   // ─── SqliteCacheStore: allow node:fs and node:path for cache blob I/O ───
   {
     files: ["shared/src/storage/sqlite-cache-store.ts"],

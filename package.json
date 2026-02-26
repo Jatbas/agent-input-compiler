@@ -19,6 +19,7 @@
     "dev:mcp": "tsx mcp/src/server.ts",
     "dev:cli": "tsx cli/src/main.ts",
     "knip": "knip",
+    "lint:clones": "jscpd .",
     "bench": "echo 'No benchmarks configured yet (Phase 0.5+)'",
     "prepare": "husky"
   },
@@ -39,6 +40,7 @@
     "eslint-plugin-sonarjs": "4.0.0",
     "globals": "15.15.0",
     "husky": "9.1.7",
+    "jscpd": "4.0.8",
     "knip": "5.85.0",
     "lint-staged": "15.5.2",
     "prettier": "3.8.1",

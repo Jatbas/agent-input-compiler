@@ -102,6 +102,7 @@ Work through the **Steps** section in order.
 - Return new objects from all methods — never mutate inputs.
 - Exported const objects that implement interfaces must have explicit type annotations (e.g. `export const migration: Migration = { ... }`, not untyped object literals).
 - **No `let` in production code.** Use `const` exclusively. Refactor with reduce, ternary, `matchAll`, or helper functions. The only exception is a control flag inside a scoped closure where an imperative API (e.g. `ts.forEachChild`) makes `const` impossible and `.push()` is banned. Test files are exempt.
+- **Zero code clones.** Before writing a new utility function, check if an equivalent already exists in `shared/src/pipeline/` or `cli/src/utils/`. When two files need the same logic, extract it to a shared utility immediately — do not copy-paste. The codebase enforces 0% duplication via `pnpm lint:clones` (jscpd). Existing shared utilities: `glob-match.ts` (glob matching), `pattern-scanner.ts` (regex-based guard scanning), `handle-command-error.ts` (CLI error handling), `run-action.ts` (CLI action wiring).
 
 **For test implementation steps**, cross-reference the **Tests table** in the task file. Every row in the Tests table must have a corresponding test case with that exact name. Do not invent extra test cases. Do not skip any. Use the task file's Dependent Types section to build correct test data.
 
@@ -131,7 +132,7 @@ After completing all steps, run a single verification pass using tool output as 
 Run the full toolchain in one command:
 
 ```
-pnpm lint && pnpm typecheck && pnpm test && pnpm knip
+pnpm lint && pnpm typecheck && pnpm test && pnpm knip && pnpm lint:clones
 ```
 
 **Read the output.** Confirm:
@@ -140,6 +141,7 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm knip
 - Test count has not dropped compared to previous run.
 - Each test name from the Tests table appears in the output by name.
 - No new unused files, exports, or dependencies introduced by this task (knip). Pre-existing knip findings (e.g. error files for future phases) are acceptable — only new findings matter.
+- Zero code clones (jscpd). The codebase maintains 0% duplication — any new clone must be eliminated before proceeding.
 
 This runs ONCE. Do not re-run unless you fix something. If the lint/typecheck/test portion fails, the chain stops before knip — fix the failure, then re-run the full chain.
 
@@ -150,7 +152,7 @@ Fire all of these in a single round of tool calls:
 - Use the Read tool on every file created or modified. Do NOT rely on what you remember writing. This breaks the "I just wrote it so I know it's fine" shortcut.
 - Batch all Grep calls for the mechanical checks below. Use Grep on the created/modified files for each dimension.
 
-**When a check finds violations, fix them immediately** — replace `.push()` with spread, add missing `readonly`, swap `/** */` for `//`, wrap raw literals with factory functions, add type annotations, refactor `let` to `const`, etc. After fixing, re-run only the failed checks to confirm they are clean before moving on.
+**When a check finds violations, fix them immediately** — replace `.push()` with spread, add missing `readonly`, swap `/** */` for `//`, wrap raw literals with factory functions, add type annotations, refactor `let` to `const`, extract shared utilities for detected clones, etc. After fixing, re-run only the failed checks to confirm they are clean before moving on.
 
 | Dimension                          | Tool check                                                                                                                                                                                                                                                                       | Evidence required                                                                                                                                                                        |
 | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -165,12 +167,13 @@ Fire all of these in a single round of tool calls:
 | 9. ESLint gaps                     | Grep for untyped exported objects (`export const \w+ = {` without type annotation). Grep for `else if` chains (3+ branches) in new files                                                                                                                                         | Paste Grep output ("0 matches" = pass)                                                                                                                                                   |
 | 10. Layer boundaries               | Grep for banned import patterns in new files (e.g. `from ['"](?!#)\.\.` for cross-layer relative imports, specific banned packages)                                                                                                                                              | Paste Grep output ("0 matches" = pass)                                                                                                                                                   |
 | 11. No `let` in production         | Grep for `^\s*let ` in new/modified production files (exclude `__tests__/` and `*.test.ts`)                                                                                                                                                                                      | Paste Grep output ("0 matches" = pass, or list each as justified control flag)                                                                                                           |
+| 12. Zero code clones               | Reference the `pnpm lint:clones` output from §4a. If clones are found, extract shared utilities (see `shared/src/pipeline/glob-match.ts`, `pattern-scanner.ts`, `cli/src/utils/`) — never duplicate logic across files                                                           | "0 clones found" from §4a output, or list each clone found and how it was eliminated                                                                                                     |
 
 **4c — Confirm clean and track first-pass quality.**
 
 After §4b, every dimension must be clean (all violations fixed, all re-checks passing). If a dimension reveals an architectural issue that cannot be fixed mechanically (e.g. signature mismatch, wrong layer boundary, missing DI), go to **Blocked diagnostic** — these indicate a task-file or design problem, not a code-style issue.
 
-Track first-pass quality: for each dimension, record whether it was clean on first check or required a fix. This is informational — it helps calibrate the "write correct code on the first pass" rules over time but does not gate progress. Report the count in §5a (e.g. "11/11 first-pass clean" or "9/11 first-pass clean, fixed 2: readonly array in X, block comment in Y").
+Track first-pass quality: for each dimension, record whether it was clean on first check or required a fix. This is informational — it helps calibrate the "write correct code on the first pass" rules over time but does not gate progress. Report the count in §5a (e.g. "12/12 first-pass clean" or "10/12 first-pass clean, fixed 2: readonly array in X, block comment in Y").
 
 Once all dimensions are confirmed clean, proceed to §5.
 
@@ -182,7 +185,7 @@ When all dimensions are confirmed clean, complete these three sub-steps in order
 
 - What was implemented (files created/modified)
 - Test results (pass count, confirming no regressions)
-- **First-pass quality: N/11** (from §4c) — list any dimensions that needed fixing and what was fixed
+- **First-pass quality: N/12** (from §4c) — list any dimensions that needed fixing and what was fixed
 - Review findings and fixes applied (if any)
 - Any concerns or follow-up items
 

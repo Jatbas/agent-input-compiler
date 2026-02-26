@@ -11,14 +11,9 @@ import type { ExecutableDb } from "@aic/shared/core/interfaces/executable-db.int
 import type { Clock } from "@aic/shared/core/interfaces/clock.interface.js";
 import type { IdGenerator } from "@aic/shared/core/interfaces/id-generator.interface.js";
 import { toAbsolutePath } from "@aic/shared/core/types/paths.js";
-import { toTokenCount, toMilliseconds } from "@aic/shared/core/types/units.js";
-import { toPercentage } from "@aic/shared/core/types/scores.js";
-import {
-  TASK_CLASS,
-  EDITOR_ID,
-  INCLUSION_TIER,
-  type TaskClass,
-} from "@aic/shared/core/types/enums.js";
+import { toTokenCount } from "@aic/shared/core/types/units.js";
+import { type TaskClass } from "@aic/shared/core/types/enums.js";
+import { STUB_COMPILATION_META } from "@aic/shared/testing/stub-compilation-meta.js";
 import type { CompilationRunner } from "@aic/shared/core/interfaces/compilation-runner.interface.js";
 import type { RepoMapSupplier } from "@aic/shared/core/interfaces/repo-map-supplier.interface.js";
 import { InspectRunner } from "@aic/shared/pipeline/inspect-runner.js";
@@ -239,27 +234,7 @@ export function createMcpServer(projectRoot: AbsolutePath): McpServer {
     run(_request) {
       return Promise.resolve({
         compiledPrompt: "Not implemented",
-        meta: {
-          intent: "",
-          taskClass: TASK_CLASS.GENERAL,
-          filesSelected: 0,
-          filesTotal: 0,
-          tokensRaw: toTokenCount(0),
-          tokensCompiled: toTokenCount(0),
-          tokenReductionPct: toPercentage(0),
-          cacheHit: false,
-          durationMs: toMilliseconds(0),
-          modelId: "",
-          editorId: EDITOR_ID.GENERIC,
-          transformTokensSaved: toTokenCount(0),
-          summarisationTiers: {
-            [INCLUSION_TIER.L0]: 0,
-            [INCLUSION_TIER.L1]: 0,
-            [INCLUSION_TIER.L2]: 0,
-            [INCLUSION_TIER.L3]: 0,
-          },
-          guard: null,
-        },
+        meta: STUB_COMPILATION_META,
       });
     },
   };

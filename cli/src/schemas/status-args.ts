@@ -1,8 +1,4 @@
-import { z } from "zod";
+import { BaseArgsSchema } from "./base-args.js";
 
-export const StatusArgsSchema = z.object({
-  projectRoot: z.string().min(1),
-  configPath: z.string().nullable().default(null),
-  dbPath: z.string().nullable().default(null),
-});
-export type StatusArgs = z.infer<typeof StatusArgsSchema>;
+export const StatusArgsSchema = BaseArgsSchema;
+export type StatusArgs = typeof StatusArgsSchema._output;

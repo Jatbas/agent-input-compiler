@@ -1,0 +1,20 @@
+{
+  "threshold": 0,
+  "reporters": ["console"],
+  "ignore": [
+    "node_modules",
+    "dist",
+    "coverage",
+    "documentation",
+    ".cursor",
+    ".husky",
+    "**/*.test.ts",
+    "**/__tests__/**",
+    "**/migrations/**"
+  ],
+  "absolute": false,
+  "gitignore": true,
+  "format": ["typescript"],
+  "minLines": 5,
+  "minTokens": 50
+}

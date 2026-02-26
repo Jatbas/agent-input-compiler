@@ -3,9 +3,9 @@ import type { SelectedFile } from "#core/types/selected-file.js";
 import type { GuardFinding } from "#core/types/guard-types.js";
 import { GUARD_SEVERITY } from "#core/types/enums.js";
 import { GUARD_FINDING_TYPE } from "#core/types/enums.js";
-import { toLineNumber } from "#core/types/units.js";
+import { type ScanPattern, scanWithPatterns } from "./pattern-scanner.js";
 
-const PROMPT_INJECTION_PATTERNS: readonly { pattern: RegExp; label: string }[] = [
+const PROMPT_INJECTION_PATTERNS: readonly ScanPattern[] = [
   {
     pattern: /ignore\s+(all\s+)?(previous|above|prior)\s+instructions/i,
     label: "instruction override",
@@ -27,28 +27,17 @@ const PROMPT_INJECTION_PATTERNS: readonly { pattern: RegExp; label: string }[] =
   { pattern: /\[INST\].*\[\/INST\]/i, label: "instruction block" },
 ];
 
-function lineNumberAt(content: string, index: number): number {
-  const before = content.slice(0, index);
-  return before.split("\n").length;
-}
-
 export class PromptInjectionScanner implements GuardScanner {
   readonly name = "PromptInjectionScanner";
 
   scan(file: SelectedFile, content: string): readonly GuardFinding[] {
-    return PROMPT_INJECTION_PATTERNS.flatMap(({ pattern, label }): GuardFinding[] => {
-      const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
-      const re = new RegExp(pattern.source, flags);
-      return [...content.matchAll(re)].map(
-        (m): GuardFinding => ({
-          severity: GUARD_SEVERITY.BLOCK,
-          type: GUARD_FINDING_TYPE.PROMPT_INJECTION,
-          file: file.path,
-          line: toLineNumber(lineNumberAt(content, m.index)),
-          message: `Prompt injection pattern: ${label}`,
-          pattern: pattern.source,
-        }),
-      );
-    });
+    return scanWithPatterns(
+      file,
+      content,
+      PROMPT_INJECTION_PATTERNS,
+      GUARD_SEVERITY.BLOCK,
+      GUARD_FINDING_TYPE.PROMPT_INJECTION,
+      "Prompt injection pattern: ",
+    );
   }
 }

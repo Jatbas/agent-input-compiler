@@ -1,8 +1,8 @@
 # AIC MVP Progress
 
-**Status:** Phase G in progress (compile command done)  
-**Phase:** 0 (MVP)  
-**Overall:** ~90%
+**Status:** Phase G in progress (status command done)
+**Phase:** 0 (MVP)
+**Overall:** ~94%
 
 ---
 
@@ -84,7 +84,7 @@
 | ----------------- | ----------- | ----------------- |
 | compile command   | Done        | cli/src/commands/ |
 | inspect command   | Done        | cli/src/commands/ |
-| status command    | Not started | cli/src/commands/ |
+| status command    | Done        | cli/src/commands/ |
 | init command      | Not started | cli/src/commands/ |
 | Zod schemas (CLI) | Done        | cli/src/schemas/  |
 
@@ -101,7 +101,7 @@
 
 ### 2026-02-26
 
-**Components:** compile handler, CompilationRunner interface, CompilationRequestSchema (MCP), inspect handler, InspectRunner, RepoMapSupplier, InspectRequestSchema, Zod schemas (CLI), compile command, inspect command
+**Components:** compile handler, CompilationRunner interface, CompilationRequestSchema (MCP), inspect handler, InspectRunner, RepoMapSupplier, InspectRequestSchema, Zod schemas (CLI), compile command, inspect command, status command, StatusRunner, StatusStore, openDatabase, SqliteStatusStore
 **Completed:**
 
 - CompilationRunner interface in shared/core/interfaces; run(request) returns Promise<{ compiledPrompt, meta }>
@@ -116,6 +116,7 @@
 - Zod schemas (CLI): CompilationArgsSchema, InspectArgsSchema, InitArgsSchema, StatusArgsSchema in cli/src/schemas/ with z.infer types; four test files (valid/missing/over-max, defaults, upgrade); cli tsconfig exclude adjusted so **tests** are in project for ESLint
 - compile command: cli/src/main.ts (Commander aic compile <intent> --root/--config/--db, Zod parse, stub CompilationRunner, exit 0/1/2); cli/src/commands/compile.ts (compileCommand(args, runner), re-validate, build CompilationRequest, runner.run(), stdout compiledPrompt, AicError sanitize); compile.test.ts (valid_args_stdout_stub, invalid_args_throws, runner_throws_aic_error); shared/package.json exports for @aic/shared/\* subpath resolution
 - inspect command: cli/src/commands/inspect.ts (inspectCommand(args, runner), InspectArgsSchema.parse, build InspectRequest with dbPath default path.join(projectRoot, ".aic", "aic.sqlite"), runner.inspect(), JSON.stringify({ trace }) to stdout, AicError sanitize); main.ts (inspect subcommand, stub PipelineTrace, inspectStubRunner, exit 0/1/2); inspect.test.ts (valid_args_stdout_stub, invalid_args_throws, runner_throws_aic_error)
+- status command: StatusRequest and StatusAggregates in shared/core/types/status-types.ts; StatusStore and StatusRunner interfaces in core/interfaces; openDatabase in shared/storage (Database + SqliteMigrationRunner + migration001); SqliteStatusStore.getSummary() (compilation_log, telemetry_events, guard_findings aggregates); statusCommand in cli/commands/status.ts (no-db / no-compilations messages, formatStatusOutput with Config/Trigger/Database lines, Rules health stub); main.ts status subcommand with real StatusRunner (openDatabase, SqliteStatusStore); sqlite-status-store.test.ts and status.test.ts (valid_args_stdout_stub, no_database_message_exit0, no_compilations_message, runner_throws_aic_error)
 
 ### 2026-02-25
 
@@ -184,6 +185,3 @@
 - AicError base and subclasses (Config, GuardBlockedAll, BudgetExceeded, NoFilesSelected, Model, Storage, Timeout)
 - sanitizeError utility (strip paths, env vars; AicError code passthrough)
 - Tests for UuidV7Generator and sanitizeError
-
-test line
-test line 2
