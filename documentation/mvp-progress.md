@@ -1,8 +1,8 @@
 # AIC MVP Progress
 
-**Status:** Phase G in progress (status command done)
+**Status:** Phase H started (golden snapshot tests done)
 **Phase:** 0 (MVP)
-**Overall:** ~94%
+**Overall:** ~95%
 
 ---
 
@@ -92,7 +92,7 @@
 
 | Component             | Status      | Package     |
 | --------------------- | ----------- | ----------- |
-| Golden snapshot tests | Not started | shared/src/ |
+| Golden snapshot tests | Done        | shared/src/ |
 | Full pipeline test    | Not started | shared/src/ |
 
 ---
@@ -101,9 +101,10 @@
 
 ### 2026-02-26
 
-**Components:** compile handler, CompilationRunner interface, CompilationRequestSchema (MCP), inspect handler, InspectRunner, RepoMapSupplier, InspectRequestSchema, Zod schemas (CLI), compile command, inspect command, status command, StatusRunner, StatusStore, openDatabase, SqliteStatusStore
+**Components:** compile handler, CompilationRunner interface, CompilationRequestSchema (MCP), inspect handler, InspectRunner, RepoMapSupplier, InspectRequestSchema, Zod schemas (CLI), compile command, inspect command, status command, StatusRunner, StatusStore, openDatabase, SqliteStatusStore, Golden snapshot tests
 **Completed:**
 
+- Golden snapshot tests: fixture repo test/benchmarks/repos/1 (src/auth/service.ts, src/index.ts); shared/src/integration/**tests**/golden-snapshot.test.ts wires InspectRunner with mock RepoMapSupplier, mock Clock, FileContentReader; toMatchSnapshot() and determinism (three runs deep-equal); snapshot under **snapshots**; eslint ignore test/benchmarks/, knip ignore test/benchmarks/\*\*
 - CompilationRunner interface in shared/core/interfaces; run(request) returns Promise<{ compiledPrompt, meta }>
 - CompilationRequestSchema (Zod raw shape) in mcp/src/schemas: intent, projectRoot, modelId, editorId, configPath
 - compile-handler.ts: createCompileHandler(runner), validate at boundary, map args to CompilationRequest via branded factories, AicError → sanitizeError + McpError(InternalError), unknown → McpError(Internal error)

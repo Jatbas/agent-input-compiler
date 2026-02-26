@@ -1,5 +1,5 @@
 {
-  "ignore": [".cursor/**"],
+  "ignore": [".cursor/**", "test/benchmarks/**"],
   "workspaces": {
     ".": {},
     "shared": {

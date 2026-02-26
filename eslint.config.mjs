@@ -153,6 +153,7 @@ export default tseslint.config(
       ".cursor/",
       ".claude/",
       "documentation/",
+      "test/benchmarks/",
       "*.md",
       "*.mjs",
       "*.js",
