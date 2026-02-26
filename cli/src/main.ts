@@ -106,7 +106,7 @@ program
       const statusRunner = {
         status(request: StatusRequest) {
           const db = openDatabase(request.dbPath as string, new SystemClock());
-          const store = new SqliteStatusStore(db);
+          const store = new SqliteStatusStore(db, new SystemClock());
           return Promise.resolve(store.getSummary());
         },
       };

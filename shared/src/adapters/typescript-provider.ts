@@ -194,6 +194,53 @@ const SIGNATURE_HANDLERS: readonly SigHandler[] = [
   },
 ];
 
+function collectFromNode(
+  node: ts.Node,
+  sourceFile: ts.SourceFile,
+  withDocs: boolean,
+): readonly CodeChunk[] {
+  const handler = SIGNATURE_HANDLERS.find((h) => h.matches(node));
+  const current: readonly CodeChunk[] =
+    handler !== undefined ? buildChunk(handler, node, sourceFile, withDocs) : [];
+  const children: readonly CodeChunk[] = collectChildren(node, sourceFile, withDocs);
+  return [...current, ...children];
+}
+
+function buildChunk(
+  handler: (typeof SIGNATURE_HANDLERS)[number],
+  node: ts.Node,
+  sourceFile: ts.SourceFile,
+  withDocs: boolean,
+): readonly CodeChunk[] {
+  const name = handler.getName(node, sourceFile);
+  if (name === null || name === "") return [];
+  const doc = withDocs ? getJSDoc(node, sourceFile) : "";
+  const raw = node.getText(sourceFile);
+  const sig = handler.stripBody ? raw.replace(/\s*\{[\s\S]*$/, " { }") : raw;
+  const content = doc !== "" ? `${doc}\n${sig}` : sig;
+  return [
+    {
+      filePath: EMPTY_PATH,
+      symbolName: name,
+      symbolType: handler.symbolType,
+      startLine: toLineNumber(getLine(node, sourceFile)),
+      endLine: toLineNumber(getEndLine(node, sourceFile)),
+      content,
+      tokenCount: toTokenCount(0),
+    },
+  ];
+}
+
+function collectChildren(
+  node: ts.Node,
+  sourceFile: ts.SourceFile,
+  withDocs: boolean,
+): readonly CodeChunk[] {
+  return node
+    .getChildren(sourceFile)
+    .flatMap((child) => collectFromNode(child, sourceFile, withDocs));
+}
+
 function extractSignatures(fileContent: string, withDocs: boolean): readonly CodeChunk[] {
   const sourceFile = ts.createSourceFile(
     "file.ts",
@@ -201,35 +248,7 @@ function extractSignatures(fileContent: string, withDocs: boolean): readonly Cod
     ts.ScriptTarget.Latest,
     true,
   );
-  let chunks: readonly CodeChunk[] = [];
-
-  function visit(node: ts.Node): void {
-    const handler = SIGNATURE_HANDLERS.find((h) => h.matches(node));
-    if (handler !== undefined) {
-      const name = handler.getName(node, sourceFile);
-      const doc = withDocs ? getJSDoc(node, sourceFile) : "";
-      const raw = node.getText(sourceFile);
-      const sig = handler.stripBody ? raw.replace(/\s*\{[\s\S]*$/, " { }") : raw;
-      const content = doc !== "" ? `${doc}\n${sig}` : sig;
-
-      if (name !== null && name !== "") {
-        const chunk: CodeChunk = {
-          filePath: EMPTY_PATH,
-          symbolName: name,
-          symbolType: handler.symbolType,
-          startLine: toLineNumber(getLine(node, sourceFile)),
-          endLine: toLineNumber(getEndLine(node, sourceFile)),
-          content,
-          tokenCount: toTokenCount(0),
-        };
-        chunks = [...chunks, chunk];
-      }
-    }
-    ts.forEachChild(node, visit);
-  }
-
-  visit(sourceFile);
-  return chunks;
+  return collectFromNode(sourceFile, sourceFile, withDocs);
 }
 
 function hasExport(node: ts.Node): boolean {
@@ -292,6 +311,19 @@ const NAME_HANDLERS: readonly NameHandler[] = [
   },
 ];
 
+function collectNamesFromNode(
+  node: ts.Node,
+  sourceFile: ts.SourceFile,
+): readonly ExportedSymbol[] {
+  const handler = NAME_HANDLERS.find((h) => h.matches(node));
+  const current: readonly ExportedSymbol[] =
+    handler !== undefined ? handler.extract(node, sourceFile) : [];
+  const children = node
+    .getChildren(sourceFile)
+    .flatMap((child) => collectNamesFromNode(child, sourceFile));
+  return [...current, ...children];
+}
+
 function extractNamesImpl(fileContent: string): readonly ExportedSymbol[] {
   const sourceFile = ts.createSourceFile(
     "file.ts",
@@ -299,16 +331,5 @@ function extractNamesImpl(fileContent: string): readonly ExportedSymbol[] {
     ts.ScriptTarget.Latest,
     true,
   );
-  let out: readonly ExportedSymbol[] = [];
-
-  function visit(node: ts.Node): void {
-    const handler = NAME_HANDLERS.find((h) => h.matches(node));
-    if (handler !== undefined) {
-      out = [...out, ...handler.extract(node, sourceFile)];
-    }
-    ts.forEachChild(node, visit);
-  }
-
-  visit(sourceFile);
-  return out;
+  return collectNamesFromNode(sourceFile, sourceFile);
 }

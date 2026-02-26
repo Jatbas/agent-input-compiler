@@ -1,9 +1,13 @@
 import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
+import type { Clock } from "#core/interfaces/clock.interface.js";
 import type { StatusStore } from "#core/interfaces/status-store.interface.js";
 import type { StatusAggregates } from "#core/types/status-types.js";
 
 export class SqliteStatusStore implements StatusStore {
-  constructor(private readonly db: ExecutableDb) {}
+  constructor(
+    private readonly db: ExecutableDb,
+    private readonly clock: Clock,
+  ) {}
 
   getSummary(): StatusAggregates {
     const compilationsTotalRow = this.db
@@ -11,11 +15,12 @@ export class SqliteStatusStore implements StatusStore {
       .all() as { c: number }[];
     const compilationsTotal = compilationsTotalRow[0]?.c ?? 0;
 
+    const todayDate = (this.clock.now() as string).slice(0, 10);
     const compilationsTodayRow = this.db
       .prepare(
-        "SELECT COUNT(*) as c FROM compilation_log WHERE date(created_at) = date('now')",
+        "SELECT COUNT(*) as c FROM compilation_log WHERE date(created_at) = date(?)",
       )
-      .all() as { c: number }[];
+      .all(todayDate) as { c: number }[];
     const compilationsToday = compilationsTodayRow[0]?.c ?? 0;
 
     const cacheRateRow = this.db

@@ -22,7 +22,7 @@ import { CompilationRequestSchema } from "./schemas/compilation-request.js";
 import { InspectRequestSchema } from "./schemas/inspect-request.schema.js";
 import { createCompileHandler } from "./handlers/compile-handler.js";
 import { handleInspect } from "./handlers/inspect-handler.js";
-import Database from "better-sqlite3";
+import { openDatabase } from "@aic/shared/storage/open-database.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { SystemClock } from "@aic/shared/adapters/system-clock.js";
@@ -32,12 +32,10 @@ import { FastGlobAdapter } from "@aic/shared/adapters/fast-glob-adapter.js";
 import { IgnoreAdapter } from "@aic/shared/adapters/ignore-adapter.js";
 import { TypeScriptProvider } from "@aic/shared/adapters/typescript-provider.js";
 import { GenericProvider } from "@aic/shared/adapters/generic-provider.js";
-import { SqliteMigrationRunner } from "@aic/shared/storage/sqlite-migration-runner.js";
 import { SqliteCacheStore } from "@aic/shared/storage/sqlite-cache-store.js";
 import { SqliteTelemetryStore } from "@aic/shared/storage/sqlite-telemetry-store.js";
 import { SqliteConfigStore } from "@aic/shared/storage/sqlite-config-store.js";
 import { SqliteGuardStore } from "@aic/shared/storage/sqlite-guard-store.js";
-import { migration as migration001 } from "@aic/shared/storage/migrations/001-initial-schema.js";
 import { IntentClassifier } from "@aic/shared/pipeline/intent-classifier.js";
 import { RulePackResolver } from "@aic/shared/pipeline/rule-pack-resolver.js";
 import { BudgetAllocator } from "@aic/shared/pipeline/budget-allocator.js";
@@ -139,15 +137,13 @@ export interface ProjectScope {
 export function createProjectScope(projectRoot: AbsolutePath): ProjectScope {
   const aicDir = ensureAicDir(projectRoot);
   const dbPath = path.join(aicDir as string, "aic.sqlite");
-  const db = new Database(dbPath) as unknown as ExecutableDb;
   const clock = new SystemClock();
+  const db = openDatabase(dbPath, clock);
   const idGenerator = new UuidV7Generator(clock);
-  const migrationRunner = new SqliteMigrationRunner(clock);
-  migrationRunner.run(db, [migration001]);
   const cacheDirPath = path.join(aicDir as string, "cache");
   fs.mkdirSync(cacheDirPath, { recursive: true });
   const cacheDir = toAbsolutePath(cacheDirPath);
-  const cacheStore = new SqliteCacheStore(db, cacheDir);
+  const cacheStore = new SqliteCacheStore(db, cacheDir, clock);
   const telemetryStore = new SqliteTelemetryStore(db);
   const configStore = new SqliteConfigStore(db, clock);
   const guardStore = new SqliteGuardStore(db, idGenerator, clock);
@@ -164,7 +160,7 @@ export function createProjectScope(projectRoot: AbsolutePath): ProjectScope {
 }
 
 export function createMcpServer(projectRoot: AbsolutePath): McpServer {
-  createProjectScope(projectRoot);
+  const scope = createProjectScope(projectRoot);
   const tiktokenAdapter = new TiktokenAdapter();
   const _fastGlobAdapter = new FastGlobAdapter();
   const _ignoreAdapter = new IgnoreAdapter();
@@ -215,7 +211,6 @@ export function createMcpServer(projectRoot: AbsolutePath): McpServer {
     },
   };
 
-  const clock = new SystemClock();
   const inspectRunner = new InspectRunner(
     intentClassifier,
     rulePackResolver,
@@ -226,7 +221,7 @@ export function createMcpServer(projectRoot: AbsolutePath): McpServer {
     summarisationLadder,
     promptAssembler,
     stubRepoMapSupplier,
-    clock,
+    scope.clock,
     tiktokenAdapter,
   );
 

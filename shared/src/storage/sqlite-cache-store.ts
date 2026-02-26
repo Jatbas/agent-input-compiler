@@ -6,6 +6,7 @@ import { toTokenCount } from "#core/types/units.js";
 import type { CacheStore } from "#core/interfaces/cache-store.interface.js";
 import type { CachedCompilation } from "#core/types/compilation-types.js";
 import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
+import type { Clock } from "#core/interfaces/clock.interface.js";
 
 function safeBlobFilename(key: string): string {
   const base64 = Buffer.from(key, "utf8").toString("base64");
@@ -43,14 +44,16 @@ export class SqliteCacheStore implements CacheStore {
   constructor(
     private readonly db: ExecutableDb,
     private readonly cacheDir: AbsolutePath,
+    private readonly clock: Clock,
   ) {}
 
   get(key: string): CachedCompilation | null {
+    const now = this.clock.now() as string;
     const rows = this.db
       .prepare(
-        "SELECT cache_key, file_path, file_tree_hash, created_at, expires_at FROM cache_metadata WHERE cache_key = ? AND expires_at > datetime('now')",
+        "SELECT cache_key, file_path, file_tree_hash, created_at, expires_at FROM cache_metadata WHERE cache_key = ? AND expires_at > datetime(?)",
       )
-      .all(key) as readonly {
+      .all(key, now) as readonly {
       cache_key: string;
       file_path: string;
       file_tree_hash: string;
