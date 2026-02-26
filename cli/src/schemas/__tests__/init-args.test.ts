@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { InitArgsSchema } from "../init-args";
+import { InitArgsSchema } from "../init-args.js";
 
 describe("InitArgsSchema", () => {
   it("empty_object_defaults_upgrade_false", () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { CompilationArgsSchema } from "../compilation-args";
+import { CompilationArgsSchema } from "../compilation-args.js";
 
 describe("CompilationArgsSchema", () => {
   it("valid_object_parses_successfully", () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { StatusArgsSchema } from "../status-args";
+import { StatusArgsSchema } from "../status-args.js";
 
 describe("StatusArgsSchema", () => {
   it("valid_object_parses_successfully", () => {

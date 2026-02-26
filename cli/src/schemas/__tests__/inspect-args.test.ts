@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { InspectArgsSchema } from "../inspect-args";
+import { InspectArgsSchema } from "../inspect-args.js";
 
 describe("InspectArgsSchema", () => {
   it("valid_object_parses_successfully", () => {
