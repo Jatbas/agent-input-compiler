@@ -6,6 +6,8 @@ import type { UUIDv7 } from "#core/types/identifiers.js";
 import { toUUIDv7, toISOTimestamp } from "#core/types/identifiers.js";
 import { toRelativePath } from "#core/types/paths.js";
 import { toLineNumber } from "#core/types/units.js";
+import { toMilliseconds } from "#core/types/units.js";
+import type { Clock } from "#core/interfaces/clock.interface.js";
 import { GUARD_SEVERITY, GUARD_FINDING_TYPE } from "#core/types/enums.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
 import { SqliteGuardStore } from "../sqlite-guard-store.js";
@@ -23,9 +25,7 @@ function mockIdGenerator(ids: readonly string[]): { generate(): UUIDv7 } {
   };
 }
 
-function mockClock(timestamps: readonly string[]): {
-  now(): ReturnType<typeof toISOTimestamp>;
-} {
+function mockClock(timestamps: readonly string[]): Clock {
   let index = 0;
   return {
     now() {
@@ -33,6 +33,14 @@ function mockClock(timestamps: readonly string[]): {
       if (ts === undefined) throw new AicError("mock clock exhausted", "TEST_SETUP");
       index += 1;
       return toISOTimestamp(ts);
+    },
+    addMinutes() {
+      const ts = timestamps[Math.min(index, timestamps.length - 1)];
+      if (ts === undefined) throw new AicError("mock clock exhausted", "TEST_SETUP");
+      return toISOTimestamp(ts);
+    },
+    durationMs() {
+      return toMilliseconds(0);
     },
   };
 }
@@ -54,10 +62,7 @@ describe("SqliteGuardStore", () => {
     if (db) db.close();
   });
 
-  function setup(
-    idGen: { generate(): UUIDv7 },
-    clock: { now(): ReturnType<typeof toISOTimestamp> },
-  ): SqliteGuardStore {
+  function setup(idGen: { generate(): UUIDv7 }, clock: Clock): SqliteGuardStore {
     db = new Database(":memory:");
     migration001.up(db);
     return new SqliteGuardStore(db, idGen, clock);

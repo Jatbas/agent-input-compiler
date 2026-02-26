@@ -5,13 +5,15 @@ import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import { toAbsolutePath } from "#core/types/paths.js";
 import { toISOTimestamp } from "#core/types/identifiers.js";
-import { toTokenCount } from "#core/types/units.js";
+import { toTokenCount, toMilliseconds } from "#core/types/units.js";
 import type { CachedCompilation } from "#core/types/compilation-types.js";
 import type { Clock } from "#core/interfaces/clock.interface.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
 
 const stubClock: Clock = {
   now: () => toISOTimestamp("2025-06-15T12:00:00.000Z"),
+  addMinutes: () => toISOTimestamp("2025-06-15T12:00:00.000Z"),
+  durationMs: () => toMilliseconds(0),
 };
 import { SqliteCacheStore } from "../sqlite-cache-store.js";
 

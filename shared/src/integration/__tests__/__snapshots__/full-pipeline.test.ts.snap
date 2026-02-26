@@ -1,0 +1,24 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`full pipeline > full_pipeline_compiled_output_matches_snapshot 1`] = `
+"## Task
+refactor
+
+## Task Classification
+Type: refactor (confidence: 0.2)
+
+## Context
+### src/auth/service.ts [Tier: L0]
+export function auth() {
+  return "ok";
+}
+
+
+### src/index.ts [Tier: L0]
+import { auth } from "./auth/service";
+export { auth };
+
+
+## Output Format
+Respond with a unified diff (--- a/ +++ b/ @@ ... @@). Do not include any text outside the diff blocks."
+`;

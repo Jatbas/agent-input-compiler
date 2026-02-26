@@ -3,12 +3,12 @@ import Database from "better-sqlite3";
 import { AicError } from "#core/errors/aic-error.js";
 import { toISOTimestamp } from "#core/types/identifiers.js";
 import type { ISOTimestamp } from "#core/types/identifiers.js";
+import { toMilliseconds } from "#core/types/units.js";
+import type { Clock } from "#core/interfaces/clock.interface.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
 import { SqliteConfigStore } from "../sqlite-config-store.js";
 
-function mockClock(timestamps: readonly ISOTimestamp[]): {
-  clock: { now(): ISOTimestamp };
-} {
+function mockClock(timestamps: readonly ISOTimestamp[]): { clock: Clock } {
   let index = 0;
   return {
     clock: {
@@ -17,6 +17,14 @@ function mockClock(timestamps: readonly ISOTimestamp[]): {
         if (ts === undefined) throw new AicError("mock clock exhausted", "TEST_SETUP");
         index += 1;
         return ts;
+      },
+      addMinutes(): ISOTimestamp {
+        const ts = timestamps[index];
+        if (ts === undefined) throw new AicError("mock clock exhausted", "TEST_SETUP");
+        return ts;
+      },
+      durationMs() {
+        return toMilliseconds(0);
       },
     },
   };
@@ -29,7 +37,7 @@ describe("SqliteConfigStore", () => {
     if (db) db.close();
   });
 
-  function setup(clock: { now(): ISOTimestamp }): SqliteConfigStore {
+  function setup(clock: Clock): SqliteConfigStore {
     db = new Database(":memory:");
     migration001.up(db);
     return new SqliteConfigStore(db, clock);

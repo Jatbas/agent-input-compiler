@@ -138,20 +138,20 @@ describe("InspectRunner", () => {
     const mockRepoMapSupplier = { getRepoMap: () => Promise.resolve(fixedRepoMap) };
     const mockClock = { now: () => fixedTimestamp };
     const mockTokenCounter = { countTokens: () => toTokenCount(120) };
-
-    const runner = new InspectRunner(
-      mockIntentClassifier as IntentClassifier,
-      mockRulePackResolver as RulePackResolver,
-      mockBudgetAllocator as BudgetAllocator,
-      mockContextSelector as ContextSelector,
-      mockContextGuard as ContextGuard,
-      mockContentTransformerPipeline as ContentTransformerPipeline,
-      mockSummarisationLadder as SummarisationLadder,
-      mockPromptAssembler as PromptAssembler,
-      mockRepoMapSupplier as RepoMapSupplier,
-      mockClock as Clock,
-      mockTokenCounter as TokenCounter,
-    );
+    const deps = {
+      intentClassifier: mockIntentClassifier as IntentClassifier,
+      rulePackResolver: mockRulePackResolver as RulePackResolver,
+      budgetAllocator: mockBudgetAllocator as BudgetAllocator,
+      contextSelector: mockContextSelector as ContextSelector,
+      contextGuard: mockContextGuard as ContextGuard,
+      contentTransformerPipeline:
+        mockContentTransformerPipeline as ContentTransformerPipeline,
+      summarisationLadder: mockSummarisationLadder as SummarisationLadder,
+      promptAssembler: mockPromptAssembler as PromptAssembler,
+      repoMapSupplier: mockRepoMapSupplier as RepoMapSupplier,
+      tokenCounter: mockTokenCounter as TokenCounter,
+    };
+    const runner = new InspectRunner(deps, mockClock as Clock);
 
     const request = makeRequest();
     const trace = await runner.inspect(request);
@@ -180,20 +180,20 @@ describe("InspectRunner", () => {
     const mockRepoMapSupplier = { getRepoMap: () => Promise.resolve(fixedRepoMap) };
     const mockClock = { now: () => fixedTimestamp };
     const mockTokenCounter = { countTokens: () => toTokenCount(120) };
-
-    const runner = new InspectRunner(
-      mockIntentClassifier as IntentClassifier,
-      mockRulePackResolver as RulePackResolver,
-      mockBudgetAllocator as BudgetAllocator,
-      mockContextSelector as ContextSelector,
-      mockContextGuard as ContextGuard,
-      mockContentTransformerPipeline as ContentTransformerPipeline,
-      mockSummarisationLadder as SummarisationLadder,
-      mockPromptAssembler as PromptAssembler,
-      mockRepoMapSupplier as RepoMapSupplier,
-      mockClock as Clock,
-      mockTokenCounter as TokenCounter,
-    );
+    const deps = {
+      intentClassifier: mockIntentClassifier as IntentClassifier,
+      rulePackResolver: mockRulePackResolver as RulePackResolver,
+      budgetAllocator: mockBudgetAllocator as BudgetAllocator,
+      contextSelector: mockContextSelector as ContextSelector,
+      contextGuard: mockContextGuard as ContextGuard,
+      contentTransformerPipeline:
+        mockContentTransformerPipeline as ContentTransformerPipeline,
+      summarisationLadder: mockSummarisationLadder as SummarisationLadder,
+      promptAssembler: mockPromptAssembler as PromptAssembler,
+      repoMapSupplier: mockRepoMapSupplier as RepoMapSupplier,
+      tokenCounter: mockTokenCounter as TokenCounter,
+    };
+    const runner = new InspectRunner(deps, mockClock as Clock);
 
     expect(runner).toBeDefined();
     expect("fileContentReader" in runner).toBe(false);
@@ -214,20 +214,20 @@ describe("InspectRunner", () => {
     const mockRepoMapSupplier = { getRepoMap: () => Promise.reject(stubError) };
     const mockClock = { now: () => fixedTimestamp };
     const mockTokenCounter = { countTokens: () => toTokenCount(120) };
-
-    const runner = new InspectRunner(
-      mockIntentClassifier as IntentClassifier,
-      mockRulePackResolver as RulePackResolver,
-      mockBudgetAllocator as BudgetAllocator,
-      mockContextSelector as ContextSelector,
-      mockContextGuard as ContextGuard,
-      mockContentTransformerPipeline as ContentTransformerPipeline,
-      mockSummarisationLadder as SummarisationLadder,
-      mockPromptAssembler as PromptAssembler,
-      mockRepoMapSupplier as RepoMapSupplier,
-      mockClock as Clock,
-      mockTokenCounter as TokenCounter,
-    );
+    const deps = {
+      intentClassifier: mockIntentClassifier as IntentClassifier,
+      rulePackResolver: mockRulePackResolver as RulePackResolver,
+      budgetAllocator: mockBudgetAllocator as BudgetAllocator,
+      contextSelector: mockContextSelector as ContextSelector,
+      contextGuard: mockContextGuard as ContextGuard,
+      contentTransformerPipeline:
+        mockContentTransformerPipeline as ContentTransformerPipeline,
+      summarisationLadder: mockSummarisationLadder as SummarisationLadder,
+      promptAssembler: mockPromptAssembler as PromptAssembler,
+      repoMapSupplier: mockRepoMapSupplier as RepoMapSupplier,
+      tokenCounter: mockTokenCounter as TokenCounter,
+    };
+    const runner = new InspectRunner(deps, mockClock as Clock);
 
     await expect(runner.inspect(makeRequest())).rejects.toThrow("RepoMap not available");
   });

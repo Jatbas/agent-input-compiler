@@ -1,3 +1,5 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { program, type Command } from "commander";
 import { CompilationArgsSchema } from "./schemas/compilation-args.js";
 import { InspectArgsSchema } from "./schemas/inspect-args.js";
@@ -10,15 +12,29 @@ import { statusCommand } from "./commands/status.js";
 import type { CompilationRunner } from "@aic/shared/core/interfaces/compilation-runner.interface.js";
 import type { InspectRunner } from "@aic/shared/core/interfaces/inspect-runner.interface.js";
 import type { StatusRequest } from "@aic/shared/core/types/status-types.js";
+import type { FileContentReader } from "@aic/shared/core/interfaces/file-content-reader.interface.js";
+import type { RelativePath } from "@aic/shared/core/types/paths.js";
 import { openDatabase } from "@aic/shared/storage/open-database.js";
+import { createProjectScope } from "@aic/shared/storage/create-project-scope.js";
+import { createPipelineDeps } from "@aic/shared/bootstrap/create-pipeline-deps.js";
 import { SystemClock } from "@aic/shared/adapters/system-clock.js";
 import { SqliteStatusStore } from "@aic/shared/storage/sqlite-status-store.js";
+import { StorageError } from "@aic/shared/core/errors/storage-error.js";
+import { CompilationRunner as CompilationRunnerImpl } from "@aic/shared/pipeline/compilation-runner.js";
+import { Sha256Adapter } from "@aic/shared/adapters/sha256-adapter.js";
+import type { RulePackProvider } from "@aic/shared/core/interfaces/rule-pack-provider.interface.js";
+import type { BudgetConfig } from "@aic/shared/core/interfaces/budget-config.interface.js";
+import type { RepoMapSupplier } from "@aic/shared/core/interfaces/repo-map-supplier.interface.js";
+import type { RulePack } from "@aic/shared/core/types/rule-pack.js";
+import type { TaskClass } from "@aic/shared/core/types/enums.js";
 import type { PipelineTrace } from "@aic/shared/core/types/inspect-types.js";
+import { toAbsolutePath } from "@aic/shared/core/types/paths.js";
 import { toTokenCount } from "@aic/shared/core/types/units.js";
 import { toPercentage, toConfidence } from "@aic/shared/core/types/scores.js";
 import { toISOTimestamp } from "@aic/shared/core/types/identifiers.js";
 import { TASK_CLASS, INCLUSION_TIER } from "@aic/shared/core/types/enums.js";
-import { STUB_COMPILATION_META } from "@aic/shared/testing/stub-compilation-meta.js";
+import { loadRulePackFromPath } from "@aic/shared/core/load-rule-pack.js";
+import { createProjectFileReader } from "@aic/shared/adapters/project-file-reader-adapter.js";
 import {
   type CliOpts,
   resolveBaseArgs,
@@ -26,14 +42,70 @@ import {
   createIntentAction,
 } from "./utils/run-action.js";
 
-const stubRunner: CompilationRunner = {
-  run(_request) {
-    return Promise.resolve({
-      compiledPrompt: "Not implemented",
-      meta: STUB_COMPILATION_META,
-    });
-  },
-};
+function defaultRulePack(): RulePack {
+  return {
+    constraints: [],
+    includePatterns: [],
+    excludePatterns: [],
+  };
+}
+
+function createRulePackProvider(_projectRoot: string): RulePackProvider {
+  return {
+    getBuiltInPack(_name: string): RulePack {
+      return defaultRulePack();
+    },
+    getProjectPack(projectRootArg: string, _taskClass: TaskClass): RulePack | null {
+      return loadRulePackFromPath(
+        createProjectFileReader(projectRootArg),
+        TASK_CLASS.REFACTOR,
+      );
+    },
+  };
+}
+
+function createDefaultBudgetConfig(): BudgetConfig {
+  return {
+    getMaxTokens() {
+      return toTokenCount(8000);
+    },
+    getBudgetForTaskClass(_taskClass: TaskClass) {
+      return null;
+    },
+  };
+}
+
+function createCompilationRunner(projectRoot: string): CompilationRunner {
+  const scope = createProjectScope(toAbsolutePath(projectRoot));
+  const fileContentReader: FileContentReader = {
+    getContent(pathRel: RelativePath): string {
+      return fs.readFileSync(path.join(projectRoot, pathRel as string), "utf8");
+    },
+  };
+  const rulePackProvider = createRulePackProvider(projectRoot);
+  const budgetConfig = createDefaultBudgetConfig();
+  const pipelineDeps = createPipelineDeps(
+    fileContentReader,
+    rulePackProvider,
+    budgetConfig,
+  );
+  const stubRepoMapSupplier: RepoMapSupplier = {
+    getRepoMap() {
+      return Promise.reject(
+        new StorageError("RepoMap not available; use MCP or add RepoMapBuilder"),
+      );
+    },
+  };
+  const deps = { ...pipelineDeps, repoMapSupplier: stubRepoMapSupplier };
+  const sha256Adapter = new Sha256Adapter();
+  return new CompilationRunnerImpl(
+    deps,
+    scope.clock,
+    scope.cacheStore,
+    scope.configStore,
+    sha256Adapter,
+  );
+}
 
 const stubTrace: PipelineTrace = {
   intent: "",
@@ -81,7 +153,9 @@ program
   .option("--config <path>", "path to aic.config.json")
   .option("--db <path>", "path to SQLite database")
   .action(
-    createIntentAction(CompilationArgsSchema, (args) => compileCommand(args, stubRunner)),
+    createIntentAction(CompilationArgsSchema, (args) =>
+      compileCommand(args, createCompilationRunner(args.projectRoot)),
+    ),
   );
 
 program

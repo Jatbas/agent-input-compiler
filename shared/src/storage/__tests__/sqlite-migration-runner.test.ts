@@ -5,12 +5,20 @@ import { AicError } from "#core/errors/aic-error.js";
 import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import { toISOTimestamp } from "#core/types/identifiers.js";
+import { toMilliseconds } from "#core/types/units.js";
+import type { Clock } from "#core/interfaces/clock.interface.js";
 import { SqliteMigrationRunner } from "../sqlite-migration-runner.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
 
-const clock = {
+const clock: Clock = {
   now(): ReturnType<typeof toISOTimestamp> {
     return toISOTimestamp("2025-01-15T10:00:00.000Z");
+  },
+  addMinutes() {
+    return toISOTimestamp("2025-01-15T10:00:00.000Z");
+  },
+  durationMs() {
+    return toMilliseconds(0);
   },
 };
 

@@ -2,7 +2,9 @@ import { describe, it, afterEach, expect } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import { createMcpServer, createProjectScope, ensureAicDir } from "../server.js";
+import { createMcpServer } from "../server.js";
+import { createProjectScope } from "@aic/shared/storage/create-project-scope.js";
+import { ensureAicDir } from "@aic/shared/storage/ensure-aic-dir.js";
 import { toAbsolutePath } from "@aic/shared/core/types/paths.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -41,19 +43,7 @@ describe("MCP server", () => {
       name: "aic_compile",
       arguments: { intent: "fix bug", projectRoot: tmpDir },
     });
-    type ContentItem = { type: string; text?: string };
-    const raw = (result as { content?: ContentItem[] }).content;
-    const content: ContentItem[] = Array.isArray(raw) ? raw : [];
-    const textParts = content
-      .filter((c): c is { type: "text"; text: string } => c.type === "text")
-      .map((c) => c.text);
-    const joined = textParts.join("");
-    const parsed = JSON.parse(joined) as {
-      compiledPrompt?: string;
-      meta?: unknown;
-    };
-    expect(parsed.compiledPrompt).toBe("Not implemented");
-    expect(parsed.meta).toBeDefined();
+    expect((result as { isError?: boolean }).isError).toBe(true);
   });
 
   it("invalid_args_returns_32602", async () => {

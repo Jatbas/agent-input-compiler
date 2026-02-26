@@ -3,11 +3,14 @@ import Database from "better-sqlite3";
 import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
 import type { Clock } from "#core/interfaces/clock.interface.js";
 import { toISOTimestamp } from "#core/types/identifiers.js";
+import { toMilliseconds } from "#core/types/units.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
 import { SqliteStatusStore } from "../sqlite-status-store.js";
 
 const stubClock: Clock = {
   now: () => toISOTimestamp("2025-06-15T12:00:00.000Z"),
+  addMinutes: () => toISOTimestamp("2025-06-15T12:00:00.000Z"),
+  durationMs: () => toMilliseconds(0),
 };
 
 describe("SqliteStatusStore", () => {

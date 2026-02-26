@@ -3,19 +3,23 @@ import * as fs from "node:fs";
 import { describe, it, expect } from "vitest";
 import { toAbsolutePath } from "#core/types/paths.js";
 import { toRelativePath } from "#core/types/paths.js";
-import { toFilePath } from "#core/types/paths.js";
 import { toTokenCount, toMilliseconds } from "#core/types/units.js";
 import { toBytes } from "#core/types/units.js";
 import { toISOTimestamp } from "#core/types/identifiers.js";
+import type { CompilationRequest } from "#core/types/compilation-types.js";
+import type { CachedCompilation } from "#core/types/compilation-types.js";
 import type { RepoMap, FileEntry } from "#core/types/repo-map.js";
 import type { RulePack } from "#core/types/rule-pack.js";
 import type { FileContentReader } from "#core/interfaces/file-content-reader.interface.js";
 import type { RepoMapSupplier } from "#core/interfaces/repo-map-supplier.interface.js";
 import type { Clock } from "#core/interfaces/clock.interface.js";
+import type { CacheStore } from "#core/interfaces/cache-store.interface.js";
+import type { ConfigStore } from "#core/interfaces/config-store.interface.js";
 import type { RulePackProvider } from "#core/interfaces/rule-pack-provider.interface.js";
 import type { BudgetConfig } from "#core/interfaces/budget-config.interface.js";
 import type { TaskClass } from "#core/types/enums.js";
-import { InspectRunner } from "#pipeline/inspect-runner.js";
+import { EDITOR_ID } from "#core/types/enums.js";
+import { CompilationRunner } from "#pipeline/compilation-runner.js";
 import { IntentClassifier } from "#pipeline/intent-classifier.js";
 import { RulePackResolver } from "#pipeline/rule-pack-resolver.js";
 import { BudgetAllocator } from "#pipeline/budget-allocator.js";
@@ -32,6 +36,7 @@ import { ContentTransformerPipeline } from "#pipeline/content-transformer-pipeli
 import { SummarisationLadder } from "#pipeline/summarisation-ladder.js";
 import { PromptAssembler } from "#pipeline/prompt-assembler.js";
 import { TiktokenAdapter } from "#adapters/tiktoken-adapter.js";
+import { Sha256Adapter } from "#adapters/sha256-adapter.js";
 import { TypeScriptProvider } from "#adapters/typescript-provider.js";
 import { GenericProvider } from "#adapters/generic-provider.js";
 
@@ -54,33 +59,45 @@ function buildFixtureRepoMap(fixtureRoot: ReturnType<typeof toAbsolutePath>): Re
   const content2 = fs.readFileSync(full2, "utf8");
   const size1 = Buffer.byteLength(content1, "utf8");
   const size2 = Buffer.byteLength(content2, "utf8");
-  const est1 = toTokenCount(10);
-  const est2 = toTokenCount(12);
   const entry1: FileEntry = {
     path: rel1,
     language: "ts",
     sizeBytes: toBytes(size1),
-    estimatedTokens: est1,
+    estimatedTokens: toTokenCount(10),
     lastModified: toISOTimestamp(FIXED_TS),
   };
   const entry2: FileEntry = {
     path: rel2,
     language: "ts",
     sizeBytes: toBytes(size2),
-    estimatedTokens: est2,
+    estimatedTokens: toTokenCount(12),
     lastModified: toISOTimestamp(FIXED_TS),
   };
-  const files: readonly FileEntry[] = [entry1, entry2];
-  const totalTokens = toTokenCount(10 + 12);
   return {
     root: fixtureRoot,
-    files,
+    files: [entry1, entry2],
     totalFiles: 2,
-    totalTokens,
+    totalTokens: toTokenCount(22),
   };
 }
 
-function createRunner(fixtureRoot: ReturnType<typeof toAbsolutePath>): InspectRunner {
+function createInMemoryCacheStore(): CacheStore {
+  const map = new Map<string, CachedCompilation>();
+  return {
+    get(key: string) {
+      return map.get(key) ?? null;
+    },
+    set(entry: CachedCompilation) {
+      map.set(entry.key, entry);
+    },
+    invalidate() {},
+    invalidateAll() {
+      map.clear();
+    },
+  };
+}
+
+function createRunner(fixtureRoot: ReturnType<typeof toAbsolutePath>): CompilationRunner {
   const repoMap = buildFixtureRepoMap(fixtureRoot);
   const mockRepoMapSupplier: RepoMapSupplier = {
     getRepoMap(_projectRoot) {
@@ -128,7 +145,9 @@ function createRunner(fixtureRoot: ReturnType<typeof toAbsolutePath>): InspectRu
   const intentClassifier = new IntentClassifier();
   const rulePackResolver = new RulePackResolver(rulePackProvider);
   const budgetAllocator = new BudgetAllocator(budgetConfig);
-  const heuristicSelector = new HeuristicSelector(languageProviders, { maxFiles: 20 });
+  const heuristicSelector = new HeuristicSelector(languageProviders, {
+    maxFiles: 20,
+  });
   const exclusionScanner = new ExclusionScanner();
   const secretScanner = new SecretScanner();
   const promptInjectionScanner = new PromptInjectionScanner();
@@ -155,6 +174,12 @@ function createRunner(fixtureRoot: ReturnType<typeof toAbsolutePath>): InspectRu
     fileContentReader,
   );
   const promptAssembler = new PromptAssembler(fileContentReader);
+  const cacheStore = createInMemoryCacheStore();
+  const configStore: ConfigStore = {
+    getLatestHash: () => null,
+    writeSnapshot() {},
+  };
+  const sha256Adapter = new Sha256Adapter();
   const deps = {
     intentClassifier,
     rulePackResolver,
@@ -167,32 +192,40 @@ function createRunner(fixtureRoot: ReturnType<typeof toAbsolutePath>): InspectRu
     repoMapSupplier: mockRepoMapSupplier,
     tokenCounter: tiktokenAdapter,
   };
-  return new InspectRunner(deps, mockClock);
+  return new CompilationRunner(deps, mockClock, cacheStore, configStore, sha256Adapter);
 }
 
-describe("golden snapshot", () => {
+describe("full pipeline", () => {
   const fixtureRoot = toAbsolutePath(
     path.join(process.cwd(), "test", "benchmarks", "repos", "1"),
   );
-  const request = {
+  const request: CompilationRequest = {
     intent: "refactor auth module to use middleware pattern",
     projectRoot: fixtureRoot,
-    configPath: null as ReturnType<typeof toFilePath> | null,
-    dbPath: toFilePath(path.join(fixtureRoot as string, ".aic", "aic.sqlite")),
+    modelId: null,
+    editorId: EDITOR_ID.GENERIC,
+    configPath: null,
   };
 
-  it("full_pipeline_trace_matches_golden_snapshot", async () => {
+  it("full_pipeline_compiled_output_matches_snapshot", async () => {
     const runner = createRunner(fixtureRoot);
-    const trace = await runner.inspect(request);
-    expect(trace).toMatchSnapshot();
+    const result = await runner.run(request);
+    expect(result.compiledPrompt).toMatchSnapshot();
   });
 
-  it("full_pipeline_trace_is_deterministic", async () => {
+  it("full_pipeline_deterministic", async () => {
+    const runner1 = createRunner(fixtureRoot);
+    const runner2 = createRunner(fixtureRoot);
+    const first = await runner1.run(request);
+    const second = await runner2.run(request);
+    expect(first).toEqual(second);
+  });
+
+  it("full_pipeline_second_run_cache_hit", async () => {
     const runner = createRunner(fixtureRoot);
-    const trace1 = await runner.inspect(request);
-    const trace2 = await runner.inspect(request);
-    const trace3 = await runner.inspect(request);
-    expect(trace1).toEqual(trace2);
-    expect(trace2).toEqual(trace3);
+    await runner.run(request);
+    const second = await runner.run(request);
+    expect(second.meta.cacheHit).toBe(true);
+    expect(second.meta.durationMs).toEqual(toMilliseconds(0));
   });
 });

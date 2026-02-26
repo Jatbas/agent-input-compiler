@@ -1,8 +1,8 @@
 # AIC MVP Progress
 
-**Status:** Phase H started (golden snapshot tests done)
+**Status:** Phase H complete (full pipeline test done)
 **Phase:** 0 (MVP)
-**Overall:** ~98%
+**Overall:** 100%
 
 ---
 
@@ -90,10 +90,10 @@
 
 ### Phase H — Integration Tests
 
-| Component             | Status      | Package     |
-| --------------------- | ----------- | ----------- |
-| Golden snapshot tests | Done        | shared/src/ |
-| Full pipeline test    | Not started | shared/src/ |
+| Component             | Status | Package     |
+| --------------------- | ------ | ----------- |
+| Golden snapshot tests | Done   | shared/src/ |
+| Full pipeline test    | Done   | shared/src/ |
 
 ---
 
@@ -101,9 +101,10 @@
 
 ### 2026-02-26
 
-**Components:** compile handler, CompilationRunner interface, CompilationRequestSchema (MCP), inspect handler, InspectRunner, RepoMapSupplier, InspectRequestSchema, Zod schemas (CLI), compile command, inspect command, status command, init command, StatusRunner, StatusStore, openDatabase, SqliteStatusStore, Golden snapshot tests
+**Components:** compile handler, CompilationRunner interface, CompilationRequestSchema (MCP), inspect handler, InspectRunner, RepoMapSupplier, InspectRequestSchema, Zod schemas (CLI), compile command, inspect command, status command, init command, StatusRunner, StatusStore, openDatabase, SqliteStatusStore, Golden snapshot tests, Full pipeline test, StringHasher, Sha256Adapter, CompilationRunner, ensureAicDir, createProjectScope, loadRulePackFromPath, createProjectFileReader
 **Completed:**
 
+- Full pipeline test (task 024): StringHasher interface and Sha256Adapter; Clock addMinutes/durationMs and SystemClock; CompilationRunner (cache key from intent+projectRoot+fileTreeHash+configHash, runPipelineSteps, cache get/set); runPipelineSteps and token-summary in core; InspectRunner/CompilationRunner refactored to (deps, clock) and (deps, clock, cacheStore, configStore, stringHasher); createPipelineDeps in bootstrap; ensureAicDir and createProjectScope in shared; MCP and CLI wire CompilationRunner via createProjectScope and createPipelineDeps; full-pipeline integration test (snapshot, determinism, cache hit); shared load-rule-pack and project-file-reader-adapter to remove CLI/MCP clone.
 - Golden snapshot tests: fixture repo test/benchmarks/repos/1 (src/auth/service.ts, src/index.ts); shared/src/integration/**tests**/golden-snapshot.test.ts wires InspectRunner with mock RepoMapSupplier, mock Clock, FileContentReader; toMatchSnapshot() and determinism (three runs deep-equal); snapshot under **snapshots**; eslint ignore test/benchmarks/, knip ignore test/benchmarks/\*\*
 - CompilationRunner interface in shared/core/interfaces; run(request) returns Promise<{ compiledPrompt, meta }>
 - CompilationRequestSchema (Zod raw shape) in mcp/src/schemas: intent, projectRoot, modelId, editorId, configPath
