@@ -131,9 +131,12 @@
 
 ### 2026-02-23
 
-**Components:** Project scaffolding
+**Components:** Project scaffolding, Phase B core interfaces
 **Completed:**
 
+- Phase B domain types (task-classification, rule-pack, selected-file, guard-types, transform-types, repo-map, compilation-types, telemetry-types)
+- Phase B port interfaces (intent-classifier, rule-pack-resolver, budget-allocator, context-selector, context-guard, guard-scanner, content-transformer, content-transformer-pipeline, summarisation-ladder, prompt-assembler, cache-store, telemetry-store, config-store, guard-store)
+- Types barrel and ISP split for CachedCompilation/TelemetryEvent into core/types
 - Renamed documentation files to kebab-case (`project-plan.md`, `mvp-specification-phase0.md`)
 - Added file naming conventions to Cursor rules and CLAUDE.md
 - Configured pnpm workspaces (`shared`, `cli`, `mcp`)
