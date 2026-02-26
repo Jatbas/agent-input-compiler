@@ -10,13 +10,17 @@ import { inspectCommand } from "./commands/inspect.js";
 import { initCommand } from "./commands/init.js";
 import { statusCommand } from "./commands/status.js";
 import type { CompilationRunner } from "@aic/shared/core/interfaces/compilation-runner.interface.js";
-import type { InspectRunner } from "@aic/shared/core/interfaces/inspect-runner.interface.js";
+import { InspectRunner } from "@aic/shared/pipeline/inspect-runner.js";
 import type { StatusRequest } from "@aic/shared/core/types/status-types.js";
 import type { FileContentReader } from "@aic/shared/core/interfaces/file-content-reader.interface.js";
 import type { RelativePath } from "@aic/shared/core/types/paths.js";
 import { openDatabase } from "@aic/shared/storage/open-database.js";
-import { createProjectScope } from "@aic/shared/storage/create-project-scope.js";
+import {
+  createProjectScope,
+  type ProjectScope,
+} from "@aic/shared/storage/create-project-scope.js";
 import { createFullPipelineDeps } from "@aic/shared/bootstrap/create-pipeline-deps.js";
+import type { PipelineStepsDeps } from "@aic/shared/core/run-pipeline-steps.js";
 import { SystemClock } from "@aic/shared/adapters/system-clock.js";
 import { SqliteStatusStore } from "@aic/shared/storage/sqlite-status-store.js";
 import { CompilationRunner as CompilationRunnerImpl } from "@aic/shared/pipeline/compilation-runner.js";
@@ -25,12 +29,9 @@ import type { RulePackProvider } from "@aic/shared/core/interfaces/rule-pack-pro
 import type { BudgetConfig } from "@aic/shared/core/interfaces/budget-config.interface.js";
 import type { RulePack } from "@aic/shared/core/types/rule-pack.js";
 import type { TaskClass } from "@aic/shared/core/types/enums.js";
-import type { PipelineTrace } from "@aic/shared/core/types/inspect-types.js";
 import { toAbsolutePath } from "@aic/shared/core/types/paths.js";
 import { toTokenCount } from "@aic/shared/core/types/units.js";
-import { toPercentage, toConfidence } from "@aic/shared/core/types/scores.js";
-import { toISOTimestamp } from "@aic/shared/core/types/identifiers.js";
-import { TASK_CLASS, INCLUSION_TIER } from "@aic/shared/core/types/enums.js";
+import { TASK_CLASS } from "@aic/shared/core/types/enums.js";
 import { loadRulePackFromPath } from "@aic/shared/core/load-rule-pack.js";
 import { createProjectFileReader } from "@aic/shared/adapters/project-file-reader-adapter.js";
 import { resolveBaseArgs, runAction, createIntentAction } from "./utils/run-action.js";
@@ -68,7 +69,10 @@ function createDefaultBudgetConfig(): BudgetConfig {
   };
 }
 
-function createCompilationRunner(projectRoot: string): CompilationRunner {
+function createScopeAndDeps(projectRoot: string): {
+  scope: ProjectScope;
+  deps: PipelineStepsDeps;
+} {
   const scope = createProjectScope(toAbsolutePath(projectRoot));
   const fileContentReader: FileContentReader = {
     getContent(pathRel: RelativePath): string {
@@ -78,6 +82,11 @@ function createCompilationRunner(projectRoot: string): CompilationRunner {
   const rulePackProvider = createRulePackProvider(projectRoot);
   const budgetConfig = createDefaultBudgetConfig();
   const deps = createFullPipelineDeps(fileContentReader, rulePackProvider, budgetConfig);
+  return { scope, deps };
+}
+
+function createCompilationRunner(projectRoot: string): CompilationRunner {
+  const { scope, deps } = createScopeAndDeps(projectRoot);
   const sha256Adapter = new Sha256Adapter();
   return new CompilationRunnerImpl(
     deps,
@@ -88,42 +97,10 @@ function createCompilationRunner(projectRoot: string): CompilationRunner {
   );
 }
 
-const stubTrace: PipelineTrace = {
-  intent: "",
-  taskClass: {
-    taskClass: TASK_CLASS.GENERAL,
-    confidence: toConfidence(0),
-    matchedKeywords: [],
-  },
-  rulePacks: [],
-  budget: toTokenCount(0),
-  selectedFiles: [],
-  guard: null,
-  transforms: [],
-  summarisationTiers: {
-    [INCLUSION_TIER.L0]: 0,
-    [INCLUSION_TIER.L1]: 0,
-    [INCLUSION_TIER.L2]: 0,
-    [INCLUSION_TIER.L3]: 0,
-  },
-  constraints: [],
-  tokenSummary: {
-    raw: toTokenCount(0),
-    selected: toTokenCount(0),
-    afterGuard: toTokenCount(0),
-    afterTransforms: toTokenCount(0),
-    afterLadder: toTokenCount(0),
-    promptTotal: toTokenCount(0),
-    reductionPct: toPercentage(0),
-  },
-  compiledAt: toISOTimestamp("1970-01-01T00:00:00.000Z"),
-};
-
-const inspectStubRunner: InspectRunner = {
-  inspect(_request) {
-    return Promise.resolve(stubTrace);
-  },
-};
+function createInspectRunner(projectRoot: string): InspectRunner {
+  const { scope, deps } = createScopeAndDeps(projectRoot);
+  return new InspectRunner(deps, scope.clock);
+}
 
 program.name("aic").version("0.0.1");
 
@@ -147,7 +124,7 @@ program
   .option("--db <path>", "path to SQLite database")
   .action(
     createIntentAction(InspectArgsSchema, (args) =>
-      inspectCommand(args, inspectStubRunner),
+      inspectCommand(args, createInspectRunner(args.projectRoot)),
     ),
   );
 

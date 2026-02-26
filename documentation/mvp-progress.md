@@ -1,12 +1,75 @@
-# AIC MVP Progress
+# AIC Progress
 
-**Status:** Phase H complete (full pipeline test done)
-**Phase:** 0 (MVP)
-**Overall:** 100%
+**Current phase:** 0.5 (Quality Release)
+**Version target:** 0.2.0
 
 ---
 
-## Implementation Order
+## Phase 0.5 — Quality Release
+
+### Phase I — Live Wiring & Bug Fixes
+
+Prerequisite for everything else. Quick fixes to make the tool fully functional.
+
+| Component                       | Status | Package              |
+| ------------------------------- | ------ | -------------------- |
+| FileSystemRepoMapSupplier       | Done   | shared/src/adapters/ |
+| createFullPipelineDeps          | Done   | shared/src/bootstrap |
+| Wire real RepoMap in MCP/CLI    | Done   | mcp/, cli/           |
+| Wire real InspectRunner (CLI)   | Done   | cli/src/main.ts      |
+| Telemetry write on compile      | Todo   | shared/src/pipeline/ |
+| Guard findings write on scan    | Todo   | shared/src/storage/  |
+| Config loading from aic.config  | Todo   | shared/src/          |
+| Real token counting in repo map | Todo   | shared/src/adapters/ |
+
+### Phase J — Intent & Selection Quality
+
+Highest-impact work. The core value of AIC is picking the right files — if selection is wrong, nothing else matters.
+
+| Component                        | Status | Package              |
+| -------------------------------- | ------ | -------------------- |
+| Richer intent keyword extraction | Todo   | shared/src/pipeline/ |
+| Intent-aware file discovery      | Todo   | shared/src/pipeline/ |
+| Import graph signal (TS/JS)      | Todo   | shared/src/pipeline/ |
+| GenericImportProvider (Py/Go/Rs) | Todo   | shared/src/adapters/ |
+
+### Phase K — Quality & Benchmarks
+
+Need measurement before optimizing further. Benchmarks prove Phase J worked and guide Phase L.
+
+| Component                      | Status | Package     |
+| ------------------------------ | ------ | ----------- |
+| Real-project integration tests | Todo   | shared/src/ |
+| Selection quality benchmarks   | Todo   | test/       |
+| Token reduction benchmarks     | Todo   | test/       |
+
+### Phase L — Transformers & Guard
+
+Incremental output quality improvements, measured by Phase K benchmarks.
+
+| Component                | Status | Package              |
+| ------------------------ | ------ | -------------------- |
+| CssVariableSummarizer    | Todo   | shared/src/pipeline/ |
+| TypeDeclarationCompactor | Todo   | shared/src/pipeline/ |
+| TestStructureExtractor   | Todo   | shared/src/pipeline/ |
+| ImportDeduplicator       | Todo   | shared/src/pipeline/ |
+| Guard `warn` severity    | Todo   | shared/src/pipeline/ |
+
+### Phase M — Reporting & Resources
+
+User-facing polish. Comes last because it doesn't improve the core algorithm.
+
+| Component                        | Status | Package  |
+| -------------------------------- | ------ | -------- |
+| `aic://session-summary` resource | Todo   | mcp/src/ |
+| `aic report` (static HTML)       | Todo   | cli/src/ |
+| Budget utilization in status     | Todo   | cli/src/ |
+
+---
+
+## Phase 0 — MVP (complete)
+
+### Implementation Order
 
 ### Phase A — Foundation
 
@@ -98,6 +161,20 @@
 ---
 
 ## Daily Log
+
+### 2026-02-27
+
+**Components:** FileSystemRepoMapSupplier, createFullPipelineDeps, Wire real InspectRunner (CLI), Phase 0.5 planning
+**Completed:**
+
+- FileSystemRepoMapSupplier adapter (GlobProvider + IgnoreProvider + fs.stat, binary extension filter, language detection, bytes/4 token estimate)
+- createFullPipelineDeps in bootstrap (eliminates MCP/CLI wiring duplication, jscpd clean)
+- Wire real RepoMapSupplier in MCP server and CLI (replace stub that always threw StorageError)
+- MCP server tests updated: valid_args_returns_compiled_prompt, aic_inspect_returns_trace (were testing stub errors)
+- Workspace MCP config (.cursor/mcp.json) for live testing in Cursor
+- Live test: aic_compile on 208-file repo, 303K→8K tokens (97.3% reduction), 1s; aic_inspect returns full trace
+- Phase 0.5 roadmap added to mvp-progress.md
+- Wire real InspectRunner in CLI (createInspectRunner, createScopeAndDeps to satisfy 0% jscpd; inspect action uses real pipeline)
 
 ### 2026-02-26
 
