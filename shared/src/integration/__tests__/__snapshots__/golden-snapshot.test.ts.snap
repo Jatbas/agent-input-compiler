@@ -47,18 +47,18 @@ exports[`golden snapshot > full_pipeline_trace_matches_golden_snapshot 1`] = `
   },
   "tokenSummary": {
     "afterGuard": 22,
-    "afterLadder": 23,
-    "afterTransforms": 23,
-    "promptTotal": 98,
+    "afterLadder": 24,
+    "afterTransforms": 24,
+    "promptTotal": 99,
     "raw": 22,
-    "reductionPct": -3.4545454545454546,
+    "reductionPct": -3.5,
     "selected": 22,
   },
   "transforms": [
     {
       "filePath": "src/auth/service.ts",
-      "originalTokens": 10,
-      "transformedTokens": 10,
+      "originalTokens": 11,
+      "transformedTokens": 11,
       "transformersApplied": [
         "comment-stripper",
         "whitespace-normalizer",
