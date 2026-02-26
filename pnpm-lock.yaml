@@ -83,9 +83,6 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: 1.12.1
         version: 1.12.1
-      better-sqlite3:
-        specifier: 11.9.1
-        version: 11.9.1
       zod:
         specifier: 3.25.7
         version: 3.25.7
