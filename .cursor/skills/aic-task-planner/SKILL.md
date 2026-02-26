@@ -60,11 +60,27 @@ The process has **two passes** plus a presentation step. Each pass produces a co
 
 ---
 
-## §1. Present options
+## §1. Recommend the best next task
 
-Read `mvp-progress.md`. List the next 3–5 components that are `Not started` and are unblocked (their dependencies are `Done`). Present them to the user with a one-line description each.
+Read `mvp-progress.md`. Identify all components with status `Not started` whose dependencies are `Done`.
 
-Ask: **"Which of these do you want to tackle next? Or tell me something else."**
+**Rank** the unblocked components using these criteria (in priority order):
+
+1. **Pattern-setter:** Is this the first component of its kind in the current phase? The first CLI command, first adapter, first storage class, etc. establishes the conventions that all subsequent siblings will follow. Pattern-setters always rank highest.
+2. **Implicit prerequisites:** Will other unblocked components import from or depend on this one? Schemas before commands, shared utilities before consumers, composition roots before feature handlers. Components that unblock the most downstream work rank higher.
+3. **Phase table order:** Within a phase, the row order in `mvp-progress.md` reflects intended implementation sequence. Earlier rows rank higher than later rows when the above criteria do not differentiate.
+
+**Present** the result:
+
+> **Recommended next:** [component name] — [one-line why it ranks first]
+>
+> **Alternatives** (ranked):
+>
+> 1. [component] — [one-line description]
+> 2. [component] — [one-line description]
+>    ...
+>
+> **"Go with the recommendation, pick an alternative, or tell me something else."**
 
 Do NOT proceed until the user picks.
 
