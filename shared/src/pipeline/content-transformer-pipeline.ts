@@ -19,6 +19,27 @@ function matchesExtension(ext: string, pattern: FileExtension): boolean {
   return (pattern as string).toLowerCase() === ext.toLowerCase();
 }
 
+function getApplicableTransformers(
+  formatSpecific: readonly ContentTransformer[],
+  nonFormatSpecific: readonly ContentTransformer[],
+  ext: string,
+  isDirect: boolean,
+): readonly ContentTransformer[] {
+  const format = isDirect
+    ? []
+    : [
+        formatSpecific.find((t) =>
+          t.fileExtensions.some((e) => matchesExtension(ext, e)),
+        ),
+      ].filter((t): t is ContentTransformer => t !== undefined);
+  const nonFormat = nonFormatSpecific.filter(
+    (t) =>
+      t.fileExtensions.length === 0 ||
+      t.fileExtensions.some((e) => matchesExtension(ext, e)),
+  );
+  return [...format, ...nonFormat];
+}
+
 export class ContentTransformerPipeline implements IContentTransformerPipeline {
   constructor(
     private readonly transformers: readonly ContentTransformer[],
@@ -35,33 +56,26 @@ export class ContentTransformerPipeline implements IContentTransformerPipeline {
     const directSet = new Set(context.directTargetPaths.map((p) => p as string));
 
     const result = files.map((file): { file: SelectedFile; meta: TransformMetadata } => {
-      const path = file.path as string;
-      let content = this.fileContentReader.getContent(file.path);
-      const originalTokens = this.tokenCounter(content);
-      let applied: readonly string[] = [];
-
-      if (!context.rawMode) {
-        const ext = getExtension(path);
-        const isDirect = directSet.has(path);
-        if (!isDirect) {
-          const formatT = formatSpecific.find((t) =>
-            t.fileExtensions.some((e) => matchesExtension(ext, e)),
+      const rawContent = this.fileContentReader.getContent(file.path);
+      const originalTokens = this.tokenCounter(rawContent);
+      const applicable = context.rawMode
+        ? []
+        : getApplicableTransformers(
+            formatSpecific,
+            nonFormatSpecific,
+            getExtension(file.path as string),
+            directSet.has(file.path as string),
           );
-          if (formatT !== undefined) {
-            content = formatT.transform(content, file.tier, file.path);
-            applied = [...applied, formatT.id];
-          }
-        }
-        for (const t of nonFormatSpecific) {
-          const applies =
-            t.fileExtensions.length === 0 ||
-            t.fileExtensions.some((e) => matchesExtension(ext, e));
-          if (applies) {
-            content = t.transform(content, file.tier, file.path);
-            applied = [...applied, t.id];
-          }
-        }
-      }
+      const { content, applied } = applicable.reduce<{
+        readonly content: string;
+        readonly applied: readonly string[];
+      }>(
+        (acc, t) => ({
+          content: t.transform(acc.content, file.tier, file.path),
+          applied: [...acc.applied, t.id],
+        }),
+        { content: rawContent, applied: [] },
+      );
 
       const transformedTokens = this.tokenCounter(content);
       const updatedFile: SelectedFile = {

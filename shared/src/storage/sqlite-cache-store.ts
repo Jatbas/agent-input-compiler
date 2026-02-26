@@ -23,6 +23,22 @@ function blobPath(cacheDir: AbsolutePath, key: string): string {
   return path.join(cacheDir, safeBlobFilename(key));
 }
 
+function readBlobFile(filePath: string): string | null {
+  try {
+    return fs.readFileSync(filePath, "utf8");
+  } catch {
+    return null;
+  }
+}
+
+function parseBlobPayload(raw: string): BlobPayload | null {
+  try {
+    return JSON.parse(raw) as BlobPayload;
+  } catch {
+    return null;
+  }
+}
+
 export class SqliteCacheStore implements CacheStore {
   constructor(
     private readonly db: ExecutableDb,
@@ -43,18 +59,10 @@ export class SqliteCacheStore implements CacheStore {
     }[];
     const row = rows[0];
     if (row === undefined) return null;
-    let raw: string;
-    try {
-      raw = fs.readFileSync(row.file_path, "utf8");
-    } catch {
-      return null;
-    }
-    let payload: BlobPayload;
-    try {
-      payload = JSON.parse(raw) as BlobPayload;
-    } catch {
-      return null;
-    }
+    const raw = readBlobFile(row.file_path);
+    if (raw === null) return null;
+    const payload = parseBlobPayload(raw);
+    if (payload === null) return null;
     return {
       key: row.cache_key,
       compiledPrompt: payload.compiledPrompt,

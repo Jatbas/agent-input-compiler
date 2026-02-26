@@ -108,20 +108,25 @@ export class HeuristicSelector implements ContextSelector {
         const importProx = 0;
         const rec = recencyNorm(i);
         const sizeP = sizePenaltyNorm(i);
-        let score =
+        const baseScore =
           pathRel * weights.pathRelevance +
           importProx * weights.importProximity +
           rec * weights.recency +
           sizeP * weights.sizePenalty;
 
-        const path = entry.path as string;
-        rulePack.heuristic?.boostPatterns.forEach((pat) => {
-          if (matchesGlob(path, pat as string)) score += 0.2;
-        });
-        rulePack.heuristic?.penalizePatterns.forEach((pat) => {
-          if (matchesGlob(path, pat as string)) score -= 0.2;
-        });
-        score = Math.max(0, Math.min(1, score));
+        const filePath = entry.path as string;
+        const boostCount =
+          rulePack.heuristic?.boostPatterns.filter((pat) =>
+            matchesGlob(filePath, pat as string),
+          ).length ?? 0;
+        const penaltyCount =
+          rulePack.heuristic?.penalizePatterns.filter((pat) =>
+            matchesGlob(filePath, pat as string),
+          ).length ?? 0;
+        const score = Math.max(
+          0,
+          Math.min(1, baseScore + boostCount * 0.2 - penaltyCount * 0.2),
+        );
         return { entry, score };
       },
     );

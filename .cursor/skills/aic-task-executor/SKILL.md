@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Execute a task file produced by the `aic-task-planner` skill. Read the task, internalize its specs, implement every step, self-review in three passes, run a tool-assisted evidence review for scoring, iterate until clean, update progress, and stage for commit.
+Execute a task file produced by the `aic-task-planner` skill. Read the task, internalize its specs, implement every step, verify with Grep-based mechanical checks for scoring, iterate until clean, finalize progress, and stage for commit.
 
 **Announce at start:** "Using the task-executor skill on `<task file path>`."
 
@@ -48,7 +48,13 @@ Before writing any code, read and absorb these sections of the task file. Do not
 - For interface-implementing components: the exact interface (first code block), class declaration, constructor parameters, and method signatures (second code block). Return types including `readonly` modifiers.
 - For composition roots: every concrete class constructor signature (from the wiring code block), every exported function signature, and every external library API (class names, import paths, method calls). These are your ground truth — every `new ClassName(...)` call must match the wiring specification exactly.
 
-**Read the Dependent Types section.** Memorize every field of every domain type the implementation reads, writes, or returns. You will need these to write correct field mappings and test data.
+**Read the Dependent Types section.** The task file uses a tiered system:
+
+- **Tier 0 (verbatim):** Full type definitions are pasted inline. Memorize every field — you will need these for correct field mappings and test data.
+- **Tier 1 (signature + path):** Only the type name, file path, method count, and purpose are listed. **Read the source file** at the given path before implementing any step that uses this type. Do this on demand — read only when you reach the step that needs it.
+- **Tier 2 (path-only):** Only the type name, file path, and factory function are listed. These are branded primitives or `as const` enums. Use the listed factory function for construction. Read the source file only if the factory call fails to typecheck.
+
+For non-composition-root tasks, all types are Tier 0 (verbatim) — this distinction only applies to composition root tasks.
 
 **Read the Config Changes section.** Note:
 
@@ -62,39 +68,32 @@ Before writing any code, read and absorb these sections of the task file. Do not
 
 **Task quality gate — scan for ambiguity before implementing:**
 
-Before writing any code, scan the Steps section and Interface/Signature (or Wiring Specification) notes for executor-facing choices. Read every non-code instruction sentence. Flag any sentence where:
+Before writing any code, scan every non-code instruction sentence in the Steps section, Verify lines, and test descriptions. Flag any sentence containing patterns from these categories:
 
-- It contains " or " presenting two alternative actions (e.g. "mock or skip", "use X or equivalent")
-- It uses hedging language: "if needed", "optionally", "may be", "consider", "you could", "might want"
-- It leaves a design decision to you (e.g. "decide whether to...", "choose between...")
+- **Hedging:** "if needed", "if necessary", "as needed", "may be", "may want", "might", "you could", "could also", "should work", "probably", "likely", "possibly", "potentially", "perhaps", "try to", "ideally", "preferably", "feel free to"
+- **Examples-as-instructions:** "e.g.", "for example", "for instance", "such as", "something like", "along the lines of", "similar to", "or similar", "or equivalent", "or comparable", "some kind of", "some sort of"
+- **Delegation:** "decide whether", "choose between", "depending on", "up to you", "alternatively", "or alternatively", "whichever", "whatever works", "or optionally", "optionally"
+- **Vague qualifiers:** "appropriate" (unspecified), "suitable", "reasonable", "etc.", "and so on"
+- **State hedges:** "if not present", "if not already", "if it doesn't exist", "add if not present"
+- **Escape clauses:** "or skip", "or ignore", "or leave for later", "if possible", "where possible", "mock or skip"
+- **False alternatives:** " or " presenting two implementation choices, "or use", "or another"
+- **Parenthesized hedges:** any `(...)` containing the above patterns
 
-If you find any ambiguity: **stop and tell the user** that the task file contains unresolved decisions. List each ambiguous sentence and what decision it requires. Do not guess — the planner must resolve it. This prevents implementing the wrong approach and having to rewrite.
+If you find any match: **stop and tell the user** that the task file contains unresolved decisions. List each ambiguous sentence and what decision it requires. Do not guess — the planner must resolve it. This prevents implementing the wrong approach and having to rewrite.
 
 ### 3. Implement
 
 Work through the **Steps** section in order.
 
-**Write correct code on the first pass.** Every rework loop wastes tokens and time. Before writing any code, internalize these rules so you don't have to fix them later:
+**Write correct code on the first pass.** Every rework loop wastes tokens and time. Most coding conventions (no `any`, `prefer-const`, one class per file, layer aliases, `as const` enums, dispatch maps, no `Date.now()`, etc.) are enforced by ESLint and the architect rules — `pnpm lint` catches them during step verification. The rules below are NOT caught by ESLint and cause silent defects if you miss them:
 
 - All properties `readonly`. All array types `readonly T[]` — everywhere: class properties, function parameters, local variables, return types, generic type parameters (e.g. `reduce<{ readonly files: readonly T[] }>`). No exceptions.
-- No `.push()`, `.splice()`, `.sort()`, `.reverse()`. Always `.toSorted()` instead of `.sort()` — even `[...arr].sort()` is banned, use `arr.toSorted()`. Always `.toReversed()` instead of `.reverse()`. Use spread or reduce for building arrays.
-- No `any`. Explicit return types on all functions.
+- No `.push()`, `.splice()`, `.sort()`, `.reverse()`. Always `.toSorted()` instead of `.sort()` — even `[...arr].sort()` is banned. Always `.toReversed()` instead of `.reverse()`. Use spread or reduce for building arrays.
 - Branded types for all domain values — never raw `string`/`number` for paths, tokens, scores, IDs. Use factory functions: `toTokenCount(N)`, `toRelativePath("...")`, `toUUIDv7("...")`, `toISOTimestamp("...")`.
-- `//` comments only — `/* */` and `/** */` are banned. ESLint catches multi-line block comments but NOT single-line `/** */` — you must catch these yourself. Write `// comment` not `/** comment */`.
-- No `Date.now()`, `new Date()`, `Math.random()` — use injected `Clock`.
-- Tests live in `__tests__/` directories, not next to source files.
-- Imports use layer aliases (`#core/`, `#pipeline/`), never relative paths across layers.
-- `as const` objects for enums, never TS `enum` keyword.
-- One class per file (enforced by `max-classes-per-file`).
-- One public method per class (SOLID SRP). Constructor plus one public method.
-- Constructor injection only — never `new` for infrastructure/service classes outside composition roots.
-- No `no-param-reassign` violations — never mutate function parameters or their properties.
-- `prefer-const` — use `const` for all variables unless reassignment is required.
+- `//` comments only — ESLint catches multi-line `/* */` but NOT single-line `/** */`. Write `// comment` not `/** comment */`.
 - Return new objects from all methods — never mutate inputs.
 - Exported const objects that implement interfaces must have explicit type annotations (e.g. `export const migration: Migration = { ... }`, not untyped object literals).
-- No if/else-if chains with 3+ branches — enforced by ESLint. Use `Record<Enum, Handler>` dispatch maps for exhaustive enum dispatch, or handler arrays with predicate functions for type/predicate dispatch. Extend by adding entries, not modifying branches (OCP).
-
-If you catch yourself writing mutable code and then fixing it, you are doing it wrong. Write it immutably from the start.
+- **No `let` in production code.** Use `const` exclusively. Refactor with reduce, ternary, `matchAll`, or helper functions. The only exception is a control flag inside a scoped closure where an imperative API (e.g. `ts.forEachChild`) makes `const` impossible and `.push()` is banned. Test files are exempt.
 
 **For test implementation steps**, cross-reference the **Tests table** in the task file. Every row in the Tests table must have a corresponding test case with that exact name. Do not invent extra test cases. Do not skip any. Use the task file's Dependent Types section to build correct test data.
 
@@ -103,7 +102,7 @@ If you catch yourself writing mutable code and then fixing it, you are doing it 
 - **Storage tests:** Create in-memory DB via `new Database(":memory:")` from `better-sqlite3`. Run the migration (`migration.up(db)`) before each test. Create the store with the real DB wrapped as `ExecutableDb`, plus mock `Clock` and/or `IdGenerator` that return deterministic values. Use branded type factory functions for test data (`toUUIDv7(...)`, `toISOTimestamp(...)`, etc.).
 - **Adapter tests:** For file-based adapters (glob, ignore), create a temp directory with fixture files. For parser/encoder adapters (tiktoken, TypeScript provider), use in-memory string fixtures. Clean up temp dirs after tests.
 - **Pipeline tests:** Inject mock dependencies implementing the required interfaces. Verify inputs are not mutated. Test edge cases (empty arrays, zero budgets, no files).
-- **Composition root tests (MCP/CLI):** Tests are integration-style. For process spawn tests: use `child_process.spawn` to start the server, send JSON-RPC input, parse output, and clean up. For scope creation tests: create a temp directory, call the scope function, verify directory structure and returned objects. For idempotency tests: call scope creation twice on the same path, verify no crash. Always clean up temp directories after tests.
+- **Composition root tests (MCP/CLI):** Tests are integration-style. For MCP servers: prefer the SDK's `Client` with `InMemoryTransport` for in-process protocol tests — this avoids fragile wire-format issues. For process spawn tests (startup/crash behavior only): verify the exact wire format from the transport's `.d.ts` before writing framing code — MCP stdio uses content-length headers, not newline-delimited JSON. For scope creation tests: create a temp directory, call the scope function, verify directory structure and returned objects. For idempotency tests: call scope creation twice on the same path, verify no crash. Always clean up temp directories after tests.
 
 For each step:
 
@@ -112,124 +111,84 @@ For each step:
 3. If verification fails, fix the issue before moving to the next step.
 4. If you cannot fix it after 2 attempts, go to **Blocked diagnostic** (see below).
 
-**Subagent dispatch (recommended for tasks with 5+ steps):**
+**Prefer direct implementation over subagent dispatch.** Subagents require full context re-assembly, which is token-expensive and introduces cold-start latency. Implement steps directly using parallel tool calls (Read + Write + Shell) in a single message where possible. The task file provides all the context you need — Interface/Signature, Dependent Types, Architecture Notes — so there is no exploration overhead.
 
-For larger tasks, consider dispatching a focused subagent per step or group of related steps. Each subagent gets only the context it needs. Use `subagent_type="generalPurpose"` and include in the prompt:
+### 4. Verify
 
-- The exact step text from the task file
-- The relevant Interface/Signature section (both code blocks), or the Wiring Specification section for composition roots (all three code blocks: concrete classes, exported functions, library APIs)
-- The Dependent Types section (full type definitions)
-- Design decisions from Architecture Notes
-- The file paths involved
-- The verify command to run
-- The first-pass coding rules (copy the bullet list from "Write correct code on the first pass" above — subagents do not inherit these rules automatically)
+After completing all steps, run a single verification pass using tool output as objective evidence. No memory-based review — tool output does not lie.
 
-Review the subagent's output before proceeding to the next step. After review, run the Pass 3 manual scan on any files the subagent created — subagents are especially prone to single-line `/** */` comments and non-readonly local array types.
+**4a — Run toolchain.**
 
-### 4. Three-Pass Self-Review
+Run `pnpm lint && pnpm typecheck && pnpm test` and **read the output**. Confirm:
 
-After completing all steps, review in three separate passes:
+- Zero errors AND zero warnings (including sonarjs cognitive-complexity warnings).
+- Test count has not dropped compared to previous run.
+- Each test name from the Tests table appears in the output by name.
 
-**Pass 1 — Spec compliance:**
+Then run `pnpm knip` and **read the output**. Confirm:
 
-- Did I implement every file in the Files table? No extra files?
-- **Signature cross-check** — varies by task type:
-  - _Interface-implementing components:_ for each method in the written code, verify against the Interface/Signature section. Parameter names, types (including `readonly`), and return types must match exactly. If the interface method has parameters, the class method lists the same parameters — even if unused.
-  - _Composition roots:_ for each `new ClassName(...)` call, verify constructor arguments match the Wiring Specification. For each exported function, verify the signature matches. For each library API call, verify class names, import paths, and method calls match the Wiring Specification's library code block.
-- Are all properties `readonly` where specified?
-- Do all imports use the correct layer aliases (`#core/`, `#pipeline/`, etc.)?
-- **Config Changes verified** — every change listed in the Config Changes section was applied:
-  - Dependencies: correct package at correct version in `package.json`
-  - ESLint: config block added in the correct position in `eslint.config.mjs`
-  - If "None", confirm no config files were modified
-- **Tests table covered** — every test case from the Tests table has a corresponding test in the test file, named correctly
+- No new unused files, exports, or dependencies introduced by this task.
+- Pre-existing knip findings (e.g. error files for future phases) are acceptable — only new findings matter.
 
-**Pass 2 — Code quality:**
+This runs ONCE per tool. Do not re-run unless you fix something.
 
-- Run `pnpm lint && pnpm typecheck && pnpm test`.
-- Check: no layer boundary violations, no banned imports, no inline rule disabling.
-- Check: branded types used where specified, DI via constructor injection, no concrete dependencies.
-- Check: `as const` objects for enums (not TS `enum`), factory functions for branded types (not raw casts).
-- Names are clear and match what things do.
-- No unnecessary comments. Existing comments explain why, not what.
-- No over-engineering. YAGNI.
-
-**Pass 3 — ESLint gap supplement (manual scan):**
-
-ESLint does not catch everything. After lint passes, manually scan the written code for:
-
-- **Single-line block comments:** Search for `/**` and `/*` in the new files. Replace with `//`. ESLint only catches multi-line block comments.
-- **Non-readonly array types:** Check every array type annotation — function parameters, local `const`/`let` declarations, reduce/map type parameters, return types. ALL must be `readonly T[]`.
-- **`.sort()` anywhere:** Even `[...arr].sort()` is wrong. Use `.toSorted()`.
-- **Untyped exported objects:** Every exported `const` that implements an interface must have an explicit type annotation (`: Migration`, `: ContentTransformer`, etc.).
-- **Raw string/number in type positions:** Check that reduce accumulator types, intermediate variables, and function parameters use branded types where the domain requires it — not bare `number` or `string`.
-- **If/else-if chains:** Search for `else if` chains in new files. Any chain with 3+ branches must be refactored to a `Record<Enum, Handler>` dispatch map or a handler array.
-
-### 5. Verification Before Completion
-
-Before declaring success, verify with evidence — do not just claim it works:
-
-- Run `pnpm lint && pnpm typecheck && pnpm test` and **read the output**.
-- Confirm test count has not dropped (compare against the expected count from the task file or previous run).
-- Confirm zero warnings, not just zero errors.
-- If the task specifies test cases, confirm each one appears in the output by name.
-
-### 6. Tool-assisted evidence review
-
-The three-pass self-review (§4) catches most issues, but memory-based review has blind spots. This step forces objectivity by **re-reading files from disk** and **using Grep to verify pattern dimensions**. Tool output does not lie — if Grep finds no `/**`, that is proof.
-
-**Step 6a — Re-read all implemented files from disk.**
+**4b — Re-read all files from disk.**
 
 Use the Read tool on every file created or modified. Do NOT rely on what you remember writing. This breaks the "I just wrote it so I know it's fine" shortcut.
 
-**Step 6b — Run tool-assisted checks (batch these in parallel where possible).**
+**4c — Mechanical checks (parallel Grep).**
 
-Use Grep on the created/modified files for each pattern check. Run multiple Grep calls in a single message for speed.
+Batch all Grep calls in a single message for speed. Use Grep on the created/modified files for each dimension.
 
-| Dimension                   | Tool check                                                                                                                                                                                                                                                                       | Evidence required                                                                                                                                                                        |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Signature match          | For interface components: re-read the interface file and implementation file side by side. For composition roots: re-read the Wiring Specification and implementation — verify every `new ClassName(...)` call, every exported function signature, and every library import/call | Interface components: list each method with param names, types, return types — MATCH or MISMATCH. Composition roots: list each constructor call and library API call — MATCH or MISMATCH |
-| 2. Readonly / mutability    | `Grep` for `\.push\(`, `\.splice\(`, `\.sort\(`, `\.reverse\(` in new files. `Grep` for array types missing `readonly` (pattern: `: [A-Z]\w+\[\]` without preceding `readonly`)                                                                                                  | Paste Grep output ("0 matches" = pass)                                                                                                                                                   |
-| 3. Branded types            | `Grep` for factory function usage (`toTokenCount`, `toRelativePath`, etc.) in implementation AND test files. `Grep` for suspicious raw literals in type positions                                                                                                                | Paste evidence of factory function usage or raw values found                                                                                                                             |
-| 4. Comment style            | `Grep` for `/\*\*` and `/\*[^/]` in new files                                                                                                                                                                                                                                    | Paste Grep output ("0 matches" = pass)                                                                                                                                                   |
-| 5. DI & immutability        | For interface components: re-read constructor — list each param and whether it's an interface or concrete class. For composition roots: verify that only the composition root file uses `new` for infrastructure classes — no `new` leaking into helpers                         | Interface components: list each constructor param with its type. Composition roots: list each `new` call and confirm it's in the composition root file                                   |
-| 6. Tests complete           | Re-read test file — list every `it(` or `test(` name. Cross-check against Tests table in task file                                                                                                                                                                               | Two-column list: Tests table row → matching test name (or MISSING)                                                                                                                       |
-| 7. Config changes           | Re-read `shared/package.json` and `eslint.config.mjs` if task required changes                                                                                                                                                                                                   | State each required change and whether it's present                                                                                                                                      |
-| 8. Lint + typecheck + tests | Already verified in §5 — reference that output                                                                                                                                                                                                                                   | "Passed in §5 with 0 errors, 0 warnings" or paste output                                                                                                                                 |
-| 9. First-pass quality       | Self-track: count fix iterations during §3                                                                                                                                                                                                                                       | State count: "0 iterations" or "1 iteration for [reason]"                                                                                                                                |
-| 10. Layer boundaries        | `Grep` for banned import patterns in new files (e.g. `from ['"](?!#)\.\.` for cross-layer relative imports, specific banned packages)                                                                                                                                            | Paste Grep output ("0 matches" = pass)                                                                                                                                                   |
+| Dimension                          | Tool check                                                                                                                                                                                                                                                                       | Evidence required                                                                                                                                                                        |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Signature match                 | For interface components: re-read the interface file and implementation file side by side. For composition roots: re-read the Wiring Specification and implementation — verify every `new ClassName(...)` call, every exported function signature, and every library import/call | Interface components: list each method with param names, types, return types — MATCH or MISMATCH. Composition roots: list each constructor call and library API call — MATCH or MISMATCH |
+| 2. Readonly / mutability           | Grep for `\.push\(`, `\.splice\(`, `\.sort\(`, `\.reverse\(` in new files. Grep for array types missing `readonly` (pattern: `: [A-Z]\w+\[\]` without preceding `readonly`)                                                                                                      | Paste Grep output ("0 matches" = pass)                                                                                                                                                   |
+| 3. Branded types                   | Grep for factory function usage (`toTokenCount`, `toRelativePath`, etc.) in implementation AND test files. Grep for suspicious raw literals in type positions                                                                                                                    | Paste evidence of factory function usage or raw values found                                                                                                                             |
+| 4. Comment style                   | Grep for `/\*\*` and `/\*[^/]` in new files                                                                                                                                                                                                                                      | Paste Grep output ("0 matches" = pass)                                                                                                                                                   |
+| 5. DI & immutability               | For interface components: re-read constructor — list each param and whether it's an interface or concrete class. For composition roots: verify that only the composition root file uses `new` for infrastructure classes — no `new` leaking into helpers                         | Interface components: list each constructor param with its type. Composition roots: list each `new` call and confirm it's in the composition root file                                   |
+| 6. Tests complete                  | Re-read test file — list every `it(` or `test(` name. Cross-check against Tests table in task file                                                                                                                                                                               | Two-column list: Tests table row → matching test name (or MISSING)                                                                                                                       |
+| 7. Config changes                  | Re-read `shared/package.json` and `eslint.config.mjs` if task required changes                                                                                                                                                                                                   | State each required change and whether it's present                                                                                                                                      |
+| 8. Lint + typecheck + tests + knip | Reference the §4a output                                                                                                                                                                                                                                                         | "Passed in §4a with 0 errors, 0 warnings, no new knip findings" or paste output                                                                                                          |
+| 9. ESLint gaps                     | Grep for untyped exported objects (`export const \w+ = {` without type annotation). Grep for `else if` chains (3+ branches) in new files                                                                                                                                         | Paste Grep output ("0 matches" = pass)                                                                                                                                                   |
+| 10. Layer boundaries               | Grep for banned import patterns in new files (e.g. `from ['"](?!#)\.\.` for cross-layer relative imports, specific banned packages)                                                                                                                                              | Paste Grep output ("0 matches" = pass)                                                                                                                                                   |
+| 11. No `let` in production         | Grep for `^\s*let ` in new/modified production files (exclude `__tests__/` and `*.test.ts`)                                                                                                                                                                                      | Paste Grep output ("0 matches" = pass, or list each as justified control flag)                                                                                                           |
 
-**Step 6c — Score and report.**
+**4d — Score and act.**
 
-Score each dimension 0 (fail with evidence of violation) or 1 (pass with evidence of compliance). Be strict — if Grep found ANY match for a banned pattern, score 0 for that dimension regardless of whether you think it's a false positive. Investigate first.
+Score each dimension 0 (fail with evidence of violation) or 1 (pass with evidence of compliance). 11 dimensions total. Be strict — if Grep found ANY match for a banned pattern, score 0 for that dimension regardless of whether you think it's a false positive. Investigate first.
+
+Also self-track first-pass quality: count fix iterations during §3. Record as "0 iterations" or "N iterations for [reasons]".
 
 Tally the total. Record per-dimension scores with one-line justifications.
 
 **If score < 8:** Fix the failing dimensions, re-run the tool checks for those dimensions only, re-score. **Maximum 3 iterations** — if still below 8, go to Blocked.
 
-**If score ≥ 8:** Proceed to §7.
+**If score >= 8:** Proceed to §5.
 
-### 7. Report
+### 5. Finalize
 
-When the evidence review score ≥ 8, report to the user:
+When the verification score >= 8, complete these four sub-steps in order.
+
+**5a — Report to the user:**
 
 - What was implemented (files created/modified)
 - Test results (pass count, confirming no regressions)
-- **Implementation score: N/10** (from evidence review) with per-dimension breakdown
+- **Implementation score: N/10** (from §4d) with per-dimension breakdown
 - Review findings and fixes applied (if any)
 - Any concerns or follow-up items
 
-### 8. Update Progress
+**5b — Update progress.**
 
 Use the `aic-update-mvp-progress` skill to update `documentation/mvp-progress.md`.
 
 **Critical:** Use today's actual date for the daily log entry. If today's entry already exists, append to it. If it is a new day, create a new entry at the top of the Daily Log section (reverse chronological). Do not put today's work under yesterday's date.
 
-### 9. Update Task Status
+**5c — Update task status.**
 
 Change the task file header from `> **Status:** In Progress` to `> **Status:** Done`.
 
-### 10. Archive the Task File
+**5d — Archive the task file.**
 
 Move the completed task file to `documentation/tasks/done/`:
 
@@ -238,11 +197,11 @@ mkdir -p documentation/tasks/done
 mv documentation/tasks/NNN-name.md documentation/tasks/done/
 ```
 
-### 11. Commit, Merge, and Clean Up
+### 6. Commit, Merge, and Clean Up
 
 This step handles the full git lifecycle on the feature branch. Present everything to the user for approval before merging.
 
-**11a — Commit on the feature branch:**
+**6a — Commit on the feature branch:**
 
 Stage all changed files and commit:
 
@@ -253,7 +212,7 @@ git commit -m "feat(<scope>): <what was built>"
 
 Use the conventional commit format: `type(scope): description`, max 72 chars, imperative, no period.
 
-**11b — Show the diff and propose merge:**
+**6b — Show the diff and propose merge:**
 
 Show the user the full diff against main and the commit message:
 
@@ -269,7 +228,7 @@ Present:
 
 **Do NOT merge automatically.** Wait for the user's response.
 
-**11c — On approval, merge and clean up:**
+**6c — On approval, merge and clean up:**
 
 ```
 git checkout main
@@ -278,9 +237,9 @@ git commit -m "feat(<scope>): <what was built>"
 git branch -D feat/task-NNN-kebab-name
 ```
 
-The squash merge produces a single clean commit on main. Use the same commit message from 11a (or the user's adjusted version).
+The squash merge produces a single clean commit on main. Use the same commit message from 6a (or the user's adjusted version).
 
-**11d — If the user says "discard":**
+**6d — If the user says "discard":**
 
 ```
 git checkout main

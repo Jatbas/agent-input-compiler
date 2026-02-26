@@ -5,6 +5,7 @@ import type { CodeChunk } from "#core/types/code-chunk.js";
 import type { ExportedSymbol } from "#core/types/exported-symbol.js";
 import { toRelativePath } from "#core/types/paths.js";
 import { toLineNumber, toTokenCount } from "#core/types/units.js";
+import type { SymbolKind } from "#core/types/enums.js";
 import { SYMBOL_KIND, SYMBOL_TYPE } from "#core/types/enums.js";
 
 // Best-effort regex: line starts with function/class/def/fn/pub fn (multi-language).
@@ -38,7 +39,7 @@ export class GenericProvider implements LanguageProvider {
   extractSignaturesOnly(fileContent: string): readonly CodeChunk[] {
     try {
       const lines = fileContent.split("\n");
-      const chunks = lines.reduce<readonly CodeChunk[]>((acc, line, i) => {
+      return lines.reduce<readonly CodeChunk[]>((acc, line, i) => {
         const m = SIGNATURE_LINE_RE.exec(line);
         if (m === null) return acc;
         const symbolName = m[1] ?? m[2] ?? m[3] ?? m[4] ?? "";
@@ -56,7 +57,6 @@ export class GenericProvider implements LanguageProvider {
         };
         return [...acc, chunk];
       }, []);
-      return chunks;
     } catch {
       return [];
     }
@@ -64,52 +64,51 @@ export class GenericProvider implements LanguageProvider {
 
   extractNames(fileContent: string): readonly ExportedSymbol[] {
     try {
-      const seen = new Set<string>();
-      let out: readonly ExportedSymbol[] = [];
-
-      function add(name: string, kind: "const" | "function" | "class"): void {
-        if (name === "" || seen.has(name)) return;
-        seen.add(name);
-        const symbolKind =
-          kind === "class"
-            ? SYMBOL_KIND.CLASS
-            : kind === "function"
-              ? SYMBOL_KIND.FUNCTION
-              : SYMBOL_KIND.CONST;
-        out = [...out, { name, kind: symbolKind }];
-      }
-
-      let m: RegExpExecArray | null;
-      EXPORT_DECL_RE.lastIndex = 0;
-      while ((m = EXPORT_DECL_RE.exec(fileContent)) !== null) {
-        const name = m[1];
-        if (name !== undefined) add(name, "const");
-      }
-      EXPORT_FN_RE.lastIndex = 0;
-      while ((m = EXPORT_FN_RE.exec(fileContent)) !== null) {
-        const name = m[1];
-        if (name !== undefined) add(name, "function");
-      }
-      EXPORT_CLASS_RE.lastIndex = 0;
-      while ((m = EXPORT_CLASS_RE.exec(fileContent)) !== null) {
-        const name = m[1];
-        if (name !== undefined) add(name, "class");
-      }
-      EXPORT_NAMED_RE.lastIndex = 0;
-      while ((m = EXPORT_NAMED_RE.exec(fileContent)) !== null) {
-        const list = m[1];
-        if (list === undefined) continue;
-        const names = list.split(",").map((s) => {
-          const t = s.trim().split(/\s+as\s+/);
-          return (t[0] ?? "").trim();
-        });
-        for (const name of names) {
-          if (name.length > 0) add(name, "const");
-        }
-      }
-      return out;
+      const all = [
+        ...collectSimpleExports(fileContent, EXPORT_DECL_RE, SYMBOL_KIND.CONST),
+        ...collectSimpleExports(fileContent, EXPORT_FN_RE, SYMBOL_KIND.FUNCTION),
+        ...collectSimpleExports(fileContent, EXPORT_CLASS_RE, SYMBOL_KIND.CLASS),
+        ...collectNamedExports(fileContent),
+      ];
+      return dedupeSymbols(all);
     } catch {
       return [];
     }
   }
+}
+
+function collectSimpleExports(
+  fileContent: string,
+  regex: RegExp,
+  kind: SymbolKind,
+): readonly ExportedSymbol[] {
+  const re = new RegExp(regex.source, regex.flags);
+  return [...fileContent.matchAll(re)].flatMap((m) => {
+    const name = m[1];
+    return name !== undefined ? [{ name, kind }] : [];
+  });
+}
+
+function collectNamedExports(fileContent: string): readonly ExportedSymbol[] {
+  return [...fileContent.matchAll(EXPORT_NAMED_RE)].flatMap((m) => {
+    const list = m[1];
+    if (list === undefined) return [];
+    return list
+      .split(",")
+      .map((s) => {
+        const t = s.trim().split(/\s+as\s+/);
+        return (t[0] ?? "").trim();
+      })
+      .filter((name) => name.length > 0)
+      .map((name) => ({ name, kind: SYMBOL_KIND.CONST }));
+  });
+}
+
+function dedupeSymbols(symbols: readonly ExportedSymbol[]): readonly ExportedSymbol[] {
+  const seen = new Set<string>();
+  return symbols.filter((s) => {
+    if (seen.has(s.name)) return false;
+    seen.add(s.name);
+    return true;
+  });
 }

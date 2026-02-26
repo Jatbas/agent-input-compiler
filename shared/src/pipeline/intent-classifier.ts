@@ -29,22 +29,21 @@ const ORDERED_CLASSES: readonly Exclude<TaskClass, "general">[] = [
 export class IntentClassifier implements IIntentClassifier {
   classify(intent: string): TaskClassification {
     const lower = intent.toLowerCase();
-    let bestClass: TaskClass = TASK_CLASS.GENERAL;
-    let bestCount = 0;
-    let bestMatched: readonly string[] = [];
+    const best = ORDERED_CLASSES.reduce<{
+      readonly taskClass: TaskClass;
+      readonly count: number;
+      readonly matched: readonly string[];
+    }>(
+      (acc, taskClass) => {
+        const matched = KEYWORDS[taskClass].filter((kw) => lower.includes(kw));
+        return matched.length > acc.count
+          ? { taskClass, count: matched.length, matched }
+          : acc;
+      },
+      { taskClass: TASK_CLASS.GENERAL, count: 0, matched: [] },
+    );
 
-    for (const taskClass of ORDERED_CLASSES) {
-      const keywords = KEYWORDS[taskClass];
-      const matched = keywords.filter((kw) => lower.includes(kw));
-      const count = matched.length;
-      if (count > bestCount) {
-        bestCount = count;
-        bestClass = taskClass;
-        bestMatched = matched;
-      }
-    }
-
-    if (bestCount === 0) {
+    if (best.count === 0) {
       return {
         taskClass: TASK_CLASS.GENERAL,
         confidence: toConfidence(0),
@@ -52,13 +51,13 @@ export class IntentClassifier implements IIntentClassifier {
       };
     }
 
-    const totalInClass = KEYWORDS[bestClass as Exclude<TaskClass, "general">].length;
-    const raw = bestCount / totalInClass;
+    const totalInClass = KEYWORDS[best.taskClass as Exclude<TaskClass, "general">].length;
+    const raw = best.count / totalInClass;
     const confidence = toConfidence(raw > 1 ? 1 : raw);
     return {
-      taskClass: bestClass,
+      taskClass: best.taskClass,
       confidence,
-      matchedKeywords: [...bestMatched],
+      matchedKeywords: [...best.matched],
     };
   }
 }

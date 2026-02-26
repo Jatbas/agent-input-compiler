@@ -23,55 +23,78 @@ function parseImports(
   fileContent: string,
   _filePath: RelativePath,
 ): readonly ImportRef[] {
-  const seen = new Set<string>();
-  let out: readonly ImportRef[] = [];
+  const all = [
+    ...scanEsImports(fileContent),
+    ...scanSideImports(fileContent),
+    ...scanRequireImports(fileContent),
+  ];
+  return dedupeImports(all);
+}
 
-  function add(source: string, symbols: readonly string[], isRelative: boolean): void {
-    const key = `${source}\0${symbols.join(",")}`;
-    if (seen.has(key)) return;
-    seen.add(key);
-    out = [...out, { source, symbols, isRelative }];
-  }
+function isRelativeSource(source: string): boolean {
+  return source.startsWith(".") || source.startsWith("/");
+}
 
-  let m: RegExpExecArray | null;
-  ES_IMPORT_RE.lastIndex = 0;
-  while ((m = ES_IMPORT_RE.exec(fileContent)) !== null) {
+function buildEsSymbols(
+  namespace: string | undefined,
+  named: string | undefined,
+  defaultName: string | undefined,
+): readonly string[] {
+  return [
+    ...(namespace !== undefined && namespace !== "" ? [namespace] : []),
+    ...(named !== undefined && named !== ""
+      ? named.split(",").map((s) => {
+          const t = s.trim().split(/\s+as\s+/);
+          return (t[1] ?? t[0] ?? "").trim();
+        })
+      : []),
+    ...(defaultName !== undefined && defaultName !== "" ? [defaultName] : []),
+  ];
+}
+
+function scanEsImports(fileContent: string): readonly ImportRef[] {
+  return [...fileContent.matchAll(ES_IMPORT_RE)].flatMap((m) => {
     const source = m[4];
-    if (source === undefined) continue;
-    const namespace = m[1];
-    const named = m[2];
-    const defaultName = m[3];
-    const isRelative = source.startsWith(".") || source.startsWith("/");
-    const symbols: readonly string[] = [
-      ...(namespace !== undefined && namespace !== "" ? [namespace] : []),
-      ...(named !== undefined && named !== ""
-        ? named.split(",").map((s) => {
-            const t = s.trim().split(/\s+as\s+/);
-            return (t[1] ?? t[0] ?? "").trim();
-          })
-        : []),
-      ...(defaultName !== undefined && defaultName !== "" ? [defaultName] : []),
+    if (source === undefined) return [];
+    return [
+      {
+        source,
+        symbols: buildEsSymbols(m[1], m[2], m[3]),
+        isRelative: isRelativeSource(source),
+      },
     ];
-    add(source, symbols, isRelative);
-  }
+  });
+}
 
-  SIDE_IMPORT_RE.lastIndex = 0;
-  while ((m = SIDE_IMPORT_RE.exec(fileContent)) !== null) {
+function scanSideImports(fileContent: string): readonly ImportRef[] {
+  const esTestRe = new RegExp(ES_IMPORT_RE.source);
+  return [...fileContent.matchAll(SIDE_IMPORT_RE)].flatMap((m) => {
     const source = m[1];
-    if (source === undefined || ES_IMPORT_RE.test(m[0])) continue;
-    const isRelative = source.startsWith(".") || source.startsWith("/");
-    add(source, [], isRelative);
-  }
+    if (source === undefined || esTestRe.test(m[0])) return [];
+    return [
+      { source, symbols: [] as readonly string[], isRelative: isRelativeSource(source) },
+    ];
+  });
+}
 
-  REQUIRE_RE.lastIndex = 0;
-  while ((m = REQUIRE_RE.exec(fileContent)) !== null) {
+function scanRequireImports(fileContent: string): readonly ImportRef[] {
+  return [...fileContent.matchAll(REQUIRE_RE)].flatMap((m) => {
     const source = m[1];
-    if (source === undefined) continue;
-    const isRelative = source.startsWith(".") || source.startsWith("/");
-    add(source, [], isRelative);
-  }
+    if (source === undefined) return [];
+    return [
+      { source, symbols: [] as readonly string[], isRelative: isRelativeSource(source) },
+    ];
+  });
+}
 
-  return out;
+function dedupeImports(imports: readonly ImportRef[]): readonly ImportRef[] {
+  const seen = new Set<string>();
+  return imports.filter((imp) => {
+    const key = `${imp.source}\0${imp.symbols.join(",")}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export class TypeScriptProvider implements LanguageProvider {

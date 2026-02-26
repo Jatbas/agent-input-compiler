@@ -117,19 +117,23 @@ Instead of copying an interface from core (there is none to copy), the task must
 
 3. **A code block for every external library class used**, showing the exact import path and the constructor/method signatures copied from the installed `.d.ts`.
 
-**Dependent Types for composition roots:**
+**Dependent Types for composition roots — tiered system:**
 
-Unlike interface-implementing components (where "None" can be valid), composition roots always use domain types. The Dependent Types section must paste:
+Unlike interface-implementing components (where "None" can be valid), composition roots always use domain types. "None" is almost never correct for a composition root.
 
-- Every interface type used as a constructor parameter (e.g. `ExecutableDb`, `Clock`, `IdGenerator`)
-- Every branded type used in function signatures (e.g. `AbsolutePath`)
-- "None" is almost never correct for a composition root. If you wrote "None", re-check.
+Composition root tasks use the tiered type system (see `SKILL-guardrails.md` "Dependent Types — tiered system"). During exploration, classify every type:
+
+- **Tier 0 (verbatim):** Interfaces the composition root calls methods on, or compound types it constructs inline (object literals matching the type shape). Paste full code blocks with all method signatures and imports.
+- **Tier 1 (signature + path):** Interfaces passed to constructors but never consumed directly — `LanguageProvider`, `ContentTransformer`, `Clock`, `IdGenerator`, `ExecutableDb`, etc. when the root just passes them through. Show name, path, member count (methods + readonly properties), and purpose in a table. In the Purpose column, distinguish methods from properties: `methodA, methodB + props: propC, propD`.
+- **Tier 2 (path-only):** Branded types (`AbsolutePath`, `TokenCount`, `ISOTimestamp`) and `as const` enum objects. Show name, path, factory function in a table.
+
+When in doubt, use the higher tier — more detail is always safe. Abbreviated summaries like "(interface with X, Y, Z)" are never acceptable at any tier.
 
 **Test strategy for composition roots:**
 
 Composition root tests are integration-style, not unit-style:
 
-- **Process spawn test:** Spawn the server/CLI as a child process, send input, verify output. For MCP servers: send JSON-RPC `list_tools` request, verify tool names in response.
+- **Protocol communication test:** When testing a server that communicates over a protocol (MCP, JSON-RPC, etc.), prefer the library's own client SDK with in-process transport over raw child-process spawn. For MCP servers: use `Client` from `@modelcontextprotocol/sdk/client/index.js` with `InMemoryTransport` from `@modelcontextprotocol/sdk/inMemory.js` to call `client.listTools()` and `client.callTool(...)` in-process. This avoids fragile protocol framing issues (MCP stdio uses content-length headers, not newline-delimited JSON). If process-spawn tests are needed (for startup/crash behavior), verify the exact wire format from the transport's `.d.ts` before writing framing code.
 - **Scope creation test:** Call the scope-creation function with a temp directory, verify it creates the expected directory structure and returns the expected objects.
 - **Error boundary test:** Verify the composition root catches errors and returns appropriate error responses (MCP error codes for server, exit codes for CLI) instead of crashing.
 - **Idempotency test:** Call scope creation twice on the same path, verify no crash (directories already exist, migrations already applied).

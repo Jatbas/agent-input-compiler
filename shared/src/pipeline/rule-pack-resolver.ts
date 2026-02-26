@@ -37,11 +37,8 @@ export class RulePackResolver implements IRulePackResolver {
   resolve(task: TaskClassification, projectRoot: AbsolutePath): RulePack {
     const defaultPack = this.rulePackProvider.getBuiltInPack("built-in:default");
     const taskPack = this.rulePackProvider.getBuiltInPack(`built-in:${task.taskClass}`);
-    let merged = mergePacks(defaultPack, taskPack);
+    const baseMerged = mergePacks(defaultPack, taskPack);
     const projectPack = this.rulePackProvider.getProjectPack(projectRoot, task.taskClass);
-    if (projectPack !== null) {
-      merged = mergePacks(merged, projectPack);
-    }
-    return merged;
+    return projectPack !== null ? mergePacks(baseMerged, projectPack) : baseMerged;
   }
 }

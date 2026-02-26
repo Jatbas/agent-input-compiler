@@ -35,15 +35,13 @@ A confident-looking wrong plan is the worst possible output. An incomplete plan 
 
 ## Process Overview
 
-The process has **four phases**, each with a focused deliverable. Complete one phase fully before starting the next. Read reference files only when a phase requires them — not all at once.
+The process has **two passes** plus a presentation step. Each pass produces a concrete deliverable. One user gate between passes keeps oversight without unnecessary round-trips.
 
-| Phase      | Deliverable                          | User gate?                   |
-| ---------- | ------------------------------------ | ---------------------------- |
-| §1 Present | User picks a component               | Yes — wait for pick          |
-| A. Explore | Exploration Report with evidence     | Yes — user reviews report    |
-| B. Decide  | All decisions resolved, no ambiguity | Yes — user reviews decisions |
-| C. Write   | Task file written                    | No — mechanical              |
-| D. Verify  | Review score ≥ 75%                   | No — subagent                |
+| Step       | Deliverable                                             | User gate?          |
+| ---------- | ------------------------------------------------------- | ------------------- |
+| §1 Present | User picks a component                                  | Yes — wait for pick |
+| Pass 1     | Exploration Report + all decisions resolved             | Yes — user reviews  |
+| Pass 2     | Task file written + mechanically verified (score ≥ 75%) | No — self-check     |
 
 ---
 
@@ -57,11 +55,11 @@ Do NOT proceed until the user picks.
 
 ---
 
-## Phase A: Explore
+## Pass 1: Explore + Decide
 
-**Goal:** Gather every fact needed to write the task file. Produce a structured Exploration Report where every field cites its source file.
+**Goal:** In a single pass, gather every fact needed, verify the findings mechanically, resolve every design decision, and present the full picture for user review. When the user approves, Pass 2 is purely mechanical.
 
-**Use parallel Read calls** — read all required files in a single message. This is faster than subagents and keeps context in one window for cross-referencing.
+**Use parallel Read calls** — read all required files in a single message. This keeps context in one window for cross-referencing.
 
 ### A.1 Mandatory exploration checklist
 
@@ -109,10 +107,15 @@ INTERFACES (paste verbatim — full code blocks with all imports):
   Source: [exact file path]
 [full interface code block]
 
-DEPENDENT TYPES (paste verbatim — full code blocks, NEVER "see task NNN"):
-  Source: [exact file path for each type]
-[full type definitions with all fields and imports]
-Or: None — only primitive branded types used (list which: TokenCount, RelativePath, etc.)
+DEPENDENT TYPES (classified by tier — see SKILL-guardrails.md):
+  Tier 0 (verbatim — component calls methods or constructs inline):
+    Source: [exact file path]
+    [full type definition with all fields and imports]
+  Tier 1 (signature + path — passed through to constructors, never consumed):
+    [TypeName] — [path] — [N members] — [one-line purpose]
+  Tier 2 (path-only — branded types and as const enums):
+    [TypeName] — [path] — factory: [factoryFunction(raw)]
+  NEVER "see task NNN". NEVER "None" for composition roots.
 
 SCHEMA (if storage, paste from migration):
   Source: [migration file path]
@@ -170,67 +173,21 @@ DESIGN DECISIONS:
 
 If any field says "NOT VERIFIED — BLOCKER" or cannot be filled, **STOP and tell the user**. Do not proceed.
 
-### A.3 User checkpoint
+### A.3 Mechanical self-verification
 
-**Present the Exploration Report to the user.** Say:
+Before presenting to the user, verify the Exploration Report yourself using objective tool output. Run these checks in parallel:
 
-> **Exploration Report complete.** [paste the full report above]
->
-> **Review the report. Say "proceed" to move to decisions, or flag issues.**
+1. **Re-read each cited source file** — use Read on every path listed in a `Source:` line.
+2. **Grep for interface/type names** — for each pasted interface or type, Grep the source file for the name and compare line counts against the pasted block. If line counts diverge, re-read and fix.
+3. **Grep for branded type usage** — for each constructor parameter, Grep `core/types/` to confirm the branded type exists and the factory function is correct.
+4. **Grep for existing files** — for each file in EXISTING FILES, use Glob to confirm EXISTS/DOES NOT EXIST claims.
+5. **Cross-check library .d.ts** — re-read each cited `node_modules/` path, Grep for the class/method name, confirm signatures match.
 
-**Wait for the user to say "proceed."** Do NOT continue to Phase B until they do.
+For every discrepancy found, fix the Exploration Report before proceeding. Do NOT present unchecked claims to the user.
 
-### A.4 Exploration verification (subagent checkpoint)
+### A.4 Resolve design decisions
 
-After the user says "proceed", dispatch a **verification subagent** (`subagent_type="generalPurpose"`, model `fast`) to check the Exploration Report against the codebase. This catches errors in the report before they propagate into the task file.
-
-Provide the subagent with:
-
-- The full Exploration Report
-- The raw file contents of every Source file cited in the report (re-read from disk — do NOT paste from your memory)
-
-Subagent prompt:
-
-```
-You are checking an Exploration Report for accuracy. For each field, verify the
-report's content against the raw source file provided.
-
-EXPLORATION REPORT:
-[paste report]
-
-RAW SOURCE FILES (ground truth):
-[paste each cited source file with its path]
-
-CHECK EACH FIELD:
-1. INTERFACES — Does the pasted code match the raw file exactly? Missing methods, wrong types?
-2. DEPENDENT TYPES — All types referenced in interfaces/constructors pasted? Fields match source?
-3. LIBRARY APIs — Import paths, class names, constructor params, method signatures match .d.ts?
-4. ESLINT CHANGES — Does the analysis match the actual eslint.config.mjs structure?
-5. DEPENDENCIES — Versions match actual package.json?
-6. EXISTING FILES — Do the EXISTS/DOES NOT EXIST claims match reality?
-7. WIRING SPECIFICATION (if present) — Constructor signatures match actual source files?
-8. BRANDED CHECK — All domain-value params use branded types, not raw string/number?
-9. MODULE RESOLUTION (if present) — tsconfig moduleResolution matches actual tsconfig?
-10. Any BLOCKER fields that were missed?
-
-Return:
-- Per-field: PASS or FAIL with specific discrepancy
-- List of fixes needed (empty if all pass)
-```
-
-**If the subagent finds issues:** Fix the Exploration Report, present the corrected version to the user, and re-run the subagent. Iterate until clean.
-
-**If the subagent finds no issues:** Proceed to Phase B.
-
----
-
-## Phase B: Decide
-
-**Goal:** Resolve every design decision so Phase C is mechanical writing with zero choices.
-
-Work through this checklist using the (now verified) Exploration Report. Every item must have a single definitive answer — no "or", "optionally", "depending on".
-
-### B.1 Decision checklist
+Work through this checklist using the verified Exploration Report. Every item must have a single definitive answer — no "or", "optionally", "depending on".
 
 **Constructor parameters:** For each parameter, state WHY it's needed:
 
@@ -261,11 +218,15 @@ If unsure whether a parameter is needed, **ask the user**.
 
 **Dispatch pattern:** If 3+ branches on enum/discriminator, choose `Record<Enum, Handler>` or handler array. Write the chosen pattern.
 
-### B.2 User checkpoint
+### A.5 User checkpoint
 
-**Present the resolved decisions.** Say:
+**Present the Exploration Report AND resolved decisions together.** Say:
 
-> **Decisions resolved:**
+> **Pass 1 complete — Exploration Report + Decisions:**
+>
+> [paste the full Exploration Report]
+>
+> **Resolved decisions:**
 >
 > - Constructor: [params and why]
 > - Method behaviors: [one sentence each]
@@ -273,15 +234,15 @@ If unsure whether a parameter is needed, **ask the user**.
 > - Test strategy: [summary]
 > - [any other key decisions]
 >
-> **Review the decisions. Say "proceed" to write the task file, or flag issues.**
+> **Review everything above. Say "proceed" to write the task file, or flag issues.**
 
-**Wait for the user to say "proceed."** Do NOT continue to Phase C until they do.
+**Wait for the user to say "proceed."** Do NOT continue to Pass 2 until they do.
 
 ---
 
-## Phase C: Write
+## Pass 2: Write + Verify
 
-**Goal:** Mechanically map the Exploration Report + resolved decisions into the task file template. No creative composition — if it's not in the report, don't add it; if it is, don't omit it.
+**Goal:** Mechanically map the Exploration Report + resolved decisions into the task file template, then immediately verify using Grep-based checks. No creative composition — if it's not in the report, don't add it; if it is, don't omit it.
 
 ### C.1 Read reference files
 
@@ -294,29 +255,31 @@ Before writing, read these reference files for the current task:
 
 Mechanically map the Exploration Report to the template:
 
-| Report field                   | Template section                                  |
-| ------------------------------ | ------------------------------------------------- |
-| EXISTING FILES                 | Files table (only "Create" for DOES NOT EXIST)    |
-| INTERFACES                     | Interface / Signature (first code block)          |
-| CONSTRUCTOR + METHOD BEHAVIORS | Interface / Signature (second code block — class) |
-| DEPENDENT TYPES                | Dependent Types (full code blocks, never refs)    |
-| DEPENDENCIES + ESLINT CHANGES  | Config Changes                                    |
-| DESIGN DECISIONS               | Architecture Notes                                |
-| SYNC/ASYNC                     | Steps (implementation step must state this)       |
-| LIBRARY API CALLS              | Steps (exact function calls in implementation)    |
-| SCHEMA                         | Steps (SQL step references exact columns)         |
-| STEP PLAN                      | Steps (method-to-step assignment)                 |
-| TEST STRATEGY                  | Steps (test step specifies exact mocking)         |
+| Report field                   | Template section                                          |
+| ------------------------------ | --------------------------------------------------------- |
+| EXISTING FILES                 | Files table (only "Create" for DOES NOT EXIST)            |
+| INTERFACES                     | Interface / Signature (first code block)                  |
+| CONSTRUCTOR + METHOD BEHAVIORS | Interface / Signature (second code block — class)         |
+| DEPENDENT TYPES                | Dependent Types (tiered: T0 verbatim, T1 table, T2 table) |
+| DEPENDENCIES + ESLINT CHANGES  | Config Changes                                            |
+| DESIGN DECISIONS               | Architecture Notes                                        |
+| SYNC/ASYNC                     | Steps (implementation step must state this)               |
+| LIBRARY API CALLS              | Steps (exact function calls in implementation)            |
+| SCHEMA                         | Steps (SQL step references exact columns)                 |
+| STEP PLAN                      | Steps (method-to-step assignment)                         |
+| TEST STRATEGY                  | Steps (test step specifies exact mocking)                 |
 
 ### C.3 Write prohibitions (internalize before writing)
 
-Violating any of these causes the Phase D review to reject and force a rewrite:
+Violating any of these causes the mechanical review (C.5) to reject and force a rewrite:
 
 - Never write "if needed", "or optionally", "may be", "consider", "you could", "might want"
 - Never reference another task file ("see Task 009")
 - Never write "Create" in Files table for a file the Exploration Report marked EXISTS
 - Never put 3+ methods in one step
 - Never use raw `string`/`number` for domain-value constructor parameters
+- Never paste Tier 1 or Tier 2 types verbatim — use the tiered format (table for Tier 1, table for Tier 2)
+- Never use Tier 1 or Tier 2 for types the component calls methods on or constructs inline — those must be Tier 0
 
 ### C.4 Save the task file
 
@@ -328,76 +291,63 @@ Use the task file template below.
 
 ---
 
-## Phase D: Verify
+### C.5 Mechanical review
 
-**Goal:** Independent review by a subagent with fresh context. Do NOT run checks yourself first — the subagent's fresh perspective catches issues your writing bias misses.
+Immediately after saving the task file, run every check below yourself using Grep and Read. Tool output is objective evidence — no second agent needed to interpret "0 matches = pass".
 
-### D.1 Gather ground truth
+**Step 1: Re-read ground truth.** Re-read from disk every interface file, type file, and library `.d.ts` the task references. Do NOT reuse what you remember — re-read the actual files.
 
-**Re-read from disk** every interface file, type file, and library `.d.ts` the task references. Do NOT reuse what you remember — re-read the actual files. Paste the raw file contents into the subagent prompt.
+**Step 2: Run mechanical checks A–L in parallel.** Use Grep on the saved task file and Read on source files. Report pass/fail for each check with evidence (match count, line number, or "0 matches").
 
-### D.2 Dispatch review subagent
+A. **AMBIGUITY SCAN** (three layers — see `SKILL-guardrails.md` "No ambiguity" for full list):
+Layer 1 — Grep the task file for each banned phrase category (Cat 1–7). ANY match in non-code lines = fail.
+Cat 1 (hedging): "if needed", "if necessary", "if required", "if appropriate",
+"as needed", "as appropriate", "may be", "may want", "may need", "may be added",
+"might want", "might need", "might be", "you could", "could also",
+"should work", "should suffice", "probably", "likely", "possibly", "potentially",
+"perhaps", "try to", "attempt to", "ideally", "preferably", "feel free to"
+Cat 2 (examples-as-instructions): "e.g.", "eg.", "for example", "for instance",
+"such as", "something like", "along the lines of", "similar to", "or similar",
+"or equivalent", "or comparable", "some kind of", "some sort of", "some form of"
+Cat 3 (delegation): "decide whether", "decide if", "choose between", "depending on",
+"up to you", "your choice", "alternatively", "or alternatively", "whichever",
+"whatever works", "however you prefer", "or optionally", "optionally"
+Cat 4 (vague): "appropriate" (unspecified), "suitable", "reasonable", "etc.",
+"and so on", "and so forth", "and more"
+Cat 5 (state hedges): "if not present", "if not already", "if it doesn't exist",
+"if missing", "add if not present", "create if not exists"
+Cat 6 (escape clauses): "or skip", "or ignore", "or leave for later",
+"in a later task", "if possible", "where possible", "if feasible",
+"mock or skip", "mock or conditional"
+Cat 7 (false alternatives): "or use", "or another", "or any"
+Layer 2 — Grep for `" or "` in the task file. Read each match. Does it present two alternative actions the executor must choose between? If yes = fail.
+Acceptable "or": conditional behavior, conjunctions ("zero errors or warnings").
+Layer 3 — Grep for parenthesized hedges: `\(if needed\)`, `\(optional\)`, `\(e\.g\.`, `\(or similar\)`, `\(sync or async\)`. Any banned pattern inside parentheses = fail.
 
-Launch `subagent_type="generalPurpose"` with this prompt:
+B. **SIGNATURE CROSS-CHECK:** For each method in the class code block, compare against the interface source file — parameter names, types (including readonly), return types must match exactly.
 
-```
-You are reviewing a task file for quality. Perform ALL checks below, then score the rubric.
-Be strict — if you see ANY issue in a dimension, score 0.
+C. **DEPENDENT TYPES:** If the component reads/writes/returns any domain type, are type definitions present inline (Tier 0 verbatim, Tier 1 signature+path, Tier 2 path-only)? Never "see task NNN", never empty.
 
-TASK FILE:
-[paste the full task file content]
+D. **STEP COUNT:** Grep step headers. Count methods listed per step — any step with 3+ methods or 2+ files = fail.
 
-ACTUAL CODEBASE FILES (ground truth — raw file contents, NOT planner interpretations):
-[For each interface: paste full file with path]
-[For each type: paste full file with path]
-[For each library .d.ts: paste relevant type definitions]
-[For each concrete class instantiated: paste constructor signature from source]
+E. **CONFIG CHANGES:** Grep for "None" in Config Changes section. Must be either "None" with no caveats or exact diffs. Grep for "if not present" = fail.
 
-EXISTING FILES IN CODEBASE:
-[paste EXISTING FILES section — verified by Glob]
+F. **FILES TABLE:** For each "Create" row, Glob the path — if the file exists = fail.
 
-MECHANICAL CHECKS — run each, report pass/fail with evidence:
+G. **SELF-CONTAINED:** Grep for "see Task", "defined in task", "see task" (case-insensitive). Any match = fail.
 
-A. AMBIGUITY SCAN (two layers):
-   Layer 1 — search for banned phrases (ANY match = fail):
-   "if needed", "or optionally", "may be", "if not present", "you may", "or document",
-   "if type is extended", "may be added", "decide whether", "you could", "consider",
-   "might want", "or equivalent", "or similar", "or alternatively", "or skip",
-   "or another", "or use", "mock or skip", "mock or conditional"
-   Layer 2 — read every non-code sentence containing " or ".
-   Does it present two alternative actions the executor must choose between? If yes = fail.
-   Acceptable "or": conditional behavior, conjunctions ("zero errors or warnings").
+H. **CONSTRUCTOR BRANDED TYPES:** For each constructor param representing a domain value, verify the type is a branded type from `core/types/`. Raw `string`/`number` = fail.
 
-B. SIGNATURE CROSS-CHECK: For each method in the class code block, verify against the
-   interface — parameter names, types (including readonly), return types must match exactly.
+I. **VERIFY INSTRUCTIONS:** Read each step's "Verify:" line. Confirm the referenced artifact exists or will exist by that step.
 
-C. DEPENDENT TYPES: If the component reads/writes/returns any domain type, are full type
-   definitions pasted inline? (not "see task NNN", not empty)
+J. **TEST TABLE ↔ STEP CROSS-CHECK:** Grep each Tests table row name in the step instructions. Grep each test name from steps in the Tests table. Mismatches = fail.
 
-D. STEP COUNT: Does any step implement 3+ methods or touch 2+ files?
+K. **LIBRARY API ACCURACY:** Re-read the `.d.ts` files. Cross-check class names, import paths, constructor signatures, method calls against ground truth. If no `.d.ts` was read for a library = fail.
 
-E. CONFIG CHANGES: Contains "None" or exact diffs? No "if not present"?
+L. **WIRING ACCURACY (composition roots only):** Re-read each concrete class source file. Every `new ClassName(...)` call in the task must match actual constructor signature.
 
-F. FILES TABLE: Does any "Create" row target a file that already EXISTS?
+**Step 3: Score the rubric.** Score each dimension 0 (fail) or 1 (pass):
 
-G. SELF-CONTAINED: Does the file reference another task? ("see Task", "defined in task")
-
-H. CONSTRUCTOR BRANDED TYPES: For each constructor param representing a domain value,
-   is it a branded type? Raw string/number = fail.
-
-I. VERIFY INSTRUCTIONS: Does each step's "Verify:" line reference something that exists
-   or will exist by that step?
-
-J. TEST TABLE ↔ STEP CROSS-CHECK: Every Tests table row appears in step instructions?
-   Every test in a step appears in the table?
-
-K. LIBRARY API ACCURACY: Cross-check class names, import paths, constructor signatures,
-   method calls against provided .d.ts ground truth. If no .d.ts provided for a library = fail.
-
-L. WIRING ACCURACY (composition roots only): Every `new ClassName(...)` call matches
-   actual constructor signature from source.
-
-RUBRIC — score each dimension 0 (fail) or 1 (pass):
 1. Interface accuracy (check B)
 2. Signature consistency (check B)
 3. Dependent Types (check C)
@@ -411,20 +361,13 @@ RUBRIC — score each dimension 0 (fail) or 1 (pass):
 11. Library API accuracy (check K)
 12. Wiring accuracy — composition roots only (check L)
 
-Return:
-- Mechanical checks: pass/fail for each (A–L) with evidence
-- Per-dimension score (0/1/N/A) with one-line justification
-- Total score (passed / applicable, as percentage and fraction)
-- List of specific fixes needed
-```
-
-### D.3 Score and act
+### C.6 Score and act
 
 **≥ 90%:** Proceed to §6.
 
-**75–89%:** Auto-apply the subagent's specific fixes inline. Self-verify each changed line resolves the violation. Proceed to §6 with the corrected score.
+**75–89%:** Auto-apply fixes for each failing check. Re-run the specific Grep checks that failed to confirm resolution. Proceed to §6 with the corrected score.
 
-**< 75%:** Apply fixes, rewrite, re-run the subagent. Iterate until ≥ 75%.
+**< 75%:** Apply fixes, rewrite affected sections, re-run all mechanical checks. Iterate until ≥ 75%.
 
 ---
 
@@ -445,9 +388,9 @@ Triggered when the user asks to review one or more task files.
 - "review task 008" → single task
 - "review tasks" / "review all tasks" → all pending in `documentation/tasks/` (skip `done/`)
 
-**Step 7a: Gather codebase state.** Run the Phase A checklist once for the full batch. Use parallel Read calls. Cache the results.
+**Step 7a: Gather codebase state.** Run the Pass 1 exploration checklist once for the full batch. Use parallel Read calls. Cache the results.
 
-**Step 7b: Evaluate each task.** Dispatch review subagents (same Phase D prompt). Provide raw codebase files as ground truth. Up to 4 in parallel.
+**Step 7b: Evaluate each task.** Run the mechanical checks (C.5) on each task file yourself. Use parallel Grep + Read calls. For multiple tasks, batch the Grep calls — up to 4 task files in parallel.
 
 **Step 7c: Present findings.** For each task: score, guardrail violations table, specific fixes. For multiple tasks: summary table first.
 
@@ -458,9 +401,9 @@ When rewriting:
 - Read original, apply fixes, re-read relevant source files
 - Write corrected task in place (same path, same NNN)
 - Do not change scope unless a guardrail requires it
-- **Original < 75%:** Always re-run review subagent. Iterate until ≥ 75%.
-- **Original 75–89%, minor fixes:** Self-verify. Assign corrected score.
-- **Original 75–89%, substantial changes:** Re-run review subagent.
+- **Original < 75%:** Always re-run full mechanical checks (C.5). Iterate until ≥ 75%.
+- **Original 75–89%, minor fixes:** Re-run only the failing Grep checks to confirm resolution. Assign corrected score.
+- **Original 75–89%, substantial changes:** Re-run full mechanical checks (C.5).
 
 After rewriting: **"Task NNN rewritten. Score: N/M (X%). [Summary of changes]."**
 
@@ -484,7 +427,7 @@ After rewriting: **"Task NNN rewritten. Score: N/M (X%). [Summary of changes]."*
 
 - [2–3 bullets: which ADRs apply, layer rules, DI requirements]
 - [Reference specific rules, e.g. "ADR-007: UUIDv7 for all IDs"]
-- [Record key design decisions from Phase B]
+- [Record key design decisions from Pass 1]
 
 ## Files
 
@@ -507,9 +450,24 @@ After rewriting: **"Task NNN rewritten. Score: N/M (X%). [Summary of changes]."*
 
 ## Dependent Types
 
+### Tier 0 — verbatim
+
 ```typescript
 // Full type definition with all fields and imports
+// Only types the component directly calls methods on or constructs inline
 ```
+
+### Tier 1 — signature + path
+
+| Type       | Path              | Members | Purpose                         |
+| ---------- | ----------------- | ------- | ------------------------------- |
+| `TypeName` | `path/to/file.ts` | N       | methodA, methodB + props: propC |
+
+### Tier 2 — path-only
+
+| Type       | Path              | Factory          |
+| ---------- | ----------------- | ---------------- |
+| `TypeName` | `path/to/file.ts` | `factoryFn(raw)` |
 
 ## Config Changes
 
@@ -526,8 +484,8 @@ After rewriting: **"Task NNN rewritten. Score: N/M (X%). [Summary of changes]."*
 
 ### Step N: Final verification
 
-Run: `pnpm lint && pnpm typecheck && pnpm test`
-Expected: all pass, zero warnings.
+Run: `pnpm lint && pnpm typecheck && pnpm test && pnpm knip`
+Expected: all pass, zero warnings, no new knip findings.
 
 ## Tests
 
@@ -542,8 +500,10 @@ Expected: all pass, zero warnings.
 - [ ] All test cases pass
 - [ ] `pnpm lint` — zero errors, zero warnings
 - [ ] `pnpm typecheck` — clean
+- [ ] `pnpm knip` — no new unused files, exports, or dependencies
 - [ ] No imports violating layer boundaries
 - [ ] No `new Date()`, `Date.now()`, `Math.random()` outside allowed files
+- [ ] No `let` in production code (only `const`; control flags in imperative closures are the sole exception)
 - [ ] Single-line comments only, explain why not what
 
 ## Blocked?
