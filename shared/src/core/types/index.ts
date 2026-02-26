@@ -74,3 +74,21 @@ export {
   RULES_FINDING_SEVERITY,
   type RulesFindingSeverity,
 } from "./enums.js";
+
+export type { TaskClassification } from "./task-classification.js";
+export type { RulePack } from "./rule-pack.js";
+export type { SelectedFile, ContextResult } from "./selected-file.js";
+export type { GuardFinding, GuardResult } from "./guard-types.js";
+export type {
+  TransformContext,
+  TransformResult,
+  TransformMetadata,
+} from "./transform-types.js";
+export type { FileEntry, RepoMap } from "./repo-map.js";
+export type {
+  ToolOutput,
+  CompilationRequest,
+  CompilationMeta,
+  CachedCompilation,
+} from "./compilation-types.js";
+export type { TelemetryEvent } from "./telemetry-types.js";

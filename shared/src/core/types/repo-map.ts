@@ -1,0 +1,18 @@
+import type { AbsolutePath, RelativePath } from "#core/types/paths.js";
+import type { Bytes, TokenCount } from "#core/types/units.js";
+import type { ISOTimestamp } from "#core/types/identifiers.js";
+
+export interface FileEntry {
+  readonly path: RelativePath;
+  readonly language: string;
+  readonly sizeBytes: Bytes;
+  readonly estimatedTokens: TokenCount;
+  readonly lastModified: ISOTimestamp;
+}
+
+export interface RepoMap {
+  readonly root: AbsolutePath;
+  readonly files: readonly FileEntry[];
+  readonly totalFiles: number;
+  readonly totalTokens: TokenCount;
+}

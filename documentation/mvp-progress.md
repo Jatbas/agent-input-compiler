@@ -1,8 +1,8 @@
 # AIC MVP Progress
 
-**Status:** Phase A foundation complete — ready for Phase B (core interfaces)  
+**Status:** Phase B core interfaces complete — ready for Phase C  
 **Phase:** 0 (MVP)  
-**Overall:** ~15%
+**Overall:** ~40%
 
 ---
 
@@ -21,21 +21,21 @@
 
 ### Phase B — Core Interfaces
 
-| Component                  | Status      | Package                     |
-| -------------------------- | ----------- | --------------------------- |
-| IntentClassifier (port)    | Not started | shared/src/core/interfaces/ |
-| RulePackResolver (port)    | Not started | shared/src/core/interfaces/ |
-| BudgetAllocator (port)     | Not started | shared/src/core/interfaces/ |
-| ContextSelector (port)     | Not started | shared/src/core/interfaces/ |
-| ContextGuard (port)        | Not started | shared/src/core/interfaces/ |
-| ContentTransformer (port)  | Not started | shared/src/core/interfaces/ |
-| SummarisationLadder (port) | Not started | shared/src/core/interfaces/ |
-| PromptAssembler (port)     | Not started | shared/src/core/interfaces/ |
-| Clock (port)               | Not started | shared/src/core/interfaces/ |
-| CacheStore (port)          | Not started | shared/src/core/interfaces/ |
-| TelemetryStore (port)      | Not started | shared/src/core/interfaces/ |
-| ConfigStore (port)         | Not started | shared/src/core/interfaces/ |
-| GuardStore (port)          | Not started | shared/src/core/interfaces/ |
+| Component                  | Status | Package                     |
+| -------------------------- | ------ | --------------------------- |
+| IntentClassifier (port)    | Done   | shared/src/core/interfaces/ |
+| RulePackResolver (port)    | Done   | shared/src/core/interfaces/ |
+| BudgetAllocator (port)     | Done   | shared/src/core/interfaces/ |
+| ContextSelector (port)     | Done   | shared/src/core/interfaces/ |
+| ContextGuard (port)        | Done   | shared/src/core/interfaces/ |
+| ContentTransformer (port)  | Done   | shared/src/core/interfaces/ |
+| SummarisationLadder (port) | Done   | shared/src/core/interfaces/ |
+| PromptAssembler (port)     | Done   | shared/src/core/interfaces/ |
+| Clock (port)               | Done   | shared/src/core/interfaces/ |
+| CacheStore (port)          | Done   | shared/src/core/interfaces/ |
+| TelemetryStore (port)      | Done   | shared/src/core/interfaces/ |
+| ConfigStore (port)         | Done   | shared/src/core/interfaces/ |
+| GuardStore (port)          | Done   | shared/src/core/interfaces/ |
 
 ### Phase C — Pipeline Steps 1–8
 
@@ -98,6 +98,15 @@
 ---
 
 ## Daily Log
+
+### 2026-02-24
+
+**Components:** Phase B core interfaces
+**Completed:**
+
+- Phase B domain types (task-classification, rule-pack, selected-file, guard-types, transform-types, repo-map, compilation-types, telemetry-types)
+- Phase B port interfaces (intent-classifier, rule-pack-resolver, budget-allocator, context-selector, context-guard, guard-scanner, content-transformer, content-transformer-pipeline, summarisation-ladder, prompt-assembler, cache-store, telemetry-store, config-store, guard-store)
+- ISP split: moved CachedCompilation to compilation-types.ts, TelemetryEvent to telemetry-types.ts
 
 ### 2026-02-23
 
