@@ -15,10 +15,14 @@ import type { RepoMapSupplier } from "#core/interfaces/repo-map-supplier.interfa
 import type { Clock } from "#core/interfaces/clock.interface.js";
 import type { CacheStore } from "#core/interfaces/cache-store.interface.js";
 import type { ConfigStore } from "#core/interfaces/config-store.interface.js";
+import type { GuardStore } from "#core/interfaces/guard-store.interface.js";
+import type { CompilationLogStore } from "#core/interfaces/compilation-log-store.interface.js";
+import type { IdGenerator } from "#core/interfaces/id-generator.interface.js";
 import type { RulePackProvider } from "#core/interfaces/rule-pack-provider.interface.js";
 import type { BudgetConfig } from "#core/interfaces/budget-config.interface.js";
 import type { TaskClass } from "#core/types/enums.js";
 import { EDITOR_ID } from "#core/types/enums.js";
+import { toUUIDv7 } from "#core/types/identifiers.js";
 import { CompilationRunner } from "#pipeline/compilation-runner.js";
 import { IntentClassifier } from "#pipeline/intent-classifier.js";
 import { RulePackResolver } from "#pipeline/rule-pack-resolver.js";
@@ -180,6 +184,20 @@ function createRunner(fixtureRoot: ReturnType<typeof toAbsolutePath>): Compilati
     writeSnapshot() {},
   };
   const sha256Adapter = new Sha256Adapter();
+  const guardStore: GuardStore = {
+    write() {},
+    queryByCompilation() {
+      return [];
+    },
+  };
+  const compilationLogStore: CompilationLogStore = {
+    record() {},
+  };
+  const idGenerator: IdGenerator = {
+    generate() {
+      return toUUIDv7("00000000-0000-7000-8000-000000000000");
+    },
+  };
   const deps = {
     intentClassifier,
     rulePackResolver,
@@ -192,7 +210,16 @@ function createRunner(fixtureRoot: ReturnType<typeof toAbsolutePath>): Compilati
     repoMapSupplier: mockRepoMapSupplier,
     tokenCounter: tiktokenAdapter,
   };
-  return new CompilationRunner(deps, mockClock, cacheStore, configStore, sha256Adapter);
+  return new CompilationRunner(
+    deps,
+    mockClock,
+    cacheStore,
+    configStore,
+    sha256Adapter,
+    guardStore,
+    compilationLogStore,
+    idGenerator,
+  );
 }
 
 describe("full pipeline", () => {

@@ -2,7 +2,7 @@
 
 **Current phase:** 0.5 (Quality Release)
 **Version target:** 0.2.0
-**Phase I (Live Wiring):** 5/9 done — Telemetry write on compile
+**Phase I (Live Wiring):** 7/13 done — Config loading next
 
 ---
 
@@ -19,13 +19,16 @@ Prerequisite for everything else. Quick fixes to make the tool fully functional.
 | Wire real RepoMap in MCP/CLI    | Done   | mcp/, cli/                     |
 | Wire real InspectRunner (CLI)   | Done   | cli/src/main.ts                |
 | Telemetry write on compile      | Done   | shared/src/core/ + mcp + cli   |
-| Guard findings write on scan    | Todo   | shared/src/storage/            |
+| Guard findings write on scan    | Done   | shared/src/storage/            |
 | Config loading from aic.config  | Todo   | shared/src/                    |
 | Real token counting in repo map | Todo   | shared/src/adapters/           |
 | WhitespaceNormalizer exclusions | Todo   | shared/src/pipeline/           |
 | 002-server-sessions migration   | Todo   | shared/src/storage/migrations/ |
 | SessionTracker interface        | Todo   | shared/src/core/interfaces/    |
 | SqliteSessionStore              | Todo   | shared/src/storage/            |
+| sessionStart compile hook       | Done   | .cursor/hooks/                 |
+| Startup self-check (integrity)  | Todo   | mcp/src/                       |
+| Auto-install trigger rule       | Todo   | mcp/src/                       |
 | Server lifecycle hooks          | Todo   | mcp/src/                       |
 
 ### Phase J — Intent & Selection Quality
@@ -188,7 +191,7 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 ### 2026-02-27
 
-**Components:** FileSystemRepoMapSupplier, createFullPipelineDeps, Wire real InspectRunner (CLI), Phase 0.5 planning, Telemetry write on compile
+**Components:** FileSystemRepoMapSupplier, createFullPipelineDeps, Wire real InspectRunner (CLI), Phase 0.5 planning, Telemetry write on compile, Guard findings write on scan
 **Completed:**
 
 - FileSystemRepoMapSupplier adapter (GlobProvider + IgnoreProvider + fs.stat, binary extension filter, language detection, bytes/4 token estimate)
@@ -200,6 +203,7 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 - Phase 0.5 roadmap added to mvp-progress.md
 - Wire real InspectRunner in CLI (createInspectRunner, createScopeAndDeps to satisfy 0% jscpd; inspect action uses real pipeline)
 - Telemetry write on compile: TelemetryDeps type, buildTelemetryEvent, writeCompilationTelemetry (shared); compile-handler and compile command write after successful run (try/catch, non-fatal); MCP and CLI pass telemetry deps from scope; tests for buildTelemetryEvent, compileCommand with telemetryDeps, createCompileHandler with deps
+- Guard findings write on scan: CompilationLogEntry type, CompilationLogStore interface, SqliteCompilationLogStore; CompilationRunner records compilation_log and writes guard findings on every run (cache hit and miss); createProjectScope adds compilationLogStore; MCP and CLI pass guardStore, compilationLogStore, idGenerator to CompilationRunner; tests for store and runner (cache miss/cache hit record+write)
 
 ### 2026-02-26
 

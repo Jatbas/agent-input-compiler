@@ -16,10 +16,17 @@ import type { Clock } from "#core/interfaces/clock.interface.js";
 import type { CacheStore } from "#core/interfaces/cache-store.interface.js";
 import type { ConfigStore } from "#core/interfaces/config-store.interface.js";
 import type { StringHasher } from "#core/interfaces/string-hasher.interface.js";
+import type { GuardStore } from "#core/interfaces/guard-store.interface.js";
+import type { CompilationLogStore } from "#core/interfaces/compilation-log-store.interface.js";
+import type { IdGenerator } from "#core/interfaces/id-generator.interface.js";
 import type { RulePackProvider } from "#core/interfaces/rule-pack-provider.interface.js";
 import type { BudgetConfig } from "#core/interfaces/budget-config.interface.js";
 import type { TaskClass } from "#core/types/enums.js";
+import type { CompilationLogEntry } from "#core/types/compilation-log-entry.js";
+import type { GuardFinding } from "#core/types/guard-types.js";
+import type { UUIDv7 } from "#core/types/identifiers.js";
 import { EDITOR_ID } from "#core/types/enums.js";
+import { toUUIDv7 } from "#core/types/identifiers.js";
 import { CompilationRunner } from "../compilation-runner.js";
 import { IntentClassifier } from "../intent-classifier.js";
 import { RulePackResolver } from "../rule-pack-resolver.js";
@@ -188,6 +195,41 @@ describe("CompilationRunner", () => {
   );
   const promptAssembler = new PromptAssembler(fileContentReader);
 
+  const fixedCompilationId = toUUIDv7("00000000-0000-7000-8000-000000000001");
+  const mockIdGenerator: IdGenerator = {
+    generate(): UUIDv7 {
+      return fixedCompilationId;
+    },
+  };
+
+  function createGuardAndLogMocks(): {
+    recordedGuardCalls: Array<{ id: UUIDv7; findings: readonly GuardFinding[] }>;
+    recordedLogEntries: CompilationLogEntry[];
+    guardStore: GuardStore;
+    compilationLogStore: CompilationLogStore;
+  } {
+    const recordedGuardCalls: Array<{ id: UUIDv7; findings: readonly GuardFinding[] }> =
+      [];
+    const recordedLogEntries: CompilationLogEntry[] = [];
+    return {
+      recordedGuardCalls,
+      recordedLogEntries,
+      guardStore: {
+        write(id: UUIDv7, findings: readonly GuardFinding[]) {
+          recordedGuardCalls.push({ id, findings });
+        },
+        queryByCompilation() {
+          return [];
+        },
+      },
+      compilationLogStore: {
+        record(entry: CompilationLogEntry) {
+          recordedLogEntries.push(entry);
+        },
+      },
+    };
+  }
+
   it("first_run_returns_compiled_prompt_and_meta_cache_miss", async () => {
     const cacheStore = createInMemoryCacheStore();
     const configStore: ConfigStore = {
@@ -199,6 +241,7 @@ describe("CompilationRunner", () => {
         return `h-${input.length}`;
       },
     };
+    const { guardStore, compilationLogStore } = createGuardAndLogMocks();
     const deps = {
       intentClassifier,
       rulePackResolver,
@@ -217,6 +260,9 @@ describe("CompilationRunner", () => {
       cacheStore,
       configStore,
       stringHasher,
+      guardStore,
+      compilationLogStore,
+      mockIdGenerator,
     );
     const request = makeRequest(fixtureRoot);
     const result = await runner.run(request);
@@ -236,6 +282,7 @@ describe("CompilationRunner", () => {
         return `h-${input.length}`;
       },
     };
+    const { guardStore, compilationLogStore } = createGuardAndLogMocks();
     const deps = {
       intentClassifier,
       rulePackResolver,
@@ -254,6 +301,9 @@ describe("CompilationRunner", () => {
       cacheStore,
       configStore,
       stringHasher,
+      guardStore,
+      compilationLogStore,
+      mockIdGenerator,
     );
     const request = makeRequest(fixtureRoot);
     const first = await runner.run(request);
@@ -278,6 +328,7 @@ describe("CompilationRunner", () => {
         return `h-${input.length}`;
       },
     };
+    const { guardStore, compilationLogStore } = createGuardAndLogMocks();
     const deps = {
       intentClassifier,
       rulePackResolver,
@@ -296,8 +347,112 @@ describe("CompilationRunner", () => {
       cacheStore,
       configStore,
       stringHasher,
+      guardStore,
+      compilationLogStore,
+      mockIdGenerator,
     );
     const request = makeRequest(fixtureRoot);
     await expect(runner.run(request)).rejects.toThrow("getRepoMap failed");
+  });
+
+  it("CompilationRunner cache miss writes log and guard findings", async () => {
+    const cacheStore = createInMemoryCacheStore();
+    const configStore: ConfigStore = {
+      getLatestHash: () => null,
+      writeSnapshot() {},
+    };
+    const stringHasher: StringHasher = {
+      hash(input: string) {
+        return `h-${input.length}`;
+      },
+    };
+    const { recordedGuardCalls, recordedLogEntries, guardStore, compilationLogStore } =
+      createGuardAndLogMocks();
+    const deps = {
+      intentClassifier,
+      rulePackResolver,
+      budgetAllocator,
+      contextSelector: heuristicSelector,
+      contextGuard,
+      contentTransformerPipeline,
+      summarisationLadder,
+      promptAssembler,
+      repoMapSupplier: mockRepoMapSupplier,
+      tokenCounter: tiktokenAdapter,
+    };
+    const runner = new CompilationRunner(
+      deps,
+      mockClock,
+      cacheStore,
+      configStore,
+      stringHasher,
+      guardStore,
+      compilationLogStore,
+      mockIdGenerator,
+    );
+    const request = makeRequest(fixtureRoot);
+    const result = await runner.run(request);
+    expect(recordedLogEntries.length).toBe(1);
+    expect(recordedGuardCalls.length).toBe(1);
+    const entry = recordedLogEntries[0];
+    const guardCall = recordedGuardCalls[0];
+    expect(entry).toBeDefined();
+    expect(guardCall).toBeDefined();
+    if (entry === undefined || guardCall === undefined) return;
+    expect(entry.id).toBe(fixedCompilationId);
+    expect(guardCall.id).toBe(fixedCompilationId);
+    expect(entry.intent).toBe(result.meta.intent);
+    expect(entry.taskClass).toBe(result.meta.taskClass);
+    expect(entry.filesSelected).toBe(result.meta.filesSelected);
+    expect(entry.cacheHit).toBe(false);
+    expect(Array.isArray(guardCall.findings)).toBe(true);
+    expect(result.meta.guard !== null).toBe(true);
+    expect(guardCall.findings).toEqual(result.meta.guard?.findings ?? []);
+  });
+
+  it("CompilationRunner cache hit writes log and empty findings", async () => {
+    const cacheStore = createInMemoryCacheStore();
+    const configStore: ConfigStore = {
+      getLatestHash: () => null,
+      writeSnapshot() {},
+    };
+    const stringHasher: StringHasher = {
+      hash(input: string) {
+        return `h-${input.length}`;
+      },
+    };
+    const { recordedGuardCalls, recordedLogEntries, guardStore, compilationLogStore } =
+      createGuardAndLogMocks();
+    const deps = {
+      intentClassifier,
+      rulePackResolver,
+      budgetAllocator,
+      contextSelector: heuristicSelector,
+      contextGuard,
+      contentTransformerPipeline,
+      summarisationLadder,
+      promptAssembler,
+      repoMapSupplier: mockRepoMapSupplier,
+      tokenCounter: tiktokenAdapter,
+    };
+    const runner = new CompilationRunner(
+      deps,
+      mockClock,
+      cacheStore,
+      configStore,
+      stringHasher,
+      guardStore,
+      compilationLogStore,
+      mockIdGenerator,
+    );
+    const request = makeRequest(fixtureRoot);
+    await runner.run(request);
+    const second = await runner.run(request);
+    expect(second.meta.cacheHit).toBe(true);
+    expect(recordedLogEntries.length).toBe(2);
+    expect(recordedGuardCalls.length).toBe(2);
+    const guardCallOnHit = recordedGuardCalls[1];
+    expect(guardCallOnHit).toBeDefined();
+    expect(guardCallOnHit?.findings.length).toBe(0);
   });
 });

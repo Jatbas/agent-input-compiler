@@ -2661,10 +2661,30 @@ AIC tracks MCP server start and stop events in the `server_sessions` table ([§1
 
 No heartbeat thread or background timer is needed. The orphan-on-next-start pattern provides crash detection with zero runtime overhead.
 
+### 13.3 Startup Self-Check
+
+On every server startup, AIC verifies its own installation is healthy so it can surface configuration problems that would otherwise be invisible.
+
+**Checks performed:**
+
+| Check        | What it verifies                        | Outcome if missing                                         |
+| ------------ | --------------------------------------- | ---------------------------------------------------------- |
+| Trigger rule | `AIC.mdc` (Cursor) or equivalent exists | `aic status` shows "trigger rule not found — run aic init" |
+| Session hook | `hooks.json` contains AIC compile entry | `aic status` shows "session hook not configured"           |
+| Hook script  | `AIC-compile-context.cjs` exists        | `aic status` shows "hook script missing"                   |
+
+Results are stored in the `server_sessions` row (`installation_ok` boolean, `installation_notes` text). `aic status` surfaces them as actionable suggestions ("AIC is running but the trigger rule is missing — context won't be compiled per-prompt").
+
+**Design principles:**
+
+- The server always starts regardless of self-check results. Missing components produce helpful suggestions, never blocked workflows.
+- No heartbeat or gap detection. Telemetry reflects compilation events, not developer presence or activity.
+- Enterprise fleet dashboards ([§23](#23-enterprise-deployment-tiers)) report operational health — crash frequency, version drift, installation completeness.
+
 **Value by audience:**
 
-- **Individual developers:** Diagnose server crashes, verify AIC is running, see uptime history via `aic status`. When something goes wrong, the developer can check whether AIC was even running at the time.
-- **Enterprise (Phase 2–3):** Fleet-wide uptime dashboards, crash frequency analysis per team, compliance audit trails proving the MCP server was active during AI-assisted development. The `server_sessions` table is the local data source that enterprise sync layers ([§23](#23-enterprise-deployment-tiers)) query — no architectural change needed to scale from solo developer to fleet.
+- **Individual developers:** Diagnose server crashes, verify AIC is running, and spot misconfiguration via `aic status`. When something goes wrong, the developer can check whether AIC was running and correctly installed at the time.
+- **Enterprise (Phase 2–3):** Fleet-wide operational dashboards: crash frequency, version drift, installation health per team. The `server_sessions` table is the local data source that enterprise sync layers ([§23](#23-enterprise-deployment-tiers)) query — no architectural change needed to scale from solo developer to fleet. Enterprise-deployed hooks via MDM (`/Library/Application Support/Cursor/hooks.json`) provide tamper-resistant installation at the system level.
 
 ---
 

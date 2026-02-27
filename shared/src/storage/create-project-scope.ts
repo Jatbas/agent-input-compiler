@@ -8,6 +8,7 @@ import type { CacheStore } from "#core/interfaces/cache-store.interface.js";
 import type { TelemetryStore } from "#core/interfaces/telemetry-store.interface.js";
 import type { ConfigStore } from "#core/interfaces/config-store.interface.js";
 import type { GuardStore } from "#core/interfaces/guard-store.interface.js";
+import type { CompilationLogStore } from "#core/interfaces/compilation-log-store.interface.js";
 import { toAbsolutePath } from "#core/types/paths.js";
 import { ensureAicDir } from "#storage/ensure-aic-dir.js";
 import { openDatabase } from "#storage/open-database.js";
@@ -15,6 +16,7 @@ import { SqliteCacheStore } from "#storage/sqlite-cache-store.js";
 import { SqliteTelemetryStore } from "#storage/sqlite-telemetry-store.js";
 import { SqliteConfigStore } from "#storage/sqlite-config-store.js";
 import { SqliteGuardStore } from "#storage/sqlite-guard-store.js";
+import { SqliteCompilationLogStore } from "#storage/sqlite-compilation-log-store.js";
 import { SystemClock } from "#adapters/system-clock.js";
 import { UuidV7Generator } from "#adapters/uuid-v7-generator.js";
 
@@ -26,6 +28,7 @@ export interface ProjectScope {
   readonly telemetryStore: TelemetryStore;
   readonly configStore: ConfigStore;
   readonly guardStore: GuardStore;
+  readonly compilationLogStore: CompilationLogStore;
   readonly projectRoot: AbsolutePath;
 }
 
@@ -42,6 +45,7 @@ export function createProjectScope(projectRoot: AbsolutePath): ProjectScope {
   const telemetryStore = new SqliteTelemetryStore(db);
   const configStore = new SqliteConfigStore(db, clock);
   const guardStore = new SqliteGuardStore(db, idGenerator, clock);
+  const compilationLogStore = new SqliteCompilationLogStore(db);
   return {
     db,
     clock,
@@ -50,6 +54,7 @@ export function createProjectScope(projectRoot: AbsolutePath): ProjectScope {
     telemetryStore,
     configStore,
     guardStore,
+    compilationLogStore,
     projectRoot,
   };
 }

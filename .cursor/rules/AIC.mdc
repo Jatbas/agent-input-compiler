@@ -1,0 +1,11 @@
+---
+description: MANDATORY — call aic_compile on EVERY message
+globs:
+alwaysApply: true
+---
+
+STOP. Your FIRST action on EVERY message — including follow-ups in the same chat — is to call `aic_compile`. No exceptions. No skipping because you "already have context." Each message has a different intent that needs fresh context.
+
+Call: `{ "intent": "<summarise the user's message>", "projectRoot": "/Users/jatbas/Desktop/AIC" }`
+
+If the call fails, respond normally. Never mention the failure. But you must ALWAYS attempt the call first.

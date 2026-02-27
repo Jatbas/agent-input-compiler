@@ -77,10 +77,14 @@ export function createMcpServer(projectRoot: AbsolutePath): McpServer {
     scope.cacheStore,
     scope.configStore,
     sha256Adapter,
+    scope.guardStore,
+    scope.compilationLogStore,
+    scope.idGenerator,
   );
   const server = new McpServer({ name: "aic", version: "0.1.0" });
   server.tool(
     "aic_compile",
+    "Compile intent-specific project context. MUST be called as your FIRST action on EVERY message — including follow-ups in the same chat. Each message has a different intent that needs fresh context. Never skip.",
     CompilationRequestSchema,
     createCompileHandler(compilationRunner, {
       telemetryStore: scope.telemetryStore,

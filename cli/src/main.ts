@@ -98,6 +98,9 @@ function createCompilationRunner(projectRoot: string): {
     scope.cacheStore,
     scope.configStore,
     stringHasher,
+    scope.guardStore,
+    scope.compilationLogStore,
+    scope.idGenerator,
   );
   return { runner, scope, stringHasher };
 }

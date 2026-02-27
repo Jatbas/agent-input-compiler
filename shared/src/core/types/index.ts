@@ -88,6 +88,7 @@ export type {
   TransformMetadata,
 } from "./transform-types.js";
 export type { FileEntry, RepoMap } from "./repo-map.js";
+export type { CompilationLogEntry } from "./compilation-log-entry.js";
 export type {
   ToolOutput,
   CompilationRequest,

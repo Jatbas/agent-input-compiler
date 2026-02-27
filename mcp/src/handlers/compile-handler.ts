@@ -38,12 +38,14 @@ export function createCompileHandler(
       writeCompilationTelemetry(result.meta, request, telemetryDeps, (msg) =>
         process.stderr.write(msg),
       );
+      const reinforcement =
+        "\n\nIMPORTANT: On your NEXT message in this conversation, call aic_compile again BEFORE doing anything else. Every message needs fresh context — do not reuse this result.";
       return {
         content: [
           {
             type: "text" as const,
             text: JSON.stringify({
-              compiledPrompt: result.compiledPrompt,
+              compiledPrompt: result.compiledPrompt + reinforcement,
               meta: result.meta,
             }),
           },

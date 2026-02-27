@@ -9,9 +9,16 @@ import type { Clock } from "#core/interfaces/clock.interface.js";
 import type { CacheStore } from "#core/interfaces/cache-store.interface.js";
 import type { ConfigStore } from "#core/interfaces/config-store.interface.js";
 import type { StringHasher } from "#core/interfaces/string-hasher.interface.js";
+import type { GuardStore } from "#core/interfaces/guard-store.interface.js";
+import type { CompilationLogStore } from "#core/interfaces/compilation-log-store.interface.js";
+import type { IdGenerator } from "#core/interfaces/id-generator.interface.js";
 import type { PipelineStepsDeps, PipelineStepsResult } from "#core/run-pipeline-steps.js";
 import type { RepoMap, FileEntry } from "#core/types/repo-map.js";
 import type { Milliseconds } from "#core/types/units.js";
+import type { CompilationLogEntry } from "#core/types/compilation-log-entry.js";
+import type { GuardFinding } from "#core/types/guard-types.js";
+import type { UUIDv7 } from "#core/types/identifiers.js";
+import type { ISOTimestamp } from "#core/types/identifiers.js";
 import { toTokenCount } from "#core/types/units.js";
 import { toMilliseconds } from "#core/types/units.js";
 import { toPercentage } from "#core/types/scores.js";
@@ -90,6 +97,43 @@ function buildCacheKey(
   return hasher.hash([intent, projectRoot, fileTreeHash, configHash].join("\0"));
 }
 
+function buildLogEntry(
+  compilationId: UUIDv7,
+  meta: CompilationMeta,
+  createdAt: ISOTimestamp,
+): CompilationLogEntry {
+  return {
+    id: compilationId,
+    intent: meta.intent,
+    taskClass: meta.taskClass,
+    filesSelected: meta.filesSelected,
+    filesTotal: meta.filesTotal,
+    tokensRaw: meta.tokensRaw,
+    tokensCompiled: meta.tokensCompiled,
+    tokenReductionPct: meta.tokenReductionPct,
+    cacheHit: meta.cacheHit,
+    durationMs: meta.durationMs,
+    editorId: meta.editorId,
+    modelId: meta.modelId,
+    createdAt,
+  };
+}
+
+function recordCompilationAndFindings(
+  compilationLogStore: CompilationLogStore,
+  guardStore: GuardStore,
+  idGenerator: IdGenerator,
+  clock: Clock,
+  meta: CompilationMeta,
+  findings: readonly GuardFinding[],
+): void {
+  const compilationId = idGenerator.generate();
+  const createdAt = clock.now();
+  const entry = buildLogEntry(compilationId, meta, createdAt);
+  compilationLogStore.record(entry);
+  guardStore.write(compilationId, findings);
+}
+
 export class CompilationRunner implements ICompilationRunner {
   constructor(
     private readonly deps: PipelineStepsDeps,
@@ -97,6 +141,9 @@ export class CompilationRunner implements ICompilationRunner {
     private readonly cacheStore: CacheStore,
     private readonly configStore: ConfigStore,
     private readonly stringHasher: StringHasher,
+    private readonly guardStore: GuardStore,
+    private readonly compilationLogStore: CompilationLogStore,
+    private readonly idGenerator: IdGenerator,
   ) {}
 
   async run(
@@ -115,9 +162,18 @@ export class CompilationRunner implements ICompilationRunner {
     const cached = this.cacheStore.get(key);
     if (cached !== null) {
       const task = this.deps.intentClassifier.classify(request.intent);
+      const meta = buildCacheHitMeta(request, repoMap, cached, task.taskClass);
+      recordCompilationAndFindings(
+        this.compilationLogStore,
+        this.guardStore,
+        this.idGenerator,
+        this.clock,
+        meta,
+        [],
+      );
       return {
         compiledPrompt: cached.compiledPrompt,
-        meta: buildCacheHitMeta(request, repoMap, cached, task.taskClass),
+        meta,
       };
     }
     const start = this.clock.now();
@@ -136,9 +192,18 @@ export class CompilationRunner implements ICompilationRunner {
       fileTreeHash,
       configHash,
     });
+    const meta = buildFreshMeta(request, r, durationMs);
+    recordCompilationAndFindings(
+      this.compilationLogStore,
+      this.guardStore,
+      this.idGenerator,
+      this.clock,
+      meta,
+      r.guardResult.findings,
+    );
     return {
       compiledPrompt: r.assembledPrompt,
-      meta: buildFreshMeta(request, r, durationMs),
+      meta,
     };
   }
 }

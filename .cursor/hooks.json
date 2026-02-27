@@ -4,11 +4,18 @@
     "sessionStart": [
       {
         "command": "node .cursor/hooks/session-init.cjs"
+      },
+      {
+        "command": "node .cursor/hooks/AIC-compile-context.cjs",
+        "timeout": 20
       }
     ],
     "afterFileEdit": [
       {
         "command": "node .cursor/hooks/record-edit.cjs ${filePath}"
+      },
+      {
+        "command": "node .cursor/hooks/remind-aic-compile.cjs"
       }
     ],
     "stop": [
