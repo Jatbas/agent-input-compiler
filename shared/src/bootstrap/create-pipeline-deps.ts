@@ -3,7 +3,9 @@ import type { RulePackProvider } from "#core/interfaces/rule-pack-provider.inter
 import type { BudgetConfig } from "#core/interfaces/budget-config.interface.js";
 import type { HeuristicSelectorConfig } from "#core/interfaces/heuristic-selector-config.interface.js";
 import type { PipelineStepsDeps } from "#core/run-pipeline-steps.js";
+import type { FileExtension } from "#core/types/paths.js";
 import type { TokenCount } from "#core/types/units.js";
+import { toFileExtension } from "#core/types/paths.js";
 import { IntentClassifier } from "#pipeline/intent-classifier.js";
 import { RulePackResolver } from "#pipeline/rule-pack-resolver.js";
 import { BudgetAllocator } from "#pipeline/budget-allocator.js";
@@ -28,6 +30,14 @@ import { FileSystemRepoMapSupplier } from "#adapters/file-system-repo-map-suppli
 
 export type PipelineDepsWithoutRepoMap = Omit<PipelineStepsDeps, "repoMapSupplier">;
 
+const WHITESPACE_EXCLUDED_EXTENSIONS: readonly FileExtension[] = [
+  toFileExtension(".md"),
+  toFileExtension(".mdx"),
+  toFileExtension(".py"),
+  toFileExtension(".yml"),
+  toFileExtension(".yaml"),
+];
+
 export function createPipelineDeps(
   fileContentReader: FileContentReader,
   rulePackProvider: RulePackProvider,
@@ -51,7 +61,7 @@ export function createPipelineDeps(
   const promptInjectionScanner = new PromptInjectionScanner();
   const scanners = [exclusionScanner, secretScanner, promptInjectionScanner] as const;
   const contextGuard = new ContextGuard(scanners, fileContentReader, []);
-  const whitespaceNormalizer = new WhitespaceNormalizer();
+  const whitespaceNormalizer = new WhitespaceNormalizer(WHITESPACE_EXCLUDED_EXTENSIONS);
   const commentStripper = new CommentStripper();
   const jsonCompactor = new JsonCompactor();
   const lockFileSkipper = new LockFileSkipper();

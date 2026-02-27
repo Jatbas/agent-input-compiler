@@ -2,7 +2,7 @@
 
 **Current phase:** 0.5 (Quality Release)
 **Version target:** 0.2.0
-**Phase I (Live Wiring):** 9/13 done
+**Phase I (Live Wiring):** 10/13 done
 
 ---
 
@@ -22,7 +22,7 @@ Prerequisite for everything else. Quick fixes to make the tool fully functional.
 | Guard findings write on scan    | Done   | shared/src/storage/            |
 | Config loading from aic.config  | Done   | shared/src/config/ + mcp + cli |
 | Real token counting in repo map | Done   | shared/src/adapters/           |
-| WhitespaceNormalizer exclusions | Todo   | shared/src/pipeline/           |
+| WhitespaceNormalizer exclusions | Done   | shared/src/pipeline/           |
 | 002-server-sessions migration   | Todo   | shared/src/storage/migrations/ |
 | SessionTracker interface        | Todo   | shared/src/core/interfaces/    |
 | SqliteSessionStore              | Todo   | shared/src/storage/            |
@@ -196,6 +196,7 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 - Config loading from aic.config (task 028): ResolvedConfig type and defaultResolvedConfig; ConfigLoader and LoadConfigResult interfaces; LoadConfigFromFile with Zod schema (contextBudget.maxTokens/perTaskClass, contextSelector.heuristic.maxFiles); applyConfigResult for snapshot write and budget/heuristic build; ESLint override for shared/src/config/\*\* (node:fs, node:path, zod); createPipelineDeps/createFullPipelineDeps accept optional heuristicSelectorConfig; MCP and CLI load config, write snapshot when file present, pass budget and heuristic to createFullPipelineDeps; five tests (missing file, valid file, invalid JSON/schema, explicit path)
 - Real token counting in repo map (task 029): FileSystemRepoMapSupplier now takes FileContentReader and TokenCounter; real token count via getContent + countTokens with bytes/4 fallback on read or count failure; createFullPipelineDeps wires fileContentReader and tiktokenAdapter into FileSystemRepoMapSupplier; five adapter tests (real token count, getContent throw fallback, binary excluded, totalTokens sum, empty project)
+- WhitespaceNormalizer exclusions (task 030): excludedExtensions constructor param and early return in transform (extension from filePath via lastIndexOf/slice, case-insensitive); WHITESPACE_EXCLUDED_EXTENSIONS in create-pipeline-deps (.md, .mdx, .py, .yml, .yaml); four tests (excluded unchanged, non-excluded normalized, empty list normalizes all, case-insensitive)
 - FileSystemRepoMapSupplier adapter (GlobProvider + IgnoreProvider + fs.stat, binary extension filter, language detection, bytes/4 token estimate)
 - createFullPipelineDeps in bootstrap (eliminates MCP/CLI wiring duplication, jscpd clean)
 - Wire real RepoMapSupplier in MCP server and CLI (replace stub that always threw StorageError)

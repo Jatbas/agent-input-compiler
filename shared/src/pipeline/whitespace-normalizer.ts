@@ -6,7 +6,14 @@ export class WhitespaceNormalizer implements ContentTransformer {
   readonly id = "whitespace-normalizer";
   readonly fileExtensions: readonly FileExtension[] = [];
 
-  transform(content: string, _tier: InclusionTier, _filePath: RelativePath): string {
+  constructor(private readonly excludedExtensions: readonly FileExtension[] = []) {}
+
+  transform(content: string, _tier: InclusionTier, filePath: RelativePath): string {
+    const idx = filePath.lastIndexOf(".");
+    const ext = idx >= 0 ? filePath.slice(idx).toLowerCase() : "";
+    if (this.excludedExtensions.some((e) => e.toLowerCase() === ext)) {
+      return content;
+    }
     const collapsed = content.replace(/\n{3,}/g, "\n\n");
     const lines = collapsed.split("\n");
     const normalized = lines.map((line) => {
