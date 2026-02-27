@@ -97,3 +97,5 @@ export type {
 } from "./compilation-types.js";
 export type { TelemetryEvent } from "./telemetry-types.js";
 export type { InspectRequest, PipelineTrace } from "./inspect-types.js";
+export type { ResolvedConfig } from "./resolved-config.js";
+export { defaultResolvedConfig } from "./resolved-config.js";

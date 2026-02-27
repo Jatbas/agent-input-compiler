@@ -20,17 +20,19 @@ import {
   type ProjectScope,
 } from "@aic/shared/storage/create-project-scope.js";
 import { createFullPipelineDeps } from "@aic/shared/bootstrap/create-pipeline-deps.js";
+import {
+  LoadConfigFromFile,
+  applyConfigResult,
+} from "@aic/shared/config/load-config-from-file.js";
 import type { PipelineStepsDeps } from "@aic/shared/core/run-pipeline-steps.js";
 import { SystemClock } from "@aic/shared/adapters/system-clock.js";
 import { SqliteStatusStore } from "@aic/shared/storage/sqlite-status-store.js";
 import { CompilationRunner as CompilationRunnerImpl } from "@aic/shared/pipeline/compilation-runner.js";
 import { Sha256Adapter } from "@aic/shared/adapters/sha256-adapter.js";
 import type { RulePackProvider } from "@aic/shared/core/interfaces/rule-pack-provider.interface.js";
-import type { BudgetConfig } from "@aic/shared/core/interfaces/budget-config.interface.js";
 import type { RulePack } from "@aic/shared/core/types/rule-pack.js";
 import type { TaskClass } from "@aic/shared/core/types/enums.js";
-import { toAbsolutePath } from "@aic/shared/core/types/paths.js";
-import { toTokenCount } from "@aic/shared/core/types/units.js";
+import { toAbsolutePath, toFilePath } from "@aic/shared/core/types/paths.js";
 import { TASK_CLASS } from "@aic/shared/core/types/enums.js";
 import { loadRulePackFromPath } from "@aic/shared/core/load-rule-pack.js";
 import { createProjectFileReader } from "@aic/shared/adapters/project-file-reader-adapter.js";
@@ -58,39 +60,49 @@ function createRulePackProvider(_projectRoot: string): RulePackProvider {
   };
 }
 
-function createDefaultBudgetConfig(): BudgetConfig {
-  return {
-    getMaxTokens() {
-      return toTokenCount(8000);
-    },
-    getBudgetForTaskClass(_taskClass: TaskClass) {
-      return null;
-    },
-  };
-}
-
-function createScopeAndDeps(projectRoot: string): {
+function createScopeAndDeps(
+  projectRoot: string,
+  configPath: string | null,
+): {
   scope: ProjectScope;
   deps: PipelineStepsDeps;
 } {
   const scope = createProjectScope(toAbsolutePath(projectRoot));
+  const sha256Adapter = new Sha256Adapter();
+  const configLoader = new LoadConfigFromFile();
+  const configResult = configLoader.load(
+    toAbsolutePath(projectRoot),
+    configPath !== null ? toFilePath(configPath) : null,
+  );
+  const { budgetConfig, heuristicConfig } = applyConfigResult(
+    configResult,
+    scope.configStore,
+    sha256Adapter,
+  );
   const fileContentReader: FileContentReader = {
     getContent(pathRel: RelativePath): string {
       return fs.readFileSync(path.join(projectRoot, pathRel), "utf8");
     },
   };
   const rulePackProvider = createRulePackProvider(projectRoot);
-  const budgetConfig = createDefaultBudgetConfig();
-  const deps = createFullPipelineDeps(fileContentReader, rulePackProvider, budgetConfig);
+  const deps = createFullPipelineDeps(
+    fileContentReader,
+    rulePackProvider,
+    budgetConfig,
+    heuristicConfig,
+  );
   return { scope, deps };
 }
 
-function createCompilationRunner(projectRoot: string): {
+function createCompilationRunner(
+  projectRoot: string,
+  configPath: string | null,
+): {
   runner: CompilationRunner;
   scope: ProjectScope;
   stringHasher: InstanceType<typeof Sha256Adapter>;
 } {
-  const { scope, deps } = createScopeAndDeps(projectRoot);
+  const { scope, deps } = createScopeAndDeps(projectRoot, configPath);
   const stringHasher = new Sha256Adapter();
   const runner = new CompilationRunnerImpl(
     deps,
@@ -105,8 +117,11 @@ function createCompilationRunner(projectRoot: string): {
   return { runner, scope, stringHasher };
 }
 
-function createInspectRunner(projectRoot: string): InspectRunner {
-  const { scope, deps } = createScopeAndDeps(projectRoot);
+function createInspectRunner(
+  projectRoot: string,
+  configPath: string | null,
+): InspectRunner {
+  const { scope, deps } = createScopeAndDeps(projectRoot, configPath);
   return new InspectRunner(deps, scope.clock);
 }
 
@@ -120,7 +135,7 @@ program
   .option("--db <path>", "path to SQLite database")
   .action(
     createIntentAction(CompilationArgsSchema, (args) => {
-      const result = createCompilationRunner(args.projectRoot);
+      const result = createCompilationRunner(args.projectRoot, args.configPath ?? null);
       return compileCommand(args, result.runner, {
         telemetryStore: result.scope.telemetryStore,
         clock: result.scope.clock,
@@ -138,7 +153,10 @@ program
   .option("--db <path>", "path to SQLite database")
   .action(
     createIntentAction(InspectArgsSchema, (args) =>
-      inspectCommand(args, createInspectRunner(args.projectRoot)),
+      inspectCommand(
+        args,
+        createInspectRunner(args.projectRoot, args.configPath ?? null),
+      ),
     ),
   );
 

@@ -179,6 +179,7 @@ function allowOnlyHashAliases(allowed, layerName) {
 }
 
 const CORE_HASH_WHITELIST = allowOnlyHashAliases(["core"], "core/pipeline");
+const CONFIG_HASH_WHITELIST = allowOnlyHashAliases(["core"], "config");
 const STORAGE_HASH_WHITELIST = allowOnlyHashAliases(["core", "storage"], "storage");
 const STORAGE_SCOPE_HASH_WHITELIST = allowOnlyHashAliases(
   ["core", "storage", "adapters"],
@@ -725,6 +726,67 @@ export default tseslint.config(
             {
               group: ["**/pipeline/**"],
               message: "Storage must not import pipeline code.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  // ─── Config loader: allow node:fs, node:path, zod at boundary (ADR-009) ───
+  {
+    files: ["shared/src/config/**/*.ts"],
+    rules: {
+      "no-restricted-syntax": ["error", ...BASE_RESTRICTED, CONFIG_HASH_WHITELIST],
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "node:fs/promises",
+              message: "Config loader uses sync fs only.",
+            },
+            {
+              name: "node:crypto",
+              message: "Use a Hasher interface. Crypto is wrapped in adapters/.",
+            },
+            {
+              name: "crypto",
+              message: "Use a Hasher interface. Crypto is wrapped in adapters/.",
+            },
+            {
+              name: "tiktoken",
+              message:
+                "Use the Tokenizer interface. External libs are wrapped in adapters/.",
+            },
+            {
+              name: "fast-glob",
+              message:
+                "Use the GlobProvider interface. External libs are wrapped in adapters/.",
+            },
+            {
+              name: "ignore",
+              message:
+                "Use the IgnoreProvider interface. External libs are wrapped in adapters/.",
+            },
+            {
+              name: "typescript",
+              message: "Use LanguageProvider interface.",
+            },
+          ],
+          patterns: [
+            BAN_RELATIVE_PARENT,
+            {
+              group: ["@aic/cli", "@aic/cli/*", "**/cli/**"],
+              message: "Config must not import CLI code.",
+            },
+            {
+              group: ["@aic/mcp", "@aic/mcp/*", "**/mcp/**"],
+              message: "Config must not import MCP code.",
+            },
+            {
+              group: ["**/pipeline/**"],
+              message: "Config must not import pipeline code.",
             },
           ],
         },

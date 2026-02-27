@@ -1,6 +1,7 @@
 import type { FileContentReader } from "#core/interfaces/file-content-reader.interface.js";
 import type { RulePackProvider } from "#core/interfaces/rule-pack-provider.interface.js";
 import type { BudgetConfig } from "#core/interfaces/budget-config.interface.js";
+import type { HeuristicSelectorConfig } from "#core/interfaces/heuristic-selector-config.interface.js";
 import type { PipelineStepsDeps } from "#core/run-pipeline-steps.js";
 import type { TokenCount } from "#core/types/units.js";
 import { IntentClassifier } from "#pipeline/intent-classifier.js";
@@ -31,6 +32,7 @@ export function createPipelineDeps(
   fileContentReader: FileContentReader,
   rulePackProvider: RulePackProvider,
   budgetConfig: BudgetConfig,
+  heuristicSelectorConfig?: HeuristicSelectorConfig,
 ): PipelineDepsWithoutRepoMap {
   const tiktokenAdapter = new TiktokenAdapter();
   const tokenCounter = (text: string): TokenCount => tiktokenAdapter.countTokens(text);
@@ -40,9 +42,10 @@ export function createPipelineDeps(
   const intentClassifier = new IntentClassifier();
   const rulePackResolver = new RulePackResolver(rulePackProvider);
   const budgetAllocator = new BudgetAllocator(budgetConfig);
-  const heuristicSelector = new HeuristicSelector(languageProviders, {
-    maxFiles: 20,
-  });
+  const heuristicSelector = new HeuristicSelector(
+    languageProviders,
+    heuristicSelectorConfig ?? { maxFiles: 20 },
+  );
   const exclusionScanner = new ExclusionScanner();
   const secretScanner = new SecretScanner();
   const promptInjectionScanner = new PromptInjectionScanner();
@@ -86,8 +89,14 @@ export function createFullPipelineDeps(
   fileContentReader: FileContentReader,
   rulePackProvider: RulePackProvider,
   budgetConfig: BudgetConfig,
+  heuristicSelectorConfig?: HeuristicSelectorConfig,
 ): PipelineStepsDeps {
-  const partial = createPipelineDeps(fileContentReader, rulePackProvider, budgetConfig);
+  const partial = createPipelineDeps(
+    fileContentReader,
+    rulePackProvider,
+    budgetConfig,
+    heuristicSelectorConfig,
+  );
   const repoMapSupplier = new FileSystemRepoMapSupplier(
     new FastGlobAdapter(),
     new IgnoreAdapter(),

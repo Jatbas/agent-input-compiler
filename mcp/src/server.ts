@@ -17,6 +17,10 @@ import { createCompileHandler } from "./handlers/compile-handler.js";
 import { handleInspect } from "./handlers/inspect-handler.js";
 import { createProjectScope } from "@aic/shared/storage/create-project-scope.js";
 import { createFullPipelineDeps } from "@aic/shared/bootstrap/create-pipeline-deps.js";
+import {
+  LoadConfigFromFile,
+  applyConfigResult,
+} from "@aic/shared/config/load-config-from-file.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CompilationRunner as CompilationRunnerImpl } from "@aic/shared/pipeline/compilation-runner.js";
@@ -65,12 +69,23 @@ export function createDefaultBudgetConfig(): BudgetConfig {
 
 export function createMcpServer(projectRoot: AbsolutePath): McpServer {
   const scope = createProjectScope(projectRoot);
+  const sha256Adapter = new Sha256Adapter();
+  const configLoader = new LoadConfigFromFile();
+  const configResult = configLoader.load(projectRoot, null);
+  const { budgetConfig, heuristicConfig } = applyConfigResult(
+    configResult,
+    scope.configStore,
+    sha256Adapter,
+  );
   const fileContentReader = createFileContentReader(projectRoot);
   const rulePackProvider = createRulePackProvider(projectRoot);
-  const budgetConfig = createDefaultBudgetConfig();
-  const deps = createFullPipelineDeps(fileContentReader, rulePackProvider, budgetConfig);
+  const deps = createFullPipelineDeps(
+    fileContentReader,
+    rulePackProvider,
+    budgetConfig,
+    heuristicConfig,
+  );
   const inspectRunner = new InspectRunner(deps, scope.clock);
-  const sha256Adapter = new Sha256Adapter();
   const compilationRunner = new CompilationRunnerImpl(
     deps,
     scope.clock,
