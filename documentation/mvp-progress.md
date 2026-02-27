@@ -2,7 +2,7 @@
 
 **Current phase:** 0.5 (Quality Release)
 **Version target:** 0.2.0
-**Phase I (Live Wiring):** 8/13 done — Real token counting next
+**Phase I (Live Wiring):** 9/13 done
 
 ---
 
@@ -21,7 +21,7 @@ Prerequisite for everything else. Quick fixes to make the tool fully functional.
 | Telemetry write on compile      | Done   | shared/src/core/ + mcp + cli   |
 | Guard findings write on scan    | Done   | shared/src/storage/            |
 | Config loading from aic.config  | Done   | shared/src/config/ + mcp + cli |
-| Real token counting in repo map | Todo   | shared/src/adapters/           |
+| Real token counting in repo map | Done   | shared/src/adapters/           |
 | WhitespaceNormalizer exclusions | Todo   | shared/src/pipeline/           |
 | 002-server-sessions migration   | Todo   | shared/src/storage/migrations/ |
 | SessionTracker interface        | Todo   | shared/src/core/interfaces/    |
@@ -191,10 +191,11 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 ### 2026-02-27
 
-**Components:** FileSystemRepoMapSupplier, createFullPipelineDeps, Wire real InspectRunner (CLI), Phase 0.5 planning, Telemetry write on compile, Guard findings write on scan, Config loading from aic.config
+**Components:** FileSystemRepoMapSupplier, createFullPipelineDeps, Wire real InspectRunner (CLI), Phase 0.5 planning, Telemetry write on compile, Guard findings write on scan, Config loading from aic.config, Real token counting in repo map
 **Completed:**
 
 - Config loading from aic.config (task 028): ResolvedConfig type and defaultResolvedConfig; ConfigLoader and LoadConfigResult interfaces; LoadConfigFromFile with Zod schema (contextBudget.maxTokens/perTaskClass, contextSelector.heuristic.maxFiles); applyConfigResult for snapshot write and budget/heuristic build; ESLint override for shared/src/config/\*\* (node:fs, node:path, zod); createPipelineDeps/createFullPipelineDeps accept optional heuristicSelectorConfig; MCP and CLI load config, write snapshot when file present, pass budget and heuristic to createFullPipelineDeps; five tests (missing file, valid file, invalid JSON/schema, explicit path)
+- Real token counting in repo map (task 029): FileSystemRepoMapSupplier now takes FileContentReader and TokenCounter; real token count via getContent + countTokens with bytes/4 fallback on read or count failure; createFullPipelineDeps wires fileContentReader and tiktokenAdapter into FileSystemRepoMapSupplier; five adapter tests (real token count, getContent throw fallback, binary excluded, totalTokens sum, empty project)
 - FileSystemRepoMapSupplier adapter (GlobProvider + IgnoreProvider + fs.stat, binary extension filter, language detection, bytes/4 token estimate)
 - createFullPipelineDeps in bootstrap (eliminates MCP/CLI wiring duplication, jscpd clean)
 - Wire real RepoMapSupplier in MCP server and CLI (replace stub that always threw StorageError)

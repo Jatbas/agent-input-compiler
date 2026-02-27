@@ -3,12 +3,12 @@ import * as path from "node:path";
 import type { RepoMapSupplier } from "#core/interfaces/repo-map-supplier.interface.js";
 import type { GlobProvider } from "#core/interfaces/glob-provider.interface.js";
 import type { IgnoreProvider } from "#core/interfaces/ignore-provider.interface.js";
+import type { FileContentReader } from "#core/interfaces/file-content-reader.interface.js";
+import type { TokenCounter } from "#core/interfaces/token-counter.interface.js";
 import type { AbsolutePath, RelativePath } from "#core/types/paths.js";
 import type { RepoMap, FileEntry } from "#core/types/repo-map.js";
 import { toBytes, toTokenCount } from "#core/types/units.js";
 import { toISOTimestamp } from "#core/types/identifiers.js";
-
-const BYTES_PER_TOKEN = 4;
 
 const BINARY_EXTENSIONS: ReadonlySet<string> = new Set([
   ".png",
@@ -113,22 +113,35 @@ function isBinaryExtension(ext: string): boolean {
   return BINARY_EXTENSIONS.has(ext);
 }
 
-function tryStatFile(fullPath: string, relativePath: RelativePath): FileEntry | null {
+function tryBuildEntry(
+  fullPath: string,
+  relativePath: RelativePath,
+  fileContentReader: FileContentReader,
+  tokenCounter: TokenCounter,
+): FileEntry | null {
   try {
     const stat = fs.statSync(fullPath);
     if (!stat.isFile()) return null;
     const ext = path.extname(relativePath).toLowerCase();
     if (isBinaryExtension(ext)) return null;
     const sizeBytes = toBytes(stat.size);
-    const estimatedTokens = toTokenCount(Math.ceil(stat.size / BYTES_PER_TOKEN));
-    const entry: FileEntry = {
+    const lastModified = toISOTimestamp(stat.mtime.toISOString());
+    const language = languageFromExtension(ext);
+    const estimatedTokens = ((): ReturnType<typeof toTokenCount> => {
+      try {
+        const content = fileContentReader.getContent(relativePath);
+        return tokenCounter.countTokens(content);
+      } catch {
+        return toTokenCount(Math.ceil(stat.size / 4));
+      }
+    })();
+    return {
       path: relativePath,
-      language: languageFromExtension(ext),
+      language,
       sizeBytes,
       estimatedTokens,
-      lastModified: toISOTimestamp(stat.mtime.toISOString()),
+      lastModified,
     };
-    return entry;
   } catch {
     return null;
   }
@@ -138,6 +151,8 @@ export class FileSystemRepoMapSupplier implements RepoMapSupplier {
   constructor(
     private readonly globProvider: GlobProvider,
     private readonly ignoreProvider: IgnoreProvider,
+    private readonly fileContentReader: FileContentReader,
+    private readonly tokenCounter: TokenCounter,
   ) {}
 
   getRepoMap(projectRoot: AbsolutePath): Promise<RepoMap> {
@@ -147,15 +162,20 @@ export class FileSystemRepoMapSupplier implements RepoMapSupplier {
       .filter((f) => this.ignoreProvider.accepts(f, projectRoot))
       .reduce<readonly FileEntry[]>((acc, relativePath) => {
         const fullPath = path.join(projectRoot, relativePath);
-        const entry = tryStatFile(fullPath, relativePath);
+        const entry = tryBuildEntry(
+          fullPath,
+          relativePath,
+          this.fileContentReader,
+          this.tokenCounter,
+        );
         return entry !== null ? [...acc, entry] : acc;
       }, []);
-    const totalTokens = entries.reduce((sum, e) => sum + e.estimatedTokens, 0);
+    const totalTokensRaw = entries.reduce((sum, e) => sum + e.estimatedTokens, 0);
     return Promise.resolve({
       root: projectRoot,
       files: entries,
       totalFiles: entries.length,
-      totalTokens: toTokenCount(totalTokens),
+      totalTokens: toTokenCount(totalTokensRaw),
     });
   }
 }

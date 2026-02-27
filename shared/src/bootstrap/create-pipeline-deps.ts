@@ -100,6 +100,8 @@ export function createFullPipelineDeps(
   const repoMapSupplier = new FileSystemRepoMapSupplier(
     new FastGlobAdapter(),
     new IgnoreAdapter(),
+    fileContentReader,
+    partial.tokenCounter,
   );
   return { ...partial, repoMapSupplier };
 }
