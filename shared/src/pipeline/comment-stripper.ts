@@ -4,10 +4,10 @@ import type { InclusionTier } from "#core/types/enums.js";
 import { toFileExtension } from "#core/types/paths.js";
 import { INCLUSION_TIER } from "#core/types/enums.js";
 
+// Only C-family comment syntax (// and /* */) is handled; # languages excluded
 const COMMENT_STRIPPER_EXTENSIONS: readonly FileExtension[] = [
   toFileExtension(".ts"),
   toFileExtension(".js"),
-  toFileExtension(".py"),
   toFileExtension(".go"),
   toFileExtension(".java"),
   toFileExtension(".rs"),
