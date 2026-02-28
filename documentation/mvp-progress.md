@@ -23,13 +23,14 @@ Prerequisite for everything else. Quick fixes to make the tool fully functional.
 | Config loading from aic.config  | Done   | shared/src/config/ + mcp + cli |
 | Real token counting in repo map | Done   | shared/src/adapters/           |
 | WhitespaceNormalizer exclusions | Done   | shared/src/pipeline/           |
-| 002-server-sessions migration   | Todo   | shared/src/storage/migrations/ |
+| 002-server-sessions migration   | Done   | shared/src/storage/migrations/ |
 | SessionTracker interface        | Todo   | shared/src/core/interfaces/    |
 | SqliteSessionStore              | Todo   | shared/src/storage/            |
 | sessionStart compile hook       | Done   | .cursor/hooks/                 |
 | Startup self-check (integrity)  | Todo   | mcp/src/                       |
 | Auto-install trigger rule       | Todo   | mcp/src/                       |
 | Server lifecycle hooks          | Todo   | mcp/src/                       |
+| Telemetry conversation tracking | Todo   | shared/src/core/ + storage     |
 
 ### Phase J — Intent & Selection Quality
 
@@ -188,6 +189,13 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 ---
 
 ## Daily Log
+
+### 2026-02-28
+
+**Components:** 002-server-sessions migration
+**Completed:**
+
+- 002-server-sessions migration (task 031): migration 002-server-sessions.ts creates server_sessions table (session_id, started_at, stopped_at, stop_reason, pid, version); open-database runs [migration001, migration002]; migration-runner test applies_002_and_creates_server_sessions_table
 
 ### 2026-02-27
 

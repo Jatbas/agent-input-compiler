@@ -9,6 +9,7 @@ import { toMilliseconds } from "#core/types/units.js";
 import type { Clock } from "#core/interfaces/clock.interface.js";
 import { SqliteMigrationRunner } from "../sqlite-migration-runner.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
+import { migration as migration002 } from "../migrations/002-server-sessions.js";
 
 const clock: Clock = {
   now(): ReturnType<typeof toISOTimestamp> {
@@ -67,6 +68,31 @@ describe("SqliteMigrationRunner", () => {
     readDb.close();
 
     expect(rows).toHaveLength(1);
+  });
+
+  it("applies_002_and_creates_server_sessions_table", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "aic-migration-test-"));
+    const dbPath = join(tmpDir, "aic.sqlite");
+    const db = new Database(dbPath);
+    const runner = new SqliteMigrationRunner(clock);
+    runner.run(db, [migration001, migration002]);
+    db.close();
+
+    const readDb = new Database(dbPath);
+    const migrationRows = readDb.prepare("SELECT id FROM schema_migrations").all() as {
+      id: string;
+    }[];
+    expect(migrationRows).toHaveLength(2);
+    expect(migrationRows.some((r) => r.id === "002-server-sessions")).toBe(true);
+
+    const tableRows = readDb
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'server_sessions'",
+      )
+      .all() as { name: string }[];
+    readDb.close();
+    expect(tableRows).toHaveLength(1);
+    expect(tableRows[0]?.name).toBe("server_sessions");
   });
 
   it("creates compilation_log and other MVP tables", () => {
