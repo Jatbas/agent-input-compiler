@@ -282,6 +282,14 @@ Work through this checklist using the verified Exploration Report. Every item mu
 - Executes SQL? → needs `ExecutableDb`
 - Reads/writes files? → check layer constraints (storage bans `node:fs`)
 
+**Conditional dependencies:** For each dependency the component creates or wires, ask: "Is this always needed, or only when certain project characteristics hold?" If a dependency is only relevant under certain conditions (e.g., a language provider only matters when the project has files of that language; a WASM grammar only matters for a specific file extension), the component must NOT eagerly instantiate it. Instead:
+
+- Accept it as an **injected parameter** (optional or via an array) — never create it internally
+- The **composition root** decides at runtime whether to create it, based on observable project state (e.g., file extension scan)
+- If async initialization is required (WASM, network), it stays in the composition root's `main()` — the bootstrap functions remain sync
+
+This prevents wasting startup time and memory on resources the project never uses. As more language providers, external integrations, or heavy adapters are added, this scales linearly only for what the project actually needs.
+
 If unsure whether a parameter is needed, **ask the user**.
 
 **Method behavior:** For each method, write ONE sentence describing exact behavior. If the sentence contains "or", "optionally", or "depending on" — you haven't decided. Pick one or **ask the user**.
@@ -460,6 +468,8 @@ M. **SIMPLICITY CHECK:** Count "Create" rows in the Files table. For a single-co
 
 N. **CONSUMER COMPLETENESS (conditional — only if task modifies existing interfaces/types):** For each modified interface/type, Grep the codebase for importers. Every importer that will break must appear as a "Modify" row in the Files table. Missing consumers = fail. If no interfaces/types are modified, this check passes automatically.
 
+O. **CONDITIONAL DEPENDENCY LOADING (conditional — composition roots and bootstrap functions):** For each `new` or `await X.create()` call in the wiring steps, check: is this dependency always needed, or only when certain project characteristics hold (specific file extensions, config flags)? If the dependency is conditional but the task eagerly creates it inside a bootstrap function = fail. The task must accept it as an injected parameter and create it conditionally in `main()`. If no conditional dependencies exist, this check passes automatically.
+
 **Step 2: Score the rubric.** Score each dimension 0 (fail) or 1 (pass):
 
 1. Interface accuracy (check B)
@@ -476,6 +486,7 @@ N. **CONSUMER COMPLETENESS (conditional — only if task modifies existing inter
 12. Wiring accuracy — composition roots only (check L)
 13. Simplicity (check M)
 14. Consumer completeness — conditional (check N)
+15. Conditional dependency loading — conditional (check O)
 
 ### C.6 Score and act
 

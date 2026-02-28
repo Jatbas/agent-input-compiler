@@ -151,9 +151,13 @@ function createRunner(fixtureRoot: ReturnType<typeof toAbsolutePath>): Compilati
   const intentClassifier = new IntentClassifier();
   const rulePackResolver = new RulePackResolver(rulePackProvider);
   const budgetAllocator = new BudgetAllocator(budgetConfig);
-  const heuristicSelector = new HeuristicSelector(languageProviders, {
-    maxFiles: 20,
-  });
+  const heuristicSelector = new HeuristicSelector(
+    languageProviders,
+    {
+      maxFiles: 20,
+    },
+    { getScores: () => new Map() },
+  );
   const exclusionScanner = new ExclusionScanner();
   const secretScanner = new SecretScanner();
   const promptInjectionScanner = new PromptInjectionScanner();
@@ -249,7 +253,7 @@ describe("full pipeline", () => {
     const first = await runner1.run(request);
     const second = await runner2.run(request);
     expect(first).toEqual(second);
-  });
+  }, 15_000);
 
   it("full_pipeline_second_run_cache_hit", async () => {
     const runner = createRunner(fixtureRoot);

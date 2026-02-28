@@ -5,6 +5,7 @@
 ![Local-first](https://img.shields.io/badge/local--first-yes-brightgreen)
 ![Telemetry](https://img.shields.io/badge/telemetry-opt--in-lightgrey)
 ![MCP Compatible](https://img.shields.io/badge/MCP-compatible-purple)
+![AI-Assisted Engineering](https://img.shields.io/badge/AI--assisted-engineering-blueviolet)
 
 > Deterministic context compiler for AI coding tools. Local-first MCP server + CLI that selects relevant files and compresses context before it reaches the model.
 
@@ -359,6 +360,12 @@ Reproducible benchmarks across multiple real-world repos and task types are need
 | OSS Release (`1.0.0`)           | Public repo, Claude Code integration, agentic session tracking, Specification Compiler | Planned     |
 | Semantic + Governance (`2.0.0`) | Vector search, policy engine, conversation compression for agents                      | Planned     |
 | Enterprise Platform (`3.0.0`)   | RBAC, SSO, fleet management, dashboard                                                 | Future      |
+
+---
+
+## Development approach
+
+This project uses AI coding assistants as part of the development workflow. Every change passes through multiple verification layers before it's accepted: ESLint enforces architecture boundaries, immutability rules, and type safety at the linter level; TypeScript strict mode catches type errors at compile time; integration tests verify behavior; and human review validates design decisions, intent, and edge cases that automation cannot catch. The architecture is designed so that any contributor — human or AI — produces code that meets the same standards.
 
 ---
 

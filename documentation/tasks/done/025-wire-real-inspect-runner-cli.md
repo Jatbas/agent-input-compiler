@@ -140,3 +140,9 @@ If during execution you encounter something unexpected:
 3. Report to the user and wait for guidance
 
 **Circuit breaker:** If you find yourself making 3+ workarounds or adaptations to make something work (type casts, extra plumbing, output patching), stop. The approach is likely wrong. List the adaptations, report to the user, and re-evaluate before continuing.
+
+---
+
+## Post-completion: Conditional dependency loading refactor
+
+`createScopeAndDeps`, `createCompilationRunner`, and `createInspectRunner` were refactored back to sync functions. They now accept `additionalProviders?: readonly LanguageProvider[]`. Each CLI action handler calls `initLanguageProviders(projectRoot)` which scans for file extensions and only creates providers for languages present in the project, then passes the result to the sync bootstrap functions.

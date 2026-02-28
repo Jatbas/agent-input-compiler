@@ -167,9 +167,13 @@ describe("CompilationRunner", () => {
   const intentClassifier = new IntentClassifier();
   const rulePackResolver = new RulePackResolver(rulePackProvider);
   const budgetAllocator = new BudgetAllocator(budgetConfig);
-  const heuristicSelector = new HeuristicSelector(languageProviders, {
-    maxFiles: 20,
-  });
+  const heuristicSelector = new HeuristicSelector(
+    languageProviders,
+    {
+      maxFiles: 20,
+    },
+    { getScores: () => new Map() },
+  );
   const exclusionScanner = new ExclusionScanner();
   const secretScanner = new SecretScanner();
   const promptInjectionScanner = new PromptInjectionScanner();

@@ -8,6 +8,7 @@ import { inspectCommand } from "./commands/inspect.js";
 import { initCommand } from "./commands/init.js";
 import { statusCommand } from "./commands/status.js";
 import type { CompilationRunner } from "@aic/shared/core/interfaces/compilation-runner.interface.js";
+import type { LanguageProvider } from "@aic/shared/core/interfaces/language-provider.interface.js";
 import { InspectRunner } from "@aic/shared/pipeline/inspect-runner.js";
 import type { StatusRequest } from "@aic/shared/core/types/status-types.js";
 import { createCachingFileContentReader } from "@aic/shared/adapters/caching-file-content-reader.js";
@@ -33,6 +34,8 @@ import { toAbsolutePath, toFilePath } from "@aic/shared/core/types/paths.js";
 import { TASK_CLASS } from "@aic/shared/core/types/enums.js";
 import { loadRulePackFromPath } from "@aic/shared/core/load-rule-pack.js";
 import { createProjectFileReader } from "@aic/shared/adapters/project-file-reader-adapter.js";
+import { PythonProvider } from "@aic/shared/adapters/python-provider.js";
+import { FastGlobAdapter } from "@aic/shared/adapters/fast-glob-adapter.js";
 import { resolveBaseArgs, runAction, createIntentAction } from "./utils/run-action.js";
 
 function defaultRulePack(): RulePack {
@@ -57,9 +60,27 @@ function createRulePackProvider(_projectRoot: string): RulePackProvider {
   };
 }
 
+function projectHasExtension(projectRoot: string, ext: string): boolean {
+  const glob = new FastGlobAdapter();
+  return (
+    glob.find(
+      [`**/*${ext}`, `!node_modules/**`, `!.git/**`, `!.aic/**`],
+      toAbsolutePath(projectRoot),
+    ).length > 0
+  );
+}
+
+async function initLanguageProviders(
+  projectRoot: string,
+): Promise<readonly LanguageProvider[]> {
+  if (!projectHasExtension(projectRoot, ".py")) return [];
+  return [await PythonProvider.create()];
+}
+
 function createScopeAndDeps(
   projectRoot: string,
   configPath: string | null,
+  additionalProviders?: readonly LanguageProvider[],
 ): {
   scope: ProjectScope;
   deps: PipelineStepsDeps;
@@ -83,6 +104,7 @@ function createScopeAndDeps(
     fileContentReader,
     rulePackProvider,
     budgetConfig,
+    additionalProviders,
     heuristicConfig,
   );
   return { scope, deps };
@@ -91,12 +113,17 @@ function createScopeAndDeps(
 function createCompilationRunner(
   projectRoot: string,
   configPath: string | null,
+  additionalProviders?: readonly LanguageProvider[],
 ): {
   runner: CompilationRunner;
   scope: ProjectScope;
   stringHasher: InstanceType<typeof Sha256Adapter>;
 } {
-  const { scope, deps } = createScopeAndDeps(projectRoot, configPath);
+  const { scope, deps } = createScopeAndDeps(
+    projectRoot,
+    configPath,
+    additionalProviders,
+  );
   const stringHasher = new Sha256Adapter();
   const runner = new CompilationRunnerImpl(
     deps,
@@ -114,8 +141,13 @@ function createCompilationRunner(
 function createInspectRunner(
   projectRoot: string,
   configPath: string | null,
+  additionalProviders?: readonly LanguageProvider[],
 ): InspectRunner {
-  const { scope, deps } = createScopeAndDeps(projectRoot, configPath);
+  const { scope, deps } = createScopeAndDeps(
+    projectRoot,
+    configPath,
+    additionalProviders,
+  );
   return new InspectRunner(deps, scope.clock);
 }
 
@@ -128,8 +160,13 @@ program
   .option("--config <path>", "path to aic.config.json")
   .option("--db <path>", "path to SQLite database")
   .action(
-    createIntentAction(CompilationArgsSchema, (args) => {
-      const result = createCompilationRunner(args.projectRoot, args.configPath ?? null);
+    createIntentAction(CompilationArgsSchema, async (args) => {
+      const providers = await initLanguageProviders(args.projectRoot);
+      const result = createCompilationRunner(
+        args.projectRoot,
+        args.configPath ?? null,
+        providers,
+      );
       return compileCommand(args, result.runner, {
         telemetryStore: result.scope.telemetryStore,
         clock: result.scope.clock,
@@ -146,12 +183,13 @@ program
   .option("--config <path>", "path to aic.config.json")
   .option("--db <path>", "path to SQLite database")
   .action(
-    createIntentAction(InspectArgsSchema, (args) =>
-      inspectCommand(
+    createIntentAction(InspectArgsSchema, async (args) => {
+      const providers = await initLanguageProviders(args.projectRoot);
+      return inspectCommand(
         args,
-        createInspectRunner(args.projectRoot, args.configPath ?? null),
-      ),
-    ),
+        createInspectRunner(args.projectRoot, args.configPath ?? null, providers),
+      );
+    }),
   );
 
 program

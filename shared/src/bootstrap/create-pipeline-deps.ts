@@ -2,6 +2,7 @@ import type { FileContentReader } from "#core/interfaces/file-content-reader.int
 import type { RulePackProvider } from "#core/interfaces/rule-pack-provider.interface.js";
 import type { BudgetConfig } from "#core/interfaces/budget-config.interface.js";
 import type { HeuristicSelectorConfig } from "#core/interfaces/heuristic-selector-config.interface.js";
+import type { LanguageProvider } from "#core/interfaces/language-provider.interface.js";
 import type { PipelineStepsDeps } from "#core/run-pipeline-steps.js";
 import type { FileExtension } from "#core/types/paths.js";
 import type { TokenCount } from "#core/types/units.js";
@@ -10,6 +11,7 @@ import { IntentClassifier } from "#pipeline/intent-classifier.js";
 import { RulePackResolver } from "#pipeline/rule-pack-resolver.js";
 import { BudgetAllocator } from "#pipeline/budget-allocator.js";
 import { HeuristicSelector } from "#pipeline/heuristic-selector.js";
+import { ImportGraphProximityScorer } from "#pipeline/import-graph-proximity-scorer.js";
 import { ExclusionScanner } from "#pipeline/exclusion-scanner.js";
 import { SecretScanner } from "#pipeline/secret-scanner.js";
 import { PromptInjectionScanner } from "#pipeline/prompt-injection-scanner.js";
@@ -44,6 +46,7 @@ export function createPipelineDeps(
   fileContentReader: FileContentReader,
   rulePackProvider: RulePackProvider,
   budgetConfig: BudgetConfig,
+  additionalProviders?: readonly LanguageProvider[],
   heuristicSelectorConfig?: HeuristicSelectorConfig,
 ): PipelineDepsWithoutRepoMap {
   const tiktokenAdapter = new TiktokenAdapter();
@@ -53,15 +56,21 @@ export function createPipelineDeps(
   const genericProvider = new GenericProvider();
   const languageProviders = [
     typeScriptProvider,
+    ...(additionalProviders ?? []),
     genericImportProvider,
     genericProvider,
   ] as const;
   const intentClassifier = new IntentClassifier();
   const rulePackResolver = new RulePackResolver(rulePackProvider);
   const budgetAllocator = new BudgetAllocator(budgetConfig);
+  const importProximityScorer = new ImportGraphProximityScorer(
+    fileContentReader,
+    languageProviders,
+  );
   const heuristicSelector = new HeuristicSelector(
     languageProviders,
     heuristicSelectorConfig ?? { maxFiles: 20 },
+    importProximityScorer,
   );
   const exclusionScanner = new ExclusionScanner();
   const secretScanner = new SecretScanner();
@@ -108,12 +117,14 @@ export function createFullPipelineDeps(
   fileContentReader: FileContentReader,
   rulePackProvider: RulePackProvider,
   budgetConfig: BudgetConfig,
+  additionalProviders?: readonly LanguageProvider[],
   heuristicSelectorConfig?: HeuristicSelectorConfig,
 ): PipelineStepsDeps {
   const partial = createPipelineDeps(
     fileContentReader,
     rulePackProvider,
     budgetConfig,
+    additionalProviders,
     heuristicSelectorConfig,
   );
   const repoMapSupplier = new FileSystemRepoMapSupplier(

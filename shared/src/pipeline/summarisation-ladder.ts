@@ -5,6 +5,7 @@ import type { SelectedFile } from "#core/types/selected-file.js";
 import type { TokenCount } from "#core/types/units.js";
 import type { InclusionTier } from "#core/types/enums.js";
 import { INCLUSION_TIER } from "#core/types/enums.js";
+import { getProvider } from "./get-provider.js";
 
 type TierTextFn = (
   content: string,
@@ -48,16 +49,6 @@ const TIER_ORDER: readonly InclusionTier[] = [
 function nextTier(tier: InclusionTier): InclusionTier | null {
   const i = TIER_ORDER.indexOf(tier);
   return i >= 0 && i < TIER_ORDER.length - 1 ? (TIER_ORDER[i + 1] ?? null) : null;
-}
-
-function getProvider(
-  path: string,
-  providers: readonly LanguageProvider[],
-): LanguageProvider | undefined {
-  const ext = path.slice(path.lastIndexOf("."));
-  return providers.find((p) =>
-    p.extensions.some((e) => e.toLowerCase() === ext.toLowerCase()),
-  );
 }
 
 export class SummarisationLadder implements ISummarisationLadder {

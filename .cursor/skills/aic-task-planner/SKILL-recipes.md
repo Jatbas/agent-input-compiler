@@ -129,6 +129,40 @@ Composition root tasks use the tiered type system (see `SKILL-guardrails.md` "De
 
 When in doubt, use the higher tier — more detail is always safe. Abbreviated summaries like "(interface with X, Y, Z)" are never acceptable at any tier.
 
+**Conditional dependency loading:** Composition roots must NOT eagerly instantiate dependencies that are only relevant under certain project characteristics. For each concrete class the root creates, ask: "Is this always needed, or only when the project has certain files/configuration?" Examples:
+
+- A `PythonProvider` (loads WASM grammar) is only useful when the project has `.py` files
+- A future `GoProvider` is only useful when the project has `.go` files
+- An external service client is only useful when the config enables it
+
+For conditional dependencies:
+
+1. The **bootstrap function** (e.g. `createPipelineDeps`) accepts them as an injected parameter (`additionalProviders?: readonly LanguageProvider[]`), never creates them internally
+2. The **composition root's `main()`** decides whether to create them based on observable project state (e.g. scan for file extensions using existing glob adapter)
+3. If creation is async (WASM init, network), it stays in `main()` — the bootstrap function stays sync
+4. Functions like `createMcpServer` / `createFullPipelineDeps` remain sync and receive the pre-created dependencies
+
+This ensures startup cost scales with what the project actually uses, not with how many providers/adapters exist in the codebase.
+
+**Immutable accumulation pattern:** Under the project's immutability rules (no `.push()`, no `let`), conditional provider accumulation uses the ternary-spread pattern:
+
+```typescript
+const py = projectHasExtension(projectRoot, ".py") ? [await PythonProvider.create()] : [];
+const go = projectHasExtension(projectRoot, ".go") ? [await GoProvider.create()] : [];
+return [...py, ...go];
+```
+
+Each provider gets one `const` line; the return statement spreads them all. New providers add one line and extend the spread.
+
+**Shared expensive init:** When multiple providers share an expensive initialization step (e.g. `Parser.init()` for WASM-based tree-sitter providers), factor it into the orchestrating function (`initLanguageProviders`) rather than duplicating it in each provider's `create()` factory. Call it once before creating any provider that depends on it.
+
+**Wiring steps must be split per file:** When a task wires into multiple composition roots (e.g. both `mcp/src/server.ts` and `cli/src/main.ts`), split into separate steps (Step 5a, Step 5b) — one per file. The one-file-per-step guardrail applies even for near-identical changes.
+
+**Shared vs. single-file library imports in ESLint:** When restricting library imports via ESLint, distinguish between:
+
+- **Single-file imports** (e.g. `tree-sitter-python`): restricted to exactly one provider file. Architecture note: "Only this file may import `tree-sitter-python`."
+- **Shared imports** (e.g. `web-tree-sitter`): used by multiple provider files. All providers are added to the ESLint ignores array. Architecture note: "The `web-tree-sitter` package is shared across all WASM-based providers; this file is added to the existing ESLint ignores array."
+
 **Test strategy for composition roots:**
 
 Composition root tests are integration-style, not unit-style:

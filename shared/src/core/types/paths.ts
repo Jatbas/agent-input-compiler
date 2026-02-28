@@ -34,3 +34,25 @@ export function toGlobPattern(value: string): GlobPattern {
 export function toFileExtension(value: string): FileExtension {
   return value as FileExtension;
 }
+
+export function resolveImportSpec(
+  importerPath: RelativePath,
+  spec: string,
+): RelativePath | null {
+  const importerSegments = importerPath.split("/").filter(Boolean);
+  const dir = importerSegments.slice(0, -1);
+  const specSegments = spec.split("/").filter((s) => s.length > 0);
+  type State = { readonly dir: readonly string[]; readonly escaped: boolean };
+  const initial: State = { dir, escaped: false };
+  const final = specSegments.reduce<State>((state, segment) => {
+    if (state.escaped) return state;
+    if (segment === "..") {
+      if (state.dir.length === 0) return { dir: [], escaped: true };
+      return { dir: state.dir.slice(0, -1), escaped: false };
+    }
+    if (segment === ".") return state;
+    return { dir: [...state.dir, segment], escaped: false };
+  }, initial);
+  if (final.escaped) return null;
+  return toRelativePath(final.dir.length === 0 ? "" : final.dir.join("/"));
+}

@@ -295,3 +295,9 @@ If during execution you encounter something unexpected:
 1. **Stop immediately** — do not guess or improvise
 2. Append a `## Blocked` section with what you tried, what went wrong, what decision you need
 3. Report to the user and wait for guidance
+
+---
+
+## Post-completion: Conditional dependency loading refactor
+
+`createMcpServer` was refactored to accept `additionalProviders?: readonly LanguageProvider[]` instead of hardcoding all language providers internally. It is now **sync** again. Async provider initialization (e.g. `PythonProvider.create()` for WASM) moved to `main()`, which scans the project for relevant file extensions and only creates providers that are needed. `createFullPipelineDeps` likewise accepts `additionalProviders` and stays sync. This ensures startup cost scales with what the project actually uses.

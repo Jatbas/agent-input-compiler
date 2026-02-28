@@ -4,6 +4,7 @@ import type { AbsolutePath } from "@aic/shared/core/types/paths.js";
 import type { RulePack } from "@aic/shared/core/types/rule-pack.js";
 import type { RulePackProvider } from "@aic/shared/core/interfaces/rule-pack-provider.interface.js";
 import type { BudgetConfig } from "@aic/shared/core/interfaces/budget-config.interface.js";
+import type { LanguageProvider } from "@aic/shared/core/interfaces/language-provider.interface.js";
 import { toAbsolutePath } from "@aic/shared/core/types/paths.js";
 import { toTokenCount } from "@aic/shared/core/types/units.js";
 import { type TaskClass, type EditorId } from "@aic/shared/core/types/enums.js";
@@ -33,6 +34,8 @@ import { loadRulePackFromPath } from "@aic/shared/core/load-rule-pack.js";
 import { createProjectFileReader } from "@aic/shared/adapters/project-file-reader-adapter.js";
 import { createCachingFileContentReader } from "@aic/shared/adapters/caching-file-content-reader.js";
 import { detectEditorId } from "./detect-editor-id.js";
+import { PythonProvider } from "@aic/shared/adapters/python-provider.js";
+import { FastGlobAdapter } from "@aic/shared/adapters/fast-glob-adapter.js";
 
 function defaultRulePack(): RulePack {
   return {
@@ -85,7 +88,10 @@ export function createDefaultBudgetConfig(): BudgetConfig {
   };
 }
 
-export function createMcpServer(projectRoot: AbsolutePath): McpServer {
+export function createMcpServer(
+  projectRoot: AbsolutePath,
+  additionalProviders?: readonly LanguageProvider[],
+): McpServer {
   const scope = createProjectScope(projectRoot);
   scope.cacheStore.purgeExpired();
   installTriggerRule(projectRoot);
@@ -116,6 +122,7 @@ export function createMcpServer(projectRoot: AbsolutePath): McpServer {
     fileContentReader,
     rulePackProvider,
     budgetConfig,
+    additionalProviders,
     heuristicConfig,
   );
   const inspectRunner = new InspectRunner(deps, scope.clock);
@@ -160,9 +167,25 @@ export function createMcpServer(projectRoot: AbsolutePath): McpServer {
   return server;
 }
 
+function projectHasExtension(projectRoot: AbsolutePath, ext: string): boolean {
+  const glob = new FastGlobAdapter();
+  return (
+    glob.find([`**/*${ext}`, `!node_modules/**`, `!.git/**`, `!.aic/**`], projectRoot)
+      .length > 0
+  );
+}
+
+async function initLanguageProviders(
+  projectRoot: AbsolutePath,
+): Promise<readonly LanguageProvider[]> {
+  if (!projectHasExtension(projectRoot, ".py")) return [];
+  return [await PythonProvider.create()];
+}
+
 export async function main(): Promise<void> {
   const projectRoot = toAbsolutePath(process.cwd());
-  const server = createMcpServer(projectRoot);
+  const providers = await initLanguageProviders(projectRoot);
+  const server = createMcpServer(projectRoot, providers);
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

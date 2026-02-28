@@ -313,3 +313,9 @@ If during execution you encounter something unexpected:
 3. Report to the user and wait for guidance
 
 **Circuit breaker:** If you find yourself making 3+ workarounds or adaptations to make something work (type casts, extra plumbing, output patching), stop. The approach is likely wrong. List the adaptations, report to the user, and re-evaluate before continuing.
+
+---
+
+## Post-completion: Conditional dependency loading refactor
+
+`createPipelineDeps` and `createFullPipelineDeps` signatures changed: they now accept `additionalProviders?: readonly LanguageProvider[]` as an injected parameter. Heavy/conditional providers (e.g. PythonProvider with WASM) are no longer created inside these functions. Instead, the composition root decides at runtime which providers to create based on project file extensions, and passes them in. Both functions are sync again.

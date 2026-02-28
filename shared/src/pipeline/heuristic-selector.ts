@@ -1,4 +1,5 @@
 import type { ContextSelector } from "#core/interfaces/context-selector.interface.js";
+import type { ImportProximityScorer } from "#core/interfaces/import-proximity-scorer.interface.js";
 import type { LanguageProvider } from "#core/interfaces/language-provider.interface.js";
 import type { TaskClassification } from "#core/types/task-classification.js";
 import type { RepoMap } from "#core/types/repo-map.js";
@@ -8,11 +9,13 @@ import type { ContextResult } from "#core/types/selected-file.js";
 import type { FileEntry } from "#core/types/repo-map.js";
 import type { SelectedFile } from "#core/types/selected-file.js";
 import type { HeuristicSelectorConfig } from "#core/interfaces/heuristic-selector-config.interface.js";
+import type { RelativePath } from "#core/types/paths.js";
 import { INCLUSION_TIER } from "#core/types/enums.js";
 import { toRelevanceScore } from "#core/types/scores.js";
 import { toTokenCount } from "#core/types/units.js";
 import { toISOTimestamp } from "#core/types/identifiers.js";
 import { matchesGlob } from "./glob-match.js";
+import { pathRelevance } from "./path-relevance.js";
 
 const FALLBACK_RECENCY = toISOTimestamp("1970-01-01T00:00:00.000Z");
 
@@ -22,13 +25,6 @@ const DEFAULT_WEIGHTS = {
   recency: 0.2,
   sizePenalty: 0.1,
 };
-
-function pathRelevance(filePath: string, keywords: readonly string[]): number {
-  if (keywords.length === 0) return 0;
-  const lower = filePath.toLowerCase();
-  const hits = keywords.filter((kw) => lower.includes(kw.toLowerCase()));
-  return Math.min(1, hits.length / keywords.length);
-}
 
 function minMaxNorm(values: readonly number[], value: number): number {
   if (values.length === 0) return 0;
@@ -59,6 +55,7 @@ function scoreCandidate(
   pathRelevances: readonly number[],
   recencyValues: readonly string[],
   tokenValues: readonly number[],
+  importProximityScores: ReadonlyMap<RelativePath, number>,
   weights: typeof DEFAULT_WEIGHTS,
   rulePack: RulePack,
 ): number {
@@ -68,9 +65,10 @@ function scoreCandidate(
   const recIdx = sortedRec.indexOf(recVal);
   const rec = sortedRec.length <= 1 ? 1 : recIdx / (sortedRec.length - 1);
   const sizeP = 1 - minMaxNorm(tokenValues, tokenValues[index] ?? 0);
+  const importProx = importProximityScores.get(entry.path) ?? 0;
   const baseScore =
     pathRel * weights.pathRelevance +
-    0 * weights.importProximity +
+    importProx * weights.importProximity +
     rec * weights.recency +
     sizeP * weights.sizePenalty;
   const boostCount =
@@ -117,6 +115,7 @@ export class HeuristicSelector implements ContextSelector {
   constructor(
     private readonly languageProviders: readonly LanguageProvider[],
     private readonly config: HeuristicSelectorConfig,
+    private readonly importProximityScorer: ImportProximityScorer,
   ) {}
 
   selectContext(
@@ -126,6 +125,7 @@ export class HeuristicSelector implements ContextSelector {
     rulePack: RulePack,
   ): ContextResult {
     const weights = this.config.weights ?? DEFAULT_WEIGHTS;
+    const importProximityScores = this.importProximityScorer.getScores(repo, task);
     const candidates = filterCandidates(repo.files, rulePack);
     const pathRelevances = candidates.map((f) =>
       pathRelevance(f.path, task.matchedKeywords),
@@ -140,6 +140,7 @@ export class HeuristicSelector implements ContextSelector {
         pathRelevances,
         recencyValues,
         tokenValues,
+        importProximityScores,
         weights,
         rulePack,
       ),

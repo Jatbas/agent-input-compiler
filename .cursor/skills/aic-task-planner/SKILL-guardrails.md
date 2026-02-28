@@ -162,6 +162,40 @@ The step size limit says "max 1 file per step." This is absolute for all recipes
 
 Every test case listed in the Tests table must appear in the test step's instructions. After writing both sections, cross-check: scan each Tests table row and confirm the corresponding step mentions it by name or describes the exact assertion. If a test case exists in the table but no step tells the executor to write it, the executor will skip it. Conversely, if a step mentions a test not in the table, add it to the table.
 
+## Conditional dependency loading
+
+If a component wraps a heavy or environment-specific resource (WASM grammar, external service client, large data structure) that is only relevant when specific project characteristics hold (certain file extensions exist, a config flag is enabled, a service is reachable), the task must design it for **conditional injection**, not eager creation.
+
+**Red flags:**
+
+- A bootstrap function calls `new HeavyProvider()` or `await Provider.create()` unconditionally
+- A composition root creates every language provider regardless of whether the project uses that language
+- Async initialization (`await`) propagates into bootstrap functions that should be sync, just to eagerly load a resource that may not be needed
+
+**Required pattern:**
+
+- The bootstrap function accepts conditional dependencies as an **injected parameter** (e.g. `additionalProviders?: readonly LanguageProvider[]`)
+- The composition root's **`main()`** decides at runtime whether to create each dependency, based on observable project state
+- Bootstrap functions stay **sync** — only `main()` (which is already async) handles async resource initialization
+
+**Enforced by:** A.4 design decisions (constructor parameters, "Conditional dependencies" check) and the composition root recipe in `SKILL-recipes.md`.
+
+## Composition root modification snippet
+
+When a task modifies an existing function in a composition root (e.g. `initLanguageProviders()`, `createMcpServer()`), the step must include a **concrete code block** showing the function's expected state after the change — not just prose saying "extend the function." If the function needs structural changes (e.g. converting an early-return to an accumulation pattern), the first task to make that change must show the full before/after. Subsequent tasks that add incremental entries show only the new lines plus the updated return statement.
+
+**Red flags:**
+
+- A step says "extend `functionName()` to add X" without a code block
+- A step modifies a function but doesn't show what it looks like after the modification
+- A structural refactoring (single-case to multi-case, sync to async, early-return to accumulation) is buried in prose rather than shown in code
+
+**Required pattern:**
+
+- The first task that restructures a function shows the **complete function body** as a code block
+- Incremental tasks show the **new entry** as a code block plus the **updated return statement**
+- The code block respects project conventions (immutability: ternary-spread, no `.push()`)
+
 ## Sync vs async for adapters
 
 When a task wraps an external library, the step that implements the adapter must state whether to use the library's **sync** or **async** API. The interface return type determines this: if the interface returns `T`, the adapter must use the sync API; if `Promise<T>`, the async API. Never leave this implicit.

@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { HeuristicSelector } from "../heuristic-selector.js";
+import type { ImportProximityScorer } from "#core/interfaces/import-proximity-scorer.interface.js";
 import type { LanguageProvider } from "#core/interfaces/language-provider.interface.js";
 import type { RepoMap } from "#core/types/repo-map.js";
 import type { RulePack } from "#core/types/rule-pack.js";
@@ -34,6 +35,7 @@ function makeRepo(
 
 describe("HeuristicSelector", () => {
   const noProviders: readonly LanguageProvider[] = [];
+  const stubScorer: ImportProximityScorer = { getScores: () => new Map() };
 
   it("produces expected scores for known inputs (path relevance and size penalty)", () => {
     const repo = makeRepo([
@@ -54,7 +56,7 @@ describe("HeuristicSelector", () => {
       includePatterns: [],
       excludePatterns: [],
     };
-    const selector = new HeuristicSelector(noProviders, { maxFiles: 20 });
+    const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
     const result = selector.selectContext(task, repo, toTokenCount(1000), rulePack);
     expect(result.files.length).toBeGreaterThanOrEqual(1);
     expect(result.files[0]?.path).toBe(toRelativePath("src/refactor/service.ts"));
@@ -79,7 +81,7 @@ describe("HeuristicSelector", () => {
       includePatterns: [],
       excludePatterns: [],
     };
-    const selector = new HeuristicSelector(noProviders, { maxFiles: 5 });
+    const selector = new HeuristicSelector(noProviders, { maxFiles: 5 }, stubScorer);
     const result = selector.selectContext(task, repo, toTokenCount(10000), rulePack);
     expect(result.files.length).toBe(5);
   });
@@ -99,7 +101,7 @@ describe("HeuristicSelector", () => {
       includePatterns: [toGlobPattern("src/**")],
       excludePatterns: [],
     };
-    const selector = new HeuristicSelector(noProviders, { maxFiles: 20 });
+    const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
     const result = selector.selectContext(task, repo, toTokenCount(1000), rulePack);
     expect(result.files.map((f) => f.path)).toEqual([toRelativePath("src/a.ts")]);
   });
@@ -119,7 +121,7 @@ describe("HeuristicSelector", () => {
       includePatterns: [],
       excludePatterns: [toGlobPattern("src/ignore/**")],
     };
-    const selector = new HeuristicSelector(noProviders, { maxFiles: 20 });
+    const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
     const result = selector.selectContext(task, repo, toTokenCount(1000), rulePack);
     expect(result.files.map((f) => f.path)).toEqual([toRelativePath("src/a.ts")]);
   });
@@ -144,7 +146,7 @@ describe("HeuristicSelector", () => {
         penalizePatterns: [toGlobPattern("penalize/**")],
       },
     };
-    const selector = new HeuristicSelector(noProviders, { maxFiles: 20 });
+    const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
     const result = selector.selectContext(task, repo, toTokenCount(1000), rulePack);
     expect(result.files.length).toBe(3);
     const boostFile = result.files.find((f) => (f.path as string).includes("boost"));
@@ -174,7 +176,7 @@ describe("HeuristicSelector", () => {
       includePatterns: [],
       excludePatterns: [],
     };
-    const selector = new HeuristicSelector(noProviders, { maxFiles: 20 });
+    const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
     const result = selector.selectContext(task, repo, toTokenCount(500), rulePack);
     expect(result.files.length).toBe(1);
     expect(result.totalTokens).toBe(400);
@@ -194,9 +196,55 @@ describe("HeuristicSelector", () => {
       includePatterns: [],
       excludePatterns: [],
     };
-    const selector = new HeuristicSelector(noProviders, { maxFiles: 20 });
+    const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
     const result = selector.selectContext(task, repo, toTokenCount(1000), rulePack);
     expect(result.files.length).toBe(1);
     expect(result.files[0]?.relevanceScore).toBeDefined();
+  });
+
+  it("import_proximity_increases_score_when_scorer_returns_non_zero", () => {
+    const repo = makeRepo([
+      { path: "seed.ts", tokens: 100, lastModified: "2024-01-01T00:00:00.000Z" },
+      { path: "other.ts", tokens: 100, lastModified: "2024-01-01T00:00:00.000Z" },
+    ]);
+    const task: TaskClassification = {
+      taskClass: TASK_CLASS.GENERAL,
+      confidence: toConfidence(0.5),
+      matchedKeywords: ["seed"],
+    };
+    const rulePack: RulePack = {
+      constraints: [],
+      includePatterns: [],
+      excludePatterns: [],
+    };
+    const zeroScorer: ImportProximityScorer = { getScores: () => new Map() };
+    const selectorZero = new HeuristicSelector(noProviders, { maxFiles: 20 }, zeroScorer);
+    const resultZero = selectorZero.selectContext(
+      task,
+      repo,
+      toTokenCount(1000),
+      rulePack,
+    );
+    const otherScoreZero =
+      resultZero.files.find((f) => f.path === toRelativePath("other.ts"))
+        ?.relevanceScore ?? 0;
+    const nonZeroScorer: ImportProximityScorer = {
+      getScores: () => new Map([[toRelativePath("other.ts"), 0.6]]),
+    };
+    const selectorNonZero = new HeuristicSelector(
+      noProviders,
+      { maxFiles: 20 },
+      nonZeroScorer,
+    );
+    const resultNonZero = selectorNonZero.selectContext(
+      task,
+      repo,
+      toTokenCount(1000),
+      rulePack,
+    );
+    const otherScoreNonZero =
+      resultNonZero.files.find((f) => f.path === toRelativePath("other.ts"))
+        ?.relevanceScore ?? 0;
+    expect(otherScoreNonZero).toBeGreaterThan(otherScoreZero);
   });
 });

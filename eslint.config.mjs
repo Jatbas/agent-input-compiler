@@ -1255,6 +1255,7 @@ export default tseslint.config(
     files: ["shared/src/adapters/**/*.ts"],
     ignores: [
       "shared/src/adapters/typescript-provider.ts",
+      "shared/src/adapters/python-provider.ts",
       "shared/src/adapters/tiktoken-adapter.ts",
       "shared/src/adapters/fast-glob-adapter.ts",
       "shared/src/adapters/ignore-adapter.ts",
@@ -1289,6 +1290,18 @@ export default tseslint.config(
             {
               name: "typescript",
               message: "Only typescript-provider.ts may import typescript.",
+            },
+            {
+              name: "tree-sitter",
+              message: "Native tree-sitter is replaced by web-tree-sitter.",
+            },
+            {
+              name: "web-tree-sitter",
+              message: "Only python-provider.ts may import web-tree-sitter.",
+            },
+            {
+              name: "tree-sitter-python",
+              message: "Only python-provider.ts may import tree-sitter-python.",
             },
             {
               name: "node:crypto",
