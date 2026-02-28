@@ -39,7 +39,7 @@ exports[`golden snapshot > full_pipeline_trace_matches_golden_snapshot 1`] = `
     "L3": 0,
   },
   "taskClass": {
-    "confidence": 0.2,
+    "confidence": 0.07692307692307693,
     "matchedKeywords": [
       "refactor",
     ],
@@ -49,9 +49,9 @@ exports[`golden snapshot > full_pipeline_trace_matches_golden_snapshot 1`] = `
     "afterGuard": 22,
     "afterLadder": 24,
     "afterTransforms": 24,
-    "promptTotal": 99,
+    "promptTotal": 104,
     "raw": 22,
-    "reductionPct": -3.5,
+    "reductionPct": -3.727272727272727,
     "selected": 22,
   },
   "transforms": [

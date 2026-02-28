@@ -17,12 +17,13 @@ export function createCompileHandler(
   runner: CompilationRunner,
   telemetryDeps: TelemetryDeps,
   sessionId: SessionId,
+  getEditorId: () => EditorId,
 ): (
   args: {
     intent: string;
     projectRoot: string;
     modelId: string | null;
-    editorId: string;
+    editorId?: string | undefined;
     configPath: string | null;
     triggerSource?: TriggerSource | undefined;
   },
@@ -30,11 +31,13 @@ export function createCompileHandler(
 ) => Promise<CallToolResult> {
   return async (args, _extra): Promise<CallToolResult> => {
     try {
+      const resolvedEditorId: EditorId =
+        args.editorId !== undefined ? (args.editorId as EditorId) : getEditorId();
       const request: CompilationRequest = {
         intent: args.intent,
         projectRoot: toAbsolutePath(args.projectRoot),
         modelId: args.modelId,
-        editorId: args.editorId as EditorId,
+        editorId: resolvedEditorId,
         configPath: args.configPath !== null ? toFilePath(args.configPath) : null,
         sessionId,
         ...(args.triggerSource !== undefined

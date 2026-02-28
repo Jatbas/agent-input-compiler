@@ -58,4 +58,31 @@ describe("IntentClassifier", () => {
     expect(classifier.classify("REFACTOR this").taskClass).toBe(TASK_CLASS.REFACTOR);
     expect(classifier.classify("Fix the Bug").taskClass).toBe(TASK_CLASS.BUGFIX);
   });
+
+  it("richer_keywords_refactor", () => {
+    expect(classifier.classify("migrate the module").taskClass).toBe(TASK_CLASS.REFACTOR);
+    expect(classifier.classify("extract helper").taskClass).toBe(TASK_CLASS.REFACTOR);
+  });
+
+  it("richer_keywords_bugfix", () => {
+    expect(classifier.classify("debug the crash").taskClass).toBe(TASK_CLASS.BUGFIX);
+    expect(classifier.classify("resolve the exception").taskClass).toBe(
+      TASK_CLASS.BUGFIX,
+    );
+  });
+
+  it("richer_keywords_feature", () => {
+    expect(classifier.classify("extend the API").taskClass).toBe(TASK_CLASS.FEATURE);
+    expect(classifier.classify("enable feature flag").taskClass).toBe(TASK_CLASS.FEATURE);
+  });
+
+  it("richer_keywords_docs", () => {
+    expect(classifier.classify("update changelog").taskClass).toBe(TASK_CLASS.DOCS);
+    expect(classifier.classify("add docstring").taskClass).toBe(TASK_CLASS.DOCS);
+  });
+
+  it("richer_keywords_test", () => {
+    expect(classifier.classify("stub the service").taskClass).toBe(TASK_CLASS.TEST);
+    expect(classifier.classify("e2e test").taskClass).toBe(TASK_CLASS.TEST);
+  });
 });

@@ -9,7 +9,7 @@ import type { FileContentReader } from "@aic/shared/core/interfaces/file-content
 import type { BudgetConfig } from "@aic/shared/core/interfaces/budget-config.interface.js";
 import { toAbsolutePath } from "@aic/shared/core/types/paths.js";
 import { toTokenCount } from "@aic/shared/core/types/units.js";
-import { type TaskClass } from "@aic/shared/core/types/enums.js";
+import { type TaskClass, type EditorId } from "@aic/shared/core/types/enums.js";
 import { InspectRunner } from "@aic/shared/pipeline/inspect-runner.js";
 import { CompilationRequestSchema } from "./schemas/compilation-request.js";
 import { InspectRequestSchema } from "./schemas/inspect-request.schema.js";
@@ -34,6 +34,7 @@ import { CompilationRunner as CompilationRunnerImpl } from "@aic/shared/pipeline
 import { Sha256Adapter } from "@aic/shared/adapters/sha256-adapter.js";
 import { loadRulePackFromPath } from "@aic/shared/core/load-rule-pack.js";
 import { createProjectFileReader } from "@aic/shared/adapters/project-file-reader-adapter.js";
+import { detectEditorId } from "./detect-editor-id.js";
 
 export function createFileContentReader(projectRoot: AbsolutePath): FileContentReader {
   return {
@@ -140,6 +141,8 @@ export function createMcpServer(projectRoot: AbsolutePath): McpServer {
     scope.idGenerator,
   );
   const server = new McpServer({ name: "aic", version: "0.1.0" });
+  const getEditorId = (): EditorId =>
+    detectEditorId(server.server.getClientVersion()?.name);
   server.tool(
     "aic_compile",
     "Compile intent-specific project context. MUST be called as your FIRST action on EVERY message — including follow-ups in the same chat. Each message has a different intent that needs fresh context. Never skip.",
@@ -153,6 +156,7 @@ export function createMcpServer(projectRoot: AbsolutePath): McpServer {
         stringHasher: sha256Adapter,
       },
       sessionId,
+      getEditorId,
     ),
   );
   server.tool("aic_inspect", InspectRequestSchema, (args) =>

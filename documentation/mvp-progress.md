@@ -45,7 +45,7 @@ Highest-impact work. The core value of AIC is picking the right files — if sel
 
 | Component                        | Status | Package              |
 | -------------------------------- | ------ | -------------------- |
-| Richer intent keyword extraction | Todo   | shared/src/pipeline/ |
+| Richer intent keyword extraction | Done   | shared/src/pipeline/ |
 | Intent-aware file discovery      | Todo   | shared/src/pipeline/ |
 | Import graph signal (TS/JS)      | Todo   | shared/src/pipeline/ |
 | GenericImportProvider (Py/Go/Rs) | Todo   | shared/src/adapters/ |
@@ -210,7 +210,7 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 ### 2026-02-28
 
-**Components:** 002-server-sessions migration, SessionTracker interface, SqliteSessionStore
+**Components:** 002-server-sessions migration, SessionTracker interface, SqliteSessionStore, Richer intent keyword extraction
 **Completed:**
 
 - 002-server-sessions migration (task 031): migration 002-server-sessions.ts creates server_sessions table (session_id, started_at, stopped_at, stop_reason, pid, version); open-database runs [migration001, migration002]; migration-runner test applies_002_and_creates_server_sessions_table
@@ -220,6 +220,7 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 - Auto-install trigger rule (task 035): installTriggerRule in mcp/src writes .cursor/rules/aic.mdc from template when missing (idempotent, no overwrite); createMcpServer calls installTriggerRule before runStartupSelfCheck; three tests (trigger_missing_creates_file, trigger_exists_does_not_overwrite, trigger_missing_creates_rules_dir)
 - Server lifecycle hooks (task 036): registerShutdownHandler in mcp/src/server.ts registers SIGINT/SIGTERM; calls sessionTracker.stopSession(sessionId, clock.now(), STOP_REASON.GRACEFUL) then process.exit(0); createMcpServer wires it after backfillCrashedSessions; try/catch in handler so teardown with closed DB does not throw; test shutdown_handler_calls_stopSession_with_graceful
 - Telemetry triggerSource field (task 037): TRIGGER_SOURCE enum and TriggerSource in core/types/enums.ts; optional triggerSource on CompilationRequest and CompilationLogEntry; migration 005 adds trigger_source to compilation_log; buildLogEntry/recordCompilationAndFindings/run pass triggerSource; SqliteCompilationLogStore INSERT trigger_source; MCP schema optional triggerSource, handler passes through; CLI schema default "cli", compile command sets request.triggerSource; tests for store, runner, MCP, CLI
+- Richer intent keyword extraction (task 038): expanded KEYWORDS in intent-classifier.ts (REFACTOR: migrate, extract, inline, rename, dedupe, consolidate, split, merge; BUGFIX: debug, trace, wrong, fail, exception, patch, resolve; FEATURE: extend, support, enable, wire, integrate; DOCS: changelog, docstring, api doc; TEST: stub, unittest, integration test, e2e, fixture); five new test cases; integration snapshots updated for confidence/token values
 
 ### 2026-02-27
 

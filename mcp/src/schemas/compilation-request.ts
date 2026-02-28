@@ -4,7 +4,7 @@ export const CompilationRequestSchema = {
   intent: z.string().min(1).max(10_000),
   projectRoot: z.string().min(1),
   modelId: z.string().nullable().default(null),
-  editorId: z.enum(["cursor", "claude-code", "generic"]).default("generic"),
+  editorId: z.enum(["cursor", "claude-code", "generic"]).optional(),
   configPath: z.string().nullable().default(null),
   triggerSource: z
     .enum([

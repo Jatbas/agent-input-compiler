@@ -69,7 +69,12 @@ describe("createCompileHandler", () => {
       stringHasher: mockStringHasher,
     };
     const sessionId = toSessionId("018c3d4e-0000-7000-8000-000000000010");
-    const handler = createCompileHandler(mockRunner, telemetryDeps, sessionId);
+    const handler = createCompileHandler(
+      mockRunner,
+      telemetryDeps,
+      sessionId,
+      () => EDITOR_ID.GENERIC,
+    );
     await handler(
       {
         intent: "fix bug",
