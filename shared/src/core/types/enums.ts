@@ -119,5 +119,6 @@ export const TRIGGER_SOURCE = {
   SUBAGENT_START: "subagent_start",
   CLI: "cli",
   MODEL_INITIATED: "model_initiated",
+  HOOK: "hook",
 } as const;
 export type TriggerSource = (typeof TRIGGER_SOURCE)[keyof typeof TRIGGER_SOURCE];
