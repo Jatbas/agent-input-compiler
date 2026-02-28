@@ -8,6 +8,14 @@ import { handleCommandError } from "@aic/cli/utils/handle-command-error.js";
 import * as path from "node:path";
 import * as fs from "node:fs";
 
+function formatInstallationLine(aggregates: StatusAggregates): string {
+  if (aggregates.installationOk === true) return "Installation: OK";
+  if (aggregates.installationOk === false && aggregates.installationNotes !== null) {
+    return "Installation: " + aggregates.installationNotes;
+  }
+  return "Installation: —";
+}
+
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -41,6 +49,8 @@ function formatStatusOutput(
   const triggerPath = path.join(request.projectRoot, ".cursor", "rules", "aic.mdc");
   const triggerExists = fs.existsSync(triggerPath);
   const triggerLine = `.cursor/rules/aic.mdc ${triggerExists ? "✓" : "✗"}`;
+
+  const installationLine = formatInstallationLine(aggregates);
 
   const dbPathStr = request.dbPath;
   const dbSize = fs.existsSync(dbPathStr) ? formatSize(fs.statSync(dbPathStr).size) : "—";
@@ -83,6 +93,7 @@ function formatStatusOutput(
     "Rules health:     —",
     `Config:           ${configLine}`,
     `Trigger rule:     ${triggerLine}`,
+    installationLine,
     `Database:         ${databaseLine}${lastLine}`,
   ].join("\n");
 }

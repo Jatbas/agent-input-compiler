@@ -1,0 +1,67 @@
+import { describe, it, expect, afterEach } from "vitest";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as os from "node:os";
+import { runStartupSelfCheck } from "../startup-self-check.js";
+import { toAbsolutePath } from "@aic/shared/core/types/paths.js";
+
+describe("runStartupSelfCheck", () => {
+  let tmpDir: string;
+
+  afterEach(() => {
+    if (tmpDir !== undefined && fs.existsSync(tmpDir)) {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("all_missing_returns_false_and_notes", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-startup-"));
+    const projectRoot = toAbsolutePath(tmpDir);
+    const result = runStartupSelfCheck(projectRoot);
+    expect(result.installationOk).toBe(false);
+    expect(result.installationNotes).toContain("trigger rule not found");
+    expect(result.installationNotes).toContain("session hook not configured");
+    expect(result.installationNotes).toContain("hook script missing");
+  });
+
+  it("all_present_returns_true", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-startup-"));
+    const rulesDir = path.join(tmpDir, ".cursor", "rules");
+    const hooksDir = path.join(tmpDir, ".cursor", "hooks");
+    fs.mkdirSync(rulesDir, { recursive: true });
+    fs.mkdirSync(hooksDir, { recursive: true });
+    fs.writeFileSync(path.join(rulesDir, "aic.mdc"), "");
+    fs.writeFileSync(
+      path.join(hooksDir, "hooks.json"),
+      JSON.stringify({
+        hooks: {
+          sessionStart: [{ command: "node .cursor/hooks/AIC-compile-context.cjs" }],
+        },
+      }),
+    );
+    fs.writeFileSync(path.join(hooksDir, "AIC-compile-context.cjs"), "");
+    const projectRoot = toAbsolutePath(tmpDir);
+    const result = runStartupSelfCheck(projectRoot);
+    expect(result.installationOk).toBe(true);
+    expect(result.installationNotes).toBe("");
+  });
+
+  it("only_trigger_missing_notes_mention_trigger", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-startup-"));
+    const hooksDir = path.join(tmpDir, ".cursor", "hooks");
+    fs.mkdirSync(hooksDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(hooksDir, "hooks.json"),
+      JSON.stringify({
+        hooks: {
+          sessionStart: [{ command: "node .cursor/hooks/AIC-compile-context.cjs" }],
+        },
+      }),
+    );
+    fs.writeFileSync(path.join(hooksDir, "AIC-compile-context.cjs"), "");
+    const projectRoot = toAbsolutePath(tmpDir);
+    const result = runStartupSelfCheck(projectRoot);
+    expect(result.installationOk).toBe(false);
+    expect(result.installationNotes).toContain("trigger rule not found — run aic init");
+  });
+});

@@ -114,4 +114,30 @@ describe("MCP server", () => {
     const mode = fs.statSync(aicPath).mode & 0o777;
     expect(mode).toBe(0o700);
   });
+
+  it("server_sessions_row_has_integrity", async () => {
+    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    const projectRoot = toAbsolutePath(tmpDir);
+    const server = createMcpServer(projectRoot);
+    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+    await server.connect(transportServer);
+    const client = new Client({ name: "test", version: "1.0" });
+    await client.connect(transportClient);
+    const scope = createProjectScope(projectRoot);
+    const rows = scope.db
+      .prepare(
+        "SELECT session_id, installation_ok, installation_notes FROM server_sessions ORDER BY started_at DESC LIMIT 1",
+      )
+      .all() as readonly {
+      session_id: string;
+      installation_ok: number | null;
+      installation_notes: string | null;
+    }[];
+    expect(rows).toHaveLength(1);
+    const row = rows[0];
+    if (row === undefined) expect.fail("expected one row");
+    expect(row.session_id).toBeDefined();
+    expect(row.installation_ok === 0 || row.installation_ok === 1).toBe(true);
+    expect(typeof row.installation_notes === "string").toBe(true);
+  });
 });

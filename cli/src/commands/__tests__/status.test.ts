@@ -25,6 +25,8 @@ const fixtureAggregates: StatusAggregates = {
     tokenReductionPct: 84,
     created_at: "2026-02-26T12:00:00.000Z",
   },
+  installationOk: true,
+  installationNotes: "",
 };
 
 const stubRunner: StatusRunner = {

@@ -16,7 +16,9 @@ import { InspectRequestSchema } from "./schemas/inspect-request.schema.js";
 import { createCompileHandler } from "./handlers/compile-handler.js";
 import { handleInspect } from "./handlers/inspect-handler.js";
 import { createProjectScope } from "@aic/shared/storage/create-project-scope.js";
+import { toSessionId } from "@aic/shared/core/types/identifiers.js";
 import { createFullPipelineDeps } from "@aic/shared/bootstrap/create-pipeline-deps.js";
+import { runStartupSelfCheck } from "./startup-self-check.js";
 import {
   LoadConfigFromFile,
   applyConfigResult,
@@ -69,6 +71,18 @@ export function createDefaultBudgetConfig(): BudgetConfig {
 
 export function createMcpServer(projectRoot: AbsolutePath): McpServer {
   const scope = createProjectScope(projectRoot);
+  const { installationOk, installationNotes } = runStartupSelfCheck(projectRoot);
+  const sessionId = toSessionId(scope.idGenerator.generate());
+  const startedAt = scope.clock.now();
+  scope.sessionTracker.startSession(
+    sessionId,
+    startedAt,
+    process.pid,
+    "0.2.0",
+    installationOk,
+    installationNotes,
+  );
+  scope.sessionTracker.backfillCrashedSessions(startedAt);
   const sha256Adapter = new Sha256Adapter();
   const configLoader = new LoadConfigFromFile();
   const configResult = configLoader.load(projectRoot, null);

@@ -88,6 +88,17 @@ export class SqliteStatusStore implements StatusStore {
             created_at: lastRow.created_at,
           };
 
+    const sessionRows = this.db
+      .prepare(
+        "SELECT installation_ok, installation_notes FROM server_sessions ORDER BY started_at DESC LIMIT 1",
+      )
+      .all() as { installation_ok: number | null; installation_notes: string | null }[];
+    const sessionRow = sessionRows[0];
+    const installationOk =
+      sessionRow === undefined ? null : sessionRow.installation_ok === 1;
+    const installationNotes =
+      sessionRow === undefined ? null : (sessionRow.installation_notes ?? null);
+
     return {
       compilationsTotal,
       compilationsToday,
@@ -98,6 +109,8 @@ export class SqliteStatusStore implements StatusStore {
       guardByType,
       topTaskClasses,
       lastCompilation,
+      installationOk,
+      installationNotes,
     };
   }
 }

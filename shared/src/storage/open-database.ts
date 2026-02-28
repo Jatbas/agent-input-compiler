@@ -2,12 +2,13 @@ import Database from "better-sqlite3";
 import { SqliteMigrationRunner } from "#storage/sqlite-migration-runner.js";
 import { migration as migration001 } from "#storage/migrations/001-initial-schema.js";
 import { migration as migration002 } from "#storage/migrations/002-server-sessions.js";
+import { migration as migration003 } from "#storage/migrations/003-server-sessions-integrity.js";
 import type { Clock } from "#core/interfaces/clock.interface.js";
 import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
 
 export function openDatabase(dbPath: string, clock: Clock): ExecutableDb {
   const db = new Database(dbPath) as unknown as ExecutableDb;
   const migrationRunner = new SqliteMigrationRunner(clock);
-  migrationRunner.run(db, [migration001, migration002]);
+  migrationRunner.run(db, [migration001, migration002, migration003]);
   return db;
 }

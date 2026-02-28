@@ -5,6 +5,8 @@ import type { Clock } from "#core/interfaces/clock.interface.js";
 import { toISOTimestamp } from "#core/types/identifiers.js";
 import { toMilliseconds } from "#core/types/units.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
+import { migration as migration002 } from "../migrations/002-server-sessions.js";
+import { migration as migration003 } from "../migrations/003-server-sessions-integrity.js";
 import { SqliteStatusStore } from "../sqlite-status-store.js";
 
 const stubClock: Clock = {
@@ -24,6 +26,8 @@ describe("SqliteStatusStore", () => {
   function setup(): void {
     db = new Database(":memory:");
     migration001.up(db);
+    migration002.up(db);
+    migration003.up(db);
     store = new SqliteStatusStore(db as unknown as ExecutableDb, stubClock);
   }
 
@@ -39,6 +43,8 @@ describe("SqliteStatusStore", () => {
     expect(summary.totalTokensSaved).toBeNull();
     expect(summary.guardByType).toEqual({});
     expect(summary.topTaskClasses).toEqual([]);
+    expect(summary.installationOk).toBeNull();
+    expect(summary.installationNotes).toBeNull();
   });
 
   it("sqlite_status_store_one_compilation", () => {
@@ -174,5 +180,42 @@ describe("SqliteStatusStore", () => {
     );
     const summary = store.getSummary();
     expect(summary.guardByType).toEqual({ secret: 2, "excluded-file": 1 });
+  });
+
+  it("getSummary_includes_installation", () => {
+    setup();
+    let summary = store.getSummary();
+    expect(summary.installationOk).toBeNull();
+    expect(summary.installationNotes).toBeNull();
+    db.prepare(
+      "INSERT INTO server_sessions (session_id, started_at, stopped_at, stop_reason, pid, version, installation_ok, installation_notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    ).run(
+      "018c3d4e-0000-7000-8000-000000000010",
+      "2026-02-28T12:00:00.000Z",
+      null,
+      null,
+      1,
+      "0.2.0",
+      1,
+      "",
+    );
+    summary = store.getSummary();
+    expect(summary.installationOk).toBe(true);
+    expect(summary.installationNotes).toBe("");
+    db.prepare(
+      "INSERT INTO server_sessions (session_id, started_at, stopped_at, stop_reason, pid, version, installation_ok, installation_notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    ).run(
+      "018c3d4e-0000-7000-8000-000000000011",
+      "2026-02-28T13:00:00.000Z",
+      null,
+      null,
+      2,
+      "0.2.0",
+      0,
+      "trigger rule not found",
+    );
+    summary = store.getSummary();
+    expect(summary.installationOk).toBe(false);
+    expect(summary.installationNotes).toBe("trigger rule not found");
   });
 });

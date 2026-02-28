@@ -10,6 +10,7 @@ import type { Clock } from "#core/interfaces/clock.interface.js";
 import { SqliteMigrationRunner } from "../sqlite-migration-runner.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
 import { migration as migration002 } from "../migrations/002-server-sessions.js";
+import { migration as migration003 } from "../migrations/003-server-sessions-integrity.js";
 
 const clock: Clock = {
   now(): ReturnType<typeof toISOTimestamp> {
@@ -93,6 +94,24 @@ describe("SqliteMigrationRunner", () => {
     readDb.close();
     expect(tableRows).toHaveLength(1);
     expect(tableRows[0]?.name).toBe("server_sessions");
+  });
+
+  it("migration_003_adds_columns", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "aic-migration-test-"));
+    const dbPath = join(tmpDir, "aic.sqlite");
+    const db = new Database(dbPath);
+    const runner = new SqliteMigrationRunner(clock);
+    runner.run(db, [migration001, migration002, migration003]);
+    db.close();
+
+    const readDb = new Database(dbPath);
+    const columns = readDb.prepare("PRAGMA table_info(server_sessions)").all() as {
+      name: string;
+    }[];
+    readDb.close();
+    const names = columns.map((c) => c.name);
+    expect(names).toContain("installation_ok");
+    expect(names).toContain("installation_notes");
   });
 
   it("creates compilation_log and other MVP tables", () => {

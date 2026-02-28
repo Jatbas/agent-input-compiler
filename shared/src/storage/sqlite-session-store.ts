@@ -12,12 +12,23 @@ export class SqliteSessionStore implements SessionTracker {
     startedAt: ISOTimestamp,
     pid: number,
     version: string,
+    installationOk: boolean,
+    installationNotes: string,
   ): void {
     this.db
       .prepare(
-        "INSERT INTO server_sessions (session_id, started_at, stopped_at, stop_reason, pid, version) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO server_sessions (session_id, started_at, stopped_at, stop_reason, pid, version, installation_ok, installation_notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       )
-      .run(sessionId, startedAt, null, null, pid, version);
+      .run(
+        sessionId,
+        startedAt,
+        null,
+        null,
+        pid,
+        version,
+        installationOk ? 1 : 0,
+        installationNotes,
+      );
   }
 
   stopSession(

@@ -2,7 +2,7 @@
 
 **Current phase:** 0.5 (Quality Release)
 **Version target:** 0.2.0
-**Phase I (Live Wiring):** 16/19 done
+**Phase I (Live Wiring):** 17/19 done
 
 ---
 
@@ -31,7 +31,7 @@ Prerequisite for everything else. Quick fixes to make the tool fully functional.
 | beforeSubmitPrompt logging hook | Done   | .cursor/hooks/                   |
 | afterFileEdit tracking hook     | Done   | .cursor/hooks/                   |
 | stop quality check hook         | Done   | .cursor/hooks/                   |
-| Startup self-check (integrity)  | Todo   | mcp/src/                         |
+| Startup self-check (integrity)  | Done   | mcp/src/                         |
 | Auto-install trigger rule       | Todo   | mcp/src/                         |
 | Server lifecycle hooks          | Todo   | mcp/src/                         |
 | Telemetry conversation tracking | Todo   | shared/src/core/ + storage       |
@@ -205,6 +205,7 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 - 002-server-sessions migration (task 031): migration 002-server-sessions.ts creates server_sessions table (session_id, started_at, stopped_at, stop_reason, pid, version); open-database runs [migration001, migration002]; migration-runner test applies_002_and_creates_server_sessions_table
 - SessionTracker interface (task 032): SessionTracker interface in core/interfaces (startSession, stopSession, backfillCrashedSessions); STOP_REASON and StopReason in core/types/enums.ts
 - SqliteSessionStore (task 033): SqliteSessionStore in storage implements SessionTracker; startSession INSERT, stopSession UPDATE by session_id, backfillCrashedSessions UPDATE WHERE stopped_at IS NULL with STOP_REASON.CRASH; five tests (persists row, stopSession updates row, backfill marks open sessions, empty backfill no-op, duplicate startSession throws)
+- Startup self-check (integrity) (task 034): migration 003 adds installation_ok, installation_notes to server_sessions; SessionTracker.startSession extended with installationOk, installationNotes; runStartupSelfCheck in mcp/src checks trigger rule, hooks.json sessionStart, hook script; createMcpServer runs self-check, startSession, backfillCrashedSessions on startup; StatusAggregates and SqliteStatusStore getSummary expose installationOk/installationNotes from latest server_sessions; status command displays Installation line (OK / notes / —); tests for startup-self-check, server_sessions row integrity, getSummary installation, migration_003_adds_columns
 
 ### 2026-02-27
 

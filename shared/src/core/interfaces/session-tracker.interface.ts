@@ -7,6 +7,8 @@ export interface SessionTracker {
     startedAt: ISOTimestamp,
     pid: number,
     version: string,
+    installationOk: boolean,
+    installationNotes: string,
   ): void;
   stopSession(
     sessionId: SessionId,

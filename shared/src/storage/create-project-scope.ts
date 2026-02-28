@@ -9,10 +9,12 @@ import type { TelemetryStore } from "#core/interfaces/telemetry-store.interface.
 import type { ConfigStore } from "#core/interfaces/config-store.interface.js";
 import type { GuardStore } from "#core/interfaces/guard-store.interface.js";
 import type { CompilationLogStore } from "#core/interfaces/compilation-log-store.interface.js";
+import type { SessionTracker } from "#core/interfaces/session-tracker.interface.js";
 import { toAbsolutePath } from "#core/types/paths.js";
 import { ensureAicDir } from "#storage/ensure-aic-dir.js";
 import { openDatabase } from "#storage/open-database.js";
 import { SqliteCacheStore } from "#storage/sqlite-cache-store.js";
+import { SqliteSessionStore } from "#storage/sqlite-session-store.js";
 import { SqliteTelemetryStore } from "#storage/sqlite-telemetry-store.js";
 import { SqliteConfigStore } from "#storage/sqlite-config-store.js";
 import { SqliteGuardStore } from "#storage/sqlite-guard-store.js";
@@ -29,6 +31,7 @@ export interface ProjectScope {
   readonly configStore: ConfigStore;
   readonly guardStore: GuardStore;
   readonly compilationLogStore: CompilationLogStore;
+  readonly sessionTracker: SessionTracker;
   readonly projectRoot: AbsolutePath;
 }
 
@@ -46,6 +49,7 @@ export function createProjectScope(projectRoot: AbsolutePath): ProjectScope {
   const configStore = new SqliteConfigStore(db, clock);
   const guardStore = new SqliteGuardStore(db, idGenerator, clock);
   const compilationLogStore = new SqliteCompilationLogStore(db);
+  const sessionTracker = new SqliteSessionStore(db);
   return {
     db,
     clock,
@@ -55,6 +59,7 @@ export function createProjectScope(projectRoot: AbsolutePath): ProjectScope {
     configStore,
     guardStore,
     compilationLogStore,
+    sessionTracker,
     projectRoot,
   };
 }
