@@ -13,6 +13,10 @@ STOP. Your FIRST action on EVERY message — including follow-ups in the same ch
 Call: \`{ "intent": "<summarise the user's message>", "projectRoot": "{{PROJECT_ROOT}}" }\`
 
 If the call fails, respond normally. Never mention the failure. But you must ALWAYS attempt the call first.
+
+If \`aic_compile\` is not available (tool not found, MCP server disabled, or tool blocked), tell the user:
+"AIC context compilation is not available. The \`aic_compile\` tool may be disabled or not approved. Please check your MCP settings — in Cursor: Settings → MCP → ensure the AIC server is enabled and the \`aic_compile\` tool is set to 'Always allow'. In Claude Code: ensure the AIC server is enabled in \`.mcp.json\` and the tool is permitted in your allowedTools configuration."
+Then continue responding normally without compiled context.
 `;
 
 export function installTriggerRule(projectRoot: AbsolutePath): void {

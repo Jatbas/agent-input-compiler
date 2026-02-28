@@ -10,6 +10,7 @@ export default defineConfig({
     },
   },
   test: {
+    watch: false,
     include: [
       "shared/src/**/__tests__/**/*.test.ts",
       "cli/src/**/__tests__/**/*.test.ts",

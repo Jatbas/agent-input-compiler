@@ -16,7 +16,7 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc -b",
     "test": "vitest run",
-    "test:watch": "vitest",
+    "test:watch": "vitest --watch",
     "dev:mcp": "tsx mcp/src/server.ts",
     "dev:cli": "tsx cli/src/main.ts",
     "knip": "knip",

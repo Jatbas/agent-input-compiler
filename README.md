@@ -207,6 +207,24 @@ This creates:
 - `.cursor/hooks/AIC-*.cjs` — integration hooks for session context, tool gating, and quality checks
 - `.aic/` directory (0700 permissions) — local storage for cache and telemetry
 
+**Step 3 — Approve MCP tools.** When Cursor first invokes `aic_compile`, you will see an approval prompt on the MCP indicator. Click **"Always allow"** for both `aic_compile` and `aic_inspect`. If these tools are denied or left unapproved, AIC cannot compile context and the model will operate without curated project context. You can review approved tools at any time in **Settings → MCP**.
+
+### Claude Code
+
+**Step 1 — Register the MCP server.** Add to your project's `.mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "aic": { "command": "npx", "args": ["@aic/mcp"] }
+  }
+}
+```
+
+**Step 2 — Allow AIC tools.** Claude Code requires explicit tool permissions. When prompted during your first session, approve `aic_compile` and `aic_inspect`. Alternatively, pass `--allowedTools` when starting Claude Code, or add AIC tools to your permissions configuration so they are always permitted.
+
+If the tools are not approved, the model cannot call `aic_compile` and will operate without compiled context. AIC's trigger rule will notify you if the tool is unavailable.
+
 ### Other MCP-compatible editors
 
 AIC's MCP tool works with any editor that supports MCP. Add the server to your editor's MCP config. The model can call `aic_compile` when instructed to by rules or when it chooses to.

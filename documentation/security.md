@@ -15,6 +15,7 @@
 - [Anonymous Telemetry](#anonymous-telemetry)
 - [Telemetry Endpoint Threat Model](#telemetry-endpoint-threat-model)
 - [MCP Transport & Rule Pack Security](#mcp-transport--rule-pack-security)
+  - [MCP Tool Approval Requirements](#mcp-tool-approval-requirements)
 - [Supply Chain Security](#supply-chain-security)
 - [Supported Versions](#supported-versions)
 - [Compliance](#compliance)
@@ -312,6 +313,23 @@ Full threat model: [Project Plan §12 — Telemetry Endpoint Security](project-p
 | **Rule pack loading**    | Local JSON files only — no remote URLs in MVP       | Phase 2: remote rule packs require signature verification (ed25519) |
 | **Config `extends` URL** | Not implemented in MVP (`extends` field is Phase 2) | Phase 2: HTTPS only, URL allowlist, response schema validation      |
 | **SQLite access**        | Local file with `0700` directory permissions        | Phase 2: optional SQLCipher encryption for at-rest protection       |
+
+### MCP Tool Approval Requirements
+
+Both Cursor and Claude Code require explicit user approval before MCP tools can execute. AIC's `aic_compile` and `aic_inspect` tools must be approved (allowed) by the user for AIC to function.
+
+| Editor          | Approval mechanism                                                                                                             | If not approved                                                            |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| **Cursor**      | MCP indicator shows an approval prompt on first invocation. User clicks "Always allow" per tool. Reviewable in Settings → MCP. | Tool calls silently fail. Trigger rule detects this and notifies the user. |
+| **Claude Code** | Runtime permission prompt, `--allowedTools` CLI flag, or `.mcp.json` permissions configuration.                                | Tool calls rejected. Trigger rule detects this and notifies the user.      |
+
+**Risk:** If the user denies or never approves AIC tools, `aic_compile` is blocked even though the MCP server is running. The model operates without compiled context — no file selection, no security scanning, no token reduction.
+
+**Mitigation:**
+
+- The trigger rule (`.cursor/rules/AIC.mdc` or equivalent) includes a fallback instruction: if `aic_compile` is unavailable, the model tells the user how to enable it in their MCP settings.
+- Installation documentation (README) explicitly instructs users to approve both `aic_compile` and `aic_inspect` during setup.
+- The MCP server itself is unaffected — it runs normally. The block happens at the IDE layer between the model and the server.
 
 ---
 
