@@ -12,7 +12,7 @@ import globals from "globals";
 const BARE_ERROR = {
   selector: 'ThrowStatement > NewExpression[callee.name="Error"]',
   message:
-    "Use an AicError subclass instead of bare Error. See .cursor/rules/aic-errors.mdc.",
+    "Use an AicError subclass instead of bare Error. See .cursor/rules/AIC-errors.mdc.",
 };
 
 const ARRAY_MUTATIONS = [
@@ -105,7 +105,7 @@ const CORE_PIPELINE_EXTRA = [
   {
     selector: 'TSTypeReference[typeName.name="Partial"]',
     message:
-      "Partial<T> enables weak spread-to-override patterns. Use explicit full construction in production code. See .cursor/rules/aic-type-safety.mdc.",
+      "Partial<T> enables weak spread-to-override patterns. Use explicit full construction in production code. See .cursor/rules/AIC-type-safety.mdc.",
   },
 ];
 
@@ -115,24 +115,24 @@ const PRIMITIVE_CAST_BANS = [
   {
     selector: 'TSAsExpression[typeAnnotation.type="TSStringKeyword"]',
     message:
-      "Branded string types (RelativePath, ISOTimestamp, etc.) are assignable to string — remove `as string`. See .cursor/rules/aic-type-safety.mdc.",
+      "Branded string types (RelativePath, ISOTimestamp, etc.) are assignable to string — remove `as string`. See .cursor/rules/AIC-type-safety.mdc.",
   },
   {
     selector: 'TSAsExpression[typeAnnotation.type="TSNumberKeyword"]',
     message:
-      "Branded number types (TokenCount, Milliseconds, etc.) are assignable to number — remove `as number`. See .cursor/rules/aic-type-safety.mdc.",
+      "Branded number types (TokenCount, Milliseconds, etc.) are assignable to number — remove `as number`. See .cursor/rules/AIC-type-safety.mdc.",
   },
   {
     selector: 'TSAsExpression[typeAnnotation.type="TSBooleanKeyword"]',
     message:
-      "Do not cast to boolean. Use a type guard or Boolean() coercion. See .cursor/rules/aic-type-safety.mdc.",
+      "Do not cast to boolean. Use a type guard or Boolean() coercion. See .cursor/rules/AIC-type-safety.mdc.",
   },
 ];
 
 const DOUBLE_CAST_BAN = {
   selector: 'TSAsExpression[expression.type="TSAsExpression"]',
   message:
-    "Double-cast `as X as Y` bypasses all type checking. Use a properly typed adapter boundary. See .cursor/rules/aic-type-safety.mdc.",
+    "Double-cast `as X as Y` bypasses all type checking. Use a properly typed adapter boundary. See .cursor/rules/AIC-type-safety.mdc.",
 };
 
 const ANTI_PATTERN_BANS = [

@@ -18,7 +18,7 @@ describe("installTriggerRule", () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-trigger-"));
     const projectRoot = toAbsolutePath(tmpDir);
     installTriggerRule(projectRoot);
-    const triggerPath = path.join(tmpDir, ".cursor", "rules", "aic.mdc");
+    const triggerPath = path.join(tmpDir, ".cursor", "rules", "AIC.mdc");
     expect(fs.existsSync(triggerPath)).toBe(true);
     const content = fs.readFileSync(triggerPath, "utf8");
     expect(content).toContain("aic_compile");
@@ -29,7 +29,7 @@ describe("installTriggerRule", () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-trigger-"));
     const rulesDir = path.join(tmpDir, ".cursor", "rules");
     fs.mkdirSync(rulesDir, { recursive: true });
-    const triggerPath = path.join(tmpDir, ".cursor", "rules", "aic.mdc");
+    const triggerPath = path.join(tmpDir, ".cursor", "rules", "AIC.mdc");
     fs.writeFileSync(triggerPath, "custom trigger", "utf8");
     const projectRoot = toAbsolutePath(tmpDir);
     installTriggerRule(projectRoot);
@@ -43,6 +43,6 @@ describe("installTriggerRule", () => {
     const projectRoot = toAbsolutePath(tmpDir);
     installTriggerRule(projectRoot);
     expect(fs.existsSync(path.join(tmpDir, ".cursor", "rules"))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, ".cursor", "rules", "aic.mdc"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, ".cursor", "rules", "AIC.mdc"))).toBe(true);
   });
 });

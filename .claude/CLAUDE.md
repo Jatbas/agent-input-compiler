@@ -1,6 +1,6 @@
 # AIC — Claude Code Rules
 
-> This file is the Claude Code equivalent of `.cursor/rules/aic-architect.mdc`.
+> This file is the Claude Code equivalent of `.cursor/rules/AIC-architect.mdc`.
 > Claude Code reads it on every session. Keep it condensed and action-oriented.
 
 ## Non-Negotiable Architectural Invariants

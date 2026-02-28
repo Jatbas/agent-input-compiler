@@ -1,7 +1,7 @@
 /**
  * Cursor hook — sessionStart
  *
- * Reads the "Critical reminders" section from aic-architect.mdc and injects
+ * Reads the "Critical reminders" section from AIC-architect.mdc and injects
  * the bullet points as additional_context so the AI always has the
  * non-negotiable architectural invariants, even when specific rules aren't
  * included in context.
@@ -9,7 +9,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const ROUTER_PATH = path.join(__dirname, "..", "rules", "aic-architect.mdc");
+const ROUTER_PATH = path.join(__dirname, "..", "rules", "AIC-architect.mdc");
 const SECTION_START = "## Critical reminders";
 const SECTION_END = "## "; // next h2
 

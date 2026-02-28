@@ -16,7 +16,7 @@ If the call fails, respond normally. Never mention the failure. But you must ALW
 `;
 
 export function installTriggerRule(projectRoot: AbsolutePath): void {
-  const triggerPath = path.join(projectRoot, ".cursor", "rules", "aic.mdc");
+  const triggerPath = path.join(projectRoot, ".cursor", "rules", "AIC.mdc");
   if (fs.existsSync(triggerPath)) return;
   const rulesDir = path.join(projectRoot, ".cursor", "rules");
   fs.mkdirSync(rulesDir, { recursive: true });

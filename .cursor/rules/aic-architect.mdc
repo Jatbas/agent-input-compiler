@@ -11,15 +11,15 @@ Use this map to decide which rules apply to the current task. The **critical rem
 
 | Context | Rules to apply (file in .cursor/rules/) |
 |---------|----------------------------------------|
-| **Any task (before coding)** | aic-architect (this file, always active) |
-| **Editing `shared/src/core/**` or `shared/src/pipeline/**`** | aic-pipeline, aic-interfaces, aic-errors |
-| **Editing `shared/src/adapters/**` or `shared/src/storage/**`** | aic-storage, aic-errors |
-| **Editing `shared/src/**/interfaces/**`** | aic-interfaces |
-| **Editing `mcp/src/**`** | aic-mcp, aic-errors |
-| **Editing `cli/src/**`** | aic-cli, aic-errors |
-| **Editing `**/*.test.ts` or `**/__tests__/**`** | aic-tests |
-| **Fixing lint errors or type assertions in `**/*.ts`** | aic-type-safety |
-| **Suggesting or writing commit messages** | aic-architect (critical reminders cover this) |
+| **Any task (before coding)** | AIC-architect (this file, always active) |
+| **Editing `shared/src/core/**` or `shared/src/pipeline/**`** | AIC-pipeline, AIC-interfaces, AIC-errors |
+| **Editing `shared/src/adapters/**` or `shared/src/storage/**`** | AIC-storage, AIC-errors |
+| **Editing `shared/src/**/interfaces/**`** | AIC-interfaces |
+| **Editing `mcp/src/**`** | AIC-mcp, AIC-errors |
+| **Editing `cli/src/**`** | AIC-cli, AIC-errors |
+| **Editing `**/*.test.ts` or `**/__tests__/**`** | AIC-tests |
+| **Fixing lint errors or type assertions in `**/*.ts`** | AIC-type-safety |
+| **Suggesting or writing commit messages** | AIC-architect (critical reminders cover this) |
 
 ## Critical reminders (safeguard when rule not in context)
 
@@ -39,7 +39,7 @@ These bullets are the single source of truth: the sessionStart hook (`.cursor/ho
 - **Types:** No `any`. Explicit return types on all functions. Interfaces in `*.interface.ts` files (one interface per file). Max 5 methods per interface (ISP). Related type aliases live in `core/types/`, not in interface files.
 - **Comments:** `//` style only — `/* */` and `/** */` block comments are banned by ESLint. One short line max, explain *why* not *what*. No JSDoc. No narrating comments (`// Get the user`, `// Return result`).
 - **Branded types (ADR-010):** Use `shared/src/core/types/` branded types — never raw `string`/`number` for domain values (paths, tokens, durations, scores, IDs, enums). `as const` objects for enums, not TS `enum`. Null = `Type | null`; optional = `?: Type`.
-- **Type safety (enforced by ESLint):** No `as string`, `as number`, `as boolean` — branded types are already their base type. No double-cast `as unknown as T` (only `open-database.ts` exempt). No `!` non-null assertions — use optional chaining or null guards. No `Partial<T>` in core/pipeline. No `{ x } as Type` object literal assertions — use type annotations. No `enum`, `for...in`, default exports, `Object.assign`, nested ternaries. See `.cursor/rules/aic-type-safety.mdc`.
+- **Type safety (enforced by ESLint):** No `as string`, `as number`, `as boolean` — branded types are already their base type. No double-cast `as unknown as T` (only `open-database.ts` exempt). No `!` non-null assertions — use optional chaining or null guards. No `Partial<T>` in core/pipeline. No `{ x } as Type` object literal assertions — use type annotations. No `enum`, `for...in`, default exports, `Object.assign`, nested ternaries. See `.cursor/rules/AIC-type-safety.mdc`.
 - **Validation boundary (ADR-009):** Runtime validation at MCP handler, CLI parser, config loader only. Core/pipeline never imports the validation library — trusts branded types.
 - **Database:** All SQL lives exclusively in `shared/src/storage/`. Every schema change requires a migration file in `shared/src/storage/migrations/`. Never run raw DDL outside the `MigrationRunner`.
 - **IDs:** All entity PKs use UUIDv7 (`TEXT(36)` in SQLite). Never `INTEGER AUTOINCREMENT` for entities. Exception: `config_history` uses SHA-256 content hash. See Project Plan ADR-007.

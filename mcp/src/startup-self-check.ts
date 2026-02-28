@@ -6,7 +6,7 @@ export function runStartupSelfCheck(projectRoot: AbsolutePath): {
   installationOk: boolean;
   installationNotes: string;
 } {
-  const triggerPath = path.join(projectRoot, ".cursor", "rules", "aic.mdc");
+  const triggerPath = path.join(projectRoot, ".cursor", "rules", "AIC.mdc");
   const triggerExists = fs.existsSync(triggerPath);
 
   const hooksPath = path.join(projectRoot, ".cursor", "hooks", "hooks.json");

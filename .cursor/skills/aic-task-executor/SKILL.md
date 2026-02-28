@@ -15,7 +15,7 @@ Execute a task file produced by the `aic-task-planner` skill. Read the task, int
 ## Inputs
 
 1. The task file path (e.g. `documentation/tasks/001-phase-b-core-interfaces.md`)
-2. `.cursor/rules/aic-architect.mdc` — active architectural rules
+2. `.cursor/rules/AIC-architect.mdc` — active architectural rules
 3. Existing source in `shared/src/` — current interfaces, types, patterns
 
 ## Process
@@ -28,7 +28,7 @@ Execute a task file produced by the `aic-task-planner` skill. Read the task, int
 - `documentation/mvp-progress.md`
 - `shared/package.json`
 - `eslint.config.mjs`
-- `.cursor/rules/aic-architect.mdc`
+- `.cursor/rules/AIC-architect.mdc`
 
 **Validate** from the pre-read results:
 

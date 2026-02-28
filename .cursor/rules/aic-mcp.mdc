@@ -84,7 +84,7 @@ MCP responses cross a trust boundary — they must never leak internals:
 - Always return `AicError.code` alongside the message for machine-readable error handling
 - The catch block in the handler must call a dedicated `sanitizeError()` function — never return `err.message` directly
 
-See `aic-errors.mdc §Error response sanitization` for the full rules.
+See `AIC-errors.mdc §Error response sanitization` for the full rules.
 
 ## Composition Root Discipline
 

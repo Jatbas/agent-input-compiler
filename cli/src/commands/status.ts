@@ -46,9 +46,9 @@ function formatStatusOutput(
     request.configPath !== null ? fs.existsSync(request.configPath) : false;
   const configLine = `${configPathStr}${configExists ? "" : " (not found)"}`;
 
-  const triggerPath = path.join(request.projectRoot, ".cursor", "rules", "aic.mdc");
+  const triggerPath = path.join(request.projectRoot, ".cursor", "rules", "AIC.mdc");
   const triggerExists = fs.existsSync(triggerPath);
-  const triggerLine = `.cursor/rules/aic.mdc ${triggerExists ? "✓" : "✗"}`;
+  const triggerLine = `.cursor/rules/AIC.mdc ${triggerExists ? "✓" : "✗"}`;
 
   const installationLine = formatInstallationLine(aggregates);
 

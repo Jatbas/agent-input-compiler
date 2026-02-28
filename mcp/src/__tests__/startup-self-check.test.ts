@@ -30,7 +30,7 @@ describe("runStartupSelfCheck", () => {
     const hooksDir = path.join(tmpDir, ".cursor", "hooks");
     fs.mkdirSync(rulesDir, { recursive: true });
     fs.mkdirSync(hooksDir, { recursive: true });
-    fs.writeFileSync(path.join(rulesDir, "aic.mdc"), "");
+    fs.writeFileSync(path.join(rulesDir, "AIC.mdc"), "");
     fs.writeFileSync(
       path.join(hooksDir, "hooks.json"),
       JSON.stringify({

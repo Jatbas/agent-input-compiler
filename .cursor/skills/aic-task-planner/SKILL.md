@@ -45,7 +45,7 @@ The planner's natural bias is toward comprehensiveness — more types, more file
 2. `documentation/project-plan.md` — architecture, ADRs, conventions
 3. `documentation/mvp-specification-phase0.md` — detailed component specs
 4. `documentation/security.md` — security constraints
-5. `.cursor/rules/aic-architect.mdc` — active architectural rules
+5. `.cursor/rules/AIC-architect.mdc` — active architectural rules
 6. Existing source in `shared/src/` — current interfaces, types, patterns
 
 ## Process Overview
@@ -68,7 +68,7 @@ The process has **two passes** plus a presentation step. Each pass produces a co
 - `documentation/project-plan.md`
 - `documentation/mvp-specification-phase0.md`
 - `documentation/security.md`
-- `.cursor/rules/aic-architect.mdc`
+- `.cursor/rules/AIC-architect.mdc`
 - `shared/package.json`
 - `eslint.config.mjs`
 - `SKILL-recipes.md` (this file's sibling — static reference)
