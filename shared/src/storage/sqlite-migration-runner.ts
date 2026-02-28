@@ -23,12 +23,19 @@ export class SqliteMigrationRunner implements IMigrationRunner {
     const sorted = migrations.toSorted((a, b) => (a.id < b.id ? -1 : 1));
     for (const migration of sorted) {
       if (applied.has(migration.id)) continue;
-      migration.up(db);
-      const appliedAt = this.clock.now();
-      db.prepare("INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)").run(
-        migration.id,
-        appliedAt,
-      );
+      db.exec("BEGIN");
+      try {
+        migration.up(db);
+        const appliedAt = this.clock.now();
+        db.prepare("INSERT INTO schema_migrations (id, applied_at) VALUES (?, ?)").run(
+          migration.id,
+          appliedAt,
+        );
+        db.exec("COMMIT");
+      } catch (err: unknown) {
+        db.exec("ROLLBACK");
+        throw err;
+      }
     }
   }
 }

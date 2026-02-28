@@ -2,7 +2,7 @@
 
 **Current phase:** 0.5 (Quality Release)
 **Version target:** 0.2.0
-**Phase I (Live Wiring):** 19/19 done
+**Phase I (Live Wiring):** 20/23 done (1 deferred)
 
 ---
 
@@ -12,32 +12,32 @@
 
 Prerequisite for everything else. Quick fixes to make the tool fully functional.
 
-| Component                       | Status | Package                          |
-| ------------------------------- | ------ | -------------------------------- |
-| FileSystemRepoMapSupplier       | Done   | shared/src/adapters/             |
-| createFullPipelineDeps          | Done   | shared/src/bootstrap             |
-| Wire real RepoMap in MCP/CLI    | Done   | mcp/, cli/                       |
-| Wire real InspectRunner (CLI)   | Done   | cli/src/main.ts                  |
-| Telemetry write on compile      | Done   | shared/src/core/ + mcp + cli     |
-| Guard findings write on scan    | Done   | shared/src/storage/              |
-| Config loading from aic.config  | Done   | shared/src/config/ + mcp + cli   |
-| Real token counting in repo map | Done   | shared/src/adapters/             |
-| WhitespaceNormalizer exclusions | Done   | shared/src/pipeline/             |
-| 002-server-sessions migration   | Done   | shared/src/storage/migrations/   |
-| SessionTracker interface        | Done   | shared/src/core/interfaces/      |
-| SqliteSessionStore              | Done   | shared/src/storage/              |
-| sessionStart compile hook       | Done   | .cursor/hooks/                   |
-| preToolUse gate hook            | Done   | .cursor/hooks/                   |
-| beforeSubmitPrompt logging hook | Done   | .cursor/hooks/                   |
-| afterFileEdit tracking hook     | Done   | .cursor/hooks/                   |
-| stop quality check hook         | Done   | .cursor/hooks/                   |
-| Startup self-check (integrity)  | Done   | mcp/src/                         |
-| Auto-install trigger rule       | Done   | mcp/src/                         |
-| Server lifecycle hooks          | Done   | mcp/src/                         |
-| Telemetry conversation tracking | Todo   | shared/src/core/ + storage       |
-| Telemetry triggerSource field   | Todo   | shared/src/core/types/ + storage |
-| Claude Code integration layer   | Todo   | .claude/hooks/                   |
-| Subagent context injection (CC) | Todo   | .claude/hooks/                   |
+| Component                       | Status   | Package                          |
+| ------------------------------- | -------- | -------------------------------- |
+| FileSystemRepoMapSupplier       | Done     | shared/src/adapters/             |
+| createFullPipelineDeps          | Done     | shared/src/bootstrap             |
+| Wire real RepoMap in MCP/CLI    | Done     | mcp/, cli/                       |
+| Wire real InspectRunner (CLI)   | Done     | cli/src/main.ts                  |
+| Telemetry write on compile      | Done     | shared/src/core/ + mcp + cli     |
+| Guard findings write on scan    | Done     | shared/src/storage/              |
+| Config loading from aic.config  | Done     | shared/src/config/ + mcp + cli   |
+| Real token counting in repo map | Done     | shared/src/adapters/             |
+| WhitespaceNormalizer exclusions | Done     | shared/src/pipeline/             |
+| 002-server-sessions migration   | Done     | shared/src/storage/migrations/   |
+| SessionTracker interface        | Done     | shared/src/core/interfaces/      |
+| SqliteSessionStore              | Done     | shared/src/storage/              |
+| sessionStart compile hook       | Done     | .cursor/hooks/                   |
+| preToolUse gate hook            | Done     | .cursor/hooks/                   |
+| beforeSubmitPrompt logging hook | Done     | .cursor/hooks/                   |
+| afterFileEdit tracking hook     | Done     | .cursor/hooks/                   |
+| stop quality check hook         | Done     | .cursor/hooks/                   |
+| Startup self-check (integrity)  | Done     | mcp/src/                         |
+| Auto-install trigger rule       | Done     | mcp/src/                         |
+| Server lifecycle hooks          | Done     | mcp/src/                         |
+| Telemetry conversation tracking | Deferred | — (see KL-004)                   |
+| Telemetry triggerSource field   | Todo     | shared/src/core/types/ + storage |
+| Claude Code integration layer   | Todo     | .claude/hooks/                   |
+| Subagent context injection (CC) | Todo     | .claude/hooks/                   |
 
 ### Phase J — Intent & Selection Quality
 
@@ -104,11 +104,12 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 ## Known Limitations & Future Work
 
-| ID     | Area    | Description                                                                                                                                                                                                                           | Target  |
-| ------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| KL-001 | Storage | No data retention policy for `compilation_log`, `telemetry_events`, `guard_findings`, `server_sessions`. Tables grow unbounded. At current rates (~18 rows/day), this is negligible for months; becomes relevant at enterprise scale. | Phase 1 |
-| KL-002 | Storage | No `repomap_cache` pruning. Cached repo maps for deleted/moved projects remain indefinitely.                                                                                                                                          | Phase 1 |
-| KL-003 | Storage | `anonymous_telemetry_log` outbound queue has no TTL or max-size cap.                                                                                                                                                                  | Phase 1 |
+| ID     | Area      | Description                                                                                                                                                                                                                                                                                                                                                                                 | Target  |
+| ------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| KL-001 | Storage   | No data retention policy for `compilation_log`, `telemetry_events`, `guard_findings`, `server_sessions`. Tables grow unbounded. At current rates (~18 rows/day), this is negligible for months; becomes relevant at enterprise scale.                                                                                                                                                       | Phase 1 |
+| KL-002 | Storage   | No `repomap_cache` pruning. Cached repo maps for deleted/moved projects remain indefinitely.                                                                                                                                                                                                                                                                                                | Phase 1 |
+| KL-003 | Storage   | `anonymous_telemetry_log` outbound queue has no TTL or max-size cap.                                                                                                                                                                                                                                                                                                                        | Phase 1 |
+| KL-004 | Telemetry | No conversation-level grouping of compilations. MCP tool calls do not carry editor conversation IDs; session-level grouping via `compilation_log.session_id` is the current granularity. True conversation tracking requires the Phase 1+ agentic session layer or MCP protocol extensions. Cursor hooks already log `conversation_id` to `.aic/prompt-log.jsonl` for external correlation. | Phase 1 |
 
 ---
 

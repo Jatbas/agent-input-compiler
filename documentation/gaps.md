@@ -80,18 +80,17 @@ Claude Code solves the two capabilities that are structurally impossible in Curs
 
 ### GAP-04: Telemetry story incomplete
 
-**Status:** Partially actionable
-**Impact:** Medium — documentation says telemetry is "one-sided" but doesn't explain what we plan to improve
+**Status:** Partially resolved
 
-**What we have:** Compilation telemetry (token counts, duration, cache hits). Prompt logging via hooks.
+**What we have:** Compilation telemetry (token counts, duration, cache hits). Prompt logging via hooks. Session-level grouping via `compilation_log.session_id` (migration 004). Cursor hooks log `conversation_id` to `.aic/prompt-log.jsonl`.
 
 **What we need:**
 
-1. **Telemetry source tracking** — distinguish hook-triggered compilations from model-triggered ones
-2. **Telemetry conversation tracking** — link compilations to conversation IDs
+1. **Telemetry source tracking** — distinguish hook-triggered compilations from model-triggered ones (Phase I: `triggerSource` field)
+2. ~~**Telemetry conversation tracking** — link compilations to conversation IDs~~ **Deferred to Phase 1+.** MCP tool calls do not carry editor conversation IDs; the AI model has no mechanism to pass its conversation ID when calling `aic_compile`. Session-level grouping via `session_id` is sufficient for Phase 0.5. True conversation-level grouping requires the agentic session layer (Project Plan §2.7) or MCP protocol extensions. See KL-004 in `mvp-progress.md`.
 3. Documentation explaining what these will enable (per-session cost analysis, adoption metrics)
 
-**Action:** Items 1 and 2 are in `mvp-progress.md` Phase I. Add a brief explanation in the project plan of what conversation-level telemetry enables.
+**Action:** Item 1 is in `mvp-progress.md` Phase I. Item 2 deferred (KL-004).
 
 ---
 
