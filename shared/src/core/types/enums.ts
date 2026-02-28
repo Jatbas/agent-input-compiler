@@ -111,3 +111,13 @@ export const STOP_REASON = {
   CRASH: "crash",
 } as const;
 export type StopReason = (typeof STOP_REASON)[keyof typeof STOP_REASON];
+
+export const TRIGGER_SOURCE = {
+  SESSION_START: "session_start",
+  PROMPT_SUBMIT: "prompt_submit",
+  TOOL_GATE: "tool_gate",
+  SUBAGENT_START: "subagent_start",
+  CLI: "cli",
+  MODEL_INITIATED: "model_initiated",
+} as const;
+export type TriggerSource = (typeof TRIGGER_SOURCE)[keyof typeof TRIGGER_SOURCE];

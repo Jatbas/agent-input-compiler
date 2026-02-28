@@ -479,11 +479,13 @@ N. **CONSUMER COMPLETENESS (conditional — only if task modifies existing inter
 
 ### C.6 Score and act
 
-**≥ 90%:** Proceed to §6.
+**Always fix to maximum score.** For every failing check, attempt a fix — regardless of the current score. Do not accept a less-than-perfect score just because it is "close enough." The goal is 100%.
 
-**75–89%:** Auto-apply fixes for each failing check. Re-run the specific Grep checks that failed to confirm resolution. Proceed to §6 with the corrected score.
-
-**< 75%:** Apply fixes, rewrite affected sections, re-run all mechanical checks. Iterate until ≥ 75%.
+1. **For each failing check:** Determine the root cause, apply a targeted fix to the task file, and re-run that specific check to confirm resolution.
+2. **After all fixes:** Re-run the full rubric (C.5 Step 2). If new failures were introduced by the fixes, repeat.
+3. **Iterate** until the score is 100% or a check is genuinely unfixable for this component type.
+4. **Genuinely unfixable:** A check is unfixable only when the component structurally cannot satisfy it (e.g. "Wiring accuracy" for a non-composition-root task, or "Library API accuracy" for a task that uses no external library). In this case, mark the check as N/A and exclude it from the denominator. Never mark a check N/A to avoid doing work — only when the check's precondition is structurally unmet.
+5. **Proceed to §6** only when score = M/M (100%) with all applicable checks passing.
 
 ---
 
@@ -520,9 +522,9 @@ When rewriting:
 - Read original, apply fixes, re-read relevant source files
 - Write corrected task in place (same path, same NNN)
 - Do not change scope unless a guardrail requires it
-- **Original < 75%:** Always re-run full mechanical checks (C.5). Iterate until ≥ 75%.
-- **Original 75–89%, minor fixes:** Re-run only the failing Grep checks to confirm resolution. Assign corrected score.
-- **Original 75–89%, substantial changes:** Re-run full mechanical checks (C.5).
+- Fix every failing check regardless of original score.
+- Re-run the full rubric after fixes. Iterate until 100% (all applicable checks pass).
+- Mark checks N/A only when the check's precondition is structurally unmet (see C.6 rule 4).
 
 After rewriting: **"Task NNN rewritten. Score: N/M (X%). [Summary of changes]."**
 

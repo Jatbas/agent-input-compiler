@@ -57,6 +57,32 @@ describe("MCP server", () => {
     expect((result as { isError?: boolean }).isError).not.toBe(true);
   });
 
+  it("mcp_accepts_optional_trigger_source", async () => {
+    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    const server = createMcpServer(toAbsolutePath(tmpDir));
+    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+    await server.connect(transportServer);
+    const client = new Client({ name: "test", version: "1.0" });
+    await client.connect(transportClient);
+    const result = await client.callTool({
+      name: "aic_compile",
+      arguments: {
+        intent: "fix bug",
+        projectRoot: tmpDir,
+        triggerSource: "session_start",
+      },
+    });
+    type ContentItem = { type: string; text?: string };
+    const raw = (result as { content?: ContentItem[] }).content;
+    const content: ContentItem[] = Array.isArray(raw) ? raw : [];
+    const text = content
+      .filter((c): c is { type: "text"; text: string } => c.type === "text")
+      .map((c) => c.text)
+      .join("");
+    expect(text.length).toBeGreaterThan(0);
+    expect((result as { isError?: boolean }).isError).not.toBe(true);
+  });
+
   it("invalid_args_returns_32602", async () => {
     tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
     const server = createMcpServer(toAbsolutePath(tmpDir));

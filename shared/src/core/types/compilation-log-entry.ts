@@ -1,7 +1,7 @@
 import type { UUIDv7, ISOTimestamp, SessionId } from "#core/types/identifiers.js";
 import type { TokenCount, Milliseconds } from "#core/types/units.js";
 import type { Percentage } from "#core/types/scores.js";
-import type { TaskClass, EditorId } from "#core/types/enums.js";
+import type { TaskClass, EditorId, TriggerSource } from "#core/types/enums.js";
 
 export interface CompilationLogEntry {
   readonly id: UUIDv7;
@@ -19,4 +19,5 @@ export interface CompilationLogEntry {
   readonly sessionId: SessionId | null;
   readonly configHash: string | null;
   readonly createdAt: ISOTimestamp;
+  readonly triggerSource?: TriggerSource | null;
 }

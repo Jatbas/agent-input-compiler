@@ -7,6 +7,7 @@ import type {
   EditorId,
   InclusionTier,
   ToolOutputType,
+  TriggerSource,
 } from "#core/types/enums.js";
 import type { GuardResult } from "#core/types/guard-types.js";
 
@@ -28,6 +29,7 @@ export interface CompilationRequest {
   readonly previousFiles?: readonly RelativePath[];
   readonly toolOutputs?: readonly ToolOutput[];
   readonly conversationTokens?: TokenCount;
+  readonly triggerSource?: TriggerSource;
 }
 
 export interface CompilationMeta {

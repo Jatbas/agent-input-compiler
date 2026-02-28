@@ -21,6 +21,7 @@ export async function compileCommand(
       modelId: null,
       editorId: EDITOR_ID.GENERIC,
       configPath: args.configPath !== null ? toFilePath(args.configPath) : null,
+      triggerSource: args.triggerSource,
     };
     const result = await runner.run(request);
     if (telemetryDeps !== undefined) {

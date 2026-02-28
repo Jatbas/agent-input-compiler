@@ -74,6 +74,7 @@ describe("compileCommand", () => {
       projectRoot: "/tmp/proj",
       configPath: null,
       dbPath: null,
+      triggerSource: "cli" as const,
     };
     await expect(compileCommand(invalidArgs, stubRunner)).rejects.toThrow();
   });
@@ -125,6 +126,32 @@ describe("compileCommand", () => {
       expect(acc.chunks.join("")).toContain("Not implemented");
     } finally {
       process.stdout.write = origWrite;
+    }
+  });
+
+  it("cli_sets_trigger_source", async () => {
+    const parsed = CompilationArgsSchema.parse({
+      intent: "fix bug",
+      projectRoot: "/tmp/proj",
+      configPath: null,
+      dbPath: null,
+    });
+    type CapturedRequest = Parameters<CompilationRunner["run"]>[0];
+    const captured: { request: CapturedRequest | null } = { request: null };
+    const capturingRunner: CompilationRunner = {
+      async run(request) {
+        captured.request = request;
+        return {
+          compiledPrompt: "ok",
+          meta: stubMeta,
+          compilationId: stubCompilationId,
+        };
+      },
+    };
+    await compileCommand(parsed, capturingRunner);
+    expect(captured.request).not.toBeNull();
+    if (captured.request !== null) {
+      expect(captured.request.triggerSource).toBe("cli");
     }
   });
 

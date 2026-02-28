@@ -6,4 +6,14 @@ export const CompilationRequestSchema = {
   modelId: z.string().nullable().default(null),
   editorId: z.enum(["cursor", "claude-code", "generic"]).default("generic"),
   configPath: z.string().nullable().default(null),
+  triggerSource: z
+    .enum([
+      "session_start",
+      "prompt_submit",
+      "tool_gate",
+      "subagent_start",
+      "cli",
+      "model_initiated",
+    ])
+    .optional(),
 } as const;

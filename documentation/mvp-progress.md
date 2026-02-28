@@ -2,7 +2,7 @@
 
 **Current phase:** 0.5 (Quality Release)
 **Version target:** 0.2.0
-**Phase I (Live Wiring):** 20/23 done (1 deferred)
+**Phase I (Live Wiring):** 21/23 done (1 deferred)
 
 ---
 
@@ -35,7 +35,7 @@ Prerequisite for everything else. Quick fixes to make the tool fully functional.
 | Auto-install trigger rule       | Done     | mcp/src/                         |
 | Server lifecycle hooks          | Done     | mcp/src/                         |
 | Telemetry conversation tracking | Deferred | — (see KL-004)                   |
-| Telemetry triggerSource field   | Todo     | shared/src/core/types/ + storage |
+| Telemetry triggerSource field   | Done     | shared/src/core/types/ + storage |
 | Claude Code integration layer   | Todo     | .claude/hooks/                   |
 | Subagent context injection (CC) | Todo     | .claude/hooks/                   |
 
@@ -219,6 +219,7 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 - Startup self-check (integrity) (task 034): migration 003 adds installation_ok, installation_notes to server_sessions; SessionTracker.startSession extended with installationOk, installationNotes; runStartupSelfCheck in mcp/src checks trigger rule, hooks.json sessionStart, hook script; createMcpServer runs self-check, startSession, backfillCrashedSessions on startup; StatusAggregates and SqliteStatusStore getSummary expose installationOk/installationNotes from latest server_sessions; status command displays Installation line (OK / notes / —); tests for startup-self-check, server_sessions row integrity, getSummary installation, migration_003_adds_columns
 - Auto-install trigger rule (task 035): installTriggerRule in mcp/src writes .cursor/rules/aic.mdc from template when missing (idempotent, no overwrite); createMcpServer calls installTriggerRule before runStartupSelfCheck; three tests (trigger_missing_creates_file, trigger_exists_does_not_overwrite, trigger_missing_creates_rules_dir)
 - Server lifecycle hooks (task 036): registerShutdownHandler in mcp/src/server.ts registers SIGINT/SIGTERM; calls sessionTracker.stopSession(sessionId, clock.now(), STOP_REASON.GRACEFUL) then process.exit(0); createMcpServer wires it after backfillCrashedSessions; try/catch in handler so teardown with closed DB does not throw; test shutdown_handler_calls_stopSession_with_graceful
+- Telemetry triggerSource field (task 037): TRIGGER_SOURCE enum and TriggerSource in core/types/enums.ts; optional triggerSource on CompilationRequest and CompilationLogEntry; migration 005 adds trigger_source to compilation_log; buildLogEntry/recordCompilationAndFindings/run pass triggerSource; SqliteCompilationLogStore INSERT trigger_source; MCP schema optional triggerSource, handler passes through; CLI schema default "cli", compile command sets request.triggerSource; tests for store, runner, MCP, CLI
 
 ### 2026-02-27
 

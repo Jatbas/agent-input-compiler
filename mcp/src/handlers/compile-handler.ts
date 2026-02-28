@@ -7,7 +7,7 @@ import type { CompilationRunner } from "@aic/shared/core/interfaces/compilation-
 import { AicError } from "@aic/shared/core/errors/aic-error.js";
 import { sanitizeError } from "@aic/shared/core/errors/sanitize-error.js";
 import { toAbsolutePath, toFilePath } from "@aic/shared/core/types/paths.js";
-import type { EditorId } from "@aic/shared/core/types/enums.js";
+import type { EditorId, TriggerSource } from "@aic/shared/core/types/enums.js";
 import type { SessionId } from "@aic/shared/core/types/identifiers.js";
 import type { CompilationRequest } from "@aic/shared/core/types/compilation-types.js";
 import type { TelemetryDeps } from "@aic/shared/core/types/telemetry-types.js";
@@ -24,6 +24,7 @@ export function createCompileHandler(
     modelId: string | null;
     editorId: string;
     configPath: string | null;
+    triggerSource?: TriggerSource | undefined;
   },
   _extra: unknown,
 ) => Promise<CallToolResult> {
@@ -36,6 +37,9 @@ export function createCompileHandler(
         editorId: args.editorId as EditorId,
         configPath: args.configPath !== null ? toFilePath(args.configPath) : null,
         sessionId,
+        ...(args.triggerSource !== undefined
+          ? { triggerSource: args.triggerSource }
+          : {}),
       };
       const result = await runner.run(request);
       writeCompilationTelemetry(

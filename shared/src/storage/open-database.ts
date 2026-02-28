@@ -4,12 +4,19 @@ import { migration as migration001 } from "#storage/migrations/001-initial-schem
 import { migration as migration002 } from "#storage/migrations/002-server-sessions.js";
 import { migration as migration003 } from "#storage/migrations/003-server-sessions-integrity.js";
 import { migration as migration004 } from "#storage/migrations/004-normalize-telemetry.js";
+import { migration as migration005 } from "#storage/migrations/005-trigger-source.js";
 import type { Clock } from "#core/interfaces/clock.interface.js";
 import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
 
 export function openDatabase(dbPath: string, clock: Clock): ExecutableDb {
   const db = new Database(dbPath) as unknown as ExecutableDb;
   const migrationRunner = new SqliteMigrationRunner(clock);
-  migrationRunner.run(db, [migration001, migration002, migration003, migration004]);
+  migrationRunner.run(db, [
+    migration001,
+    migration002,
+    migration003,
+    migration004,
+    migration005,
+  ]);
   return db;
 }

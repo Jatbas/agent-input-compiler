@@ -4,11 +4,12 @@ import type { CompilationLogEntry } from "#core/types/compilation-log-entry.js";
 import { toUUIDv7, toISOTimestamp, toSessionId } from "#core/types/identifiers.js";
 import { toTokenCount, toMilliseconds } from "#core/types/units.js";
 import { toPercentage } from "#core/types/scores.js";
-import { EDITOR_ID, TASK_CLASS } from "#core/types/enums.js";
+import { EDITOR_ID, TASK_CLASS, TRIGGER_SOURCE } from "#core/types/enums.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
 import { migration as migration002 } from "../migrations/002-server-sessions.js";
 import { migration as migration003 } from "../migrations/003-server-sessions-integrity.js";
 import { migration as migration004 } from "../migrations/004-normalize-telemetry.js";
+import { migration as migration005 } from "../migrations/005-trigger-source.js";
 import { SqliteCompilationLogStore } from "../sqlite-compilation-log-store.js";
 
 describe("SqliteCompilationLogStore", () => {
@@ -24,6 +25,7 @@ describe("SqliteCompilationLogStore", () => {
     migration002.up(db);
     migration003.up(db);
     migration004.up(db);
+    migration005.up(db);
     return new SqliteCompilationLogStore(db);
   }
 
@@ -146,5 +148,60 @@ describe("SqliteCompilationLogStore", () => {
     expect(row).toBeDefined();
     expect(row.session_id).toBe(sid);
     expect(row.config_hash).toBe(configHash);
+  });
+
+  it("record_with_trigger_source_persists_column", () => {
+    const store = setup();
+    const entry: CompilationLogEntry = {
+      id: toUUIDv7("00000000-0000-7000-8000-000000000004"),
+      intent: "test",
+      taskClass: TASK_CLASS.REFACTOR,
+      filesSelected: 0,
+      filesTotal: 0,
+      tokensRaw: toTokenCount(0),
+      tokensCompiled: toTokenCount(0),
+      tokenReductionPct: toPercentage(0),
+      cacheHit: false,
+      durationMs: toMilliseconds(0),
+      editorId: EDITOR_ID.GENERIC,
+      modelId: "",
+      sessionId: null,
+      configHash: null,
+      createdAt: toISOTimestamp("2026-02-28T12:00:00.000Z"),
+      triggerSource: TRIGGER_SOURCE.CLI,
+    };
+    store.record(entry);
+    const row = db
+      .prepare("SELECT trigger_source FROM compilation_log WHERE id = ?")
+      .get(entry.id) as { trigger_source: string | null };
+    expect(row).toBeDefined();
+    expect(row.trigger_source).toBe("cli");
+  });
+
+  it("record_without_trigger_source_stores_null", () => {
+    const store = setup();
+    const entry: CompilationLogEntry = {
+      id: toUUIDv7("00000000-0000-7000-8000-000000000005"),
+      intent: "test",
+      taskClass: TASK_CLASS.GENERAL,
+      filesSelected: 0,
+      filesTotal: 0,
+      tokensRaw: toTokenCount(0),
+      tokensCompiled: toTokenCount(0),
+      tokenReductionPct: toPercentage(0),
+      cacheHit: false,
+      durationMs: toMilliseconds(0),
+      editorId: EDITOR_ID.GENERIC,
+      modelId: "",
+      sessionId: null,
+      configHash: null,
+      createdAt: toISOTimestamp("2026-02-28T12:00:00.000Z"),
+    };
+    store.record(entry);
+    const row = db
+      .prepare("SELECT trigger_source FROM compilation_log WHERE id = ?")
+      .get(entry.id) as { trigger_source: string | null };
+    expect(row).toBeDefined();
+    expect(row.trigger_source).toBeNull();
   });
 });
