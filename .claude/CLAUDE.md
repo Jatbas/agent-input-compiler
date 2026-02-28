@@ -3,6 +3,18 @@
 > This file is the Claude Code equivalent of `.cursor/rules/AIC-architect.mdc`.
 > Claude Code reads it on every session. Keep it condensed and action-oriented.
 
+## AIC Context Compilation (hooks handle this automatically)
+
+AIC hooks in `.claude/hooks/` auto-compile intent-specific project context:
+
+- **SessionStart** — compiles broad context at session start (including post-compaction)
+- **UserPromptSubmit** — compiles fresh context using your actual prompt as intent (every message)
+- **SubagentStart** — compiles and injects context into every subagent
+- **Stop** — runs ESLint + typecheck on edited files before letting you stop
+- **SessionEnd** — logs session telemetry
+
+You do **not** need to call `aic_compile` manually — hooks handle it. If you need context for a different intent than the user's message, you may call `aic_compile` directly via MCP.
+
 ## Non-Negotiable Architectural Invariants
 
 - **First pass:** Write code that passes lint and conventions on the first version. Avoid rework.

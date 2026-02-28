@@ -36,8 +36,8 @@ Prerequisite for everything else. Quick fixes to make the tool fully functional.
 | Server lifecycle hooks          | Done     | mcp/src/                         |
 | Telemetry conversation tracking | Deferred | — (see KL-004)                   |
 | Telemetry triggerSource field   | Done     | shared/src/core/types/ + storage |
-| Claude Code integration layer   | Todo     | .claude/hooks/                   |
-| Subagent context injection (CC) | Todo     | .claude/hooks/                   |
+| Claude Code integration layer   | Done     | .claude/hooks/                   |
+| Subagent context injection (CC) | Done     | .claude/hooks/                   |
 
 ### Phase J — Intent & Selection Quality
 
