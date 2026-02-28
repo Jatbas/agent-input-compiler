@@ -1,5 +1,3 @@
-import * as fs from "node:fs";
-import * as path from "node:path";
 import { program, type Command } from "commander";
 import { CompilationArgsSchema } from "./schemas/compilation-args.js";
 import { InspectArgsSchema } from "./schemas/inspect-args.js";
@@ -12,8 +10,7 @@ import { statusCommand } from "./commands/status.js";
 import type { CompilationRunner } from "@aic/shared/core/interfaces/compilation-runner.interface.js";
 import { InspectRunner } from "@aic/shared/pipeline/inspect-runner.js";
 import type { StatusRequest } from "@aic/shared/core/types/status-types.js";
-import type { FileContentReader } from "@aic/shared/core/interfaces/file-content-reader.interface.js";
-import type { RelativePath } from "@aic/shared/core/types/paths.js";
+import { createCachingFileContentReader } from "@aic/shared/adapters/caching-file-content-reader.js";
 import { openDatabase } from "@aic/shared/storage/open-database.js";
 import {
   createProjectScope,
@@ -80,11 +77,7 @@ function createScopeAndDeps(
     scope.configStore,
     sha256Adapter,
   );
-  const fileContentReader: FileContentReader = {
-    getContent(pathRel: RelativePath): string {
-      return fs.readFileSync(path.join(projectRoot, pathRel), "utf8");
-    },
-  };
+  const fileContentReader = createCachingFileContentReader(toAbsolutePath(projectRoot));
   const rulePackProvider = createRulePackProvider(projectRoot);
   const deps = createFullPipelineDeps(
     fileContentReader,

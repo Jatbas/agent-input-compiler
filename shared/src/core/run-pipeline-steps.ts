@@ -8,6 +8,7 @@ import type { ContentTransformerPipeline } from "#core/interfaces/content-transf
 import type { SummarisationLadder } from "#core/interfaces/summarisation-ladder.interface.js";
 import type { PromptAssembler } from "#core/interfaces/prompt-assembler.interface.js";
 import type { RepoMapSupplier } from "#core/interfaces/repo-map-supplier.interface.js";
+import type { IntentAwareFileDiscoverer } from "#core/interfaces/intent-aware-file-discoverer.interface.js";
 import type { TokenCounter } from "#core/interfaces/token-counter.interface.js";
 import type { TaskClassification } from "#core/types/task-classification.js";
 import type { RulePack } from "#core/types/rule-pack.js";
@@ -29,6 +30,7 @@ export interface PipelineStepsDeps {
   readonly summarisationLadder: SummarisationLadder;
   readonly promptAssembler: PromptAssembler;
   readonly repoMapSupplier: RepoMapSupplier;
+  readonly intentAwareFileDiscoverer: IntentAwareFileDiscoverer;
   readonly tokenCounter: TokenCounter;
 }
 
@@ -67,9 +69,14 @@ export async function runPipelineSteps(
   const budget = deps.budgetAllocator.allocate(rulePack, task.taskClass);
   const repoMap =
     repoMapOverride ?? (await deps.repoMapSupplier.getRepoMap(request.projectRoot));
+  const discoveredRepoMap = deps.intentAwareFileDiscoverer.discover(
+    repoMap,
+    task,
+    rulePack,
+  );
   const contextResult = deps.contextSelector.selectContext(
     task,
-    repoMap,
+    discoveredRepoMap,
     budget,
     rulePack,
   );

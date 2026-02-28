@@ -39,6 +39,7 @@ import { LockFileSkipper } from "#pipeline/lock-file-skipper.js";
 import { ContentTransformerPipeline } from "#pipeline/content-transformer-pipeline.js";
 import { SummarisationLadder } from "#pipeline/summarisation-ladder.js";
 import { PromptAssembler } from "#pipeline/prompt-assembler.js";
+import { IntentAwareFileDiscoverer } from "#pipeline/intent-aware-file-discoverer.js";
 import { TiktokenAdapter } from "#adapters/tiktoken-adapter.js";
 import { Sha256Adapter } from "#adapters/sha256-adapter.js";
 import { TypeScriptProvider } from "#adapters/typescript-provider.js";
@@ -208,6 +209,7 @@ function createRunner(fixtureRoot: ReturnType<typeof toAbsolutePath>): Compilati
     contentTransformerPipeline,
     summarisationLadder,
     promptAssembler,
+    intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
     repoMapSupplier: mockRepoMapSupplier,
     tokenCounter: tiktokenAdapter,
   };

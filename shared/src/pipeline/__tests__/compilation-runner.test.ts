@@ -43,6 +43,7 @@ import { LockFileSkipper } from "../lock-file-skipper.js";
 import { ContentTransformerPipeline } from "../content-transformer-pipeline.js";
 import { SummarisationLadder } from "../summarisation-ladder.js";
 import { PromptAssembler } from "../prompt-assembler.js";
+import { IntentAwareFileDiscoverer } from "../intent-aware-file-discoverer.js";
 import { TiktokenAdapter } from "#adapters/tiktoken-adapter.js";
 import { TypeScriptProvider } from "#adapters/typescript-provider.js";
 import { GenericProvider } from "#adapters/generic-provider.js";
@@ -252,6 +253,7 @@ describe("CompilationRunner", () => {
       contentTransformerPipeline,
       summarisationLadder,
       promptAssembler,
+      intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
       repoMapSupplier: mockRepoMapSupplier,
       tokenCounter: tiktokenAdapter,
     };
@@ -293,6 +295,7 @@ describe("CompilationRunner", () => {
       contentTransformerPipeline,
       summarisationLadder,
       promptAssembler,
+      intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
       repoMapSupplier: mockRepoMapSupplier,
       tokenCounter: tiktokenAdapter,
     };
@@ -339,6 +342,7 @@ describe("CompilationRunner", () => {
       contentTransformerPipeline,
       summarisationLadder,
       promptAssembler,
+      intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
       repoMapSupplier: rejectingRepoMapSupplier,
       tokenCounter: tiktokenAdapter,
     };
@@ -378,6 +382,7 @@ describe("CompilationRunner", () => {
       contentTransformerPipeline,
       summarisationLadder,
       promptAssembler,
+      intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
       repoMapSupplier: mockRepoMapSupplier,
       tokenCounter: tiktokenAdapter,
     };
@@ -434,6 +439,7 @@ describe("CompilationRunner", () => {
       contentTransformerPipeline,
       summarisationLadder,
       promptAssembler,
+      intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
       repoMapSupplier: mockRepoMapSupplier,
       tokenCounter: tiktokenAdapter,
     };
@@ -480,6 +486,7 @@ describe("CompilationRunner", () => {
       contentTransformerPipeline,
       summarisationLadder,
       promptAssembler,
+      intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
       repoMapSupplier: mockRepoMapSupplier,
       tokenCounter: tiktokenAdapter,
     };

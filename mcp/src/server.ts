@@ -1,11 +1,8 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AbsolutePath } from "@aic/shared/core/types/paths.js";
-import type { RelativePath } from "@aic/shared/core/types/paths.js";
 import type { RulePack } from "@aic/shared/core/types/rule-pack.js";
 import type { RulePackProvider } from "@aic/shared/core/interfaces/rule-pack-provider.interface.js";
-import type { FileContentReader } from "@aic/shared/core/interfaces/file-content-reader.interface.js";
 import type { BudgetConfig } from "@aic/shared/core/interfaces/budget-config.interface.js";
 import { toAbsolutePath } from "@aic/shared/core/types/paths.js";
 import { toTokenCount } from "@aic/shared/core/types/units.js";
@@ -34,16 +31,8 @@ import { CompilationRunner as CompilationRunnerImpl } from "@aic/shared/pipeline
 import { Sha256Adapter } from "@aic/shared/adapters/sha256-adapter.js";
 import { loadRulePackFromPath } from "@aic/shared/core/load-rule-pack.js";
 import { createProjectFileReader } from "@aic/shared/adapters/project-file-reader-adapter.js";
+import { createCachingFileContentReader } from "@aic/shared/adapters/caching-file-content-reader.js";
 import { detectEditorId } from "./detect-editor-id.js";
-
-export function createFileContentReader(projectRoot: AbsolutePath): FileContentReader {
-  return {
-    getContent(pathRel: RelativePath): string {
-      const full = path.join(projectRoot, pathRel);
-      return fs.readFileSync(full, "utf8");
-    },
-  };
-}
 
 function defaultRulePack(): RulePack {
   return {
@@ -121,7 +110,7 @@ export function createMcpServer(projectRoot: AbsolutePath): McpServer {
     scope.configStore,
     sha256Adapter,
   );
-  const fileContentReader = createFileContentReader(projectRoot);
+  const fileContentReader = createCachingFileContentReader(projectRoot);
   const rulePackProvider = createRulePackProvider(projectRoot);
   const deps = createFullPipelineDeps(
     fileContentReader,

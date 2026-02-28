@@ -21,6 +21,7 @@ import { LockFileSkipper } from "#pipeline/lock-file-skipper.js";
 import { ContentTransformerPipeline } from "#pipeline/content-transformer-pipeline.js";
 import { SummarisationLadder } from "#pipeline/summarisation-ladder.js";
 import { PromptAssembler } from "#pipeline/prompt-assembler.js";
+import { IntentAwareFileDiscoverer } from "#pipeline/intent-aware-file-discoverer.js";
 import { TiktokenAdapter } from "#adapters/tiktoken-adapter.js";
 import { TypeScriptProvider } from "#adapters/typescript-provider.js";
 import { GenericProvider } from "#adapters/generic-provider.js";
@@ -82,6 +83,7 @@ export function createPipelineDeps(
     fileContentReader,
   );
   const promptAssembler = new PromptAssembler(fileContentReader);
+  const intentAwareFileDiscoverer = new IntentAwareFileDiscoverer();
   return {
     intentClassifier,
     rulePackResolver,
@@ -91,6 +93,7 @@ export function createPipelineDeps(
     contentTransformerPipeline,
     summarisationLadder,
     promptAssembler,
+    intentAwareFileDiscoverer,
     tokenCounter: tiktokenAdapter,
   };
 }
@@ -110,8 +113,6 @@ export function createFullPipelineDeps(
   const repoMapSupplier = new FileSystemRepoMapSupplier(
     new FastGlobAdapter(),
     new IgnoreAdapter(),
-    fileContentReader,
-    partial.tokenCounter,
   );
   return { ...partial, repoMapSupplier };
 }

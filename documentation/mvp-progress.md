@@ -2,7 +2,7 @@
 
 **Current phase:** 0.5 (Quality Release)
 **Version target:** 0.2.0
-**Phase I (Live Wiring):** 21/23 done (1 deferred)
+**Phase I (Live Wiring):** 22/24 done (1 deferred)
 
 ---
 
@@ -38,6 +38,7 @@ Prerequisite for everything else. Quick fixes to make the tool fully functional.
 | Telemetry triggerSource field   | Done     | shared/src/core/types/ + storage |
 | Claude Code integration layer   | Done     | .claude/hooks/                   |
 | Subagent context injection (CC) | Done     | .claude/hooks/                   |
+| Compilation perf: lazy scan     | Done     | shared/src/adapters/ + mcp + cli |
 
 ### Phase J — Intent & Selection Quality
 
@@ -46,7 +47,7 @@ Highest-impact work. The core value of AIC is picking the right files — if sel
 | Component                        | Status | Package              |
 | -------------------------------- | ------ | -------------------- |
 | Richer intent keyword extraction | Done   | shared/src/pipeline/ |
-| Intent-aware file discovery      | Todo   | shared/src/pipeline/ |
+| Intent-aware file discovery      | Done   | shared/src/pipeline/ |
 | Import graph signal (TS/JS)      | Todo   | shared/src/pipeline/ |
 | GenericImportProvider (Py/Go/Rs) | Todo   | shared/src/adapters/ |
 | PythonProvider (AST-safe)        | Todo   | shared/src/adapters/ |
@@ -210,9 +211,10 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 ### 2026-02-28
 
-**Components:** 002-server-sessions migration, SessionTracker interface, SqliteSessionStore, Richer intent keyword extraction
+**Components:** 002-server-sessions migration, SessionTracker interface, SqliteSessionStore, Richer intent keyword extraction, Compilation perf: lazy scan, Intent-aware file discovery
 **Completed:**
 
+- Intent-aware file discovery (task 039): IntentAwareFileDiscoverer interface and pipeline implementation; filter repo.files by excludePatterns then includePatterns or keyword match; empty filter returns repo unchanged; wired in run-pipeline-steps (discover after getRepoMap, pass discoveredRepoMap to selectContext) and create-pipeline-deps; five tests (keyword filter, include patterns, exclude patterns, general task no filter, empty filter returns original)
 - 002-server-sessions migration (task 031): migration 002-server-sessions.ts creates server_sessions table (session_id, started_at, stopped_at, stop_reason, pid, version); open-database runs [migration001, migration002]; migration-runner test applies_002_and_creates_server_sessions_table
 - SessionTracker interface (task 032): SessionTracker interface in core/interfaces (startSession, stopSession, backfillCrashedSessions); STOP_REASON and StopReason in core/types/enums.ts
 - SqliteSessionStore (task 033): SqliteSessionStore in storage implements SessionTracker; startSession INSERT, stopSession UPDATE by session_id, backfillCrashedSessions UPDATE WHERE stopped_at IS NULL with STOP_REASON.CRASH; five tests (persists row, stopSession updates row, backfill marks open sessions, empty backfill no-op, duplicate startSession throws)
@@ -221,6 +223,7 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 - Server lifecycle hooks (task 036): registerShutdownHandler in mcp/src/server.ts registers SIGINT/SIGTERM; calls sessionTracker.stopSession(sessionId, clock.now(), STOP_REASON.GRACEFUL) then process.exit(0); createMcpServer wires it after backfillCrashedSessions; try/catch in handler so teardown with closed DB does not throw; test shutdown_handler_calls_stopSession_with_graceful
 - Telemetry triggerSource field (task 037): TRIGGER_SOURCE enum and TriggerSource in core/types/enums.ts; optional triggerSource on CompilationRequest and CompilationLogEntry; migration 005 adds trigger_source to compilation_log; buildLogEntry/recordCompilationAndFindings/run pass triggerSource; SqliteCompilationLogStore INSERT trigger_source; MCP schema optional triggerSource, handler passes through; CLI schema default "cli", compile command sets request.triggerSource; tests for store, runner, MCP, CLI
 - Richer intent keyword extraction (task 038): expanded KEYWORDS in intent-classifier.ts (REFACTOR: migrate, extract, inline, rename, dedupe, consolidate, split, merge; BUGFIX: debug, trace, wrong, fail, exception, patch, resolve; FEATURE: extend, support, enable, wire, integrate; DOCS: changelog, docstring, api doc; TEST: stub, unittest, integration test, e2e, fixture); five new test cases; integration snapshots updated for confidence/token values
+- Compilation perf: lazy scan — FileSystemRepoMapSupplier no longer reads file contents or tokenizes during scan (uses bytes/4 estimate); removed fileContentReader and tokenCounter from constructor; createCachingFileContentReader adapter with mtime-based cache eliminates repeated readFileSync for same file across pipeline steps; wired in MCP server.ts and CLI main.ts; tests updated (4 tests, 214 total pass)
 
 ### 2026-02-27
 

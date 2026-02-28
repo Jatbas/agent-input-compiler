@@ -9,6 +9,7 @@ import type { ContentTransformerPipeline } from "#core/interfaces/content-transf
 import type { SummarisationLadder } from "#core/interfaces/summarisation-ladder.interface.js";
 import type { PromptAssembler } from "#core/interfaces/prompt-assembler.interface.js";
 import type { RepoMapSupplier } from "#core/interfaces/repo-map-supplier.interface.js";
+import type { IntentAwareFileDiscoverer } from "#core/interfaces/intent-aware-file-discoverer.interface.js";
 import type { Clock } from "#core/interfaces/clock.interface.js";
 import type { TokenCounter } from "#core/interfaces/token-counter.interface.js";
 import type { InspectRequest } from "#core/types/inspect-types.js";
@@ -148,6 +149,9 @@ describe("InspectRunner", () => {
         mockContentTransformerPipeline as ContentTransformerPipeline,
       summarisationLadder: mockSummarisationLadder as SummarisationLadder,
       promptAssembler: mockPromptAssembler as PromptAssembler,
+      intentAwareFileDiscoverer: {
+        discover: (repo: RepoMap) => repo,
+      } as IntentAwareFileDiscoverer,
       repoMapSupplier: mockRepoMapSupplier as RepoMapSupplier,
       tokenCounter: mockTokenCounter as TokenCounter,
     };
@@ -190,6 +194,9 @@ describe("InspectRunner", () => {
         mockContentTransformerPipeline as ContentTransformerPipeline,
       summarisationLadder: mockSummarisationLadder as SummarisationLadder,
       promptAssembler: mockPromptAssembler as PromptAssembler,
+      intentAwareFileDiscoverer: {
+        discover: (repo: RepoMap) => repo,
+      } as IntentAwareFileDiscoverer,
       repoMapSupplier: mockRepoMapSupplier as RepoMapSupplier,
       tokenCounter: mockTokenCounter as TokenCounter,
     };
@@ -224,6 +231,9 @@ describe("InspectRunner", () => {
         mockContentTransformerPipeline as ContentTransformerPipeline,
       summarisationLadder: mockSummarisationLadder as SummarisationLadder,
       promptAssembler: mockPromptAssembler as PromptAssembler,
+      intentAwareFileDiscoverer: {
+        discover: (repo: RepoMap) => repo,
+      } as IntentAwareFileDiscoverer,
       repoMapSupplier: mockRepoMapSupplier as RepoMapSupplier,
       tokenCounter: mockTokenCounter as TokenCounter,
     };
