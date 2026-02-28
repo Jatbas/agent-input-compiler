@@ -60,9 +60,9 @@
 
 ## 1. Executive Summary
 
-AIC is a **local-first context compilation layer** that runs as an **MCP server** and sits transparently between your AI editor and any model. When you type a prompt in Cursor, Claude Code, or any MCP-compatible tool, AIC receives and processes every AI request via the `aic_compile` MCP tool — classifying intent, selecting the right files, compressing intelligently, enforcing constraints — and returns a leaner, better-scoped prompt that the editor uses as context. **You never invoke AIC manually. It just works.**
+AIC is a **local-first context compilation layer** that runs as an **MCP server**. When invoked, it classifies intent, selects the right files, compresses intelligently, enforces constraints, and returns a leaner, better-scoped prompt that the editor uses as context. AIC's core pipeline is **editor-agnostic** — it works with any MCP-compatible tool. Effective delivery of that compiled context to the model depends on an **integration layer** that is specific to each editor (see [§2.2.1 Integration Layer](#221-integration-layer--enforcement)).
 
-**Key value proposition:** ≥30% token reduction, deterministic outputs, and a pluggable architecture that requires zero configuration to start and zero refactoring to extend. The architecture is designed to scale from single-shot compilations to multi-step agentic workflows via an optional session layer (see [§2.7 Agentic Workflow Support](#27-agentic-workflow-support)).
+**Key value proposition:** Significant token reduction via heuristic file selection and content transformation, deterministic outputs, and a pluggable architecture that requires zero configuration to start and zero refactoring to extend. The architecture is designed to scale from single-shot compilations to multi-step agentic workflows via an optional session layer (see [§2.7 Agentic Workflow Support](#27-agentic-workflow-support)).
 
 **Setup:** Add one entry to your editor's MCP config. That's it.
 
@@ -94,17 +94,17 @@ These are explicitly out of scope for the MVP. Documenting them here prevents sc
 
 ## 2. Core Principles
 
-| Principle                  | Meaning                                                                                                                                                  |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Zero-friction setup**    | One JSON entry in your editor's MCP config. No `aic.config.json` required to start. Advanced config is optional and additive.                            |
-| **Transparent operation**  | AIC runs automatically on every AI request. The developer never invokes it manually in normal use.                                                       |
-| **Editor-agnostic**        | Works with any MCP-compatible editor. Cursor and Claude Code are primary targets; the protocol is open.                                                  |
-| **Model-agnostic**         | AIC never cares which model the editor is using. Model-specific tweaks (tokenizer, format preferences) are pluggable adapters, not core logic.           |
-| **Deterministic behavior** | Same intent + same codebase = same compiled output, every time                                                                                           |
-| **Minimal context**        | Include only what the agent needs; exclude everything else                                                                                               |
-| **Local-first**            | All processing happens on the developer's machine; no cloud required                                                                                     |
-| **Pluggable architecture** | Every subsystem (context selection, model adaptation, editor integration, output format) has a swappable interface — add a new one without touching core |
-| **Fail-safe defaults**     | Every optional config has a sensible default; AIC works correctly with zero configuration                                                                |
+| Principle                  | Meaning                                                                                                                                                                                             |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Zero-friction setup**    | One JSON entry in your editor's MCP config. No `aic.config.json` required to start. Advanced config is optional and additive.                                                                       |
+| **Session-start context**  | In editors with hook support (e.g. Cursor), AIC compiles context at session start and injects it into the conversation. This gives the model a curated view of the codebase from the first message. |
+| **Editor-agnostic**        | Works with any MCP-compatible editor. Cursor and Claude Code are primary targets; the protocol is open.                                                                                             |
+| **Model-agnostic**         | AIC never cares which model the editor is using. Model-specific tweaks (tokenizer, format preferences) are pluggable adapters, not core logic.                                                      |
+| **Deterministic behavior** | Same intent + same codebase = same compiled output, every time                                                                                                                                      |
+| **Minimal context**        | Include only what the agent needs; exclude everything else                                                                                                                                          |
+| **Local-first**            | All processing happens on the developer's machine; no cloud required                                                                                                                                |
+| **Pluggable architecture** | Every subsystem (context selection, model adaptation, editor integration, output format) has a swappable interface — add a new one without touching core                                            |
+| **Fail-safe defaults**     | Every optional config has a sensible default; AIC works correctly with zero configuration                                                                                                           |
 
 ---
 
@@ -221,49 +221,72 @@ These are not suggestions. They are enforced via:
 
 ## 2.2 MCP Server — Primary Interface
 
-AIC's primary runtime is an **MCP (Model Context Protocol) server**. It registers with the editor once and then runs transparently on every AI request. The developer never invokes AIC manually during normal use.
+AIC's primary runtime is an **MCP (Model Context Protocol) server**. It exposes the `aic_compile` tool, which any MCP-compatible editor can call.
 
 ### How it works — MCP Tool pattern
 
-AIC runs as an **MCP tool server**. It exposes the `aic_compile` tool. Editors call this tool automatically on every AI request because AIC installs a trigger rule during setup — one that instructs the editor's AI to always call `aic_compile` before generating a response.
+AIC runs as an **MCP tool server**. The model calls `aic_compile` with an intent and project root. AIC's pipeline runs, and the compiled context is returned for the model to use.
 
 ```
-Developer types intent in editor
+aic_compile(intent, projectRoot) called
         │
         ▼
-Editor AI reads trigger rule (installed by AIC):
-"Before responding, call aic_compile(intent)"
-        │
-        ▼
-Editor calls AIC MCP tool: aic_compile(intent)
-        │
-        ▼
-AIC pipeline runs (10 steps — see §4.1 for full detail):
+AIC pipeline runs (see §4.1 for full detail):
   · Classify intent → task class
   · Resolve rule packs → constraints + include/exclude patterns
   · Allocate token budget
   · Select relevant files (heuristic scoring)
   · Guard: scan for secrets, excluded paths, prompt injection
+  · Transform content for token efficiency
   · Compress context to fit budget (4-tier ladder)
   · Inject constraints
   · Assemble optimised prompt
-  [+ Executor and Telemetry Logger when applicable]
         │
         ▼
 AIC returns: { compiledPrompt, meta }
-        │
-        ▼
-Editor AI uses compiledPrompt as its context for the response
-        │
-        ▼
-Response back to developer
 ```
 
 The editor's model, endpoint, and API key are **never touched by AIC**. AIC only shapes the context — it never sits in the model call path.
 
 **Why a tool, not a proxy:** MCP's tool pattern is universally supported. A proxy would require intercepting the editor's HTTP calls, which is fragile, editor-specific, and breaks with TLS. Tools are the standard extension point; any MCP-compatible editor supports them without modification.
 
-**The trigger rule** is what makes it automatic. Without it, the AI would only call `aic_compile` when it chose to. With it, every request goes through AIC transparently. The rule is a single instruction line, installed by `aic init` into the editor's rule file (e.g. `.cursor/rules/aic.mdc` for Cursor, `.claude/CLAUDE.md` for Claude Code).
+**The trigger rule** is a text instruction installed by `aic init` into the editor's rule file (e.g. `.cursor/rules/aic.mdc` for Cursor, `.claude/CLAUDE.md` for Claude Code). It instructs the model to call `aic_compile` before generating responses. Compliance with the trigger rule depends on the model and editor — it is not a guaranteed enforcement mechanism (see [§2.2.1](#221-integration-layer--enforcement) for how editors can enforce it).
+
+### 2.2.1 Integration Layer & Enforcement
+
+AIC's core pipeline handles every compilation scenario identically — it receives a `CompilationRequest`, runs the pipeline, and returns compiled context. The pipeline doesn't know or care whether it was triggered by a session-start hook, a per-prompt hook, a subagent hook, or a CLI invocation. This is by design: the core is complete, and the only variable is **when** and **how** the editor calls it.
+
+The **integration layer** is a thin set of hook scripts, specific to each editor, that call `aic_compile` at the right moments in the editor's lifecycle. Because AIC follows SOLID principles (dependency injection, single responsibility), adding a new integration layer means writing new hook scripts that call the same core pipeline — no core changes required.
+
+**What AIC needs from an editor (capability checklist):**
+
+| Capability                             | What it enables for AIC                                                                                       | Priority     |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------ |
+| **Session start + context injection**  | Compile context once and inject into the conversation. Model starts with curated code from the first message. | Recommended  |
+| **Per-prompt + context injection**     | Compile intent-specific context on every user message. Adapts to topic changes mid-conversation.              | Ideal        |
+| **Pre-tool-use gating**                | Block tool calls until `aic_compile` has run. Enforces compilation on tool-using turns.                       | Recommended  |
+| **Subagent start + context injection** | Inject compiled context when subagents spawn. Closes the biggest gap in agentic workflows.                    | Ideal        |
+| **Session end**                        | Log session lifecycle for telemetry (duration, trigger count).                                                | Nice to have |
+| **Pre-compaction**                     | Re-compile before context window compaction. Preserves context quality during long sessions.                  | Nice to have |
+| **Trigger rule**                       | Text instruction asking the model to call `aic_compile`. Minimum viable integration with no hooks.            | Minimum      |
+
+**Current editor capabilities:**
+
+| Capability                         | Cursor                                      | Claude Code                                     | Generic MCP |
+| ---------------------------------- | ------------------------------------------- | ----------------------------------------------- | ----------- |
+| Session start + context injection  | Yes (`sessionStart` + `additional_context`) | Yes (`SessionStart` + `additionalContext`)      | No          |
+| Per-prompt + context injection     | No                                          | Yes (`UserPromptSubmit` + `additionalContext`)  | No          |
+| Pre-tool-use gating                | Yes (`preToolUse` + `deny`)                 | Yes (`PreToolUse` + `permissionDecision: deny`) | No          |
+| Subagent start + context injection | No                                          | Yes (`SubagentStart` + `additionalContext`)     | No          |
+| Session end                        | No                                          | Yes (`SessionEnd`)                              | No          |
+| Pre-compaction                     | No                                          | Yes (`PreCompact`)                              | No          |
+| Trigger rule                       | Yes (`.cursor/rules/aic.mdc`)               | Yes (`.claude/CLAUDE.md`)                       | No          |
+
+**Current state:** The Cursor integration layer is built (session-start injection, tool gating, prompt logging, quality checks). The Claude Code integration layer is not yet built but its hook system covers all capabilities in the checklist. Generic MCP editors have no hooks — they rely on the trigger rule.
+
+**Key architectural insight:** Any perceived limitation in what AIC "can do" is a limitation of the editor's hook system, not of AIC's core pipeline. When an editor adds a new hook, AIC can immediately use it without core changes. This is why Claude Code — with its richer hook system — can enable per-prompt and subagent compilation that Cursor cannot.
+
+**Implementation note:** To track how compilations are triggered, the `CompilationRequest` will gain an optional `triggerSource` field (e.g., `"session_start"`, `"prompt_submit"`, `"tool_gate"`, `"subagent_start"`, `"cli"`, `"model_initiated"`). This enables telemetry to distinguish hook-initiated from model-initiated compilations without any core pipeline changes — the field is metadata, not pipeline logic.
 
 ### Setup (zero-config)
 
@@ -297,7 +320,7 @@ npx @aic/mcp init
 
 Detects your editor, writes the trigger rule to the correct rule file (`.cursor/rules/aic.mdc` for Cursor, `.claude/CLAUDE.md` for Claude Code), and creates `.aic/` with `0700` permissions. No `aic.config.json` is created — that is a separate step via `aic init` (CLI) if customisation is needed.
 
-That's it. From this point, every AI request in the project automatically goes through AIC.
+That's it. With the Cursor integration layer (hooks installed by `aic init`), AIC compiles context at session start and enforces compilation on tool-using turns. In editors without hook support, AIC relies on the trigger rule and the model's willingness to call `aic_compile`.
 
 ### Model Auto-detection
 
@@ -323,7 +346,7 @@ AIC exposes two MCP tools and two MCP resources:
 
 | Tool                            | Arguments                                                                                                                                                                                          | Returns                                               | Use                                                                     |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------- |
-| `aic_compile`                   | `{ intent: string }` + optional agentic fields (Phase 1+: `sessionId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens` — see [§2.7](#27-agentic-workflow-support)) | `{ compiledPrompt: string, meta: CompilationMeta }`   | Primary — called by trigger rule on every request                       |
+| `aic_compile`                   | `{ intent: string }` + optional agentic fields (Phase 1+: `sessionId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens` — see [§2.7](#27-agentic-workflow-support)) | `{ compiledPrompt: string, meta: CompilationMeta }`   | Primary — called by trigger rule or integration hooks                   |
 | `aic_inspect`                   | `{ intent: string }`                                                                                                                                                                               | `{ trace: PipelineTrace }`                            | Debug — developer calls explicitly to see pipeline breakdown            |
 | `aic_compile_spec` _(Phase 1+)_ | `{ spec: SpecificationInput, budget?: TokenCount }` (see [§2.7](#27-agentic-workflow-support))                                                                                                     | `{ compiledSpec: string, meta: SpecCompilationMeta }` | Agentic — compile a structured task specification within a token budget |
 
@@ -498,22 +521,22 @@ MVP ships with `OpenAiAdapter`, `AnthropicAdapter`, `OllamaAdapter`, and `Generi
 
 ---
 
-## 2.4 Rules & Hooks Analyzer
+## 2.4 Rules & Hooks Analyzer _(Planned — Phase 0.5+)_
 
-Editor rules and hooks (`.cursorrules`, Cursor rule files, Claude Code settings, git hooks) have a direct impact on compilation quality and token efficiency. Poorly written rules contradict each other, waste tokens with redundancy, or degrade model output. AIC includes a **Rules & Hooks Analyzer** that scans these files and surfaces issues.
+Editor rules and hooks (`.cursorrules`, Cursor rule files, Claude Code settings, git hooks) have a direct impact on compilation quality and token efficiency. Poorly written rules contradict each other, waste tokens with redundancy, or degrade model output. AIC plans a **Rules & Hooks Analyzer** that scans these files and surfaces issues.
 
-### What it analyzes
+### What it will analyze
 
-| Source                                    | What AIC checks                                                                         |
+| Source                                    | What AIC will check                                                                     |
 | ----------------------------------------- | --------------------------------------------------------------------------------------- |
 | `.cursorrules`                            | Redundant instructions, contradicting rules, token-heavy prose that could be compressed |
 | Cursor rule files (`.cursor/rules/*.mdc`) | Conflicting glob patterns, rules that fire on every file unnecessarily                  |
 | Claude Code settings                      | System prompt bloat, duplicate constraints                                              |
 | Git hooks (pre-commit, commit-msg)        | Rules that duplicate AIC constraints already injected                                   |
 
-### How it surfaces findings
+### How it will surface findings
 
-Findings are exposed via the `aic://rules-analysis` MCP resource, updated after each compilation. The developer can query it from their editor without leaving their workflow.
+Findings will be exposed via the `aic://rules-analysis` MCP resource, updated after each compilation.
 
 Severity levels:
 
@@ -523,7 +546,7 @@ Severity levels:
 
 ### Auto-fix (Phase 1+)
 
-MVP surfaces findings only. Phase 1 adds `aic fix-rules` which applies safe auto-fixes (deduplication, compression) with a dry-run preview.
+Phase 1 adds `aic fix-rules` which applies safe auto-fixes (deduplication, compression) with a dry-run preview.
 
 ---
 
@@ -930,12 +953,21 @@ The current cache key is `hash(intent + config + fileTreeHash)`. For agentic ses
 
 ### What Works Today Without Changes
 
-Even before any agentic-specific code ships, AIC provides value in agentic workflows:
+Even before any agentic-specific code ships, AIC provides value in agentic workflows when `aic_compile` is called:
 
 1. **Security is maintained**: Context Guard runs on every `aic_compile` call, regardless of session state. Secrets are blocked at every agent step.
-2. **Per-step compilation works**: If the agent (or trigger rule) calls `aic_compile` with a different `stepIntent` each time, AIC compiles fresh context. The agent gets relevant files per step — just without session deduplication or conversation compression.
-3. **Token reduction compounds**: A 30% reduction on each of 10 agent steps means the agent uses ~30% fewer total tokens across the entire task. At agentic scale (5–50 calls), this is the difference between viable and unviable enterprise costs.
+2. **Per-step compilation works**: If the agent calls `aic_compile` with a different intent each time, AIC compiles fresh context. The agent gets relevant files per step — just without session deduplication or conversation compression.
+3. **Token reduction per call**: Each compilation reduces tokens compared to the model reading raw files. When the agent makes multiple compilation calls per task, the savings apply to each one.
 4. **Determinism across steps**: Each step's compilation is deterministic, making agentic workflows reproducible and debuggable via `aic inspect`.
+
+### Agentic Limitations (Current)
+
+These are fundamental constraints of the current editor extension model, not AIC-specific limitations:
+
+1. **Subagents start with fresh context (Cursor).** In Cursor, when an agent spawns a subagent (Task tool), the subagent starts its own conversation without AIC's session-start context. Cursor does not provide a `SubagentStart` hook, so AIC cannot inject context at subagent spawn time. **Note:** Claude Code provides a `SubagentStart` hook with `additionalContext` injection, which solves this limitation. See the integration layer comparison in [§2.2.1](#221-integration-layer--enforcement).
+2. **No per-prompt context injection (Cursor).** In Cursor, the `beforeSubmitPrompt` hook cannot inject `additionalContext`. AIC can only inject compiled context at session start. Claude Code's `UserPromptSubmit` hook supports `additionalContext`, enabling per-prompt compilation — a significant capability gap between editors.
+3. **Agent tool calls are not guaranteed.** AIC depends on the model calling `aic_compile`. In editors with `PreToolUse` gating (Cursor, Claude Code), this is enforced on tool-using turns. But if the agent responds with only text (no tool calls), no gate fires. On editors without hook support, enforcement relies entirely on the trigger rule.
+4. **No visibility into agent token usage.** AIC measures its own compilation efficiency (tokens before and after compilation). It cannot measure total tokens consumed by the agent during a session, including raw file reads, search results, and intermediate outputs that the agent generates independently.
 
 ---
 
@@ -1318,7 +1350,7 @@ Core remains untouched; enterprise features wrap around it:
 
 - **Decision:** AIC's primary interface is an MCP server (`@aic/mcp`). CLI utilities (`@aic/cli`) are secondary — for developer inspection and debugging.
 - **Context:** IDE plugins lock users into specific editors. A library requires integration work from each tool author. A CLI requires manual invocation, which creates friction that kills adoption. MCP is an open protocol supported by Cursor, Claude Code, and a growing ecosystem — it gives editor-native integration without locking to any one editor.
-- **Rationale:** MCP lets AIC run transparently on every AI request with zero user action after a one-line setup. The protocol is open, so supporting a new editor costs one `EditorAdapter` class, not a plugin rebuild. CLI tools remain available for power users and debugging.
+- **Rationale:** MCP is the standard extension point for AI editors. The protocol is open, so supporting a new editor costs one `EditorAdapter` class, not a plugin rebuild. Effective enforcement of `aic_compile` usage requires an editor-specific integration layer (hooks, context injection), but the core pipeline works identically across all editors. CLI tools remain available for power users and debugging.
 - **Tradeoffs:** Requires the editor to support MCP (all primary targets do). Developers on unsupported editors fall back to `aic compile` CLI manually.
 
 #### ADR-002: SQLite for local storage (not LevelDB, not JSON files)
@@ -3161,13 +3193,13 @@ Add it automatically with `git commit -s`. By signing off, you certify that you 
 
 ## 22. Roadmap
 
-| Phase   | Name                  | Version | Deliverables                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Exit Criteria                                                                                     |
-| ------- | --------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **0**   | MVP                   | `0.1.0` | `compile`, `run`, `compare`, `init`, `inspect`, `status` commands; HeuristicSelector; SQLite storage; default rule packs; Guard with `allowPatterns`; first-run message; formula-derived model budget profiles (`windowRatio`); trigger rule robustness; anonymous telemetry (opt-in); full test suite                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | All CLI commands functional; benchmark suite passes; ≥30% token reduction on canonical tasks      |
-| **0.5** | Quality Release       | `0.2.0` | `GenericImportProvider` (Python/Go/Rust/Java regex imports); intent-aware file discovery; `aic://session-summary` resource (basic agentic history via `compilation_log`); Guard `warn` severity; `aic report` (static HTML); CSS/TypeDecl/test-structure transformers; **budget utilization feedback** in `aic status` (analyses `compilation_log` to recommend `windowRatio` adjustments); **error telemetry** (automatically record AIC-internal errors — `INTERNAL_ERROR`, `STORAGE_ERROR`, `TIMEOUT` — via stack fingerprint hashing and send anonymously when opted in; enables automatic bug discovery and regression detection without user reports); **server lifecycle tracking** (`server_sessions` table — start/stop/crash detection per MCP server run; foundation for enterprise uptime monitoring, see [§13.2](#132-server-lifecycle-tracking)) | Context selection quality improved for non-TypeScript repos; session value visible to users       |
-| **1**   | OSS Release           | `1.0.0` | Public repo; docs site; CI/CD; npm package; `postinstall` team deployment; auto-detected dependency constraints; reverse dependency walking; `aic history`; `aic suggest`; optional cost estimation in `aic status` (model-specific pricing, deferred from MVP since AIC is model-agnostic); **Session Tracker** + extended `CompilationRequest` agentic fields + **Adaptive Budget Allocator** (conversation-length + utilization-based auto-tuning) + **Specification Compiler** (`aic_compile_spec` MCP tool + `aic compile-spec` CLI) + session-aware cache keying (see [§2.7](#27-agentic-workflow-support))                                                                                                                                                                                                                                              | 10+ external contributors; 100+ GitHub stars; stable API (no breaking changes for 4 weeks)        |
-| **2**   | Semantic + Governance | `2.0.0` | VectorSelector (Zvec integration); HybridSelector; governance adapters; policy engine; `aic trends`; `extends` config for org-level deployment; centralised config server; **Conversation Compressor** + editor-specific conversation adapters for multi-step agentic workflows                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Vector retrieval improves relevance by ≥15% over heuristic; policy engine passes compliance audit |
-| **3**   | Enterprise Platform   | `3.0.0` | Control plane; RBAC; SSO; audit logs; fleet management via MDM; live enterprise dashboard; hosted option                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | 3+ enterprise pilot customers; SLA-backed uptime; SOC 2 readiness                                 |
+| Phase   | Name                  | Version | Deliverables                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Exit Criteria                                                                                      |
+| ------- | --------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| **0**   | MVP                   | `0.1.0` | `compile`, `init`, `inspect`, `status` commands; HeuristicSelector; SQLite storage; default rule packs; Guard with `allowPatterns`; first-run message; formula-derived model budget profiles (`windowRatio`); trigger rule; anonymous telemetry (opt-in); full test suite                                                                                                                                                                                                                                                                                                                                         | All CLI commands functional; benchmark suite passes; measurable token reduction on canonical tasks |
+| **0.5** | Quality Release       | `0.2.0` | Cursor integration layer (session-start hooks, tool gate, prompt logging); `GenericImportProvider` (Python/Go/Rust/Java regex imports); intent-aware file discovery; `aic://session-summary` resource (basic agentic history via `compilation_log`); Guard `warn` severity; CSS/TypeDecl/test-structure transformers; **budget utilization feedback** in `aic status`; **error telemetry**; **server lifecycle tracking** (`server_sessions` table)                                                                                                                                                               | Context selection quality improved for non-TypeScript repos; Cursor integration layer functional   |
+| **1**   | OSS Release           | `1.0.0` | Public repo; docs site; CI/CD; npm package; `postinstall` team deployment; auto-detected dependency constraints; reverse dependency walking; `aic history`; `aic suggest`; optional cost estimation in `aic status` (model-specific pricing, deferred from MVP since AIC is model-agnostic); **Session Tracker** + extended `CompilationRequest` agentic fields + **Adaptive Budget Allocator** (conversation-length + utilization-based auto-tuning) + **Specification Compiler** (`aic_compile_spec` MCP tool + `aic compile-spec` CLI) + session-aware cache keying (see [§2.7](#27-agentic-workflow-support)) | 10+ external contributors; 100+ GitHub stars; stable API (no breaking changes for 4 weeks)         |
+| **2**   | Semantic + Governance | `2.0.0` | VectorSelector (Zvec integration); HybridSelector; governance adapters; policy engine; `aic trends`; `extends` config for org-level deployment; centralised config server; **Conversation Compressor** + editor-specific conversation adapters for multi-step agentic workflows                                                                                                                                                                                                                                                                                                                                   | Vector retrieval improves relevance by ≥15% over heuristic; policy engine passes compliance audit  |
+| **3**   | Enterprise Platform   | `3.0.0` | Control plane; RBAC; SSO; audit logs; fleet management via MDM; live enterprise dashboard; hosted option                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | 3+ enterprise pilot customers; SLA-backed uptime; SOC 2 readiness                                  |
 
 ### Versioning Policy
 
@@ -3212,7 +3244,7 @@ project-root/
 }
 ```
 
-Every developer who runs `pnpm install` gets AIC configured automatically. Trigger rule and `.aic/` directory created silently. **Zero manual steps after `pnpm install`.**
+Every developer who runs `pnpm install` gets AIC configured via the postinstall hook. Trigger rule, integration hooks, and `.aic/` directory are created automatically. The developer still needs the MCP server registered in their editor config (see setup instructions).
 
 ### Tier 2: Organisation (50–500 developers) — Phase 2
 
@@ -3261,11 +3293,12 @@ Full enterprise management via MDM (JAMF, Intune, Kandji) and the AIC control pl
    → Trigger rule installed automatically
 
 3. Developer prompts normally
-   → AIC runs invisibly
+   → AIC compiles context at session start (via integration hooks)
+   → Integration hooks enforce aic_compile on tool-using turns
    → Telemetry flows to enterprise dashboard
    → Guard enforces org security policy
 
-Zero manual steps. Zero training. Zero friction.
+Minimal manual steps. Setup handled by IT provisioning and postinstall hooks.
 ```
 
 ### Architecture enabling all tiers

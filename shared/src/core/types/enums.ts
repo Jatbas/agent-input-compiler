@@ -105,3 +105,9 @@ export const RULES_FINDING_SEVERITY = {
 } as const;
 export type RulesFindingSeverity =
   (typeof RULES_FINDING_SEVERITY)[keyof typeof RULES_FINDING_SEVERITY];
+
+export const STOP_REASON = {
+  GRACEFUL: "graceful",
+  CRASH: "crash",
+} as const;
+export type StopReason = (typeof STOP_REASON)[keyof typeof STOP_REASON];

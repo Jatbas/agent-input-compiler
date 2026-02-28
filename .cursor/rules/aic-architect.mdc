@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Rule Router
 
-Use this map to decide which rules apply to the current task. The **critical reminders** below are also injected at session start by `.cursor/hooks/session-init.cjs` (single source of truth). **If a rule was not included in context, still follow the conventions below** for that area; read the rule file when you need full detail.
+Use this map to decide which rules apply to the current task. The **critical reminders** below are also injected at session start by `.cursor/hooks/AIC-session-init.cjs` (single source of truth). **If a rule was not included in context, still follow the conventions below** for that area; read the rule file when you need full detail.
 
 ## Context → Rules to Apply
 
@@ -23,7 +23,7 @@ Use this map to decide which rules apply to the current task. The **critical rem
 
 ## Critical reminders (safeguard when rule not in context)
 
-These bullets are the single source of truth: the sessionStart hook (`.cursor/hooks/session-init.cjs`) reads this section and injects them at session start. Keep each bullet concise and one-line so the hook output stays compact.
+These bullets are the single source of truth: the sessionStart hook (`.cursor/hooks/AIC-session-init.cjs`) reads this section and injects them at session start. Keep each bullet concise and one-line so the hook output stays compact.
 
 - **aic_compile (MANDATORY):** Your FIRST action on EVERY message — including follow-ups — is to call the `aic_compile` MCP tool with `{ "intent": "<user message summary>", "projectRoot": "/Users/jatbas/Desktop/AIC" }`. Never skip because you "already have context." Each message needs fresh, intent-specific context.
 - **First pass:** Apply these rules when writing code so the first version passes lint and conventions; avoid rework and double token use.
@@ -62,4 +62,4 @@ When in doubt, open the specific rule file listed above for the full text.
 ## Maintenance
 
 - Whenever a **rule** in `.cursor/rules/` is changed or added, review this router: update the context table and/or critical reminders so the map stays accurate.
-- **Hooks sync:** Critical reminders above are injected by `.cursor/hooks/session-init.cjs` at session start. When you edit the critical reminders list, the hook stays in sync automatically (it reads this file). No need to edit hook code unless you change the section heading or structure.
+- **Hooks sync:** Critical reminders above are injected by `.cursor/hooks/AIC-session-init.cjs` at session start. When you edit the critical reminders list, the hook stays in sync automatically (it reads this file). No need to edit hook code unless you change the section heading or structure.

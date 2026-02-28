@@ -2,26 +2,16 @@
   "version": 1,
   "hooks": {
     "sessionStart": [
-      {
-        "command": "node .cursor/hooks/session-init.cjs"
-      },
-      {
-        "command": "node .cursor/hooks/AIC-compile-context.cjs",
-        "timeout": 20
-      }
+      { "command": "node .cursor/hooks/AIC-session-init.cjs" },
+      { "command": "node .cursor/hooks/AIC-compile-context.cjs", "timeout": 20 }
     ],
+    "beforeSubmitPrompt": [
+      { "command": "node .cursor/hooks/AIC-before-submit-prewarm.cjs" }
+    ],
+    "preToolUse": [{ "command": "node .cursor/hooks/AIC-require-aic-compile.cjs" }],
     "afterFileEdit": [
-      {
-        "command": "node .cursor/hooks/record-edit.cjs ${filePath}"
-      },
-      {
-        "command": "node .cursor/hooks/remind-aic-compile.cjs"
-      }
+      { "command": "node .cursor/hooks/AIC-record-edit.cjs ${filePath}" }
     ],
-    "stop": [
-      {
-        "command": "node .cursor/hooks/stop-check.cjs ${conversationId}"
-      }
-    ]
+    "stop": [{ "command": "node .cursor/hooks/AIC-stop-check.cjs ${conversationId}" }]
   }
 }

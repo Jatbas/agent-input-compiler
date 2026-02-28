@@ -42,9 +42,9 @@
 
 ## 1. MVP Goal
 
-Deliver a working **MCP server** that sits transparently between the developer's AI editor and any model, automatically compiling optimal context on every AI request — with zero manual invocation and zero required configuration.
+Deliver a working **MCP server** that compiles optimal context for AI coding tools — with zero required configuration.
 
-**Success looks like:** A developer adds one line to their Cursor or Claude Code MCP config, resumes their normal workflow, and their AI responses improve measurably — with ≥30% fewer tokens and deterministic, reproducible context selection. They never think about AIC again after setup.
+**Success looks like:** A developer registers the MCP server, runs `aic init` in their project, and their AI responses improve measurably — fewer tokens, better file selection, and deterministic, reproducible context compilation. In editors with hook support (e.g. Cursor), the integration layer ensures compiled context is available from the first message of every session.
 
 > **AIC is model-agnostic and editor-agnostic by design.** It detects the active model automatically and adapts. It works with Cursor, Claude Code, and any MCP-compatible editor. No API key, no cloud account, and no config file are required to start.
 >
@@ -66,10 +66,10 @@ Deliver a working **MCP server** that sits transparently between the developer's
 
 | Feature                | Detail                                                                                                                                      |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| **MCP Server**         | Primary interface — registers with editor once; runs automatically on every AI request                                                      |
+| **MCP Server**         | Primary interface — exposes `aic_compile` tool; called by trigger rule or integration hooks                                                 |
 | Editor adapters        | Cursor, Claude Code, Generic MCP fallback                                                                                                   |
 | Model adapters         | OpenAI, Anthropic, Ollama, Generic fallback (auto-detected from request)                                                                    |
-| Rules & Hooks Analyzer | Scans `.cursorrules`, Cursor rules, Claude Code settings; findings via `aic://rules-analysis` MCP resource                                  |
+| Rules & Hooks Analyzer | _(Planned — Phase 0.5+)_ Scans `.cursorrules`, Cursor rules, Claude Code settings; findings via `aic://rules-analysis` MCP resource         |
 | Task Classifier        | Heuristic keyword/pattern matching → 6 task classes                                                                                         |
 | HeuristicSelector      | File-path, import-graph, recency-based context selection                                                                                    |
 | Context Guard          | Scans selected files for secrets, excluded paths, and prompt injection; blocks sensitive content before it reaches the Summarisation Ladder |
@@ -800,15 +800,15 @@ The formula-derived `suggestedBudget` slots in just above the hard-coded default
 
 ### Trigger Rule Robustness
 
-The trigger rule installed by `npx @aic/mcp init` is the mechanism that ensures the editor's AI calls `aic_compile` on every request. Robustness of this rule is critical.
+The trigger rule installed by `npx @aic/mcp init` instructs the editor's AI to call `aic_compile`. The trigger rule is suggestive — compliance depends on the model and editor. In Cursor, the integration layer (hooks) provides stronger enforcement via `preToolUse` gating. In editors without hook support, the trigger rule is the sole mechanism.
 
 **Per-editor trigger formats (MVP):**
 
-| Editor      | Trigger file            | Key attributes                                                         |
-| ----------- | ----------------------- | ---------------------------------------------------------------------- |
-| Cursor      | `.cursor/rules/aic.mdc` | `alwaysApply: true`, no `globs` restriction — fires on every prompt    |
-| Claude Code | `.claude/CLAUDE.md`     | Instruction appended to project-level system context                   |
-| Generic MCP | N/A                     | Relies on editor invoking registered MCP tools; no trigger rule needed |
+| Editor      | Trigger file            | Key attributes                                                                                                                               |
+| ----------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cursor      | `.cursor/rules/aic.mdc` | `alwaysApply: true`, no `globs` restriction — included in every prompt. Integration hooks provide stronger enforcement via `preToolUse` gate |
+| Claude Code | `.claude/CLAUDE.md`     | Instruction appended to project-level system context                                                                                         |
+| Generic MCP | N/A                     | Relies on editor invoking registered MCP tools; no trigger rule needed                                                                       |
 
 **Trigger rule content pattern:**
 
@@ -952,12 +952,12 @@ Showing 5 of 47 entries. Use --all for full log, --json for raw payloads.
 
 ### Quantitative
 
-| Metric            | Target                               | Measurement                                    |
-| ----------------- | ------------------------------------ | ---------------------------------------------- |
-| Token reduction   | ≥30% average across canonical tasks  | `(tokens_raw - tokens_compiled) / tokens_raw`  |
-| Compilation time  | <2 seconds for repos <1,000 files    | Wall clock, cold cache                         |
-| Cache hit speedup | <100ms for cached compilations       | Wall clock                                     |
-| Stable outputs    | Identical output for identical input | Byte-for-byte comparison, 100 consecutive runs |
+| Metric            | Target                                      | Measurement                                    |
+| ----------------- | ------------------------------------------- | ---------------------------------------------- |
+| Token reduction   | Measurable reduction across canonical tasks | `(tokens_raw - tokens_compiled) / tokens_raw`  |
+| Compilation time  | <2 seconds for repos <1,000 files           | Wall clock, cold cache                         |
+| Cache hit speedup | <100ms for cached compilations              | Wall clock                                     |
+| Stable outputs    | Identical output for identical input        | Byte-for-byte comparison, 100 consecutive runs |
 
 ### Qualitative
 
