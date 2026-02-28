@@ -130,8 +130,11 @@ export function createMcpServer(projectRoot: AbsolutePath): McpServer {
     scope.idGenerator,
   );
   const server = new McpServer({ name: "aic", version: "0.1.0" });
-  const getEditorId = (): EditorId =>
-    detectEditorId(server.server.getClientVersion()?.name);
+  const getEditorId = (): EditorId => {
+    const clientName = server.server.getClientVersion()?.name;
+    process.stderr.write(`[aic] MCP client name: ${clientName ?? "(none)"}\n`);
+    return detectEditorId(clientName);
+  };
   server.tool(
     "aic_compile",
     "Compile intent-specific project context. MUST be called as your FIRST action on EVERY message — including follow-ups in the same chat. Each message has a different intent that needs fresh context. Never skip.",
