@@ -19,7 +19,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "better-sqlite3": "11.9.1",
+    "better-sqlite3": "12.6.2",
     "commander": "13.1.0",
     "diff": "7.0.0",
     "fast-glob": "3.3.3",

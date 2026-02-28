@@ -24,8 +24,12 @@ export async function compileCommand(
     };
     const result = await runner.run(request);
     if (telemetryDeps !== undefined) {
-      writeCompilationTelemetry(result.meta, request, telemetryDeps, (msg) =>
-        process.stderr.write(msg),
+      writeCompilationTelemetry(
+        result.meta,
+        request,
+        result.compilationId,
+        telemetryDeps,
+        (msg) => process.stderr.write(msg),
       );
     }
     process.stdout.write(result.compiledPrompt);

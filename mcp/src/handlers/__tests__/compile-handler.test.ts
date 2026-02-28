@@ -8,6 +8,7 @@ import type { ISOTimestamp, UUIDv7 } from "@aic/shared/core/types/identifiers.js
 import type { Milliseconds } from "@aic/shared/core/types/units.js";
 import { toTokenCount, toMilliseconds } from "@aic/shared/core/types/units.js";
 import { toPercentage } from "@aic/shared/core/types/scores.js";
+import { toSessionId } from "@aic/shared/core/types/identifiers.js";
 import { EDITOR_ID, INCLUSION_TIER, TASK_CLASS } from "@aic/shared/core/types/enums.js";
 
 const stubMeta: CompilationMeta = {
@@ -32,12 +33,18 @@ const stubMeta: CompilationMeta = {
   guard: null,
 };
 
+const stubCompilationId = "00000000-0000-7000-8000-000000000050" as UUIDv7;
+
 describe("createCompileHandler", () => {
   it("createCompileHandler with deps", async () => {
     const written: TelemetryEvent[] = [];
     const mockRunner: CompilationRunner = {
       async run() {
-        return { compiledPrompt: "prompt", meta: stubMeta };
+        return {
+          compiledPrompt: "prompt",
+          meta: stubMeta,
+          compilationId: stubCompilationId,
+        };
       },
     };
     const mockTelemetryStore = {
@@ -61,7 +68,8 @@ describe("createCompileHandler", () => {
       idGenerator: mockIdGenerator,
       stringHasher: mockStringHasher,
     };
-    const handler = createCompileHandler(mockRunner, telemetryDeps);
+    const sessionId = toSessionId("018c3d4e-0000-7000-8000-000000000010");
+    const handler = createCompileHandler(mockRunner, telemetryDeps, sessionId);
     await handler(
       {
         intent: "fix bug",
@@ -76,10 +84,9 @@ describe("createCompileHandler", () => {
     const event = written[0];
     expect(event).toBeDefined();
     if (event !== undefined) {
-      expect(event.taskClass).toBe(stubMeta.taskClass);
-      expect(event.tokensRaw).toBe(stubMeta.tokensRaw);
-      expect(event.tokensCompiled).toBe(stubMeta.tokensCompiled);
-      expect(event.cacheHit).toBe(stubMeta.cacheHit);
+      expect(event.compilationId).toBe(stubCompilationId);
+      expect(event.guardBlockedCount).toBe(0);
+      expect(event.guardFindingsCount).toBe(0);
     }
   });
 });

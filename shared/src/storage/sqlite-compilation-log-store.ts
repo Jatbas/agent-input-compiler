@@ -10,8 +10,8 @@ export class SqliteCompilationLogStore implements CompilationLogStore {
       `INSERT INTO compilation_log (
         id, intent, task_class, files_selected, files_total,
         tokens_raw, tokens_compiled, token_reduction_pct, cache_hit,
-        duration_ms, editor_id, model_id, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        duration_ms, editor_id, model_id, session_id, config_hash, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     stmt.run(
       entry.id,
@@ -26,6 +26,8 @@ export class SqliteCompilationLogStore implements CompilationLogStore {
       entry.durationMs,
       entry.editorId,
       entry.modelId || null,
+      entry.sessionId,
+      entry.configHash,
       entry.createdAt,
     );
   }

@@ -8,6 +8,7 @@ import { AicError } from "@aic/shared/core/errors/aic-error.js";
 import { sanitizeError } from "@aic/shared/core/errors/sanitize-error.js";
 import { toAbsolutePath, toFilePath } from "@aic/shared/core/types/paths.js";
 import type { EditorId } from "@aic/shared/core/types/enums.js";
+import type { SessionId } from "@aic/shared/core/types/identifiers.js";
 import type { CompilationRequest } from "@aic/shared/core/types/compilation-types.js";
 import type { TelemetryDeps } from "@aic/shared/core/types/telemetry-types.js";
 import { writeCompilationTelemetry } from "@aic/shared/core/write-compilation-telemetry.js";
@@ -15,6 +16,7 @@ import { writeCompilationTelemetry } from "@aic/shared/core/write-compilation-te
 export function createCompileHandler(
   runner: CompilationRunner,
   telemetryDeps: TelemetryDeps,
+  sessionId: SessionId,
 ): (
   args: {
     intent: string;
@@ -33,10 +35,15 @@ export function createCompileHandler(
         modelId: args.modelId,
         editorId: args.editorId as EditorId,
         configPath: args.configPath !== null ? toFilePath(args.configPath) : null,
+        sessionId,
       };
       const result = await runner.run(request);
-      writeCompilationTelemetry(result.meta, request, telemetryDeps, (msg) =>
-        process.stderr.write(msg),
+      writeCompilationTelemetry(
+        result.meta,
+        request,
+        result.compilationId,
+        telemetryDeps,
+        (msg) => process.stderr.write(msg),
       );
       const reinforcement =
         "\n\nIMPORTANT: On your NEXT message in this conversation, call aic_compile again BEFORE doing anything else. Every message needs fresh context — do not reuse this result.";

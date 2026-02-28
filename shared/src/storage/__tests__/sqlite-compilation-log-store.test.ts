@@ -1,11 +1,14 @@
 import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import type { CompilationLogEntry } from "#core/types/compilation-log-entry.js";
-import { toUUIDv7, toISOTimestamp } from "#core/types/identifiers.js";
+import { toUUIDv7, toISOTimestamp, toSessionId } from "#core/types/identifiers.js";
 import { toTokenCount, toMilliseconds } from "#core/types/units.js";
 import { toPercentage } from "#core/types/scores.js";
 import { EDITOR_ID, TASK_CLASS } from "#core/types/enums.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
+import { migration as migration002 } from "../migrations/002-server-sessions.js";
+import { migration as migration003 } from "../migrations/003-server-sessions-integrity.js";
+import { migration as migration004 } from "../migrations/004-normalize-telemetry.js";
 import { SqliteCompilationLogStore } from "../sqlite-compilation-log-store.js";
 
 describe("SqliteCompilationLogStore", () => {
@@ -18,6 +21,9 @@ describe("SqliteCompilationLogStore", () => {
   function setup(): SqliteCompilationLogStore {
     db = new Database(":memory:");
     migration001.up(db);
+    migration002.up(db);
+    migration003.up(db);
+    migration004.up(db);
     return new SqliteCompilationLogStore(db);
   }
 
@@ -36,6 +42,8 @@ describe("SqliteCompilationLogStore", () => {
       durationMs: toMilliseconds(150),
       editorId: EDITOR_ID.GENERIC,
       modelId: "gpt-4",
+      sessionId: null,
+      configHash: null,
       createdAt: toISOTimestamp("2026-02-27T12:00:00.000Z"),
     };
     store.record(entry);
@@ -54,6 +62,8 @@ describe("SqliteCompilationLogStore", () => {
       duration_ms: number;
       editor_id: string;
       model_id: string | null;
+      session_id: string | null;
+      config_hash: string | null;
       created_at: string;
     };
     expect(row).toBeDefined();
@@ -64,6 +74,8 @@ describe("SqliteCompilationLogStore", () => {
     expect(row.tokens_raw).toBe(entry.tokensRaw);
     expect(row.tokens_compiled).toBe(entry.tokensCompiled);
     expect(row.cache_hit).toBe(0);
+    expect(row.session_id).toBeNull();
+    expect(row.config_hash).toBeNull();
     expect(row.created_at).toBe(entry.createdAt);
   });
 
@@ -82,6 +94,8 @@ describe("SqliteCompilationLogStore", () => {
       durationMs: toMilliseconds(0),
       editorId: EDITOR_ID.GENERIC,
       modelId: "",
+      sessionId: null,
+      configHash: null,
       createdAt: toISOTimestamp("2026-02-27T12:00:00.000Z"),
     };
     store.record(entry);
@@ -96,5 +110,41 @@ describe("SqliteCompilationLogStore", () => {
     expect(row.intent).toBe("");
     expect(row.tokens_raw).toBe(0);
     expect(row.tokens_compiled).toBe(0);
+  });
+
+  it("SqliteCompilationLogStore with session_id and config_hash", () => {
+    const store = setup();
+    const sid = toSessionId("018c3d4e-0000-7000-8000-000000000010");
+    db.prepare(
+      "INSERT INTO server_sessions (session_id, started_at, stopped_at, stop_reason, pid, version, installation_ok, installation_notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    ).run(sid, "2026-02-28T12:00:00.000Z", null, null, 1, "0.2.0", 1, "");
+    const configHash = "abc123def456";
+    db.prepare(
+      "INSERT INTO config_history (config_hash, config_json, created_at) VALUES (?, ?, ?)",
+    ).run(configHash, "{}", "2026-02-28T12:00:00.000Z");
+    const entry: CompilationLogEntry = {
+      id: toUUIDv7("00000000-0000-7000-8000-000000000003"),
+      intent: "test",
+      taskClass: TASK_CLASS.REFACTOR,
+      filesSelected: 1,
+      filesTotal: 1,
+      tokensRaw: toTokenCount(100),
+      tokensCompiled: toTokenCount(50),
+      tokenReductionPct: toPercentage(50),
+      cacheHit: false,
+      durationMs: toMilliseconds(100),
+      editorId: EDITOR_ID.GENERIC,
+      modelId: "",
+      sessionId: sid,
+      configHash,
+      createdAt: toISOTimestamp("2026-02-28T12:00:00.000Z"),
+    };
+    store.record(entry);
+    const row = db
+      .prepare("SELECT session_id, config_hash FROM compilation_log WHERE id = ?")
+      .get(entry.id) as { session_id: string | null; config_hash: string | null };
+    expect(row).toBeDefined();
+    expect(row.session_id).toBe(sid);
+    expect(row.config_hash).toBe(configHash);
   });
 });

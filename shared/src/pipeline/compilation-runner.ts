@@ -17,7 +17,7 @@ import type { RepoMap, FileEntry } from "#core/types/repo-map.js";
 import type { Milliseconds } from "#core/types/units.js";
 import type { CompilationLogEntry } from "#core/types/compilation-log-entry.js";
 import type { GuardFinding } from "#core/types/guard-types.js";
-import type { UUIDv7 } from "#core/types/identifiers.js";
+import type { UUIDv7, SessionId } from "#core/types/identifiers.js";
 import type { ISOTimestamp } from "#core/types/identifiers.js";
 import { toTokenCount } from "#core/types/units.js";
 import { toMilliseconds } from "#core/types/units.js";
@@ -101,6 +101,8 @@ function buildLogEntry(
   compilationId: UUIDv7,
   meta: CompilationMeta,
   createdAt: ISOTimestamp,
+  sessionId: SessionId | null,
+  configHash: string | null,
 ): CompilationLogEntry {
   return {
     id: compilationId,
@@ -115,6 +117,8 @@ function buildLogEntry(
     durationMs: meta.durationMs,
     editorId: meta.editorId,
     modelId: meta.modelId,
+    sessionId,
+    configHash,
     createdAt,
   };
 }
@@ -126,12 +130,15 @@ function recordCompilationAndFindings(
   clock: Clock,
   meta: CompilationMeta,
   findings: readonly GuardFinding[],
-): void {
+  sessionId: SessionId | null,
+  configHash: string | null,
+): UUIDv7 {
   const compilationId = idGenerator.generate();
   const createdAt = clock.now();
-  const entry = buildLogEntry(compilationId, meta, createdAt);
+  const entry = buildLogEntry(compilationId, meta, createdAt, sessionId, configHash);
   compilationLogStore.record(entry);
   guardStore.write(compilationId, findings);
+  return compilationId;
 }
 
 export class CompilationRunner implements ICompilationRunner {
@@ -148,10 +155,12 @@ export class CompilationRunner implements ICompilationRunner {
 
   async run(
     request: CompilationRequest,
-  ): Promise<{ compiledPrompt: string; meta: CompilationMeta }> {
+  ): Promise<{ compiledPrompt: string; meta: CompilationMeta; compilationId: UUIDv7 }> {
     const repoMap = await this.deps.repoMapSupplier.getRepoMap(request.projectRoot);
     const fileTreeHash = this.stringHasher.hash(serializeRepoMap(repoMap));
     const configHash = this.configStore.getLatestHash() ?? "";
+    const configHashOrNull = configHash === "" ? null : configHash;
+    const sessionId = request.sessionId ?? null;
     const key = buildCacheKey(
       request.intent,
       request.projectRoot,
@@ -163,18 +172,17 @@ export class CompilationRunner implements ICompilationRunner {
     if (cached !== null) {
       const task = this.deps.intentClassifier.classify(request.intent);
       const meta = buildCacheHitMeta(request, repoMap, cached, task.taskClass);
-      recordCompilationAndFindings(
+      const compilationId = recordCompilationAndFindings(
         this.compilationLogStore,
         this.guardStore,
         this.idGenerator,
         this.clock,
         meta,
         [],
+        sessionId,
+        configHashOrNull,
       );
-      return {
-        compiledPrompt: cached.compiledPrompt,
-        meta,
-      };
+      return { compiledPrompt: cached.compiledPrompt, meta, compilationId };
     }
     const start = this.clock.now();
     const r = await runPipelineSteps(
@@ -193,17 +201,16 @@ export class CompilationRunner implements ICompilationRunner {
       configHash,
     });
     const meta = buildFreshMeta(request, r, durationMs);
-    recordCompilationAndFindings(
+    const compilationId = recordCompilationAndFindings(
       this.compilationLogStore,
       this.guardStore,
       this.idGenerator,
       this.clock,
       meta,
       r.guardResult.findings,
+      sessionId,
+      configHashOrNull,
     );
-    return {
-      compiledPrompt: r.assembledPrompt,
-      meta,
-    };
+    return { compiledPrompt: r.assembledPrompt, meta, compilationId };
   }
 }

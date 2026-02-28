@@ -33,11 +33,14 @@ const stubMeta: CompilationMeta = {
   guard: null,
 };
 
+const stubCompilationId = "00000000-0000-7000-8000-000000000050" as UUIDv7;
+
 const stubRunner: CompilationRunner = {
   async run() {
     return {
       compiledPrompt: "Not implemented",
       meta: stubMeta,
+      compilationId: stubCompilationId,
     };
   },
 };
@@ -117,10 +120,7 @@ describe("compileCommand", () => {
       const recorded = written[0];
       expect(recorded).toBeDefined();
       if (recorded !== undefined) {
-        expect(recorded.event.taskClass).toBe(stubMeta.taskClass);
-        expect(recorded.event.tokensRaw).toBe(stubMeta.tokensRaw);
-        expect(recorded.event.tokensCompiled).toBe(stubMeta.tokensCompiled);
-        expect(recorded.event.cacheHit).toBe(stubMeta.cacheHit);
+        expect(recorded.event.compilationId).toBe(stubCompilationId);
       }
       expect(acc.chunks.join("")).toContain("Not implemented");
     } finally {

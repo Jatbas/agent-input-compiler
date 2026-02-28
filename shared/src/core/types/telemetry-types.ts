@@ -3,8 +3,7 @@ import type { Clock } from "#core/interfaces/clock.interface.js";
 import type { IdGenerator } from "#core/interfaces/id-generator.interface.js";
 import type { StringHasher } from "#core/interfaces/string-hasher.interface.js";
 import type { UUIDv7, ISOTimestamp, RepoId } from "#core/types/identifiers.js";
-import type { TokenCount, Milliseconds } from "#core/types/units.js";
-import type { TaskClass, InclusionTier } from "#core/types/enums.js";
+import type { InclusionTier } from "#core/types/enums.js";
 
 export interface TelemetryDeps {
   readonly telemetryStore: TelemetryStore;
@@ -15,17 +14,11 @@ export interface TelemetryDeps {
 
 export interface TelemetryEvent {
   readonly id: UUIDv7;
+  readonly compilationId: UUIDv7;
   readonly timestamp: ISOTimestamp;
   readonly repoId: RepoId;
-  readonly taskClass: TaskClass;
-  readonly tokensRaw: TokenCount;
-  readonly tokensCompiled: TokenCount;
-  readonly filesSelected: number;
-  readonly filesTotal: number;
   readonly summarisationTiers: Readonly<Record<InclusionTier, number>>;
   readonly guardBlockedCount: number;
   readonly guardFindingsCount: number;
-  readonly cacheHit: boolean;
-  readonly durationMs: Milliseconds;
-  readonly model: string | null;
+  readonly transformSavings: number;
 }

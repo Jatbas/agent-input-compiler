@@ -11,6 +11,7 @@ import { SqliteMigrationRunner } from "../sqlite-migration-runner.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
 import { migration as migration002 } from "../migrations/002-server-sessions.js";
 import { migration as migration003 } from "../migrations/003-server-sessions-integrity.js";
+import { migration as migration004 } from "../migrations/004-normalize-telemetry.js";
 
 const clock: Clock = {
   now(): ReturnType<typeof toISOTimestamp> {
@@ -137,5 +138,47 @@ describe("SqliteMigrationRunner", () => {
     expect(names).toContain("guard_findings");
     expect(names).toContain("repomap_cache");
     expect(names).toContain("anonymous_telemetry_log");
+  });
+
+  it("migration_004_normalizes_telemetry", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "aic-migration-test-"));
+    const dbPath = join(tmpDir, "aic.sqlite");
+    const db = new Database(dbPath);
+    const runner = new SqliteMigrationRunner(clock);
+    runner.run(db, [migration001, migration002, migration003, migration004]);
+    db.close();
+
+    const readDb = new Database(dbPath);
+    const compilationCols = readDb
+      .prepare("PRAGMA table_info(compilation_log)")
+      .all() as {
+      name: string;
+    }[];
+    const compilationNames = compilationCols.map((c) => c.name);
+    expect(compilationNames).toContain("session_id");
+    expect(compilationNames).toContain("config_hash");
+
+    const telemetryCols = readDb.prepare("PRAGMA table_info(telemetry_events)").all() as {
+      name: string;
+    }[];
+    const telemetryNames = telemetryCols.map((c) => c.name);
+    expect(telemetryNames).toContain("compilation_id");
+    expect(telemetryNames).not.toContain("task_class");
+    expect(telemetryNames).not.toContain("tokens_raw");
+    expect(telemetryNames).not.toContain("tokens_compiled");
+    expect(telemetryNames).not.toContain("token_reduction_pct");
+    expect(telemetryNames).not.toContain("duration_ms");
+    expect(telemetryNames).not.toContain("cache_hit");
+    expect(telemetryNames).not.toContain("model_id");
+    expect(telemetryNames).not.toContain("editor_id");
+    expect(telemetryNames).not.toContain("files_selected");
+    expect(telemetryNames).not.toContain("files_total");
+
+    const migrationRows = readDb.prepare("SELECT id FROM schema_migrations").all() as {
+      id: string;
+    }[];
+    readDb.close();
+    expect(migrationRows).toHaveLength(4);
+    expect(migrationRows.some((r) => r.id === "004-normalize-telemetry")).toBe(true);
   });
 });

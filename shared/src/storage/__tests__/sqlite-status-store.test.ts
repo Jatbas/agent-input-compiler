@@ -7,6 +7,7 @@ import { toMilliseconds } from "#core/types/units.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
 import { migration as migration002 } from "../migrations/002-server-sessions.js";
 import { migration as migration003 } from "../migrations/003-server-sessions-integrity.js";
+import { migration as migration004 } from "../migrations/004-normalize-telemetry.js";
 import { SqliteStatusStore } from "../sqlite-status-store.js";
 
 const stubClock: Clock = {
@@ -14,6 +15,61 @@ const stubClock: Clock = {
   addMinutes: () => toISOTimestamp("2025-06-15T12:00:00.000Z"),
   durationMs: () => toMilliseconds(0),
 };
+
+function insertCompilationLog(
+  db: Database.Database,
+  id: string,
+  overrides: Record<string, unknown> = {},
+): void {
+  const defaults = {
+    intent: "test",
+    task_class: "refactor",
+    files_selected: 1,
+    files_total: 1,
+    tokens_raw: 100,
+    tokens_compiled: 50,
+    token_reduction_pct: 50,
+    cache_hit: 0,
+    duration_ms: 100,
+    editor_id: "generic",
+    model_id: null,
+    created_at: "2026-02-26T12:00:00.000Z",
+    ...overrides,
+  };
+  db.prepare(
+    `INSERT INTO compilation_log (
+      id, intent, task_class, files_selected, files_total, tokens_raw, tokens_compiled,
+      token_reduction_pct, cache_hit, duration_ms, editor_id, model_id, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    defaults.intent,
+    defaults.task_class,
+    defaults.files_selected,
+    defaults.files_total,
+    defaults.tokens_raw,
+    defaults.tokens_compiled,
+    defaults.token_reduction_pct,
+    defaults.cache_hit,
+    defaults.duration_ms,
+    defaults.editor_id,
+    defaults.model_id,
+    defaults.created_at,
+  );
+}
+
+function insertTelemetryEvent(
+  db: Database.Database,
+  id: string,
+  compilationId: string,
+): void {
+  db.prepare(
+    `INSERT INTO telemetry_events (
+      id, compilation_id, repo_id,
+      guard_findings, guard_blocks, transform_savings, tiers_json, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(id, compilationId, "repo-hash", 0, 0, 0, "{}", "2026-02-26T12:00:00.000Z");
+}
 
 describe("SqliteStatusStore", () => {
   let db: Database.Database;
@@ -28,6 +84,7 @@ describe("SqliteStatusStore", () => {
     migration001.up(db);
     migration002.up(db);
     migration003.up(db);
+    migration004.up(db);
     store = new SqliteStatusStore(db as unknown as ExecutableDb, stubClock);
   }
 
@@ -49,26 +106,20 @@ describe("SqliteStatusStore", () => {
 
   it("sqlite_status_store_one_compilation", () => {
     setup();
-    db.prepare(
-      `INSERT INTO compilation_log (
-        id, intent, task_class, files_selected, files_total, tokens_raw, tokens_compiled,
-        token_reduction_pct, cache_hit, duration_ms, editor_id, model_id, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      "018c3d4e-0000-7000-8000-000000000001",
-      "fix auth",
-      "refactor",
-      8,
-      142,
-      45000,
-      7200,
-      84,
-      0,
-      1200,
-      "cursor",
-      "gpt-4",
-      "2026-02-25T12:00:00.000Z",
-    );
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000001", {
+      intent: "fix auth",
+      task_class: "refactor",
+      files_selected: 8,
+      files_total: 142,
+      tokens_raw: 45000,
+      tokens_compiled: 7200,
+      token_reduction_pct: 84,
+      cache_hit: 0,
+      duration_ms: 1200,
+      editor_id: "cursor",
+      model_id: "gpt-4",
+      created_at: "2026-02-25T12:00:00.000Z",
+    });
     const summary = store.getSummary();
     expect(summary.compilationsTotal).toBe(1);
     expect(summary.compilationsToday).toBe(0);
@@ -85,29 +136,14 @@ describe("SqliteStatusStore", () => {
 
   it("sqlite_status_store_telemetry", () => {
     setup();
-    db.prepare(
-      `INSERT INTO telemetry_events (
-        id, repo_id, task_class, tokens_raw, tokens_compiled, token_reduction_pct,
-        duration_ms, cache_hit, editor_id, files_selected, files_total, guard_findings, guard_blocks, transform_savings, tiers_json, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      "018c3d4e-0000-7000-8000-000000000002",
-      "repo-hash",
-      "refactor",
-      10000,
-      4000,
-      60,
-      500,
-      0,
-      "cursor",
-      5,
-      10,
-      0,
-      0,
-      0,
-      "{}",
-      "2026-02-26T12:00:00.000Z",
-    );
+    const compilationId = "018c3d4e-0000-7000-8000-000000000001";
+    insertCompilationLog(db, compilationId, {
+      tokens_raw: 10000,
+      tokens_compiled: 4000,
+      token_reduction_pct: 60,
+      duration_ms: 500,
+    });
+    insertTelemetryEvent(db, "018c3d4e-0000-7000-8000-000000000002", compilationId);
     const summary = store.getSummary();
     expect(summary.telemetryDisabled).toBe(false);
     expect(summary.avgReductionPct).toBe(60);
@@ -116,26 +152,7 @@ describe("SqliteStatusStore", () => {
 
   it("sqlite_status_store_guard_by_type", () => {
     setup();
-    db.prepare(
-      `INSERT INTO compilation_log (
-        id, intent, task_class, files_selected, files_total, tokens_raw, tokens_compiled,
-        token_reduction_pct, cache_hit, duration_ms, editor_id, model_id, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      "018c3d4e-0000-7000-8000-000000000003",
-      "intent",
-      "refactor",
-      1,
-      1,
-      100,
-      50,
-      50,
-      0,
-      100,
-      "generic",
-      null,
-      "2026-02-26T12:00:00.000Z",
-    );
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000003");
     db.prepare(
       `INSERT INTO guard_findings (id, compilation_id, type, severity, file, line, message, pattern, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,

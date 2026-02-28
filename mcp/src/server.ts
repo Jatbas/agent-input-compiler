@@ -117,12 +117,16 @@ export function createMcpServer(projectRoot: AbsolutePath): McpServer {
     "aic_compile",
     "Compile intent-specific project context. MUST be called as your FIRST action on EVERY message — including follow-ups in the same chat. Each message has a different intent that needs fresh context. Never skip.",
     CompilationRequestSchema,
-    createCompileHandler(compilationRunner, {
-      telemetryStore: scope.telemetryStore,
-      clock: scope.clock,
-      idGenerator: scope.idGenerator,
-      stringHasher: sha256Adapter,
-    }),
+    createCompileHandler(
+      compilationRunner,
+      {
+        telemetryStore: scope.telemetryStore,
+        clock: scope.clock,
+        idGenerator: scope.idGenerator,
+        stringHasher: sha256Adapter,
+      },
+      sessionId,
+    ),
   );
   server.tool("aic_inspect", InspectRequestSchema, (args) =>
     handleInspect(args, inspectRunner),

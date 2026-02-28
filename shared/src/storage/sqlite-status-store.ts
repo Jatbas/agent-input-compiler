@@ -37,7 +37,10 @@ export class SqliteStatusStore implements StatusStore {
     const hasTelemetry = (telemetryCountRow[0]?.c ?? 0) > 0;
     const telemetryRows = this.db
       .prepare(
-        "SELECT AVG(token_reduction_pct) as avgPct, SUM(tokens_raw - tokens_compiled) as totalSaved FROM telemetry_events",
+        `SELECT AVG(cl.token_reduction_pct) as avgPct,
+                SUM(cl.tokens_raw - cl.tokens_compiled) as totalSaved
+         FROM telemetry_events te
+         JOIN compilation_log cl ON cl.id = te.compilation_id`,
       )
       .all() as { avgPct: number | null; totalSaved: number | null }[];
     const telemetryRow = telemetryRows[0];

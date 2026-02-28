@@ -1,13 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { buildTelemetryEvent } from "../build-telemetry-event.js";
-import type {
-  CompilationMeta,
-  CompilationRequest,
-} from "#core/types/compilation-types.js";
+import type { CompilationMeta } from "#core/types/compilation-types.js";
 import type { GuardResult } from "#core/types/guard-types.js";
 import { toUUIDv7, toISOTimestamp, toRepoId } from "#core/types/identifiers.js";
 import { toTokenCount, toMilliseconds } from "#core/types/units.js";
-import { toAbsolutePath, toRelativePath } from "#core/types/paths.js";
+import { toRelativePath } from "#core/types/paths.js";
 import { EDITOR_ID, INCLUSION_TIER, TASK_CLASS } from "#core/types/enums.js";
 import { toPercentage } from "#core/types/scores.js";
 import { GUARD_FINDING_TYPE, GUARD_SEVERITY } from "#core/types/enums.js";
@@ -37,26 +34,19 @@ function metaOverrides(overrides: Partial<CompilationMeta>): CompilationMeta {
   };
 }
 
-const stubRequest: CompilationRequest = {
-  intent: "",
-  projectRoot: toAbsolutePath("/tmp/proj"),
-  modelId: null,
-  editorId: EDITOR_ID.GENERIC,
-  configPath: null,
-};
-
 describe("buildTelemetryEvent", () => {
   it("buildTelemetryEvent guard null", () => {
     const meta = metaOverrides({ guard: null });
     const event = buildTelemetryEvent(
       meta,
-      stubRequest,
       toUUIDv7("00000000-0000-7000-8000-000000000000"),
+      toUUIDv7("00000000-0000-7000-8000-000000000099"),
       toISOTimestamp("2026-01-01T00:00:00.000Z"),
       toRepoId("abc123"),
     );
     expect(event.guardBlockedCount).toBe(0);
     expect(event.guardFindingsCount).toBe(0);
+    expect(event.compilationId).toBe("00000000-0000-7000-8000-000000000099");
   });
 
   it("buildTelemetryEvent guard with counts", () => {
@@ -76,8 +66,8 @@ describe("buildTelemetryEvent", () => {
     const meta = metaOverrides({ guard });
     const event = buildTelemetryEvent(
       meta,
-      stubRequest,
       toUUIDv7("00000000-0000-7000-8000-000000000001"),
+      toUUIDv7("00000000-0000-7000-8000-000000000098"),
       toISOTimestamp("2026-01-01T00:00:00.000Z"),
       toRepoId("def456"),
     );
@@ -85,15 +75,15 @@ describe("buildTelemetryEvent", () => {
     expect(event.guardFindingsCount).toBe(1);
   });
 
-  it("buildTelemetryEvent model null", () => {
-    const meta = metaOverrides({ modelId: "" });
+  it("buildTelemetryEvent transformSavings", () => {
+    const meta = metaOverrides({ transformTokensSaved: toTokenCount(42) });
     const event = buildTelemetryEvent(
       meta,
-      stubRequest,
       toUUIDv7("00000000-0000-7000-8000-000000000002"),
+      toUUIDv7("00000000-0000-7000-8000-000000000097"),
       toISOTimestamp("2026-01-01T00:00:00.000Z"),
       toRepoId("ghi789"),
     );
-    expect(event.model).toBeNull();
+    expect(event.transformSavings).toBe(42);
   });
 });
