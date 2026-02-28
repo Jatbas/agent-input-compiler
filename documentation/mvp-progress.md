@@ -102,6 +102,16 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 ---
 
+## Known Limitations & Future Work
+
+| ID     | Area    | Description                                                                                                                                                                                                                           | Target  |
+| ------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| KL-001 | Storage | No data retention policy for `compilation_log`, `telemetry_events`, `guard_findings`, `server_sessions`. Tables grow unbounded. At current rates (~18 rows/day), this is negligible for months; becomes relevant at enterprise scale. | Phase 1 |
+| KL-002 | Storage | No `repomap_cache` pruning. Cached repo maps for deleted/moved projects remain indefinitely.                                                                                                                                          | Phase 1 |
+| KL-003 | Storage | `anonymous_telemetry_log` outbound queue has no TTL or max-size cap.                                                                                                                                                                  | Phase 1 |
+
+---
+
 ## Phase 0 — MVP (complete)
 
 ### Implementation Order

@@ -121,4 +121,21 @@ export class SqliteCacheStore implements CacheStore {
     }
     this.db.prepare("DELETE FROM cache_metadata").run();
   }
+
+  purgeExpired(): void {
+    const now = this.clock.now();
+    const rows = this.db
+      .prepare("SELECT file_path FROM cache_metadata WHERE expires_at <= datetime(?)")
+      .all(now) as readonly { file_path: string }[];
+    for (const row of rows) {
+      try {
+        fs.unlinkSync(row.file_path);
+      } catch {
+        // Blob may already be missing
+      }
+    }
+    this.db
+      .prepare("DELETE FROM cache_metadata WHERE expires_at <= datetime(?)")
+      .run(now);
+  }
 }

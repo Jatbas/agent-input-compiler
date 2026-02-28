@@ -88,13 +88,13 @@ function buildFreshMeta(
 }
 
 function buildCacheKey(
-  intent: string,
+  taskClass: string,
   projectRoot: string,
   fileTreeHash: string,
   configHash: string,
   hasher: StringHasher,
 ): string {
-  return hasher.hash([intent, projectRoot, fileTreeHash, configHash].join("\0"));
+  return hasher.hash([taskClass, projectRoot, fileTreeHash, configHash].join("\0"));
 }
 
 function buildLogEntry(
@@ -161,8 +161,9 @@ export class CompilationRunner implements ICompilationRunner {
     const configHash = this.configStore.getLatestHash() ?? "";
     const configHashOrNull = configHash === "" ? null : configHash;
     const sessionId = request.sessionId ?? null;
+    const task = this.deps.intentClassifier.classify(request.intent);
     const key = buildCacheKey(
-      request.intent,
+      task.taskClass,
       request.projectRoot,
       fileTreeHash,
       configHash,
@@ -170,7 +171,6 @@ export class CompilationRunner implements ICompilationRunner {
     );
     const cached = this.cacheStore.get(key);
     if (cached !== null) {
-      const task = this.deps.intentClassifier.classify(request.intent);
       const meta = buildCacheHitMeta(request, repoMap, cached, task.taskClass);
       const compilationId = recordCompilationAndFindings(
         this.compilationLogStore,

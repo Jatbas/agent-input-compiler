@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync, unlinkSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync, readFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, it, expect, afterEach } from "vitest";
@@ -117,5 +117,35 @@ describe("SqliteCacheStore", () => {
     if (row === undefined) return;
     writeFileSync(row.file_path, "not valid json", "utf8");
     expect(store.get("blob-corrupt")).toBeNull();
+  });
+
+  it("purgeExpired deletes expired rows and blob files", () => {
+    setup();
+    const past = "2020-01-01T00:00:00.000Z";
+    const future = "2099-01-01T00:00:00.000Z";
+    store.set(makeEntry({ key: "expired-1", expiresAt: toISOTimestamp(past) }));
+    store.set(makeEntry({ key: "expired-2", expiresAt: toISOTimestamp(past) }));
+    store.set(makeEntry({ key: "valid", expiresAt: toISOTimestamp(future) }));
+    const expiredRows = db
+      .prepare("SELECT file_path FROM cache_metadata WHERE cache_key IN (?, ?)")
+      .all("expired-1", "expired-2") as { file_path: string }[];
+    store.purgeExpired();
+    const remaining = db.prepare("SELECT cache_key FROM cache_metadata").all() as {
+      cache_key: string;
+    }[];
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]?.cache_key).toBe("valid");
+    for (const row of expiredRows) {
+      expect(() => readFileSync(row.file_path, "utf8")).toThrow();
+    }
+  });
+
+  it("purgeExpired on empty table is no-op", () => {
+    setup();
+    store.purgeExpired();
+    const rows = db.prepare("SELECT COUNT(*) as c FROM cache_metadata").all() as {
+      c: number;
+    }[];
+    expect(rows[0]?.c).toBe(0);
   });
 });

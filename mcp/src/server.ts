@@ -72,6 +72,7 @@ export function createDefaultBudgetConfig(): BudgetConfig {
 
 export function createMcpServer(projectRoot: AbsolutePath): McpServer {
   const scope = createProjectScope(projectRoot);
+  scope.cacheStore.purgeExpired();
   installTriggerRule(projectRoot);
   const { installationOk, installationNotes } = runStartupSelfCheck(projectRoot);
   const sessionId = toSessionId(scope.idGenerator.generate());

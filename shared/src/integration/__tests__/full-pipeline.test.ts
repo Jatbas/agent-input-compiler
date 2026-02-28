@@ -98,6 +98,7 @@ function createInMemoryCacheStore(): CacheStore {
     invalidateAll() {
       map.clear();
     },
+    purgeExpired() {},
   };
 }
 

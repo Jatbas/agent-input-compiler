@@ -68,6 +68,7 @@ function createScopeAndDeps(
   deps: PipelineStepsDeps;
 } {
   const scope = createProjectScope(toAbsolutePath(projectRoot));
+  scope.cacheStore.purgeExpired();
   const sha256Adapter = new Sha256Adapter();
   const configLoader = new LoadConfigFromFile();
   const configResult = configLoader.load(

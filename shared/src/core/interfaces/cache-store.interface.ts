@@ -5,4 +5,5 @@ export interface CacheStore {
   set(entry: CachedCompilation): void;
   invalidate(key: string): void;
   invalidateAll(): void;
+  purgeExpired(): void;
 }
