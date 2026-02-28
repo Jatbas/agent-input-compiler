@@ -1,8 +1,11 @@
-import { describe, it, afterEach, expect } from "vitest";
+import { describe, it, afterEach, expect, vi } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import { createMcpServer } from "../server.js";
+import { createMcpServer, registerShutdownHandler } from "../server.js";
+import { toSessionId, toISOTimestamp } from "@aic/shared/core/types/identifiers.js";
+import { toMilliseconds } from "@aic/shared/core/types/units.js";
+import { STOP_REASON } from "@aic/shared/core/types/enums.js";
 import { createProjectScope } from "@aic/shared/storage/create-project-scope.js";
 import { ensureAicDir } from "@aic/shared/storage/ensure-aic-dir.js";
 import { toAbsolutePath } from "@aic/shared/core/types/paths.js";
@@ -113,6 +116,35 @@ describe("MCP server", () => {
     const aicPath = path.join(tmpDir, ".aic");
     const mode = fs.statSync(aicPath).mode & 0o777;
     expect(mode).toBe(0o700);
+  });
+
+  it("shutdown_handler_calls_stopSession_with_graceful", () => {
+    const mockSessionTracker = {
+      startSession: vi.fn(),
+      stopSession: vi.fn(),
+      backfillCrashedSessions: vi.fn(),
+    };
+    const fixedTs = toISOTimestamp("2026-02-28T12:00:00.000Z");
+    const mockClock = {
+      now: (): typeof fixedTs => fixedTs,
+      addMinutes: (_m: number): typeof fixedTs => fixedTs,
+      durationMs: (_s: typeof fixedTs, _e: typeof fixedTs) => toMilliseconds(0),
+    };
+    const sessionId = toSessionId("019504a0-0000-7000-8000-000000000000");
+    const handler = registerShutdownHandler(mockSessionTracker, sessionId, mockClock);
+    const exitSpy = vi
+      .spyOn(process, "exit")
+      .mockImplementation((() => {}) as (code?: string | number | null) => never);
+    handler();
+    expect(mockSessionTracker.stopSession).toHaveBeenCalledTimes(1);
+    expect(mockSessionTracker.stopSession).toHaveBeenCalledWith(
+      sessionId,
+      fixedTs,
+      STOP_REASON.GRACEFUL,
+    );
+    exitSpy.mockRestore();
+    process.off("SIGINT", handler);
+    process.off("SIGTERM", handler);
   });
 
   it("server_sessions_row_has_integrity", async () => {
