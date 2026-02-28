@@ -18,6 +18,7 @@ import { handleInspect } from "./handlers/inspect-handler.js";
 import { createProjectScope } from "@aic/shared/storage/create-project-scope.js";
 import { toSessionId } from "@aic/shared/core/types/identifiers.js";
 import { createFullPipelineDeps } from "@aic/shared/bootstrap/create-pipeline-deps.js";
+import { installTriggerRule } from "./install-trigger-rule.js";
 import { runStartupSelfCheck } from "./startup-self-check.js";
 import {
   LoadConfigFromFile,
@@ -71,6 +72,7 @@ export function createDefaultBudgetConfig(): BudgetConfig {
 
 export function createMcpServer(projectRoot: AbsolutePath): McpServer {
   const scope = createProjectScope(projectRoot);
+  installTriggerRule(projectRoot);
   const { installationOk, installationNotes } = runStartupSelfCheck(projectRoot);
   const sessionId = toSessionId(scope.idGenerator.generate());
   const startedAt = scope.clock.now();

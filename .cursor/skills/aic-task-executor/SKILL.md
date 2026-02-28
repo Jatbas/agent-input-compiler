@@ -207,10 +207,20 @@ Run these sequentially in one flow — no user gate between them:
    mkdir -p documentation/tasks/done && mv documentation/tasks/NNN-name.md documentation/tasks/done/
    ```
 3. Stage and commit on the feature branch:
+
    ```
-   git add -A && git commit -m "feat(<scope>): <what was built>" && git diff main...HEAD --stat
+   git add -A && git commit -m "feat(<scope>): <what was built>"
    ```
+
    Use the conventional commit format: `type(scope): description`, max 72 chars, imperative, no period.
+
+4. **Post-commit hygiene check.** Lint-staged runs during commit and may auto-format files, leaving the working tree dirty. This step catches and resolves that before proposing merge.
+
+   a. Run `git status --porcelain`. If output is empty, skip to (e).
+   b. Stage and amend: `git add -A && git commit --amend --no-edit`.
+   c. Run `pnpm lint && pnpm typecheck && pnpm test`. If any fail, fix the issues, then `git add -A && git commit --amend --no-edit` again. Repeat at most twice — if still failing after 2 fix attempts, go to **Blocked diagnostic**.
+   d. Run `git status --porcelain` again. If still dirty (another lint-staged pass reformatted), repeat from (b). Cap at 3 iterations — if still dirty, something is structurally wrong; go to **Blocked diagnostic**.
+   e. Run `git diff main...HEAD --stat` to produce the final file list for the merge proposal.
 
 ### 6. Merge and Clean Up
 
