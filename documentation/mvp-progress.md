@@ -2,7 +2,7 @@
 
 **Current phase:** 0.5 (Quality Release)
 **Version target:** 0.2.0
-**Phase I (Live Wiring):** 15/19 done
+**Phase I (Live Wiring):** 16/19 done
 
 ---
 
@@ -25,7 +25,7 @@ Prerequisite for everything else. Quick fixes to make the tool fully functional.
 | WhitespaceNormalizer exclusions | Done   | shared/src/pipeline/             |
 | 002-server-sessions migration   | Done   | shared/src/storage/migrations/   |
 | SessionTracker interface        | Done   | shared/src/core/interfaces/      |
-| SqliteSessionStore              | Todo   | shared/src/storage/              |
+| SqliteSessionStore              | Done   | shared/src/storage/              |
 | sessionStart compile hook       | Done   | .cursor/hooks/                   |
 | preToolUse gate hook            | Done   | .cursor/hooks/                   |
 | beforeSubmitPrompt logging hook | Done   | .cursor/hooks/                   |
@@ -199,11 +199,12 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 ### 2026-02-28
 
-**Components:** 002-server-sessions migration, SessionTracker interface
+**Components:** 002-server-sessions migration, SessionTracker interface, SqliteSessionStore
 **Completed:**
 
 - 002-server-sessions migration (task 031): migration 002-server-sessions.ts creates server_sessions table (session_id, started_at, stopped_at, stop_reason, pid, version); open-database runs [migration001, migration002]; migration-runner test applies_002_and_creates_server_sessions_table
 - SessionTracker interface (task 032): SessionTracker interface in core/interfaces (startSession, stopSession, backfillCrashedSessions); STOP_REASON and StopReason in core/types/enums.ts
+- SqliteSessionStore (task 033): SqliteSessionStore in storage implements SessionTracker; startSession INSERT, stopSession UPDATE by session_id, backfillCrashedSessions UPDATE WHERE stopped_at IS NULL with STOP_REASON.CRASH; five tests (persists row, stopSession updates row, backfill marks open sessions, empty backfill no-op, duplicate startSession throws)
 
 ### 2026-02-27
 
