@@ -127,7 +127,11 @@ Complete every item. Each produces evidence for the report. Items are organized 
 3. **Check existing files** — for every file the recipe pattern would create, check if it already EXISTS (Glob). Record each.
 4. **Verify every external library API by reading installed `.d.ts` files** — locate under `node_modules/`, read them, record exact class names, constructor signatures, method signatures, and import paths. If not installed, search the web. This applies to ALL layers.
 5. **Check recipe fit** — determine which recipe applies (adapter, storage, pipeline, composition root) using the pre-read `SKILL-recipes.md`. If no recipe fits → **BLOCKER**.
-6. **Search for existing solutions** (conditional — if the target layer already has 2+ files of this recipe type) — Grep for similar functionality before proposing new code. Check: does an existing adapter/storage/pipeline class already solve part of this problem? Could an existing interface gain a method instead of creating a new interface? Record findings in the EXISTING SOLUTIONS field of the Exploration Report.
+6. **Sibling analysis, shared code reuse, and shared code prediction** (mandatory — applies to all recipe types regardless of sibling count):
+   **When siblings exist and already use shared utilities:** Read the full source code of the closest sibling. Identify: (a) shared factories, utilities, and helpers the sibling imports (use its import statements as evidence), (b) the structural pattern (factory function vs manual class, shared walkers vs custom traversal), (c) which parts are sibling-specific (grammar, node types, naming rules) vs shared infrastructure. The new component MUST reuse the same shared utilities and structural pattern — never reimplement what the sibling delegates to shared code.
+   **When a sibling exists but has NOT yet extracted shared utilities (second-of-its-kind):** This is the critical extraction moment. Compare the new component's needs against the sibling's inline code. Any function that is structurally identical but differs only in callbacks, predicates, or config values MUST be extracted to a shared utility file as a prerequisite step in the task. Add "Create" or "Modify" rows to the Files table for the shared utility file, and a "Modify" row for the first sibling (to refactor it to use the new shared utility). Signs of extractable code: traversal logic parameterized only by node-type predicates, factory/builder functions parameterized only by config objects, collection logic parameterized only by filter functions, import-extraction logic parameterized only by node-type identifiers.
+   **When first of its kind (no siblings):** Predict which parts of the component are generic vs specific. Generic code is logic whose structure would be identical in a future sibling with different config/predicates — e.g., a tree walker that takes a node-type predicate, a factory that takes a config object, a collector that takes a filter function. If 2+ functions are identified as generic, extract them to a shared utility file from day one so future siblings reuse them without refactoring. If all logic is genuinely specific (no parameterizable structure), document why in the exploration report.
+   Record all findings in the SIBLING PATTERN field of the Exploration Report. Additionally, check if any existing class already solves part of the problem or if an existing interface could gain a method. Record reuse findings in the EXISTING SOLUTIONS field.
 7. **Cross-package duplication check** (conditional — if the task creates a new utility, helper, or factory function) — Grep the entire codebase for functionally equivalent code. Check `mcp/src/`, `cli/src/`, and `shared/src/` — not just the target layer. If equivalent logic already exists in another package, the task must either (a) extract the shared logic to `shared/` and modify both consumers, or (b) justify the duplication in Architecture Notes. Record in the EXISTING SOLUTIONS field.
 8. **Wiring completeness check** (conditional — composition root tasks) — For every function called in the wiring steps, verify that its return value is either (a) consumed by a subsequent step, or (b) the function is explicitly called for side effects only (document which side effects). If a function returns a rich object and only side effects are needed, note this in Architecture Notes as a follow-up to wire the return value when consumers are ready.
 
@@ -160,6 +164,33 @@ RECIPE: [adapter | storage | pipeline | composition-root | NONE → BLOCKER]
 EXISTING FILES (for every file the recipe pattern would create):
 - [file path]: EXISTS / DOES NOT EXIST
   Source: verified via Glob/Read
+
+SIBLING PATTERN (mandatory — answer all applicable subsections):
+
+When siblings exist with shared utilities:
+- Closest sibling: [file path]
+  Source: [verified via Read — full source code read]
+- Shared utilities imported by sibling:
+  - [utility file]: [functions: fn1, fn2, ...]
+  - [factory file]: [factory function used]
+- Structural pattern: [factory | class | other]
+- Sibling-specific parts: [what the sibling customizes]
+- REUSE MANDATE: New component MUST use same shared utilities and pattern.
+
+When sibling exists WITHOUT shared utilities (second-of-its-kind):
+- First sibling: [file path]
+- Generic functions in sibling (differ only by predicate/config):
+  - [function name]: [what varies per sibling] → extract to [target shared utility file]
+- EXTRACTION MANDATE: Extract generic logic to shared utility BEFORE implementing.
+  Add extraction + sibling refactor as prerequisite steps in the task.
+
+When first of its kind (no siblings):
+- SHARED CODE PREDICTION: Which functions are generic vs specific?
+  - Generic (would be identical in future sibling with different config):
+    [list functions — with what parameter would vary]
+  - Specific (unique to this language/library): [list]
+- EXTRACTION PLAN: If 2+ generic functions → extract to shared utility from
+  day one. If all specific → "No extraction needed — [why]".
 
 DEPENDENCIES:
 - [package]: [version] (already in package.json)
@@ -366,22 +397,23 @@ The Exploration Report is on disk at `documentation/tasks/.exploration-NNN.md`. 
 
 Mechanically map the Exploration Report to the template:
 
-| Report field                   | Template section                                          |
-| ------------------------------ | --------------------------------------------------------- |
-| EXISTING FILES                 | Files table (only "Create" for DOES NOT EXIST)            |
-| EXISTING SOLUTIONS             | Architecture Notes (reuse decisions)                      |
-| CONSUMER ANALYSIS              | Files table ("Modify" rows for broken consumers)          |
-| APPROACH EVALUATION            | Architecture Notes (chosen approach + rationale)          |
-| INTERFACES                     | Interface / Signature (first code block)                  |
-| CONSTRUCTOR + METHOD BEHAVIORS | Interface / Signature (second code block — class)         |
-| DEPENDENT TYPES                | Dependent Types (tiered: T0 verbatim, T1 table, T2 table) |
-| DEPENDENCIES + ESLINT CHANGES  | Config Changes                                            |
-| DESIGN DECISIONS               | Architecture Notes                                        |
-| SYNC/ASYNC                     | Steps (implementation step must state this)               |
-| LIBRARY API CALLS              | Steps (exact function calls in implementation)            |
-| SCHEMA                         | Steps (SQL step references exact columns)                 |
-| STEP PLAN                      | Steps (method-to-step assignment)                         |
-| TEST STRATEGY                  | Steps (test step specifies exact mocking)                 |
+| Report field                   | Template section                                                                |
+| ------------------------------ | ------------------------------------------------------------------------------- |
+| EXISTING FILES                 | Files table (only "Create" for DOES NOT EXIST)                                  |
+| EXISTING SOLUTIONS             | Architecture Notes (reuse decisions)                                            |
+| SIBLING PATTERN                | Architecture Notes (reuse mandate) + Interface / Signature (structural pattern) |
+| CONSUMER ANALYSIS              | Files table ("Modify" rows for broken consumers)                                |
+| APPROACH EVALUATION            | Architecture Notes (chosen approach + rationale)                                |
+| INTERFACES                     | Interface / Signature (first code block)                                        |
+| CONSTRUCTOR + METHOD BEHAVIORS | Interface / Signature (second code block — class)                               |
+| DEPENDENT TYPES                | Dependent Types (tiered: T0 verbatim, T1 table, T2 table)                       |
+| DEPENDENCIES + ESLINT CHANGES  | Config Changes                                                                  |
+| DESIGN DECISIONS               | Architecture Notes                                                              |
+| SYNC/ASYNC                     | Steps (implementation step must state this)                                     |
+| LIBRARY API CALLS              | Steps (exact function calls in implementation)                                  |
+| SCHEMA                         | Steps (SQL step references exact columns)                                       |
+| STEP PLAN                      | Steps (method-to-step assignment)                                               |
+| TEST STRATEGY                  | Steps (test step specifies exact mocking)                                       |
 
 ### C.3 Write prohibitions (internalize before writing)
 
@@ -394,6 +426,8 @@ Violating any of these causes the mechanical review (C.5) to reject and force a 
 - Never use raw `string`/`number` for domain-value constructor parameters
 - Never paste Tier 1 or Tier 2 types verbatim — use the tiered format (table for Tier 1, table for Tier 2)
 - Never use Tier 1 or Tier 2 for types the component calls methods on or constructs inline — those must be Tier 0
+- Never write a manual class when the closest sibling uses a factory function for the same purpose — the Interface/Signature must use the same factory
+- Never reimplement logic that the sibling delegates to shared utility functions — import and call the existing shared utilities
 
 ### C.4 Save the task file
 
@@ -470,6 +504,11 @@ N. **CONSUMER COMPLETENESS (conditional — only if task modifies existing inter
 
 O. **CONDITIONAL DEPENDENCY LOADING (conditional — composition roots and bootstrap functions):** For each `new` or `await X.create()` call in the wiring steps, check: is this dependency always needed, or only when certain project characteristics hold (specific file extensions, config flags)? If the dependency is conditional but the task eagerly creates it inside a bootstrap function = fail. The task must accept it as an injected parameter and create it conditionally in `main()`. If no conditional dependencies exist, this check passes automatically.
 
+P. **SIBLING PATTERN REUSE AND SHARED CODE PREDICTION (mandatory):** Three sub-checks based on sibling status:
+**(P1) Siblings with shared utilities:** Verify the task's code blocks import the same shared utilities the sibling uses (Grep for each utility function name). If the task's Interface/Signature shows a manual class but the sibling uses a factory = fail. If shared walkers or helpers are missing = fail.
+**(P2) Sibling without shared utilities (second-of-its-kind):** Verify the Files table includes a "Create" or "Modify" row for a shared utility file AND a "Modify" row for the first sibling's refactor. If the task copies inline code from the sibling instead of extracting = fail.
+**(P3) First of its kind:** Verify the exploration report's SHARED CODE PREDICTION section identifies generic vs specific functions. If 2+ generic functions are identified but the task inlines them instead of extracting to a shared utility = fail. If the prediction says "No extraction needed," verify the justification is present. If no prediction section exists = fail.
+
 **Step 2: Score the rubric.** Score each dimension 0 (fail) or 1 (pass):
 
 1. Interface accuracy (check B)
@@ -487,6 +526,7 @@ O. **CONDITIONAL DEPENDENCY LOADING (conditional — composition roots and boots
 13. Simplicity (check M)
 14. Consumer completeness — conditional (check N)
 15. Conditional dependency loading — conditional (check O)
+16. Sibling pattern reuse — conditional (check P)
 
 ### C.6 Score and act
 

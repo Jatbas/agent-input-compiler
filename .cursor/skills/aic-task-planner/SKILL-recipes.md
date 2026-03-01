@@ -54,6 +54,14 @@ During exploration, record the exact adapter boundary paths and patterns so the 
 - Dependencies: check `shared/package.json`. State "already at [version]" or "add at [version]."
 - ESLint: show the exact config block above with the library name filled in.
 
+**Sibling reuse and shared code lifecycle:** The approach depends on how many siblings already exist:
+
+- **First adapter in a family (no siblings):** During exploration, predict which functions are generic (would be identical in a future sibling with different config/predicates) vs specific (unique to this library). If 2+ generic functions are identified, extract them to a shared utility file from day one (e.g., `tree-sitter-node-utils.ts`, `[family]-utils.ts`). Future siblings will import from the shared utility without refactoring.
+
+- **Second adapter in a family (one sibling, no shared utilities yet):** This is the extraction moment. Compare the new adapter's needs against the first sibling's inline code. Extract any structurally identical functions (differing only in callbacks/predicates/config) to a shared utility file as a prerequisite step. Add the shared utility file to the Files table and a "Modify" row for the first sibling to refactor it. The task has three phases: (1) extract shared code, (2) refactor first sibling, (3) implement new adapter using shared code.
+
+- **Third+ adapter in a family (shared utilities already exist):** The task MUST mirror the closest sibling's structure and use the same shared factory and utilities — not reimplement them. The Interface/Signature section shows usage of the shared factory (e.g., `defineTreeSitterProvider`), not a manual class. Only the language-specific or library-specific parts (grammar, node types, naming rules, import detection logic) differ. This prevents clone accumulation and ensures new members immediately benefit from improvements to shared infrastructure.
+
 ---
 
 ## Storage recipe (implementing a core store interface)

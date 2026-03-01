@@ -150,6 +150,7 @@ describe("MCP server", () => {
       stopSession: vi.fn(),
       backfillCrashedSessions: vi.fn(),
     };
+    const mockCacheStore = { purgeExpired: vi.fn() };
     const fixedTs = toISOTimestamp("2026-02-28T12:00:00.000Z");
     const mockClock = {
       now: (): typeof fixedTs => fixedTs,
@@ -157,11 +158,17 @@ describe("MCP server", () => {
       durationMs: (_s: typeof fixedTs, _e: typeof fixedTs) => toMilliseconds(0),
     };
     const sessionId = toSessionId("019504a0-0000-7000-8000-000000000000");
-    const handler = registerShutdownHandler(mockSessionTracker, sessionId, mockClock);
+    const handler = registerShutdownHandler(
+      mockSessionTracker,
+      sessionId,
+      mockClock,
+      mockCacheStore,
+    );
     const exitSpy = vi
       .spyOn(process, "exit")
       .mockImplementation((() => {}) as (code?: string | number | null) => never);
     handler();
+    expect(mockCacheStore.purgeExpired).toHaveBeenCalledTimes(1);
     expect(mockSessionTracker.stopSession).toHaveBeenCalledTimes(1);
     expect(mockSessionTracker.stopSession).toHaveBeenCalledWith(
       sessionId,

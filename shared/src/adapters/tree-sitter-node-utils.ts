@@ -1,6 +1,7 @@
 import { type Node, type Parser, type Tree } from "web-tree-sitter";
 import type { CodeChunk } from "#core/types/code-chunk.js";
 import type { ExportedSymbol } from "#core/types/exported-symbol.js";
+import type { ImportRef } from "#core/types/import-ref.js";
 import type { SymbolKind, SymbolType } from "#core/types/enums.js";
 import type { RelativePath } from "#core/types/paths.js";
 import { toRelativePath } from "#core/types/paths.js";
@@ -28,6 +29,67 @@ export function findNodeName(node: Node, source: string): string | null {
   const nameChild = node.childForFieldName("name");
   if (nameChild === null) return null;
   return nodeText(source, nameChild).trim();
+}
+
+// Line or block doc comment immediately before node (//, ///, /* */).
+export function docCommentBefore(source: string, node: Node): string {
+  const start = node.startIndex;
+  if (start <= 0) return "";
+  const before = source.slice(0, start);
+  const lastNewline = before.lastIndexOf("\n");
+  const lineStart = lastNewline >= 0 ? lastNewline + 1 : 0;
+  const line = before.slice(lineStart).trim();
+  if (line.startsWith("//")) return line;
+  const blockEnd = before.lastIndexOf("*/");
+  if (blockEnd >= 0) {
+    const blockStart = before.lastIndexOf("/*", blockEnd);
+    if (blockStart >= 0) return before.slice(blockStart, blockEnd + 2).trim();
+  }
+  return "";
+}
+
+export function buildSignatureChunk(
+  source: string,
+  node: Node,
+  name: string,
+  withDocs: boolean,
+  symbolTypeForNode: (n: Node) => SymbolType,
+): CodeChunk {
+  const startLine = lineFromNode(node);
+  const sigText = nodeText(source, node);
+  const endLine = startLine + Math.max(0, sigText.split("\n").length - 1);
+  const doc = withDocs ? docCommentBefore(source, node) : "";
+  const content = doc !== "" ? `${doc}\n${sigText}` : sigText;
+  return buildCodeChunk(name, symbolTypeForNode(node), startLine, endLine, content);
+}
+
+export function singleImportRef(
+  path: string,
+  isRelative: (p: string) => boolean,
+): ImportRef {
+  return { source: path, symbols: [], isRelative: isRelative(path) };
+}
+
+export function oneImportRefFromNode(
+  source: string,
+  node: Node,
+  getPath: (source: string, node: Node) => string | null,
+  isRelative: (p: string) => boolean,
+): readonly ImportRef[] {
+  const path = getPath(source, node);
+  return path !== null ? [singleImportRef(path, isRelative)] : [];
+}
+
+export function walkTreeCollectImports(
+  source: string,
+  node: Node,
+  isImportNode: (nodeType: string) => boolean,
+  extractOne: (source: string, node: Node) => readonly ImportRef[],
+): readonly ImportRef[] {
+  if (isImportNode(node.type)) return extractOne(source, node);
+  return childrenOf(node).flatMap((ch) =>
+    walkTreeCollectImports(source, ch, isImportNode, extractOne),
+  );
 }
 
 export function buildCodeChunk(

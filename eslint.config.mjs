@@ -1257,6 +1257,7 @@ export default tseslint.config(
       "shared/src/adapters/typescript-provider.ts",
       "shared/src/adapters/python-provider.ts",
       "shared/src/adapters/go-provider.ts",
+      "shared/src/adapters/rust-provider.ts",
       "shared/src/adapters/tree-sitter-init.ts",
       "shared/src/adapters/tree-sitter-node-utils.ts",
       "shared/src/adapters/tree-sitter-provider-factory.ts",
@@ -1310,6 +1311,10 @@ export default tseslint.config(
             {
               name: "tree-sitter-go",
               message: "Only go-provider.ts may import tree-sitter-go.",
+            },
+            {
+              name: "tree-sitter-rust",
+              message: "Only rust-provider.ts may import tree-sitter-rust.",
             },
             {
               name: "node:crypto",

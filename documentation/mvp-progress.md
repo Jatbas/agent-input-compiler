@@ -52,7 +52,7 @@ Highest-impact work. The core value of AIC is picking the right files — if sel
 | GenericImportProvider (Py/Go/Rs) | Done   | shared/src/adapters/ |
 | PythonProvider (AST-safe)        | Done   | shared/src/adapters/ |
 | GoProvider                       | Done   | shared/src/adapters/ |
-| RustProvider                     | Todo   | shared/src/adapters/ |
+| RustProvider                     | Done   | shared/src/adapters/ |
 | JavaProvider                     | Todo   | shared/src/adapters/ |
 | RubyProvider                     | Todo   | shared/src/adapters/ |
 | PhpProvider                      | Todo   | shared/src/adapters/ |
@@ -219,9 +219,10 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 ### 2026-03-01
 
-**Components:** PythonProvider (AST-safe), ModelDetector, ModelDetectorDispatch, compile-handler getModelId, EditorModelConfigReader, EditorModelConfigReaderAdapter, Config model override, GoProvider
+**Components:** PythonProvider (AST-safe), ModelDetector, ModelDetectorDispatch, compile-handler getModelId, EditorModelConfigReader, EditorModelConfigReaderAdapter, Config model override, GoProvider, RustProvider
 **Completed:**
 
+- RustProvider (task 044): LanguageProvider for .rs via defineTreeSitterProvider and tree-sitter-rust; parseImports (use_declaration), extractSignaturesWithDocs/Only (function_item, function_signature_item, impl_item, struct_item), extractNames (pub items and impl); wired in initLanguageProviders (projectHasExtension .rs); ESLint restricts tree-sitter-rust to rust-provider.ts; tree-sitter-provider-shared barrel and tree-sitter-node-utils helpers (docCommentBefore, buildSignatureChunk, walkTreeCollectImports, singleImportRef, oneImportRefFromNode) to eliminate clones with go-provider; five tests (parseImports_returns_refs, extractSignaturesWithDocs_returns_chunks, extractSignaturesOnly_returns_chunks, extractNames_returns_symbols, invalid_rust_returns_empty).
 - PythonProvider (task 042): LanguageProvider for .py using tree-sitter and tree-sitter-python; parseImports (import_statement, import_from_statement), extractSignaturesWithDocs/Only (function_definition, class_definition with docstring), extractNames; try/catch returns []; wired in create-pipeline-deps after TypeScriptProvider, before GenericImportProvider; ESLint restricts tree-sitter and tree-sitter-python to python-provider.ts only; tests skip when tree-sitter native build unavailable (Node 24); server.test.ts skips when server module fails to load.
 - KL-006 (partial): ModelDetector interface and ModelEnvHints type in core; ModelDetectorDispatch adapter with Record<EditorId, DetectFn> (ANTHROPIC_MODEL, CURSOR_MODEL); createCompileHandler accepts getModelId(editorId), uses it when args.modelId is null; MCP server wires ModelDetectorDispatch and passes getModelId to handler. compilation_log.model_id now populated when env vars set. Full EditorAdapter/registry and file-based detection deferred.
 - File-based model detection (task 054): EditorModelConfigReader interface in core; EditorModelConfigReaderAdapter in adapters (homeDir-injected, reads ~/.cursor/settings.json and ~/.claude/settings.json key "model" via path.join, fs.existsSync, fs.readFileSync, JSON.parse); MCP server creates adapter with process.env["HOME"] ?? os.homedir(), builds ModelEnvHints with env ?? editorConfigReader.read(EDITOR_ID.\*) fallback; six adapter tests (cursor/claude_code/generic, missing file, malformed JSON, missing model key).

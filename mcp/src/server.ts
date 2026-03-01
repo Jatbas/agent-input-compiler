@@ -19,6 +19,7 @@ import { InspectRequestSchema } from "./schemas/inspect-request.schema.js";
 import { createCompileHandler } from "./handlers/compile-handler.js";
 import { handleInspect } from "./handlers/inspect-handler.js";
 import { createProjectScope } from "@aic/shared/storage/create-project-scope.js";
+import type { CacheStore } from "@aic/shared/core/interfaces/cache-store.interface.js";
 import type { SessionTracker } from "@aic/shared/core/interfaces/session-tracker.interface.js";
 import type { Clock } from "@aic/shared/core/interfaces/clock.interface.js";
 import type { SessionId } from "@aic/shared/core/types/identifiers.js";
@@ -67,12 +68,14 @@ export function registerShutdownHandler(
   sessionTracker: SessionTracker,
   sessionId: SessionId,
   clock: Clock,
+  cacheStore: CacheStore,
 ): () => void {
   let exited = false;
   const handler = (): void => {
     if (exited) return;
     exited = true;
     try {
+      cacheStore.purgeExpired();
       sessionTracker.stopSession(sessionId, clock.now(), STOP_REASON.GRACEFUL);
     } catch {
       // Storage may already be closed (e.g. test teardown); exit anyway.
@@ -114,7 +117,7 @@ export function createMcpServer(
     installationNotes,
   );
   scope.sessionTracker.backfillCrashedSessions(startedAt);
-  registerShutdownHandler(scope.sessionTracker, sessionId, scope.clock);
+  registerShutdownHandler(scope.sessionTracker, sessionId, scope.clock, scope.cacheStore);
   const sha256Adapter = new Sha256Adapter();
   const configLoader = new LoadConfigFromFile();
   const configResult = configLoader.load(projectRoot, null);

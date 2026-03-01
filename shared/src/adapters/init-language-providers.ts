@@ -4,6 +4,7 @@ import { FastGlobAdapter } from "./fast-glob-adapter.js";
 import { initTreeSitter } from "./tree-sitter-init.js";
 import { PythonProvider } from "./python-provider.js";
 import { GoProvider } from "./go-provider.js";
+import { RustProvider } from "./rust-provider.js";
 
 function projectHasExtension(projectRoot: string, ext: string): boolean {
   const glob = new FastGlobAdapter();
@@ -23,5 +24,6 @@ export async function initLanguageProviders(
     ? [await PythonProvider.create()]
     : [];
   const go = projectHasExtension(projectRoot, ".go") ? [await GoProvider.create()] : [];
-  return [...py, ...go];
+  const rs = projectHasExtension(projectRoot, ".rs") ? [await RustProvider.create()] : [];
+  return [...py, ...go, ...rs];
 }

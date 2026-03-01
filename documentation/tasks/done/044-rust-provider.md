@@ -1,6 +1,6 @@
 # Task 044: RustProvider
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** Phase J — Intent & Selection Quality
 > **Layer:** adapter
 > **Depends on:** Phase B (LanguageProvider interface Done), Task 043 (GoProvider optional for ordering)
