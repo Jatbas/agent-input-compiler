@@ -1,3 +1,4 @@
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AbsolutePath } from "@aic/shared/core/types/paths.js";
@@ -7,7 +8,11 @@ import type { BudgetConfig } from "@aic/shared/core/interfaces/budget-config.int
 import type { LanguageProvider } from "@aic/shared/core/interfaces/language-provider.interface.js";
 import { toAbsolutePath } from "@aic/shared/core/types/paths.js";
 import { toTokenCount } from "@aic/shared/core/types/units.js";
-import { type TaskClass, type EditorId } from "@aic/shared/core/types/enums.js";
+import {
+  type TaskClass,
+  type EditorId,
+  EDITOR_ID,
+} from "@aic/shared/core/types/enums.js";
 import { InspectRunner } from "@aic/shared/pipeline/inspect-runner.js";
 import { CompilationRequestSchema } from "./schemas/compilation-request.js";
 import { InspectRequestSchema } from "./schemas/inspect-request.schema.js";
@@ -35,6 +40,7 @@ import { createProjectFileReader } from "@aic/shared/adapters/project-file-reade
 import { createCachingFileContentReader } from "@aic/shared/adapters/caching-file-content-reader.js";
 import { detectEditorId } from "./detect-editor-id.js";
 import { initLanguageProviders } from "@aic/shared/adapters/init-language-providers.js";
+import { EditorModelConfigReaderAdapter } from "@aic/shared/adapters/editor-model-config-reader.js";
 import { ModelDetectorDispatch } from "@aic/shared/adapters/model-detector-dispatch.js";
 import type { ModelEnvHints } from "@aic/shared/core/types/model-env-hints.js";
 
@@ -112,11 +118,11 @@ export function createMcpServer(
   const sha256Adapter = new Sha256Adapter();
   const configLoader = new LoadConfigFromFile();
   const configResult = configLoader.load(projectRoot, null);
-  const { budgetConfig, heuristicConfig } = applyConfigResult(
-    configResult,
-    scope.configStore,
-    sha256Adapter,
-  );
+  const {
+    budgetConfig,
+    heuristicConfig,
+    modelId: configModelId,
+  } = applyConfigResult(configResult, scope.configStore, sha256Adapter);
   const fileContentReader = createCachingFileContentReader(projectRoot);
   const rulePackProvider = createRulePackProvider(projectRoot);
   const deps = createFullPipelineDeps(
@@ -138,14 +144,18 @@ export function createMcpServer(
     scope.idGenerator,
   );
   const server = new McpServer({ name: "aic", version: "0.1.0" });
+  const editorConfigReader = new EditorModelConfigReaderAdapter(
+    process.env["HOME"] ?? os.homedir(),
+  );
+  const anthropicModel =
+    process.env["ANTHROPIC_MODEL"] ?? editorConfigReader.read(EDITOR_ID.CLAUDE_CODE);
+  const cursorModel =
+    process.env["CURSOR_MODEL"] ?? editorConfigReader.read(EDITOR_ID.CURSOR);
   const envHints: ModelEnvHints = {
-    ...(process.env["ANTHROPIC_MODEL"] !== undefined &&
-    process.env["ANTHROPIC_MODEL"] !== ""
-      ? { anthropicModel: process.env["ANTHROPIC_MODEL"] }
+    ...(typeof anthropicModel === "string" && anthropicModel !== ""
+      ? { anthropicModel }
       : {}),
-    ...(process.env["CURSOR_MODEL"] !== undefined && process.env["CURSOR_MODEL"] !== ""
-      ? { cursorModel: process.env["CURSOR_MODEL"] }
-      : {}),
+    ...(typeof cursorModel === "string" && cursorModel !== "" ? { cursorModel } : {}),
   };
   const modelDetector = new ModelDetectorDispatch(envHints);
   const getEditorId = (): EditorId => {
@@ -172,6 +182,7 @@ export function createMcpServer(
       sessionId,
       getEditorId,
       getModelId,
+      configModelId,
     ),
   );
   server.tool("aic_inspect", InspectRequestSchema, (args) =>

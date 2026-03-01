@@ -29,6 +29,7 @@ const AicConfigSchema = z
         heuristic: z.object({ maxFiles: z.number().optional() }).optional(),
       })
       .optional(),
+    model: z.object({ id: z.string().optional() }).optional(),
   })
   .strict();
 
@@ -82,6 +83,9 @@ function buildResolvedConfig(parsed: AicConfigParsed): ResolvedConfig {
   return {
     contextBudget: { maxTokens, perTaskClass },
     heuristic: { maxFiles },
+    ...(parsed.model !== undefined && {
+      model: parsed.model.id !== undefined ? { id: parsed.model.id } : {},
+    }),
   };
 }
 
@@ -113,12 +117,17 @@ export function applyConfigResult(
   result: LoadConfigResult,
   configStore: ConfigStore,
   stringHasher: StringHasher,
-): { budgetConfig: BudgetConfig; heuristicConfig: HeuristicSelectorConfig } {
+): {
+  budgetConfig: BudgetConfig;
+  heuristicConfig: HeuristicSelectorConfig;
+  modelId: string | null;
+} {
   if (result.rawJson !== undefined) {
     configStore.writeSnapshot(stringHasher.hash(result.rawJson), result.rawJson);
   }
   return {
     budgetConfig: createBudgetConfigFromResolved(result.config),
     heuristicConfig: { maxFiles: result.config.heuristic.maxFiles },
+    modelId: result.config.model?.id ?? null,
   };
 }

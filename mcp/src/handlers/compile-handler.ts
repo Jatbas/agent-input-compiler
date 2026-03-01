@@ -7,7 +7,11 @@ import type { CompilationRunner } from "@aic/shared/core/interfaces/compilation-
 import { AicError } from "@aic/shared/core/errors/aic-error.js";
 import { sanitizeError } from "@aic/shared/core/errors/sanitize-error.js";
 import { toAbsolutePath, toFilePath } from "@aic/shared/core/types/paths.js";
-import type { EditorId, TriggerSource } from "@aic/shared/core/types/enums.js";
+import {
+  type EditorId,
+  type TriggerSource,
+  TRIGGER_SOURCE,
+} from "@aic/shared/core/types/enums.js";
 import type { SessionId } from "@aic/shared/core/types/identifiers.js";
 import type { CompilationRequest } from "@aic/shared/core/types/compilation-types.js";
 import type { TelemetryDeps } from "@aic/shared/core/types/telemetry-types.js";
@@ -18,6 +22,8 @@ export function createCompileHandler(
   telemetryDeps: TelemetryDeps,
   sessionId: SessionId,
   getEditorId: () => EditorId,
+  getModelId: (editorId: EditorId) => string | null,
+  modelIdOverride: string | null,
 ): (
   args: {
     intent: string;
@@ -33,16 +39,16 @@ export function createCompileHandler(
     try {
       const resolvedEditorId: EditorId =
         args.editorId !== undefined ? (args.editorId as EditorId) : getEditorId();
+      const resolvedModelId: string | null =
+        args.modelId ?? modelIdOverride ?? getModelId(resolvedEditorId);
       const request: CompilationRequest = {
         intent: args.intent,
         projectRoot: toAbsolutePath(args.projectRoot),
-        modelId: args.modelId,
+        modelId: resolvedModelId,
         editorId: resolvedEditorId,
         configPath: args.configPath !== null ? toFilePath(args.configPath) : null,
         sessionId,
-        ...(args.triggerSource !== undefined
-          ? { triggerSource: args.triggerSource }
-          : {}),
+        triggerSource: args.triggerSource ?? TRIGGER_SOURCE.TOOL_GATE,
       };
       const result = await runner.run(request);
       writeCompilationTelemetry(

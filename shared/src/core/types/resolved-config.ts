@@ -10,6 +10,7 @@ export interface ResolvedConfig {
   readonly heuristic: {
     readonly maxFiles: number;
   };
+  readonly model?: { readonly id?: string };
 }
 
 export function defaultResolvedConfig(): ResolvedConfig {
