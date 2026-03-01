@@ -35,6 +35,8 @@ import { createProjectFileReader } from "@aic/shared/adapters/project-file-reade
 import { createCachingFileContentReader } from "@aic/shared/adapters/caching-file-content-reader.js";
 import { detectEditorId } from "./detect-editor-id.js";
 import { initLanguageProviders } from "@aic/shared/adapters/init-language-providers.js";
+import { ModelDetectorDispatch } from "@aic/shared/adapters/model-detector-dispatch.js";
+import type { ModelEnvHints } from "@aic/shared/core/types/model-env-hints.js";
 
 function defaultRulePack(): RulePack {
   return {
@@ -136,6 +138,16 @@ export function createMcpServer(
     scope.idGenerator,
   );
   const server = new McpServer({ name: "aic", version: "0.1.0" });
+  const envHints: ModelEnvHints = {
+    ...(process.env["ANTHROPIC_MODEL"] !== undefined &&
+    process.env["ANTHROPIC_MODEL"] !== ""
+      ? { anthropicModel: process.env["ANTHROPIC_MODEL"] }
+      : {}),
+    ...(process.env["CURSOR_MODEL"] !== undefined && process.env["CURSOR_MODEL"] !== ""
+      ? { cursorModel: process.env["CURSOR_MODEL"] }
+      : {}),
+  };
+  const modelDetector = new ModelDetectorDispatch(envHints);
   const getEditorId = (): EditorId => {
     const clientName = server.server.getClientVersion()?.name;
     process.stderr.write(`[aic] MCP client name: ${clientName ?? "(none)"}\n`);
@@ -143,6 +155,8 @@ export function createMcpServer(
       cursorAgent: process.env["CURSOR_AGENT"] === "1",
     });
   };
+  const getModelId = (editorId: EditorId): string | null =>
+    modelDetector.detect(editorId);
   server.tool(
     "aic_compile",
     "Compile intent-specific project context. MUST be called as your FIRST action on EVERY message — including follow-ups in the same chat. Each message has a different intent that needs fresh context. Never skip.",
@@ -157,6 +171,7 @@ export function createMcpServer(
       },
       sessionId,
       getEditorId,
+      getModelId,
     ),
   );
   server.tool("aic_inspect", InspectRequestSchema, (args) =>
