@@ -6,14 +6,11 @@ import type {
   ImportRef,
   RelativePath,
 } from "./language-provider-common.js";
+import { SYMBOL_KIND, SYMBOL_TYPE, toFileExtension } from "./language-provider-common.js";
 import {
-  EMPTY_RELATIVE_PATH,
-  SYMBOL_KIND,
-  SYMBOL_TYPE,
-  toFileExtension,
-  toLineNumber,
-  toTokenCount,
-} from "./language-provider-common.js";
+  type LineMatcher,
+  extractSignaturesFromLineMatchers,
+} from "./regex-language-provider-helpers.js";
 
 const EXT_PY = ".py";
 const EXT_GO = ".go";
@@ -111,44 +108,6 @@ function parseImportsJava(content: string): readonly ImportRef[] {
     .map((source) => refFromSource(source, []));
 }
 
-function makeChunk(
-  name: string,
-  symbolType: CodeChunk["symbolType"],
-  lineNum: number,
-  line: string,
-): CodeChunk {
-  return {
-    filePath: EMPTY_RELATIVE_PATH,
-    symbolName: name,
-    symbolType,
-    startLine: toLineNumber(lineNum),
-    endLine: toLineNumber(lineNum),
-    content: line,
-    tokenCount: toTokenCount(0),
-  };
-}
-
-interface LineMatcher {
-  readonly re: RegExp;
-  readonly symbolType: CodeChunk["symbolType"];
-}
-
-function extractSignaturesWithMatchers(
-  content: string,
-  matchers: readonly LineMatcher[],
-): readonly CodeChunk[] {
-  const lines = content.split("\n");
-  return lines.reduce<readonly CodeChunk[]>((chunks, line, i) => {
-    const lineNum = i + 1;
-    const matched = matchers.reduce<CodeChunk | null>((found, matcher) => {
-      if (found !== null) return found;
-      const m = matcher.re.exec(line);
-      return m !== null ? makeChunk(m[1] ?? "", matcher.symbolType, lineNum, line) : null;
-    }, null);
-    return matched !== null ? [...chunks, matched] : chunks;
-  }, []);
-}
-
 const PY_SIG_MATCHERS: readonly LineMatcher[] = [
   { re: /^\s*def\s+(\w+)\s*\(/, symbolType: SYMBOL_TYPE.FUNCTION },
   { re: /^\s*class\s+(\w+)/, symbolType: SYMBOL_TYPE.CLASS },
@@ -177,19 +136,19 @@ const JAVA_SIG_MATCHERS: readonly LineMatcher[] = [
 ];
 
 function extractSignaturesPython(content: string): readonly CodeChunk[] {
-  return extractSignaturesWithMatchers(content, PY_SIG_MATCHERS);
+  return extractSignaturesFromLineMatchers(content, PY_SIG_MATCHERS);
 }
 
 function extractSignaturesGo(content: string): readonly CodeChunk[] {
-  return extractSignaturesWithMatchers(content, GO_SIG_MATCHERS);
+  return extractSignaturesFromLineMatchers(content, GO_SIG_MATCHERS);
 }
 
 function extractSignaturesRust(content: string): readonly CodeChunk[] {
-  return extractSignaturesWithMatchers(content, RS_SIG_MATCHERS);
+  return extractSignaturesFromLineMatchers(content, RS_SIG_MATCHERS);
 }
 
 function extractSignaturesJava(content: string): readonly CodeChunk[] {
-  return extractSignaturesWithMatchers(content, JAVA_SIG_MATCHERS);
+  return extractSignaturesFromLineMatchers(content, JAVA_SIG_MATCHERS);
 }
 
 interface NameMatcher {

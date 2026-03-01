@@ -1,6 +1,6 @@
 # Task 047: PhpProvider
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** Phase J — Intent & Selection Quality
 > **Layer:** adapter
 > **Depends on:** Phase B (LanguageProvider interface Done)
