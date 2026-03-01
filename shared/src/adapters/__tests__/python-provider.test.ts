@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import { Parser } from "web-tree-sitter";
 import type { LanguageProvider } from "#core/interfaces/language-provider.interface.js";
 import { toRelativePath } from "#core/types/paths.js";
 import { SYMBOL_KIND, SYMBOL_TYPE } from "#core/types/enums.js";
@@ -7,6 +8,7 @@ import { PythonProvider } from "../python-provider.js";
 describe("PythonProvider", () => {
   let provider: LanguageProvider;
   beforeAll(async () => {
+    await Parser.init();
     provider = await PythonProvider.create();
   });
 

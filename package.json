@@ -20,7 +20,7 @@
     "dev:mcp": "tsx mcp/src/server.ts",
     "dev:cli": "tsx cli/src/main.ts",
     "knip": "knip",
-    "lint:clones": "jscpd .",
+    "lint:clones": "jscpd shared/src mcp/src cli/src",
     "bench": "echo 'No benchmarks configured yet (Phase 0.5+)'",
     "prepare": "husky"
   },

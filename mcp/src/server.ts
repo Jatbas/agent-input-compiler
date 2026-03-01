@@ -34,8 +34,7 @@ import { loadRulePackFromPath } from "@aic/shared/core/load-rule-pack.js";
 import { createProjectFileReader } from "@aic/shared/adapters/project-file-reader-adapter.js";
 import { createCachingFileContentReader } from "@aic/shared/adapters/caching-file-content-reader.js";
 import { detectEditorId } from "./detect-editor-id.js";
-import { PythonProvider } from "@aic/shared/adapters/python-provider.js";
-import { FastGlobAdapter } from "@aic/shared/adapters/fast-glob-adapter.js";
+import { initLanguageProviders } from "@aic/shared/adapters/init-language-providers.js";
 
 function defaultRulePack(): RulePack {
   return {
@@ -165,21 +164,6 @@ export function createMcpServer(
     contents: [],
   }));
   return server;
-}
-
-function projectHasExtension(projectRoot: AbsolutePath, ext: string): boolean {
-  const glob = new FastGlobAdapter();
-  return (
-    glob.find([`**/*${ext}`, `!node_modules/**`, `!.git/**`, `!.aic/**`], projectRoot)
-      .length > 0
-  );
-}
-
-async function initLanguageProviders(
-  projectRoot: AbsolutePath,
-): Promise<readonly LanguageProvider[]> {
-  if (!projectHasExtension(projectRoot, ".py")) return [];
-  return [await PythonProvider.create()];
 }
 
 export async function main(): Promise<void> {

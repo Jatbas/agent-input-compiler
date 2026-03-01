@@ -1256,6 +1256,10 @@ export default tseslint.config(
     ignores: [
       "shared/src/adapters/typescript-provider.ts",
       "shared/src/adapters/python-provider.ts",
+      "shared/src/adapters/go-provider.ts",
+      "shared/src/adapters/tree-sitter-init.ts",
+      "shared/src/adapters/tree-sitter-node-utils.ts",
+      "shared/src/adapters/tree-sitter-provider-factory.ts",
       "shared/src/adapters/tiktoken-adapter.ts",
       "shared/src/adapters/fast-glob-adapter.ts",
       "shared/src/adapters/ignore-adapter.ts",
@@ -1302,6 +1306,10 @@ export default tseslint.config(
             {
               name: "tree-sitter-python",
               message: "Only python-provider.ts may import tree-sitter-python.",
+            },
+            {
+              name: "tree-sitter-go",
+              message: "Only go-provider.ts may import tree-sitter-go.",
             },
             {
               name: "node:crypto",

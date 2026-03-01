@@ -1,23 +1,11 @@
 import type { Migration } from "#core/interfaces/migration.interface.js";
-import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
+import { hasColumn, safeAddColumn } from "./migration-utils.js";
 
-function hasColumn(db: ExecutableDb, table: string, column: string): boolean {
-  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
-  return cols.some((c) => c.name === column);
-}
-
-function safeAddColumn(
-  db: ExecutableDb,
+function safeDropColumn(
+  db: Parameters<Migration["up"]>[0],
   table: string,
   column: string,
-  def: string,
 ): void {
-  if (!hasColumn(db, table, column)) {
-    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${def}`);
-  }
-}
-
-function safeDropColumn(db: ExecutableDb, table: string, column: string): void {
   if (hasColumn(db, table, column)) {
     db.exec(`ALTER TABLE ${table} DROP COLUMN ${column}`);
   }

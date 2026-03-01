@@ -4,7 +4,13 @@
     ".": {},
     "shared": {
       "entry": ["src/storage/migrations/*.ts"],
-      "ignoreDependencies": ["commander", "diff", "zod"]
+      "ignoreDependencies": [
+        "commander",
+        "diff",
+        "zod",
+        "tree-sitter-go",
+        "tree-sitter-python"
+      ]
     },
     "mcp": {},
     "cli": {

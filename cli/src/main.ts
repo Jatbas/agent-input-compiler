@@ -34,8 +34,7 @@ import { toAbsolutePath, toFilePath } from "@aic/shared/core/types/paths.js";
 import { TASK_CLASS } from "@aic/shared/core/types/enums.js";
 import { loadRulePackFromPath } from "@aic/shared/core/load-rule-pack.js";
 import { createProjectFileReader } from "@aic/shared/adapters/project-file-reader-adapter.js";
-import { PythonProvider } from "@aic/shared/adapters/python-provider.js";
-import { FastGlobAdapter } from "@aic/shared/adapters/fast-glob-adapter.js";
+import { initLanguageProviders } from "@aic/shared/adapters/init-language-providers.js";
 import { resolveBaseArgs, runAction, createIntentAction } from "./utils/run-action.js";
 
 function defaultRulePack(): RulePack {
@@ -58,23 +57,6 @@ function createRulePackProvider(_projectRoot: string): RulePackProvider {
       );
     },
   };
-}
-
-function projectHasExtension(projectRoot: string, ext: string): boolean {
-  const glob = new FastGlobAdapter();
-  return (
-    glob.find(
-      [`**/*${ext}`, `!node_modules/**`, `!.git/**`, `!.aic/**`],
-      toAbsolutePath(projectRoot),
-    ).length > 0
-  );
-}
-
-async function initLanguageProviders(
-  projectRoot: string,
-): Promise<readonly LanguageProvider[]> {
-  if (!projectHasExtension(projectRoot, ".py")) return [];
-  return [await PythonProvider.create()];
 }
 
 function createScopeAndDeps(

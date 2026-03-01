@@ -1,6 +1,6 @@
 # Task 043: GoProvider
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** Phase J — Intent & Selection Quality
 > **Layer:** adapter
 > **Depends on:** Phase B (LanguageProvider interface Done), Task 042 (PythonProvider optional for ordering)

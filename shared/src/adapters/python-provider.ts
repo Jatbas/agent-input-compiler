@@ -1,27 +1,23 @@
-import { Parser, Language, type Node, type Tree } from "web-tree-sitter";
-import { createRequire } from "node:module";
-import type { LanguageProvider } from "#core/interfaces/language-provider.interface.js";
-import type { FileExtension, RelativePath } from "#core/types/paths.js";
+import type { FileExtension } from "#core/types/paths.js";
 import type { ImportRef } from "#core/types/import-ref.js";
 import type { CodeChunk } from "#core/types/code-chunk.js";
 import type { ExportedSymbol } from "#core/types/exported-symbol.js";
 import type { SymbolKind, SymbolType } from "#core/types/enums.js";
-import { toFileExtension, toRelativePath } from "#core/types/paths.js";
-import { toLineNumber, toTokenCount } from "#core/types/units.js";
+import { toFileExtension } from "#core/types/paths.js";
 import { SYMBOL_KIND, SYMBOL_TYPE } from "#core/types/enums.js";
-
-const EMPTY_PATH = toRelativePath("");
-
-type TSNode = Node;
-type TSTree = Tree;
-
-function nodeText(source: string, node: TSNode): string {
-  return source.slice(node.startIndex, node.endIndex);
-}
-
-function lineFromNode(node: TSNode): number {
-  return node.startPosition.row + 1;
-}
+import {
+  type Node,
+  nodeText,
+  lineFromNode,
+  childrenOf,
+  buildCodeChunk,
+  walkTreeForSignatures,
+  walkTreeForNames,
+} from "./tree-sitter-node-utils.js";
+import {
+  defineTreeSitterProvider,
+  resolveTreeSitterWasm,
+} from "./tree-sitter-provider-factory.js";
 
 function parseImportStatementText(text: string): readonly ImportRef[] {
   const afterImport = text.replace(/^\s*import\s+/, "").trim();
@@ -54,15 +50,9 @@ function parseImportFromText(text: string): ImportRef | null {
   return { source, symbols, isRelative };
 }
 
-function childrenOf(node: TSNode): readonly TSNode[] {
-  return Array.from({ length: node.childCount }, (_, c) => node.child(c)).filter(
-    (ch): ch is TSNode => ch !== null,
-  );
-}
-
 const IMPORT_HANDLERS: Record<
   string,
-  (source: string, node: TSNode) => readonly ImportRef[]
+  (source: string, node: Node) => readonly ImportRef[]
 > = {
   import_statement: (source, node) => parseImportStatementText(nodeText(source, node)),
   import_from_statement: (source, node) => {
@@ -72,19 +62,19 @@ const IMPORT_HANDLERS: Record<
   },
 };
 
-function importRefsFromNode(source: string, node: TSNode): readonly ImportRef[] {
+function importRefsFromNode(source: string, node: Node): readonly ImportRef[] {
   const handler = IMPORT_HANDLERS[node.type];
   if (handler !== undefined) return handler(source, node);
   return [];
 }
 
-function collectImports(source: string, node: TSNode): readonly ImportRef[] {
+function collectImports(source: string, node: Node): readonly ImportRef[] {
   const self = importRefsFromNode(source, node);
   const childRefs = childrenOf(node).flatMap((ch) => collectImports(source, ch));
   return [...self, ...childRefs];
 }
 
-function docstringFromBody(source: string, bodyNode: TSNode): string {
+function docstringFromBody(source: string, bodyNode: Node): string {
   const first = bodyNode.firstChild;
   if (first === null) return "";
   const t = nodeText(source, first).trim();
@@ -96,24 +86,18 @@ function docstringFromBody(source: string, bodyNode: TSNode): string {
   return "";
 }
 
-function findDefName(node: TSNode, source: string): string | null {
-  const nameChild = node.childForFieldName("name");
-  if (nameChild === null) return null;
-  return nodeText(source, nameChild).trim();
-}
-
 const SYMBOL_TYPE_BY_DEF: Record<string, SymbolType> = {
   class_definition: SYMBOL_TYPE.CLASS,
   function_definition: SYMBOL_TYPE.FUNCTION,
 };
 
-function symbolTypeForDefNode(node: TSNode): SymbolType {
+function symbolTypeForDefNode(node: Node): SymbolType {
   return SYMBOL_TYPE_BY_DEF[node.type] ?? SYMBOL_TYPE.FUNCTION;
 }
 
 function signatureRange(
   source: string,
-  node: TSNode,
+  node: Node,
 ): { startLine: number; endLine: number; sigText: string } {
   const startLine = lineFromNode(node);
   const full = nodeText(source, node);
@@ -124,36 +108,31 @@ function signatureRange(
   return { startLine, endLine, sigText };
 }
 
+const PYTHON_DEF_TYPES = new Set(["class_definition", "function_definition"]);
+
+function isPythonDefNode(nodeType: string): boolean {
+  return PYTHON_DEF_TYPES.has(nodeType);
+}
+
+function buildPythonChunk(
+  source: string,
+  node: Node,
+  name: string,
+  withDocs: boolean,
+): CodeChunk {
+  const { startLine, endLine, sigText } = signatureRange(source, node);
+  const body = node.childForFieldName("body");
+  const doc = withDocs && body !== null ? docstringFromBody(source, body) : "";
+  const content = doc !== "" ? `${doc}\n${sigText}` : sigText;
+  return buildCodeChunk(name, symbolTypeForDefNode(node), startLine, endLine, content);
+}
+
 function collectSignatures(
   source: string,
-  node: TSNode,
+  node: Node,
   withDocs: boolean,
 ): readonly CodeChunk[] {
-  if (node.type === "function_definition" || node.type === "class_definition") {
-    const name = findDefName(node, source);
-    if (name === null || name === "") {
-      return childrenOf(node).flatMap((ch) => collectSignatures(source, ch, withDocs));
-    }
-    const symbolType = symbolTypeForDefNode(node);
-    const { startLine, endLine, sigText } = signatureRange(source, node);
-    const body = node.childForFieldName("body");
-    const doc = withDocs && body !== null ? docstringFromBody(source, body) : "";
-    const content = doc !== "" ? `${doc}\n${sigText}` : sigText;
-    const chunk: CodeChunk = {
-      filePath: EMPTY_PATH,
-      symbolName: name,
-      symbolType,
-      startLine: toLineNumber(startLine),
-      endLine: toLineNumber(endLine),
-      content,
-      tokenCount: toTokenCount(0),
-    };
-    const rest = childrenOf(node).flatMap((ch) =>
-      collectSignatures(source, ch, withDocs),
-    );
-    return [chunk, ...rest];
-  }
-  return childrenOf(node).flatMap((ch) => collectSignatures(source, ch, withDocs));
+  return walkTreeForSignatures(source, node, isPythonDefNode, buildPythonChunk, withDocs);
 }
 
 const SYMBOL_KIND_BY_DEF: Record<string, SymbolKind> = {
@@ -161,80 +140,25 @@ const SYMBOL_KIND_BY_DEF: Record<string, SymbolKind> = {
   function_definition: SYMBOL_KIND.FUNCTION,
 };
 
-function symbolKindForDefNode(node: TSNode): SymbolKind {
+function symbolKindForDefNode(node: Node): SymbolKind {
   return SYMBOL_KIND_BY_DEF[node.type] ?? SYMBOL_KIND.FUNCTION;
 }
 
-function collectExportedNames(source: string, node: TSNode): readonly ExportedSymbol[] {
-  if (node.type === "function_definition" || node.type === "class_definition") {
-    const name = findDefName(node, source);
-    const kind = symbolKindForDefNode(node);
-    const self: readonly ExportedSymbol[] =
-      name !== null && name !== "" ? [{ name, kind }] : [];
-    const rest = childrenOf(node).flatMap((ch) => collectExportedNames(source, ch));
-    return [...self, ...rest];
-  }
-  return childrenOf(node).flatMap((ch) => collectExportedNames(source, ch));
+function collectExportedNames(source: string, node: Node): readonly ExportedSymbol[] {
+  return walkTreeForNames(
+    source,
+    node,
+    isPythonDefNode,
+    symbolKindForDefNode,
+    () => true,
+  );
 }
 
-function resolveWasmPath(): string {
-  const resolve = createRequire(import.meta.url).resolve;
-  return resolve("tree-sitter-python/tree-sitter-python.wasm");
-}
-
-export class PythonProvider implements LanguageProvider {
-  readonly id = "python";
-  readonly extensions: readonly FileExtension[];
-
-  private constructor(private readonly parser: Parser) {
-    this.extensions = [toFileExtension(".py")];
-  }
-
-  static async create(): Promise<PythonProvider> {
-    await Parser.init();
-    const language = await Language.load(resolveWasmPath());
-    const parser = new Parser();
-    parser.setLanguage(language);
-    return new PythonProvider(parser);
-  }
-
-  parseImports(fileContent: string, _filePath: RelativePath): readonly ImportRef[] {
-    try {
-      const tree: TSTree | null = this.parser.parse(fileContent);
-      if (tree === null) return [];
-      return collectImports(fileContent, tree.rootNode);
-    } catch {
-      return [];
-    }
-  }
-
-  extractSignaturesWithDocs(fileContent: string): readonly CodeChunk[] {
-    try {
-      const tree: TSTree | null = this.parser.parse(fileContent);
-      if (tree === null) return [];
-      return collectSignatures(fileContent, tree.rootNode, true);
-    } catch {
-      return [];
-    }
-  }
-
-  extractSignaturesOnly(fileContent: string): readonly CodeChunk[] {
-    try {
-      const tree: TSTree | null = this.parser.parse(fileContent);
-      if (tree === null) return [];
-      return collectSignatures(fileContent, tree.rootNode, false);
-    } catch {
-      return [];
-    }
-  }
-
-  extractNames(fileContent: string): readonly ExportedSymbol[] {
-    try {
-      const tree: TSTree | null = this.parser.parse(fileContent);
-      if (tree === null) return [];
-      return collectExportedNames(fileContent, tree.rootNode);
-    } catch {
-      return [];
-    }
-  }
-}
+export const PythonProvider = defineTreeSitterProvider({
+  id: "python",
+  extensions: [toFileExtension(".py")] as readonly FileExtension[],
+  getWasmPath: () => resolveTreeSitterWasm("tree-sitter-python"),
+  collectImports,
+  collectSignatures,
+  collectNames: collectExportedNames,
+});
