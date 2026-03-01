@@ -139,7 +139,9 @@ export function createMcpServer(
   const getEditorId = (): EditorId => {
     const clientName = server.server.getClientVersion()?.name;
     process.stderr.write(`[aic] MCP client name: ${clientName ?? "(none)"}\n`);
-    return detectEditorId(clientName);
+    return detectEditorId(clientName, {
+      cursorAgent: process.env["CURSOR_AGENT"] === "1",
+    });
   };
   server.tool(
     "aic_compile",

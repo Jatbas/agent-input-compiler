@@ -9,11 +9,20 @@ const EDITOR_PATTERNS: readonly { readonly substring: string; readonly id: Edito
     { substring: "claude code", id: EDITOR_ID.CLAUDE_CODE },
   ];
 
-export function detectEditorId(clientName: string | undefined): EditorId {
-  if (clientName === undefined) {
-    return EDITOR_ID.GENERIC;
+export interface EditorEnvHints {
+  readonly cursorAgent?: boolean;
+}
+
+export function detectEditorId(
+  clientName: string | undefined,
+  envHints?: EditorEnvHints,
+): EditorId {
+  if (clientName !== undefined) {
+    const lower = clientName.toLowerCase();
+    const match = EDITOR_PATTERNS.find((p) => lower.includes(p.substring));
+    if (match !== undefined) return match.id;
   }
-  const lower = clientName.toLowerCase();
-  const match = EDITOR_PATTERNS.find((p) => lower.includes(p.substring));
-  return match?.id ?? EDITOR_ID.GENERIC;
+  // Cursor subagents (Task tool) don't send a client name but inherit CURSOR_AGENT env
+  if (envHints?.cursorAgent === true) return EDITOR_ID.CURSOR;
+  return EDITOR_ID.GENERIC;
 }

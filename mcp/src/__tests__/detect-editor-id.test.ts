@@ -50,4 +50,22 @@ describe("detectEditorId", () => {
   it("returns generic for empty string", () => {
     expect(detectEditorId("")).toBe(EDITOR_ID.GENERIC);
   });
+
+  it("returns cursor when client name is undefined but cursorAgent env hint is true", () => {
+    expect(detectEditorId(undefined, { cursorAgent: true })).toBe(EDITOR_ID.CURSOR);
+  });
+
+  it("returns cursor when client name is empty but cursorAgent env hint is true", () => {
+    expect(detectEditorId("", { cursorAgent: true })).toBe(EDITOR_ID.CURSOR);
+  });
+
+  it("returns generic when client name is undefined and cursorAgent is false", () => {
+    expect(detectEditorId(undefined, { cursorAgent: false })).toBe(EDITOR_ID.GENERIC);
+  });
+
+  it("client name takes priority over cursorAgent env hint", () => {
+    expect(detectEditorId("claude-code", { cursorAgent: true })).toBe(
+      EDITOR_ID.CLAUDE_CODE,
+    );
+  });
 });

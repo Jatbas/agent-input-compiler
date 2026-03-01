@@ -1,7 +1,7 @@
 # Agent Input Compiler (AIC)
 
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
-![Status](https://img.shields.io/badge/status-Phase%200.5%20in%20progress-yellow)
+![Status](https://img.shields.io/badge/status-0.2.0%20in%20progress-yellow)
 ![Local-first](https://img.shields.io/badge/local--first-yes-brightgreen)
 ![Telemetry](https://img.shields.io/badge/telemetry-opt--in-lightgrey)
 ![MCP Compatible](https://img.shields.io/badge/MCP-compatible-purple)
@@ -51,27 +51,29 @@ For full AIC integration, an editor should expose these hook capabilities:
 | **Pre-compaction**                     | Re-compile before context window compaction. Preserves quality during long sessions.   | Nice to have |
 | **Trigger rule**                       | Text instruction asking the model to call `aic_compile`. Minimum viable integration.   | Minimum      |
 
-No editor currently supports all of these. But the core pipeline is ready for all of them — the only variable is which hooks the editor provides.
+No editor has a complete AIC integration for all of these yet. But the core pipeline is ready for all of them — the only variable is which hooks the editor provides and whether AIC's integration layer has been built for them.
 
-### Current editor support
+### Editor hook coverage and integration status
 
-| Capability                         | Cursor | Claude Code |
-| ---------------------------------- | ------ | ----------- |
-| Session start + context injection  | Yes    | Yes         |
-| Per-prompt + context injection     | No     | Yes         |
-| Pre-tool-use gating                | Yes    | Yes         |
-| Subagent start + context injection | No     | Yes         |
-| Session end                        | No     | Yes         |
-| Pre-compaction                     | No     | Yes         |
-| Trigger rule                       | Yes    | Yes         |
+**Integrated** = editor exposes the hook and AIC's integration is built. **Hook available** = editor exposes the hook but AIC integration is not yet built. **—** = editor does not expose this hook.
 
-Cursor's integration layer is built and active. Claude Code's is not yet built, but its hook system covers all capabilities — making it the most complete target for AIC integration.
+| Capability                         | Cursor     | Claude Code    |
+| ---------------------------------- | ---------- | -------------- |
+| Session start + context injection  | Integrated | Hook available |
+| Per-prompt + context injection     | —          | Hook available |
+| Pre-tool-use gating                | Integrated | Hook available |
+| Subagent start + context injection | —          | Hook available |
+| Session end                        | —          | Hook available |
+| Pre-compaction                     | —          | Hook available |
+| Trigger rule                       | Integrated | Hook available |
+
+Cursor has the most mature AIC integration (3 of 7 capabilities built and active). Claude Code's hook system covers all 7 capabilities, but the integration layer is not yet built — making it the highest-impact target for future work.
 
 ---
 
 ## Present Work: Cursor Integration
 
-AIC's integration layer currently targets **Cursor**, which provides the richest hook system for context injection and tool gating.
+AIC's integration layer currently targets **Cursor**, which has the most mature integration for context injection and tool gating.
 
 ### What the Cursor integration does
 
@@ -82,6 +84,8 @@ AIC's integration layer currently targets **Cursor**, which provides the richest
 | **Tool gate**      | Ensures the model calls `aic_compile` before using other tools, so it always has compiled context rather than reading raw files                                                   | Before each tool call          |
 | **Edit tracking**  | Records which files the agent edits during the session                                                                                                                            | After each file edit           |
 | **Stop check**     | Runs ESLint and TypeScript type-checking on all files edited during the session, and reports errors for the agent to fix                                                          | When the agent finishes        |
+
+Note: this table lists all hooks in the Cursor integration, including operational hooks (prompt capture, edit tracking, stop check) that are not compilation capabilities. The coverage table above focuses on compilation-relevant capabilities only. Prompt capture records the user's intent for use in the next compilation — it does not compile and inject context on every prompt (that would require per-prompt context injection, which Cursor does not expose).
 
 ### The value of session-start context
 
@@ -122,13 +126,19 @@ These are best practices for getting the most out of AI-assisted coding. AIC is 
 
 **Why:** Long conversations accumulate noise. The model's context window fills with previous messages, tool outputs, and intermediate results. When the context window reaches capacity, the editor compacts (summarizes) earlier content, and the model loses details from the beginning of the conversation — including AIC's compiled context. Short, focused sessions avoid this compaction loss entirely.
 
-**How AIC helps:** In a short session, AIC's initial compiled context remains prominent in the context window. The model works with curated code throughout rather than increasingly summarized leftovers. In Claude Code, the `PreCompact` hook offers an opportunity to re-compile before compaction.
+**How AIC helps:** In a short session, AIC's initial compiled context remains prominent in the context window. The model works with curated code throughout rather than increasingly summarized leftovers. Once built, Claude Code's integration will use the `PreCompact` hook to re-compile before compaction, preserving context quality even in longer sessions.
 
 ### Start fresh when switching topics
 
 **Why:** If you're working on authentication and suddenly ask about the database schema, the model carries assumptions from the auth work. Its context window is full of auth code, auth-related tool outputs, and auth-focused reasoning. It might hallucinate connections between auth and database that don't exist, or miss important database context because there's no room for it.
 
 **How AIC helps:** A new session triggers a new AIC compilation targeted to the new topic. The model gets files scored and selected for the database task, not leftovers from auth work.
+
+### Don't switch models mid-chat
+
+**Why:** When you change the AI model in the middle of a conversation (e.g., switching from Claude to GPT-4o), the editor treats it as the same session. Session-start hooks don't re-fire, so the new model misses the compiled context and architectural instructions that were injected at the beginning. The new model may also lack the tool-use patterns needed to call `aic_compile` on its own, effectively operating without any compiled context for the rest of the conversation.
+
+**How AIC helps — if you start fresh:** Starting a new chat after switching models triggers all session-start hooks again. AIC compiles fresh context, injects it into the new model's system prompt, and the tool gate enforces compilation before any other tool use. The new model gets the same curated context the previous one had.
 
 ### Review before accepting
 
@@ -281,7 +291,7 @@ AIC records compilation telemetry locally in `.aic/aic.sqlite`. This includes to
 
 - Every `aic_compile` call (whether from hooks, MCP, or CLI)
 - Token reduction per compilation (raw vs compiled)
-- Files selected and their summarisation tiers
+- File selection counts and summarisation tier distribution
 - Guard findings (blocked files count)
 - Cache hit/miss rates
 
