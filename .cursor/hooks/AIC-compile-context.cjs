@@ -35,6 +35,7 @@ const compileRequest = JSON.stringify({
     arguments: {
       intent: INTENT,
       projectRoot: projectRoot,
+      editorId: "cursor",
     },
   },
 });

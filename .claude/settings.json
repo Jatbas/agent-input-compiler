@@ -36,29 +36,6 @@
         ]
       }
     ],
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/aic-track-edit.cjs\""
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/aic-stop-check.cjs\"",
-            "timeout": 120,
-            "statusMessage": "Running quality checks on edited files..."
-          }
-        ]
-      }
-    ],
     "SessionEnd": [
       {
         "hooks": [

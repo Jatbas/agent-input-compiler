@@ -9,9 +9,6 @@
       { "command": "node .cursor/hooks/AIC-before-submit-prewarm.cjs" }
     ],
     "preToolUse": [{ "command": "node .cursor/hooks/AIC-require-aic-compile.cjs" }],
-    "afterFileEdit": [
-      { "command": "node .cursor/hooks/AIC-record-edit.cjs ${filePath}" }
-    ],
-    "stop": [{ "command": "node .cursor/hooks/AIC-stop-check.cjs ${conversationId}" }]
+    "afterFileEdit": []
   }
 }
