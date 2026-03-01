@@ -219,13 +219,14 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 ### 2026-03-01
 
-**Components:** PythonProvider (AST-safe), ModelDetector, ModelDetectorDispatch, compile-handler getModelId, EditorModelConfigReader, EditorModelConfigReaderAdapter, Config model override
+**Components:** PythonProvider (AST-safe), ModelDetector, ModelDetectorDispatch, compile-handler getModelId, EditorModelConfigReader, EditorModelConfigReaderAdapter, Config model override, GoProvider
 **Completed:**
 
 - PythonProvider (task 042): LanguageProvider for .py using tree-sitter and tree-sitter-python; parseImports (import_statement, import_from_statement), extractSignaturesWithDocs/Only (function_definition, class_definition with docstring), extractNames; try/catch returns []; wired in create-pipeline-deps after TypeScriptProvider, before GenericImportProvider; ESLint restricts tree-sitter and tree-sitter-python to python-provider.ts only; tests skip when tree-sitter native build unavailable (Node 24); server.test.ts skips when server module fails to load.
 - KL-006 (partial): ModelDetector interface and ModelEnvHints type in core; ModelDetectorDispatch adapter with Record<EditorId, DetectFn> (ANTHROPIC_MODEL, CURSOR_MODEL); createCompileHandler accepts getModelId(editorId), uses it when args.modelId is null; MCP server wires ModelDetectorDispatch and passes getModelId to handler. compilation_log.model_id now populated when env vars set. Full EditorAdapter/registry and file-based detection deferred.
 - File-based model detection (task 054): EditorModelConfigReader interface in core; EditorModelConfigReaderAdapter in adapters (homeDir-injected, reads ~/.cursor/settings.json and ~/.claude/settings.json key "model" via path.join, fs.existsSync, fs.readFileSync, JSON.parse); MCP server creates adapter with process.env["HOME"] ?? os.homedir(), builds ModelEnvHints with env ?? editorConfigReader.read(EDITOR_ID.\*) fallback; six adapter tests (cursor/claude_code/generic, missing file, malformed JSON, missing model key).
 - Config model override (task 055): ResolvedConfig gains optional model.id; AicConfigSchema and buildResolvedConfig pass model; applyConfigResult returns modelId (config.model?.id ?? null); createCompileHandler gains modelIdOverride, resolution order args.modelId ?? modelIdOverride ?? getModelId(editorId); MCP destructures configModelId and passes to handler; two tests (config_model_override_in_handler, config_override_takes_precedence_over_detector); getRequestCaptured helper in compile-handler test for type narrowing.
+- GoProvider (task 043 re-execution): LanguageProvider for .go via defineTreeSitterProvider and tree-sitter-go; parseImports (import_declaration/import_spec), extractSignaturesWithDocs/Only (function_declaration, method_declaration, type_spec), extractNames (exported Go names); wired in initLanguageProviders (projectHasExtension .go); ESLint restricts tree-sitter-go to go-provider.ts; five tests (parseImports_returns_refs, extractSignaturesWithDocs_returns_chunks, extractSignaturesOnly_returns_chunks, extractNames_returns_symbols, invalid_go_returns_empty).
 
 ### 2026-02-28
 
