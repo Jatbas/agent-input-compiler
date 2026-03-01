@@ -150,7 +150,13 @@ describe("MCP server", () => {
       stopSession: vi.fn(),
       backfillCrashedSessions: vi.fn(),
     };
-    const mockCacheStore = { purgeExpired: vi.fn() };
+    const mockCacheStore = {
+      get: vi.fn(),
+      set: vi.fn(),
+      invalidate: vi.fn(),
+      invalidateAll: vi.fn(),
+      purgeExpired: vi.fn(),
+    };
     const fixedTs = toISOTimestamp("2026-02-28T12:00:00.000Z");
     const mockClock = {
       now: (): typeof fixedTs => fixedTs,

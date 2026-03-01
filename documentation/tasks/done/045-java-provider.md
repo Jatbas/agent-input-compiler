@@ -1,6 +1,6 @@
 # Task 045: JavaProvider
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** Phase J — Intent & Selection Quality
 > **Layer:** adapter
 > **Depends on:** Phase B (LanguageProvider interface Done), Task 044 (RustProvider optional for ordering)

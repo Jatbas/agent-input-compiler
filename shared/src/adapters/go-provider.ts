@@ -2,10 +2,9 @@ import {
   type Node,
   nodeText,
   childrenOf,
-  buildSignatureChunk,
   oneImportRefFromNode,
+  createSignatureCollectors,
   walkTreeCollectImports,
-  walkTreeForSignatures,
   walkTreeForNames,
 } from "./tree-sitter-node-utils.js";
 import * as P from "./tree-sitter-provider-shared.js";
@@ -52,10 +51,6 @@ const SYMBOL_TYPE_BY_NODE: Record<string, P.SymbolType> = {
   type_spec: P.SYMBOL_TYPE.CLASS,
 };
 
-function symbolTypeForNode(node: Node): P.SymbolType {
-  return SYMBOL_TYPE_BY_NODE[node.type] ?? P.SYMBOL_TYPE.FUNCTION;
-}
-
 const SYMBOL_KIND_BY_NODE: Record<string, P.SymbolKind> = {
   function_declaration: P.SYMBOL_KIND.FUNCTION,
   method_declaration: P.SYMBOL_KIND.FUNCTION,
@@ -71,38 +66,22 @@ function isExportedGoName(name: string): boolean {
   return first !== "" && first === first.toUpperCase() && first !== first.toLowerCase();
 }
 
-const SIGNATURE_NODE_TYPES = new Set([
+const GO_SIGNATURE_NODE_TYPES = new Set([
   "function_declaration",
   "method_declaration",
   "type_spec",
 ]);
 
-function isGoSignatureNode(nodeType: string): boolean {
-  return SIGNATURE_NODE_TYPES.has(nodeType);
-}
-
-function buildGoChunk(
-  source: string,
-  node: Node,
-  name: string,
-  withDocs: boolean,
-): P.CodeChunk {
-  return buildSignatureChunk(source, node, name, withDocs, symbolTypeForNode);
-}
-
-function collectSignatures(
-  source: string,
-  node: Node,
-  withDocs: boolean,
-): readonly P.CodeChunk[] {
-  return walkTreeForSignatures(source, node, isGoSignatureNode, buildGoChunk, withDocs);
-}
+const collectSignatures = createSignatureCollectors(
+  SYMBOL_TYPE_BY_NODE,
+  GO_SIGNATURE_NODE_TYPES,
+);
 
 function collectExportedNames(source: string, node: Node): readonly P.ExportedSymbol[] {
   return walkTreeForNames(
     source,
     node,
-    isGoSignatureNode,
+    (nodeType) => GO_SIGNATURE_NODE_TYPES.has(nodeType),
     symbolKindForNode,
     isExportedGoName,
   );

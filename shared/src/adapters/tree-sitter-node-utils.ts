@@ -2,6 +2,7 @@ import { type Node, type Parser, type Tree } from "web-tree-sitter";
 import type { CodeChunk } from "#core/types/code-chunk.js";
 import type { ExportedSymbol } from "#core/types/exported-symbol.js";
 import type { ImportRef } from "#core/types/import-ref.js";
+import { SYMBOL_TYPE } from "#core/types/enums.js";
 import type { SymbolKind, SymbolType } from "#core/types/enums.js";
 import type { RelativePath } from "#core/types/paths.js";
 import { toRelativePath } from "#core/types/paths.js";
@@ -140,6 +141,23 @@ export function walkTreeForSignatures(
   return childrenOf(node).flatMap((ch) =>
     walkTreeForSignatures(source, ch, isMatchingType, buildChunkForNode, withDocs),
   );
+}
+
+export function createSignatureCollectors(
+  symbolTypeByNode: Record<string, SymbolType>,
+  signatureNodeTypes: ReadonlySet<string>,
+): (source: string, node: Node, withDocs: boolean) => readonly CodeChunk[] {
+  const symbolTypeForNode = (n: Node): SymbolType =>
+    symbolTypeByNode[n.type] ?? SYMBOL_TYPE.FUNCTION;
+  const isMatching = (nodeType: string): boolean => signatureNodeTypes.has(nodeType);
+  const buildChunk = (
+    source: string,
+    node: Node,
+    name: string,
+    withDocs: boolean,
+  ): CodeChunk => buildSignatureChunk(source, node, name, withDocs, symbolTypeForNode);
+  return (source, node, withDocs) =>
+    walkTreeForSignatures(source, node, isMatching, buildChunk, withDocs);
 }
 
 export function walkTreeForNames(

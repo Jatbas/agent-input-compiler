@@ -53,7 +53,7 @@ Highest-impact work. The core value of AIC is picking the right files — if sel
 | PythonProvider (AST-safe)        | Done   | shared/src/adapters/ |
 | GoProvider                       | Done   | shared/src/adapters/ |
 | RustProvider                     | Done   | shared/src/adapters/ |
-| JavaProvider                     | Todo   | shared/src/adapters/ |
+| JavaProvider                     | Done   | shared/src/adapters/ |
 | RubyProvider                     | Todo   | shared/src/adapters/ |
 | PhpProvider                      | Todo   | shared/src/adapters/ |
 | CssProvider                      | Todo   | shared/src/adapters/ |
@@ -219,10 +219,12 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 ### 2026-03-01
 
-**Components:** PythonProvider (AST-safe), ModelDetector, ModelDetectorDispatch, compile-handler getModelId, EditorModelConfigReader, EditorModelConfigReaderAdapter, Config model override, GoProvider, RustProvider
+**Components:** PythonProvider (AST-safe), ModelDetector, ModelDetectorDispatch, compile-handler getModelId, EditorModelConfigReader, EditorModelConfigReaderAdapter, Config model override, GoProvider, RustProvider, JavaProvider, cache purge
 **Completed:**
 
+- Cache purge on session end: removed per-run purgeExpired from CompilationRunner; MCP shutdown handler (registerShutdownHandler) now accepts CacheStore and calls purgeExpired before stopSession so .aic/cache expired blobs are cleaned when the MCP server exits (SIGINT/SIGTERM). CLI still purges at scope creation (once per command).
 - RustProvider (task 044): LanguageProvider for .rs via defineTreeSitterProvider and tree-sitter-rust; parseImports (use_declaration), extractSignaturesWithDocs/Only (function_item, function_signature_item, impl_item, struct_item), extractNames (pub items and impl); wired in initLanguageProviders (projectHasExtension .rs); ESLint restricts tree-sitter-rust to rust-provider.ts; tree-sitter-provider-shared barrel and tree-sitter-node-utils helpers (docCommentBefore, buildSignatureChunk, walkTreeCollectImports, singleImportRef, oneImportRefFromNode) to eliminate clones with go-provider; five tests (parseImports_returns_refs, extractSignaturesWithDocs_returns_chunks, extractSignaturesOnly_returns_chunks, extractNames_returns_symbols, invalid_rust_returns_empty).
+- JavaProvider (task 045): LanguageProvider for .java via defineTreeSitterProvider and tree-sitter-java; parseImports (import_declaration), extractSignaturesWithDocs/Only (method_declaration, class_declaration, interface_declaration), extractNames (public modifier); wired in initLanguageProviders (projectHasExtension .java); ESLint restricts tree-sitter-java to java-provider.ts; createSignatureCollectors in tree-sitter-node-utils to eliminate clones with go-provider; five tests (parseImports_returns_refs, extractSignaturesWithDocs_returns_chunks, extractSignaturesOnly_returns_chunks, extractNames_returns_symbols, invalid_java_returns_empty). Fixed server.test.ts CacheStore mock for typecheck.
 - PythonProvider (task 042): LanguageProvider for .py using tree-sitter and tree-sitter-python; parseImports (import_statement, import_from_statement), extractSignaturesWithDocs/Only (function_definition, class_definition with docstring), extractNames; try/catch returns []; wired in create-pipeline-deps after TypeScriptProvider, before GenericImportProvider; ESLint restricts tree-sitter and tree-sitter-python to python-provider.ts only; tests skip when tree-sitter native build unavailable (Node 24); server.test.ts skips when server module fails to load.
 - KL-006 (partial): ModelDetector interface and ModelEnvHints type in core; ModelDetectorDispatch adapter with Record<EditorId, DetectFn> (ANTHROPIC_MODEL, CURSOR_MODEL); createCompileHandler accepts getModelId(editorId), uses it when args.modelId is null; MCP server wires ModelDetectorDispatch and passes getModelId to handler. compilation_log.model_id now populated when env vars set. Full EditorAdapter/registry and file-based detection deferred.
 - File-based model detection (task 054): EditorModelConfigReader interface in core; EditorModelConfigReaderAdapter in adapters (homeDir-injected, reads ~/.cursor/settings.json and ~/.claude/settings.json key "model" via path.join, fs.existsSync, fs.readFileSync, JSON.parse); MCP server creates adapter with process.env["HOME"] ?? os.homedir(), builds ModelEnvHints with env ?? editorConfigReader.read(EDITOR_ID.\*) fallback; six adapter tests (cursor/claude_code/generic, missing file, malformed JSON, missing model key).

@@ -10,7 +10,8 @@
         "zod",
         "tree-sitter-go",
         "tree-sitter-python",
-        "tree-sitter-rust"
+        "tree-sitter-rust",
+        "tree-sitter-java"
       ]
     },
     "mcp": {},
