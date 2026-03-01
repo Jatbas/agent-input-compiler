@@ -1,6 +1,6 @@
 # Task 046: RubyProvider
 
-> **Status:** Pending
+> **Status:** In Progress
 > **Phase:** Phase J — Intent & Selection Quality
 > **Layer:** adapter
 > **Depends on:** Phase B (LanguageProvider interface Done)

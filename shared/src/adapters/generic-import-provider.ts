@@ -1,13 +1,19 @@
 import type { LanguageProvider } from "#core/interfaces/language-provider.interface.js";
-import type { FileExtension, RelativePath } from "#core/types/paths.js";
-import type { ImportRef } from "#core/types/import-ref.js";
-import type { CodeChunk } from "#core/types/code-chunk.js";
-import type { ExportedSymbol } from "#core/types/exported-symbol.js";
-import { toFileExtension, toRelativePath } from "#core/types/paths.js";
-import { toLineNumber, toTokenCount } from "#core/types/units.js";
-import { SYMBOL_KIND, SYMBOL_TYPE } from "#core/types/enums.js";
-
-const EMPTY_PATH = toRelativePath("");
+import type {
+  CodeChunk,
+  ExportedSymbol,
+  FileExtension,
+  ImportRef,
+  RelativePath,
+} from "./language-provider-common.js";
+import {
+  EMPTY_RELATIVE_PATH,
+  SYMBOL_KIND,
+  SYMBOL_TYPE,
+  toFileExtension,
+  toLineNumber,
+  toTokenCount,
+} from "./language-provider-common.js";
 
 const EXT_PY = ".py";
 const EXT_GO = ".go";
@@ -112,7 +118,7 @@ function makeChunk(
   line: string,
 ): CodeChunk {
   return {
-    filePath: EMPTY_PATH,
+    filePath: EMPTY_RELATIVE_PATH,
     symbolName: name,
     symbolType,
     startLine: toLineNumber(lineNum),

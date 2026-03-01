@@ -6,6 +6,7 @@ import { PythonProvider } from "./python-provider.js";
 import { GoProvider } from "./go-provider.js";
 import { RustProvider } from "./rust-provider.js";
 import { JavaProvider } from "./java-provider.js";
+import { RubyProvider } from "./ruby-provider.js";
 
 function projectHasExtension(projectRoot: string, ext: string): boolean {
   const glob = new FastGlobAdapter();
@@ -29,5 +30,6 @@ export async function initLanguageProviders(
   const java = projectHasExtension(projectRoot, ".java")
     ? [await JavaProvider.create()]
     : [];
-  return [...py, ...go, ...rs, ...java];
+  const rb = projectHasExtension(projectRoot, ".rb") ? [new RubyProvider()] : [];
+  return [...py, ...go, ...rs, ...java, ...rb];
 }

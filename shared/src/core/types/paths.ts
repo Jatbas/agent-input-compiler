@@ -23,6 +23,8 @@ export function toRelativePath(value: string): RelativePath {
   return value as RelativePath;
 }
 
+export const EMPTY_RELATIVE_PATH: RelativePath = toRelativePath("");
+
 export function toFilePath(value: string): FilePath {
   return value as FilePath;
 }

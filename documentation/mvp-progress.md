@@ -54,7 +54,7 @@ Highest-impact work. The core value of AIC is picking the right files — if sel
 | GoProvider                       | Done   | shared/src/adapters/ |
 | RustProvider                     | Done   | shared/src/adapters/ |
 | JavaProvider                     | Done   | shared/src/adapters/ |
-| RubyProvider                     | Todo   | shared/src/adapters/ |
+| RubyProvider                     | Done   | shared/src/adapters/ |
 | PhpProvider                      | Todo   | shared/src/adapters/ |
 | CssProvider                      | Todo   | shared/src/adapters/ |
 | HtmlJsxProvider                  | Todo   | shared/src/adapters/ |
@@ -219,9 +219,10 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 ### 2026-03-01
 
-**Components:** PythonProvider (AST-safe), ModelDetector, ModelDetectorDispatch, compile-handler getModelId, EditorModelConfigReader, EditorModelConfigReaderAdapter, Config model override, GoProvider, RustProvider, JavaProvider, cache purge
+**Components:** PythonProvider (AST-safe), ModelDetector, ModelDetectorDispatch, compile-handler getModelId, EditorModelConfigReader, EditorModelConfigReaderAdapter, Config model override, GoProvider, RustProvider, JavaProvider, RubyProvider, cache purge
 **Completed:**
 
+- RubyProvider (task 046): LanguageProvider for .rb with regex only (no new dependency); parseImports for require/load with quoted paths and isRelative when path starts with "."; extractSignaturesWithDocs returns []; extractSignaturesOnly for def/class lines as CodeChunk; extractNames for class/module/def self; try/catch returns [] (Null Object); wired in initLanguageProviders (projectHasExtension .rb); shared EMPTY_RELATIVE_PATH in core/types/paths and language-provider-common.ts re-exports to eliminate jscpd clone with generic-import-provider; four tests (parseImports_returns_refs, extractSignaturesOnly_returns_chunks, extractNames_returns_symbols, invalid_returns_empty).
 - Cache purge on session end: removed per-run purgeExpired from CompilationRunner; MCP shutdown handler (registerShutdownHandler) now accepts CacheStore and calls purgeExpired before stopSession so .aic/cache expired blobs are cleaned when the MCP server exits (SIGINT/SIGTERM). CLI still purges at scope creation (once per command).
 - RustProvider (task 044): LanguageProvider for .rs via defineTreeSitterProvider and tree-sitter-rust; parseImports (use_declaration), extractSignaturesWithDocs/Only (function_item, function_signature_item, impl_item, struct_item), extractNames (pub items and impl); wired in initLanguageProviders (projectHasExtension .rs); ESLint restricts tree-sitter-rust to rust-provider.ts; tree-sitter-provider-shared barrel and tree-sitter-node-utils helpers (docCommentBefore, buildSignatureChunk, walkTreeCollectImports, singleImportRef, oneImportRefFromNode) to eliminate clones with go-provider; five tests (parseImports_returns_refs, extractSignaturesWithDocs_returns_chunks, extractSignaturesOnly_returns_chunks, extractNames_returns_symbols, invalid_rust_returns_empty).
 - JavaProvider (task 045): LanguageProvider for .java via defineTreeSitterProvider and tree-sitter-java; parseImports (import_declaration), extractSignaturesWithDocs/Only (method_declaration, class_declaration, interface_declaration), extractNames (public modifier); wired in initLanguageProviders (projectHasExtension .java); ESLint restricts tree-sitter-java to java-provider.ts; createSignatureCollectors in tree-sitter-node-utils to eliminate clones with go-provider; five tests (parseImports_returns_refs, extractSignaturesWithDocs_returns_chunks, extractSignaturesOnly_returns_chunks, extractNames_returns_symbols, invalid_java_returns_empty). Fixed server.test.ts CacheStore mock for typecheck.
