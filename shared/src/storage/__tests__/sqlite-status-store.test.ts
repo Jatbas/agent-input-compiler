@@ -131,6 +131,8 @@ describe("SqliteStatusStore", () => {
       expect(summary.lastCompilation.tokensCompiled).toBe(7200);
       expect(summary.lastCompilation.tokenReductionPct).toBe(84);
       expect(summary.lastCompilation.created_at).toBe("2026-02-25T12:00:00.000Z");
+      expect(summary.lastCompilation.editorId).toBe("cursor");
+      expect(summary.lastCompilation.modelId).toBe("gpt-4");
     }
   });
 

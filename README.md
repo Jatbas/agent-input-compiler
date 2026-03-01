@@ -104,35 +104,23 @@ Even if AIC doesn't compile every subsequent prompt in the conversation (that de
 
 These are best practices for getting the most out of AI-assisted coding. AIC is designed to amplify them — when you follow these patterns, AIC ensures your AI assistant has the best possible context.
 
-### Start a new session for each task
+### One task, one session
 
-**Why:** Every new chat session starts with a clean context window. The model has no residual assumptions from a previous task — no stale variable names, no outdated file contents, no prior reasoning that might conflict with the new task. Research on LLM attention shows that models weigh recent context more heavily; starting fresh ensures no interference from unrelated prior turns.
+**Why:** Dedicate each chat session to a single, focused task. Mixing concerns — "fix the auth bug, then refactor the database layer" — splits the model's attention across unrelated code and fills the context window with files from both tasks. Neither gets the model's full focus, and LLMs show degraded accuracy when context contains irrelevant information (the "Lost in the Middle" effect). When you finish a task or need to switch topics, start a new session. A new session gives the model a clean context window — no stale variable names, no outdated file contents, no prior reasoning that might conflict with the new task.
 
-**How AIC helps:** At session start, AIC compiles fresh context targeted to your project's current state. A new session means a new compilation — clean, relevant, and up to date.
+**How AIC helps:** Each new session triggers a fresh AIC compilation. The compiled context is precisely targeted to the current task — all selected files score high for one concern, not medium for two. Starting fresh also means AIC re-evaluates your codebase's current state, picking up any changes from the previous session.
 
-### Be specific with your first message
+### Be specific with your intent
 
 **Why:** The more specific your intent, the better the model understands what you need. Vague prompts like "fix the bug" give the model nothing to anchor on — it must guess which files matter. Specific prompts like "fix the authentication timeout in src/auth/middleware.ts" let it focus immediately, reducing the need for exploratory file reads that consume tokens.
 
 **How AIC helps:** AIC uses your intent to classify the task and select which files to include. A specific intent produces higher-confidence classification and better file scoring — the model sees the right code from the start instead of a broad, unfocused selection.
 
-### One concern per session
+### Keep sessions short
 
-**Why:** Mixing "fix the auth bug" with "also refactor the database layer" creates context pollution. The model's attention is split across unrelated code, and its context window fills with files from both concerns. LLMs show degraded accuracy when the context contains information irrelevant to the current question — the "Lost in the Middle" effect.
+**Why:** Long conversations accumulate noise. The model's context window fills with previous messages, tool outputs, and intermediate results. When the context window reaches capacity, the editor compacts (summarizes) earlier content, and the model loses details from the beginning of the conversation — including AIC's compiled context. Short sessions avoid this compaction loss entirely.
 
-**How AIC helps:** AIC compiles context per intent. A focused session means the compiled context is precisely targeted — not diluted across unrelated concerns. All selected files score high for one task, not medium for two.
-
-### Keep sessions focused and short
-
-**Why:** Long conversations accumulate noise. The model's context window fills with previous messages, tool outputs, and intermediate results. When the context window reaches capacity, the editor compacts (summarizes) earlier content, and the model loses details from the beginning of the conversation — including AIC's compiled context. Short, focused sessions avoid this compaction loss entirely.
-
-**How AIC helps:** In a short session, AIC's initial compiled context remains prominent in the context window. The model works with curated code throughout rather than increasingly summarized leftovers. Once built, Claude Code's integration will use the `PreCompact` hook to re-compile before compaction, preserving context quality even in longer sessions.
-
-### Start fresh when switching topics
-
-**Why:** If you're working on authentication and suddenly ask about the database schema, the model carries assumptions from the auth work. Its context window is full of auth code, auth-related tool outputs, and auth-focused reasoning. It might hallucinate connections between auth and database that don't exist, or miss important database context because there's no room for it.
-
-**How AIC helps:** A new session triggers a new AIC compilation targeted to the new topic. The model gets files scored and selected for the database task, not leftovers from auth work.
+**How AIC helps:** In a short session, AIC's initial compiled context remains prominent in the context window throughout. Once built, Claude Code's integration will use the `PreCompact` hook to re-compile before compaction, preserving context quality even in longer sessions.
 
 ### Don't switch models mid-chat
 

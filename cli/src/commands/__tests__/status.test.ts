@@ -24,6 +24,8 @@ const fixtureAggregates: StatusAggregates = {
     tokensCompiled: 7200,
     tokenReductionPct: 84,
     created_at: "2026-02-26T12:00:00.000Z",
+    editorId: "cursor",
+    modelId: "claude-sonnet-4-20250514",
   },
   installationOk: true,
   installationNotes: "",

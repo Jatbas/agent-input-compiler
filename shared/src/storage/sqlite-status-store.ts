@@ -68,7 +68,7 @@ export class SqliteStatusStore implements StatusStore {
 
     const lastRows = this.db
       .prepare(
-        "SELECT intent, files_selected, files_total, tokens_compiled, token_reduction_pct, created_at FROM compilation_log ORDER BY created_at DESC LIMIT 1",
+        "SELECT intent, files_selected, files_total, tokens_compiled, token_reduction_pct, created_at, editor_id, model_id FROM compilation_log ORDER BY created_at DESC LIMIT 1",
       )
       .all() as {
       intent: string;
@@ -77,6 +77,8 @@ export class SqliteStatusStore implements StatusStore {
       tokens_compiled: number;
       token_reduction_pct: number;
       created_at: string;
+      editor_id: string;
+      model_id: string | null;
     }[];
     const lastRow = lastRows[0];
     const lastCompilation =
@@ -89,6 +91,8 @@ export class SqliteStatusStore implements StatusStore {
             tokensCompiled: lastRow.tokens_compiled,
             tokenReductionPct: lastRow.token_reduction_pct,
             created_at: lastRow.created_at,
+            editorId: lastRow.editor_id,
+            modelId: lastRow.model_id,
           };
 
     const sessionRows = this.db

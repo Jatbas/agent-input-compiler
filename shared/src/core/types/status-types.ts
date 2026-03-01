@@ -26,6 +26,8 @@ export interface StatusAggregates {
     readonly tokensCompiled: number;
     readonly tokenReductionPct: number;
     readonly created_at: string;
+    readonly editorId: string;
+    readonly modelId: string | null;
   } | null;
   readonly installationOk: boolean | null;
   readonly installationNotes: string | null;

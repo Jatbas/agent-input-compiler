@@ -37,6 +37,15 @@ function formatTotalSavedLine(aggregates: StatusAggregates): string {
   return "—";
 }
 
+function formatLastCompilationLine(lc: StatusAggregates["lastCompilation"]): string {
+  if (lc === null) return "";
+  const base = `\nLast compilation: "${lc.intent}"\n  ${lc.filesTotal} files → ${lc.filesSelected} selected (${lc.tokensCompiled.toLocaleString()} tokens, ${lc.tokenReductionPct}% reduction)`;
+  const hasModel = lc.modelId !== null && lc.modelId !== "";
+  return hasModel
+    ? `${base}\n  editor: ${lc.editorId}, model: ${lc.modelId}`
+    : `${base}\n  editor: ${lc.editorId}`;
+}
+
 function formatStatusOutput(
   request: StatusRequest,
   aggregates: StatusAggregates,
@@ -78,10 +87,7 @@ function formatStatusOutput(
       ? "—"
       : aggregates.topTaskClasses.map((t) => `${t.taskClass} (${t.count})`).join(", ");
 
-  const lastLine =
-    aggregates.lastCompilation === null
-      ? ""
-      : `\nLast compilation: "${aggregates.lastCompilation.intent}"\n  ${aggregates.lastCompilation.filesTotal} files → ${aggregates.lastCompilation.filesSelected} selected (${aggregates.lastCompilation.tokensCompiled.toLocaleString()} tokens, ${aggregates.lastCompilation.tokenReductionPct}% reduction)`;
+  const lastLine = formatLastCompilationLine(aggregates.lastCompilation);
 
   return [
     `Compilations:     ${aggregates.compilationsTotal} (${aggregates.compilationsToday} today)`,
