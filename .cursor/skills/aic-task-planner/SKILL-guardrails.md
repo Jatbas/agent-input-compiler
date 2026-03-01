@@ -130,6 +130,12 @@ These present two implementation paths where the planner should have chosen one:
 
 Never show alternative interfaces or "Option A / Option B" in the Interface/Signature section. The task file must contain exactly **one** interface definition and exactly **one** class signature. If you're unsure which design is better, ask the user before writing the task file. Showing multiple options means the planner hasn't made a decision.
 
+## Named imports in code blocks
+
+All `import` statements in the Interface/Signature section must use **named imports** for internal modules (relative or `#alias` paths). Never write `import * as X from "./barrel.js"` — always `import { A, B } from "./barrel.js"` with `import type { C } from "./barrel.js"` for type-only imports. Namespace imports are allowed only for Node.js built-ins (`node:path`, `node:fs`) and established library APIs (`typescript`). This is enforced by ESLint's `no-restricted-syntax` rule.
+
+When referencing a sibling's import pattern, check that the sibling uses named imports. If it uses a namespace import (`import * as P from ...`), that is a legacy violation — do not propagate it. Use the named import style instead.
+
 ## Signature consistency
 
 The interface and the implementing class must use **identical** parameter types and return types. After writing both code blocks, cross-check:

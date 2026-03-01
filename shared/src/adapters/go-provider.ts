@@ -7,7 +7,20 @@ import {
   walkTreeCollectImports,
   walkTreeForNames,
 } from "./tree-sitter-node-utils.js";
-import * as P from "./tree-sitter-provider-shared.js";
+import {
+  defineTreeSitterProvider,
+  resolveTreeSitterWasm,
+  toFileExtension,
+  SYMBOL_KIND,
+  SYMBOL_TYPE,
+} from "./tree-sitter-provider-shared.js";
+import type {
+  ExportedSymbol,
+  FileExtension,
+  ImportRef,
+  SymbolKind,
+  SymbolType,
+} from "./tree-sitter-provider-shared.js";
 
 function stripQuotes(s: string): string {
   const t = s.trim();
@@ -26,7 +39,7 @@ function goGetPath(source: string, node: Node): string | null {
   return stripQuotes(nodeText(source, pathNode));
 }
 
-function collectImportSpecs(source: string, node: Node): readonly P.ImportRef[] {
+function collectImportSpecs(source: string, node: Node): readonly ImportRef[] {
   if (node.type === "import_spec") {
     return oneImportRefFromNode(source, node, goGetPath, isRelativeGoImport);
   }
@@ -36,7 +49,7 @@ function collectImportSpecs(source: string, node: Node): readonly P.ImportRef[] 
   return childrenOf(node).flatMap((ch) => collectImportSpecs(source, ch));
 }
 
-function collectImports(source: string, node: Node): readonly P.ImportRef[] {
+function collectImports(source: string, node: Node): readonly ImportRef[] {
   return walkTreeCollectImports(
     source,
     node,
@@ -45,20 +58,20 @@ function collectImports(source: string, node: Node): readonly P.ImportRef[] {
   );
 }
 
-const SYMBOL_TYPE_BY_NODE: Record<string, P.SymbolType> = {
-  function_declaration: P.SYMBOL_TYPE.FUNCTION,
-  method_declaration: P.SYMBOL_TYPE.FUNCTION,
-  type_spec: P.SYMBOL_TYPE.CLASS,
+const SYMBOL_TYPE_BY_NODE: Record<string, SymbolType> = {
+  function_declaration: SYMBOL_TYPE.FUNCTION,
+  method_declaration: SYMBOL_TYPE.FUNCTION,
+  type_spec: SYMBOL_TYPE.CLASS,
 };
 
-const SYMBOL_KIND_BY_NODE: Record<string, P.SymbolKind> = {
-  function_declaration: P.SYMBOL_KIND.FUNCTION,
-  method_declaration: P.SYMBOL_KIND.FUNCTION,
-  type_spec: P.SYMBOL_KIND.CLASS,
+const SYMBOL_KIND_BY_NODE: Record<string, SymbolKind> = {
+  function_declaration: SYMBOL_KIND.FUNCTION,
+  method_declaration: SYMBOL_KIND.FUNCTION,
+  type_spec: SYMBOL_KIND.CLASS,
 };
 
-function symbolKindForNode(node: Node): P.SymbolKind {
-  return SYMBOL_KIND_BY_NODE[node.type] ?? P.SYMBOL_KIND.FUNCTION;
+function symbolKindForNode(node: Node): SymbolKind {
+  return SYMBOL_KIND_BY_NODE[node.type] ?? SYMBOL_KIND.FUNCTION;
 }
 
 function isExportedGoName(name: string): boolean {
@@ -77,7 +90,7 @@ const collectSignatures = createSignatureCollectors(
   GO_SIGNATURE_NODE_TYPES,
 );
 
-function collectExportedNames(source: string, node: Node): readonly P.ExportedSymbol[] {
+function collectExportedNames(source: string, node: Node): readonly ExportedSymbol[] {
   return walkTreeForNames(
     source,
     node,
@@ -87,10 +100,10 @@ function collectExportedNames(source: string, node: Node): readonly P.ExportedSy
   );
 }
 
-export const GoProvider = P.defineTreeSitterProvider({
+export const GoProvider = defineTreeSitterProvider({
   id: "go",
-  extensions: [P.toFileExtension(".go")] as readonly P.FileExtension[],
-  getWasmPath: () => P.resolveTreeSitterWasm("tree-sitter-go"),
+  extensions: [toFileExtension(".go")] as readonly FileExtension[],
+  getWasmPath: () => resolveTreeSitterWasm("tree-sitter-go"),
   collectImports,
   collectSignatures,
   collectNames: collectExportedNames,

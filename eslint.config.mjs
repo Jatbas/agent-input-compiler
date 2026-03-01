@@ -70,6 +70,12 @@ const IF_CHAIN_BAN = {
     "If/else-if chain with 3+ branches is banned. Use a Record<Enum, Handler> dispatch map or a handler array.",
 };
 
+const NAMESPACE_IMPORT_BAN = {
+  selector: "ImportDeclaration[source.value=/^[.#]/] > ImportNamespaceSpecifier",
+  message:
+    "Use named imports instead of namespace imports (import * as X). Namespace imports are allowed only for Node.js built-ins (node:path, node:fs) and established library APIs (typescript).",
+};
+
 const ISP_ONE_INTERFACE_PER_FILE = {
   selector:
     "ExportNamedDeclaration:has(TSInterfaceDeclaration) ~ ExportNamedDeclaration:has(TSInterfaceDeclaration)",
@@ -195,6 +201,7 @@ const BASE_RESTRICTED = [
   ...DATE_RESTRICTIONS,
   MATH_RANDOM,
   IF_CHAIN_BAN,
+  NAMESPACE_IMPORT_BAN,
   ...PRIMITIVE_CAST_BANS,
   DOUBLE_CAST_BAN,
   ...ANTI_PATTERN_BANS,

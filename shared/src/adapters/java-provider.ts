@@ -7,7 +7,20 @@ import {
   createSignatureCollectors,
   walkTreeCollectImports,
 } from "./tree-sitter-node-utils.js";
-import * as P from "./tree-sitter-provider-shared.js";
+import {
+  defineTreeSitterProvider,
+  resolveTreeSitterWasm,
+  toFileExtension,
+  SYMBOL_KIND,
+  SYMBOL_TYPE,
+} from "./tree-sitter-provider-shared.js";
+import type {
+  ExportedSymbol,
+  FileExtension,
+  ImportRef,
+  SymbolKind,
+  SymbolType,
+} from "./tree-sitter-provider-shared.js";
 
 function javaImportPath(source: string, node: Node): string {
   const raw = nodeText(source, node).trim();
@@ -21,12 +34,12 @@ function isRelativeJavaImport(_path: string): boolean {
   return false;
 }
 
-function extractOneJavaImport(source: string, node: Node): readonly P.ImportRef[] {
+function extractOneJavaImport(source: string, node: Node): readonly ImportRef[] {
   const path = javaImportPath(source, node);
   return path !== "" ? [singleImportRef(path, isRelativeJavaImport)] : [];
 }
 
-function collectImports(source: string, node: Node): readonly P.ImportRef[] {
+function collectImports(source: string, node: Node): readonly ImportRef[] {
   return walkTreeCollectImports(
     source,
     node,
@@ -35,20 +48,20 @@ function collectImports(source: string, node: Node): readonly P.ImportRef[] {
   );
 }
 
-const SYMBOL_TYPE_BY_NODE: Record<string, P.SymbolType> = {
-  method_declaration: P.SYMBOL_TYPE.FUNCTION,
-  class_declaration: P.SYMBOL_TYPE.CLASS,
-  interface_declaration: P.SYMBOL_TYPE.CLASS,
+const SYMBOL_TYPE_BY_NODE: Record<string, SymbolType> = {
+  method_declaration: SYMBOL_TYPE.FUNCTION,
+  class_declaration: SYMBOL_TYPE.CLASS,
+  interface_declaration: SYMBOL_TYPE.CLASS,
 };
 
-const SYMBOL_KIND_BY_NODE: Record<string, P.SymbolKind> = {
-  method_declaration: P.SYMBOL_KIND.FUNCTION,
-  class_declaration: P.SYMBOL_KIND.CLASS,
-  interface_declaration: P.SYMBOL_KIND.CLASS,
+const SYMBOL_KIND_BY_NODE: Record<string, SymbolKind> = {
+  method_declaration: SYMBOL_KIND.FUNCTION,
+  class_declaration: SYMBOL_KIND.CLASS,
+  interface_declaration: SYMBOL_KIND.CLASS,
 };
 
-function symbolKindForNode(node: Node): P.SymbolKind {
-  return SYMBOL_KIND_BY_NODE[node.type] ?? P.SYMBOL_KIND.FUNCTION;
+function symbolKindForNode(node: Node): SymbolKind {
+  return SYMBOL_KIND_BY_NODE[node.type] ?? SYMBOL_KIND.FUNCTION;
 }
 
 function hasPublicModifier(node: Node, source: string): boolean {
@@ -74,11 +87,11 @@ const collectSignatures = createSignatureCollectors(
   JAVA_SIGNATURE_NODE_TYPES,
 );
 
-function walkJavaNames(source: string, node: Node): readonly P.ExportedSymbol[] {
+function walkJavaNames(source: string, node: Node): readonly ExportedSymbol[] {
   if (JAVA_SIGNATURE_NODE_TYPES.has(node.type)) {
     const name = findNodeName(node, source);
     const kind = symbolKindForNode(node);
-    const self: readonly P.ExportedSymbol[] =
+    const self: readonly ExportedSymbol[] =
       name !== null && name !== "" && isExportedJavaName(node, source, name)
         ? [{ name, kind }]
         : [];
@@ -88,14 +101,14 @@ function walkJavaNames(source: string, node: Node): readonly P.ExportedSymbol[] 
   return childrenOf(node).flatMap((ch) => walkJavaNames(source, ch));
 }
 
-function collectExportedNames(source: string, node: Node): readonly P.ExportedSymbol[] {
+function collectExportedNames(source: string, node: Node): readonly ExportedSymbol[] {
   return walkJavaNames(source, node);
 }
 
-export const JavaProvider = P.defineTreeSitterProvider({
+export const JavaProvider = defineTreeSitterProvider({
   id: "java",
-  extensions: [P.toFileExtension(".java")] as readonly P.FileExtension[],
-  getWasmPath: () => P.resolveTreeSitterWasm("tree-sitter-java"),
+  extensions: [toFileExtension(".java")] as readonly FileExtension[],
+  getWasmPath: () => resolveTreeSitterWasm("tree-sitter-java"),
   collectImports,
   collectSignatures,
   collectNames: collectExportedNames,
