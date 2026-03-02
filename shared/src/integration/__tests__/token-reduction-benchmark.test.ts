@@ -131,6 +131,8 @@ describe("token reduction benchmarks", () => {
       );
     }
     expect(tokenCount).toBeLessThanOrEqual(prev.token_count * 1.05);
-    expect(durationMs).toBeLessThanOrEqual(prev.duration_ms * 2);
+    if (prev.duration_ms > 0) {
+      expect(durationMs).toBeLessThanOrEqual(prev.duration_ms * 2);
+    }
   }, 30_000);
 });
