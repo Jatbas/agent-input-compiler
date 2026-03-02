@@ -1,12 +1,25 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { AbsolutePath } from "#core/types/paths.js";
+import type { ISOTimestamp } from "#core/types/identifiers.js";
 import { toISOTimestamp } from "#core/types/identifiers.js";
 import { toTokenCount } from "#core/types/units.js";
 import type { CacheStore } from "#core/interfaces/cache-store.interface.js";
 import type { CachedCompilation } from "#core/types/compilation-types.js";
 import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
 import type { Clock } from "#core/interfaces/clock.interface.js";
+
+const SQLITE_DATETIME_LEN = 19;
+
+function isoToSqliteDatetime(iso: string): string {
+  const prefix = iso.slice(0, SQLITE_DATETIME_LEN);
+  return prefix.includes("T") ? prefix.replace("T", " ") : prefix;
+}
+
+function sqliteDatetimeToIso(sqlite: string): ISOTimestamp {
+  if (sqlite.includes("T")) return sqlite as ISOTimestamp;
+  return toISOTimestamp(sqlite.slice(0, 10) + "T" + sqlite.slice(11, 19) + ".000Z");
+}
 
 function safeBlobFilename(key: string): string {
   const base64 = Buffer.from(key, "utf8").toString("base64");
@@ -48,12 +61,12 @@ export class SqliteCacheStore implements CacheStore {
   ) {}
 
   get(key: string): CachedCompilation | null {
-    const now = this.clock.now();
+    const nowSql = isoToSqliteDatetime(this.clock.now());
     const rows = this.db
       .prepare(
-        "SELECT cache_key, file_path, file_tree_hash, created_at, expires_at FROM cache_metadata WHERE cache_key = ? AND expires_at > datetime(?)",
+        "SELECT cache_key, file_path, file_tree_hash, created_at, expires_at FROM cache_metadata WHERE cache_key = ? AND expires_at > ?",
       )
-      .all(key, now) as readonly {
+      .all(key, nowSql) as readonly {
       cache_key: string;
       file_path: string;
       file_tree_hash: string;
@@ -61,7 +74,10 @@ export class SqliteCacheStore implements CacheStore {
       expires_at: string;
     }[];
     const row = rows[0];
-    if (row === undefined) return null;
+    if (row === undefined) {
+      this.deleteStaleEntryForKey(key);
+      return null;
+    }
     const raw = readBlobFile(row.file_path);
     if (raw === null) return null;
     const payload = parseBlobPayload(raw);
@@ -70,11 +86,26 @@ export class SqliteCacheStore implements CacheStore {
       key: row.cache_key,
       compiledPrompt: payload.compiledPrompt,
       tokenCount: toTokenCount(payload.tokenCount),
-      createdAt: toISOTimestamp(row.created_at),
-      expiresAt: toISOTimestamp(row.expires_at),
+      createdAt: sqliteDatetimeToIso(row.created_at),
+      expiresAt: sqliteDatetimeToIso(row.expires_at),
       fileTreeHash: row.file_tree_hash,
       configHash: payload.configHash,
     };
+  }
+
+  private deleteStaleEntryForKey(key: string): void {
+    const rows = this.db
+      .prepare("SELECT file_path FROM cache_metadata WHERE cache_key = ?")
+      .all(key) as readonly { file_path: string }[];
+    this.db.prepare("DELETE FROM cache_metadata WHERE cache_key = ?").run(key);
+    const row = rows[0];
+    if (row !== undefined) {
+      try {
+        fs.unlinkSync(row.file_path);
+      } catch {
+        // Blob may already be missing
+      }
+    }
   }
 
   set(entry: CachedCompilation): void {
@@ -86,11 +117,13 @@ export class SqliteCacheStore implements CacheStore {
       configHash: entry.configHash,
     };
     fs.writeFileSync(filePath, JSON.stringify(payload), "utf8");
+    const createdSql = isoToSqliteDatetime(entry.createdAt);
+    const expiresSql = isoToSqliteDatetime(entry.expiresAt);
     this.db
       .prepare(
         "INSERT OR REPLACE INTO cache_metadata (cache_key, file_path, file_tree_hash, created_at, expires_at) VALUES (?, ?, ?, ?, ?)",
       )
-      .run(entry.key, filePath, entry.fileTreeHash, entry.createdAt, entry.expiresAt);
+      .run(entry.key, filePath, entry.fileTreeHash, createdSql, expiresSql);
   }
 
   invalidate(key: string): void {
@@ -123,10 +156,10 @@ export class SqliteCacheStore implements CacheStore {
   }
 
   purgeExpired(): void {
-    const now = this.clock.now();
+    const nowSql = isoToSqliteDatetime(this.clock.now());
     const rows = this.db
-      .prepare("SELECT file_path FROM cache_metadata WHERE expires_at <= datetime(?)")
-      .all(now) as readonly { file_path: string }[];
+      .prepare("SELECT file_path FROM cache_metadata WHERE expires_at <= ?")
+      .all(nowSql) as readonly { file_path: string }[];
     for (const row of rows) {
       try {
         fs.unlinkSync(row.file_path);
@@ -134,9 +167,7 @@ export class SqliteCacheStore implements CacheStore {
         // Blob may already be missing
       }
     }
-    this.db
-      .prepare("DELETE FROM cache_metadata WHERE expires_at <= datetime(?)")
-      .run(now);
+    this.db.prepare("DELETE FROM cache_metadata WHERE expires_at <= ?").run(nowSql);
     const validPaths = new Set(
       (
         this.db.prepare("SELECT file_path FROM cache_metadata").all() as readonly {

@@ -166,4 +166,43 @@ describe("SqliteCacheStore", () => {
       expect(readFileSync(validPath, "utf8")).toBeTruthy();
     }
   });
+
+  it("same-day expiry: get returns null and purgeExpired deletes", () => {
+    setup();
+    const sameDayPast = "2025-06-15T11:00:00.000Z";
+    const sameDayFuture = "2025-06-15T13:00:00.000Z";
+    store.set(
+      makeEntry({ key: "expired-same-day", expiresAt: toISOTimestamp(sameDayPast) }),
+    );
+    store.set(
+      makeEntry({ key: "valid-same-day", expiresAt: toISOTimestamp(sameDayFuture) }),
+    );
+    expect(store.get("expired-same-day")).toBeNull();
+    expect(store.get("valid-same-day")).not.toBeNull();
+    store.purgeExpired();
+    const remaining = db.prepare("SELECT cache_key FROM cache_metadata").all() as {
+      cache_key: string;
+    }[];
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]?.cache_key).toBe("valid-same-day");
+  });
+
+  it("get on expired key lazy-deletes row and blob", () => {
+    setup();
+    const past = "2020-01-01T00:00:00.000Z";
+    store.set(makeEntry({ key: "lazy-expired", expiresAt: toISOTimestamp(past) }));
+    const rowsBefore = db
+      .prepare("SELECT file_path FROM cache_metadata WHERE cache_key = ?")
+      .all("lazy-expired") as { file_path: string }[];
+    expect(rowsBefore).toHaveLength(1);
+    const blobPathBefore = rowsBefore[0]?.file_path;
+    expect(store.get("lazy-expired")).toBeNull();
+    const rowsAfter = db
+      .prepare("SELECT cache_key FROM cache_metadata WHERE cache_key = ?")
+      .all("lazy-expired") as { cache_key: string }[];
+    expect(rowsAfter).toHaveLength(0);
+    if (blobPathBefore !== undefined) {
+      expect(() => readFileSync(blobPathBefore, "utf8")).toThrow();
+    }
+  });
 });

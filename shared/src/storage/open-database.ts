@@ -5,6 +5,7 @@ import { migration as migration002 } from "#storage/migrations/002-server-sessio
 import { migration as migration003 } from "#storage/migrations/003-server-sessions-integrity.js";
 import { migration as migration004 } from "#storage/migrations/004-normalize-telemetry.js";
 import { migration as migration005 } from "#storage/migrations/005-trigger-source.js";
+import { migration as migration006 } from "#storage/migrations/006-cache-datetime-format.js";
 import type { Clock } from "#core/interfaces/clock.interface.js";
 import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
 
@@ -17,6 +18,7 @@ export function openDatabase(dbPath: string, clock: Clock): ExecutableDb {
     migration003,
     migration004,
     migration005,
+    migration006,
   ]);
   return db;
 }
