@@ -284,6 +284,15 @@ MODULE RESOLUTION (only if config changes proposed):
 TEST STRATEGY (one sentence per test case):
 - [test name]: Mock [X] to [throw/return Y], assert [Z]
 
+TRANSFORMER DETAILS (conditional — pipeline transformer recipe only):
+- Format-specific or non-format-specific: [choice] — [why]
+- fileExtensions: [list or empty array]
+- Wiring position in create-pipeline-deps.ts transformers array: [before/after which transformer]
+- Safety test plan:
+  - [safety_test_name]: [file type] — [what structural property is verified]
+- Current baseline (test/benchmarks/baseline.json entry "1"):
+  token_count: [N], duration_ms: [N]
+
 DESIGN DECISIONS:
 - [decision]: [chosen option] — [why]
 ```
@@ -509,6 +518,10 @@ P. **SIBLING PATTERN REUSE AND SHARED CODE PREDICTION (mandatory):** Three sub-c
 **(P2) Sibling without shared utilities (second-of-its-kind):** Verify the Files table includes a "Create" or "Modify" row for a shared utility file AND a "Modify" row for the first sibling's refactor. If the task copies inline code from the sibling instead of extracting = fail.
 **(P3) First of its kind:** Verify the exploration report's SHARED CODE PREDICTION section identifies generic vs specific functions. If 2+ generic functions are identified but the task inlines them instead of extracting to a shared utility = fail. If the prediction says "No extraction needed," verify the justification is present. If no prediction section exists = fail.
 
+Q. **TRANSFORMER BENCHMARK STEP (conditional — pipeline transformer recipe only):** Grep the Steps section for "Benchmark verification" or "token-reduction-benchmark". If the task adds a `ContentTransformer` and wires it in `create-pipeline-deps.ts`, a benchmark verification step must exist that: (1) runs the token reduction benchmark, (2) compares actual vs baseline, (3) updates `baseline.json` when tokens decrease. If the task uses the pipeline transformer recipe but has no benchmark step = fail. If the task does not add a transformer, this check passes automatically.
+
+R. **TRANSFORMER SAFETY TESTS (conditional — pipeline transformer recipe only):** Grep the Tests table and step instructions for test names matching `safety_` pattern. If the task adds a `ContentTransformer` with `fileExtensions = []` (non-format-specific), at least one safety test per sensitive file type (Python, YAML, JSX) must exist. If the task adds a format-specific transformer, at least one safety test per listed extension must exist. If no transformer is added, this check passes automatically.
+
 **Step 2: Score the rubric.** Score each dimension 0 (fail) or 1 (pass):
 
 1. Interface accuracy (check B)
@@ -527,6 +540,8 @@ P. **SIBLING PATTERN REUSE AND SHARED CODE PREDICTION (mandatory):** Three sub-c
 14. Consumer completeness — conditional (check N)
 15. Conditional dependency loading — conditional (check O)
 16. Sibling pattern reuse — conditional (check P)
+17. Transformer benchmark step — conditional (check Q)
+18. Transformer safety tests — conditional (check R)
 
 ### C.6 Score and act
 

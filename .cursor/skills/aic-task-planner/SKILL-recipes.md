@@ -192,3 +192,70 @@ Since a composition root has no "methods" to count, break steps by concern:
 - Step 5: Tests (one step per test concern — e.g. spawn test, scope test)
 
 Each step still touches max 1 file.
+
+---
+
+## Pipeline transformer recipe (Phase L content transformers)
+
+Pipeline transformers implement the `ContentTransformer` interface and wire into the `ContentTransformerPipeline` via `create-pipeline-deps.ts`. They are pipeline-layer components with no adapters, no storage, and no external dependencies — pure string/regex logic.
+
+**Files pattern:**
+
+| Action | Path                                                              |
+| ------ | ----------------------------------------------------------------- |
+| Create | `shared/src/pipeline/[name].ts`                                   |
+| Create | `shared/src/pipeline/__tests__/[name].test.ts`                    |
+| Modify | `shared/src/bootstrap/create-pipeline-deps.ts` (wire transformer) |
+
+**Constructor:** Typically no parameters (stateless). Same pattern as `CommentStripper`. Exception: configuration-driven transformers receive config values (e.g. `excludedExtensions`).
+
+**Interface:** All transformers implement `ContentTransformer` from `#core/interfaces/content-transformer.interface.ts`:
+
+```typescript
+export interface ContentTransformer {
+  readonly id: string;
+  readonly fileExtensions: readonly FileExtension[];
+  transform(content: string, tier: InclusionTier, filePath: RelativePath): string;
+}
+```
+
+**Format-specific vs non-format-specific:** Transformers with `fileExtensions = []` are non-format-specific (run on all files after format-specific transformers). Transformers with specific extensions are format-specific (first match by extension wins — one per file max). The MVP spec defines the execution order: format-specific first, then non-format-specific; within each group, array order in `create-pipeline-deps.ts` applies. The exploration report must determine which category the transformer belongs to and state its position in the array.
+
+**Wiring order in create-pipeline-deps.ts:** The `transformers` array in `create-pipeline-deps.ts` determines execution order within the non-format-specific group. When wiring a new transformer, specify the exact array position:
+
+- Format-specific transformers: `jsonCompactor`, `lockFileSkipper`, then new format-specific transformers
+- Non-format-specific transformers: new non-format-specific transformers first, then `whitespaceNormalizer`, `commentStripper` last (cleanup runs after content-stripping)
+
+**Sibling reuse:** All transformers follow the same class shape (`id`, `fileExtensions`, `transform`). No shared utility extraction is needed unless 2+ transformers share structurally identical internal logic (e.g. identical header-scanning patterns). Check existing transformers (`comment-stripper.ts`, `whitespace-normalizer.ts`, `json-compactor.ts`, `lock-file-skipper.ts`) for reusable logic before writing new parsing helpers.
+
+**File-type safety tests (mandatory):** Each transformer must include tests that verify semantic safety for the file types it handles. "Semantic safety" means the transformer never breaks indentation (Python, YAML, Makefile), JSX syntax, or templating language markers. Test strategy:
+
+- For **non-format-specific** transformers (`fileExtensions = []`): include at least one test per sensitive file type (Python, YAML, JSX) verifying the content remains syntactically valid after transformation
+- For **format-specific** transformers: include tests for each listed extension verifying the output preserves the format's structural requirements (e.g. YAML indentation, JSON validity, HTML nesting)
+- Name pattern: `safety_[filetype]_[what is preserved]` (e.g. `safety_python_indentation_preserved`, `safety_yaml_structure_unchanged`)
+
+**Benchmark verification step (mandatory):** Every transformer task must include a penultimate step (before final verification) that runs the token reduction benchmark and updates the baseline:
+
+```
+### Step N: Benchmark verification
+
+Run: `pnpm test shared/src/integration/__tests__/token-reduction-benchmark.test.ts`
+
+Read the test output and note the actual `tokensCompiled` value. Read `test/benchmarks/baseline.json` and compare against the current `token_count` for entry "1".
+
+- If actual tokensCompiled < baseline token_count: update `test/benchmarks/baseline.json` entry "1" with `{ "token_count": <actual>, "duration_ms": <actual> }` to lock in the improvement. Re-run the benchmark test to confirm it passes with the new baseline.
+- If actual tokensCompiled >= baseline token_count: no baseline update needed (transformer does not affect canonical task 1). The benchmark test passes as-is.
+
+**Verify:** `pnpm test shared/src/integration/__tests__/token-reduction-benchmark.test.ts` passes. Baseline reflects current pipeline output.
+```
+
+This step ensures that each transformer's token savings are committed to the baseline, preventing future regressions against the improved level.
+
+**Config Changes pattern:** Typically none. Pipeline transformers use no external dependencies and require no ESLint changes. If the transformer uses a library (rare), follow the adapter recipe's ESLint restriction pattern.
+
+**Test pattern beyond safety:** Standard functional tests:
+
+- Content with the target pattern is stripped/compacted correctly
+- Content without the target pattern is returned unchanged
+- Empty content returns unchanged
+- Edge cases specific to the transformer's logic (e.g. "pattern only in file body, not header" for header strippers)
