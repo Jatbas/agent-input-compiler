@@ -137,5 +137,23 @@ export class SqliteCacheStore implements CacheStore {
     this.db
       .prepare("DELETE FROM cache_metadata WHERE expires_at <= datetime(?)")
       .run(now);
+    const validPaths = new Set(
+      (
+        this.db.prepare("SELECT file_path FROM cache_metadata").all() as readonly {
+          file_path: string;
+        }[]
+      ).map((r) => r.file_path),
+    );
+    const names = fs.readdirSync(this.cacheDir);
+    for (const name of names) {
+      if (!name.endsWith(".json")) continue;
+      const fullPath = path.join(this.cacheDir, name);
+      if (validPaths.has(fullPath)) continue;
+      try {
+        fs.unlinkSync(fullPath);
+      } catch {
+        // Race or permission; skip
+      }
+    }
   }
 }

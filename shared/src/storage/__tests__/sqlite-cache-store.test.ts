@@ -148,4 +148,22 @@ describe("SqliteCacheStore", () => {
     }[];
     expect(rows[0]?.c).toBe(0);
   });
+
+  it("purgeExpired removes orphan blob files not in cache_metadata", () => {
+    setup();
+    const future = "2099-01-01T00:00:00.000Z";
+    store.set(makeEntry({ key: "valid", expiresAt: toISOTimestamp(future) }));
+    const validRows = db
+      .prepare("SELECT file_path FROM cache_metadata WHERE cache_key = ?")
+      .all("valid") as { file_path: string }[];
+    const validPath = validRows[0]?.file_path;
+    expect(validPath).toBeDefined();
+    const orphanPath = join(tmpDir, "orphan-not-in-db.json");
+    writeFileSync(orphanPath, "{}", "utf8");
+    store.purgeExpired();
+    expect(() => readFileSync(orphanPath, "utf8")).toThrow();
+    if (validPath !== undefined) {
+      expect(readFileSync(validPath, "utf8")).toBeTruthy();
+    }
+  });
 });
