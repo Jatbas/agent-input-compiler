@@ -17,6 +17,7 @@ import { SecretScanner } from "#pipeline/secret-scanner.js";
 import { PromptInjectionScanner } from "#pipeline/prompt-injection-scanner.js";
 import { ContextGuard } from "#pipeline/context-guard.js";
 import { Base64InlineDataStripper } from "#pipeline/base64-inline-data-stripper.js";
+import { LongStringLiteralTruncator } from "#pipeline/long-string-literal-truncator.js";
 import { LicenseHeaderStripper } from "#pipeline/license-header-stripper.js";
 import { WhitespaceNormalizer } from "#pipeline/whitespace-normalizer.js";
 import { CommentStripper } from "#pipeline/comment-stripper.js";
@@ -85,9 +86,11 @@ export function createPipelineDeps(
   const lockFileSkipper = new LockFileSkipper();
   const licenseHeaderStripper = new LicenseHeaderStripper();
   const base64InlineDataStripper = new Base64InlineDataStripper();
+  const longStringLiteralTruncator = new LongStringLiteralTruncator();
   const transformers = [
     licenseHeaderStripper,
     base64InlineDataStripper,
+    longStringLiteralTruncator,
     whitespaceNormalizer,
     commentStripper,
     jsonCompactor,

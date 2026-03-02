@@ -81,7 +81,7 @@ Incremental output quality improvements, measured by Phase K benchmarks. New tra
 | -------------------------- | ------ | -------------------- |
 | LicenseHeaderStripper      | Done   | shared/src/pipeline/ |
 | Base64InlineDataStripper   | Done   | shared/src/pipeline/ |
-| LongStringLiteralTruncator | Todo   | shared/src/pipeline/ |
+| LongStringLiteralTruncator | Done   | shared/src/pipeline/ |
 | DocstringTrimmer           | Todo   | shared/src/pipeline/ |
 | CssVariableSummarizer      | Todo   | shared/src/pipeline/ |
 | TypeDeclarationCompactor   | Todo   | shared/src/pipeline/ |
@@ -218,9 +218,10 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 ### 2025-03-02
 
-**Components:** KotlinProvider, DartProvider, Real-project integration tests, Token reduction benchmarks, LicenseHeaderStripper, Base64InlineDataStripper
+**Components:** KotlinProvider, DartProvider, Real-project integration tests, Token reduction benchmarks, LicenseHeaderStripper, Base64InlineDataStripper, LongStringLiteralTruncator
 **Completed:**
 
+- LongStringLiteralTruncator (task 061): ContentTransformer that replaces double- and single-quoted string literals longer than 200 chars with placeholder preserving quote type and original length; fileExtensions = []; wired third in create-pipeline-deps (after base64InlineDataStripper, before whitespaceNormalizer); regex-based replace with callback; nine tests (long_double_quoted_truncated, long_single_quoted_truncated, short_literal_unchanged, empty_content_returns_unchanged, escaped_quotes_inside_preserved, multiple_long_literals_both_replaced, safety_python_indentation_preserved, safety_yaml_structure_unchanged, safety_jsx_structure_unchanged); token and selection benchmarks pass; baseline unchanged.
 - Base64InlineDataStripper (task 060): ContentTransformer that replaces data URLs (data:<mime>;base64,<payload>) with "[base64 inline data stripped]"; fileExtensions = []; wired second in create-pipeline-deps (after LicenseHeaderStripper); regex global replace; seven tests (strips_data_url_base64, no_data_url_returns_unchanged, empty_content_returns_unchanged, multiple_data_urls_replaced, safety_python_indentation_preserved, safety_yaml_structure_unchanged, safety_jsx_structure_unchanged); token baseline unchanged (fixture has no data URLs).
 - LicenseHeaderStripper (task 059): ContentTransformer that strips leading comment blocks containing License/Copyright/Permission/SPDX (case-insensitive); stops at first blank line so only the license paragraph is removed; fileExtensions = []; wired first in create-pipeline-deps transformers; eight tests (c-style, hash, no keyword, empty, body not stripped, safety Python/YAML/JSX); token baseline 1198 → 1192.
 - Real-project integration tests (task 056): shared/src/integration/**tests**/real-project-integration.test.ts wires real createProjectScope, createCachingFileContentReader, createFullPipelineDeps (real RepoMapSupplier), LoadConfigFromFile, applyConfigResult, initLanguageProviders; rulePackProvider from loadRulePackFromPath and createProjectFileReader (no mcp import); projectRoot = toAbsolutePath(process.cwd()); three tests (real_project_compile_succeeds, real_project_compile_output_has_expected_structure, real_project_second_run_cache_hit) with 30s timeout.
