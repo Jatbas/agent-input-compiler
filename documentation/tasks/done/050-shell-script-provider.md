@@ -1,6 +1,6 @@
 # Task 050: ShellScriptProvider
 
-> **Status:** Done
+> **Status:** In Progress
 > **Phase:** Phase J — Intent & Selection Quality
 > **Layer:** adapter
 > **Depends on:** Phase B (LanguageProvider interface Done)
