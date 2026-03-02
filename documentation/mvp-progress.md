@@ -56,7 +56,7 @@ Highest-impact work. The core value of AIC is picking the right files — if sel
 | JavaProvider                     | Done   | shared/src/adapters/ |
 | RubyProvider                     | Done   | shared/src/adapters/ |
 | PhpProvider                      | Done   | shared/src/adapters/ |
-| CssProvider                      | Todo   | shared/src/adapters/ |
+| CssProvider                      | Done   | shared/src/adapters/ |
 | HtmlJsxProvider                  | Todo   | shared/src/adapters/ |
 | ShellScriptProvider              | Todo   | shared/src/adapters/ |
 | SwiftProvider                    | Todo   | shared/src/adapters/ |
@@ -218,9 +218,10 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 ### 2026-03-01
 
-**Components:** PythonProvider (AST-safe), ModelDetector, ModelDetectorDispatch, compile-handler getModelId, EditorModelConfigReader, EditorModelConfigReaderAdapter, Config model override, GoProvider, RustProvider, JavaProvider, RubyProvider, PhpProvider, cache purge
+**Components:** PythonProvider (AST-safe), ModelDetector, ModelDetectorDispatch, compile-handler getModelId, EditorModelConfigReader, EditorModelConfigReaderAdapter, Config model override, GoProvider, RustProvider, JavaProvider, RubyProvider, PhpProvider, CssProvider, cache purge
 **Completed:**
 
+- CssProvider (task 048): LanguageProvider for .css with regex only; parseImports for @import url("...") and @import "..." (source = URL/path, isRelative when "." or "/"); extractSignaturesWithDocs returns []; extractSignaturesOnly for selector-like lines (e.g. .class, #id) as CodeChunk with SYMBOL_TYPE.CLASS; extractNames returns []; tryOrEmpty (Null Object); wired in initLanguageProviders (projectHasExtension .css). Four tests (parseImports_returns_refs, extractSignaturesOnly_returns_chunks, extractNames_returns_empty, invalid_returns_empty).
 - PhpProvider (task 047): LanguageProvider for .php with regex only; parseImports for require/include/require_once/include_once and use Namespace\\Class (path or namespace, isRelative when path starts with "." or "./"); extractSignaturesWithDocs returns []; extractSignaturesOnly for function/class lines; extractNames for class/function; tryOrEmpty returns [] (Null Object); wired in initLanguageProviders (projectHasExtension .php). Shared regex-language-provider-helpers (parseImportsFromPatterns, extractSignaturesFromLineMatchers, extractNamesFromMatchers, tryOrEmpty, createRegexLanguageProviderClass) used by RubyProvider, PhpProvider, and GenericImportProvider; 0% jscpd. Four tests (parseImports_returns_refs, extractSignaturesOnly_returns_chunks, extractNames_returns_symbols, invalid_returns_empty).
 - RubyProvider (task 046): LanguageProvider for .rb with regex only (no new dependency); parseImports for require/load with quoted paths and isRelative when path starts with "."; extractSignaturesWithDocs returns []; extractSignaturesOnly for def/class lines as CodeChunk; extractNames for class/module/def self; try/catch returns [] (Null Object); wired in initLanguageProviders (projectHasExtension .rb); shared EMPTY_RELATIVE_PATH in core/types/paths and language-provider-common.ts re-exports to eliminate jscpd clone with generic-import-provider; four tests (parseImports_returns_refs, extractSignaturesOnly_returns_chunks, extractNames_returns_symbols, invalid_returns_empty).
 - Cache purge on session end: removed per-run purgeExpired from CompilationRunner; MCP shutdown handler (registerShutdownHandler) now accepts CacheStore and calls purgeExpired before stopSession so .aic/cache expired blobs are cleaned when the MCP server exits (SIGINT/SIGTERM). CLI still purges at scope creation (once per command).

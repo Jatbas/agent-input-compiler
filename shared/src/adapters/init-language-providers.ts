@@ -8,6 +8,7 @@ import { RustProvider } from "./rust-provider.js";
 import { JavaProvider } from "./java-provider.js";
 import { RubyProvider } from "./ruby-provider.js";
 import { PhpProvider } from "./php-provider.js";
+import { CssProvider } from "./css-provider.js";
 
 function projectHasExtension(projectRoot: string, ext: string): boolean {
   const glob = new FastGlobAdapter();
@@ -33,5 +34,6 @@ export async function initLanguageProviders(
     : [];
   const rb = projectHasExtension(projectRoot, ".rb") ? [new RubyProvider()] : [];
   const php = projectHasExtension(projectRoot, ".php") ? [new PhpProvider()] : [];
-  return [...py, ...go, ...rs, ...java, ...rb, ...php];
+  const css = projectHasExtension(projectRoot, ".css") ? [new CssProvider()] : [];
+  return [...py, ...go, ...rs, ...java, ...rb, ...php, ...css];
 }
