@@ -202,16 +202,21 @@ Use the `aic-update-mvp-progress` skill to update `documentation/mvp-progress.md
 
 **Critical:** Use today's actual date for the daily log entry. If today's entry already exists, append to it. If it is a new day, create a new entry at the top of the Daily Log section (reverse chronological). Do not put today's work under yesterday's date.
 
-**5c — Update task status, archive, commit, and show diff.**
+**5c — Archive task, update status, commit, and show diff.**
 
 Run these sequentially in one flow — no user gate between them:
 
-1. Change the task file header from `> **Status:** In Progress` to `> **Status:** Done`.
-2. Archive the task file:
+1. **Move the task file first** (before editing status — editing the old path after moving creates a ghost file):
    ```
    mkdir -p documentation/tasks/done && mv documentation/tasks/NNN-name.md documentation/tasks/done/
    ```
-3. Stage and commit on the feature branch:
+2. **Edit the status at the NEW path** (`documentation/tasks/done/NNN-name.md`): change `> **Status:** In Progress` to `> **Status:** Done`. Do NOT edit the old path — the file no longer exists there.
+3. **Verify the move** — confirm the old path is gone and the new path has the correct status:
+   ```
+   test ! -f documentation/tasks/NNN-name.md && head -3 documentation/tasks/done/NNN-name.md
+   ```
+   If the old file still exists, delete it: `rm documentation/tasks/NNN-name.md`.
+4. Stage and commit on the feature branch:
 
    ```
    git add -A && git commit -m "feat(<scope>): <what was built>"
@@ -219,7 +224,7 @@ Run these sequentially in one flow — no user gate between them:
 
    Use the conventional commit format: `type(scope): description`, max 72 chars, imperative, no period.
 
-4. **Post-commit hygiene check.** Lint-staged runs during commit and may auto-format files, leaving the working tree dirty. This step catches and resolves that before proposing merge.
+5. **Post-commit hygiene check.** Lint-staged runs during commit and may auto-format files, leaving the working tree dirty. This step catches and resolves that before proposing merge.
 
    a. Run `git status --porcelain`. If output is empty, skip to (e).
    b. Stage and amend: `git add -A && git commit --amend --no-edit`.
