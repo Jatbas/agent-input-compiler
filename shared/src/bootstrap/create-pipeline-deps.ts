@@ -16,6 +16,7 @@ import { ExclusionScanner } from "#pipeline/exclusion-scanner.js";
 import { SecretScanner } from "#pipeline/secret-scanner.js";
 import { PromptInjectionScanner } from "#pipeline/prompt-injection-scanner.js";
 import { ContextGuard } from "#pipeline/context-guard.js";
+import { LicenseHeaderStripper } from "#pipeline/license-header-stripper.js";
 import { WhitespaceNormalizer } from "#pipeline/whitespace-normalizer.js";
 import { CommentStripper } from "#pipeline/comment-stripper.js";
 import { JsonCompactor } from "#pipeline/json-compactor.js";
@@ -81,7 +82,9 @@ export function createPipelineDeps(
   const commentStripper = new CommentStripper();
   const jsonCompactor = new JsonCompactor();
   const lockFileSkipper = new LockFileSkipper();
+  const licenseHeaderStripper = new LicenseHeaderStripper();
   const transformers = [
+    licenseHeaderStripper,
     whitespaceNormalizer,
     commentStripper,
     jsonCompactor,

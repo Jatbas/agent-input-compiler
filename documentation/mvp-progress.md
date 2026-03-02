@@ -79,7 +79,7 @@ Incremental output quality improvements, measured by Phase K benchmarks. New tra
 
 | Component                  | Status | Package              |
 | -------------------------- | ------ | -------------------- |
-| LicenseHeaderStripper      | Todo   | shared/src/pipeline/ |
+| LicenseHeaderStripper      | Done   | shared/src/pipeline/ |
 | Base64InlineDataStripper   | Todo   | shared/src/pipeline/ |
 | LongStringLiteralTruncator | Todo   | shared/src/pipeline/ |
 | DocstringTrimmer           | Todo   | shared/src/pipeline/ |
@@ -218,9 +218,10 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 ### 2025-03-02
 
-**Components:** KotlinProvider, DartProvider, Real-project integration tests, Token reduction benchmarks
+**Components:** KotlinProvider, DartProvider, Real-project integration tests, Token reduction benchmarks, LicenseHeaderStripper
 **Completed:**
 
+- LicenseHeaderStripper (task 059): ContentTransformer that strips leading comment blocks containing License/Copyright/Permission/SPDX (case-insensitive); stops at first blank line so only the license paragraph is removed; fileExtensions = []; wired first in create-pipeline-deps transformers; eight tests (c-style, hash, no keyword, empty, body not stripped, safety Python/YAML/JSX); token baseline 1198 → 1192.
 - Real-project integration tests (task 056): shared/src/integration/**tests**/real-project-integration.test.ts wires real createProjectScope, createCachingFileContentReader, createFullPipelineDeps (real RepoMapSupplier), LoadConfigFromFile, applyConfigResult, initLanguageProviders; rulePackProvider from loadRulePackFromPath and createProjectFileReader (no mcp import); projectRoot = toAbsolutePath(process.cwd()); three tests (real_project_compile_succeeds, real_project_compile_output_has_expected_structure, real_project_second_run_cache_hit) with 30s timeout.
 - KotlinProvider (task 052): LanguageProvider for .kt with regex only; parseImports for `import package.Class` and `import package.*` (source = path, isRelative when source starts with "."); extractSignaturesWithDocs returns []; extractSignaturesOnly for fun/class/object lines as CodeChunk (SYMBOL_TYPE.FUNCTION or CLASS); extractNames for same as ExportedSymbol[] (SYMBOL_KIND.FUNCTION or CLASS); createRegexLanguageProviderClass (Null Object); wired in initLanguageProviders (projectHasExtension .kt). Four tests (parseImports_returns_refs, extractSignaturesOnly_returns_chunks, extractNames_returns_symbols, invalid_returns_empty).
 - DartProvider (task 053): LanguageProvider for .dart with regex only; parseImports for `import '...'` and `import "..."` (source = path or package URI, isRelative when source starts with "." or contains "/"); extractSignaturesWithDocs returns []; extractSignaturesOnly for void/class/typedef and ReturnType name( lines as CodeChunk (SYMBOL_TYPE.FUNCTION or CLASS); extractNames for same as ExportedSymbol[] (SYMBOL_KIND.FUNCTION or CLASS); createRegexLanguageProviderClass (Null Object); wired in initLanguageProviders (projectHasExtension .dart). Four tests (parseImports_returns_refs, extractSignaturesOnly_returns_chunks, extractNames_returns_symbols, invalid_returns_empty).

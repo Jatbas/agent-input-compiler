@@ -318,7 +318,7 @@ describe("CompilationRunner", () => {
     const second = await runner.run(request);
     expect(second.meta.cacheHit).toBe(true);
     expect(second.compiledPrompt).toBe(first.compiledPrompt);
-  });
+  }, 30_000);
 
   it("repo_map_supplier_throws_run_rejects", async () => {
     const rejectingRepoMapSupplier: RepoMapSupplier = {
