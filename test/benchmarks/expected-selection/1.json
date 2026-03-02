@@ -1,0 +1,4 @@
+{
+  "intent": "refactor auth module to use middleware pattern",
+  "selectedPaths": ["src/auth/service.ts", "src/index.ts"]
+}

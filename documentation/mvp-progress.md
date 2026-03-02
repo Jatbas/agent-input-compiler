@@ -69,8 +69,8 @@ Need measurement before optimizing further. Benchmarks prove Phase J worked and 
 
 | Component                      | Status | Package     |
 | ------------------------------ | ------ | ----------- |
-| Real-project integration tests | Todo   | shared/src/ |
-| Selection quality benchmarks   | Todo   | test/       |
+| Real-project integration tests | Done   | shared/src/ |
+| Selection quality benchmarks   | Done   | test/       |
 | Token reduction benchmarks     | Todo   | test/       |
 
 ### Phase L — Transformers & Guard
@@ -218,20 +218,22 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 ### 2025-03-02
 
-**Components:** KotlinProvider, DartProvider
+**Components:** KotlinProvider, DartProvider, Real-project integration tests
 **Completed:**
 
+- Real-project integration tests (task 056): shared/src/integration/**tests**/real-project-integration.test.ts wires real createProjectScope, createCachingFileContentReader, createFullPipelineDeps (real RepoMapSupplier), LoadConfigFromFile, applyConfigResult, initLanguageProviders; rulePackProvider from loadRulePackFromPath and createProjectFileReader (no mcp import); projectRoot = toAbsolutePath(process.cwd()); three tests (real_project_compile_succeeds, real_project_compile_output_has_expected_structure, real_project_second_run_cache_hit) with 30s timeout.
 - KotlinProvider (task 052): LanguageProvider for .kt with regex only; parseImports for `import package.Class` and `import package.*` (source = path, isRelative when source starts with "."); extractSignaturesWithDocs returns []; extractSignaturesOnly for fun/class/object lines as CodeChunk (SYMBOL_TYPE.FUNCTION or CLASS); extractNames for same as ExportedSymbol[] (SYMBOL_KIND.FUNCTION or CLASS); createRegexLanguageProviderClass (Null Object); wired in initLanguageProviders (projectHasExtension .kt). Four tests (parseImports_returns_refs, extractSignaturesOnly_returns_chunks, extractNames_returns_symbols, invalid_returns_empty).
 - DartProvider (task 053): LanguageProvider for .dart with regex only; parseImports for `import '...'` and `import "..."` (source = path or package URI, isRelative when source starts with "." or contains "/"); extractSignaturesWithDocs returns []; extractSignaturesOnly for void/class/typedef and ReturnType name( lines as CodeChunk (SYMBOL_TYPE.FUNCTION or CLASS); extractNames for same as ExportedSymbol[] (SYMBOL_KIND.FUNCTION or CLASS); createRegexLanguageProviderClass (Null Object); wired in initLanguageProviders (projectHasExtension .dart). Four tests (parseImports_returns_refs, extractSignaturesOnly_returns_chunks, extractNames_returns_symbols, invalid_returns_empty).
 
 ### 2026-03-02
 
-**Components:** HtmlJsxProvider, ShellScriptProvider, SwiftProvider
+**Components:** HtmlJsxProvider, ShellScriptProvider, SwiftProvider, Selection quality benchmarks
 **Completed:**
 
 - HtmlJsxProvider (task 049): LanguageProvider for .html with regex only; parseImports for `<script src="...">` and `<link href="...">` (source = URL/path, isRelative when "." or "/"); extractSignaturesWithDocs returns []; extractSignaturesOnly for opening tags `<[a-zA-Z][a-zA-Z0-9]*` as CodeChunk with SYMBOL_TYPE.CLASS; extractNames returns []; tryOrEmpty (Null Object); wired in initLanguageProviders (projectHasExtension .html). Four tests (parseImports_returns_refs, extractSignaturesOnly_returns_chunks, extractNames_returns_empty, invalid_returns_empty).
 - ShellScriptProvider (task 050): LanguageProvider for .sh and .bash with regex only; parseImports for source "file" and . "file" (source = path, isRelative when path starts with "."); extractSignaturesWithDocs returns []; extractSignaturesOnly for function name (function \w+ or \w+ () {) as CodeChunk with SYMBOL_TYPE.FUNCTION; extractNames for same function names as ExportedSymbol[] with SYMBOL_KIND.FUNCTION; tryOrEmpty (Null Object); manual class for two extensions; wired in initLanguageProviders (projectHasExtension .sh || .bash). Four tests (parseImports_returns_refs, extractSignaturesOnly_returns_chunks, extractNames_returns_symbols, invalid_returns_empty).
 - SwiftProvider (task 051): LanguageProvider for .swift with regex only; parseImports for import Module and import struct/class/enum/protocol Module.Class (source = module path, isRelative false); extractSignaturesWithDocs returns []; extractSignaturesOnly for func/class/struct/enum lines as CodeChunk (FUNCTION or CLASS); extractNames for same as ExportedSymbol[] (SYMBOL_KIND.FUNCTION or CLASS); createRegexLanguageProviderClass + tryOrEmpty (Null Object); wired in initLanguageProviders (projectHasExtension .swift). Four tests (parseImports_returns_refs, extractSignaturesOnly_returns_chunks, extractNames_returns_symbols, invalid_returns_empty).
+- Selection quality benchmarks (task 057): test/benchmarks/expected-selection/1.json baseline with intent and selectedPaths for canonical task 1; shared/src/integration/**tests**/selection-quality-benchmark.test.ts wires real createProjectScope, createCachingFileContentReader, createFullPipelineDeps, initLanguageProviders, LoadConfigFromFile, applyConfigResult; rulePackProvider from loadRulePackFromPath and createProjectFileReader (no mcp import); InspectRunner with fixture root test/benchmarks/repos/1; selection_quality_task1_matches_baseline asserts order-independent set equality of selected paths against committed baseline.
 
 ### 2026-03-01
 
