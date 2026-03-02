@@ -113,6 +113,8 @@ export function createBudgetConfigFromResolved(config: ResolvedConfig): BudgetCo
   };
 }
 
+const DEFAULT_CONFIG_JSON = "{}";
+
 export function applyConfigResult(
   result: LoadConfigResult,
   configStore: ConfigStore,
@@ -122,9 +124,8 @@ export function applyConfigResult(
   heuristicConfig: HeuristicSelectorConfig;
   modelId: string | null;
 } {
-  if (result.rawJson !== undefined) {
-    configStore.writeSnapshot(stringHasher.hash(result.rawJson), result.rawJson);
-  }
+  const content = result.rawJson ?? DEFAULT_CONFIG_JSON;
+  configStore.writeSnapshot(stringHasher.hash(content), content);
   return {
     budgetConfig: createBudgetConfigFromResolved(result.config),
     heuristicConfig: { maxFiles: result.config.heuristic.maxFiles },
