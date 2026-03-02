@@ -13,6 +13,7 @@ import { HtmlJsxProvider } from "./html-jsx-provider.js";
 import { ShellScriptProvider } from "./shell-script-provider.js";
 import { SwiftProvider } from "./swift-provider.js";
 import { KotlinProvider } from "./kotlin-provider.js";
+import { DartProvider } from "./dart-provider.js";
 
 function projectHasExtension(projectRoot: string, ext: string): boolean {
   const glob = new FastGlobAdapter();
@@ -46,6 +47,7 @@ export async function initLanguageProviders(
       : [];
   const swift = projectHasExtension(projectRoot, ".swift") ? [new SwiftProvider()] : [];
   const kt = projectHasExtension(projectRoot, ".kt") ? [new KotlinProvider()] : [];
+  const dart = projectHasExtension(projectRoot, ".dart") ? [new DartProvider()] : [];
   return [
     ...py,
     ...go,
@@ -58,5 +60,6 @@ export async function initLanguageProviders(
     ...sh,
     ...swift,
     ...kt,
+    ...dart,
   ];
 }
