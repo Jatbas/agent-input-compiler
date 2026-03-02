@@ -1,0 +1,24 @@
+{
+  "name": "benchmark-fixture-1",
+  "version": "1.0.0",
+  "description": "Fixture project for AIC benchmark suite — auth middleware refactoring",
+  "main": "src/index.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest",
+    "lint": "eslint src/"
+  },
+  "dependencies": {
+    "express": "4.18.2"
+  },
+  "devDependencies": {
+    "typescript": "5.4.5",
+    "vitest": "1.6.0",
+    "eslint": "9.0.0"
+  },
+  "keywords": [
+    "auth",
+    "middleware",
+    "jwt"
+  ]
+}

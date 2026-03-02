@@ -1,0 +1,29 @@
+/* Main application styles */
+/* Auth module UI components */
+
+.auth-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Center the login form vertically */
+  justify-content: center;
+  min-height: 100vh;
+  background-color: #f5f5f5;
+}
+
+/* Login form styling */
+.login-form {
+  padding: 2rem;
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  /* Responsive width */
+  width: min(400px, 90vw);
+}
+
+/* Error message display */
+.auth-error {
+  color: #dc3545;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}

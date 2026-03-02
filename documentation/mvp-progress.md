@@ -71,7 +71,7 @@ Need measurement before optimizing further. Benchmarks prove Phase J worked and 
 | ------------------------------ | ------ | ----------- |
 | Real-project integration tests | Done   | shared/src/ |
 | Selection quality benchmarks   | Done   | test/       |
-| Token reduction benchmarks     | Todo   | test/       |
+| Token reduction benchmarks     | Done   | test/       |
 
 ### Phase L — Transformers & Guard
 
@@ -218,12 +218,13 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 ### 2025-03-02
 
-**Components:** KotlinProvider, DartProvider, Real-project integration tests
+**Components:** KotlinProvider, DartProvider, Real-project integration tests, Token reduction benchmarks
 **Completed:**
 
 - Real-project integration tests (task 056): shared/src/integration/**tests**/real-project-integration.test.ts wires real createProjectScope, createCachingFileContentReader, createFullPipelineDeps (real RepoMapSupplier), LoadConfigFromFile, applyConfigResult, initLanguageProviders; rulePackProvider from loadRulePackFromPath and createProjectFileReader (no mcp import); projectRoot = toAbsolutePath(process.cwd()); three tests (real_project_compile_succeeds, real_project_compile_output_has_expected_structure, real_project_second_run_cache_hit) with 30s timeout.
 - KotlinProvider (task 052): LanguageProvider for .kt with regex only; parseImports for `import package.Class` and `import package.*` (source = path, isRelative when source starts with "."); extractSignaturesWithDocs returns []; extractSignaturesOnly for fun/class/object lines as CodeChunk (SYMBOL_TYPE.FUNCTION or CLASS); extractNames for same as ExportedSymbol[] (SYMBOL_KIND.FUNCTION or CLASS); createRegexLanguageProviderClass (Null Object); wired in initLanguageProviders (projectHasExtension .kt). Four tests (parseImports_returns_refs, extractSignaturesOnly_returns_chunks, extractNames_returns_symbols, invalid_returns_empty).
 - DartProvider (task 053): LanguageProvider for .dart with regex only; parseImports for `import '...'` and `import "..."` (source = path or package URI, isRelative when source starts with "." or contains "/"); extractSignaturesWithDocs returns []; extractSignaturesOnly for void/class/typedef and ReturnType name( lines as CodeChunk (SYMBOL_TYPE.FUNCTION or CLASS); extractNames for same as ExportedSymbol[] (SYMBOL_KIND.FUNCTION or CLASS); createRegexLanguageProviderClass (Null Object); wired in initLanguageProviders (projectHasExtension .dart). Four tests (parseImports_returns_refs, extractSignaturesOnly_returns_chunks, extractNames_returns_symbols, invalid_returns_empty).
+- Token reduction benchmarks (task 058): enriched test/benchmarks/repos/1 with transformer-exercisable content (license headers, comments, package.json, package-lock.json, src/auth/config.json, src/styles.css); updated test/benchmarks/expected-selection/1.json for pipeline selection; test/benchmarks/baseline.json (empty then entry "1" on first run); shared/src/integration/**tests**/token-reduction-benchmark.test.ts wires CompilationRunner with fixture root, token_reduction_task1_matches_or_establishes_baseline (establish or assert ≤5% token increase, ≤2× duration); updated full-pipeline and golden-snapshot snapshots for enriched fixture.
 
 ### 2026-03-02
 

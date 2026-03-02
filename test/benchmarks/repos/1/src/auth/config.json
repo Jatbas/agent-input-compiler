@@ -1,0 +1,15 @@
+{
+  "auth": {
+    "jwt": {
+      "secret_env": "JWT_SECRET",
+      "expiry": "24h",
+      "algorithm": "HS256",
+      "issuer": "acme-corp"
+    },
+    "roles": ["admin", "editor", "viewer"],
+    "session": {
+      "timeout_minutes": 30,
+      "refresh_enabled": true
+    }
+  }
+}

@@ -47,18 +47,18 @@ exports[`golden snapshot > full_pipeline_trace_matches_golden_snapshot 1`] = `
   },
   "tokenSummary": {
     "afterGuard": 22,
-    "afterLadder": 24,
-    "afterTransforms": 24,
-    "promptTotal": 104,
+    "afterLadder": 224,
+    "afterTransforms": 224,
+    "promptTotal": 545,
     "raw": 22,
-    "reductionPct": -3.727272727272727,
+    "reductionPct": -23.772727272727273,
     "selected": 22,
   },
   "transforms": [
     {
       "filePath": "src/auth/service.ts",
-      "originalTokens": 11,
-      "transformedTokens": 11,
+      "originalTokens": 390,
+      "transformedTokens": 190,
       "transformersApplied": [
         "comment-stripper",
         "whitespace-normalizer",
@@ -66,8 +66,8 @@ exports[`golden snapshot > full_pipeline_trace_matches_golden_snapshot 1`] = `
     },
     {
       "filePath": "src/index.ts",
-      "originalTokens": 13,
-      "transformedTokens": 13,
+      "originalTokens": 75,
+      "transformedTokens": 34,
       "transformersApplied": [
         "comment-stripper",
         "whitespace-normalizer",

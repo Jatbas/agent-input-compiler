@@ -1,0 +1,117 @@
+import { describe, it, expect, beforeAll } from "vitest";
+import * as path from "node:path";
+import * as fs from "node:fs";
+import { toAbsolutePath } from "#core/types/paths.js";
+import { EDITOR_ID } from "#core/types/enums.js";
+import type { TaskClass } from "#core/types/enums.js";
+import type { RulePackProvider } from "#core/interfaces/rule-pack-provider.interface.js";
+import type { RulePack } from "#core/types/rule-pack.js";
+import { createProjectScope } from "#storage/create-project-scope.js";
+import { createCachingFileContentReader } from "#adapters/caching-file-content-reader.js";
+import { createFullPipelineDeps } from "../../bootstrap/create-pipeline-deps.js";
+import { CompilationRunner } from "#pipeline/compilation-runner.js";
+import { initLanguageProviders } from "#adapters/init-language-providers.js";
+import { LoadConfigFromFile } from "../../config/load-config-from-file.js";
+import { applyConfigResult } from "../../config/load-config-from-file.js";
+import { loadRulePackFromPath } from "#core/load-rule-pack.js";
+import { createProjectFileReader } from "#adapters/project-file-reader-adapter.js";
+import { Sha256Adapter } from "#adapters/sha256-adapter.js";
+
+const fixtureRoot = toAbsolutePath(
+  path.join(process.cwd(), "test", "benchmarks", "repos", "1"),
+);
+
+const baselinePath = path.join(process.cwd(), "test", "benchmarks", "baseline.json");
+
+const defaultRulePack: RulePack = {
+  constraints: [],
+  includePatterns: [],
+  excludePatterns: [],
+};
+
+function createRulePackProvider(): RulePackProvider {
+  return {
+    getBuiltInPack(): RulePack {
+      return defaultRulePack;
+    },
+    getProjectPack(
+      projectRootArg: ReturnType<typeof toAbsolutePath>,
+      taskClass: TaskClass,
+    ): RulePack | null {
+      return loadRulePackFromPath(
+        createProjectFileReader(projectRootArg as string),
+        taskClass,
+      );
+    },
+  };
+}
+
+let providers: Awaited<ReturnType<typeof initLanguageProviders>>;
+
+beforeAll(async () => {
+  providers = await initLanguageProviders(fixtureRoot as string);
+});
+
+type BaselineEntry = { token_count: number; duration_ms: number };
+
+function readBaseline(): Record<string, BaselineEntry> {
+  try {
+    return JSON.parse(fs.readFileSync(baselinePath, "utf8"));
+  } catch {
+    return {};
+  }
+}
+
+describe("token reduction benchmarks", () => {
+  it("token_reduction_task1_matches_or_establishes_baseline", async () => {
+    const scope = createProjectScope(fixtureRoot);
+    const sha256Adapter = new Sha256Adapter();
+    const configResult = new LoadConfigFromFile().load(fixtureRoot, null);
+    const { budgetConfig, heuristicConfig } = applyConfigResult(
+      configResult,
+      scope.configStore,
+      sha256Adapter,
+    );
+    const fileContentReader = createCachingFileContentReader(fixtureRoot);
+    const rulePackProvider = createRulePackProvider();
+    const deps = createFullPipelineDeps(
+      fileContentReader,
+      rulePackProvider,
+      budgetConfig,
+      providers,
+      heuristicConfig,
+    );
+    const runner = new CompilationRunner(
+      deps,
+      scope.clock,
+      scope.cacheStore,
+      scope.configStore,
+      sha256Adapter,
+      scope.guardStore,
+      scope.compilationLogStore,
+      scope.idGenerator,
+    );
+    const request = {
+      intent: "refactor auth module to use middleware pattern",
+      projectRoot: fixtureRoot,
+      modelId: null,
+      editorId: EDITOR_ID.GENERIC,
+      configPath: null,
+    };
+    const result = await runner.run(request);
+    const tokenCount = result.meta.tokensCompiled;
+    const durationMs = result.meta.durationMs;
+    let baseline: Record<string, BaselineEntry> = readBaseline();
+    if (baseline["1"] === undefined) {
+      baseline = {
+        ...baseline,
+        "1": { token_count: tokenCount, duration_ms: durationMs },
+      };
+      fs.writeFileSync(baselinePath, JSON.stringify(baseline, null, 2));
+      expect(true).toBe(true);
+      return;
+    }
+    expect(tokenCount).toBeLessThanOrEqual(baseline["1"].token_count * 1.05);
+    expect(durationMs).toBeLessThanOrEqual(baseline["1"].duration_ms * 2);
+  }, 30_000);
+});

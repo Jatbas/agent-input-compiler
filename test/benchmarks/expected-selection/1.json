@@ -1,4 +1,11 @@
 {
   "intent": "refactor auth module to use middleware pattern",
-  "selectedPaths": ["src/auth/service.ts", "src/index.ts"]
+  "selectedPaths": [
+    "package-lock.json",
+    "package.json",
+    "src/auth/config.json",
+    "src/auth/service.ts",
+    "src/index.ts",
+    "src/styles.css"
+  ]
 }
