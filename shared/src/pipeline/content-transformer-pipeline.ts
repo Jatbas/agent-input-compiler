@@ -11,6 +11,7 @@ import type { TokenCount } from "#core/types/units.js";
 import type { FileExtension } from "#core/types/paths.js";
 
 function getExtension(path: string): string {
+  if (path.endsWith(".d.ts")) return ".d.ts";
   const idx = path.lastIndexOf(".");
   return idx >= 0 ? path.slice(idx) : "";
 }

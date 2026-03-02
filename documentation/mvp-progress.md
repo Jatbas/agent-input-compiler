@@ -84,7 +84,7 @@ Incremental output quality improvements, measured by Phase K benchmarks. New tra
 | LongStringLiteralTruncator | Done   | shared/src/pipeline/ |
 | DocstringTrimmer           | Done   | shared/src/pipeline/ |
 | CssVariableSummarizer      | Todo   | shared/src/pipeline/ |
-| TypeDeclarationCompactor   | Todo   | shared/src/pipeline/ |
+| TypeDeclarationCompactor   | Done   | shared/src/pipeline/ |
 | TestStructureExtractor     | Todo   | shared/src/pipeline/ |
 | ImportDeduplicator         | Todo   | shared/src/pipeline/ |
 | HtmlToMarkdownTransformer  | Todo   | shared/src/pipeline/ |
@@ -218,9 +218,10 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 ### 2025-03-02
 
-**Components:** KotlinProvider, DartProvider, Real-project integration tests, Token reduction benchmarks, LicenseHeaderStripper, Base64InlineDataStripper, LongStringLiteralTruncator, DocstringTrimmer
+**Components:** KotlinProvider, DartProvider, Real-project integration tests, Token reduction benchmarks, LicenseHeaderStripper, Base64InlineDataStripper, LongStringLiteralTruncator, DocstringTrimmer, TypeDeclarationCompactor
 **Completed:**
 
+- TypeDeclarationCompactor (task 063): ContentTransformer that collapses multi-line type/interface/enum/declare declarations in .d.ts to single-line form; fileExtensions = [".d.ts"]; getExtension in content-transformer-pipeline returns ".d.ts" for paths ending in ".d.ts"; wired after lockFileSkipper in create-pipeline-deps; line-based scan with brace counting; eight tests (multi_line_type_collapsed, multi_line_interface_collapsed, multi_line_enum_collapsed, declare_block_collapsed, single_line_unchanged, empty_content_returns_unchanged, no_declaration_content_unchanged, safety_d_ts_structure_preserved); token benchmark unchanged (1192).
 - DocstringTrimmer (task 062): ContentTransformer that replaces Python \"\"\"...\"\"\", '''...''', and JSDoc /\*_ ... _/ docstrings longer than 200 chars with placeholder preserving delimiter and original length; fileExtensions = []; wired fourth in create-pipeline-deps (after longStringLiteralTruncator, before whitespaceNormalizer); regex-based replace with callback; nine tests (long_python_double_docstring_trimmed, long_python_single_docstring_trimmed, long_jsdoc_block_trimmed, short_docstring_unchanged, empty_content_returns_unchanged, no_docstring_pattern_unchanged, safety_python_indentation_preserved, safety_yaml_structure_unchanged, safety_jsx_structure_unchanged); token benchmark pass; baseline unchanged.
 - LongStringLiteralTruncator (task 061): ContentTransformer that replaces double- and single-quoted string literals longer than 200 chars with placeholder preserving quote type and original length; fileExtensions = []; wired third in create-pipeline-deps (after base64InlineDataStripper, before whitespaceNormalizer); regex-based replace with callback; nine tests (long_double_quoted_truncated, long_single_quoted_truncated, short_literal_unchanged, empty_content_returns_unchanged, escaped_quotes_inside_preserved, multiple_long_literals_both_replaced, safety_python_indentation_preserved, safety_yaml_structure_unchanged, safety_jsx_structure_unchanged); token and selection benchmarks pass; baseline unchanged.
 - Base64InlineDataStripper (task 060): ContentTransformer that replaces data URLs (data:<mime>;base64,<payload>) with "[base64 inline data stripped]"; fileExtensions = []; wired second in create-pipeline-deps (after LicenseHeaderStripper); regex global replace; seven tests (strips_data_url_base64, no_data_url_returns_unchanged, empty_content_returns_unchanged, multiple_data_urls_replaced, safety_python_indentation_preserved, safety_yaml_structure_unchanged, safety_jsx_structure_unchanged); token baseline unchanged (fixture has no data URLs).

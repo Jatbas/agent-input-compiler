@@ -24,6 +24,7 @@ import { WhitespaceNormalizer } from "#pipeline/whitespace-normalizer.js";
 import { CommentStripper } from "#pipeline/comment-stripper.js";
 import { JsonCompactor } from "#pipeline/json-compactor.js";
 import { LockFileSkipper } from "#pipeline/lock-file-skipper.js";
+import { TypeDeclarationCompactor } from "#pipeline/type-declaration-compactor.js";
 import { ContentTransformerPipeline } from "#pipeline/content-transformer-pipeline.js";
 import { SummarisationLadder } from "#pipeline/summarisation-ladder.js";
 import { PromptAssembler } from "#pipeline/prompt-assembler.js";
@@ -85,6 +86,7 @@ export function createPipelineDeps(
   const commentStripper = new CommentStripper();
   const jsonCompactor = new JsonCompactor();
   const lockFileSkipper = new LockFileSkipper();
+  const typeDeclarationCompactor = new TypeDeclarationCompactor();
   const licenseHeaderStripper = new LicenseHeaderStripper();
   const base64InlineDataStripper = new Base64InlineDataStripper();
   const longStringLiteralTruncator = new LongStringLiteralTruncator();
@@ -98,6 +100,7 @@ export function createPipelineDeps(
     commentStripper,
     jsonCompactor,
     lockFileSkipper,
+    typeDeclarationCompactor,
   ] as const;
   const contentTransformerPipeline = new ContentTransformerPipeline(
     transformers,
