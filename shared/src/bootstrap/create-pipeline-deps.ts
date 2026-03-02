@@ -18,6 +18,7 @@ import { PromptInjectionScanner } from "#pipeline/prompt-injection-scanner.js";
 import { ContextGuard } from "#pipeline/context-guard.js";
 import { Base64InlineDataStripper } from "#pipeline/base64-inline-data-stripper.js";
 import { LongStringLiteralTruncator } from "#pipeline/long-string-literal-truncator.js";
+import { DocstringTrimmer } from "#pipeline/docstring-trimmer.js";
 import { LicenseHeaderStripper } from "#pipeline/license-header-stripper.js";
 import { WhitespaceNormalizer } from "#pipeline/whitespace-normalizer.js";
 import { CommentStripper } from "#pipeline/comment-stripper.js";
@@ -87,10 +88,12 @@ export function createPipelineDeps(
   const licenseHeaderStripper = new LicenseHeaderStripper();
   const base64InlineDataStripper = new Base64InlineDataStripper();
   const longStringLiteralTruncator = new LongStringLiteralTruncator();
+  const docstringTrimmer = new DocstringTrimmer();
   const transformers = [
     licenseHeaderStripper,
     base64InlineDataStripper,
     longStringLiteralTruncator,
+    docstringTrimmer,
     whitespaceNormalizer,
     commentStripper,
     jsonCompactor,

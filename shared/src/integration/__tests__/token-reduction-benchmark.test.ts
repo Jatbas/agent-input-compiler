@@ -107,11 +107,30 @@ describe("token reduction benchmarks", () => {
         ...baseline,
         "1": { token_count: tokenCount, duration_ms: durationMs },
       };
-      fs.writeFileSync(baselinePath, JSON.stringify(baseline, null, 2));
+      fs.writeFileSync(baselinePath, JSON.stringify(baseline, null, 2) + "\n");
+      console.log(
+        `[benchmark] task 1 — established baseline: ${tokenCount} tokens, ${durationMs}ms`,
+      );
       expect(true).toBe(true);
       return;
     }
-    expect(tokenCount).toBeLessThanOrEqual(baseline["1"].token_count * 1.05);
-    expect(durationMs).toBeLessThanOrEqual(baseline["1"].duration_ms * 2);
+    const prev = baseline["1"];
+    const delta = tokenCount - prev.token_count;
+    const pct = prev.token_count === 0 ? 0 : (delta / prev.token_count) * 100;
+    console.log(
+      `[benchmark] task 1 — tokens: ${tokenCount} (baseline: ${prev.token_count}, delta: ${delta >= 0 ? "+" : ""}${delta}, ${pct >= 0 ? "+" : ""}${pct.toFixed(1)}%) | duration: ${durationMs}ms (baseline: ${prev.duration_ms}ms)`,
+    );
+    if (tokenCount < prev.token_count) {
+      const updated = {
+        ...baseline,
+        "1": { token_count: tokenCount, duration_ms: durationMs },
+      };
+      fs.writeFileSync(baselinePath, JSON.stringify(updated, null, 2) + "\n");
+      console.log(
+        `[benchmark] task 1 — baseline ratcheted: ${prev.token_count} → ${tokenCount} tokens`,
+      );
+    }
+    expect(tokenCount).toBeLessThanOrEqual(prev.token_count * 1.05);
+    expect(durationMs).toBeLessThanOrEqual(prev.duration_ms * 2);
   }, 30_000);
 });
