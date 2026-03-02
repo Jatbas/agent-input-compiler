@@ -57,7 +57,7 @@ Highest-impact work. The core value of AIC is picking the right files — if sel
 | RubyProvider                     | Done   | shared/src/adapters/ |
 | PhpProvider                      | Done   | shared/src/adapters/ |
 | CssProvider                      | Done   | shared/src/adapters/ |
-| HtmlJsxProvider                  | Todo   | shared/src/adapters/ |
+| HtmlJsxProvider                  | Done   | shared/src/adapters/ |
 | ShellScriptProvider              | Todo   | shared/src/adapters/ |
 | SwiftProvider                    | Todo   | shared/src/adapters/ |
 | KotlinProvider                   | Todo   | shared/src/adapters/ |
@@ -215,6 +215,13 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 ---
 
 ## Daily Log
+
+### 2026-03-02
+
+**Components:** HtmlJsxProvider
+**Completed:**
+
+- HtmlJsxProvider (task 049): LanguageProvider for .html with regex only; parseImports for `<script src="...">` and `<link href="...">` (source = URL/path, isRelative when "." or "/"); extractSignaturesWithDocs returns []; extractSignaturesOnly for opening tags `<[a-zA-Z][a-zA-Z0-9]*` as CodeChunk with SYMBOL_TYPE.CLASS; extractNames returns []; tryOrEmpty (Null Object); wired in initLanguageProviders (projectHasExtension .html). Four tests (parseImports_returns_refs, extractSignaturesOnly_returns_chunks, extractNames_returns_empty, invalid_returns_empty).
 
 ### 2026-03-01
 

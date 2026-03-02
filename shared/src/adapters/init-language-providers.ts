@@ -9,6 +9,7 @@ import { JavaProvider } from "./java-provider.js";
 import { RubyProvider } from "./ruby-provider.js";
 import { PhpProvider } from "./php-provider.js";
 import { CssProvider } from "./css-provider.js";
+import { HtmlJsxProvider } from "./html-jsx-provider.js";
 
 function projectHasExtension(projectRoot: string, ext: string): boolean {
   const glob = new FastGlobAdapter();
@@ -35,5 +36,6 @@ export async function initLanguageProviders(
   const rb = projectHasExtension(projectRoot, ".rb") ? [new RubyProvider()] : [];
   const php = projectHasExtension(projectRoot, ".php") ? [new PhpProvider()] : [];
   const css = projectHasExtension(projectRoot, ".css") ? [new CssProvider()] : [];
-  return [...py, ...go, ...rs, ...java, ...rb, ...php, ...css];
+  const html = projectHasExtension(projectRoot, ".html") ? [new HtmlJsxProvider()] : [];
+  return [...py, ...go, ...rs, ...java, ...rb, ...php, ...css, ...html];
 }

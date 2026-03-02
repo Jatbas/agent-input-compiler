@@ -1,6 +1,6 @@
 # Task 049: HtmlJsxProvider
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** Phase J — Intent & Selection Quality
 > **Layer:** adapter
 > **Depends on:** Phase B (LanguageProvider interface Done)
