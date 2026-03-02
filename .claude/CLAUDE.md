@@ -88,6 +88,10 @@ Hexagonal boundaries are enforced by `no-restricted-imports` in `eslint.config.m
 
 Run `pnpm lint` before declaring work complete. Never add `eslint-disable`, `eslint-disable-next-line`, `@ts-ignore`, or `@ts-nocheck` comments — fix the code instead.
 
+## Prompt Commands
+
+- **"show aic session summary"** — When the user says this (or similar), read the MCP resource `aic://session-summary`. Start the reply with one short line: **Session = this AIC server run (since the AIC MCP server started), not this chat.** Then display the result as a formatted table. The resource returns JSON with: `compilationsTotal`, `compilationsToday`, `cacheHitRatePct`, `avgReductionPct`, `totalTokensRaw`, `totalTokensCompiled`, `totalTokensSaved`, `telemetryDisabled`, `guardByType`, `topTaskClasses`, `lastCompilation`, `installationOk`, `installationNotes`. Show total tokens (raw → compiled) before total tokens saved.
+
 ## Tests
 
 - Co-located `__tests__/` directories next to source

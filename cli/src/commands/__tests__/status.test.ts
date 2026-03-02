@@ -13,6 +13,8 @@ const fixtureAggregates: StatusAggregates = {
   compilationsToday: 0,
   cacheHitRatePct: 0,
   avgReductionPct: 10,
+  totalTokensRaw: 50_000,
+  totalTokensCompiled: 49_000,
   totalTokensSaved: 1000,
   telemetryDisabled: false,
   guardByType: {},

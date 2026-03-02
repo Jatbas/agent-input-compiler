@@ -35,6 +35,61 @@ describe("MCP server", () => {
     expect(names).toContain("aic_inspect");
   });
 
+  it("session_summary_resource_returns_json", async () => {
+    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    const server = createMcpServer(toAbsolutePath(tmpDir));
+    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+    await server.connect(transportServer);
+    const client = new Client({ name: "test", version: "1.0" });
+    await client.connect(transportClient);
+    const result = await client.readResource({ uri: "aic://session-summary" });
+    expect(result.contents).toHaveLength(1);
+    const first = result.contents[0];
+    expect(first?.mimeType).toBe("application/json");
+    const text: string =
+      first && "text" in first && typeof first.text === "string" ? first.text : "{}";
+    const parsed = JSON.parse(text) as {
+      compilationsTotal?: number;
+      compilationsToday?: number;
+      lastCompilation?: unknown;
+    };
+    expect(typeof parsed["compilationsTotal"]).toBe("number");
+    expect(typeof parsed["compilationsToday"]).toBe("number");
+    expect(
+      parsed.lastCompilation === null || typeof parsed.lastCompilation === "object",
+    ).toBe(true);
+  });
+
+  it("session_summary_resource_empty_db", async () => {
+    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    const server = createMcpServer(toAbsolutePath(tmpDir));
+    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+    await server.connect(transportServer);
+    const client = new Client({ name: "test", version: "1.0" });
+    await client.connect(transportClient);
+    const result = await client.readResource({ uri: "aic://session-summary" });
+    const first = result.contents[0];
+    const rawText: string =
+      first && "text" in first && typeof first.text === "string" ? first.text : "{}";
+    const parsed = JSON.parse(rawText) as Record<string, unknown>;
+    expect(parsed["compilationsTotal"]).toBe(0);
+    const expectedKeys = [
+      "compilationsTotal",
+      "compilationsToday",
+      "cacheHitRatePct",
+      "guardByType",
+      "topTaskClasses",
+      "lastCompilation",
+      "installationOk",
+      "installationNotes",
+      "totalTokensRaw",
+      "totalTokensCompiled",
+    ];
+    for (const key of expectedKeys) {
+      expect(Object.prototype.hasOwnProperty.call(parsed, key)).toBe(true);
+    }
+  });
+
   it("valid_args_returns_compiled_prompt", async () => {
     tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
     const server = createMcpServer(toAbsolutePath(tmpDir));

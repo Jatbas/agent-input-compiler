@@ -31,6 +31,14 @@ export class SqliteStatusStore implements StatusStore {
     const cacheHitRatePct =
       compilationsTotal === 0 ? null : (cacheRateRow[0]?.rate ?? null);
 
+    const tokenSumsRow = this.db
+      .prepare(
+        "SELECT COALESCE(SUM(tokens_raw), 0) as raw, COALESCE(SUM(tokens_compiled), 0) as compiled FROM compilation_log",
+      )
+      .all() as { raw: number; compiled: number }[];
+    const totalTokensRaw = tokenSumsRow[0]?.raw ?? 0;
+    const totalTokensCompiled = tokenSumsRow[0]?.compiled ?? 0;
+
     const telemetryCountRow = this.db
       .prepare("SELECT COUNT(*) as c FROM telemetry_events")
       .all() as { c: number }[];
@@ -111,6 +119,8 @@ export class SqliteStatusStore implements StatusStore {
       compilationsToday,
       cacheHitRatePct,
       avgReductionPct,
+      totalTokensRaw,
+      totalTokensCompiled,
       totalTokensSaved,
       telemetryDisabled,
       guardByType,

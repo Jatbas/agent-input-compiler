@@ -19,6 +19,7 @@ import { InspectRequestSchema } from "./schemas/inspect-request.schema.js";
 import { createCompileHandler } from "./handlers/compile-handler.js";
 import { handleInspect } from "./handlers/inspect-handler.js";
 import { createProjectScope } from "@aic/shared/storage/create-project-scope.js";
+import { SqliteStatusStore } from "@aic/shared/storage/sqlite-status-store.js";
 import type { CacheStore } from "@aic/shared/core/interfaces/cache-store.interface.js";
 import type { SessionTracker } from "@aic/shared/core/interfaces/session-tracker.interface.js";
 import type { Clock } from "@aic/shared/core/interfaces/clock.interface.js";
@@ -194,6 +195,19 @@ export function createMcpServer(
   server.resource("last-compilation", "aic://last-compilation", () => ({
     contents: [],
   }));
+  server.resource("session-summary", "aic://session-summary", () => {
+    const statusStore = new SqliteStatusStore(scope.db, scope.clock);
+    const summary = statusStore.getSummary();
+    return {
+      contents: [
+        {
+          uri: "aic://session-summary",
+          mimeType: "application/json",
+          text: JSON.stringify(summary),
+        },
+      ],
+    };
+  });
   return server;
 }
 

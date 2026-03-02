@@ -97,6 +97,8 @@ describe("SqliteStatusStore", () => {
     expect(summary.lastCompilation).toBeNull();
     expect(summary.telemetryDisabled).toBe(true);
     expect(summary.avgReductionPct).toBeNull();
+    expect(summary.totalTokensRaw).toBe(0);
+    expect(summary.totalTokensCompiled).toBe(0);
     expect(summary.totalTokensSaved).toBeNull();
     expect(summary.guardByType).toEqual({});
     expect(summary.topTaskClasses).toEqual([]);
@@ -123,6 +125,8 @@ describe("SqliteStatusStore", () => {
     const summary = store.getSummary();
     expect(summary.compilationsTotal).toBe(1);
     expect(summary.compilationsToday).toBe(0);
+    expect(summary.totalTokensRaw).toBe(45000);
+    expect(summary.totalTokensCompiled).toBe(7200);
     expect(summary.lastCompilation).not.toBeNull();
     if (summary.lastCompilation !== null) {
       expect(summary.lastCompilation.intent).toBe("fix auth");

@@ -71,6 +71,7 @@ function formatStatusOutput(
       ? `${Math.round(aggregates.cacheHitRatePct)}%`
       : "—";
   const avgReductionLine = formatAvgReductionLine(aggregates);
+  const totalTokensLine = `${aggregates.totalTokensRaw.toLocaleString()} raw → ${aggregates.totalTokensCompiled.toLocaleString()} compiled`;
   const totalSavedLine = formatTotalSavedLine(aggregates);
 
   const guardTotal = Object.values(aggregates.guardByType).reduce((a, b) => a + b, 0);
@@ -93,6 +94,7 @@ function formatStatusOutput(
     `Compilations:     ${aggregates.compilationsTotal} (${aggregates.compilationsToday} today)`,
     `Cache hit rate:   ${cacheLine}`,
     `Avg reduction:    ${avgReductionLine}`,
+    `Total tokens:     ${totalTokensLine}`,
     `Total tokens saved: ${totalSavedLine}`,
     `Guard:            ${guardLine}`,
     `Top task classes: ${topClassesLine}`,

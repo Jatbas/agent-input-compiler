@@ -61,6 +61,10 @@ These bullets are the single source of truth: the sessionStart hook (`.cursor/ho
 
 When in doubt, open the specific rule file listed above for the full text.
 
+## Prompt Commands
+
+- **"show aic session summary"** — When the user says this (or similar), read the MCP resource `aic://session-summary` from the `project-0-AIC-AIC` server using `FetchMcpResource`. Start the reply with one short line: **Session = this AIC server run (since the AIC MCP server started), not this chat.** Then display the result as a formatted table. The resource returns JSON with: `compilationsTotal`, `compilationsToday`, `cacheHitRatePct`, `avgReductionPct`, `totalTokensRaw`, `totalTokensCompiled`, `totalTokensSaved`, `telemetryDisabled`, `guardByType`, `topTaskClasses`, `lastCompilation`, `installationOk`, `installationNotes`. Show total tokens (raw → compiled) before total tokens saved.
+
 ## Maintenance
 
 - Whenever a **rule** in `.cursor/rules/` is changed or added, review this router: update the context table and/or critical reminders so the map stays accurate.

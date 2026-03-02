@@ -12,6 +12,8 @@ export interface StatusAggregates {
   readonly compilationsToday: number;
   readonly cacheHitRatePct: number | null;
   readonly avgReductionPct: number | null;
+  readonly totalTokensRaw: number;
+  readonly totalTokensCompiled: number;
   readonly totalTokensSaved: number | null;
   readonly telemetryDisabled: boolean;
   readonly guardByType: Readonly<Record<string, number>>;
