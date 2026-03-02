@@ -12,7 +12,7 @@ import {
   type TriggerSource,
   TRIGGER_SOURCE,
 } from "@aic/shared/core/types/enums.js";
-import type { SessionId } from "@aic/shared/core/types/identifiers.js";
+import { type SessionId, toConversationId } from "@aic/shared/core/types/identifiers.js";
 import type { CompilationRequest } from "@aic/shared/core/types/compilation-types.js";
 import type { TelemetryDeps } from "@aic/shared/core/types/telemetry-types.js";
 import { writeCompilationTelemetry } from "@aic/shared/core/write-compilation-telemetry.js";
@@ -32,6 +32,7 @@ export function createCompileHandler(
     editorId?: string | undefined;
     configPath: string | null;
     triggerSource?: TriggerSource | undefined;
+    conversationId?: string | null | undefined;
   },
   _extra: unknown,
 ) => Promise<CallToolResult> {
@@ -49,6 +50,11 @@ export function createCompileHandler(
         configPath: args.configPath !== null ? toFilePath(args.configPath) : null,
         sessionId,
         triggerSource: args.triggerSource ?? TRIGGER_SOURCE.TOOL_GATE,
+        ...(args.conversationId !== null &&
+        args.conversationId !== undefined &&
+        args.conversationId !== ""
+          ? { conversationId: toConversationId(args.conversationId) }
+          : {}),
       };
       const result = await runner.run(request);
       writeCompilationTelemetry(

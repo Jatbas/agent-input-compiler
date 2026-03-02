@@ -3,6 +3,7 @@ import type { CompilationArgs } from "@aic/cli/schemas/compilation-args.js";
 import type { CompilationRunner } from "@aic/shared/core/interfaces/compilation-runner.interface.js";
 import { toAbsolutePath, toFilePath } from "@aic/shared/core/types/paths.js";
 import { EDITOR_ID } from "@aic/shared/core/types/enums.js";
+import { toConversationId } from "@aic/shared/core/types/identifiers.js";
 import type { CompilationRequest } from "@aic/shared/core/types/compilation-types.js";
 import type { TelemetryDeps } from "@aic/shared/core/types/telemetry-types.js";
 import { writeCompilationTelemetry } from "@aic/shared/core/write-compilation-telemetry.js";
@@ -22,6 +23,9 @@ export async function compileCommand(
       editorId: EDITOR_ID.GENERIC,
       configPath: args.configPath !== null ? toFilePath(args.configPath) : null,
       triggerSource: args.triggerSource,
+      ...(args.conversationId !== undefined && args.conversationId !== ""
+        ? { conversationId: toConversationId(args.conversationId) }
+        : {}),
     };
     const result = await runner.run(request);
     if (telemetryDeps !== undefined) {

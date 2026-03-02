@@ -9,6 +9,9 @@ export type UUIDv7 = Brand<string, "UUIDv7">;
 // Agentic session identifier (UUIDv7).
 export type SessionId = Brand<string, "SessionId">;
 
+// Editor conversation identifier (KL-004).
+export type ConversationId = Brand<string, "ConversationId">;
+
 // SHA-256 hash of project root absolute path.
 export type RepoId = Brand<string, "RepoId">;
 
@@ -25,6 +28,10 @@ export function toUUIDv7(value: string): UUIDv7 {
 
 export function toSessionId(value: string): SessionId {
   return value as SessionId;
+}
+
+export function toConversationId(value: string): ConversationId {
+  return value as ConversationId;
 }
 
 export function toRepoId(value: string): RepoId {

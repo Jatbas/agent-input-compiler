@@ -13,5 +13,6 @@ export const CompilationArgsSchema = BaseArgsSchema.extend({
       "model_initiated",
     ])
     .default("cli"),
+  conversationId: z.string().min(1).optional(),
 });
 export type CompilationArgs = z.infer<typeof CompilationArgsSchema>;

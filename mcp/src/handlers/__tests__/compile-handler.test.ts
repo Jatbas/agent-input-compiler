@@ -11,7 +11,7 @@ import type { ISOTimestamp, UUIDv7 } from "@aic/shared/core/types/identifiers.js
 import type { Milliseconds } from "@aic/shared/core/types/units.js";
 import { toTokenCount, toMilliseconds } from "@aic/shared/core/types/units.js";
 import { toPercentage } from "@aic/shared/core/types/scores.js";
-import { toSessionId } from "@aic/shared/core/types/identifiers.js";
+import { toSessionId, toConversationId } from "@aic/shared/core/types/identifiers.js";
 import {
   EDITOR_ID,
   INCLUSION_TIER,
@@ -198,6 +198,52 @@ describe("createCompileHandler", () => {
     );
     const req = getRequestCaptured(capturedRequest);
     expect(req.modelId).toBe("config-model");
+  });
+
+  it("compile_handler_passes_conversation_id", async () => {
+    let capturedRequest: CompilationRequest | null = null;
+    const mockRunner: CompilationRunner = {
+      async run(request: CompilationRequest) {
+        capturedRequest = request;
+        return {
+          compiledPrompt: "prompt",
+          meta: stubMeta,
+          compilationId: stubCompilationId,
+        };
+      },
+    };
+    const telemetryDeps: TelemetryDeps = {
+      telemetryStore: { write: () => {} },
+      clock: {
+        now: (): ISOTimestamp => "2026-01-01T12:00:00.000Z" as ISOTimestamp,
+        addMinutes: (): ISOTimestamp => "2026-01-01T12:00:00.000Z" as ISOTimestamp,
+        durationMs: (): Milliseconds => 0 as Milliseconds,
+      },
+      idGenerator: {
+        generate: (): UUIDv7 => "00000000-0000-7000-8000-000000000000" as UUIDv7,
+      },
+      stringHasher: { hash: (s: string) => s },
+    };
+    const handler = createCompileHandler(
+      mockRunner,
+      telemetryDeps,
+      toSessionId("018c3d4e-0000-7000-8000-000000000010"),
+      () => EDITOR_ID.GENERIC,
+      () => null,
+      null,
+    );
+    await handler(
+      {
+        intent: "fix bug",
+        projectRoot: "/tmp/proj",
+        modelId: null,
+        configPath: null,
+        conversationId: "test-conv-id",
+      },
+      undefined,
+    );
+    const req = getRequestCaptured(capturedRequest);
+    expect(req.conversationId).toBe(toConversationId("test-conv-id"));
   });
 
   it("config_override_takes_precedence_over_detector", async () => {

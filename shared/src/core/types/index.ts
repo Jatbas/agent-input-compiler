@@ -39,11 +39,13 @@ export {
   type ISOTimestamp,
   type UUIDv7,
   type SessionId,
+  type ConversationId,
   type RepoId,
   type SemanticVersion,
   toISOTimestamp,
   toUUIDv7,
   toSessionId,
+  toConversationId,
   toRepoId,
   toSemanticVersion,
 } from "./identifiers.js";

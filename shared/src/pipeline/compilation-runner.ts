@@ -17,7 +17,7 @@ import type { RepoMap, FileEntry } from "#core/types/repo-map.js";
 import type { Milliseconds } from "#core/types/units.js";
 import type { CompilationLogEntry } from "#core/types/compilation-log-entry.js";
 import type { GuardFinding } from "#core/types/guard-types.js";
-import type { UUIDv7, SessionId } from "#core/types/identifiers.js";
+import type { UUIDv7, SessionId, ConversationId } from "#core/types/identifiers.js";
 import type { ISOTimestamp } from "#core/types/identifiers.js";
 import { toTokenCount } from "#core/types/units.js";
 import { toMilliseconds } from "#core/types/units.js";
@@ -104,6 +104,7 @@ function buildLogEntry(
   sessionId: SessionId | null,
   configHash: string | null,
   triggerSource: TriggerSource | null,
+  conversationId: ConversationId | null,
 ): CompilationLogEntry {
   return {
     id: compilationId,
@@ -122,6 +123,7 @@ function buildLogEntry(
     configHash,
     createdAt,
     triggerSource,
+    conversationId,
   };
 }
 
@@ -135,6 +137,7 @@ function recordCompilationAndFindings(
   sessionId: SessionId | null,
   configHash: string | null,
   triggerSource: TriggerSource | null,
+  conversationId: ConversationId | null,
 ): UUIDv7 {
   const compilationId = idGenerator.generate();
   const createdAt = clock.now();
@@ -145,6 +148,7 @@ function recordCompilationAndFindings(
     sessionId,
     configHash,
     triggerSource,
+    conversationId,
   );
   compilationLogStore.record(entry);
   guardStore.write(compilationId, findings);
@@ -174,6 +178,7 @@ function runCacheHitPath(
     sessionId,
     configHashOrNull,
     request.triggerSource ?? null,
+    request.conversationId ?? null,
   );
   return { compiledPrompt: cached.compiledPrompt, meta, compilationId };
 }
@@ -220,6 +225,7 @@ function runFreshPath(
       sessionId,
       configHashOrNull,
       request.triggerSource ?? null,
+      request.conversationId ?? null,
     );
     return { compiledPrompt: r.assembledPrompt, meta, compilationId };
   });

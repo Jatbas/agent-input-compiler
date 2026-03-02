@@ -16,4 +16,5 @@ export const CompilationRequestSchema = {
       "model_initiated",
     ])
     .optional(),
+  conversationId: z.string().min(1).nullable().optional(),
 } as const;

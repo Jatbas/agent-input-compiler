@@ -93,7 +93,7 @@ export class SqliteCacheStore implements CacheStore {
     };
   }
 
-  private deleteStaleEntryForKey(key: string): void {
+  private deleteRowAndBlobForKey(key: string): void {
     const rows = this.db
       .prepare("SELECT file_path FROM cache_metadata WHERE cache_key = ?")
       .all(key) as readonly { file_path: string }[];
@@ -106,6 +106,10 @@ export class SqliteCacheStore implements CacheStore {
         // Blob may already be missing
       }
     }
+  }
+
+  private deleteStaleEntryForKey(key: string): void {
+    this.deleteRowAndBlobForKey(key);
   }
 
   set(entry: CachedCompilation): void {
@@ -127,18 +131,7 @@ export class SqliteCacheStore implements CacheStore {
   }
 
   invalidate(key: string): void {
-    const rows = this.db
-      .prepare("SELECT file_path FROM cache_metadata WHERE cache_key = ?")
-      .all(key) as readonly { file_path: string }[];
-    this.db.prepare("DELETE FROM cache_metadata WHERE cache_key = ?").run(key);
-    const row = rows[0];
-    if (row !== undefined) {
-      try {
-        fs.unlinkSync(row.file_path);
-      } catch {
-        // File may already be missing; ignore
-      }
-    }
+    this.deleteRowAndBlobForKey(key);
   }
 
   invalidateAll(): void {

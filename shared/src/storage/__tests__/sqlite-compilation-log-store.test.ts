@@ -1,7 +1,12 @@
 import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import type { CompilationLogEntry } from "#core/types/compilation-log-entry.js";
-import { toUUIDv7, toISOTimestamp, toSessionId } from "#core/types/identifiers.js";
+import {
+  toUUIDv7,
+  toISOTimestamp,
+  toSessionId,
+  toConversationId,
+} from "#core/types/identifiers.js";
 import { toTokenCount, toMilliseconds } from "#core/types/units.js";
 import { toPercentage } from "#core/types/scores.js";
 import { EDITOR_ID, TASK_CLASS, TRIGGER_SOURCE } from "#core/types/enums.js";
@@ -10,6 +15,7 @@ import { migration as migration002 } from "../migrations/002-server-sessions.js"
 import { migration as migration003 } from "../migrations/003-server-sessions-integrity.js";
 import { migration as migration004 } from "../migrations/004-normalize-telemetry.js";
 import { migration as migration005 } from "../migrations/005-trigger-source.js";
+import { migration as migration007 } from "../migrations/007-conversation-id.js";
 import { SqliteCompilationLogStore } from "../sqlite-compilation-log-store.js";
 
 describe("SqliteCompilationLogStore", () => {
@@ -26,6 +32,7 @@ describe("SqliteCompilationLogStore", () => {
     migration003.up(db);
     migration004.up(db);
     migration005.up(db);
+    migration007.up(db);
     return new SqliteCompilationLogStore(db);
   }
 
@@ -47,6 +54,7 @@ describe("SqliteCompilationLogStore", () => {
       sessionId: null,
       configHash: null,
       createdAt: toISOTimestamp("2026-02-27T12:00:00.000Z"),
+      conversationId: null,
     };
     store.record(entry);
     const row = db
@@ -99,6 +107,7 @@ describe("SqliteCompilationLogStore", () => {
       sessionId: null,
       configHash: null,
       createdAt: toISOTimestamp("2026-02-27T12:00:00.000Z"),
+      conversationId: null,
     };
     store.record(entry);
     const row = db
@@ -140,6 +149,7 @@ describe("SqliteCompilationLogStore", () => {
       sessionId: sid,
       configHash,
       createdAt: toISOTimestamp("2026-02-28T12:00:00.000Z"),
+      conversationId: null,
     };
     store.record(entry);
     const row = db
@@ -169,6 +179,7 @@ describe("SqliteCompilationLogStore", () => {
       configHash: null,
       createdAt: toISOTimestamp("2026-02-28T12:00:00.000Z"),
       triggerSource: TRIGGER_SOURCE.CLI,
+      conversationId: null,
     };
     store.record(entry);
     const row = db
@@ -176,6 +187,35 @@ describe("SqliteCompilationLogStore", () => {
       .get(entry.id) as { trigger_source: string | null };
     expect(row).toBeDefined();
     expect(row.trigger_source).toBe("cli");
+  });
+
+  it("sqlite_compilation_log_store_conversation_id", () => {
+    const store = setup();
+    const convId = toConversationId("conv-123");
+    const entry: CompilationLogEntry = {
+      id: toUUIDv7("00000000-0000-7000-8000-000000000006"),
+      intent: "test",
+      taskClass: TASK_CLASS.GENERAL,
+      filesSelected: 0,
+      filesTotal: 0,
+      tokensRaw: toTokenCount(0),
+      tokensCompiled: toTokenCount(0),
+      tokenReductionPct: toPercentage(0),
+      cacheHit: false,
+      durationMs: toMilliseconds(0),
+      editorId: EDITOR_ID.GENERIC,
+      modelId: "",
+      sessionId: null,
+      configHash: null,
+      createdAt: toISOTimestamp("2026-02-28T12:00:00.000Z"),
+      conversationId: convId,
+    };
+    store.record(entry);
+    const row = db
+      .prepare("SELECT conversation_id FROM compilation_log WHERE id = ?")
+      .get(entry.id) as { conversation_id: string | null };
+    expect(row).toBeDefined();
+    expect(row.conversation_id).toBe("conv-123");
   });
 
   it("record_without_trigger_source_stores_null", () => {
@@ -196,6 +236,7 @@ describe("SqliteCompilationLogStore", () => {
       sessionId: null,
       configHash: null,
       createdAt: toISOTimestamp("2026-02-28T12:00:00.000Z"),
+      conversationId: null,
     };
     store.record(entry);
     const row = db

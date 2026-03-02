@@ -26,7 +26,7 @@ import type { CompilationLogEntry } from "#core/types/compilation-log-entry.js";
 import type { GuardFinding } from "#core/types/guard-types.js";
 import type { UUIDv7 } from "#core/types/identifiers.js";
 import { EDITOR_ID, TRIGGER_SOURCE } from "#core/types/enums.js";
-import { toUUIDv7 } from "#core/types/identifiers.js";
+import { toUUIDv7, toConversationId } from "#core/types/identifiers.js";
 import { CompilationRunner } from "../compilation-runner.js";
 import { IntentClassifier } from "../intent-classifier.js";
 import { RulePackResolver } from "../rule-pack-resolver.js";
@@ -515,6 +515,56 @@ describe("CompilationRunner", () => {
     if (entry !== undefined) {
       expect(entry.triggerSource).toBe(TRIGGER_SOURCE.CLI);
       expect(entry.triggerSource).toBe("cli");
+    }
+  });
+
+  it("compilation_runner_passes_conversation_id", async () => {
+    const cacheStore = createInMemoryCacheStore();
+    const configStore: ConfigStore = {
+      getLatestHash: () => null,
+      writeSnapshot() {},
+    };
+    const stringHasher: StringHasher = {
+      hash(input: string) {
+        return `h-${input.length}`;
+      },
+    };
+    const { recordedLogEntries, guardStore, compilationLogStore } =
+      createGuardAndLogMocks();
+    const deps = {
+      intentClassifier,
+      rulePackResolver,
+      budgetAllocator,
+      contextSelector: heuristicSelector,
+      contextGuard,
+      contentTransformerPipeline,
+      summarisationLadder,
+      promptAssembler,
+      intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
+      repoMapSupplier: mockRepoMapSupplier,
+      tokenCounter: tiktokenAdapter,
+    };
+    const runner = new CompilationRunner(
+      deps,
+      mockClock,
+      cacheStore,
+      configStore,
+      stringHasher,
+      guardStore,
+      compilationLogStore,
+      mockIdGenerator,
+    );
+    const convId = toConversationId("runner-conv");
+    const request: CompilationRequest = {
+      ...makeRequest(fixtureRoot),
+      conversationId: convId,
+    };
+    await runner.run(request);
+    expect(recordedLogEntries.length).toBe(1);
+    const entry = recordedLogEntries[0];
+    expect(entry).toBeDefined();
+    if (entry !== undefined) {
+      expect(entry.conversationId).toBe(convId);
     }
   });
 });

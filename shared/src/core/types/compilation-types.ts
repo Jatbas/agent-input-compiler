@@ -1,7 +1,7 @@
 import type { AbsolutePath, FilePath, RelativePath } from "#core/types/paths.js";
 import type { TokenCount, Milliseconds, StepIndex } from "#core/types/units.js";
 import type { Percentage } from "#core/types/scores.js";
-import type { SessionId, ISOTimestamp } from "#core/types/identifiers.js";
+import type { SessionId, ConversationId, ISOTimestamp } from "#core/types/identifiers.js";
 import type {
   TaskClass,
   EditorId,
@@ -30,6 +30,7 @@ export interface CompilationRequest {
   readonly toolOutputs?: readonly ToolOutput[];
   readonly conversationTokens?: TokenCount;
   readonly triggerSource?: TriggerSource;
+  readonly conversationId?: ConversationId | null;
 }
 
 export interface CompilationMeta {

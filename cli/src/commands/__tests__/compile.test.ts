@@ -5,7 +5,11 @@ import type { CompilationRunner } from "@aic/shared/core/interfaces/compilation-
 import type { CompilationMeta } from "@aic/shared/core/types/compilation-types.js";
 import type { TelemetryEvent } from "@aic/shared/core/types/telemetry-types.js";
 import type { Milliseconds } from "@aic/shared/core/types/units.js";
-import type { ISOTimestamp, UUIDv7 } from "@aic/shared/core/types/identifiers.js";
+import {
+  type ISOTimestamp,
+  type UUIDv7,
+  toConversationId,
+} from "@aic/shared/core/types/identifiers.js";
 import { toTokenCount, toMilliseconds } from "@aic/shared/core/types/units.js";
 import { toPercentage } from "@aic/shared/core/types/scores.js";
 import { EDITOR_ID, INCLUSION_TIER, TASK_CLASS } from "@aic/shared/core/types/enums.js";
@@ -152,6 +156,33 @@ describe("compileCommand", () => {
     expect(captured.request).not.toBeNull();
     if (captured.request !== null) {
       expect(captured.request.triggerSource).toBe("cli");
+    }
+  });
+
+  it("compile_command_passes_conversation_id", async () => {
+    const parsed = CompilationArgsSchema.parse({
+      intent: "fix bug",
+      projectRoot: "/tmp/proj",
+      configPath: null,
+      dbPath: null,
+      conversationId: "cli-conv-123",
+    });
+    type CapturedRequest = Parameters<CompilationRunner["run"]>[0];
+    const captured: { request: CapturedRequest | null } = { request: null };
+    const capturingRunner: CompilationRunner = {
+      async run(request) {
+        captured.request = request;
+        return {
+          compiledPrompt: "ok",
+          meta: stubMeta,
+          compilationId: stubCompilationId,
+        };
+      },
+    };
+    await compileCommand(parsed, capturingRunner);
+    expect(captured.request).not.toBeNull();
+    if (captured.request !== null) {
+      expect(captured.request.conversationId).toBe(toConversationId("cli-conv-123"));
     }
   });
 
