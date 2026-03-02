@@ -234,17 +234,16 @@ export interface ContentTransformer {
 - For **format-specific** transformers: include tests for each listed extension verifying the output preserves the format's structural requirements (e.g. YAML indentation, JSON validity, HTML nesting)
 - Name pattern: `safety_[filetype]_[what is preserved]` (e.g. `safety_python_indentation_preserved`, `safety_yaml_structure_unchanged`)
 
-**Benchmark verification step (mandatory):** Every transformer task must include a penultimate step (before final verification) that runs the token reduction benchmark and updates the baseline:
+**Benchmark verification step (mandatory):** Every transformer task must include a penultimate step (before final verification) that runs the token reduction benchmark (the test auto-ratchets the baseline when tokens decrease):
 
 ```
 ### Step N: Benchmark verification
 
 Run: `pnpm test shared/src/integration/__tests__/token-reduction-benchmark.test.ts`
 
-Read the test output and note the actual `tokensCompiled` value. Read `test/benchmarks/baseline.json` and compare against the current `token_count` for entry "1".
+The benchmark test auto-ratchets `test/benchmarks/baseline.json`: if the actual token count is lower than the stored baseline, the test writes the new values to disk automatically. No manual editing of `baseline.json` is needed.
 
-- If actual tokensCompiled < baseline token_count: update `test/benchmarks/baseline.json` entry "1" with `{ "token_count": <actual>, "duration_ms": <actual> }` to lock in the improvement. Re-run the benchmark test to confirm it passes with the new baseline.
-- If actual tokensCompiled >= baseline token_count: no baseline update needed (transformer does not affect canonical task 1). The benchmark test passes as-is.
+Read the test output and note whether the baseline was ratcheted (look for "baseline ratcheted" in stdout) or unchanged. If ratcheted, the updated `baseline.json` will appear in the git diff and should be committed with the task.
 
 **Verify:** `pnpm test shared/src/integration/__tests__/token-reduction-benchmark.test.ts` passes. Baseline reflects current pipeline output.
 ```
