@@ -12,6 +12,7 @@ import { CssProvider } from "./css-provider.js";
 import { HtmlJsxProvider } from "./html-jsx-provider.js";
 import { ShellScriptProvider } from "./shell-script-provider.js";
 import { SwiftProvider } from "./swift-provider.js";
+import { KotlinProvider } from "./kotlin-provider.js";
 
 function projectHasExtension(projectRoot: string, ext: string): boolean {
   const glob = new FastGlobAdapter();
@@ -44,5 +45,18 @@ export async function initLanguageProviders(
       ? [new ShellScriptProvider()]
       : [];
   const swift = projectHasExtension(projectRoot, ".swift") ? [new SwiftProvider()] : [];
-  return [...py, ...go, ...rs, ...java, ...rb, ...php, ...css, ...html, ...sh, ...swift];
+  const kt = projectHasExtension(projectRoot, ".kt") ? [new KotlinProvider()] : [];
+  return [
+    ...py,
+    ...go,
+    ...rs,
+    ...java,
+    ...rb,
+    ...php,
+    ...css,
+    ...html,
+    ...sh,
+    ...swift,
+    ...kt,
+  ];
 }

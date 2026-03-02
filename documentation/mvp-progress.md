@@ -60,7 +60,7 @@ Highest-impact work. The core value of AIC is picking the right files — if sel
 | HtmlJsxProvider                  | Done   | shared/src/adapters/ |
 | ShellScriptProvider              | Done   | shared/src/adapters/ |
 | SwiftProvider                    | Done   | shared/src/adapters/ |
-| KotlinProvider                   | Todo   | shared/src/adapters/ |
+| KotlinProvider                   | Done   | shared/src/adapters/ |
 | DartProvider                     | Todo   | shared/src/adapters/ |
 
 ### Phase K — Quality & Benchmarks
@@ -215,6 +215,13 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 ---
 
 ## Daily Log
+
+### 2025-03-02
+
+**Components:** KotlinProvider
+**Completed:**
+
+- KotlinProvider (task 052): LanguageProvider for .kt with regex only; parseImports for `import package.Class` and `import package.*` (source = path, isRelative when source starts with "."); extractSignaturesWithDocs returns []; extractSignaturesOnly for fun/class/object lines as CodeChunk (SYMBOL_TYPE.FUNCTION or CLASS); extractNames for same as ExportedSymbol[] (SYMBOL_KIND.FUNCTION or CLASS); createRegexLanguageProviderClass (Null Object); wired in initLanguageProviders (projectHasExtension .kt). Four tests (parseImports_returns_refs, extractSignaturesOnly_returns_chunks, extractNames_returns_symbols, invalid_returns_empty).
 
 ### 2026-03-02
 
