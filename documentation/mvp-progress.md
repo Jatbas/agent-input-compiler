@@ -59,7 +59,7 @@ Highest-impact work. The core value of AIC is picking the right files — if sel
 | CssProvider                      | Done   | shared/src/adapters/ |
 | HtmlJsxProvider                  | Done   | shared/src/adapters/ |
 | ShellScriptProvider              | Done   | shared/src/adapters/ |
-| SwiftProvider                    | Todo   | shared/src/adapters/ |
+| SwiftProvider                    | Done   | shared/src/adapters/ |
 | KotlinProvider                   | Todo   | shared/src/adapters/ |
 | DartProvider                     | Todo   | shared/src/adapters/ |
 
@@ -218,11 +218,12 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 ### 2026-03-02
 
-**Components:** HtmlJsxProvider, ShellScriptProvider
+**Components:** HtmlJsxProvider, ShellScriptProvider, SwiftProvider
 **Completed:**
 
 - HtmlJsxProvider (task 049): LanguageProvider for .html with regex only; parseImports for `<script src="...">` and `<link href="...">` (source = URL/path, isRelative when "." or "/"); extractSignaturesWithDocs returns []; extractSignaturesOnly for opening tags `<[a-zA-Z][a-zA-Z0-9]*` as CodeChunk with SYMBOL_TYPE.CLASS; extractNames returns []; tryOrEmpty (Null Object); wired in initLanguageProviders (projectHasExtension .html). Four tests (parseImports_returns_refs, extractSignaturesOnly_returns_chunks, extractNames_returns_empty, invalid_returns_empty).
 - ShellScriptProvider (task 050): LanguageProvider for .sh and .bash with regex only; parseImports for source "file" and . "file" (source = path, isRelative when path starts with "."); extractSignaturesWithDocs returns []; extractSignaturesOnly for function name (function \w+ or \w+ () {) as CodeChunk with SYMBOL_TYPE.FUNCTION; extractNames for same function names as ExportedSymbol[] with SYMBOL_KIND.FUNCTION; tryOrEmpty (Null Object); manual class for two extensions; wired in initLanguageProviders (projectHasExtension .sh || .bash). Four tests (parseImports_returns_refs, extractSignaturesOnly_returns_chunks, extractNames_returns_symbols, invalid_returns_empty).
+- SwiftProvider (task 051): LanguageProvider for .swift with regex only; parseImports for import Module and import struct/class/enum/protocol Module.Class (source = module path, isRelative false); extractSignaturesWithDocs returns []; extractSignaturesOnly for func/class/struct/enum lines as CodeChunk (FUNCTION or CLASS); extractNames for same as ExportedSymbol[] (SYMBOL_KIND.FUNCTION or CLASS); createRegexLanguageProviderClass + tryOrEmpty (Null Object); wired in initLanguageProviders (projectHasExtension .swift). Four tests (parseImports_returns_refs, extractSignaturesOnly_returns_chunks, extractNames_returns_symbols, invalid_returns_empty).
 
 ### 2026-03-01
 
