@@ -104,7 +104,7 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 | Component                                    | Status | Package      |
 | -------------------------------------------- | ------ | ------------ |
 | `aic://session-summary` resource             | Done   | mcp/src/     |
-| `aic://last-compilation` resource (fix stub) | Todo   | mcp/src/     |
+| `aic://last-compilation` resource (fix stub) | Done   | mcp/src/     |
 | Conversation tracking: schema + plumbing     | Todo   | shared + mcp |
 | Conversation tracking: summary + prompt cmd  | Todo   | shared + mcp |
 | Budget utilization in status                 | Todo   | cli/src/     |
@@ -221,9 +221,10 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 ### 2025-03-03
 
-**Components:** CssVariableSummarizer, aic://session-summary resource
+**Components:** CssVariableSummarizer, aic://session-summary resource, aic://last-compilation resource
 **Completed:**
 
+- aic://last-compilation resource (task 068): Replaced stub in mcp/src/server.ts with real handler using SqliteStatusStore(scope.db, scope.clock), getSummary(); returns JSON { compilationCount, lastCompilation }; two tests (last_compilation_resource_returns_json, last_compilation_resource_empty_db) with InMemoryTransport, aic_compile then readResource / readResource only; lint, typecheck, test, knip (no new findings), lint:clones 0.
 - aic://session-summary resource (task 065): MCP resource at aic://session-summary returning StatusAggregates as application/json; handler in mcp/src/server.ts instantiates SqliteStatusStore(scope.db, scope.clock), getSummary(), JSON.stringify; two tests (session_summary_resource_returns_json, session_summary_resource_empty_db) with InMemoryTransport and client.readResource; lint, typecheck, test, knip (no new findings), lint:clones 0.
 - CssVariableSummarizer (task 064): ContentTransformer that keeps :root block compacted and replaces other rule bodies with [N declarations]; fileExtensions = [".css", ".scss"]; brace-counting scan; wired after lockFileSkipper in create-pipeline-deps; seven tests (root_block_kept_compacted, root_plus_rules_summarized, multiple_rules_summarized, empty_content_returns_unchanged, no_blocks_unchanged, safety_css_structure_preserved, safety_scss_structure_preserved); token and selection benchmarks unchanged. Verification: 17/17 dimensions pass (one fix during implementation: findTopLevelBlocks refactored from .push() to reduce for immutability).
 

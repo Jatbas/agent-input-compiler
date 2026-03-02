@@ -192,9 +192,22 @@ export function createMcpServer(
   server.tool("aic_inspect", InspectRequestSchema, (args) =>
     handleInspect(args, inspectRunner),
   );
-  server.resource("last-compilation", "aic://last-compilation", () => ({
-    contents: [],
-  }));
+  server.resource("last-compilation", "aic://last-compilation", () => {
+    const statusStore = new SqliteStatusStore(scope.db, scope.clock);
+    const summary = statusStore.getSummary();
+    return {
+      contents: [
+        {
+          uri: "aic://last-compilation",
+          mimeType: "application/json",
+          text: JSON.stringify({
+            compilationCount: summary.compilationsTotal,
+            lastCompilation: summary.lastCompilation,
+          }),
+        },
+      ],
+    };
+  });
   server.resource("session-summary", "aic://session-summary", () => {
     const statusStore = new SqliteStatusStore(scope.db, scope.clock);
     const summary = statusStore.getSummary();
