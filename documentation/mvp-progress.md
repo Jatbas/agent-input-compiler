@@ -88,7 +88,7 @@ Incremental output quality improvements, measured by Phase K benchmarks. New tra
 | TypeDeclarationCompactor   | Done   | shared/src/pipeline/ |
 | TestStructureExtractor     | Done   | shared/src/pipeline/ |
 | ImportDeduplicator         | Done   | shared/src/pipeline/ |
-| HtmlToMarkdownTransformer  | Todo   | shared/src/pipeline/ |
+| HtmlToMarkdownTransformer  | Done   | shared/src/pipeline/ |
 | SvgDescriber               | Todo   | shared/src/pipeline/ |
 | YamlCompactor              | Todo   | shared/src/pipeline/ |
 | MinifiedCodeSkipper        | Todo   | shared/src/pipeline/ |
@@ -256,9 +256,10 @@ For any project **other than AIC itself**, a new chat means:
 
 ### 2025-03-03
 
-**Components:** CssVariableSummarizer, aic://session-summary resource, aic://last-compilation resource, Conversation tracking schema + plumbing, Install Cursor hooks
+**Components:** CssVariableSummarizer, aic://session-summary resource, aic://last-compilation resource, Conversation tracking schema + plumbing, Install Cursor hooks, HtmlToMarkdownTransformer
 **Completed:**
 
+- HtmlToMarkdownTransformer (task 072): ContentTransformer that converts HTML to Markdown; strip script/style blocks (case-insensitive), block tags (h1–h6, p, li, br) to Markdown, inline (a, strong/b, em/i, code) with recursive pass for nesting, strip remaining tags, normalize whitespace; fileExtensions = [".html", ".htm"]; wired after lockFileSkipper before cssVariableSummarizer; seven tests (html_heading_converted, html_link_converted, script_block_stripped, style_block_stripped, empty_content_returns_unchanged, safety_html_structure_markdown_valid, safety_htm_extension_same_behavior); token benchmark unchanged (1192). Verification: 17/17 dimensions pass (one fix during implementation: no let — refactored to reduce for block replacements, recursive helper for inline passes).
 - Install Cursor hooks (task 071): installCursorHooks in mcp/src writes .cursor/hooks.json (default or merge with user entries) and copies five AIC-\*.cjs from mcp/hooks/ to projectRoot/.cursor/hooks/ on MCP startup; createMcpServer calls installCursorHooks after installTriggerRule; mcp/hooks/ ships packaged copies of repo .cursor/hooks scripts; Zero-Install Gaps table updated (hooks.json + five scripts now auto-installed); knip ignore mcp/hooks/\*\*; five tests (hooks_missing_creates_hooks_json_and_scripts, hooks_json_exists_merges_without_removing_user_entries, scripts_overwritten_when_content_differs, idempotent_second_call_no_op, self_check_passes_after_install).
 - Conversation tracking: schema + plumbing (task 069): Migration 007 added nullable conversation_id to compilation_log; ConversationId branded type and toConversationId in identifiers; CompilationRequest.conversationId optional, CompilationLogEntry.conversationId required nullable; pipeline and SqliteCompilationLogStore pass and persist; MCP/CLI schema and handler/command pass conversationId; tests updated (sqlite_compilation_log_store_conversation_id, compilation_runner_passes_conversation_id, compile_handler_passes_conversation_id, compile_command_passes_conversation_id); lint, typecheck, test, knip (no new findings), lint:clones (pre-existing clone in sqlite-cache-store only).
 - aic://last-compilation resource (task 068): Replaced stub in mcp/src/server.ts with real handler using SqliteStatusStore(scope.db, scope.clock), getSummary(); returns JSON { compilationCount, lastCompilation }; two tests (last_compilation_resource_returns_json, last_compilation_resource_empty_db) with InMemoryTransport, aic_compile then readResource / readResource only; lint, typecheck, test, knip (no new findings), lint:clones 0.

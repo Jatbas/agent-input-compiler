@@ -93,22 +93,35 @@ If you find any match: **stop and tell the user** that the task file contains un
 
 Work through the **Steps** section in order.
 
-**First-pass checklist (for 17/17).** Before writing the main source file, confirm: (1) Building an array in a loop? Use `reduce` or `[...acc, item]` — never `.push()`. (2) All array types and properties `readonly`. (3) No `let` except boolean control flags in imperative closures. (4) Explicit return type on every public method. (5) Format-specific transformer? At least one `safety_*` test per file extension.
+**Pre-write reference (rules NOT caught by ESLint).** Before writing each production file, scan this table. Every item causes a §4b failure and rework loop if missed. Internalize before your first keystroke.
+
+| # | Rule | What to check | Wrong | Right |
+|---|------|---------------|-------|-------|
+| 1 | Readonly arrays | Every `T[]` has `readonly` — props, params, locals, returns, generics (e.g. `reduce<{ readonly files: readonly T[] }>`) | `items: string[]` | `readonly items: readonly string[]` |
+| 2 | Readonly properties | Every class and interface property | `id: string` | `readonly id: string` |
+| 3 | No mutating methods | No `.push()` `.splice()` `.sort()` `.reverse()` — use spread, reduce, `.toSorted()`, `.toReversed()`. Tests exempt | `arr.push(x)` | `[...arr, x]` |
+| 4 | Branded types | Factory functions for all domain values — never raw `string`/`number` for paths, tokens, scores, IDs | `path: string` | `path: RelativePath` |
+| 5 | Comment style | Only `//` — ESLint catches `/* */` but NOT `/** */` | `/** comment */` | `// comment` |
+| 6 | No `let` | `const` exclusively — reduce, ternary, helpers for accumulators. Only boolean flags in imperative closures exempt. Tests exempt | `let acc = []` | `reduce(...)` or `const x = cond ? a : b` |
+| 7 | Typed exports | Explicit type annotation on exported const objects | `export const x = {` | `export const x: Type = {` |
+| 8 | Return types | Explicit return type on every exported function and method | `transform(c)` | `transform(c): string` |
+| 9 | Signature match | Params, types, return types EXACTLY match the interface — including `readonly` modifiers | Mismatched param type or missing `readonly` | Exact match with interface file |
+| 10 | Immutable returns | Never mutate inputs — always return new objects | `input.x = y; return input` | `return { ...input, x: y }` |
+| 11 | Code clones | Import existing shared utilities — never duplicate logic from sibling files | Copy-paste from sibling | `import { fn } from "./shared.js"` |
+| 12 | SQL determinism | No `date('now')` or `datetime('now')` in SQL — bind time from Clock | `date('now')` | `? (bound from Clock)` |
+
+**Recipe-specific pitfalls** (check the ones matching your task's layer):
+
+- **Pipeline transformers:** `readonly` on `fileExtensions` array AND internal lookup tables (e.g. `BLOCK_REPLACEMENTS`-style arrays). Readonly tuple types in `reduce` generic params. Format-specific transformers need at least one `safety_*` test per listed extension.
+- **Storage:** No `date('now')` in SQL — always bind from Clock. Use branded type factories in tests (`toUUIDv7(...)`, `toISOTimestamp(...)`). Test zero-denominator edge cases for computed SQL columns.
+- **Adapters:** Sync vs async determined by interface return type — check before writing. ESLint restriction block must include ALL existing adapter boundary paths/patterns (flat config replaces, not merges).
+- **Composition roots:** Never eagerly instantiate conditional dependencies — accept via injected parameter, create conditionally in `main()`. No `new` leaking into helper functions. Use ternary-spread for immutable accumulation.
+
+**Code clone details.** Existing shared utilities to check before writing any function: `glob-match.ts` (glob matching), `pattern-scanner.ts` (regex-based guard scanning), `handle-command-error.ts` (CLI error handling), `run-action.ts` (CLI action wiring), `tree-sitter-node-utils.ts` (tree-sitter AST helpers), `tree-sitter-provider-factory.ts` (tree-sitter language provider factory). The codebase enforces 0% duplication via `pnpm lint:clones` (jscpd). Never modify `.jscpd.json` to ignore source files. Never change the `lint:clones` script.
 
 **Pre-implementation sibling check.** Before writing the main source file, read the closest existing sibling in the same directory (the most similar file following the same pattern — e.g., if implementing `rust-provider.ts`, read `go-provider.ts`). Identify the shared utilities, factories, and helpers it imports. Your implementation must follow the same structural pattern and reuse the same shared code. If the task's Interface/Signature conflicts with the sibling's pattern (e.g., task shows a manual class but sibling uses a factory like `defineTreeSitterProvider`), follow the sibling's established pattern — it reflects evolved shared infrastructure that the task spec may not have captured.
 
 **Shared code extraction trigger.** If the sibling has inline functions that are structurally identical to what you need but with different predicates/config (e.g., a tree walker that only changes the node-type check), extract those functions to a shared utility file first — parameterized with callbacks. Refactor the sibling to use the shared utility, then use it in the new component. Do not copy-customize inline code when extraction is possible. If no sibling exists (first file of its kind), check whether any function you are writing is generic (its structure would be identical in a future sibling with different config/predicates). If so, place it in a shared utility file from the start rather than inlining it.
-
-**Write correct code on the first pass.** Every rework loop wastes tokens and time. Most coding conventions (no `any`, `prefer-const`, one class per file, layer aliases, `as const` enums, dispatch maps, no `Date.now()`, no `import * as X` for internal modules, etc.) are enforced by ESLint and the architect rules — `pnpm lint` catches them during step verification. The rules below are NOT caught by ESLint and cause silent defects if you miss them:
-
-- All properties `readonly`. All array types `readonly T[]` — everywhere: class properties, function parameters, local variables, return types, generic type parameters (e.g. `reduce<{ readonly files: readonly T[] }>`). No exceptions.
-- No `.push()`, `.splice()`, `.sort()`, `.reverse()` in production code. Always `.toSorted()` instead of `.sort()` — even `[...arr].sort()` is banned. Always `.toReversed()` instead of `.reverse()`. Use spread or reduce for building arrays. Test files are exempt.
-- Branded types for all domain values — never raw `string`/`number` for paths, tokens, scores, IDs. Use factory functions: `toTokenCount(N)`, `toRelativePath("...")`, `toUUIDv7("...")`, `toISOTimestamp("...")`.
-- `//` comments only — ESLint catches multi-line `/* */` but NOT single-line `/** */`. Write `// comment` not `/** comment */`.
-- Return new objects from all methods — never mutate inputs.
-- Exported const objects that implement interfaces must have explicit type annotations (e.g. `export const migration: Migration = { ... }`, not untyped object literals).
-- **No `let` in production code.** Use `const` exclusively. Refactor with reduce, ternary, `matchAll`, or helper functions. The only exception is a boolean control flag inside a scoped closure where an imperative API (e.g. `let found = false` in a `ts.forEachChild` visitor) makes `const` impossible. Accumulators must use reduce or a helper that returns the collected result — never `let arr = []; ... arr = [...arr, item]`. Test files are exempt.
-- **Zero code clones (proactive).** Before writing any function, read the import statements of the closest sibling file — every utility it imports is a candidate for reuse. Do not write code that duplicates logic in shared utility files; import and call the existing functions instead. If you need functionality that doesn't exist yet, extract it to the appropriate shared utility file first, then import it in the new file. The codebase enforces 0% duplication via `pnpm lint:clones` (jscpd), which scans only `shared/src mcp/src cli/src` (not the full workspace). Tests and markdown are excluded via `.jscpd.json`. **Never modify `.jscpd.json` to ignore source files** — if clones are detected, extract shared code instead. **Never change the `lint:clones` script** — it is intentionally scoped to source dirs to avoid scanning `node_modules` (pnpm symlinks cause infinite traversal). Existing shared utilities: `glob-match.ts` (glob matching), `pattern-scanner.ts` (regex-based guard scanning), `handle-command-error.ts` (CLI error handling), `run-action.ts` (CLI action wiring), `tree-sitter-node-utils.ts` (tree-sitter AST helpers), `tree-sitter-provider-factory.ts` (tree-sitter language provider factory).
 
 **For test implementation steps**, cross-reference the **Tests table** in the task file. Every row in the Tests table must have a corresponding test case with that exact name. Do not invent extra test cases. Do not skip any. Use the task file's Dependent Types section to build correct test data.
 
@@ -126,6 +139,15 @@ For each step:
 3. If verification fails, fix the issue before moving to the next step.
 4. If you cannot fix it after 2 attempts, go to **Blocked diagnostic** (see below).
 5. **Circuit breaker:** If you find yourself making 3+ workarounds or adaptations to make a step work (type casts, extra plumbing, output patching, wrapper functions not in the task), stop. The task's approach is likely wrong. Go to **Blocked diagnostic** — list the adaptations you made and report that the approach needs re-evaluation.
+
+**Per-file quick check (after writing each production file).** Before moving to the next step, run these 4 Grep commands on the file you just wrote. This catches the most common first-pass violations immediately — 4 tool calls (~1 second) that prevent an entire §4b rework cycle. Skip this for test files.
+
+1. Grep for `\.push\(|\.splice\(|\.sort\(|\.reverse\(` — mutating methods (table row 3)
+2. Grep for `/\*\*` — block comment style (table row 5)
+3. Grep for `^\s*let ` — mutable bindings (table row 6)
+4. Grep for `export const \w+ = \{` — check each match has a type annotation (table row 7)
+
+If any match, fix in the same file before proceeding. Do NOT defer to §4b — fixing now prevents compound rework later.
 
 **Prefer direct implementation over subagent dispatch.** Subagents require full context re-assembly, which is token-expensive and introduces cold-start latency. Implement steps directly using parallel tool calls (Read + Write + Shell) in a single message where possible. The task file provides all the context you need — Interface/Signature, Dependent Types, Architecture Notes — so there is no exploration overhead.
 
@@ -184,7 +206,7 @@ Fire all of these in a single round of tool calls:
 
 After §4b, every dimension must be clean (all violations fixed, all re-checks passing). If a dimension reveals an architectural issue that cannot be fixed mechanically (e.g. signature mismatch, wrong layer boundary, missing DI), go to **Blocked diagnostic** — these indicate a task-file or design problem, not a code-style issue.
 
-Track first-pass quality: for each dimension, record whether it was clean on first check or required a fix. This is informational — it helps calibrate the "write correct code on the first pass" rules over time but does not gate progress. Report the count in §5a (e.g. "17/17 first-pass clean" or "15/17 first-pass clean, fixed 2: readonly array in X, block comment in Y"). Dimensions 16–17 are conditional — exclude from the denominator when they don't apply (no transformer added).
+Track first-pass quality: for each dimension, record whether it was clean on first check or required a fix. This is informational — it helps calibrate the pre-write reference table and per-file quick checks over time but does not gate progress. Report the count in §5a (e.g. "17/17 first-pass clean" or "15/17 first-pass clean, fixed 2: readonly array in X, block comment in Y"). Dimensions 16–17 are conditional — exclude from the denominator when they don't apply (no transformer added). If the per-file quick check (§3) already caught and fixed a violation during implementation, that dimension still counts as first-pass clean — the quick check is part of the first pass.
 
 Once all dimensions are confirmed clean, proceed to §5.
 
