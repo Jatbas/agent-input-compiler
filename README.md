@@ -169,9 +169,9 @@ For inspection and debugging:
 ```bash
 aic compile "fix the login bug"         # output the compiled prompt to stdout
 aic inspect "refactor auth module"      # full pipeline breakdown (no model call)
-aic status                              # project summary: compilations, Guard blocks, config health
-aic init                                # scaffold config, hooks, and .aic/ directory
-aic init --upgrade                      # migrate config to current schema version
+aic status                              # project summary from local database
+aic report                              # write project status to a static HTML file
+aic init                                # scaffold aic.config.json, .aic/ directory, and .gitignore entry
 ```
 
 ---
