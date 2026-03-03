@@ -108,7 +108,7 @@ export function createMcpServer(
   additionalProviders?: readonly LanguageProvider[],
 ): McpServer {
   const scope = createProjectScope(projectRoot);
-  setImmediate(() => scope.cacheStore.purgeExpired());
+  const purgeImmediateId = setImmediate(() => scope.cacheStore.purgeExpired());
   installTriggerRule(projectRoot);
   installCursorHooks(projectRoot);
   const { installationOk, installationNotes } = runStartupSelfCheck(projectRoot);
@@ -253,6 +253,7 @@ export function createMcpServer(
   });
   const out = server as McpServer & { close(): Promise<void> };
   out.close = (): Promise<void> => {
+    clearImmediate(purgeImmediateId);
     closeDatabase(scope.db);
     return Promise.resolve();
   };
