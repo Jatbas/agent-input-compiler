@@ -27,3 +27,12 @@ export function openDatabase(dbPath: string, clock: Clock): ExecutableDb {
   ]);
   return db;
 }
+
+interface Closeable {
+  close(): void;
+}
+
+export function closeDatabase(db: ExecutableDb): void {
+  const closeable: Closeable = db as unknown as Closeable;
+  closeable.close();
+}
