@@ -26,6 +26,7 @@ import { TestStructureExtractor } from "#pipeline/test-structure-extractor.js";
 import { CommentStripper } from "#pipeline/comment-stripper.js";
 import { JsonCompactor } from "#pipeline/json-compactor.js";
 import { LockFileSkipper } from "#pipeline/lock-file-skipper.js";
+import { MinifiedCodeSkipper } from "#pipeline/minified-code-skipper.js";
 import { HtmlToMarkdownTransformer } from "#pipeline/html-to-markdown-transformer.js";
 import { SvgDescriber } from "#pipeline/svg-describer.js";
 import { CssVariableSummarizer } from "#pipeline/css-variable-summarizer.js";
@@ -92,6 +93,7 @@ export function createPipelineDeps(
   const commentStripper = new CommentStripper();
   const jsonCompactor = new JsonCompactor();
   const lockFileSkipper = new LockFileSkipper();
+  const minifiedCodeSkipper = new MinifiedCodeSkipper();
   const htmlToMarkdownTransformer = new HtmlToMarkdownTransformer();
   const svgDescriber = new SvgDescriber();
   const cssVariableSummarizer = new CssVariableSummarizer();
@@ -112,6 +114,7 @@ export function createPipelineDeps(
     commentStripper,
     jsonCompactor,
     lockFileSkipper,
+    minifiedCodeSkipper,
     htmlToMarkdownTransformer,
     svgDescriber,
     cssVariableSummarizer,

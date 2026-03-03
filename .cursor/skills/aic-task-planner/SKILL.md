@@ -60,6 +60,22 @@ The process has **two passes** plus a presentation step. Each pass produces a co
 
 ---
 
+## §0. Branch setup (mandatory — run before anything else)
+
+The planner always operates on the `main` branch so that task files and exploration reports reflect the merged state and avoid conflicts when working on feature branches.
+
+1. Record the current branch: `git rev-parse --abbrev-ref HEAD`
+2. If there are uncommitted changes, stash them: `git stash push -m "aic-planner: auto-stash before switching to main"`
+3. Switch to main and pull latest: `git checkout main && git pull --ff-only`
+4. **All planning work (§1 through §6 or §7) happens on `main`.**
+5. After the task file is saved (end of §6 or §7), switch back to the original branch and pop the stash if one was created:
+   - `git checkout <original-branch>`
+   - If stashed in step 2: `git stash pop`
+
+If `git pull --ff-only` fails (diverged history), tell the user: "Cannot fast-forward main. Please resolve manually before planning." Do not proceed.
+
+---
+
 ## §1. Recommend the best next task
 
 **Pre-read all inputs in one parallel batch** — these are needed in Pass 1 regardless of which component the user picks, and pre-reading eliminates a full round of tool calls later:

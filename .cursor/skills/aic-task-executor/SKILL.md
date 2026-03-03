@@ -74,6 +74,15 @@ For non-composition-root tasks, all types are Tier 0 (verbatim) — this distinc
 
 **Cross-check prerequisites:** If Config Changes lists a dependency as "already at X", verify it's actually there (package.json is in context). If it lists an ESLint change, confirm the Steps section has a step for it. If anything doesn't match, **stop and tell the user** — the task file may need replanning.
 
+**Build the touched-files list.** Extract every file path from the task's **Files table** (both "Create" and "Modify" rows). Then add the standard files that every task modifies:
+
+- `documentation/mvp-progress.md` (progress update in §5b)
+- `documentation/tasks/done/NNN-name.md` (task file after move+archive in §5c)
+
+If any step mentions auto-ratcheting benchmark files (e.g. `test/benchmarks/baseline.json`), add those too. If Config Changes lists modifications to `shared/package.json` or `eslint.config.mjs`, add those.
+
+**This is your commit allowlist.** Only these files may be staged in §5c. Keep this list in mind throughout implementation — if you create or modify a file not on this list, either add it (with justification) or revert it before committing.
+
 **Task quality gate — scan for ambiguity before implementing:**
 
 Before writing any code, scan every non-code instruction sentence in the Steps section, Verify lines, and test descriptions. Flag any sentence containing patterns from these categories:
@@ -243,20 +252,28 @@ Run these sequentially in one flow — no user gate between them:
    test ! -f documentation/tasks/NNN-name.md && head -3 documentation/tasks/done/NNN-name.md
    ```
    If the old file still exists, delete it: `rm documentation/tasks/NNN-name.md`.
-4. Stage and commit on the feature branch:
+4. **Stage only touched files and commit on the feature branch.**
+
+   Use the touched-files list built in §2 — never `git add -A`. Stage each file explicitly:
 
    ```
-   git add -A && git commit -m "feat(<scope>): <what was built>"
+   git add path/to/file1.ts path/to/file2.ts ... && git commit -m "feat(<scope>): <what was built>"
    ```
+
+   Before committing, run `git status --porcelain` and compare against the touched-files list. If any file in `git status` is NOT on the list, investigate:
+   - If it is a legitimate side-effect of the task (e.g. auto-formatted by lint-staged, auto-ratcheted benchmark), add it to the list and stage it.
+   - If it is unrelated (e.g. leftover from a previous branch, editor config, exploration file), do NOT stage it. Leave it unstaged.
+
+   If you accidentally stage an unrelated file, unstage it with `git reset HEAD <path>` before committing.
 
    Use the conventional commit format: `type(scope): description`, max 72 chars, imperative, no period.
 
 5. **Post-commit hygiene check.** Lint-staged runs during commit and may auto-format files, leaving the working tree dirty. This step catches and resolves that before proposing merge.
 
-   a. Run `git status --porcelain`. If output is empty, skip to (e).
-   b. Stage and amend: `git add -A && git commit --amend --no-edit`.
-   c. Run `pnpm lint && pnpm typecheck && pnpm test`. If any fail, fix the issues, then `git add -A && git commit --amend --no-edit` again. Repeat at most twice — if still failing after 2 fix attempts, go to **Blocked diagnostic**.
-   d. Run `git status --porcelain` again. If still dirty (another lint-staged pass reformatted), repeat from (b). Cap at 3 iterations — if still dirty, something is structurally wrong; go to **Blocked diagnostic**.
+   a. Run `git status --porcelain`. Filter the output against the touched-files list — only files on the list matter. If no touched files are dirty, skip to (e).
+   b. Stage only the dirty touched files and amend: `git add <touched dirty files> && git commit --amend --no-edit`.
+   c. Run `pnpm lint && pnpm typecheck && pnpm test`. If any fail, fix the issues, then stage only the fixed touched files and amend again. Repeat at most twice — if still failing after 2 fix attempts, go to **Blocked diagnostic**.
+   d. Run `git status --porcelain` again. Filter against touched-files list. If touched files are still dirty (another lint-staged pass reformatted), repeat from (b). Cap at 3 iterations — if still dirty, something is structurally wrong; go to **Blocked diagnostic**.
    e. Run `git diff main...HEAD --stat` to produce the final file list for the merge proposal.
 
 ### 6. Merge and Clean Up
@@ -317,10 +334,9 @@ Before declaring Blocked, check whether the failure is in your code or in the ta
    - What went wrong (exact error message)
    - Whether the issue is in your code or the task file's spec
    - What decision you need from the user
-3. Commit the partial work on the feature branch so nothing is lost:
+3. Commit the partial work on the feature branch so nothing is lost — stage only files from the touched-files list:
    ```
-   git add -A
-   git commit -m "wip(task-NNN): blocked — <short reason>"
+   git add <touched files> && git commit -m "wip(task-NNN): blocked — <short reason>"
    ```
 4. Switch back to main: `git checkout main`
 5. Change the task file status to `Blocked`.
