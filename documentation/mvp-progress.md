@@ -86,7 +86,7 @@ Incremental output quality improvements, measured by Phase K benchmarks. New tra
 | DocstringTrimmer           | Done   | shared/src/pipeline/ |
 | CssVariableSummarizer      | Done   | shared/src/pipeline/ |
 | TypeDeclarationCompactor   | Done   | shared/src/pipeline/ |
-| TestStructureExtractor     | Todo   | shared/src/pipeline/ |
+| TestStructureExtractor     | Done   | shared/src/pipeline/ |
 | ImportDeduplicator         | Todo   | shared/src/pipeline/ |
 | HtmlToMarkdownTransformer  | Todo   | shared/src/pipeline/ |
 | SvgDescriber               | Todo   | shared/src/pipeline/ |
@@ -247,9 +247,10 @@ For any project **other than AIC itself**, a new chat means:
 
 ### 2026-03-03
 
-**Components:** Conversation tracking: summary + prompt cmd
+**Components:** Conversation tracking: summary + prompt cmd, TestStructureExtractor
 **Completed:**
 
+- TestStructureExtractor (task 066): ContentTransformer that strips describe/it/test callback bodies to `{}` for paths containing .test. or .spec., keeping call and first string argument; leaf-only replacement so nested describe/it structure preserved; TEST_SPEC_EXTENSIONS for .ts/.js/.tsx/.jsx/.mjs/.cjs/.py/.go/.rs/.java/.rb/.php/.swift/.kt/.dart; wired after whitespaceNormalizer before commentStripper in create-pipeline-deps; six tests (describe_it_names_kept_bodies_stripped, non_test_path_unchanged, test_path_describe_it_preserved, empty_content_returns_unchanged, safety_ts_test_structure_preserved, safety_spec_js_structure_preserved); token and selection benchmarks unchanged; lint, typecheck, test, lint:clones 0.
 - Conversation tracking: summary + prompt cmd (task 070): ConversationSummary type and StatusStore.getConversationSummary; SqliteStatusStore implements getConversationSummary (conversation_id filter, aggregates, lastCompilationInConversation, topTaskClasses); migrations 005/007 in sqlite-status-store test setup, insertCompilationLog extended with conversation_id; MCP tool aic_conversation_summary with ConversationSummaryRequestSchema, returns JSON or zero-payload when no rows; prompt command "show aic chat summary" in aic-architect.mdc; helpers mapLastCompilationRow and mapTaskClassRow to eliminate clones; lint, typecheck, test, knip (no new findings), lint:clones 0.
 
 ### 2025-03-03

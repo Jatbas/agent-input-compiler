@@ -1,6 +1,6 @@
 # Task 066: TestStructureExtractor
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** L (Transformers & Guard)
 > **Layer:** pipeline
 > **Depends on:** TypeDeclarationCompactor (Done)

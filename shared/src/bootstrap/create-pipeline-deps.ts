@@ -21,6 +21,7 @@ import { LongStringLiteralTruncator } from "#pipeline/long-string-literal-trunca
 import { DocstringTrimmer } from "#pipeline/docstring-trimmer.js";
 import { LicenseHeaderStripper } from "#pipeline/license-header-stripper.js";
 import { WhitespaceNormalizer } from "#pipeline/whitespace-normalizer.js";
+import { TestStructureExtractor } from "#pipeline/test-structure-extractor.js";
 import { CommentStripper } from "#pipeline/comment-stripper.js";
 import { JsonCompactor } from "#pipeline/json-compactor.js";
 import { LockFileSkipper } from "#pipeline/lock-file-skipper.js";
@@ -84,6 +85,7 @@ export function createPipelineDeps(
   const scanners = [exclusionScanner, secretScanner, promptInjectionScanner] as const;
   const contextGuard = new ContextGuard(scanners, fileContentReader, []);
   const whitespaceNormalizer = new WhitespaceNormalizer(WHITESPACE_EXCLUDED_EXTENSIONS);
+  const testStructureExtractor = new TestStructureExtractor();
   const commentStripper = new CommentStripper();
   const jsonCompactor = new JsonCompactor();
   const lockFileSkipper = new LockFileSkipper();
@@ -99,6 +101,7 @@ export function createPipelineDeps(
     longStringLiteralTruncator,
     docstringTrimmer,
     whitespaceNormalizer,
+    testStructureExtractor,
     commentStripper,
     jsonCompactor,
     lockFileSkipper,
