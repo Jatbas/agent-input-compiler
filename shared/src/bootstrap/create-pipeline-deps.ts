@@ -19,6 +19,7 @@ import { ContextGuard } from "#pipeline/context-guard.js";
 import { Base64InlineDataStripper } from "#pipeline/base64-inline-data-stripper.js";
 import { LongStringLiteralTruncator } from "#pipeline/long-string-literal-truncator.js";
 import { DocstringTrimmer } from "#pipeline/docstring-trimmer.js";
+import { ImportDeduplicator } from "#pipeline/import-deduplicator.js";
 import { LicenseHeaderStripper } from "#pipeline/license-header-stripper.js";
 import { WhitespaceNormalizer } from "#pipeline/whitespace-normalizer.js";
 import { TestStructureExtractor } from "#pipeline/test-structure-extractor.js";
@@ -95,11 +96,13 @@ export function createPipelineDeps(
   const base64InlineDataStripper = new Base64InlineDataStripper();
   const longStringLiteralTruncator = new LongStringLiteralTruncator();
   const docstringTrimmer = new DocstringTrimmer();
+  const importDeduplicator = new ImportDeduplicator();
   const transformers = [
     licenseHeaderStripper,
     base64InlineDataStripper,
     longStringLiteralTruncator,
     docstringTrimmer,
+    importDeduplicator,
     whitespaceNormalizer,
     testStructureExtractor,
     commentStripper,

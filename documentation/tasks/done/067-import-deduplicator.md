@@ -1,6 +1,6 @@
 # Task 067: ImportDeduplicator
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** L (Transformers & Guard)
 > **Layer:** pipeline
 > **Depends on:** (none — Phase L transformers are independent)
