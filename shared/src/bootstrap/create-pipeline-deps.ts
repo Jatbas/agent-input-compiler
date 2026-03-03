@@ -27,6 +27,7 @@ import { CommentStripper } from "#pipeline/comment-stripper.js";
 import { JsonCompactor } from "#pipeline/json-compactor.js";
 import { LockFileSkipper } from "#pipeline/lock-file-skipper.js";
 import { HtmlToMarkdownTransformer } from "#pipeline/html-to-markdown-transformer.js";
+import { SvgDescriber } from "#pipeline/svg-describer.js";
 import { CssVariableSummarizer } from "#pipeline/css-variable-summarizer.js";
 import { TypeDeclarationCompactor } from "#pipeline/type-declaration-compactor.js";
 import { ContentTransformerPipeline } from "#pipeline/content-transformer-pipeline.js";
@@ -92,6 +93,7 @@ export function createPipelineDeps(
   const jsonCompactor = new JsonCompactor();
   const lockFileSkipper = new LockFileSkipper();
   const htmlToMarkdownTransformer = new HtmlToMarkdownTransformer();
+  const svgDescriber = new SvgDescriber();
   const cssVariableSummarizer = new CssVariableSummarizer();
   const typeDeclarationCompactor = new TypeDeclarationCompactor();
   const licenseHeaderStripper = new LicenseHeaderStripper();
@@ -111,6 +113,7 @@ export function createPipelineDeps(
     jsonCompactor,
     lockFileSkipper,
     htmlToMarkdownTransformer,
+    svgDescriber,
     cssVariableSummarizer,
     typeDeclarationCompactor,
   ] as const;
