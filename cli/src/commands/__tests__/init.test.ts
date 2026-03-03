@@ -13,7 +13,6 @@ describe("initCommand", () => {
         projectRoot: tempDir,
         configPath: null,
         dbPath: null,
-        upgrade: false,
       });
       const outChunks: string[] = [];
       const origStdout = process.stdout.write;
@@ -33,10 +32,8 @@ describe("initCommand", () => {
       const configPath = path.join(tempDir, "aic.config.json");
       expect(fs.existsSync(configPath)).toBe(true);
       const config = JSON.parse(fs.readFileSync(configPath, "utf8")) as {
-        version: number;
         contextBudget: { maxTokens: number };
       };
-      expect(config.version).toBe(1);
       expect(config.contextBudget.maxTokens).toBe(8000);
       const aicDir = path.join(tempDir, ".aic");
       expect(fs.existsSync(aicDir)).toBe(true);
@@ -54,7 +51,6 @@ describe("initCommand", () => {
         projectRoot: tempDir,
         configPath: null,
         dbPath: null,
-        upgrade: false,
       });
 
       await initCommand(parsed);
@@ -76,7 +72,6 @@ describe("initCommand", () => {
         projectRoot: tempDir,
         configPath: null,
         dbPath: null,
-        upgrade: false,
       });
       await initCommand(parsed);
       const content = fs.readFileSync(gitignorePath, "utf8");
@@ -96,7 +91,6 @@ describe("initCommand", () => {
         projectRoot: tempDir,
         configPath: null,
         dbPath: null,
-        upgrade: false,
       });
       await initCommand(parsed);
       const content = fs.readFileSync(gitignorePath, "utf8");
@@ -115,7 +109,6 @@ describe("initCommand", () => {
         projectRoot: tempDir,
         configPath: null,
         dbPath: null,
-        upgrade: false,
       });
       const errChunks: string[] = [];
       const origStderr = process.stderr.write;
@@ -137,43 +130,4 @@ describe("initCommand", () => {
     }
   });
 
-  it("upgrade_backs_up_and_rewrites", async () => {
-    const tempDir = fs.mkdtempSync(path.join(tmpdir(), "aic-init-"));
-    try {
-      const configPath = path.join(tempDir, "aic.config.json");
-      const originalContent = '{"version":1}';
-      fs.writeFileSync(configPath, originalContent, "utf8");
-      const parsed = InitArgsSchema.parse({
-        projectRoot: tempDir,
-        configPath: null,
-        dbPath: null,
-        upgrade: true,
-      });
-      const outChunks: string[] = [];
-      const origStdout = process.stdout.write;
-      process.stdout.write = (chunk: string | Uint8Array) => {
-        outChunks.push(
-          typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk),
-        );
-        return true;
-      };
-      try {
-        await initCommand(parsed);
-        const stdout = outChunks.join("");
-        expect(stdout).toContain("Config upgraded");
-        expect(stdout).toContain("Backup saved");
-      } finally {
-        process.stdout.write = origStdout;
-      }
-      const bakPath = configPath + ".bak";
-      expect(fs.existsSync(bakPath)).toBe(true);
-      expect(fs.readFileSync(bakPath, "utf8")).toBe(originalContent);
-      const config = JSON.parse(fs.readFileSync(configPath, "utf8")) as {
-        version: number;
-      };
-      expect(config.version).toBe(1);
-    } finally {
-      fs.rmSync(tempDir, { recursive: true });
-    }
-  });
 });

@@ -2,23 +2,13 @@ import { describe, it, expect } from "vitest";
 import { InitArgsSchema } from "../init-args.js";
 
 describe("InitArgsSchema", () => {
-  it("empty_object_defaults_upgrade_false", () => {
+  it("parses_valid_args", () => {
     const result = InitArgsSchema.parse({
       projectRoot: "/tmp/proj",
       configPath: null,
       dbPath: null,
     });
-    expect(result.upgrade).toBe(false);
-  });
-
-  it("upgrade_true_parses", () => {
-    const result = InitArgsSchema.parse({
-      projectRoot: "/tmp/proj",
-      configPath: null,
-      dbPath: null,
-      upgrade: true,
-    });
-    expect(result.upgrade).toBe(true);
+    expect(result.projectRoot).toBe("/tmp/proj");
   });
 
   it("projectRoot_required_missing_or_empty_fails", () => {

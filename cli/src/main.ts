@@ -216,13 +216,9 @@ program
   .command("init")
   .description("Scaffold aic.config.json and add .aic/ to .gitignore")
   .option("--root <path>", "project root directory", process.cwd())
-  .option("--upgrade", "migrate config to current schema and back up original")
   .action(async function (this: Command) {
     await runAction(async () => {
-      const parsed = InitArgsSchema.parse({
-        ...resolveBaseArgs(this.opts()),
-        upgrade: this.opts()["upgrade"] === true,
-      });
+      const parsed = InitArgsSchema.parse(resolveBaseArgs(this.opts()));
       await initCommand(parsed);
     });
   });
