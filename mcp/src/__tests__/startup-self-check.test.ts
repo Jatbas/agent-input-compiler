@@ -32,18 +32,48 @@ describe("runStartupSelfCheck", () => {
     fs.mkdirSync(hooksDir, { recursive: true });
     fs.writeFileSync(path.join(rulesDir, "AIC.mdc"), "");
     fs.writeFileSync(
-      path.join(hooksDir, "hooks.json"),
+      path.join(tmpDir, ".cursor", "hooks.json"),
       JSON.stringify({
         hooks: {
           sessionStart: [{ command: "node .cursor/hooks/AIC-compile-context.cjs" }],
+          preToolUse: [
+            { command: "node .cursor/hooks/AIC-require-aic-compile.cjs" },
+            { command: "node .cursor/hooks/AIC-inject-conversation-id.cjs", matcher: "MCP" },
+          ],
+        },
+      }),
+    );
+    fs.writeFileSync(path.join(hooksDir, "AIC-compile-context.cjs"), "");
+    fs.writeFileSync(path.join(hooksDir, "AIC-require-aic-compile.cjs"), "");
+    fs.writeFileSync(path.join(hooksDir, "AIC-inject-conversation-id.cjs"), "");
+    const projectRoot = toAbsolutePath(tmpDir);
+    const result = runStartupSelfCheck(projectRoot);
+    expect(result.installationOk).toBe(true);
+    expect(result.installationNotes).toBe("");
+  });
+
+  it("session_only_missing_preToolUse_reports_preToolUse_notes", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-startup-"));
+    const rulesDir = path.join(tmpDir, ".cursor", "rules");
+    const hooksDir = path.join(tmpDir, ".cursor", "hooks");
+    fs.mkdirSync(rulesDir, { recursive: true });
+    fs.mkdirSync(hooksDir, { recursive: true });
+    fs.writeFileSync(path.join(rulesDir, "AIC.mdc"), "");
+    fs.writeFileSync(
+      path.join(tmpDir, ".cursor", "hooks.json"),
+      JSON.stringify({
+        hooks: {
+          sessionStart: [{ command: "node .cursor/hooks/AIC-compile-context.cjs" }],
+          // preToolUse missing
         },
       }),
     );
     fs.writeFileSync(path.join(hooksDir, "AIC-compile-context.cjs"), "");
     const projectRoot = toAbsolutePath(tmpDir);
     const result = runStartupSelfCheck(projectRoot);
-    expect(result.installationOk).toBe(true);
-    expect(result.installationNotes).toBe("");
+    expect(result.installationOk).toBe(false);
+    expect(result.installationNotes).toContain("preToolUse require hook not configured");
+    expect(result.installationNotes).toContain("preToolUse inject conversation_id hook not configured");
   });
 
   it("only_trigger_missing_notes_mention_trigger", () => {
@@ -51,14 +81,20 @@ describe("runStartupSelfCheck", () => {
     const hooksDir = path.join(tmpDir, ".cursor", "hooks");
     fs.mkdirSync(hooksDir, { recursive: true });
     fs.writeFileSync(
-      path.join(hooksDir, "hooks.json"),
+      path.join(tmpDir, ".cursor", "hooks.json"),
       JSON.stringify({
         hooks: {
           sessionStart: [{ command: "node .cursor/hooks/AIC-compile-context.cjs" }],
+          preToolUse: [
+            { command: "node .cursor/hooks/AIC-require-aic-compile.cjs" },
+            { command: "node .cursor/hooks/AIC-inject-conversation-id.cjs", matcher: "MCP" },
+          ],
         },
       }),
     );
     fs.writeFileSync(path.join(hooksDir, "AIC-compile-context.cjs"), "");
+    fs.writeFileSync(path.join(hooksDir, "AIC-require-aic-compile.cjs"), "");
+    fs.writeFileSync(path.join(hooksDir, "AIC-inject-conversation-id.cjs"), "");
     const projectRoot = toAbsolutePath(tmpDir);
     const result = runStartupSelfCheck(projectRoot);
     expect(result.installationOk).toBe(false);
