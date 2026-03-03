@@ -6,7 +6,15 @@ import { GUARD_FINDING_TYPE } from "#core/types/enums.js";
 import type { ScanPattern } from "#core/interfaces/scan-pattern.interface.js";
 import { scanWithPatterns } from "./pattern-scanner.js";
 
-const PROMPT_INJECTION_PATTERNS: readonly ScanPattern[] = [
+const BLOCK_PATTERNS: readonly ScanPattern[] = [
+  {
+    pattern: /<\|?(system|im_start|endofprompt)\|?>/i,
+    label: "special token",
+  },
+  { pattern: /\[INST\].*\[\/INST\]/i, label: "instruction block" },
+];
+
+const WARN_PATTERNS: readonly ScanPattern[] = [
   {
     pattern: /ignore\s+(all\s+)?(previous|above|prior)\s+instructions/i,
     label: "instruction override",
@@ -21,24 +29,28 @@ const PROMPT_INJECTION_PATTERNS: readonly ScanPattern[] = [
       /do\s+not\s+follow\s+(any\s+)?(other|previous)\s+(rules|instructions|constraints)/i,
     label: "constraint override",
   },
-  {
-    pattern: /<\|?(system|im_start|endofprompt)\|?>/i,
-    label: "special token",
-  },
-  { pattern: /\[INST\].*\[\/INST\]/i, label: "instruction block" },
 ];
 
 export class PromptInjectionScanner implements GuardScanner {
   readonly name = "PromptInjectionScanner";
 
   scan(file: SelectedFile, content: string): readonly GuardFinding[] {
-    return scanWithPatterns(
+    const blockFindings = scanWithPatterns(
       file,
       content,
-      PROMPT_INJECTION_PATTERNS,
+      BLOCK_PATTERNS,
       GUARD_SEVERITY.BLOCK,
       GUARD_FINDING_TYPE.PROMPT_INJECTION,
       "Prompt injection pattern: ",
     );
+    const warnFindings = scanWithPatterns(
+      file,
+      content,
+      WARN_PATTERNS,
+      GUARD_SEVERITY.WARN,
+      GUARD_FINDING_TYPE.PROMPT_INJECTION,
+      "Prompt injection pattern: ",
+    );
+    return [...blockFindings, ...warnFindings];
   }
 }

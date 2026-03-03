@@ -16,4 +16,5 @@ export interface GuardResult {
   readonly findings: readonly GuardFinding[];
   readonly filesBlocked: readonly RelativePath[];
   readonly filesRedacted: readonly RelativePath[];
+  readonly filesWarned: readonly RelativePath[];
 }

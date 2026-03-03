@@ -1,6 +1,6 @@
 # Task 081: Guard Warn Severity
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** Phase L (Quality Release — Phase 0.5)
 > **Layer:** pipeline + core/types
 > **Depends on:** ContextGuard (Done), PromptInjectionScanner (Done), GuardResult type (Done)

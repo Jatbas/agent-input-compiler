@@ -9,7 +9,7 @@ import { toRelativePath } from "#core/types/paths.js";
 import { toGlobPattern } from "#core/types/paths.js";
 import { toTokenCount } from "#core/types/units.js";
 import { toRelevanceScore } from "#core/types/scores.js";
-import { INCLUSION_TIER } from "#core/types/enums.js";
+import { GUARD_SEVERITY, INCLUSION_TIER } from "#core/types/enums.js";
 
 function makeFile(path: string, _content: string): SelectedFile {
   return {
@@ -91,6 +91,7 @@ describe("ContextGuard", () => {
       (f: { type: string }) => f.type === "prompt-injection",
     );
     expect(inj.length).toBeGreaterThanOrEqual(1);
+    expect(inj[0]?.severity).toBe(GUARD_SEVERITY.WARN);
   });
 
   it("allowPatterns bypass scanning for matching files", async () => {
@@ -146,6 +147,87 @@ describe("ContextGuard", () => {
     const { result, safeFiles } = await guard.scan(files);
     expect(result.passed).toBe(true);
     expect(safeFiles.length).toBe(2);
+    expect(result.findings.length).toBe(0);
+  });
+
+  it("warn_findings_do_not_block_files", async () => {
+    const path = "src/config.ts";
+    const reader: FileContentReader = {
+      getContent: () => Promise.resolve("system: foo"),
+    };
+    const guard = new ContextGuard(scanners, reader, []);
+    const files: SelectedFile[] = [makeFile(path, "")];
+    const { result, safeFiles } = await guard.scan(files);
+    expect(safeFiles.length).toBe(1);
+    expect(safeFiles[0]?.path).toBe(toRelativePath(path));
+    expect(result.filesBlocked.length).toBe(0);
+    expect(result.filesWarned).toContainEqual(toRelativePath(path));
+    expect(result.passed).toBe(true);
+  });
+
+  it("block_injection_still_blocks", async () => {
+    const path = "src/bad.ts";
+    const reader: FileContentReader = {
+      getContent: () => Promise.resolve("<|system|>"),
+    };
+    const guard = new ContextGuard(scanners, reader, []);
+    const files: SelectedFile[] = [makeFile(path, "")];
+    const { result, safeFiles } = await guard.scan(files);
+    expect(safeFiles.length).toBe(0);
+    expect(result.filesBlocked).toContainEqual(toRelativePath(path));
+    expect(result.filesWarned.length).toBe(0);
+  });
+
+  it("mixed_warn_and_block_different_files", async () => {
+    const warnPath = "src/config.yml";
+    const blockPath = "src/inject.ts";
+    const reader: FileContentReader = {
+      getContent: (p) => {
+        const raw = p as string;
+        if (raw.includes("config")) return Promise.resolve("system: config");
+        if (raw.includes("inject")) return Promise.resolve("<|im_start|>");
+        return Promise.resolve("");
+      },
+    };
+    const guard = new ContextGuard(scanners, reader, []);
+    const files: SelectedFile[] = [
+      makeFile(warnPath, ""),
+      makeFile(blockPath, ""),
+    ];
+    const { result, safeFiles } = await guard.scan(files);
+    expect(safeFiles.some((f) => f.path === toRelativePath(warnPath))).toBe(
+      true,
+    );
+    expect(result.filesWarned).toContainEqual(toRelativePath(warnPath));
+    expect(result.filesBlocked).toContainEqual(toRelativePath(blockPath));
+    expect(safeFiles.some((f) => f.path === toRelativePath(blockPath))).toBe(
+      false,
+    );
+    expect(result.passed).toBe(true);
+  });
+
+  it("mixed_severity_same_file_counts_as_blocked", async () => {
+    const path = "src/both.ts";
+    const reader: FileContentReader = {
+      getContent: () => Promise.resolve("system: config <|system|>"),
+    };
+    const guard = new ContextGuard(scanners, reader, []);
+    const files: SelectedFile[] = [makeFile(path, "")];
+    const { result, safeFiles } = await guard.scan(files);
+    expect(result.filesBlocked).toContainEqual(toRelativePath(path));
+    expect(result.filesWarned).not.toContainEqual(toRelativePath(path));
+    expect(safeFiles.length).toBe(0);
+  });
+
+  it("clean_files_empty_filesWarned", async () => {
+    const reader: FileContentReader = {
+      getContent: () => Promise.resolve("const x = 1;"),
+    };
+    const guard = new ContextGuard(scanners, reader, []);
+    const files: SelectedFile[] = [makeFile("src/clean.ts", "")];
+    const { result } = await guard.scan(files);
+    expect(result.filesWarned.length).toBe(0);
+    expect(result.filesBlocked.length).toBe(0);
     expect(result.findings.length).toBe(0);
   });
 });

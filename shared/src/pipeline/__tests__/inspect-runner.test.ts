@@ -87,6 +87,7 @@ const guardResult: GuardResult = {
   findings: [],
   filesBlocked: [],
   filesRedacted: [],
+  filesWarned: [],
 };
 
 const safeFiles = [

@@ -8,6 +8,7 @@ exports[`golden snapshot > full_pipeline_trace_matches_golden_snapshot 1`] = `
   "guard": {
     "filesBlocked": [],
     "filesRedacted": [],
+    "filesWarned": [],
     "findings": [],
     "passed": true,
   },

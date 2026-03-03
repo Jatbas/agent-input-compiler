@@ -62,6 +62,7 @@ describe("buildTelemetryEvent", () => {
       ],
       filesBlocked: [toRelativePath("src/secret.ts"), toRelativePath("src/keys.ts")],
       filesRedacted: [],
+      filesWarned: [],
     };
     const meta = metaOverrides({ guard });
     const event = buildTelemetryEvent(

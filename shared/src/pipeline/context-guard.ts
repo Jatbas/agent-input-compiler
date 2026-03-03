@@ -44,6 +44,14 @@ export class ContextGuard implements IContextGuard {
       ),
     ];
     const blockedSet = new Set(blockedPaths);
+    const warnedPaths = [
+      ...new Set(
+        allFindings
+          .filter((f) => f.severity === GUARD_SEVERITY.WARN)
+          .map((f) => f.file)
+          .filter((p) => !blockedSet.has(p)),
+      ),
+    ];
     const safeFiles = files.filter((f) => !blockedSet.has(f.path));
     const passed = safeFiles.length > 0;
     return {
@@ -52,6 +60,7 @@ export class ContextGuard implements IContextGuard {
         findings: allFindings,
         filesBlocked: blockedPaths,
         filesRedacted: blockedPaths,
+        filesWarned: warnedPaths,
       },
       safeFiles,
     };
