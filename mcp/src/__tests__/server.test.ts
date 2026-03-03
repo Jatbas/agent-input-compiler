@@ -213,6 +213,65 @@ describe("MCP server", () => {
     expect((result as { isError?: boolean }).isError).not.toBe(true);
   });
 
+  it("aic_conversation_summary_tool_returns_json_when_compilations_exist", async () => {
+    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    const server = createMcpServer(toAbsolutePath(tmpDir));
+    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+    await server.connect(transportServer);
+    const client = new Client({ name: "test", version: "1.0" });
+    await client.connect(transportClient);
+    const conversationId = "conv-test-summary";
+    await client.callTool({
+      name: "aic_compile",
+      arguments: {
+        intent: "fix bug",
+        projectRoot: tmpDir,
+        conversationId,
+      },
+    });
+    const result = await client.callTool({
+      name: "aic_conversation_summary",
+      arguments: { conversationId },
+    });
+    type ContentItem = { type: string; text?: string };
+    const raw = (result as { content?: ContentItem[] }).content;
+    const content: ContentItem[] = Array.isArray(raw) ? raw : [];
+    expect(content).toHaveLength(1);
+    expect(content[0]?.type).toBe("text");
+    const text =
+      content[0] && "text" in content[0] && typeof content[0].text === "string"
+        ? content[0].text
+        : "{}";
+    const parsed = JSON.parse(text) as { compilationsInConversation: number };
+    expect(parsed.compilationsInConversation).toBeGreaterThanOrEqual(1);
+  });
+
+  it("aic_conversation_summary_tool_returns_zero_when_no_compilations", async () => {
+    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    const server = createMcpServer(toAbsolutePath(tmpDir));
+    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+    await server.connect(transportServer);
+    const client = new Client({ name: "test", version: "1.0" });
+    await client.connect(transportClient);
+    const result = await client.callTool({
+      name: "aic_conversation_summary",
+      arguments: { conversationId: "conv-unknown-no-rows" },
+    });
+    type ContentItem = { type: string; text?: string };
+    const raw = (result as { content?: ContentItem[] }).content;
+    const content: ContentItem[] = Array.isArray(raw) ? raw : [];
+    const text = content
+      .filter((c): c is { type: "text"; text: string } => c.type === "text")
+      .map((c) => c.text)
+      .join("");
+    const parsed = JSON.parse(text) as {
+      compilationsInConversation: number;
+      lastCompilationInConversation: null;
+    };
+    expect(parsed.compilationsInConversation).toBe(0);
+    expect(parsed.lastCompilationInConversation).toBeNull();
+  });
+
   it("invalid_args_returns_32602", async () => {
     tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
     const server = createMcpServer(toAbsolutePath(tmpDir));

@@ -64,6 +64,7 @@ When in doubt, open the specific rule file listed above for the full text.
 ## Prompt Commands
 
 - **"show aic session summary"** — When the user says this (or similar), read the MCP resource `aic://session-summary` from the `project-0-AIC-AIC` server using `FetchMcpResource`. Start the reply with one short line: **Session = this AIC server run (since the AIC MCP server started), not this chat.** Then display the result as a formatted table. The resource returns JSON with: `compilationsTotal`, `compilationsToday`, `cacheHitRatePct`, `avgReductionPct`, `totalTokensRaw`, `totalTokensCompiled`, `totalTokensSaved`, `telemetryDisabled`, `guardByType`, `topTaskClasses`, `lastCompilation`, `installationOk`, `installationNotes`. Show total tokens (raw → compiled) before total tokens saved.
+- **"show aic chat summary"** — When the user says "show aic chat summary" or asks for this conversation's AIC compilation stats, call the MCP tool `aic_conversation_summary` with the current conversation ID (from hook context or editor). When conversation ID is not available, explain that chat summary requires the editor to pass conversation ID. Start the reply with one short line: **Chat = this conversation's AIC compilations.** Then display the result as a formatted table: `compilationsInConversation`, `totalTokensRaw`, `totalTokensCompiled`, `totalTokensSaved`, `cacheHitRatePct`, `avgReductionPct`, `lastCompilationInConversation` (intent and created_at), `topTaskClasses`.
 
 ## Maintenance
 

@@ -15,6 +15,7 @@ import {
 } from "@aic/shared/core/types/enums.js";
 import { InspectRunner } from "@aic/shared/pipeline/inspect-runner.js";
 import { CompilationRequestSchema } from "./schemas/compilation-request.js";
+import { ConversationSummaryRequestSchema } from "./schemas/conversation-summary-request.js";
 import { InspectRequestSchema } from "./schemas/inspect-request.schema.js";
 import { createCompileHandler } from "./handlers/compile-handler.js";
 import { handleInspect } from "./handlers/inspect-handler.js";
@@ -24,7 +25,8 @@ import type { CacheStore } from "@aic/shared/core/interfaces/cache-store.interfa
 import type { SessionTracker } from "@aic/shared/core/interfaces/session-tracker.interface.js";
 import type { Clock } from "@aic/shared/core/interfaces/clock.interface.js";
 import type { SessionId } from "@aic/shared/core/types/identifiers.js";
-import { toSessionId } from "@aic/shared/core/types/identifiers.js";
+import { toConversationId, toSessionId } from "@aic/shared/core/types/identifiers.js";
+import { z } from "zod";
 import { STOP_REASON } from "@aic/shared/core/types/enums.js";
 import { createFullPipelineDeps } from "@aic/shared/bootstrap/create-pipeline-deps.js";
 import { installCursorHooks } from "./install-cursor-hooks.js";
@@ -193,6 +195,31 @@ export function createMcpServer(
   );
   server.tool("aic_inspect", InspectRequestSchema, (args) =>
     handleInspect(args, inspectRunner),
+  );
+  server.tool(
+    "aic_conversation_summary",
+    "Get per-conversation AIC compilation summary.",
+    ConversationSummaryRequestSchema,
+    (args) => {
+      const parsed = z.object(ConversationSummaryRequestSchema).parse(args);
+      const conversationId = toConversationId(parsed.conversationId);
+      const statusStore = new SqliteStatusStore(scope.db, scope.clock);
+      const summary = statusStore.getConversationSummary(conversationId);
+      const payload = summary ?? {
+        conversationId: parsed.conversationId,
+        compilationsInConversation: 0,
+        cacheHitRatePct: null,
+        avgReductionPct: null,
+        totalTokensRaw: 0,
+        totalTokensCompiled: 0,
+        totalTokensSaved: null,
+        lastCompilationInConversation: null,
+        topTaskClasses: [],
+      };
+      return Promise.resolve({
+        content: [{ type: "text" as const, text: JSON.stringify(payload) }],
+      });
+    },
   );
   server.resource("last-compilation", "aic://last-compilation", () => {
     const statusStore = new SqliteStatusStore(scope.db, scope.clock);

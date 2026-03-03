@@ -2,12 +2,14 @@ import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
 import type { Clock } from "#core/interfaces/clock.interface.js";
-import { toISOTimestamp } from "#core/types/identifiers.js";
+import { toISOTimestamp, toConversationId } from "#core/types/identifiers.js";
 import { toMilliseconds } from "#core/types/units.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
 import { migration as migration002 } from "../migrations/002-server-sessions.js";
 import { migration as migration003 } from "../migrations/003-server-sessions-integrity.js";
 import { migration as migration004 } from "../migrations/004-normalize-telemetry.js";
+import { migration as migration005 } from "../migrations/005-trigger-source.js";
+import { migration as migration007 } from "../migrations/007-conversation-id.js";
 import { SqliteStatusStore } from "../sqlite-status-store.js";
 
 const stubClock: Clock = {
@@ -34,13 +36,15 @@ function insertCompilationLog(
     editor_id: "generic",
     model_id: null,
     created_at: "2026-02-26T12:00:00.000Z",
+    conversation_id: null as string | null,
     ...overrides,
   };
+  const conversationId = defaults.conversation_id ?? null;
   db.prepare(
     `INSERT INTO compilation_log (
       id, intent, task_class, files_selected, files_total, tokens_raw, tokens_compiled,
-      token_reduction_pct, cache_hit, duration_ms, editor_id, model_id, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      token_reduction_pct, cache_hit, duration_ms, editor_id, model_id, created_at, conversation_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     defaults.intent,
@@ -55,6 +59,7 @@ function insertCompilationLog(
     defaults.editor_id,
     defaults.model_id,
     defaults.created_at,
+    conversationId,
   );
 }
 
@@ -85,6 +90,8 @@ describe("SqliteStatusStore", () => {
     migration002.up(db);
     migration003.up(db);
     migration004.up(db);
+    migration005.up(db);
+    migration007.up(db);
     store = new SqliteStatusStore(db as unknown as ExecutableDb, stubClock);
   }
 
@@ -240,5 +247,74 @@ describe("SqliteStatusStore", () => {
     summary = store.getSummary();
     expect(summary.installationOk).toBe(false);
     expect(summary.installationNotes).toBe("trigger rule not found");
+  });
+
+  it("getConversationSummary_returns_null_when_no_rows", () => {
+    setup();
+    const result = store.getConversationSummary(toConversationId("conv-unknown"));
+    expect(result).toBeNull();
+  });
+
+  it("getConversationSummary_returns_aggregates_when_rows_exist", () => {
+    setup();
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000020", {
+      conversation_id: "conv-1",
+      intent: "fix auth",
+      task_class: "refactor",
+      tokens_raw: 1000,
+      tokens_compiled: 400,
+      token_reduction_pct: 60,
+      created_at: "2026-02-26T12:00:00.000Z",
+    });
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000021", {
+      conversation_id: "conv-1",
+      intent: "add test",
+      task_class: "test",
+      tokens_raw: 500,
+      tokens_compiled: 200,
+      token_reduction_pct: 60,
+      created_at: "2026-02-26T12:01:00.000Z",
+    });
+    const result = store.getConversationSummary(toConversationId("conv-1"));
+    expect(result).not.toBeNull();
+    if (result === null) return;
+    expect(result.conversationId).toBe("conv-1");
+    expect(result.compilationsInConversation).toBe(2);
+    expect(result.totalTokensRaw).toBe(1500);
+    expect(result.totalTokensCompiled).toBe(600);
+    expect(result.totalTokensSaved).toBe(900);
+    expect(result.avgReductionPct).toBe(60);
+    expect(result.lastCompilationInConversation).not.toBeNull();
+    if (result.lastCompilationInConversation !== null) {
+      expect(result.lastCompilationInConversation.intent).toBe("add test");
+      expect(result.lastCompilationInConversation.created_at).toBe(
+        "2026-02-26T12:01:00.000Z",
+      );
+    }
+    expect(result.topTaskClasses).toHaveLength(2);
+    const refactor = result.topTaskClasses.find((t) => t.taskClass === "refactor");
+    const testClass = result.topTaskClasses.find((t) => t.taskClass === "test");
+    expect(refactor?.count).toBe(1);
+    expect(testClass?.count).toBe(1);
+  });
+
+  it("getConversationSummary_ignores_other_conversations", () => {
+    setup();
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000030", {
+      conversation_id: "conv-a",
+      tokens_raw: 100,
+      tokens_compiled: 50,
+    });
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000031", {
+      conversation_id: "conv-b",
+      tokens_raw: 200,
+      tokens_compiled: 80,
+    });
+    const result = store.getConversationSummary(toConversationId("conv-a"));
+    expect(result).not.toBeNull();
+    if (result === null) return;
+    expect(result.compilationsInConversation).toBe(1);
+    expect(result.totalTokensRaw).toBe(100);
+    expect(result.totalTokensCompiled).toBe(50);
   });
 });

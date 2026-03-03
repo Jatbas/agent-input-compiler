@@ -33,6 +33,7 @@ Prerequisite for everything else. Quick fixes to make the tool fully functional.
 | stop quality check hook         | Done     | .cursor/hooks/                                            |
 | Startup self-check (integrity)  | Done     | mcp/src/                                                  |
 | Auto-install trigger rule       | Done     | mcp/src/                                                  |
+| Install Cursor hooks            | Done     | mcp/src/                                                  |
 | Server lifecycle hooks          | Done     | mcp/src/                                                  |
 | Telemetry conversation tracking | Deferred | — (conversation_id in schema; summary/prompt cmd Phase 1) |
 | Telemetry triggerSource field   | Done     | shared/src/core/types/ + storage                          |
@@ -106,7 +107,7 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 | `aic://session-summary` resource             | Done   | mcp/src/     |
 | `aic://last-compilation` resource (fix stub) | Done   | mcp/src/     |
 | Conversation tracking: schema + plumbing     | Done   | shared + mcp |
-| Conversation tracking: summary + prompt cmd  | Todo   | shared + mcp |
+| Conversation tracking: summary + prompt cmd  | Done   | shared + mcp |
 | Budget utilization in status                 | Todo   | cli/src/     |
 | `aic report` (static HTML)                   | Todo   | cli/src/     |
 
@@ -128,22 +129,15 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 The project plan (§2.2.1) says `npx @aic/mcp init` should install the trigger rule, integration hooks, and `.aic/` directory. The actual implementation has significant gaps — only the trigger rule is auto-installed.
 
-| Component                                            | Project plan says                                          | Actually implemented                                                         | Gap                      |
-| ---------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------ |
-| Trigger rule `.cursor/rules/AIC.mdc`                 | Auto-install on MCP startup                                | Yes (`installTriggerRule` in `server.ts`)                                    | None                     |
-| `.cursor/hooks.json`                                 | Installed by `aic init` / MCP startup                      | Yes (`installCursorHooks` on MCP startup)                                    | None                     |
-| `AIC-compile-context.cjs` (sessionStart)             | Installed by `aic init` / MCP startup                      | Yes (shipped in `mcp/hooks/`, copied by `installCursorHooks`)                | None                     |
-| `AIC-session-init.cjs` (sessionStart)                | Installed by `aic init` / MCP startup                      | Yes (shipped in `mcp/hooks/`, copied by `installCursorHooks`)                | None                     |
-| `AIC-require-aic-compile.cjs` (preToolUse)           | Installed by `aic init` / MCP startup                      | Yes (shipped in `mcp/hooks/`, copied by `installCursorHooks`)                | None                     |
-| `AIC-inject-conversation-id.cjs` (preToolUse)        | Installed by `aic init` / MCP startup                      | Yes (shipped in `mcp/hooks/`, copied by `installCursorHooks`)                | None                     |
-| `AIC-before-submit-prewarm.cjs` (beforeSubmitPrompt) | Installed by `aic init` / MCP startup                      | Yes (shipped in `mcp/hooks/`, copied by `installCursorHooks`)                | None                     |
-| `npx @aic/mcp init` CLI command                      | Described in project plan §2.2.1, README, mvp-spec         | **Does not exist** — no `bin` in mcp/package.json, no init subcommand in MCP | **Missing**              |
-| `npx @aic/mcp init --non-interactive` (team deploy)  | Described in project plan §23 Tier 1                       | **Does not exist**                                                           | **Missing** (Phase 1)    |
-| Claude Code trigger rule (`.claude/CLAUDE.md`)       | Auto-install on MCP startup when editor=claude-code        | **No** — only `installTriggerRule` writes Cursor rule                        | **Missing**              |
-| Claude Code hooks (`.claude/settings.local.json`)    | Hook installer detects editor, writes hooks                | **No** — hooks exist in repo but not installed                               | **Missing**              |
-| Editor detection for init                            | `npx @aic/mcp init` detects editor, writes to correct path | **No** — only Cursor trigger rule hardcoded                                  | **Missing**              |
-| Self-check hooks path                                | Should check `.cursor/hooks.json`                          | Was checking `.cursor/hooks/hooks.json` (wrong)                              | **Fixed** (this session) |
-| Self-check preToolUse validation                     | Should validate require + inject hooks                     | Only validated sessionStart compile hook                                     | **Fixed** (this session) |
+| Component                                           | Project plan says                                          | Actually implemented                                                         | Gap                      |
+| --------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------ |
+| `npx @aic/mcp init` CLI command                     | Described in project plan §2.2.1, README, mvp-spec         | **Does not exist** — no `bin` in mcp/package.json, no init subcommand in MCP | **Missing**              |
+| `npx @aic/mcp init --non-interactive` (team deploy) | Described in project plan §23 Tier 1                       | **Does not exist**                                                           | **Missing** (Phase 1)    |
+| Claude Code trigger rule (`.claude/CLAUDE.md`)      | Auto-install on MCP startup when editor=claude-code        | **No** — only `installTriggerRule` writes Cursor rule                        | **Missing**              |
+| Claude Code hooks (`.claude/settings.local.json`)   | Hook installer detects editor, writes hooks                | **No** — hooks exist in repo but not installed                               | **Missing**              |
+| Editor detection for init                           | `npx @aic/mcp init` detects editor, writes to correct path | **No** — only Cursor trigger rule hardcoded                                  | **Missing**              |
+| Self-check hooks path                               | Should check `.cursor/hooks.json`                          | Was checking `.cursor/hooks/hooks.json` (wrong)                              | **Fixed** (this session) |
+| Self-check preToolUse validation                    | Should validate require + inject hooks                     | Only validated sessionStart compile hook                                     | **Fixed** (this session) |
 
 ### Impact on other projects
 
@@ -153,14 +147,6 @@ For any project **other than AIC itself**, a new chat means:
 - No preToolUse gating (model can skip `aic_compile`)
 - No conversation_id injection
 - Only the trigger rule exists — the model may or may not comply
-
-### Recommended task
-
-Create `installCursorHooks()` in `mcp/src/` (called from `createMcpServer` alongside `installTriggerRule`). It should:
-
-1. Write `.cursor/hooks.json` with sessionStart, preToolUse, and beforeSubmitPrompt entries (idempotent — merge with existing, don't overwrite user entries)
-2. Write each `.cjs` hook script to `.cursor/hooks/` (idempotent — skip if exists, or overwrite only AIC-managed scripts)
-3. Self-check validates the result
 
 ---
 
@@ -258,6 +244,13 @@ Create `installCursorHooks()` in `mcp/src/` (called from `createMcpServer` along
 ---
 
 ## Daily Log
+
+### 2026-03-03
+
+**Components:** Conversation tracking: summary + prompt cmd
+**Completed:**
+
+- Conversation tracking: summary + prompt cmd (task 070): ConversationSummary type and StatusStore.getConversationSummary; SqliteStatusStore implements getConversationSummary (conversation_id filter, aggregates, lastCompilationInConversation, topTaskClasses); migrations 005/007 in sqlite-status-store test setup, insertCompilationLog extended with conversation_id; MCP tool aic_conversation_summary with ConversationSummaryRequestSchema, returns JSON or zero-payload when no rows; prompt command "show aic chat summary" in aic-architect.mdc; helpers mapLastCompilationRow and mapTaskClassRow to eliminate clones; lint, typecheck, test, knip (no new findings), lint:clones 0.
 
 ### 2025-03-03
 

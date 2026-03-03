@@ -1,13 +1,121 @@
 import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
 import type { Clock } from "#core/interfaces/clock.interface.js";
 import type { StatusStore } from "#core/interfaces/status-store.interface.js";
-import type { StatusAggregates } from "#core/types/status-types.js";
+import type { ConversationSummary, StatusAggregates } from "#core/types/status-types.js";
+import type { ConversationId } from "#core/types/identifiers.js";
+
+type LastCompilationRow = {
+  intent: string;
+  files_selected: number;
+  files_total: number;
+  tokens_compiled: number;
+  token_reduction_pct: number;
+  created_at: string;
+  editor_id: string;
+  model_id: string | null;
+};
+
+function mapLastCompilationRow(row: LastCompilationRow): {
+  intent: string;
+  filesSelected: number;
+  filesTotal: number;
+  tokensCompiled: number;
+  tokenReductionPct: number;
+  created_at: string;
+  editorId: string;
+  modelId: string | null;
+} {
+  return {
+    intent: row.intent,
+    filesSelected: row.files_selected,
+    filesTotal: row.files_total,
+    tokensCompiled: row.tokens_compiled,
+    tokenReductionPct: row.token_reduction_pct,
+    created_at: row.created_at,
+    editorId: row.editor_id,
+    modelId: row.model_id,
+  };
+}
+
+function mapTaskClassRow(r: { taskClass: string; count: number }): {
+  readonly taskClass: string;
+  readonly count: number;
+} {
+  return { taskClass: r.taskClass, count: r.count };
+}
 
 export class SqliteStatusStore implements StatusStore {
   constructor(
     private readonly db: ExecutableDb,
     private readonly clock: Clock,
   ) {}
+
+  getConversationSummary(conversationId: ConversationId): ConversationSummary | null {
+    const countRows = this.db
+      .prepare("SELECT COUNT(*) as c FROM compilation_log WHERE conversation_id = ?")
+      .all(conversationId) as { c: number }[];
+    const count = countRows[0]?.c ?? 0;
+    if (count === 0) return null;
+
+    const cacheRateRows = this.db
+      .prepare(
+        "SELECT SUM(cache_hit=1)*100.0/NULLIF(COUNT(*),0) as rate FROM compilation_log WHERE conversation_id = ?",
+      )
+      .all(conversationId) as { rate: number | null }[];
+    const cacheHitRatePct = cacheRateRows[0]?.rate ?? null;
+
+    const aggRows = this.db
+      .prepare(
+        `SELECT AVG(token_reduction_pct) as avgPct,
+                COALESCE(SUM(tokens_raw), 0) as raw,
+                COALESCE(SUM(tokens_compiled), 0) as compiled,
+                SUM(tokens_raw - tokens_compiled) as saved
+         FROM compilation_log WHERE conversation_id = ?`,
+      )
+      .all(conversationId) as {
+      avgPct: number | null;
+      raw: number;
+      compiled: number;
+      saved: number | null;
+    }[];
+    const aggRow = aggRows[0];
+    const avgReductionPct = aggRow === undefined ? null : (aggRow.avgPct ?? null);
+    const totalTokensRaw = aggRow?.raw ?? 0;
+    const totalTokensCompiled = aggRow?.compiled ?? 0;
+    const totalTokensSaved = aggRow === undefined ? null : (aggRow.saved ?? null);
+
+    const topRows = this.db
+      .prepare(
+        `SELECT task_class as taskClass, COUNT(*) as count
+         FROM compilation_log WHERE conversation_id = ?
+         GROUP BY task_class ORDER BY count DESC LIMIT 3`,
+      )
+      .all(conversationId) as { taskClass: string; count: number }[];
+    const topTaskClasses = topRows.map(mapTaskClassRow);
+
+    const lastRows = this.db
+      .prepare(
+        `SELECT intent, files_selected, files_total, tokens_compiled, token_reduction_pct, created_at, editor_id, model_id
+         FROM compilation_log WHERE conversation_id = ?
+         ORDER BY created_at DESC LIMIT 1`,
+      )
+      .all(conversationId) as LastCompilationRow[];
+    const lastRow = lastRows[0];
+    const lastCompilationInConversation =
+      lastRow === undefined ? null : mapLastCompilationRow(lastRow);
+
+    return {
+      conversationId,
+      compilationsInConversation: count,
+      cacheHitRatePct,
+      avgReductionPct,
+      totalTokensRaw,
+      totalTokensCompiled,
+      totalTokensSaved,
+      lastCompilationInConversation,
+      topTaskClasses,
+    };
+  }
 
   getSummary(): StatusAggregates {
     const compilationsTotalRow = this.db
@@ -69,39 +177,15 @@ export class SqliteStatusStore implements StatusStore {
         "SELECT task_class as taskClass, COUNT(*) as count FROM compilation_log GROUP BY task_class ORDER BY count DESC LIMIT 3",
       )
       .all() as { taskClass: string; count: number }[];
-    const topTaskClasses = topRows.map((r) => ({
-      taskClass: r.taskClass,
-      count: r.count,
-    }));
+    const topTaskClasses = topRows.map(mapTaskClassRow);
 
     const lastRows = this.db
       .prepare(
         "SELECT intent, files_selected, files_total, tokens_compiled, token_reduction_pct, created_at, editor_id, model_id FROM compilation_log ORDER BY created_at DESC LIMIT 1",
       )
-      .all() as {
-      intent: string;
-      files_selected: number;
-      files_total: number;
-      tokens_compiled: number;
-      token_reduction_pct: number;
-      created_at: string;
-      editor_id: string;
-      model_id: string | null;
-    }[];
+      .all() as LastCompilationRow[];
     const lastRow = lastRows[0];
-    const lastCompilation =
-      lastRow === undefined
-        ? null
-        : {
-            intent: lastRow.intent,
-            filesSelected: lastRow.files_selected,
-            filesTotal: lastRow.files_total,
-            tokensCompiled: lastRow.tokens_compiled,
-            tokenReductionPct: lastRow.token_reduction_pct,
-            created_at: lastRow.created_at,
-            editorId: lastRow.editor_id,
-            modelId: lastRow.model_id,
-          };
+    const lastCompilation = lastRow === undefined ? null : mapLastCompilationRow(lastRow);
 
     const sessionRows = this.db
       .prepare(
