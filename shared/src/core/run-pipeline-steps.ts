@@ -74,20 +74,25 @@ export async function runPipelineSteps(
     task,
     rulePack,
   );
-  const contextResult = deps.contextSelector.selectContext(
+  const contextResult = await deps.contextSelector.selectContext(
     task,
     discoveredRepoMap,
     budget,
     rulePack,
   );
   const selectedFiles = contextResult.files;
-  const { result: guardResult, safeFiles } = deps.contextGuard.scan(selectedFiles);
-  const transformResult = deps.contentTransformerPipeline.transform(
+  const { result: guardResult, safeFiles } = await deps.contextGuard.scan(
+    selectedFiles,
+  );
+  const transformResult = await deps.contentTransformerPipeline.transform(
     safeFiles,
     TRANSFORM_CONTEXT,
   );
-  const ladderFiles = deps.summarisationLadder.compress(transformResult.files, budget);
-  const assembledPrompt = deps.promptAssembler.assemble(
+  const ladderFiles = await deps.summarisationLadder.compress(
+    transformResult.files,
+    budget,
+  );
+  const assembledPrompt = await deps.promptAssembler.assemble(
     task,
     ladderFiles,
     rulePack.constraints,

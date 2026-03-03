@@ -27,12 +27,12 @@ describe("PromptAssembler", () => {
     matchedKeywords: ["add", "feature"],
   };
 
-  it("renders template correctly for unified-diff format", () => {
+  it("renders template correctly for unified-diff format", async () => {
     const reader: FileContentReader = {
-      getContent: (path) => `content of ${path as string}`,
+      getContent: (path) => Promise.resolve(`content of ${path as string}`),
     };
     const assembler = new PromptAssembler(reader);
-    const result = assembler.assemble(
+    const result = await assembler.assemble(
       task,
       [makeFile("src/a.ts")],
       ["use TypeScript"],
@@ -51,16 +51,25 @@ describe("PromptAssembler", () => {
     expect(result).toContain("unified diff");
   });
 
-  it("omits constraints section when empty", () => {
-    const reader: FileContentReader = { getContent: () => "" };
+  it("omits constraints section when empty", async () => {
+    const reader: FileContentReader = {
+      getContent: () => Promise.resolve(""),
+    };
     const assembler = new PromptAssembler(reader);
-    const result = assembler.assemble(task, [makeFile("x.ts")], [], OUTPUT_FORMAT.PLAIN);
+    const result = await assembler.assemble(
+      task,
+      [makeFile("x.ts")],
+      [],
+      OUTPUT_FORMAT.PLAIN,
+    );
     expect(result).not.toContain("## Constraints");
     expect(result).toContain("## Output Format");
   });
 
-  it("uses correct description for each output format", () => {
-    const reader: FileContentReader = { getContent: () => "" };
+  it("uses correct description for each output format", async () => {
+    const reader: FileContentReader = {
+      getContent: () => Promise.resolve(""),
+    };
     const assembler = new PromptAssembler(reader);
     const formats: OutputFormat[] = [
       OUTPUT_FORMAT.UNIFIED_DIFF,
@@ -70,19 +79,19 @@ describe("PromptAssembler", () => {
       OUTPUT_FORMAT.PLAIN,
     ];
     for (const format of formats) {
-      const result = assembler.assemble(task, [], [], format);
+      const result = await assembler.assemble(task, [], [], format);
       expect(result).toContain("## Output Format");
       if (format === OUTPUT_FORMAT.JSON) expect(result).toContain("valid JSON");
       if (format === OUTPUT_FORMAT.PLAIN) expect(result).toContain("plain text");
     }
   });
 
-  it("renders multiple files in order", () => {
+  it("renders multiple files in order", async () => {
     const reader: FileContentReader = {
-      getContent: (path) => path as string,
+      getContent: (path) => Promise.resolve(path as string),
     };
     const assembler = new PromptAssembler(reader);
-    const result = assembler.assemble(
+    const result = await assembler.assemble(
       task,
       [makeFile("first.ts"), makeFile("second.ts")],
       [],

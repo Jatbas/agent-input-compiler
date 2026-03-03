@@ -19,6 +19,7 @@ import { ConversationSummaryRequestSchema } from "./schemas/conversation-summary
 import { InspectRequestSchema } from "./schemas/inspect-request.schema.js";
 import { createCompileHandler } from "./handlers/compile-handler.js";
 import { handleInspect } from "./handlers/inspect-handler.js";
+import { closeDatabase } from "@aic/shared/storage/open-database.js";
 import { createProjectScope } from "@aic/shared/storage/create-project-scope.js";
 import { SqliteStatusStore } from "@aic/shared/storage/sqlite-status-store.js";
 import type { CacheStore } from "@aic/shared/core/interfaces/cache-store.interface.js";
@@ -107,7 +108,7 @@ export function createMcpServer(
   additionalProviders?: readonly LanguageProvider[],
 ): McpServer {
   const scope = createProjectScope(projectRoot);
-  scope.cacheStore.purgeExpired();
+  setImmediate(() => scope.cacheStore.purgeExpired());
   installTriggerRule(projectRoot);
   installCursorHooks(projectRoot);
   const { installationOk, installationNotes } = runStartupSelfCheck(projectRoot);
@@ -250,9 +251,10 @@ export function createMcpServer(
       ],
     };
   });
-  const out = server as McpServer & { close(): void };
-  out.close = (): void => {
-    (scope.db as unknown as { close(): void }).close();
+  const out = server as McpServer & { close(): Promise<void> };
+  out.close = (): Promise<void> => {
+    closeDatabase(scope.db);
+    return Promise.resolve();
   };
   return out;
 }

@@ -24,9 +24,9 @@ function tokenCounter(text: string): ReturnType<typeof toTokenCount> {
 }
 
 describe("ContentTransformerPipeline", () => {
-  it("runs format-specific before non-format", () => {
+  it("runs format-specific before non-format", async () => {
     const reader: FileContentReader = {
-      getContent: () => '{"a": 1, "b": 2}',
+      getContent: () => Promise.resolve('{"a": 1, "b": 2}'),
     };
     const pipeline = new ContentTransformerPipeline(
       [new JsonCompactor(), new WhitespaceNormalizer()],
@@ -34,7 +34,7 @@ describe("ContentTransformerPipeline", () => {
       tokenCounter,
     );
     const files = [makeFile("x.json", 100)];
-    const result = pipeline.transform(files, {
+    const result = await pipeline.transform(files, {
       directTargetPaths: [],
       rawMode: false,
     });
@@ -42,9 +42,9 @@ describe("ContentTransformerPipeline", () => {
     expect(result.metadata[0]?.transformersApplied).toContain("whitespace-normalizer");
   });
 
-  it("rawMode skips all transformers", () => {
+  it("rawMode skips all transformers", async () => {
     const reader: FileContentReader = {
-      getContent: () => '{"a": 1}',
+      getContent: () => Promise.resolve('{"a": 1}'),
     };
     const pipeline = new ContentTransformerPipeline(
       [new JsonCompactor()],
@@ -52,7 +52,7 @@ describe("ContentTransformerPipeline", () => {
       tokenCounter,
     );
     const files = [makeFile("x.json", 10)];
-    const result = pipeline.transform(files, {
+    const result = await pipeline.transform(files, {
       directTargetPaths: [],
       rawMode: true,
     });
@@ -62,9 +62,12 @@ describe("ContentTransformerPipeline", () => {
     );
   });
 
-  it("directTargetPaths skips format-specific only", () => {
+  it("directTargetPaths skips format-specific only", async () => {
     const reader: FileContentReader = {
-      getContent: (path) => ((path as string).endsWith(".json") ? '{"x":1}' : "  code  "),
+      getContent: (path) =>
+        Promise.resolve(
+          (path as string).endsWith(".json") ? '{"x":1}' : "  code  ",
+        ),
     };
     const pipeline = new ContentTransformerPipeline(
       [new JsonCompactor(), new WhitespaceNormalizer()],
@@ -72,24 +75,24 @@ describe("ContentTransformerPipeline", () => {
       tokenCounter,
     );
     const files = [makeFile("target.json", 10), makeFile("other.json", 10)];
-    const result = pipeline.transform(files, {
+    const result = await pipeline.transform(files, {
       directTargetPaths: [toRelativePath("target.json")],
       rawMode: false,
     });
     const metaTarget = result.metadata.find(
-      (m) => (m.filePath as string) === "target.json",
+      (m: { filePath: string }) => m.filePath === "target.json",
     );
     const metaOther = result.metadata.find(
-      (m) => (m.filePath as string) === "other.json",
+      (m: { filePath: string }) => m.filePath === "other.json",
     );
     expect(metaTarget?.transformersApplied).not.toContain("json-compactor");
     expect(metaTarget?.transformersApplied).toContain("whitespace-normalizer");
     expect(metaOther?.transformersApplied).toContain("json-compactor");
   });
 
-  it("first extension match wins (one format-specific per file)", () => {
+  it("first extension match wins (one format-specific per file)", async () => {
     const reader: FileContentReader = {
-      getContent: () => "[]",
+      getContent: () => Promise.resolve("[]"),
     };
     const pipeline = new ContentTransformerPipeline(
       [new JsonCompactor(), new WhitespaceNormalizer()],
@@ -97,20 +100,20 @@ describe("ContentTransformerPipeline", () => {
       tokenCounter,
     );
     const files = [makeFile("a.json", 5)];
-    const result = pipeline.transform(files, {
+    const result = await pipeline.transform(files, {
       directTargetPaths: [],
       rawMode: false,
     });
     const formatCount = result.metadata[0]?.transformersApplied.filter(
-      (id) => id === "json-compactor",
+      (id: string) => id === "json-compactor",
     ).length;
     expect(formatCount).toBe(1);
   });
 
-  it("metadata records correct before/after tokens", () => {
+  it("metadata records correct before/after tokens", async () => {
     const content = '{"a": 1, "b": 2, "c": 3}';
     const reader: FileContentReader = {
-      getContent: () => content,
+      getContent: () => Promise.resolve(content),
     };
     const pipeline = new ContentTransformerPipeline(
       [new JsonCompactor()],
@@ -118,7 +121,7 @@ describe("ContentTransformerPipeline", () => {
       tokenCounter,
     );
     const files = [makeFile("x.json", 100)];
-    const result = pipeline.transform(files, {
+    const result = await pipeline.transform(files, {
       directTargetPaths: [],
       rawMode: false,
     });

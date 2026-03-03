@@ -10,14 +10,15 @@ export function createCachingFileContentReader(
 ): FileContentReader {
   const cache = new Map<string, { readonly content: string; readonly mtimeMs: number }>();
   return {
-    getContent(pathRel: RelativePath): string {
+    async getContent(pathRel: RelativePath): Promise<string> {
       const full = path.join(projectRoot, pathRel);
-      const mtimeMs = fs.statSync(full).mtimeMs;
+      const stat = await fs.promises.stat(full);
+      const mtimeMs = stat.mtimeMs;
       const cached = cache.get(pathRel);
       if (cached !== undefined && cached.mtimeMs === mtimeMs) {
         return cached.content;
       }
-      const content = fs.readFileSync(full, "utf8");
+      const content = await fs.promises.readFile(full, "utf8");
       cache.set(pathRel, { content, mtimeMs });
       return content;
     },

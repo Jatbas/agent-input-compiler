@@ -100,9 +100,9 @@ function createRunner(fixtureRoot: ReturnType<typeof toAbsolutePath>): InspectRu
     },
   };
   const fileContentReader: FileContentReader = {
-    getContent(pathRel: ReturnType<typeof toRelativePath>): string {
+    getContent(pathRel: ReturnType<typeof toRelativePath>): Promise<string> {
       const full = path.join(fixtureRoot as string, pathRel as string);
-      return fs.readFileSync(full, "utf8");
+      return fs.promises.readFile(full, "utf8");
     },
   };
   const rulePackProvider: RulePackProvider = {
@@ -132,7 +132,7 @@ function createRunner(fixtureRoot: ReturnType<typeof toAbsolutePath>): InspectRu
   const heuristicSelector = new HeuristicSelector(
     languageProviders,
     { maxFiles: 20 },
-    { getScores: () => new Map() },
+    { getScores: () => Promise.resolve(new Map()) },
   );
   const exclusionScanner = new ExclusionScanner();
   const secretScanner = new SecretScanner();

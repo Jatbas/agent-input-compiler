@@ -48,7 +48,10 @@ export class ContentTransformerPipeline implements IContentTransformerPipeline {
     private readonly tokenCounter: (text: string) => TokenCount,
   ) {}
 
-  transform(files: readonly SelectedFile[], context: TransformContext): TransformResult {
+  async transform(
+    files: readonly SelectedFile[],
+    context: TransformContext,
+  ): Promise<TransformResult> {
     const formatSpecific = this.transformers.filter((t) => t.fileExtensions.length > 0);
     const nonFormatSpecific = this.transformers.filter(
       (t) => t.fileExtensions.length === 0,
@@ -56,8 +59,13 @@ export class ContentTransformerPipeline implements IContentTransformerPipeline {
 
     const directSet = new Set(context.directTargetPaths.map((p) => p));
 
-    const result = files.map((file): { file: SelectedFile; meta: TransformMetadata } => {
-      const rawContent = this.fileContentReader.getContent(file.path);
+    const rawContents = await Promise.all(
+      files.map((file) => this.fileContentReader.getContent(file.path)),
+    );
+
+    const result = files.map(
+      (file, i): { file: SelectedFile; meta: TransformMetadata } => {
+        const rawContent = rawContents[i] ?? "";
       const originalTokens = this.tokenCounter(rawContent);
       const applicable = context.rawMode
         ? []

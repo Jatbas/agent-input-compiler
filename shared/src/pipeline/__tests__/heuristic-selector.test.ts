@@ -35,9 +35,11 @@ function makeRepo(
 
 describe("HeuristicSelector", () => {
   const noProviders: readonly LanguageProvider[] = [];
-  const stubScorer: ImportProximityScorer = { getScores: () => new Map() };
+  const stubScorer: ImportProximityScorer = {
+    getScores: () => Promise.resolve(new Map()),
+  };
 
-  it("produces expected scores for known inputs (path relevance and size penalty)", () => {
+  it("produces expected scores for known inputs (path relevance and size penalty)", async () => {
     const repo = makeRepo([
       {
         path: "src/refactor/service.ts",
@@ -57,13 +59,18 @@ describe("HeuristicSelector", () => {
       excludePatterns: [],
     };
     const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
-    const result = selector.selectContext(task, repo, toTokenCount(1000), rulePack);
+    const result = await selector.selectContext(
+      task,
+      repo,
+      toTokenCount(1000),
+      rulePack,
+    );
     expect(result.files.length).toBeGreaterThanOrEqual(1);
     expect(result.files[0]?.path).toBe(toRelativePath("src/refactor/service.ts"));
     expect(result.totalTokens).toBe(600);
   });
 
-  it("respects maxFiles cap", () => {
+  it("respects maxFiles cap", async () => {
     const repo = makeRepo(
       Array.from({ length: 30 }, (_, i) => ({
         path: `src/f${i}.ts`,
@@ -82,11 +89,16 @@ describe("HeuristicSelector", () => {
       excludePatterns: [],
     };
     const selector = new HeuristicSelector(noProviders, { maxFiles: 5 }, stubScorer);
-    const result = selector.selectContext(task, repo, toTokenCount(10000), rulePack);
+    const result = await selector.selectContext(
+      task,
+      repo,
+      toTokenCount(10000),
+      rulePack,
+    );
     expect(result.files.length).toBe(5);
   });
 
-  it("filters by includePatterns whitelist", () => {
+  it("filters by includePatterns whitelist", async () => {
     const repo = makeRepo([
       { path: "src/a.ts", tokens: 50, lastModified: "2024-01-01T00:00:00.000Z" },
       { path: "lib/b.ts", tokens: 50, lastModified: "2024-01-01T00:00:00.000Z" },
@@ -102,11 +114,16 @@ describe("HeuristicSelector", () => {
       excludePatterns: [],
     };
     const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
-    const result = selector.selectContext(task, repo, toTokenCount(1000), rulePack);
+    const result = await selector.selectContext(
+      task,
+      repo,
+      toTokenCount(1000),
+      rulePack,
+    );
     expect(result.files.map((f) => f.path)).toEqual([toRelativePath("src/a.ts")]);
   });
 
-  it("filters by excludePatterns blacklist", () => {
+  it("filters by excludePatterns blacklist", async () => {
     const repo = makeRepo([
       { path: "src/a.ts", tokens: 50, lastModified: "2024-01-01T00:00:00.000Z" },
       { path: "src/ignore/b.ts", tokens: 50, lastModified: "2024-01-01T00:00:00.000Z" },
@@ -122,11 +139,16 @@ describe("HeuristicSelector", () => {
       excludePatterns: [toGlobPattern("src/ignore/**")],
     };
     const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
-    const result = selector.selectContext(task, repo, toTokenCount(1000), rulePack);
+    const result = await selector.selectContext(
+      task,
+      repo,
+      toTokenCount(1000),
+      rulePack,
+    );
     expect(result.files.map((f) => f.path)).toEqual([toRelativePath("src/a.ts")]);
   });
 
-  it("applies boostPatterns +0.2 and penalizePatterns -0.2 (clamped)", () => {
+  it("applies boostPatterns +0.2 and penalizePatterns -0.2 (clamped)", async () => {
     const repo = makeRepo([
       { path: "boost/me.ts", tokens: 50, lastModified: "2024-01-02T00:00:00.000Z" },
       { path: "penalize/me.ts", tokens: 50, lastModified: "2024-01-02T00:00:00.000Z" },
@@ -147,9 +169,16 @@ describe("HeuristicSelector", () => {
       },
     };
     const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
-    const result = selector.selectContext(task, repo, toTokenCount(1000), rulePack);
+    const result = await selector.selectContext(
+      task,
+      repo,
+      toTokenCount(1000),
+      rulePack,
+    );
     expect(result.files.length).toBe(3);
-    const boostFile = result.files.find((f) => (f.path as string).includes("boost"));
+    const boostFile = result.files.find((f) =>
+      (f.path as string).includes("boost"),
+    );
     const penalizeFile = result.files.find((f) =>
       (f.path as string).includes("penalize"),
     );
@@ -160,7 +189,7 @@ describe("HeuristicSelector", () => {
     ).toBe(true);
   });
 
-  it("stops adding files when budget exceeded", () => {
+  it("stops adding files when budget exceeded", async () => {
     const repo = makeRepo([
       { path: "a.ts", tokens: 400, lastModified: "2024-01-01T00:00:00.000Z" },
       { path: "b.ts", tokens: 400, lastModified: "2024-01-01T00:00:00.000Z" },
@@ -177,12 +206,17 @@ describe("HeuristicSelector", () => {
       excludePatterns: [],
     };
     const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
-    const result = selector.selectContext(task, repo, toTokenCount(500), rulePack);
+    const result = await selector.selectContext(
+      task,
+      repo,
+      toTokenCount(500),
+      rulePack,
+    );
     expect(result.files.length).toBe(1);
     expect(result.totalTokens).toBe(400);
   });
 
-  it("uses importProximity 0 when no LanguageProvider (all files get 0)", () => {
+  it("uses importProximity 0 when no LanguageProvider (all files get 0)", async () => {
     const repo = makeRepo([
       { path: "src/a.ts", tokens: 100, lastModified: "2024-01-01T00:00:00.000Z" },
     ]);
@@ -197,12 +231,17 @@ describe("HeuristicSelector", () => {
       excludePatterns: [],
     };
     const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
-    const result = selector.selectContext(task, repo, toTokenCount(1000), rulePack);
+    const result = await selector.selectContext(
+      task,
+      repo,
+      toTokenCount(1000),
+      rulePack,
+    );
     expect(result.files.length).toBe(1);
     expect(result.files[0]?.relevanceScore).toBeDefined();
   });
 
-  it("import_proximity_increases_score_when_scorer_returns_non_zero", () => {
+  it("import_proximity_increases_score_when_scorer_returns_non_zero", async () => {
     const repo = makeRepo([
       { path: "seed.ts", tokens: 100, lastModified: "2024-01-01T00:00:00.000Z" },
       { path: "other.ts", tokens: 100, lastModified: "2024-01-01T00:00:00.000Z" },
@@ -217,9 +256,11 @@ describe("HeuristicSelector", () => {
       includePatterns: [],
       excludePatterns: [],
     };
-    const zeroScorer: ImportProximityScorer = { getScores: () => new Map() };
+    const zeroScorer: ImportProximityScorer = {
+      getScores: () => Promise.resolve(new Map()),
+    };
     const selectorZero = new HeuristicSelector(noProviders, { maxFiles: 20 }, zeroScorer);
-    const resultZero = selectorZero.selectContext(
+    const resultZero = await selectorZero.selectContext(
       task,
       repo,
       toTokenCount(1000),
@@ -229,14 +270,15 @@ describe("HeuristicSelector", () => {
       resultZero.files.find((f) => f.path === toRelativePath("other.ts"))
         ?.relevanceScore ?? 0;
     const nonZeroScorer: ImportProximityScorer = {
-      getScores: () => new Map([[toRelativePath("other.ts"), 0.6]]),
+      getScores: () =>
+        Promise.resolve(new Map([[toRelativePath("other.ts"), 0.6]])),
     };
     const selectorNonZero = new HeuristicSelector(
       noProviders,
       { maxFiles: 20 },
       nonZeroScorer,
     );
-    const resultNonZero = selectorNonZero.selectContext(
+    const resultNonZero = await selectorNonZero.selectContext(
       task,
       repo,
       toTokenCount(1000),

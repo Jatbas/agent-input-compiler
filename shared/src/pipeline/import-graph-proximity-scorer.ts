@@ -38,18 +38,18 @@ function depthToScore(depth: number): number {
   return 0.1;
 }
 
-function buildEdges(
+async function buildEdges(
   repo: RepoMap,
   fileContentReader: FileContentReader,
   languageProviders: readonly LanguageProvider[],
-): ReadonlyMap<RelativePath, readonly RelativePath[]> {
+): Promise<ReadonlyMap<RelativePath, readonly RelativePath[]>> {
   const edges = new Map<RelativePath, readonly RelativePath[]>();
   const pathSet = new Set(repo.files.map((f) => f.path));
   for (const entry of repo.files) {
     const provider = getProvider(entry.path, languageProviders);
     if (provider === undefined) continue;
     try {
-      const content = fileContentReader.getContent(entry.path);
+      const content = await fileContentReader.getContent(entry.path);
       const refs = provider.parseImports(content, entry.path);
       const targets = refs
         .filter((r) => r.isRelative)
@@ -106,9 +106,16 @@ export class ImportGraphProximityScorer implements ImportProximityScorer {
     private readonly languageProviders: readonly LanguageProvider[],
   ) {}
 
-  getScores(repo: RepoMap, task: TaskClassification): ReadonlyMap<RelativePath, number> {
+  async getScores(
+    repo: RepoMap,
+    task: TaskClassification,
+  ): Promise<ReadonlyMap<RelativePath, number>> {
     const allPaths = repo.files.map((f) => f.path);
-    const edges = buildEdges(repo, this.fileContentReader, this.languageProviders);
+    const edges = await buildEdges(
+      repo,
+      this.fileContentReader,
+      this.languageProviders,
+    );
     const seeds = repo.files
       .filter(
         (e) =>

@@ -3,5 +3,8 @@ import type { TaskClassification } from "#core/types/task-classification.js";
 import type { RelativePath } from "#core/types/paths.js";
 
 export interface ImportProximityScorer {
-  getScores(repo: RepoMap, task: TaskClassification): ReadonlyMap<RelativePath, number>;
+  getScores(
+    repo: RepoMap,
+    task: TaskClassification,
+  ): Promise<ReadonlyMap<RelativePath, number>>;
 }

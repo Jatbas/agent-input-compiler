@@ -58,15 +58,25 @@ export class SummarisationLadder implements ISummarisationLadder {
     private readonly fileContentReader: FileContentReader,
   ) {}
 
-  compress(files: readonly SelectedFile[], budget: TokenCount): readonly SelectedFile[] {
+  async compress(
+    files: readonly SelectedFile[],
+    budget: TokenCount,
+  ): Promise<readonly SelectedFile[]> {
     const budgetNum = budget;
     const initialTotal = sumTokens(files);
     if (initialTotal <= budgetNum) return files;
 
+    const contentMap = new Map<SelectedFile["path"], string>();
+    await Promise.all(
+      files.map(async (f) => {
+        contentMap.set(f.path, await this.fileContentReader.getContent(f.path));
+      }),
+    );
+
     const sorted = files.toSorted(byRelevanceThenSize);
     const tokenAtTier = (file: SelectedFile, tier: InclusionTier): TokenCount => {
       const filePath = file.path;
-      const content = this.fileContentReader.getContent(filePath);
+      const content = contentMap.get(filePath) ?? "";
       const provider = getProvider(filePath, this.languageProviders);
       const text = TIER_TEXT[tier](content, provider, file.path);
       return this.tokenCounter(text);

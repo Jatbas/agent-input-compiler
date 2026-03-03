@@ -29,39 +29,39 @@ describe("SummarisationLadder", () => {
   const reader: FileContentReader = {
     getContent: (path) => {
       const p = path as string;
-      if (p.includes("a.")) return "content a " + "x".repeat(100);
-      if (p.includes("b.")) return "content b " + "y".repeat(50);
-      return "content";
+      if (p.includes("a.")) return Promise.resolve("content a " + "x".repeat(100));
+      if (p.includes("b.")) return Promise.resolve("content b " + "y".repeat(50));
+      return Promise.resolve("content");
     },
   };
 
-  it("returns files unchanged when under budget", () => {
+  it("returns files unchanged when under budget", async () => {
     const ladder = new SummarisationLadder(noProviders, tokenCounter, reader);
     const files = [makeFile("a.ts", 10, 0.5), makeFile("b.ts", 10, 0.5)];
-    const result = ladder.compress(files, toTokenCount(50));
+    const result = await ladder.compress(files, toTokenCount(50));
     expect(result).toHaveLength(2);
     expect(result[0]?.tier).toBe(INCLUSION_TIER.L0);
     expect(result[1]?.tier).toBe(INCLUSION_TIER.L0);
   });
 
-  it("over-budget compresses lowest-scoring first", () => {
+  it("over-budget compresses lowest-scoring first", async () => {
     const ladder = new SummarisationLadder(noProviders, tokenCounter, reader);
     const files = [makeFile("high.ts", 50, 0.9), makeFile("low.ts", 50, 0.1)];
-    const result = ladder.compress(files, toTokenCount(60));
+    const result = await ladder.compress(files, toTokenCount(60));
     expect(result).toHaveLength(2);
     const lowFile = result.find((f) => (f.path as string).includes("low"));
     expect(lowFile?.tier).not.toBe(INCLUSION_TIER.L0);
   });
 
-  it("each tier reduces tokens (L0→L1→L2→L3)", () => {
+  it("each tier reduces tokens (L0→L1→L2→L3)", async () => {
     const ladder = new SummarisationLadder(noProviders, tokenCounter, reader);
     const files = [makeFile("low.ts", 100, 0.1)];
-    const result = ladder.compress(files, toTokenCount(50));
+    const result = await ladder.compress(files, toTokenCount(50));
     expect(result.length).toBe(1);
     expect((result[0]?.estimatedTokens as number) <= 100).toBe(true);
   });
 
-  it("all at L3 and still over budget drops lowest-scoring files", () => {
+  it("all at L3 and still over budget drops lowest-scoring files", async () => {
     const highTokenCounter = (text: string) => toTokenCount(text.length + 100);
     const ladder = new SummarisationLadder(noProviders, highTokenCounter, reader);
     const files = [
@@ -69,25 +69,25 @@ describe("SummarisationLadder", () => {
       makeFile("b.ts", 200, 0.2),
       makeFile("c.ts", 200, 0.2),
     ];
-    const result = ladder.compress(files, toTokenCount(50));
+    const result = await ladder.compress(files, toTokenCount(50));
     const total = result.reduce((s, f) => s + (f.estimatedTokens as number), 0);
     expect(total <= 50 || result.length < 3).toBe(true);
   });
 
-  it("tie-break: more tokens first, then alphabetical", () => {
+  it("tie-break: more tokens first, then alphabetical", async () => {
     const ladder = new SummarisationLadder(noProviders, tokenCounter, reader);
     const files = [makeFile("b.ts", 20, 0.5), makeFile("a.ts", 30, 0.5)];
-    const result = ladder.compress(files, toTokenCount(25));
+    const result = await ladder.compress(files, toTokenCount(25));
     expect(result).toHaveLength(2);
     const compressed = result.find((f) => f.tier !== INCLUSION_TIER.L0);
     expect(compressed).toBeDefined();
     expect((compressed?.path as string) === "a.ts").toBe(true);
   });
 
-  it("never mutates input array", () => {
+  it("never mutates input array", async () => {
     const ladder = new SummarisationLadder(noProviders, tokenCounter, reader);
     const files = [makeFile("a.ts", 100, 0.1), makeFile("b.ts", 100, 0.1)];
-    const result = ladder.compress(files, toTokenCount(50));
+    const result = await ladder.compress(files, toTokenCount(50));
     expect(result).not.toBe(files);
     expect(files[0]?.tier).toBe(INCLUSION_TIER.L0);
   });

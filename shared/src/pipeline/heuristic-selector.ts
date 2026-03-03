@@ -13,11 +13,8 @@ import type { RelativePath } from "#core/types/paths.js";
 import { INCLUSION_TIER } from "#core/types/enums.js";
 import { toRelevanceScore } from "#core/types/scores.js";
 import { toTokenCount } from "#core/types/units.js";
-import { toISOTimestamp } from "#core/types/identifiers.js";
 import { matchesGlob } from "./glob-match.js";
 import { pathRelevance } from "./path-relevance.js";
-
-const FALLBACK_RECENCY = toISOTimestamp("1970-01-01T00:00:00.000Z");
 
 const DEFAULT_WEIGHTS = {
   pathRelevance: 0.4,
@@ -128,14 +125,17 @@ export class HeuristicSelector implements ContextSelector {
     private readonly importProximityScorer: ImportProximityScorer,
   ) {}
 
-  selectContext(
+  async selectContext(
     task: TaskClassification,
     repo: RepoMap,
     budget: TokenCount,
     rulePack: RulePack,
-  ): ContextResult {
+  ): Promise<ContextResult> {
     const weights = this.config.weights ?? DEFAULT_WEIGHTS;
-    const importProximityScores = this.importProximityScorer.getScores(repo, task);
+    const importProximityScores = await this.importProximityScorer.getScores(
+      repo,
+      task,
+    );
     const candidates = filterCandidates(repo.files, rulePack);
     const pathRelevances = candidates.map((f) =>
       pathRelevance(f.path, task.matchedKeywords),

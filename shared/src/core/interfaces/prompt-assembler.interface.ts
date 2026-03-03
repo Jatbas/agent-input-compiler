@@ -8,5 +8,5 @@ export interface PromptAssembler {
     files: readonly SelectedFile[],
     constraints: readonly string[],
     format: OutputFormat,
-  ): string;
+  ): Promise<string>;
 }

@@ -10,5 +10,5 @@ export interface ContextSelector {
     repo: RepoMap,
     budget: TokenCount,
     rulePack: RulePack,
-  ): ContextResult;
+  ): Promise<ContextResult>;
 }

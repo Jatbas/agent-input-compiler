@@ -1,6 +1,6 @@
 # Task 079: Async file I/O for pipeline
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** Performance (documentation/performance_review.md)
 > **Layer:** core + adapters + pipeline
 > **Depends on:** (none)
@@ -43,6 +43,7 @@ Make `FileContentReader.getContent` and all pipeline steps that read file conten
 | Modify | `shared/src/pipeline/__tests__/summarisation-ladder.test.ts` (await compress) |
 | Modify | `shared/src/pipeline/__tests__/compilation-runner.test.ts` (mocks return Promises) |
 | Modify | `shared/src/pipeline/__tests__/inspect-runner.test.ts` (mocks return Promises) |
+| Modify | `shared/src/pipeline/__tests__/import-graph-proximity-scorer.test.ts` (mocks return Promise; await getScores) |
 | Modify | `shared/src/integration/__tests__/full-pipeline.test.ts` (getContent mock returns Promise) |
 | Modify | `shared/src/integration/__tests__/golden-snapshot.test.ts` (getContent mock returns Promise) |
 
@@ -125,7 +126,7 @@ In `shared/src/pipeline/heuristic-selector.ts`:
 In `shared/src/pipeline/context-guard.ts`:
 
 - Change `scan(files): { result, safeFiles }` to `async scan(files): Promise<{ result, safeFiles }>`.
-- To get content per file: `const contents = await Promise.all(files.map((file) => this.fileContentReader.getContent(file.path)))` then iterate files with contents (or use a Map path → content). Build `allFindings` by iterating files and using the pre-fetched content for each file (no getContent inside flatMap).
+- Preload all content: `const contents = await Promise.all(files.map((file) => this.fileContentReader.getContent(file.path)))`. Build a `Map<RelativePath, string>` from `files` and `contents`, then iterate files using the map for each file's content (no getContent inside flatMap).
 - Return shape unchanged.
 
 **Verify:** `pnpm typecheck` passes.
@@ -145,7 +146,7 @@ In `shared/src/pipeline/summarisation-ladder.ts`:
 
 - Change `compress(files, budget): readonly SelectedFile[]` to `async compress(files, budget): Promise<readonly SelectedFile[]>`.
 - At the start of compress: `const contentMap = new Map<RelativePath, string>(); await Promise.all(files.map(async (f) => { contentMap.set(f.path, await this.fileContentReader.getContent(f.path)); }));`
-- Replace the inner use of `this.fileContentReader.getContent(filePath)` in `tokenAtTier` with `contentMap.get(filePath) ?? ""` (or a closure that has access to contentMap). Ensure tokenAtTier receives the map or a getter that reads from it.
+- Pass `contentMap` as a parameter to the inner `tokenAtTier` helper. Replace `this.fileContentReader.getContent(filePath)` inside `tokenAtTier` with `contentMap.get(filePath) ?? ""`.
 - Rest of demoteLoop/dropToFit logic unchanged.
 
 **Verify:** `pnpm typecheck` passes.
@@ -179,7 +180,8 @@ In `shared/src/core/run-pipeline-steps.ts`:
 - In `shared/src/pipeline/__tests__/context-guard.test.ts`: every `guard.scan(files)` → `await guard.scan(files)`.
 - In `shared/src/pipeline/__tests__/heuristic-selector.test.ts`: every `selector.selectContext(...)` → `await selector.selectContext(...)`; ensure fileContentReader mock has `getContent` returning `Promise.resolve(content)`.
 - In `shared/src/pipeline/__tests__/summarisation-ladder.test.ts`: every `ladder.compress(...)` → `await ladder.compress(...)`.
-- In `shared/src/pipeline/__tests__/compilation-runner.test.ts` and `inspect-runner.test.ts`: mocks for contextSelector, contextGuard, contentTransformerPipeline, summarisationLadder, promptAssembler must return Promises (e.g. `selectContext: () => Promise.resolve(contextResult)`).
+- In `shared/src/pipeline/__tests__/import-graph-proximity-scorer.test.ts`: change every inline `FileContentReader` mock's `getContent` to return `Promise.resolve(...)` instead of a bare string. Change every `scorer.getScores(repo, task)` call to `await scorer.getScores(repo, task)` and make the test callbacks `async`.
+- In `shared/src/pipeline/__tests__/compilation-runner.test.ts` and `inspect-runner.test.ts`: every mock for contextSelector, contextGuard, contentTransformerPipeline, summarisationLadder, and promptAssembler must wrap its return value in `Promise.resolve(...)` — `selectContext: () => Promise.resolve(contextResult)`, `scan: () => Promise.resolve({ result: guardResult, safeFiles })`, etc.
 - In `shared/src/integration/__tests__/full-pipeline.test.ts` and `golden-snapshot.test.ts`: the inline `getContent` mock (returning string) must return `Promise.resolve(content)` and callers must await.
 
 **Verify:** `pnpm test` for shared (unit + integration) passes.

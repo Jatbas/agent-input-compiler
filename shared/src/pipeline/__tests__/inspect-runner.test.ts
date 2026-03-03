@@ -129,13 +129,22 @@ describe("InspectRunner", () => {
     const mockIntentClassifier = { classify: () => fixedTask };
     const mockRulePackResolver = { resolve: () => fixedRulePack };
     const mockBudgetAllocator = { allocate: () => toTokenCount(1000) };
-    const mockContextSelector = { selectContext: () => contextResult };
-    const mockContextGuard = {
-      scan: () => ({ result: guardResult, safeFiles: [...safeFiles] }),
+    const mockContextSelector = {
+      selectContext: () => Promise.resolve(contextResult),
     };
-    const mockContentTransformerPipeline = { transform: () => transformResult };
-    const mockSummarisationLadder = { compress: () => [...ladderFiles] };
-    const mockPromptAssembler = { assemble: () => assembledText };
+    const mockContextGuard = {
+      scan: () =>
+        Promise.resolve({ result: guardResult, safeFiles: [...safeFiles] }),
+    };
+    const mockContentTransformerPipeline = {
+      transform: () => Promise.resolve(transformResult),
+    };
+    const mockSummarisationLadder = {
+      compress: () => Promise.resolve([...ladderFiles]),
+    };
+    const mockPromptAssembler = {
+      assemble: () => Promise.resolve(assembledText),
+    };
     const mockRepoMapSupplier = { getRepoMap: () => Promise.resolve(fixedRepoMap) };
     const mockClock = { now: () => fixedTimestamp };
     const mockTokenCounter = { countTokens: () => toTokenCount(120) };
@@ -174,13 +183,22 @@ describe("InspectRunner", () => {
     const mockIntentClassifier = { classify: () => fixedTask };
     const mockRulePackResolver = { resolve: () => fixedRulePack };
     const mockBudgetAllocator = { allocate: () => toTokenCount(1000) };
-    const mockContextSelector = { selectContext: () => contextResult };
-    const mockContextGuard = {
-      scan: () => ({ result: guardResult, safeFiles: [...safeFiles] }),
+    const mockContextSelector = {
+      selectContext: () => Promise.resolve(contextResult),
     };
-    const mockContentTransformerPipeline = { transform: () => transformResult };
-    const mockSummarisationLadder = { compress: () => [...ladderFiles] };
-    const mockPromptAssembler = { assemble: () => assembledText };
+    const mockContextGuard = {
+      scan: () =>
+        Promise.resolve({ result: guardResult, safeFiles: [...safeFiles] }),
+    };
+    const mockContentTransformerPipeline = {
+      transform: () => Promise.resolve(transformResult),
+    };
+    const mockSummarisationLadder = {
+      compress: () => Promise.resolve([...ladderFiles]),
+    };
+    const mockPromptAssembler = {
+      assemble: () => Promise.resolve(assembledText),
+    };
     const mockRepoMapSupplier = { getRepoMap: () => Promise.resolve(fixedRepoMap) };
     const mockClock = { now: () => fixedTimestamp };
     const mockTokenCounter = { countTokens: () => toTokenCount(120) };
@@ -210,13 +228,22 @@ describe("InspectRunner", () => {
     const mockIntentClassifier = { classify: () => fixedTask };
     const mockRulePackResolver = { resolve: () => fixedRulePack };
     const mockBudgetAllocator = { allocate: () => toTokenCount(1000) };
-    const mockContextSelector = { selectContext: () => contextResult };
-    const mockContextGuard = {
-      scan: () => ({ result: guardResult, safeFiles: [...safeFiles] }),
+    const mockContextSelector = {
+      selectContext: () => Promise.resolve(contextResult),
     };
-    const mockContentTransformerPipeline = { transform: () => transformResult };
-    const mockSummarisationLadder = { compress: () => [...ladderFiles] };
-    const mockPromptAssembler = { assemble: () => assembledText };
+    const mockContextGuard = {
+      scan: () =>
+        Promise.resolve({ result: guardResult, safeFiles: [...safeFiles] }),
+    };
+    const mockContentTransformerPipeline = {
+      transform: () => Promise.resolve(transformResult),
+    };
+    const mockSummarisationLadder = {
+      compress: () => Promise.resolve([...ladderFiles]),
+    };
+    const mockPromptAssembler = {
+      assemble: () => Promise.resolve(assembledText),
+    };
     const stubError = new Error("RepoMap not available");
     const mockRepoMapSupplier = { getRepoMap: () => Promise.reject(stubError) };
     const mockClock = { now: () => fixedTimestamp };

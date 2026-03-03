@@ -40,18 +40,22 @@ function makeTask(matchedKeywords: readonly string[]): TaskClassification {
 }
 
 describe("ImportGraphProximityScorer", () => {
-  it("import_graph_empty_repo", () => {
-    const reader: FileContentReader = { getContent: () => "" };
+  it("import_graph_empty_repo", async () => {
+    const reader: FileContentReader = {
+      getContent: () => Promise.resolve(""),
+    };
     const providers: readonly LanguageProvider[] = [];
     const scorer = new ImportGraphProximityScorer(reader, providers);
     const repo = makeRepo([]);
     const task = makeTask([]);
-    const scores = scorer.getScores(repo, task);
+    const scores = await scorer.getScores(repo, task);
     expect(scores.size).toBe(0);
   });
 
-  it("import_graph_no_keywords_all_zero", () => {
-    const reader: FileContentReader = { getContent: () => "" };
+  it("import_graph_no_keywords_all_zero", async () => {
+    const reader: FileContentReader = {
+      getContent: () => Promise.resolve(""),
+    };
     const provider: LanguageProvider = {
       id: "ts",
       extensions: [toFileExtension(".ts")],
@@ -63,11 +67,11 @@ describe("ImportGraphProximityScorer", () => {
     const scorer = new ImportGraphProximityScorer(reader, [provider]);
     const repo = makeRepo([makeEntry("src/foo.ts")]);
     const task = makeTask([]);
-    const scores = scorer.getScores(repo, task);
+    const scores = await scorer.getScores(repo, task);
     expect(scores.get(toRelativePath("src/foo.ts"))).toBe(0);
   });
 
-  it("import_graph_seed_imports_other", () => {
+  it("import_graph_seed_imports_other", async () => {
     const seedPath = toRelativePath("seed.ts");
     const otherPath = toRelativePath("other.ts");
     const contentByPath = new Map<string, string>([
@@ -75,7 +79,8 @@ describe("ImportGraphProximityScorer", () => {
       [otherPath, ""],
     ]);
     const reader: FileContentReader = {
-      getContent: (path) => contentByPath.get(path) ?? "",
+      getContent: (path) =>
+        Promise.resolve(contentByPath.get(path) ?? ""),
     };
     const refOther: ImportRef = {
       source: "./other",
@@ -93,12 +98,14 @@ describe("ImportGraphProximityScorer", () => {
     const scorer = new ImportGraphProximityScorer(reader, [provider]);
     const repo = makeRepo([makeEntry("seed.ts"), makeEntry("other.ts")]);
     const task = makeTask(["seed"]);
-    const scores = scorer.getScores(repo, task);
+    const scores = await scorer.getScores(repo, task);
     expect(scores.get(otherPath)).toBe(0.6);
   });
 
-  it("import_graph_no_provider_score_zero", () => {
-    const reader: FileContentReader = { getContent: () => "" };
+  it("import_graph_no_provider_score_zero", async () => {
+    const reader: FileContentReader = {
+      getContent: () => Promise.resolve(""),
+    };
     const provider: LanguageProvider = {
       id: "ts",
       extensions: [toFileExtension(".ts")],
@@ -110,11 +117,11 @@ describe("ImportGraphProximityScorer", () => {
     const scorer = new ImportGraphProximityScorer(reader, [provider]);
     const repo = makeRepo([makeEntry("readme.md")]);
     const task = makeTask(["readme"]);
-    const scores = scorer.getScores(repo, task);
+    const scores = await scorer.getScores(repo, task);
     expect(scores.get(toRelativePath("readme.md"))).toBe(0);
   });
 
-  it("import_graph_bfs_depth_two", () => {
+  it("import_graph_bfs_depth_two", async () => {
     const seedPath = toRelativePath("seed.ts");
     const aPath = toRelativePath("a.ts");
     const bPath = toRelativePath("b.ts");
@@ -124,7 +131,8 @@ describe("ImportGraphProximityScorer", () => {
       [bPath, ""],
     ]);
     const reader: FileContentReader = {
-      getContent: (path) => contentByPath.get(path) ?? "",
+      getContent: (path) =>
+        Promise.resolve(contentByPath.get(path) ?? ""),
     };
     const provider: LanguageProvider = {
       id: "ts",
@@ -141,7 +149,7 @@ describe("ImportGraphProximityScorer", () => {
     const scorer = new ImportGraphProximityScorer(reader, [provider]);
     const repo = makeRepo([makeEntry("seed.ts"), makeEntry("a.ts"), makeEntry("b.ts")]);
     const task = makeTask(["seed"]);
-    const scores = scorer.getScores(repo, task);
+    const scores = await scorer.getScores(repo, task);
     expect(scores.get(bPath)).toBe(0.3);
   });
 });

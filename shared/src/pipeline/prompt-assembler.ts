@@ -20,17 +20,21 @@ const FORMAT_DESCRIPTIONS: Readonly<Record<OutputFormat, string>> = {
 export class PromptAssembler implements IPromptAssembler {
   constructor(private readonly fileContentReader: FileContentReader) {}
 
-  assemble(
+  async assemble(
     task: TaskClassification,
     files: readonly SelectedFile[],
     constraints: readonly string[],
     format: OutputFormat,
-  ): string {
+  ): Promise<string> {
     const intent = task.matchedKeywords.join(" ") || task.taskClass;
-    const contextParts = files.flatMap((file) => {
-      const content = this.fileContentReader.getContent(file.path);
-      return [`### ${file.path} [Tier: ${file.tier}]`, content, ""];
-    });
+    const contents = await Promise.all(
+      files.map((f) => this.fileContentReader.getContent(f.path)),
+    );
+    const contextParts = files.flatMap((file, i) => [
+      `### ${file.path} [Tier: ${file.tier}]`,
+      contents[i] ?? "",
+      "",
+    ]);
     const constraintSection =
       constraints.length > 0
         ? ["## Constraints", ...constraints.map((c) => `- ${c}`), ""]
