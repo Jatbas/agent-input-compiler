@@ -1,6 +1,6 @@
 # Task 080: Transformer Safety Tests
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** Phase L (Quality Release — Phase 0.5)
 > **Layer:** pipeline (test-only — no production code changes)
 > **Depends on:** WhitespaceNormalizer (Done), CommentStripper (Done), JsonCompactor (Done), LockFileSkipper (Done)
