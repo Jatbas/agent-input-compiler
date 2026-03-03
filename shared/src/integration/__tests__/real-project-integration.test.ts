@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterEach } from "vitest";
 import { toAbsolutePath } from "#core/types/paths.js";
 import { EDITOR_ID } from "#core/types/enums.js";
 import type { TaskClass } from "#core/types/enums.js";
 import type { RulePackProvider } from "#core/interfaces/rule-pack-provider.interface.js";
 import type { RulePack } from "#core/types/rule-pack.js";
+import type { ProjectScope } from "#storage/create-project-scope.js";
 import { createProjectScope } from "#storage/create-project-scope.js";
 import { createCachingFileContentReader } from "#adapters/caching-file-content-reader.js";
 import { createFullPipelineDeps } from "../../bootstrap/create-pipeline-deps.js";
@@ -40,8 +41,11 @@ function createRulePackProvider(): RulePackProvider {
   };
 }
 
+let lastScope: ProjectScope | undefined;
+
 function createRunner(): CompilationRunner {
-  const scope = createProjectScope(projectRoot);
+  lastScope = createProjectScope(projectRoot);
+  const scope = lastScope;
   const sha256Adapter = new Sha256Adapter();
   const configResult = new LoadConfigFromFile().load(projectRoot, null);
   const { budgetConfig, heuristicConfig } = applyConfigResult(
@@ -77,6 +81,11 @@ beforeAll(async () => {
 });
 
 describe("real project integration", () => {
+  afterEach(() => {
+    if (lastScope?.db) (lastScope.db as unknown as { close(): void }).close();
+    lastScope = undefined;
+  });
+
   const request = {
     intent: "refactor auth module to use middleware pattern",
     projectRoot,

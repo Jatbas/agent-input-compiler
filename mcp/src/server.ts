@@ -250,7 +250,11 @@ export function createMcpServer(
       ],
     };
   });
-  return server;
+  const out = server as McpServer & { close(): void };
+  out.close = (): void => {
+    (scope.db as unknown as { close(): void }).close();
+  };
+  return out;
 }
 
 export async function main(): Promise<void> {

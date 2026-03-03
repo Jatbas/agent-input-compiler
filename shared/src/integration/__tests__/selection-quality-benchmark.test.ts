@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, afterEach } from "vitest";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import { toAbsolutePath, toFilePath } from "#core/types/paths.js";
 import type { TaskClass } from "#core/types/enums.js";
 import type { RulePackProvider } from "#core/interfaces/rule-pack-provider.interface.js";
 import type { RulePack } from "#core/types/rule-pack.js";
+import type { ProjectScope } from "#storage/create-project-scope.js";
 import { createProjectScope } from "#storage/create-project-scope.js";
 import { createCachingFileContentReader } from "#adapters/caching-file-content-reader.js";
 import { createFullPipelineDeps } from "../../bootstrap/create-pipeline-deps.js";
@@ -50,8 +51,15 @@ beforeAll(async () => {
 });
 
 describe("selection quality benchmarks", () => {
+  let scope: ProjectScope | undefined;
+
+  afterEach(() => {
+    if (scope?.db) (scope.db as unknown as { close(): void }).close();
+    scope = undefined;
+  });
+
   it("selection_quality_task1_matches_baseline", async () => {
-    const scope = createProjectScope(fixtureRoot);
+    scope = createProjectScope(fixtureRoot);
     const sha256Adapter = new Sha256Adapter();
     const configResult = new LoadConfigFromFile().load(fixtureRoot, null);
     const { budgetConfig, heuristicConfig } = applyConfigResult(

@@ -12,6 +12,9 @@ import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
 
 export function openDatabase(dbPath: string, clock: Clock): ExecutableDb {
   const db = new Database(dbPath) as unknown as ExecutableDb;
+  if (dbPath !== ":memory:") {
+    db.prepare("PRAGMA journal_mode = WAL").run();
+  }
   const migrationRunner = new SqliteMigrationRunner(clock);
   migrationRunner.run(db, [
     migration001,

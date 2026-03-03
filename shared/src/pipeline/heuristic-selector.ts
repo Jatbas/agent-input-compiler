@@ -49,21 +49,31 @@ function filterCandidates(
   });
 }
 
+// One sort for all candidates; rank by first occurrence in sorted order (matches prior indexOf semantics).
+function recencyRanksFromValues(recencyValues: readonly string[]): readonly number[] {
+  if (recencyValues.length === 0) return [];
+  const sortedRec = recencyValues.toSorted();
+  const rankByVal = new Map<string, number>();
+  const n = sortedRec.length;
+  for (let i = 0; i < n; i++) {
+    const v = sortedRec[i] ?? "";
+    if (!rankByVal.has(v)) rankByVal.set(v, n <= 1 ? 1 : i / (n - 1));
+  }
+  return recencyValues.map((v) => rankByVal.get(v) ?? 0);
+}
+
 function scoreCandidate(
   entry: FileEntry,
   index: number,
   pathRelevances: readonly number[],
-  recencyValues: readonly string[],
+  recencyRanks: readonly number[],
   tokenValues: readonly number[],
   importProximityScores: ReadonlyMap<RelativePath, number>,
   weights: typeof DEFAULT_WEIGHTS,
   rulePack: RulePack,
 ): number {
   const pathRel = pathRelevances[index] ?? 0;
-  const recVal = recencyValues[index] ?? FALLBACK_RECENCY;
-  const sortedRec = recencyValues.toSorted();
-  const recIdx = sortedRec.indexOf(recVal);
-  const rec = sortedRec.length <= 1 ? 1 : recIdx / (sortedRec.length - 1);
+  const rec = recencyRanks[index] ?? 0;
   const sizeP = 1 - minMaxNorm(tokenValues, tokenValues[index] ?? 0);
   const importProx = importProximityScores.get(entry.path) ?? 0;
   const baseScore =
@@ -131,6 +141,7 @@ export class HeuristicSelector implements ContextSelector {
       pathRelevance(f.path, task.matchedKeywords),
     );
     const recencyValues = candidates.map((f) => f.lastModified);
+    const recencyRanks = recencyRanksFromValues(recencyValues);
     const tokenValues = candidates.map((f) => f.estimatedTokens);
     const scored = candidates.map((entry, i) => ({
       entry,
@@ -138,7 +149,7 @@ export class HeuristicSelector implements ContextSelector {
         entry,
         i,
         pathRelevances,
-        recencyValues,
+        recencyRanks,
         tokenValues,
         importProximityScores,
         weights,
