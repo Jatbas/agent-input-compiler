@@ -12,7 +12,10 @@ import type { LanguageProvider } from "@aic/shared/core/interfaces/language-prov
 import { InspectRunner } from "@aic/shared/pipeline/inspect-runner.js";
 import type { StatusRequest } from "@aic/shared/core/types/status-types.js";
 import { createCachingFileContentReader } from "@aic/shared/adapters/caching-file-content-reader.js";
-import { openDatabase } from "@aic/shared/storage/open-database.js";
+import {
+  closeDatabase,
+  openDatabase,
+} from "@aic/shared/storage/open-database.js";
 import {
   createProjectScope,
   type ProjectScope,
@@ -68,7 +71,7 @@ function createScopeAndDeps(
   deps: PipelineStepsDeps;
 } {
   const scope = createProjectScope(toAbsolutePath(projectRoot));
-  scope.cacheStore.purgeExpired();
+  setImmediate(() => scope.cacheStore.purgeExpired());
   const sha256Adapter = new Sha256Adapter();
   const configLoader = new LoadConfigFromFile();
   const configResult = configLoader.load(
@@ -124,13 +127,13 @@ function createInspectRunner(
   projectRoot: string,
   configPath: string | null,
   additionalProviders?: readonly LanguageProvider[],
-): InspectRunner {
+): { runner: InspectRunner; scope: ProjectScope } {
   const { scope, deps } = createScopeAndDeps(
     projectRoot,
     configPath,
     additionalProviders,
   );
-  return new InspectRunner(deps, scope.clock);
+  return { runner: new InspectRunner(deps, scope.clock), scope };
 }
 
 program.name("aic").version("0.0.1");
@@ -149,12 +152,16 @@ program
         args.configPath ?? null,
         providers,
       );
-      return compileCommand(args, result.runner, {
-        telemetryStore: result.scope.telemetryStore,
-        clock: result.scope.clock,
-        idGenerator: result.scope.idGenerator,
-        stringHasher: result.stringHasher,
-      });
+      try {
+        await compileCommand(args, result.runner, {
+          telemetryStore: result.scope.telemetryStore,
+          clock: result.scope.clock,
+          idGenerator: result.scope.idGenerator,
+          stringHasher: result.stringHasher,
+        });
+      } finally {
+        closeDatabase(result.scope.db);
+      }
     }),
   );
 
@@ -167,10 +174,16 @@ program
   .action(
     createIntentAction(InspectArgsSchema, async (args) => {
       const providers = await initLanguageProviders(args.projectRoot);
-      return inspectCommand(
-        args,
-        createInspectRunner(args.projectRoot, args.configPath ?? null, providers),
+      const { runner, scope } = createInspectRunner(
+        args.projectRoot,
+        args.configPath ?? null,
+        providers,
       );
+      try {
+        await inspectCommand(args, runner);
+      } finally {
+        closeDatabase(scope.db);
+      }
     }),
   );
 
@@ -201,8 +214,12 @@ program
       const statusRunner = {
         status(request: StatusRequest) {
           const db = openDatabase(request.dbPath, new SystemClock());
-          const store = new SqliteStatusStore(db, new SystemClock());
-          return Promise.resolve(store.getSummary());
+          try {
+            const store = new SqliteStatusStore(db, new SystemClock());
+            return Promise.resolve(store.getSummary());
+          } finally {
+            closeDatabase(db);
+          }
         },
       };
       await statusCommand(parsed, statusRunner);

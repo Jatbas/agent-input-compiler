@@ -47,6 +47,16 @@ git checkout -b feat/task-NNN-kebab-name
 
 Use the task number and kebab-case name from the task file (e.g. `feat/task-011-sqlite-cache-store`). All implementation work happens on this branch. If the branch already exists (e.g. resuming a blocked task), check it out instead of creating it.
 
+**Verify the branch is active** immediately after creation:
+
+```
+git rev-parse --abbrev-ref HEAD
+```
+
+The output must be `feat/task-NNN-kebab-name`. If it shows `main` or any other branch, retry the checkout. If it still fails, stop and tell the user.
+
+**Store the branch name** (e.g. `feat/task-075-yaml-compactor`) — you will need it for the branch guard in §5c.
+
 ### 2. Internalize the task
 
 Before writing any code, absorb these sections from the pre-read task file. Do not skip this step — it prevents rework caused by implementing without understanding the spec.
@@ -252,7 +262,15 @@ Run these sequentially in one flow — no user gate between them:
    test ! -f documentation/tasks/NNN-name.md && head -3 documentation/tasks/done/NNN-name.md
    ```
    If the old file still exists, delete it: `rm documentation/tasks/NNN-name.md`.
-4. **Stage only touched files and commit on the feature branch.**
+4. **Branch guard — verify you are on the feature branch before staging.**
+
+   ```
+   git rev-parse --abbrev-ref HEAD
+   ```
+
+   If the output is NOT `feat/task-NNN-kebab-name`, switch to it immediately: `git checkout feat/task-NNN-kebab-name`. If the branch does not exist, go to **Blocked diagnostic**. **Never commit to main** — the feature branch isolates all work until the user approves the merge in §6.
+
+5. **Stage only touched files and commit on the feature branch.**
 
    Use the touched-files list built in §2 — never `git add -A`. Stage each file explicitly:
 
@@ -268,13 +286,13 @@ Run these sequentially in one flow — no user gate between them:
 
    Use the conventional commit format: `type(scope): description`, max 72 chars, imperative, no period.
 
-5. **Post-commit hygiene check.** Lint-staged runs during commit and may auto-format files, leaving the working tree dirty. This step catches and resolves that before proposing merge.
+6. **Post-commit hygiene check.** Lint-staged runs during commit and may auto-format files, leaving the working tree dirty. This step catches and resolves that before proposing merge.
 
    a. Run `git status --porcelain`. Filter the output against the touched-files list — only files on the list matter. If no touched files are dirty, skip to (e).
    b. Stage only the dirty touched files and amend: `git add <touched dirty files> && git commit --amend --no-edit`.
    c. Run `pnpm lint && pnpm typecheck && pnpm test`. If any fail, fix the issues, then stage only the fixed touched files and amend again. Repeat at most twice — if still failing after 2 fix attempts, go to **Blocked diagnostic**.
    d. Run `git status --porcelain` again. Filter against touched-files list. If touched files are still dirty (another lint-staged pass reformatted), repeat from (b). Cap at 3 iterations — if still dirty, something is structurally wrong; go to **Blocked diagnostic**.
-   e. Run `git diff main...HEAD --stat` to produce the final file list for the merge proposal.
+   e. Run `git diff main...HEAD --stat` to produce the final file list for the merge proposal. Verify that `git rev-parse --abbrev-ref HEAD` still shows the feature branch name.
 
 ### 6. Merge and Clean Up
 
@@ -284,6 +302,7 @@ This step handles the merge and cleanup. Present the diff to the user for approv
 
 Present:
 
+- The branch name (`feat/task-NNN-kebab-name`)
 - The list of files changed (from the `--stat` output in 5c)
 - The commit message used
 - Ask: **"Merge to main? (yes / adjust message / discard branch)"**
@@ -353,6 +372,7 @@ Before declaring Blocked, check whether the failure is in your code or in the ta
 - If something in the task file seems wrong, ask the user rather than silently fixing it
 - All verification must pass before reporting success
 - Evidence over claims — always read and report actual command output
-- All work happens on a feature branch — never commit directly to main
+- All work happens on a feature branch — never commit directly to main. Run `git rev-parse --abbrev-ref HEAD` before every commit to verify
 - Merge only when the user approves — present the diff and wait for confirmation
 - On discard, delete the feature branch cleanly — main stays untouched
+- The planner operates on main; the executor operates on a feature branch — this enables parallel operation without conflicts

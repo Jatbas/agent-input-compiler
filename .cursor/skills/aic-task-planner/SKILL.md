@@ -62,13 +62,14 @@ The process has **two passes** plus a presentation step. Each pass produces a co
 
 ## §0. Branch setup (mandatory — run before anything else)
 
-The planner always operates on the `main` branch so that task files and exploration reports reflect the merged state and avoid conflicts when working on feature branches.
+The planner always operates on the `main` branch so that task files and exploration reports reflect the merged state. This enables **parallel operation with the executor**: the planner writes task files to `documentation/tasks/` on main, while the executor works on source files in a feature branch — no file conflicts.
 
 1. Record the current branch: `git rev-parse --abbrev-ref HEAD`
 2. If there are uncommitted changes, stash them: `git stash push -m "aic-planner: auto-stash before switching to main"`
 3. Switch to main and pull latest: `git checkout main && git pull --ff-only`
-4. **All planning work (§1 through §6 or §7) happens on `main`.**
-5. After the task file is saved (end of §6 or §7), switch back to the original branch and pop the stash if one was created:
+4. **All planning work (§1 through §6 or §7) happens on `main`.** The planner never creates a feature branch. Task files are committed directly to main.
+5. After the task file is saved (end of §6 or §7), commit the task file on main, then switch back to the original branch and pop the stash if one was created:
+   - `git add documentation/tasks/NNN-name.md && git commit -m "docs(tasks): plan task NNN — <component name>"`
    - `git checkout <original-branch>`
    - If stashed in step 2: `git stash pop`
 

@@ -5,6 +5,7 @@ import type { TaskClass } from "#core/types/enums.js";
 import type { RulePackProvider } from "#core/interfaces/rule-pack-provider.interface.js";
 import type { RulePack } from "#core/types/rule-pack.js";
 import type { ProjectScope } from "#storage/create-project-scope.js";
+import { closeDatabase } from "#storage/open-database.js";
 import { createProjectScope } from "#storage/create-project-scope.js";
 import { createCachingFileContentReader } from "#adapters/caching-file-content-reader.js";
 import { createFullPipelineDeps } from "../../bootstrap/create-pipeline-deps.js";
@@ -82,7 +83,7 @@ beforeAll(async () => {
 
 describe("real project integration", () => {
   afterEach(() => {
-    if (lastScope?.db) (lastScope.db as unknown as { close(): void }).close();
+    if (lastScope) closeDatabase(lastScope.db);
     lastScope = undefined;
   });
 
