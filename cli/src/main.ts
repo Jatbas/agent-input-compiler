@@ -2,15 +2,21 @@ import { program, type Command } from "commander";
 import { CompilationArgsSchema } from "./schemas/compilation-args.js";
 import { InspectArgsSchema } from "./schemas/inspect-args.js";
 import { InitArgsSchema } from "./schemas/init-args.js";
+import { ReportArgsSchema } from "./schemas/report-args.js";
 import { StatusArgsSchema } from "./schemas/status-args.js";
 import { compileCommand } from "./commands/compile.js";
 import { inspectCommand } from "./commands/inspect.js";
 import { initCommand } from "./commands/init.js";
+import { reportCommand } from "./commands/report.js";
 import { statusCommand } from "./commands/status.js";
 import type { CompilationRunner } from "@aic/shared/core/interfaces/compilation-runner.interface.js";
 import type { LanguageProvider } from "@aic/shared/core/interfaces/language-provider.interface.js";
 import { InspectRunner } from "@aic/shared/pipeline/inspect-runner.js";
-import type { StatusRequest } from "@aic/shared/core/types/status-types.js";
+import type {
+  StatusRequest,
+  StatusAggregates,
+} from "@aic/shared/core/types/status-types.js";
+import type { StatusRunner } from "@aic/shared/core/interfaces/status-runner.interface.js";
 import { createCachingFileContentReader } from "@aic/shared/adapters/caching-file-content-reader.js";
 import {
   closeDatabase,
@@ -38,13 +44,32 @@ import { TASK_CLASS } from "@aic/shared/core/types/enums.js";
 import { loadRulePackFromPath } from "@aic/shared/core/load-rule-pack.js";
 import { createProjectFileReader } from "@aic/shared/adapters/project-file-reader-adapter.js";
 import { initLanguageProviders } from "@aic/shared/adapters/init-language-providers.js";
-import { resolveBaseArgs, runAction, createIntentAction } from "./utils/run-action.js";
+import {
+  resolveBaseArgs,
+  runAction,
+  createIntentAction,
+  getOptOutput,
+} from "./utils/run-action.js";
 
 function defaultRulePack(): RulePack {
   return {
     constraints: [],
     includePatterns: [],
     excludePatterns: [],
+  };
+}
+
+function createStatusRunner(): StatusRunner {
+  return {
+    status(request: StatusRequest): Promise<StatusAggregates> {
+      const db = openDatabase(request.dbPath, new SystemClock());
+      try {
+        const store = new SqliteStatusStore(db, new SystemClock());
+        return Promise.resolve(store.getSummary());
+      } finally {
+        closeDatabase(db);
+      }
+    },
   };
 }
 
@@ -211,18 +236,24 @@ program
   .action(async function (this: Command) {
     await runAction(async () => {
       const parsed = StatusArgsSchema.parse(resolveBaseArgs(this.opts()));
-      const statusRunner = {
-        status(request: StatusRequest) {
-          const db = openDatabase(request.dbPath, new SystemClock());
-          try {
-            const store = new SqliteStatusStore(db, new SystemClock());
-            return Promise.resolve(store.getSummary());
-          } finally {
-            closeDatabase(db);
-          }
-        },
-      };
-      await statusCommand(parsed, statusRunner);
+      await statusCommand(parsed, createStatusRunner());
+    });
+  });
+
+program
+  .command("report")
+  .description("Write project status to a static HTML file")
+  .option("--root <path>", "project root directory", process.cwd())
+  .option("--config <path>", "path to aic.config.json")
+  .option("--db <path>", "path to SQLite database")
+  .option("--output <path>", "output HTML file path (default: .aic/report.html)")
+  .action(async function (this: Command) {
+    await runAction(async () => {
+      const parsed = ReportArgsSchema.parse({
+        ...resolveBaseArgs(this.opts()),
+        outputPath: getOptOutput(this.opts()),
+      });
+      await reportCommand(parsed, createStatusRunner());
     });
   });
 

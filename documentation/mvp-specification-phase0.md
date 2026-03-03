@@ -886,11 +886,11 @@ If accepted, sets `telemetry.anonymousUsage: true` in `aic.config.json`. Can be 
 | No IP logging         | Telemetry endpoint does not log client IPs                         |
 | HTTPS only            | All payloads sent over TLS                                         |
 
-**Batching:** Payloads are queued locally and sent in a single HTTPS request at most once per 5 minutes. If the endpoint is unreachable, payloads are silently dropped (not retried, not stored).
+**Batching:** Payloads are queued locally and sent in a single HTTPS request at most once per 5 minutes. The endpoint stores received payloads in a cloud database. After a payload is successfully sent, the corresponding row is removed from the user's local `anonymous_telemetry_log` table, so the local table acts as a send queue and does not grow unbounded. If the endpoint is unreachable, payloads are silently dropped (not retried, not stored).
 
 **Local audit log (full transparency):**
 
-Every payload that is sent (or would be sent) to the telemetry endpoint is also stored in the local `aic.sqlite` database in an `anonymous_telemetry_log` table:
+Every payload that is sent (or would be sent) to the telemetry endpoint is stored in the local `aic.sqlite` database in an `anonymous_telemetry_log` table until it is successfully sent, at which point the row is removed:
 
 ```sql
 CREATE TABLE anonymous_telemetry_log (

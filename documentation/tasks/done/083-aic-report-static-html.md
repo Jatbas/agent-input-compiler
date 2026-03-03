@@ -1,6 +1,6 @@
 # Task 083: aic report (static HTML)
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** M (Reporting & Resources)
 > **Layer:** cli
 > **Depends on:** Status command, StatusStore, LoadConfigFromFile, ensureAicDir (all Done)

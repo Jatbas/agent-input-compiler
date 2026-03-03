@@ -1,7 +1,7 @@
 # AIC Documentation & Implementation Gaps
 
 **Created:** 2026-02-27
-**Updated:** 2026-02-27
+**Updated:** 2026-03-04
 **Purpose:** Track gaps between documentation, implementation reality, and opportunities.
 
 ---
@@ -142,23 +142,23 @@ Claude Code solves the two capabilities that are structurally impossible in Curs
 
 **Options**
 
-1. **CLI**  
-   - Add an optional `--conversation-id` to `aic compile` so scripts or wrappers can tag compilations (e.g. for grouping in telemetry).  
+1. **CLI**
+   - Add an optional `--conversation-id` to `aic compile` so scripts or wrappers can tag compilations (e.g. for grouping in telemetry).
    - No change to MCP or hooks.
 
-2. **Cursor subagents**  
-   - We cannot change Cursor. We can only document expectations:  
-     - If Cursor sets `CURSOR_AGENT=1` in the subagent’s MCP process env, we will treat it as Cursor and `editor_id` will be `cursor`.  
-     - If Cursor includes `conversation_id` in the preToolUse hook input for subagent tool calls, our inject hook will add it to the aic_compile args and we will persist it (even if `editor_id` stays `generic`).  
+2. **Cursor subagents**
+   - We cannot change Cursor. We can only document expectations:
+     - If Cursor sets `CURSOR_AGENT=1` in the subagent’s MCP process env, we will treat it as Cursor and `editor_id` will be `cursor`.
+     - If Cursor includes `conversation_id` in the preToolUse hook input for subagent tool calls, our inject hook will add it to the aic_compile args and we will persist it (even if `editor_id` stays `generic`).
    - So remaining nulls for subagent-like flows depend on Cursor’s behaviour (client name and/or `CURSOR_AGENT`, and hook input for subagent tool calls).
 
-3. **Other MCP clients**  
+3. **Other MCP clients**
    - Any client can send `conversationId` in the `aic_compile` arguments; we will store it. No AIC code change required.
 
 **Conclusion**
 
-- Rows with `editor_id = generic` and null `conversation_id` are expected for CLI, or for MCP callers that do not identify as Cursor and do not pass `conversationId`.  
-- To reduce nulls from scripts or automation, add optional `--conversation-id` to the CLI.  
+- Rows with `editor_id = generic` and null `conversation_id` are expected for CLI, or for MCP callers that do not identify as Cursor and do not pass `conversationId`.
+- To reduce nulls from scripts or automation, add optional `--conversation-id` to the CLI.
 - To get `conversation_id` (and optionally `editor_id = cursor`) for Cursor subagents, behaviour would need to come from Cursor (env and/or hook input); we already consume and persist whatever is passed.
 
 ---
@@ -193,16 +193,58 @@ No core pipeline changes. Pipeline steps ignore the field. Only the telemetry lo
 
 ---
 
+### GAP-09: Visual demo (GIF/recording) in README
+
+**Status:** Blocked (needs real terminal recording)
+**Impact:** High — OSS browsers expect a visual demo in the first scroll; without one, many leave immediately
+
+**What we have:** A working `aic inspect` command and real projects to run it on.
+
+**What we need:** A terminal recording (GIF or animated SVG via asciinema/vhs) showing `aic inspect` running on a real project, placed at the top of the README near the one-liner.
+
+**Action:** Record `aic inspect` on a benchmark repo using a tool like `vhs` or `asciinema`. Convert to GIF. Embed in README above "Why use it."
+
+---
+
+### GAP-10: Comparative benchmarks — AIC vs. native editor context
+
+**Status:** Blocked (needs Phase K + comparison methodology)
+**Impact:** High — team leads evaluating AIC need to see how it compares to Cursor's built-in context selection (@codebase, @file), not just raw-to-compiled reduction
+
+**What we have:** AIC's own token reduction numbers (98%+). No data on what editors send natively.
+
+**What we need:** Side-by-side comparison: for the same prompt on the same project, measure (a) what Cursor sends without AIC, (b) what AIC compiles. Show file selection quality, not just token count.
+
+**Action:** Design comparison methodology as part of Phase K. Capture editor baseline where possible (Cursor's context is harder to measure; may require proxy/logging approach).
+
+---
+
+### GAP-11: Token reduction datapoints at multiple project scales
+
+**Status:** Blocked (needs benchmark repos of varying sizes)
+**Impact:** Medium — a single datapoint from one project doesn't answer "will this help a project my size?"
+
+**What we have:** One real-world datapoint (this project: 359M raw → 5.6M compiled).
+
+**What we need:** At least three datapoints at different scales (e.g. ~50 files, ~500 files, ~5000 files) showing reduction percentages, selected file counts, and summarisation tier distribution.
+
+**Action:** Select 2–3 open-source repos of varying sizes. Run AIC's benchmark suite on each. Publish results in README or a linked benchmark report.
+
+---
+
 ## Priority Order
 
 | Priority | Gap                                           | Effort                          | Impact                                           |
 | -------- | --------------------------------------------- | ------------------------------- | ------------------------------------------------ |
 | 1        | GAP-02: Build Claude Code integration layer   | Large (implementation)          | High — enables per-prompt + subagent compilation |
 | 2        | GAP-01: Benchmark token reduction numbers     | Large (Phase K)                 | High — core value proposition                    |
-| 3        | GAP-08: `triggerSource` on CompilationRequest | Small (implementation)          | Medium — telemetry quality                       |
-| 4        | GAP-04: Telemetry story                       | Medium (implementation + docs)  | Medium — completeness                            |
-| 5        | GAP-03: Real inspect output                   | Small (run command + docs edit) | Medium — credibility                             |
-| 6        | GAP-06: Present-tense audit of project plan   | Small (docs edit)               | Low — polish                                     |
+| 3        | GAP-09: Visual demo in README                 | Small (terminal recording)      | High — first-impression impact for OSS browsers  |
+| 4        | GAP-10: Comparative benchmarks                | Medium (Phase K + analysis)     | High — team adoption requires comparison data    |
+| 5        | GAP-11: Multi-scale datapoints                | Medium (run on multiple repos)  | Medium — addresses "will this work on my project" |
+| 6        | GAP-08: `triggerSource` on CompilationRequest | Small (implementation)          | Medium — telemetry quality                       |
+| 7        | GAP-04: Telemetry story                       | Medium (implementation + docs)  | Medium — completeness                            |
+| 8        | GAP-03: Real inspect output                   | Small (run command + docs edit) | Medium — credibility                             |
+| 9        | GAP-06: Present-tense audit of project plan   | Small (docs edit)               | Low — polish                                     |
 
 ### Resolved
 

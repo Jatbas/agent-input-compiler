@@ -9,6 +9,12 @@ export type CliOpts = {
   readonly db?: string;
 };
 
+export function getOptOutput(value: unknown): string | null {
+  if (typeof value !== "object" || value === null) return null;
+  const o = (value as Record<string, unknown>)["output"];
+  return typeof o === "string" ? o : null;
+}
+
 export function resolveBaseArgs(opts: CliOpts): {
   readonly projectRoot: string;
   readonly configPath: string | null;

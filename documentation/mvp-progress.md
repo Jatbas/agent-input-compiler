@@ -109,7 +109,7 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 | Conversation tracking: schema + plumbing     | Done   | shared + mcp |
 | Conversation tracking: summary + prompt cmd  | Done   | shared + mcp |
 | Budget utilization in status                 | Done   | cli/src/     |
-| `aic report` (static HTML)                   | Todo   | cli/src/     |
+| `aic report` (static HTML)                   | Done   | cli/src/     |
 
 ---
 
@@ -117,9 +117,6 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 | ID     | Area     | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Target  |
 | ------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| KL-001 | Storage  | No data retention policy for `compilation_log`, `telemetry_events`, `guard_findings`, `server_sessions`. Tables grow unbounded. At current rates (~18 rows/day), this is negligible for months; becomes relevant at enterprise scale.                                                                                                                                                                                                                                       | Phase 1 |
-| KL-002 | Storage  | Repo map cache has TTL pruning via `CacheStore.purgeExpired()` on MCP/CLI startup. No orphan pruning: cached repo maps for deleted or moved projects remain until expiry.                                                                                                                                                                                                                                                                                                   | Phase 1 |
-| KL-003 | Storage  | `anonymous_telemetry_log` outbound queue has no TTL or max-size cap.                                                                                                                                                                                                                                                                                                                                                                                                        | Phase 1 |
 | KL-005 | Delivery | Hook-based context delivery for Claude Code. Claude Code's `UserPromptSubmit` hook can inject compiled context as `additionalContext` before Claude processes the message — eliminating the fragile trigger rule and tool-call round-trip. See `documentation/future/claude-code-hook-integration.md` for the full plan. `TRIGGER_SOURCE.HOOK` enum value already added. Blocked on hooks API stability (PostToolUse `additionalContext` bug anthropics/claude-code#24788). | Phase 1 |
 | KL-006 | Setup    | `installClaudeCodeHooks()` for Claude Code editor detection. When init/setup detects Claude Code, install trigger rule (`.claude/CLAUDE.md`) and hooks (e.g. `.claude/settings.local.json` or equivalent) so AIC works zero-install for Claude Code users. Cursor path is currently hardcoded in `installTriggerRule`.                                                                                                                                                      | Phase 1 |
 
@@ -127,26 +124,15 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 ## Zero-Install Gaps
 
-The project plan (§2.2.1) says `npx @aic/mcp init` should install the trigger rule, integration hooks, and `.aic/` directory. The actual implementation has significant gaps — only the trigger rule is auto-installed.
+On MCP server startup, `createMcpServer` auto-installs the trigger rule (`.cursor/rules/aic.mdc`), Cursor hooks (`.cursor/hooks.json` + five `AIC-*.cjs` scripts), and the `.aic/` directory. For Cursor users, zero-install works end-to-end — no manual `init` step required.
 
-| Component                                           | Project plan says                                          | Actually implemented                                                         | Gap                      |
-| --------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------ |
-| `npx @aic/mcp init` CLI command                     | Described in project plan §2.2.1, README, mvp-spec         | **Does not exist** — no `bin` in mcp/package.json, no init subcommand in MCP | **Missing**              |
-| `npx @aic/mcp init --non-interactive` (team deploy) | Described in project plan §23 Tier 1                       | **Does not exist**                                                           | **Missing** (Phase 1)    |
-| Claude Code trigger rule (`.claude/CLAUDE.md`)      | Auto-install on MCP startup when editor=claude-code        | **No** — only `installTriggerRule` writes Cursor rule                        | **Missing**              |
-| Claude Code hooks (`.claude/settings.local.json`)   | Hook installer detects editor, writes hooks                | **No** — hooks exist in repo but not installed                               | **Missing**              |
-| Editor detection for init                           | `npx @aic/mcp init` detects editor, writes to correct path | **No** — only Cursor trigger rule hardcoded                                  | **Missing**              |
-| Self-check hooks path                               | Should check `.cursor/hooks.json`                          | Was checking `.cursor/hooks/hooks.json` (wrong)                              | **Fixed** (this session) |
-| Self-check preToolUse validation                    | Should validate require + inject hooks                     | Only validated sessionStart compile hook                                     | **Fixed** (this session) |
+Remaining gaps:
 
-### Impact on other projects
-
-For any project **other than AIC itself**, a new chat means:
-
-- No sessionStart compilation (no hook fires)
-- No preToolUse gating (model can skip `aic_compile`)
-- No conversation_id injection
-- Only the trigger rule exists — the model may or may not comply
+| Component                                         | Project plan says                                    | Actually implemented                                  | Gap         |
+| ------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------- | ----------- |
+| Claude Code trigger rule (`.claude/CLAUDE.md`)    | Auto-install on MCP startup when editor=claude-code  | **No** — only `installTriggerRule` writes Cursor rule | **Missing** |
+| Claude Code hooks (`.claude/settings.local.json`) | Hook installer detects editor, writes hooks          | **No** — hooks exist in repo but not installed        | **Missing** |
+| Editor detection for init                         | MCP startup detects editor, writes to correct path   | **No** — hardcoded for Cursor only                    | **Missing** |
 
 ---
 
@@ -247,10 +233,11 @@ For any project **other than AIC itself**, a new chat means:
 
 ### 2025-03-04
 
-**Components:** Budget utilization in status
+**Components:** Budget utilization in status, `aic report` (static HTML)
 **Completed:**
 
 - Budget utilization in status (task 082): statusCommand resolves budget via LoadConfigFromFile.load(projectRoot, configPath ?? null), passes budget (result.config.contextBudget.maxTokens) to formatStatusOutput; formatStatusOutput gains third parameter budget: number and outputs "Budget utilization: X% (last: A/B)" when lastCompilation non-null, "Budget utilization: —" when null, placed after Total tokens saved and before Guard; three tests (budget_utilization_shown_with_default_budget, budget_utilization_dash_when_no_last_compilation, budget_utilization_uses_config_when_present). Lint, typecheck, test, knip (no new findings), lint:clones 0.
+- `aic report` (static HTML) (task 083): ReportArgsSchema (BaseArgs + outputPath); reportCommand with formatStatusAsHtml (escapeHtml for user-controlled strings), default output .aic/report.html via ensureAicDir; main.ts registers report command, createStatusRunner() shared with status; status-display.ts (buildStatusSections, formatLastCompilationTerminal/Html), status-flow.ts (loadStatusContext, handleStatusFlowResult) to eliminate clones; six tests (report_writes_html_file, report_no_database_exits_with_message, report_no_compilations_exits_with_message, report_uses_default_output_path, report_escapes_html_in_intent, report_runner_throws_propagates). Lint, typecheck, test, knip (no new findings), lint:clones 0.
 
 ### 2026-03-03
 

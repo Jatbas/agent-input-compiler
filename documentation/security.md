@@ -281,7 +281,7 @@ aic telemetry log --json   # raw JSON payloads (pipe-friendly)
 aic telemetry log --clear  # delete all records
 ```
 
-**Batching:** Payloads are queued locally and sent in a single HTTPS request at most once per 5 minutes. If the endpoint is unreachable, payloads are silently dropped (not retried, not stored on the server).
+**Batching:** Payloads are queued locally and sent in a single HTTPS request at most once per 5 minutes. The endpoint stores received payloads in a cloud database. After a payload is successfully sent, the local row is removed so the queue does not grow unbounded. If the endpoint is unreachable, payloads are silently dropped (not retried, not stored on the server).
 
 Full payload schema and audit log spec: [MVP Spec §4d](mvp-specification-phase0.md).
 
