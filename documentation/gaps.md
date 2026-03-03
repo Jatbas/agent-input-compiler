@@ -87,10 +87,10 @@ Claude Code solves the two capabilities that are structurally impossible in Curs
 **What we need:**
 
 1. **Telemetry source tracking** — distinguish hook-triggered compilations from model-triggered ones (Phase I: `triggerSource` field)
-2. ~~**Telemetry conversation tracking** — link compilations to conversation IDs~~ **Deferred to Phase 1+.** MCP tool calls do not carry editor conversation IDs; the AI model has no mechanism to pass its conversation ID when calling `aic_compile`. Session-level grouping via `session_id` is sufficient for Phase 0.5. True conversation-level grouping requires the agentic session layer (Project Plan §2.7) or MCP protocol extensions. See KL-004 in `mvp-progress.md`.
+2. ~~**Telemetry conversation tracking** — link compilations to conversation IDs~~ **Implemented for Cursor.** `conversation_id` is in schema and populated when Cursor sends it (sessionStart hook passes `session_id`, preToolUse hook injects `conversation_id` into aic_compile args). Remaining nulls are from CLI or MCP clients that do not identify as Cursor (see Research below).
 3. Documentation explaining what these will enable (per-session cost analysis, adoption metrics)
 
-**Action:** Item 1 is in `mvp-progress.md` Phase I. Item 2 deferred (KL-004).
+**Action:** Item 1 is in `mvp-progress.md` Phase I. Item 2 done for Cursor; summary/prompt cmd deferred to Phase 1.
 
 ---
 
@@ -117,6 +117,49 @@ Claude Code solves the two capabilities that are structurally impossible in Curs
 **What we need:** Audit the project plan for features described in present tense that are not yet implemented. Add phase markers where appropriate.
 
 **Action:** Review §2.3 (Model Adapter), §8.2 (ModelClient), and §8.3 (OutputFormatter) for items that are specced but not built. These are design specifications and belong in the plan, but should be clearly distinguished from what exists today.
+
+---
+
+### Research: conversation_id when editor_id is generic
+
+**Context:** Some `compilation_log` rows have `editor_id = generic` and `conversation_id` null. This research summarises why and what we can do.
+
+**Why editor_id becomes generic**
+
+- The MCP server sets `editor_id` from (1) the client’s `initialize` handshake (`clientInfo.name`) and (2) the env fallback `CURSOR_AGENT === "1"` (see `mcp/src/detect-editor-id.ts`).
+- If the client does not send a name containing `"cursor"` and the process does not have `CURSOR_AGENT=1`, we get `generic`.
+- So `generic` means: CLI (no MCP), or an MCP connection that did not identify as Cursor (e.g. another IDE, test harness, or a Cursor subagent whose process does not set `CURSOR_AGENT` or whose client does not send a Cursor-like name).
+
+**Why conversation_id is null for those rows**
+
+- For **CLI**: there is no conversation; null is expected.
+- For **MCP**: `conversation_id` is only set when the caller passes it in the tool arguments. Cursor’s preToolUse hook injects it only when Cursor provides `conversation_id` in the hook stdin. If the tool call is from a subagent or another process, either (a) the preToolUse hook does not run in that context, or (b) Cursor does not supply `conversation_id` in that hook invocation, so we have nothing to inject.
+
+**What we already support**
+
+- The compile handler **always** accepts `conversationId` in the tool args and persists it. So any caller (CLI, script, subagent) can pass `conversationId` and it will be stored.
+- So we can get `conversation_id` even when `editor_id` is generic, as long as the caller sends it.
+
+**Options**
+
+1. **CLI**  
+   - Add an optional `--conversation-id` to `aic compile` so scripts or wrappers can tag compilations (e.g. for grouping in telemetry).  
+   - No change to MCP or hooks.
+
+2. **Cursor subagents**  
+   - We cannot change Cursor. We can only document expectations:  
+     - If Cursor sets `CURSOR_AGENT=1` in the subagent’s MCP process env, we will treat it as Cursor and `editor_id` will be `cursor`.  
+     - If Cursor includes `conversation_id` in the preToolUse hook input for subagent tool calls, our inject hook will add it to the aic_compile args and we will persist it (even if `editor_id` stays `generic`).  
+   - So remaining nulls for subagent-like flows depend on Cursor’s behaviour (client name and/or `CURSOR_AGENT`, and hook input for subagent tool calls).
+
+3. **Other MCP clients**  
+   - Any client can send `conversationId` in the `aic_compile` arguments; we will store it. No AIC code change required.
+
+**Conclusion**
+
+- Rows with `editor_id = generic` and null `conversation_id` are expected for CLI, or for MCP callers that do not identify as Cursor and do not pass `conversationId`.  
+- To reduce nulls from scripts or automation, add optional `--conversation-id` to the CLI.  
+- To get `conversation_id` (and optionally `editor_id = cursor`) for Cursor subagents, behaviour would need to come from Cursor (env and/or hook input); we already consume and persist whatever is passed.
 
 ---
 
