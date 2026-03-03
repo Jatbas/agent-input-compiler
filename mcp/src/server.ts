@@ -27,6 +27,7 @@ import type { SessionId } from "@aic/shared/core/types/identifiers.js";
 import { toSessionId } from "@aic/shared/core/types/identifiers.js";
 import { STOP_REASON } from "@aic/shared/core/types/enums.js";
 import { createFullPipelineDeps } from "@aic/shared/bootstrap/create-pipeline-deps.js";
+import { installCursorHooks } from "./install-cursor-hooks.js";
 import { installTriggerRule } from "./install-trigger-rule.js";
 import { runStartupSelfCheck } from "./startup-self-check.js";
 import {
@@ -106,6 +107,7 @@ export function createMcpServer(
   const scope = createProjectScope(projectRoot);
   scope.cacheStore.purgeExpired();
   installTriggerRule(projectRoot);
+  installCursorHooks(projectRoot);
   const { installationOk, installationNotes } = runStartupSelfCheck(projectRoot);
   const sessionId = toSessionId(scope.idGenerator.generate());
   const startedAt = scope.clock.now();

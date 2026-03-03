@@ -12,33 +12,33 @@
 
 Prerequisite for everything else. Quick fixes to make the tool fully functional.
 
-| Component                       | Status   | Package                          |
-| ------------------------------- | -------- | -------------------------------- |
-| FileSystemRepoMapSupplier       | Done     | shared/src/adapters/             |
-| createFullPipelineDeps          | Done     | shared/src/bootstrap             |
-| Wire real RepoMap in MCP/CLI    | Done     | mcp/, cli/                       |
-| Wire real InspectRunner (CLI)   | Done     | cli/src/main.ts                  |
-| Telemetry write on compile      | Done     | shared/src/core/ + mcp + cli     |
-| Guard findings write on scan    | Done     | shared/src/storage/              |
-| Config loading from aic.config  | Done     | shared/src/config/ + mcp + cli   |
-| Real token counting in repo map | Done     | shared/src/adapters/             |
-| WhitespaceNormalizer exclusions | Done     | shared/src/pipeline/             |
-| 002-server-sessions migration   | Done     | shared/src/storage/migrations/   |
-| SessionTracker interface        | Done     | shared/src/core/interfaces/      |
-| SqliteSessionStore              | Done     | shared/src/storage/              |
-| sessionStart compile hook       | Done     | .cursor/hooks/                   |
-| preToolUse gate hook            | Done     | .cursor/hooks/                   |
-| beforeSubmitPrompt logging hook | Done     | .cursor/hooks/                   |
-| afterFileEdit tracking hook     | Done     | .cursor/hooks/                   |
-| stop quality check hook         | Done     | .cursor/hooks/                   |
-| Startup self-check (integrity)  | Done     | mcp/src/                         |
-| Auto-install trigger rule       | Done     | mcp/src/                         |
-| Server lifecycle hooks          | Done     | mcp/src/                         |
-| Telemetry conversation tracking | Deferred | — (see KL-004)                   |
-| Telemetry triggerSource field   | Done     | shared/src/core/types/ + storage |
-| Claude Code integration layer   | Done     | .claude/hooks/                   |
-| Subagent context injection (CC) | Done     | .claude/hooks/                   |
-| Compilation perf: lazy scan     | Done     | shared/src/adapters/ + mcp + cli |
+| Component                       | Status   | Package                                                   |
+| ------------------------------- | -------- | --------------------------------------------------------- |
+| FileSystemRepoMapSupplier       | Done     | shared/src/adapters/                                      |
+| createFullPipelineDeps          | Done     | shared/src/bootstrap                                      |
+| Wire real RepoMap in MCP/CLI    | Done     | mcp/, cli/                                                |
+| Wire real InspectRunner (CLI)   | Done     | cli/src/main.ts                                           |
+| Telemetry write on compile      | Done     | shared/src/core/ + mcp + cli                              |
+| Guard findings write on scan    | Done     | shared/src/storage/                                       |
+| Config loading from aic.config  | Done     | shared/src/config/ + mcp + cli                            |
+| Real token counting in repo map | Done     | shared/src/adapters/                                      |
+| WhitespaceNormalizer exclusions | Done     | shared/src/pipeline/                                      |
+| 002-server-sessions migration   | Done     | shared/src/storage/migrations/                            |
+| SessionTracker interface        | Done     | shared/src/core/interfaces/                               |
+| SqliteSessionStore              | Done     | shared/src/storage/                                       |
+| sessionStart compile hook       | Done     | .cursor/hooks/                                            |
+| preToolUse gate hook            | Done     | .cursor/hooks/                                            |
+| beforeSubmitPrompt logging hook | Done     | .cursor/hooks/                                            |
+| afterFileEdit tracking hook     | Done     | .cursor/hooks/                                            |
+| stop quality check hook         | Done     | .cursor/hooks/                                            |
+| Startup self-check (integrity)  | Done     | mcp/src/                                                  |
+| Auto-install trigger rule       | Done     | mcp/src/                                                  |
+| Server lifecycle hooks          | Done     | mcp/src/                                                  |
+| Telemetry conversation tracking | Deferred | — (conversation_id in schema; summary/prompt cmd Phase 1) |
+| Telemetry triggerSource field   | Done     | shared/src/core/types/ + storage                          |
+| Claude Code integration layer   | Done     | .claude/hooks/                                            |
+| Subagent context injection (CC) | Done     | .claude/hooks/                                            |
+| Compilation perf: lazy scan     | Done     | shared/src/adapters/ + mcp + cli                          |
 
 ### Phase J — Intent & Selection Quality
 
@@ -114,13 +114,53 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 ## Known Limitations & Future Work
 
-| ID     | Area      | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Target    |
-| ------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
-| KL-001 | Storage   | No data retention policy for `compilation_log`, `telemetry_events`, `guard_findings`, `server_sessions`. Tables grow unbounded. At current rates (~18 rows/day), this is negligible for months; becomes relevant at enterprise scale.                                                                                                                                                                                                                                                                                                                                                                                                                                          | Phase 1   |
-| KL-002 | Storage   | Repo map cache has TTL pruning via `CacheStore.purgeExpired()` on MCP/CLI startup. No orphan pruning: cached repo maps for deleted or moved projects remain until expiry.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Phase 1   |
-| KL-003 | Storage   | `anonymous_telemetry_log` outbound queue has no TTL or max-size cap.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Phase 1   |
-| KL-004 | Telemetry | No conversation-level grouping of compilations. Need: (1) migration adding nullable `conversation_id TEXT` column to `compilation_log`, (2) add `conversationId` to `CompilationLogEntry` and `CompilationRequest`, (3) MCP handler + CLI pass the value through from hooks/args, (4) `SqliteStatusStore` gains `getConversationSummary(conversationId)` returning per-conversation aggregates, (5) expose as MCP resource `aic://conversation-summary/{id}` or tool param, (6) wire "show aic chat summary" prompt command. Cursor hooks already have `conversation_id` available via hook context — pass it as an `aic_compile` argument. Claude Code hooks can do the same. | Phase 0.5 |
-| KL-005 | Delivery  | Hook-based context delivery for Claude Code. Claude Code's `UserPromptSubmit` hook can inject compiled context as `additionalContext` before Claude processes the message — eliminating the fragile trigger rule and tool-call round-trip. See `documentation/future/claude-code-hook-integration.md` for the full plan. `TRIGGER_SOURCE.HOOK` enum value already added. Blocked on hooks API stability (PostToolUse `additionalContext` bug anthropics/claude-code#24788).                                                                                                                                                                                                    | Phase 1   |
+| ID     | Area     | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Target  |
+| ------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| KL-001 | Storage  | No data retention policy for `compilation_log`, `telemetry_events`, `guard_findings`, `server_sessions`. Tables grow unbounded. At current rates (~18 rows/day), this is negligible for months; becomes relevant at enterprise scale.                                                                                                                                                                                                                                       | Phase 1 |
+| KL-002 | Storage  | Repo map cache has TTL pruning via `CacheStore.purgeExpired()` on MCP/CLI startup. No orphan pruning: cached repo maps for deleted or moved projects remain until expiry.                                                                                                                                                                                                                                                                                                   | Phase 1 |
+| KL-003 | Storage  | `anonymous_telemetry_log` outbound queue has no TTL or max-size cap.                                                                                                                                                                                                                                                                                                                                                                                                        | Phase 1 |
+| KL-005 | Delivery | Hook-based context delivery for Claude Code. Claude Code's `UserPromptSubmit` hook can inject compiled context as `additionalContext` before Claude processes the message — eliminating the fragile trigger rule and tool-call round-trip. See `documentation/future/claude-code-hook-integration.md` for the full plan. `TRIGGER_SOURCE.HOOK` enum value already added. Blocked on hooks API stability (PostToolUse `additionalContext` bug anthropics/claude-code#24788). | Phase 1 |
+| KL-006 | Setup    | `installClaudeCodeHooks()` for Claude Code editor detection. When init/setup detects Claude Code, install trigger rule (`.claude/CLAUDE.md`) and hooks (e.g. `.claude/settings.local.json` or equivalent) so AIC works zero-install for Claude Code users. Cursor path is currently hardcoded in `installTriggerRule`.                                                                                                                                                      | Phase 1 |
+
+---
+
+## Zero-Install Gaps
+
+The project plan (§2.2.1) says `npx @aic/mcp init` should install the trigger rule, integration hooks, and `.aic/` directory. The actual implementation has significant gaps — only the trigger rule is auto-installed.
+
+| Component                                            | Project plan says                                          | Actually implemented                                                         | Gap                      |
+| ---------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------ |
+| Trigger rule `.cursor/rules/AIC.mdc`                 | Auto-install on MCP startup                                | Yes (`installTriggerRule` in `server.ts`)                                    | None                     |
+| `.cursor/hooks.json`                                 | Installed by `aic init` / MCP startup                      | Yes (`installCursorHooks` on MCP startup)                                    | None                     |
+| `AIC-compile-context.cjs` (sessionStart)             | Installed by `aic init` / MCP startup                      | Yes (shipped in `mcp/hooks/`, copied by `installCursorHooks`)                | None                     |
+| `AIC-session-init.cjs` (sessionStart)                | Installed by `aic init` / MCP startup                      | Yes (shipped in `mcp/hooks/`, copied by `installCursorHooks`)                | None                     |
+| `AIC-require-aic-compile.cjs` (preToolUse)           | Installed by `aic init` / MCP startup                      | Yes (shipped in `mcp/hooks/`, copied by `installCursorHooks`)                | None                     |
+| `AIC-inject-conversation-id.cjs` (preToolUse)        | Installed by `aic init` / MCP startup                      | Yes (shipped in `mcp/hooks/`, copied by `installCursorHooks`)                | None                     |
+| `AIC-before-submit-prewarm.cjs` (beforeSubmitPrompt) | Installed by `aic init` / MCP startup                      | Yes (shipped in `mcp/hooks/`, copied by `installCursorHooks`)                | None                     |
+| `npx @aic/mcp init` CLI command                      | Described in project plan §2.2.1, README, mvp-spec         | **Does not exist** — no `bin` in mcp/package.json, no init subcommand in MCP | **Missing**              |
+| `npx @aic/mcp init --non-interactive` (team deploy)  | Described in project plan §23 Tier 1                       | **Does not exist**                                                           | **Missing** (Phase 1)    |
+| Claude Code trigger rule (`.claude/CLAUDE.md`)       | Auto-install on MCP startup when editor=claude-code        | **No** — only `installTriggerRule` writes Cursor rule                        | **Missing**              |
+| Claude Code hooks (`.claude/settings.local.json`)    | Hook installer detects editor, writes hooks                | **No** — hooks exist in repo but not installed                               | **Missing**              |
+| Editor detection for init                            | `npx @aic/mcp init` detects editor, writes to correct path | **No** — only Cursor trigger rule hardcoded                                  | **Missing**              |
+| Self-check hooks path                                | Should check `.cursor/hooks.json`                          | Was checking `.cursor/hooks/hooks.json` (wrong)                              | **Fixed** (this session) |
+| Self-check preToolUse validation                     | Should validate require + inject hooks                     | Only validated sessionStart compile hook                                     | **Fixed** (this session) |
+
+### Impact on other projects
+
+For any project **other than AIC itself**, a new chat means:
+
+- No sessionStart compilation (no hook fires)
+- No preToolUse gating (model can skip `aic_compile`)
+- No conversation_id injection
+- Only the trigger rule exists — the model may or may not comply
+
+### Recommended task
+
+Create `installCursorHooks()` in `mcp/src/` (called from `createMcpServer` alongside `installTriggerRule`). It should:
+
+1. Write `.cursor/hooks.json` with sessionStart, preToolUse, and beforeSubmitPrompt entries (idempotent — merge with existing, don't overwrite user entries)
+2. Write each `.cjs` hook script to `.cursor/hooks/` (idempotent — skip if exists, or overwrite only AIC-managed scripts)
+3. Self-check validates the result
 
 ---
 
@@ -221,9 +261,10 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 
 ### 2025-03-03
 
-**Components:** CssVariableSummarizer, aic://session-summary resource, aic://last-compilation resource, Conversation tracking schema + plumbing
+**Components:** CssVariableSummarizer, aic://session-summary resource, aic://last-compilation resource, Conversation tracking schema + plumbing, Install Cursor hooks
 **Completed:**
 
+- Install Cursor hooks (task 071): installCursorHooks in mcp/src writes .cursor/hooks.json (default or merge with user entries) and copies five AIC-\*.cjs from mcp/hooks/ to projectRoot/.cursor/hooks/ on MCP startup; createMcpServer calls installCursorHooks after installTriggerRule; mcp/hooks/ ships packaged copies of repo .cursor/hooks scripts; Zero-Install Gaps table updated (hooks.json + five scripts now auto-installed); knip ignore mcp/hooks/\*\*; five tests (hooks_missing_creates_hooks_json_and_scripts, hooks_json_exists_merges_without_removing_user_entries, scripts_overwritten_when_content_differs, idempotent_second_call_no_op, self_check_passes_after_install).
 - Conversation tracking: schema + plumbing (task 069): Migration 007 added nullable conversation_id to compilation_log; ConversationId branded type and toConversationId in identifiers; CompilationRequest.conversationId optional, CompilationLogEntry.conversationId required nullable; pipeline and SqliteCompilationLogStore pass and persist; MCP/CLI schema and handler/command pass conversationId; tests updated (sqlite_compilation_log_store_conversation_id, compilation_runner_passes_conversation_id, compile_handler_passes_conversation_id, compile_command_passes_conversation_id); lint, typecheck, test, knip (no new findings), lint:clones (pre-existing clone in sqlite-cache-store only).
 - aic://last-compilation resource (task 068): Replaced stub in mcp/src/server.ts with real handler using SqliteStatusStore(scope.db, scope.clock), getSummary(); returns JSON { compilationCount, lastCompilation }; two tests (last_compilation_resource_returns_json, last_compilation_resource_empty_db) with InMemoryTransport, aic_compile then readResource / readResource only; lint, typecheck, test, knip (no new findings), lint:clones 0.
 - aic://session-summary resource (task 065): MCP resource at aic://session-summary returning StatusAggregates as application/json; handler in mcp/src/server.ts instantiates SqliteStatusStore(scope.db, scope.clock), getSummary(), JSON.stringify; two tests (session_summary_resource_returns_json, session_summary_resource_empty_db) with InMemoryTransport and client.readResource; lint, typecheck, test, knip (no new findings), lint:clones 0.
