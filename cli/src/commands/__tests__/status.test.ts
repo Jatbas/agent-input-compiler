@@ -170,4 +170,120 @@ describe("statusCommand", () => {
       fs.rmSync(projectRoot, { recursive: true });
     }
   });
+
+  it("budget_utilization_shown_with_default_budget", async () => {
+    const projectRoot = fs.mkdtempSync(path.join(tmpdir(), "aic-status-budget-default-"));
+    const aicDir = path.join(projectRoot, ".aic");
+    fs.mkdirSync(aicDir, { recursive: true });
+    fs.writeFileSync(path.join(aicDir, "aic.sqlite"), "");
+    try {
+      const parsed = StatusArgsSchema.parse({
+        projectRoot,
+        configPath: null,
+        dbPath: null,
+      });
+      const acc: { chunks: readonly string[] } = { chunks: [] };
+      const origWrite = process.stdout.write;
+      process.stdout.write = (chunk: string | Uint8Array) => {
+        const s = typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk);
+        acc.chunks = [...acc.chunks, s];
+        return true;
+      };
+      try {
+        await statusCommand(parsed, stubRunner);
+        const out = acc.chunks.join("");
+        expect(out).toContain("Budget utilization");
+        expect(out).toContain("90%");
+        expect(out.includes("7,200/8,000") || out.includes("7200/8000")).toBe(true);
+      } finally {
+        process.stdout.write = origWrite;
+      }
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true });
+    }
+  });
+
+  it("budget_utilization_dash_when_no_last_compilation", async () => {
+    const projectRoot = fs.mkdtempSync(path.join(tmpdir(), "aic-status-budget-nolast-"));
+    const aicDir = path.join(projectRoot, ".aic");
+    fs.mkdirSync(aicDir, { recursive: true });
+    fs.writeFileSync(path.join(aicDir, "aic.sqlite"), "");
+    const runnerNoLast: StatusRunner = {
+      status() {
+        return Promise.resolve({
+          ...fixtureAggregates,
+          compilationsTotal: 1,
+          lastCompilation: null,
+        });
+      },
+    };
+    try {
+      const parsed = StatusArgsSchema.parse({
+        projectRoot,
+        configPath: null,
+        dbPath: null,
+      });
+      const acc: { chunks: readonly string[] } = { chunks: [] };
+      const origWrite = process.stdout.write;
+      process.stdout.write = (chunk: string | Uint8Array) => {
+        const s = typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk);
+        acc.chunks = [...acc.chunks, s];
+        return true;
+      };
+      try {
+        await statusCommand(parsed, runnerNoLast);
+        expect(acc.chunks.join("")).toContain("Budget utilization: —");
+      } finally {
+        process.stdout.write = origWrite;
+      }
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true });
+    }
+  });
+
+  it("budget_utilization_uses_config_when_present", async () => {
+    const projectRoot = fs.mkdtempSync(path.join(tmpdir(), "aic-status-budget-config-"));
+    const aicDir = path.join(projectRoot, ".aic");
+    fs.mkdirSync(aicDir, { recursive: true });
+    fs.writeFileSync(path.join(aicDir, "aic.sqlite"), "");
+    fs.writeFileSync(
+      path.join(projectRoot, "aic.config.json"),
+      '{"contextBudget":{"maxTokens":10000}}',
+    );
+    const configPath = path.join(projectRoot, "aic.config.json");
+    const runnerWithLast: StatusRunner = {
+      status() {
+        return Promise.resolve({
+          ...fixtureAggregates,
+          lastCompilation: fixtureAggregates.lastCompilation
+            ? { ...fixtureAggregates.lastCompilation, tokensCompiled: 7200 }
+            : null,
+        });
+      },
+    };
+    try {
+      const parsed = StatusArgsSchema.parse({
+        projectRoot,
+        configPath,
+        dbPath: null,
+      });
+      const acc: { chunks: readonly string[] } = { chunks: [] };
+      const origWrite = process.stdout.write;
+      process.stdout.write = (chunk: string | Uint8Array) => {
+        const s = typeof chunk === "string" ? chunk : new TextDecoder().decode(chunk);
+        acc.chunks = [...acc.chunks, s];
+        return true;
+      };
+      try {
+        await statusCommand(parsed, runnerWithLast);
+        const out = acc.chunks.join("");
+        expect(out).toContain("72%");
+        expect(out.includes("7,200/10,000") || out.includes("7200/10000")).toBe(true);
+      } finally {
+        process.stdout.write = origWrite;
+      }
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true });
+    }
+  });
 });

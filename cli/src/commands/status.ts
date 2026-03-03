@@ -4,6 +4,7 @@ import type { StatusRunner } from "@aic/shared/core/interfaces/status-runner.int
 import type { StatusRequest } from "@aic/shared/core/types/status-types.js";
 import type { StatusAggregates } from "@aic/shared/core/types/status-types.js";
 import { toAbsolutePath, toFilePath } from "@aic/shared/core/types/paths.js";
+import { LoadConfigFromFile } from "@aic/shared/config/load-config-from-file.js";
 import { handleCommandError } from "@aic/cli/utils/handle-command-error.js";
 import * as path from "node:path";
 import * as fs from "node:fs";
@@ -49,6 +50,7 @@ function formatLastCompilationLine(lc: StatusAggregates["lastCompilation"]): str
 function formatStatusOutput(
   request: StatusRequest,
   aggregates: StatusAggregates,
+  budget: number,
 ): string {
   const configPathStr = request.configPath ?? "—";
   const configExists =
@@ -73,6 +75,10 @@ function formatStatusOutput(
   const avgReductionLine = formatAvgReductionLine(aggregates);
   const totalTokensLine = `${aggregates.totalTokensRaw.toLocaleString()} raw → ${aggregates.totalTokensCompiled.toLocaleString()} compiled`;
   const totalSavedLine = formatTotalSavedLine(aggregates);
+  const budgetUtilLine =
+    aggregates.lastCompilation !== null
+      ? `Budget utilization: ${Math.round(aggregates.lastCompilation.tokensCompiled / budget * 100)}% (last: ${aggregates.lastCompilation.tokensCompiled.toLocaleString()}/${budget.toLocaleString()})`
+      : "Budget utilization: —";
 
   const guardTotal = Object.values(aggregates.guardByType).reduce((a, b) => a + b, 0);
   const guardParts = Object.entries(aggregates.guardByType).map(
@@ -96,6 +102,7 @@ function formatStatusOutput(
     `Avg reduction:    ${avgReductionLine}`,
     `Total tokens:     ${totalTokensLine}`,
     `Total tokens saved: ${totalSavedLine}`,
+    budgetUtilLine,
     `Guard:            ${guardLine}`,
     `Top task classes: ${topClassesLine}`,
     "Rules health:     —",
@@ -129,6 +136,9 @@ export async function statusCommand(
       configPath,
       dbPath,
     };
+    const loadConfig = new LoadConfigFromFile();
+    const result = loadConfig.load(projectRoot, configPath ?? null);
+    const budget = result.config.contextBudget.maxTokens;
     const aggregates = await runner.status(request);
     if (aggregates.compilationsTotal === 0) {
       process.stdout.write(
@@ -136,7 +146,7 @@ export async function statusCommand(
       );
       return;
     }
-    process.stdout.write(formatStatusOutput(request, aggregates) + "\n");
+    process.stdout.write(formatStatusOutput(request, aggregates, budget) + "\n");
   } catch (err) {
     handleCommandError(err);
   }

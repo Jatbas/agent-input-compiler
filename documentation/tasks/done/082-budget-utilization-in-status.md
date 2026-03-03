@@ -1,6 +1,6 @@
 # Task 082: Budget utilization in status
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** M (Reporting & Resources)
 > **Layer:** cli
 > **Depends on:** Status command, StatusStore, LoadConfigFromFile (all Done)

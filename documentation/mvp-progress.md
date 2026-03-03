@@ -108,7 +108,7 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 | `aic://last-compilation` resource (fix stub) | Done   | mcp/src/     |
 | Conversation tracking: schema + plumbing     | Done   | shared + mcp |
 | Conversation tracking: summary + prompt cmd  | Done   | shared + mcp |
-| Budget utilization in status                 | Todo   | cli/src/     |
+| Budget utilization in status                 | Done   | cli/src/     |
 | `aic report` (static HTML)                   | Todo   | cli/src/     |
 
 ---
@@ -244,6 +244,13 @@ For any project **other than AIC itself**, a new chat means:
 ---
 
 ## Daily Log
+
+### 2025-03-04
+
+**Components:** Budget utilization in status
+**Completed:**
+
+- Budget utilization in status (task 082): statusCommand resolves budget via LoadConfigFromFile.load(projectRoot, configPath ?? null), passes budget (result.config.contextBudget.maxTokens) to formatStatusOutput; formatStatusOutput gains third parameter budget: number and outputs "Budget utilization: X% (last: A/B)" when lastCompilation non-null, "Budget utilization: —" when null, placed after Total tokens saved and before Guard; three tests (budget_utilization_shown_with_default_budget, budget_utilization_dash_when_no_last_compilation, budget_utilization_uses_config_when_present). Lint, typecheck, test, knip (no new findings), lint:clones 0.
 
 ### 2026-03-03
 
