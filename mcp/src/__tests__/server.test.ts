@@ -1,4 +1,4 @@
-import { describe, it, afterEach, expect, vi } from "vitest";
+import { describe, it, beforeAll, afterEach, expect, vi } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
@@ -14,6 +14,10 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 
 describe("MCP server", () => {
   let tmpDir: string;
+
+  beforeAll(() => {
+    process.setMaxListeners(32);
+  });
 
   afterEach(() => {
     if (tmpDir !== undefined && fs.existsSync(tmpDir)) {
