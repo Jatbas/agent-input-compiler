@@ -59,12 +59,7 @@ describe("HeuristicSelector", () => {
       excludePatterns: [],
     };
     const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
-    const result = await selector.selectContext(
-      task,
-      repo,
-      toTokenCount(1000),
-      rulePack,
-    );
+    const result = await selector.selectContext(task, repo, toTokenCount(1000), rulePack);
     expect(result.files.length).toBeGreaterThanOrEqual(1);
     expect(result.files[0]?.path).toBe(toRelativePath("src/refactor/service.ts"));
     expect(result.totalTokens).toBe(600);
@@ -114,12 +109,7 @@ describe("HeuristicSelector", () => {
       excludePatterns: [],
     };
     const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
-    const result = await selector.selectContext(
-      task,
-      repo,
-      toTokenCount(1000),
-      rulePack,
-    );
+    const result = await selector.selectContext(task, repo, toTokenCount(1000), rulePack);
     expect(result.files.map((f) => f.path)).toEqual([toRelativePath("src/a.ts")]);
   });
 
@@ -139,12 +129,7 @@ describe("HeuristicSelector", () => {
       excludePatterns: [toGlobPattern("src/ignore/**")],
     };
     const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
-    const result = await selector.selectContext(
-      task,
-      repo,
-      toTokenCount(1000),
-      rulePack,
-    );
+    const result = await selector.selectContext(task, repo, toTokenCount(1000), rulePack);
     expect(result.files.map((f) => f.path)).toEqual([toRelativePath("src/a.ts")]);
   });
 
@@ -169,16 +154,9 @@ describe("HeuristicSelector", () => {
       },
     };
     const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
-    const result = await selector.selectContext(
-      task,
-      repo,
-      toTokenCount(1000),
-      rulePack,
-    );
+    const result = await selector.selectContext(task, repo, toTokenCount(1000), rulePack);
     expect(result.files.length).toBe(3);
-    const boostFile = result.files.find((f) =>
-      (f.path as string).includes("boost"),
-    );
+    const boostFile = result.files.find((f) => (f.path as string).includes("boost"));
     const penalizeFile = result.files.find((f) =>
       (f.path as string).includes("penalize"),
     );
@@ -206,12 +184,7 @@ describe("HeuristicSelector", () => {
       excludePatterns: [],
     };
     const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
-    const result = await selector.selectContext(
-      task,
-      repo,
-      toTokenCount(500),
-      rulePack,
-    );
+    const result = await selector.selectContext(task, repo, toTokenCount(500), rulePack);
     expect(result.files.length).toBe(1);
     expect(result.totalTokens).toBe(400);
   });
@@ -231,12 +204,7 @@ describe("HeuristicSelector", () => {
       excludePatterns: [],
     };
     const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
-    const result = await selector.selectContext(
-      task,
-      repo,
-      toTokenCount(1000),
-      rulePack,
-    );
+    const result = await selector.selectContext(task, repo, toTokenCount(1000), rulePack);
     expect(result.files.length).toBe(1);
     expect(result.files[0]?.relevanceScore).toBeDefined();
   });
@@ -270,8 +238,7 @@ describe("HeuristicSelector", () => {
       resultZero.files.find((f) => f.path === toRelativePath("other.ts"))
         ?.relevanceScore ?? 0;
     const nonZeroScorer: ImportProximityScorer = {
-      getScores: () =>
-        Promise.resolve(new Map([[toRelativePath("other.ts"), 0.6]])),
+      getScores: () => Promise.resolve(new Map([[toRelativePath("other.ts"), 0.6]])),
     };
     const selectorNonZero = new HeuristicSelector(
       noProviders,
@@ -288,5 +255,160 @@ describe("HeuristicSelector", () => {
       resultNonZero.files.find((f) => f.path === toRelativePath("other.ts"))
         ?.relevanceScore ?? 0;
     expect(otherScoreNonZero).toBeGreaterThan(otherScoreZero);
+  });
+
+  it("refactor_uses_higher_import_proximity_weight", async () => {
+    const repo = makeRepo([
+      { path: "seed.ts", tokens: 100, lastModified: "2024-01-01T00:00:00.000Z" },
+      { path: "other.ts", tokens: 100, lastModified: "2024-01-01T00:00:00.000Z" },
+    ]);
+    const rulePack: RulePack = {
+      constraints: [],
+      includePatterns: [],
+      excludePatterns: [],
+    };
+    const importHeavyScorer: ImportProximityScorer = {
+      getScores: () => Promise.resolve(new Map([[toRelativePath("other.ts"), 0.8]])),
+    };
+    const selector = new HeuristicSelector(
+      noProviders,
+      { maxFiles: 20 },
+      importHeavyScorer,
+    );
+    const refactorResult = await selector.selectContext(
+      {
+        taskClass: TASK_CLASS.REFACTOR,
+        confidence: toConfidence(0.8),
+        matchedKeywords: ["refactor"],
+      },
+      repo,
+      toTokenCount(1000),
+      rulePack,
+    );
+    const generalResult = await selector.selectContext(
+      {
+        taskClass: TASK_CLASS.GENERAL,
+        confidence: toConfidence(0.5),
+        matchedKeywords: ["seed"],
+      },
+      repo,
+      toTokenCount(1000),
+      rulePack,
+    );
+    expect(refactorResult.files[0]?.path).toBe(toRelativePath("other.ts"));
+    expect(generalResult.files[0]?.path).toBe(toRelativePath("seed.ts"));
+  });
+
+  it("bugfix_uses_higher_recency_and_import_weights", async () => {
+    const repo = makeRepo([
+      { path: "newer.ts", tokens: 100, lastModified: "2024-01-02T00:00:00.000Z" },
+      { path: "older.ts", tokens: 100, lastModified: "2024-01-01T00:00:00.000Z" },
+    ]);
+    const rulePack: RulePack = {
+      constraints: [],
+      includePatterns: [],
+      excludePatterns: [],
+    };
+    const importOnOlderScorer: ImportProximityScorer = {
+      getScores: () => Promise.resolve(new Map([[toRelativePath("older.ts"), 0.8]])),
+    };
+    const selector = new HeuristicSelector(
+      noProviders,
+      { maxFiles: 20 },
+      importOnOlderScorer,
+    );
+    const bugfixResult = await selector.selectContext(
+      {
+        taskClass: TASK_CLASS.BUGFIX,
+        confidence: toConfidence(0.8),
+        matchedKeywords: [],
+      },
+      repo,
+      toTokenCount(1000),
+      rulePack,
+    );
+    const generalResult = await selector.selectContext(
+      {
+        taskClass: TASK_CLASS.GENERAL,
+        confidence: toConfidence(0),
+        matchedKeywords: [],
+      },
+      repo,
+      toTokenCount(1000),
+      rulePack,
+    );
+    expect(bugfixResult.files[0]?.path).toBe(toRelativePath("newer.ts"));
+    expect(generalResult.files[0]?.path).toBe(toRelativePath("older.ts"));
+  });
+
+  it("docs_uses_higher_path_relevance_weight", async () => {
+    const repo = makeRepo([
+      { path: "readme.md", tokens: 500, lastModified: "2024-01-01T00:00:00.000Z" },
+      { path: "src/util.ts", tokens: 100, lastModified: "2024-01-01T00:00:00.000Z" },
+    ]);
+    const rulePack: RulePack = {
+      constraints: [],
+      includePatterns: [],
+      excludePatterns: [],
+    };
+    const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
+    const docsResult = await selector.selectContext(
+      {
+        taskClass: TASK_CLASS.DOCS,
+        confidence: toConfidence(0.8),
+        matchedKeywords: ["readme"],
+      },
+      repo,
+      toTokenCount(1000),
+      rulePack,
+    );
+    const generalResult = await selector.selectContext(
+      {
+        taskClass: TASK_CLASS.GENERAL,
+        confidence: toConfidence(0),
+        matchedKeywords: [],
+      },
+      repo,
+      toTokenCount(1000),
+      rulePack,
+    );
+    expect(docsResult.files[0]?.path).toBe(toRelativePath("readme.md"));
+    expect(generalResult.files[0]?.path).toBe(toRelativePath("src/util.ts"));
+  });
+
+  it("config_weights_override_per_task_defaults", async () => {
+    const repo = makeRepo([
+      { path: "old.ts", tokens: 100, lastModified: "2024-01-01T00:00:00.000Z" },
+      { path: "new.ts", tokens: 100, lastModified: "2024-01-02T00:00:00.000Z" },
+    ]);
+    const rulePack: RulePack = {
+      constraints: [],
+      includePatterns: [],
+      excludePatterns: [],
+    };
+    const selector = new HeuristicSelector(
+      noProviders,
+      {
+        maxFiles: 20,
+        weights: {
+          pathRelevance: 0.1,
+          importProximity: 0.1,
+          recency: 0.7,
+          sizePenalty: 0.1,
+        },
+      },
+      stubScorer,
+    );
+    const result = await selector.selectContext(
+      {
+        taskClass: TASK_CLASS.REFACTOR,
+        confidence: toConfidence(0.8),
+        matchedKeywords: [],
+      },
+      repo,
+      toTokenCount(1000),
+      rulePack,
+    );
+    expect(result.files[0]?.path).toBe(toRelativePath("new.ts"));
   });
 });

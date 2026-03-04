@@ -1,6 +1,6 @@
 # Task 091: Adaptive scoring weights per task class
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** Phase P — Context Quality & Token Efficiency
 > **Layer:** pipeline
 > **Depends on:** —

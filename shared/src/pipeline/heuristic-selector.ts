@@ -8,20 +8,56 @@ import type { TokenCount } from "#core/types/units.js";
 import type { ContextResult } from "#core/types/selected-file.js";
 import type { FileEntry } from "#core/types/repo-map.js";
 import type { SelectedFile } from "#core/types/selected-file.js";
-import type { HeuristicSelectorConfig } from "#core/interfaces/heuristic-selector-config.interface.js";
+import type {
+  HeuristicSelectorConfig,
+  ScoringWeights,
+} from "#core/interfaces/heuristic-selector-config.interface.js";
 import type { RelativePath } from "#core/types/paths.js";
-import { INCLUSION_TIER } from "#core/types/enums.js";
+import { INCLUSION_TIER, TASK_CLASS } from "#core/types/enums.js";
+import type { TaskClass } from "#core/types/enums.js";
 import { toRelevanceScore } from "#core/types/scores.js";
 import { toTokenCount } from "#core/types/units.js";
 import { matchesGlob } from "./glob-match.js";
 import { minMaxNorm } from "./min-max-norm.js";
 import { pathRelevance } from "./path-relevance.js";
 
-const DEFAULT_WEIGHTS = {
-  pathRelevance: 0.4,
-  importProximity: 0.3,
-  recency: 0.2,
-  sizePenalty: 0.1,
+const DEFAULT_WEIGHTS_BY_TASK_CLASS: Record<TaskClass, ScoringWeights> = {
+  [TASK_CLASS.REFACTOR]: {
+    pathRelevance: 0.25,
+    importProximity: 0.45,
+    recency: 0.2,
+    sizePenalty: 0.1,
+  },
+  [TASK_CLASS.BUGFIX]: {
+    pathRelevance: 0.25,
+    importProximity: 0.35,
+    recency: 0.3,
+    sizePenalty: 0.1,
+  },
+  [TASK_CLASS.DOCS]: {
+    pathRelevance: 0.5,
+    importProximity: 0.2,
+    recency: 0.2,
+    sizePenalty: 0.1,
+  },
+  [TASK_CLASS.FEATURE]: {
+    pathRelevance: 0.4,
+    importProximity: 0.3,
+    recency: 0.2,
+    sizePenalty: 0.1,
+  },
+  [TASK_CLASS.TEST]: {
+    pathRelevance: 0.4,
+    importProximity: 0.3,
+    recency: 0.2,
+    sizePenalty: 0.1,
+  },
+  [TASK_CLASS.GENERAL]: {
+    pathRelevance: 0.4,
+    importProximity: 0.3,
+    recency: 0.2,
+    sizePenalty: 0.1,
+  },
 };
 
 function filterCandidates(
@@ -59,7 +95,7 @@ function scoreCandidate(
   recencyRanks: readonly number[],
   tokenValues: readonly number[],
   importProximityScores: ReadonlyMap<RelativePath, number>,
-  weights: typeof DEFAULT_WEIGHTS,
+  weights: ScoringWeights,
   rulePack: RulePack,
 ): number {
   const pathRel = pathRelevances[index] ?? 0;
@@ -124,7 +160,7 @@ export class HeuristicSelector implements ContextSelector {
     budget: TokenCount,
     rulePack: RulePack,
   ): Promise<ContextResult> {
-    const weights = this.config.weights ?? DEFAULT_WEIGHTS;
+    const weights = this.config.weights ?? DEFAULT_WEIGHTS_BY_TASK_CLASS[task.taskClass];
     const importProximityScores = await this.importProximityScorer.getScores(repo, task);
     const candidates = filterCandidates(repo.files, rulePack);
     const pathRelevances = candidates.map((f) =>

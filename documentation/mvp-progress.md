@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 7/27 done
+**Phase 1.0:** 8/32 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -15,63 +15,81 @@ Specification Compiler, agentic session tracking, Claude Code hook-based deliver
 
 Compile project specifications and documentation into structured context alongside code. Rules, ADRs, and design docs are selected and compressed through the same pipeline, ensuring the model has both code and spec awareness.
 
-| Component                          | Status | Package              |
-| ---------------------------------- | ------ | -------------------- |
-| Spec file discovery and scoring    | Done   | shared/src/pipeline/ |
-| Spec-aware summarisation tier      | Done   | shared/src/adapters/ |
-| Spec injection in prompt assembler | Done   | shared/src/pipeline/ |
+| Component                          | Status | Package              | Description                                                                 |
+| ---------------------------------- | ------ | -------------------- | --------------------------------------------------------------------------- |
+| Spec file discovery and scoring    | Done   | shared/src/pipeline/ | Discovers and scores project ADRs, rules, and design docs alongside code    |
+| Spec-aware summarisation tier      | Done   | shared/src/adapters/ | Heading-based tier compression for .md/.mdc spec files                      |
+| Spec injection in prompt assembler | Done   | shared/src/pipeline/ | Injects a ## Specification section with project rules and ADRs into context |
 
 ### Phase O — Agentic Session Tracking
 
 Session-level intelligence for multi-step agent workflows. Deduplication prevents re-compiling identical context across turns; conversation compression maintains quality over long sessions; adaptive budget adjusts allocation based on session history.
 
-| Component                                    | Status | Package              | Deps                |
-| -------------------------------------------- | ------ | -------------------- | ------------------- |
-| Session-level compilation deduplication      | Done   | shared/src/pipeline/ | —                   |
-| Conversation context compression             | Done   | shared/src/pipeline/ | Session-level dedup |
-| Adaptive budget allocation (session history) | Done   | shared/src/pipeline/ | Session-level dedup |
-| Session tracking storage (migration)         | Done   | shared/src/storage/  | —                   |
+| Component                                    | Status | Package              | Deps                | Description                                                        |
+| -------------------------------------------- | ------ | -------------------- | ------------------- | ------------------------------------------------------------------ |
+| Session-level compilation deduplication      | Done   | shared/src/pipeline/ | —                   | Avoids re-sending files already shown in the current agent session |
+| Conversation context compression             | Done   | shared/src/pipeline/ | Session-level dedup | Summarises prior conversation steps into compact session context   |
+| Adaptive budget allocation (session history) | Done   | shared/src/pipeline/ | Session-level dedup | Adjusts token budget based on accumulated session token usage      |
+| Session tracking storage (migration)         | Done   | shared/src/storage/  | —                   | Persistent session state across turns (migration + store)          |
 
-### Phase P — Claude Code Hook-Based Delivery
+### Phase P — Context Quality & Token Efficiency
+
+Improve file selection precision and token reduction beyond the current heuristic pipeline. Research-backed improvements: symbol-level intent matching (ContextBench 2025 — LLMs favor recall over precision; better precision at selection time directly addresses this), bidirectional import graph (InlineCoder/RIG 2026 — 12.2% accuracy gain from exposing dependency edges in both directions), git-aware recency, adaptive scoring weights per task class, cross-file deduplication in assembled prompt, structural context map (RIG 2026 — 57.8% efficiency gain from deterministic architectural maps), and chunk-level file inclusion (SWE-Pruner 2025 — 23-54% token reduction via task-aware line-level pruning). All implementable within AIC's existing hexagonal architecture via new classes/interfaces (OCP).
+
+**Implementation order:** 7 → 2 → 1 (increasing selection quality, small-to-medium effort, each builds on the last), then 6 → 4 (larger, need design first).
+
+| Component                                      | Status  | Package              | Deps                     | Impact                     | Effort | Description                                                                    |
+| ---------------------------------------------- | ------- | -------------------- | ------------------------ | -------------------------- | ------ | ------------------------------------------------------------------------------ |
+| Adaptive scoring weights per task class        | Done    | shared/src/pipeline/ | —                        | Selection: small-medium    | Small  | Per-task-class weight profiles (bugfix → recency, refactor → import proximity) |
+| Reverse dependency walking (bidirectional BFS) | Pending | shared/src/pipeline/ | —                        | Selection: high            | Medium | Invert import graph to also score files that import seed files                 |
+| Symbol-level intent matching                   | Pending | shared/src/pipeline/ | —                        | Selection: high            | Medium | Match intent subject tokens against exported symbol names via subjectTokens    |
+| Structural context map (RIG-inspired)          | Pending | shared/src/pipeline/ | —                        | Quality: medium            | Medium | Compact project architecture summary injected before code context              |
+| Chunk-level file inclusion                     | Pending | shared/src/pipeline/ | Symbol-level intent (#1) | Tokens: very high (30-50%) | Large  | Include only relevant functions/blocks instead of whole files                  |
+
+**Notes:**
+
+- **Chunk-level inclusion:** Biggest architectural question. Currently: select files → transform whole files → summarize → assemble. Chunk-level means: select files → extract relevant chunks → include those at full fidelity, rest at signature level. `LanguageProviders` extract signatures with line ranges but not full function bodies. Needs `ChunkExtractor` or chunk-aware `SummarisationLadder`. Largest effort but single biggest token savings opportunity. SWE-Pruner (2025) achieved 23-54% reduction on multi-turn agent tasks.
+
+### Phase Q — Claude Code Hook-Based Delivery
 
 Highest-impact item. Claude Code's hook system exposes all 7 capabilities AIC needs (per-prompt, subagent, pre-compaction) — structurally impossible in Cursor. Eliminates the fragile trigger rule + tool-call round-trip by injecting compiled context via `UserPromptSubmit` → `additionalContext`. `TRIGGER_SOURCE.HOOK` enum value already exists. See `documentation/architecture.md` for capability comparison.
 
-| Component                                      | Status  | Package        | Deps                  |
-| ---------------------------------------------- | ------- | -------------- | --------------------- |
-| `UserPromptSubmit` hook: compile + inject      | Pending | .claude/hooks/ | —                     |
-| `SubagentStart` hook: compile + inject         | Pending | .claude/hooks/ | UserPromptSubmit hook |
-| `PreCompaction` hook: re-compile before trim   | Pending | .claude/hooks/ | UserPromptSubmit hook |
-| `SessionEnd` hook: session lifecycle telemetry | Pending | .claude/hooks/ | —                     |
-| `PostToolUse` additionalContext workaround     | Pending | .claude/hooks/ | UserPromptSubmit hook |
-| Hook-based delivery integration tests          | Pending | mcp/src/       | All P hooks           |
+| Component                                      | Status  | Package        | Deps                  | Description                                      |
+| ---------------------------------------------- | ------- | -------------- | --------------------- | ------------------------------------------------ |
+| `UserPromptSubmit` hook: compile + inject      | Pending | .claude/hooks/ | —                     | Compile context and inject via additionalContext |
+| `SubagentStart` hook: compile + inject         | Pending | .claude/hooks/ | UserPromptSubmit hook | Compile and inject when subagent starts          |
+| `PreCompaction` hook: re-compile before trim   | Pending | .claude/hooks/ | UserPromptSubmit hook | Re-compile before editor trims context           |
+| `SessionEnd` hook: session lifecycle telemetry | Pending | .claude/hooks/ | —                     | Session end telemetry                            |
+| `PostToolUse` additionalContext workaround     | Pending | .claude/hooks/ | UserPromptSubmit hook | Workaround when PostToolUse supplies context     |
+| Hook-based delivery integration tests          | Pending | mcp/src/       | All Q hooks           | Tests for Claude Code hook delivery              |
 
-### Phase Q — Claude Code Zero-Install
+### Phase R — Claude Code Zero-Install
 
 Editor detection and auto-install so Claude Code users get the same zero-install experience Cursor has. Currently Cursor-only (`installTriggerRule`, `installCursorHooks`). Absorbs KL-006 and Zero-Install Gaps.
 
-| Component                                                 | Status  | Package  | Deps                             |
-| --------------------------------------------------------- | ------- | -------- | -------------------------------- |
-| Editor detection (`detectEditorForInit`)                  | Pending | mcp/src/ | —                                |
-| `installClaudeCodeTriggerRule` (`.claude/CLAUDE.md`)      | Pending | mcp/src/ | Editor detection                 |
-| `installClaudeCodeHooks` (`.claude/settings.local.json`)  | Pending | mcp/src/ | Editor detection, Phase P        |
-| `createMcpServer` dispatches installer by detected editor | Pending | mcp/src/ | Editor detection, trigger, hooks |
-| Startup self-check covers Claude Code artifacts           | Pending | mcp/src/ | createMcpServer dispatches       |
+| Component                                                 | Status  | Package  | Deps                             | Description                                         |
+| --------------------------------------------------------- | ------- | -------- | -------------------------------- | --------------------------------------------------- |
+| Editor detection (`detectEditorForInit`)                  | Pending | mcp/src/ | —                                | Detect Claude Code vs Cursor for installer dispatch |
+| `installClaudeCodeTriggerRule` (`.claude/CLAUDE.md`)      | Pending | mcp/src/ | Editor detection                 | Auto-create Claude Code trigger rule                |
+| `installClaudeCodeHooks` (`.claude/settings.local.json`)  | Pending | mcp/src/ | Editor detection, Phase Q        | Auto-install Claude Code hooks                      |
+| `createMcpServer` dispatches installer by detected editor | Pending | mcp/src/ | Editor detection, trigger, hooks | One startup path per editor                         |
+| Startup self-check covers Claude Code artifacts           | Pending | mcp/src/ | createMcpServer dispatches       | Validate Claude Code artifacts on startup           |
 
-### Phase R — OSS Release Prep
+### Phase S — OSS Release Prep
 
 Final polish for public release. npm publish, changelog, benchmarks, visual demo, documentation audit. See `documentation/gaps.md` for detailed descriptions of GAP items.
 
-| Component                                           | Status  | Package | Gap    | Deps      |
-| --------------------------------------------------- | ------- | ------- | ------ | --------- |
-| npm publish pipeline (`@aic/mcp`)                   | Pending | mcp/    | —      | Phase N–Q |
-| CHANGELOG.md                                        | Pending | ./      | —      | —         |
-| License headers audit                               | Pending | ./      | —      | —         |
-| Contributing guide (final)                          | Pending | ./      | —      | —         |
-| Multi-repo benchmark suite (multi-scale datapoints) | Pending | test/   | GAP-11 | —         |
-| Comparative benchmarks vs. native editor context    | Pending | test/   | GAP-10 | —         |
-| Real `aic_inspect` output in README                 | Done    | ./      | GAP-03 | —         |
-| Visual demo (GIF/recording) in README               | Pending | ./      | GAP-09 | Phase N–Q |
-| Present-tense audit of project plan                 | Pending | ./      | GAP-06 | —         |
+| Component                                           | Status  | Package | Gap    | Deps      | Description                                   |
+| --------------------------------------------------- | ------- | ------- | ------ | --------- | --------------------------------------------- |
+| npm publish pipeline (`@aic/mcp`)                   | Pending | mcp/    | —      | Phase N–R | Publish MCP package to npm                    |
+| CHANGELOG.md                                        | Pending | ./      | —      | —         | Version history for release                   |
+| License headers audit                               | Pending | ./      | —      | —         | Ensure license headers present                |
+| Contributing guide (final)                          | Pending | ./      | —      | —         | How to contribute                             |
+| Multi-repo benchmark suite (multi-scale datapoints) | Pending | test/   | GAP-11 | —         | Token reduction at multiple project scales    |
+| Comparative benchmarks vs. native editor context    | Pending | test/   | GAP-10 | —         | AIC vs native editor context selection        |
+| Real `aic_inspect` output in README                 | Done    | ./      | GAP-03 | —         | Real output example in README                 |
+| Visual demo (GIF/recording) in README               | Pending | ./      | GAP-09 | Phase N–R | Screen recording of AIC in editor             |
+| Present-tense audit of project plan                 | Pending | ./      | GAP-06 | —         | Fix present-tense descriptions of future work |
 
 ---
 
@@ -81,73 +99,73 @@ Final polish for public release. npm publish, changelog, benchmarks, visual demo
 
 ### Phase A — Foundation
 
-| Component                    | Status | Package                        |
-| ---------------------------- | ------ | ------------------------------ |
-| MigrationRunner              | Done   | shared/src/storage/            |
-| 001-initial-schema migration | Done   | shared/src/storage/migrations/ |
-| UUIDv7 generator             | Done   | shared/src/adapters/           |
-| Clock implementation         | Done   | shared/src/adapters/           |
-| AicError hierarchy           | Done   | shared/src/core/errors/        |
-| sanitizeError utility        | Done   | shared/src/core/errors/        |
+| Component                    | Status | Package                        | Description                                        |
+| ---------------------------- | ------ | ------------------------------ | -------------------------------------------------- |
+| MigrationRunner              | Done   | shared/src/storage/            | Runs ordered DB migrations                         |
+| 001-initial-schema migration | Done   | shared/src/storage/migrations/ | MVP tables (cache, telemetry, config, guard, etc.) |
+| UUIDv7 generator             | Done   | shared/src/adapters/           | RFC 9562 UUIDv7 for entity IDs                     |
+| Clock implementation         | Done   | shared/src/adapters/           | Deterministic time for tests and timestamps        |
+| AicError hierarchy           | Done   | shared/src/core/errors/        | Structured errors with machine-readable codes      |
+| sanitizeError utility        | Done   | shared/src/core/errors/        | Strips paths and env vars from errors to caller    |
 
 ### Phase B — Core Interfaces
 
-| Component                  | Status | Package                     |
-| -------------------------- | ------ | --------------------------- |
-| IntentClassifier (port)    | Done   | shared/src/core/interfaces/ |
-| RulePackResolver (port)    | Done   | shared/src/core/interfaces/ |
-| BudgetAllocator (port)     | Done   | shared/src/core/interfaces/ |
-| ContextSelector (port)     | Done   | shared/src/core/interfaces/ |
-| ContextGuard (port)        | Done   | shared/src/core/interfaces/ |
-| ContentTransformer (port)  | Done   | shared/src/core/interfaces/ |
-| SummarisationLadder (port) | Done   | shared/src/core/interfaces/ |
-| PromptAssembler (port)     | Done   | shared/src/core/interfaces/ |
-| Clock (port)               | Done   | shared/src/core/interfaces/ |
-| CacheStore (port)          | Done   | shared/src/core/interfaces/ |
-| TelemetryStore (port)      | Done   | shared/src/core/interfaces/ |
-| ConfigStore (port)         | Done   | shared/src/core/interfaces/ |
-| GuardStore (port)          | Done   | shared/src/core/interfaces/ |
+| Component                  | Status | Package                     | Description                           |
+| -------------------------- | ------ | --------------------------- | ------------------------------------- |
+| IntentClassifier (port)    | Done   | shared/src/core/interfaces/ | Classify prompt into task type        |
+| RulePackResolver (port)    | Done   | shared/src/core/interfaces/ | Resolve project rule pack             |
+| BudgetAllocator (port)     | Done   | shared/src/core/interfaces/ | Allocate token budget per task        |
+| ContextSelector (port)     | Done   | shared/src/core/interfaces/ | Select files for context              |
+| ContextGuard (port)        | Done   | shared/src/core/interfaces/ | Scan for secrets and prompt injection |
+| ContentTransformer (port)  | Done   | shared/src/core/interfaces/ | Transform file content                |
+| SummarisationLadder (port) | Done   | shared/src/core/interfaces/ | Tiered compression to fit budget      |
+| PromptAssembler (port)     | Done   | shared/src/core/interfaces/ | Assemble final prompt                 |
+| Clock (port)               | Done   | shared/src/core/interfaces/ | Time abstraction                      |
+| CacheStore (port)          | Done   | shared/src/core/interfaces/ | Compilation cache                     |
+| TelemetryStore (port)      | Done   | shared/src/core/interfaces/ | Telemetry events                      |
+| ConfigStore (port)         | Done   | shared/src/core/interfaces/ | Config snapshot hash                  |
+| GuardStore (port)          | Done   | shared/src/core/interfaces/ | Guard findings per compilation        |
 
 ### Phase C — Pipeline Steps 1–8
 
-| Component                  | Status | Package              |
-| -------------------------- | ------ | -------------------- |
-| IntentClassifier impl      | Done   | shared/src/pipeline/ |
-| RulePackResolver impl      | Done   | shared/src/pipeline/ |
-| BudgetAllocator impl       | Done   | shared/src/pipeline/ |
-| HeuristicSelector impl     | Done   | shared/src/pipeline/ |
-| ContextGuard impl          | Done   | shared/src/pipeline/ |
-| ContentTransformerPipeline | Done   | shared/src/pipeline/ |
-| SummarisationLadder impl   | Done   | shared/src/pipeline/ |
-| PromptAssembler impl       | Done   | shared/src/pipeline/ |
+| Component                  | Status | Package              | Description                                                            |
+| -------------------------- | ------ | -------------------- | ---------------------------------------------------------------------- |
+| IntentClassifier impl      | Done   | shared/src/pipeline/ | Classifies prompts into bugfix, feature, refactor, docs, test, general |
+| RulePackResolver impl      | Done   | shared/src/pipeline/ | Resolves rule pack from project (e.g. .cursor/rules)                   |
+| BudgetAllocator impl       | Done   | shared/src/pipeline/ | Allocates token budget by task class                                   |
+| HeuristicSelector impl     | Done   | shared/src/pipeline/ | Four-signal scoring: path relevance, import proximity, recency, size   |
+| ContextGuard impl          | Done   | shared/src/pipeline/ | Secret leakage + prompt injection detection; blocks excluded patterns  |
+| ContentTransformerPipeline | Done   | shared/src/pipeline/ | Runs transformers (comment strip, whitespace, JSON, lock skip, etc.)   |
+| SummarisationLadder impl   | Done   | shared/src/pipeline/ | Compresses files L0→L1→L2→L3 to fit budget                             |
+| PromptAssembler impl       | Done   | shared/src/pipeline/ | Assembles task + context + constraints + output format                 |
 
 ### Phase D — Adapters
 
-| Component          | Status | Package              |
-| ------------------ | ------ | -------------------- |
-| TiktokenAdapter    | Done   | shared/src/adapters/ |
-| FastGlobAdapter    | Done   | shared/src/adapters/ |
-| IgnoreAdapter      | Done   | shared/src/adapters/ |
-| TypeScriptProvider | Done   | shared/src/adapters/ |
-| GenericProvider    | Done   | shared/src/adapters/ |
+| Component          | Status | Package              | Description                                                  |
+| ------------------ | ------ | -------------------- | ------------------------------------------------------------ |
+| TiktokenAdapter    | Done   | shared/src/adapters/ | cl100k_base token counting with word-count fallback          |
+| FastGlobAdapter    | Done   | shared/src/adapters/ | File discovery by glob patterns                              |
+| IgnoreAdapter      | Done   | shared/src/adapters/ | .gitignore-based filtering                                   |
+| TypeScriptProvider | Done   | shared/src/adapters/ | AST-based imports, signatures, symbols for .ts/.tsx/.js/.jsx |
+| GenericProvider    | Done   | shared/src/adapters/ | Regex fallback for unsupported languages                     |
 
 ### Phase E — Storage
 
-| Component            | Status | Package             |
-| -------------------- | ------ | ------------------- |
-| SqliteCacheStore     | Done   | shared/src/storage/ |
-| SqliteTelemetryStore | Done   | shared/src/storage/ |
-| SqliteConfigStore    | Done   | shared/src/storage/ |
-| SqliteGuardStore     | Done   | shared/src/storage/ |
+| Component            | Status | Package             | Description                                    |
+| -------------------- | ------ | ------------------- | ---------------------------------------------- |
+| SqliteCacheStore     | Done   | shared/src/storage/ | SHA-256 cache key; identical input → cache hit |
+| SqliteTelemetryStore | Done   | shared/src/storage/ | Persists compilation telemetry events          |
+| SqliteConfigStore    | Done   | shared/src/storage/ | Config snapshot hash for cache invalidation    |
+| SqliteGuardStore     | Done   | shared/src/storage/ | Persists guard findings per compilation        |
 
 ### Phase F — MCP Server
 
-| Component               | Status | Package          |
-| ----------------------- | ------ | ---------------- |
-| Server composition root | Done   | mcp/src/         |
-| compile handler         | Done   | mcp/src/         |
-| inspect handler         | Done   | mcp/src/         |
-| Zod schemas (MCP)       | Done   | mcp/src/schemas/ |
+| Component               | Status | Package          | Description                                    |
+| ----------------------- | ------ | ---------------- | ---------------------------------------------- |
+| Server composition root | Done   | mcp/src/         | Wires adapters, pipeline, stores, handlers     |
+| compile handler         | Done   | mcp/src/         | aic_compile tool: validate, run, return prompt |
+| inspect handler         | Done   | mcp/src/         | aic_inspect tool: return pipeline trace        |
+| Zod schemas (MCP)       | Done   | mcp/src/schemas/ | Request validation at MCP boundary             |
 
 ### Phase G — CLI (Archived)
 
@@ -155,10 +173,10 @@ CLI package removed in Phase M 0.5. Init logic migrated to `mcp/src/init-project
 
 ### Phase H — Integration Tests
 
-| Component             | Status | Package     |
-| --------------------- | ------ | ----------- |
-| Golden snapshot tests | Done   | shared/src/ |
-| Full pipeline test    | Done   | shared/src/ |
+| Component             | Status | Package     | Description                              |
+| --------------------- | ------ | ----------- | ---------------------------------------- |
+| Golden snapshot tests | Done   | shared/src/ | Snapshot pipeline output; determinism    |
+| Full pipeline test    | Done   | shared/src/ | End-to-end run, cache hit, token summary |
 
 ---
 
@@ -168,118 +186,118 @@ CLI package removed in Phase M 0.5. Init logic migrated to `mcp/src/init-project
 
 Prerequisite for everything else. Quick fixes to make the tool fully functional.
 
-| Component                       | Status | Package                                                     |
-| ------------------------------- | ------ | ----------------------------------------------------------- |
-| FileSystemRepoMapSupplier       | Done   | shared/src/adapters/                                        |
-| createFullPipelineDeps          | Done   | shared/src/bootstrap                                        |
-| Wire real RepoMap in MCP        | Done   | mcp/                                                        |
-| Wire real InspectRunner (MCP)   | Done   | mcp/src/                                                    |
-| Telemetry write on compile      | Done   | shared/src/core/ + mcp                                      |
-| Guard findings write on scan    | Done   | shared/src/storage/                                         |
-| Config loading from aic.config  | Done   | shared/src/config/ + mcp                                    |
-| Real token counting in repo map | Done   | shared/src/adapters/                                        |
-| WhitespaceNormalizer exclusions | Done   | shared/src/pipeline/                                        |
-| 002-server-sessions migration   | Done   | shared/src/storage/migrations/                              |
-| SessionTracker interface        | Done   | shared/src/core/interfaces/                                 |
-| SqliteSessionStore              | Done   | shared/src/storage/                                         |
-| sessionStart compile hook       | Done   | .cursor/hooks/                                              |
-| preToolUse gate hook            | Done   | .cursor/hooks/                                              |
-| beforeSubmitPrompt logging hook | Done   | .cursor/hooks/                                              |
-| afterFileEdit tracking hook     | Done   | .cursor/hooks/                                              |
-| stop quality check hook         | Done   | .cursor/hooks/                                              |
-| Startup self-check (integrity)  | Done   | mcp/src/                                                    |
-| Auto-install trigger rule       | Done   | mcp/src/                                                    |
-| Install Cursor hooks            | Done   | mcp/src/                                                    |
-| Server lifecycle hooks          | Done   | mcp/src/                                                    |
-| Telemetry conversation tracking | Done   | shared + mcp (Phase M: schema, summary, `aic_chat_summary`) |
-| Telemetry triggerSource field   | Done   | shared/src/core/types/ + storage                            |
-| Claude Code integration layer   | Done   | .claude/hooks/                                              |
-| Subagent context injection (CC) | Done   | .claude/hooks/                                              |
-| Compilation perf: lazy scan     | Done   | shared/src/adapters/ + mcp + cli                            |
+| Component                       | Status | Package                                                     | Description                                                     |
+| ------------------------------- | ------ | ----------------------------------------------------------- | --------------------------------------------------------------- |
+| FileSystemRepoMapSupplier       | Done   | shared/src/adapters/                                        | Scans project files; glob + ignore; bytes/4 or real token count |
+| createFullPipelineDeps          | Done   | shared/src/bootstrap                                        | Single composition point for pipeline deps                      |
+| Wire real RepoMap in MCP        | Done   | mcp/                                                        | MCP uses real filesystem repo map                               |
+| Wire real InspectRunner (MCP)   | Done   | mcp/src/                                                    | MCP uses real pipeline for inspect                              |
+| Telemetry write on compile      | Done   | shared/src/core/ + mcp                                      | Persist compilation telemetry on every compile                  |
+| Guard findings write on scan    | Done   | shared/src/storage/                                         | Persist guard findings per compilation                          |
+| Config loading from aic.config  | Done   | shared/src/config/ + mcp                                    | aic.config.json: budget, selector, model overrides              |
+| Real token counting in repo map | Done   | shared/src/adapters/                                        | Accurate token count during scan (cl100k_base)                  |
+| WhitespaceNormalizer exclusions | Done   | shared/src/pipeline/                                        | Skip normalisation for .md, .py, .yml (preserve structure)      |
+| 002-server-sessions migration   | Done   | shared/src/storage/migrations/                              | server_sessions table for startup/stop                          |
+| SessionTracker interface        | Done   | shared/src/core/interfaces/                                 | startSession, stopSession, backfillCrashedSessions              |
+| SqliteSessionStore              | Done   | shared/src/storage/                                         | Persists server session rows                                    |
+| sessionStart compile hook       | Done   | .cursor/hooks/                                              | Compile on session start for initial context                    |
+| preToolUse gate hook            | Done   | .cursor/hooks/                                              | Injects conversationId/editorId into aic_compile args           |
+| beforeSubmitPrompt logging hook | Done   | .cursor/hooks/                                              | Logging hook                                                    |
+| afterFileEdit tracking hook     | Done   | .cursor/hooks/                                              | Track file edits                                                |
+| stop quality check hook         | Done   | .cursor/hooks/                                              | Quality check on stop                                           |
+| Startup self-check (integrity)  | Done   | mcp/src/                                                    | Validates trigger rule, hooks, DB on startup                    |
+| Auto-install trigger rule       | Done   | mcp/src/                                                    | Creates .cursor/rules/aic.mdc when missing                      |
+| Install Cursor hooks            | Done   | mcp/src/                                                    | Copies AIC hooks to .cursor/hooks/ on startup                   |
+| Server lifecycle hooks          | Done   | mcp/src/                                                    | SIGINT/SIGTERM → stopSession, purgeExpired, exit                |
+| Telemetry conversation tracking | Done   | shared + mcp (Phase M: schema, summary, `aic_chat_summary`) | conversation_id in log; per-conversation summary                |
+| Telemetry triggerSource field   | Done   | shared/src/core/types/ + storage                            | How compilation was triggered (tool, hook, CLI)                 |
+| Claude Code integration layer   | Done   | .claude/hooks/                                              | Basic Claude Code hooks                                         |
+| Subagent context injection (CC) | Done   | .claude/hooks/                                              | Inject context when Claude Code subagent starts                 |
+| Compilation perf: lazy scan     | Done   | shared/src/adapters/ + mcp + cli                            | Defer file content read until needed; bytes/4 in scan           |
 
 ### Phase J — Intent & Selection Quality
 
 Highest-impact work. The core value of AIC is picking the right files — if selection is wrong, nothing else matters. Language providers also ensure the summarisation ladder produces semantically safe output per language (correct indentation, signatures, symbol extraction).
 
-| Component                        | Status | Package              |
-| -------------------------------- | ------ | -------------------- |
-| Richer intent keyword extraction | Done   | shared/src/pipeline/ |
-| Intent-aware file discovery      | Done   | shared/src/pipeline/ |
-| Import graph signal (TS/JS)      | Done   | shared/src/pipeline/ |
-| GenericImportProvider (Py/Go/Rs) | Done   | shared/src/adapters/ |
-| PythonProvider (AST-safe)        | Done   | shared/src/adapters/ |
-| GoProvider                       | Done   | shared/src/adapters/ |
-| RustProvider                     | Done   | shared/src/adapters/ |
-| JavaProvider                     | Done   | shared/src/adapters/ |
-| RubyProvider                     | Done   | shared/src/adapters/ |
-| PhpProvider                      | Done   | shared/src/adapters/ |
-| CssProvider                      | Done   | shared/src/adapters/ |
-| HtmlJsxProvider                  | Done   | shared/src/adapters/ |
-| ShellScriptProvider              | Done   | shared/src/adapters/ |
-| SwiftProvider                    | Done   | shared/src/adapters/ |
-| KotlinProvider                   | Done   | shared/src/adapters/ |
-| DartProvider                     | Done   | shared/src/adapters/ |
+| Component                        | Status | Package              | Description                                                      |
+| -------------------------------- | ------ | -------------------- | ---------------------------------------------------------------- |
+| Richer intent keyword extraction | Done   | shared/src/pipeline/ | Expanded keywords: migrate, debug, changelog, e2e, fixture, etc. |
+| Intent-aware file discovery      | Done   | shared/src/pipeline/ | Pre-filters repo by keyword and include/exclude patterns         |
+| Import graph signal (TS/JS)      | Done   | shared/src/pipeline/ | BFS over import graph; score by dependency distance              |
+| GenericImportProvider (Py/Go/Rs) | Done   | shared/src/adapters/ | Regex imports for .py/.go/.rs/.java before AST providers         |
+| PythonProvider (AST-safe)        | Done   | shared/src/adapters/ | tree-sitter: imports, signatures, docstrings, symbols            |
+| GoProvider                       | Done   | shared/src/adapters/ | tree-sitter: imports, functions, methods, types                  |
+| RustProvider                     | Done   | shared/src/adapters/ | tree-sitter: use, functions, structs, impls                      |
+| JavaProvider                     | Done   | shared/src/adapters/ | tree-sitter: imports, methods, classes, interfaces               |
+| RubyProvider                     | Done   | shared/src/adapters/ | Regex: require/load, def/class/module                            |
+| PhpProvider                      | Done   | shared/src/adapters/ | Regex: require/include/use, function/class                       |
+| CssProvider                      | Done   | shared/src/adapters/ | Regex: @import, selector-like lines                              |
+| HtmlJsxProvider                  | Done   | shared/src/adapters/ | Regex: script src/link href, tag detection                       |
+| ShellScriptProvider              | Done   | shared/src/adapters/ | Regex: source/., function names                                  |
+| SwiftProvider                    | Done   | shared/src/adapters/ | Regex: import, func/class/struct/enum                            |
+| KotlinProvider                   | Done   | shared/src/adapters/ | Regex: import, fun/class/object                                  |
+| DartProvider                     | Done   | shared/src/adapters/ | Regex: import, class/typedef/function                            |
 
 ### Phase K — Quality & Benchmarks
 
 Need measurement before optimizing further. Benchmarks prove Phase J worked and guide Phase L.
 
-| Component                      | Status | Package     |
-| ------------------------------ | ------ | ----------- |
-| Real-project integration tests | Done   | shared/src/ |
-| Selection quality benchmarks   | Done   | test/       |
-| Token reduction benchmarks     | Done   | test/       |
+| Component                      | Status | Package     | Description                                               |
+| ------------------------------ | ------ | ----------- | --------------------------------------------------------- |
+| Real-project integration tests | Done   | shared/src/ | Full compile on real project; cache hit; output structure |
+| Selection quality benchmarks   | Done   | test/       | Baseline selected paths vs intent                         |
+| Token reduction benchmarks     | Done   | test/       | Baseline token reduction; regressions                     |
 
 ### Phase L — Transformers & Guard
 
 Incremental output quality improvements, measured by Phase K benchmarks. New transformers must be semantically safe — never break indentation (Python/YAML/Makefile), JSX syntax, or templating languages. Each transformer needs file-type safety tests.
 
-| Component                  | Status | Package              |
-| -------------------------- | ------ | -------------------- |
-| LicenseHeaderStripper      | Done   | shared/src/pipeline/ |
-| Base64InlineDataStripper   | Done   | shared/src/pipeline/ |
-| LongStringLiteralTruncator | Done   | shared/src/pipeline/ |
-| DocstringTrimmer           | Done   | shared/src/pipeline/ |
-| CssVariableSummarizer      | Done   | shared/src/pipeline/ |
-| TypeDeclarationCompactor   | Done   | shared/src/pipeline/ |
-| TestStructureExtractor     | Done   | shared/src/pipeline/ |
-| ImportDeduplicator         | Done   | shared/src/pipeline/ |
-| HtmlToMarkdownTransformer  | Done   | shared/src/pipeline/ |
-| SvgDescriber               | Done   | shared/src/pipeline/ |
-| YamlCompactor              | Done   | shared/src/pipeline/ |
-| MinifiedCodeSkipper        | Done   | shared/src/pipeline/ |
-| AutoGeneratedSkipper       | Done   | shared/src/pipeline/ |
-| EnvExampleRedactor         | Done   | shared/src/pipeline/ |
-| SchemaFileCompactor        | Done   | shared/src/pipeline/ |
-| Transformer safety tests   | Done   | shared/src/pipeline/ |
-| Guard `warn` severity      | Done   | shared/src/pipeline/ |
+| Component                  | Status | Package              | Description                                                                             |
+| -------------------------- | ------ | -------------------- | --------------------------------------------------------------------------------------- |
+| LicenseHeaderStripper      | Done   | shared/src/pipeline/ | Strips leading license/copyright/SPDX comment blocks                                    |
+| Base64InlineDataStripper   | Done   | shared/src/pipeline/ | Replaces data:base64 URLs with placeholder                                              |
+| LongStringLiteralTruncator | Done   | shared/src/pipeline/ | Truncates string literals >200 chars                                                    |
+| DocstringTrimmer           | Done   | shared/src/pipeline/ | Trims long Python/JSDoc docstrings                                                      |
+| CssVariableSummarizer      | Done   | shared/src/pipeline/ | Keeps :root; replaces other rule bodies with "[N declarations]"                         |
+| TypeDeclarationCompactor   | Done   | shared/src/pipeline/ | Collapses .d.ts type/interface/enum to single line                                      |
+| TestStructureExtractor     | Done   | shared/src/pipeline/ | Strips describe/it/test bodies; keeps names and structure                               |
+| ImportDeduplicator         | Done   | shared/src/pipeline/ | Merges duplicate imports per file                                                       |
+| HtmlToMarkdownTransformer  | Done   | shared/src/pipeline/ | Converts HTML to Markdown; strips script/style                                          |
+| SvgDescriber               | Done   | shared/src/pipeline/ | Replaces SVG with "[SVG: viewBox, N elements, bytes]"                                   |
+| YamlCompactor              | Done   | shared/src/pipeline/ | Strips YAML comments; normalises indent; collapses single-key blocks                    |
+| MinifiedCodeSkipper        | Done   | shared/src/pipeline/ | Placeholder for .min.js/.min.css, dist/, build/                                         |
+| AutoGeneratedSkipper       | Done   | shared/src/pipeline/ | Placeholder when header contains "auto-generated"/"code generated"                      |
+| EnvExampleRedactor         | Done   | shared/src/pipeline/ | Redacts KEY=value to KEY= in .env.example/.env.sample/.env.template (secret protection) |
+| SchemaFileCompactor        | Done   | shared/src/pipeline/ | Compacts JSON Schema, GraphQL, Prisma, Proto                                            |
+| Transformer safety tests   | Done   | shared/src/pipeline/ | Safety tests (indentation, YAML, JSX preserved)                                         |
+| Guard `warn` severity      | Done   | shared/src/pipeline/ | Warn on suspicious content without blocking file                                        |
 
 ### Phase M — Reporting & Resources
 
 User-facing polish. Comes last because it doesn't improve the core algorithm.
 
-| Component                                                | Status | Package      |
-| -------------------------------------------------------- | ------ | ------------ |
-| `aic://status` resource (was `aic://session-summary`)    | Done   | mcp/src/     |
-| `aic://last` resource (was `aic://last-compilation`)     | Done   | mcp/src/     |
-| Conversation tracking: schema + plumbing                 | Done   | shared + mcp |
-| Conversation tracking: summary + prompt cmd              | Done   | shared + mcp |
-| Budget utilization in `aic://status`                     | Done   | mcp/src/     |
-| `aic_chat_summary` tool (was `aic_conversation_summary`) | Done   | mcp/src/     |
+| Component                                                | Status | Package      | Description                                                         |
+| -------------------------------------------------------- | ------ | ------------ | ------------------------------------------------------------------- |
+| `aic://status` resource (was `aic://session-summary`)    | Done   | mcp/src/     | Compilation stats, token savings, guard summary, installation check |
+| `aic://last` resource (was `aic://last-compilation`)     | Done   | mcp/src/     | Last compilation details + full compiled prompt                     |
+| Conversation tracking: schema + plumbing                 | Done   | shared + mcp | conversation_id in compilation_log; plumbing through pipeline       |
+| Conversation tracking: summary + prompt cmd              | Done   | shared + mcp | Per-conversation aggregates; "show aic chat summary"                |
+| Budget utilization in `aic://status`                     | Done   | mcp/src/     | % of token budget used by last compilation                          |
+| `aic_chat_summary` tool (was `aic_conversation_summary`) | Done   | mcp/src/     | MCP tool: per-conversation stats by conversationId                  |
 
 ### Phase M 0.5 — MCP-only (Drop CLI)
 
 CLI package removed. User questions ("Is it working?", "What just happened?", "How much has it saved me?") are answered via MCP resources and prompt commands inside the editor.
 
-| Component                                   | Status | Delivered as                                                                      |
-| ------------------------------------------- | ------ | --------------------------------------------------------------------------------- |
-| `aic last`                                  | Done   | `aic://last` resource + "show aic last" prompt command                            |
-| `aic last --full`                           | Done   | `compiledPrompt` field in `aic://last` (file: `.aic/last-compiled-prompt.txt`)    |
-| Redesign `aic status`                       | Done   | `aic://status` with `budgetMaxTokens`, `budgetUtilizationPct` + "show aic status" |
-| Remove `aic compile` / `inspect` / `report` | Done   | CLI package removed; MCP tools `aic_compile`, `aic_inspect` are the interface     |
-| `aic init`                                  | Done   | `npx @aic/mcp init` + auto-init on MCP startup (`ensureAicDir`)                   |
-| Init logic ported to MCP                    | Done   | `mcp/src/init-project.ts` with test                                               |
-| Update README                               | Done   | MCP-only branding, prompt command examples, CLI section replaced with Visibility  |
+| Component                                   | Status | Delivered as                                                                      | Description                               |
+| ------------------------------------------- | ------ | --------------------------------------------------------------------------------- | ----------------------------------------- |
+| `aic last`                                  | Done   | `aic://last` resource + "show aic last" prompt command                            | Last compilation summary in editor        |
+| `aic last --full`                           | Done   | `compiledPrompt` field in `aic://last` (file: `.aic/last-compiled-prompt.txt`)    | Full compiled prompt on demand            |
+| Redesign `aic status`                       | Done   | `aic://status` with `budgetMaxTokens`, `budgetUtilizationPct` + "show aic status" | Project stats + budget utilisation        |
+| Remove `aic compile` / `inspect` / `report` | Done   | CLI package removed; MCP tools `aic_compile`, `aic_inspect` are the interface     | MCP-only; no CLI package                  |
+| `aic init`                                  | Done   | `npx @aic/mcp init` + auto-init on MCP startup (`ensureAicDir`)                   | One-time or auto project setup            |
+| Init logic ported to MCP                    | Done   | `mcp/src/init-project.ts` with test                                               | ensureAicDir, config, trigger rule, hooks |
+| Update README                               | Done   | MCP-only branding, prompt command examples, CLI section replaced with Visibility  | README reflects MCP-only UX               |
 
 ---
 
@@ -287,10 +305,11 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2025-03-05
 
-**Components:** Adaptive budget allocation (session history)
+**Components:** Adaptive budget allocation (session history), Adaptive scoring weights per task class
 **Completed:**
 
 - Adaptive budget allocation (session history) (task 090): SessionBudgetContext type; BudgetAllocator.allocate optional sessionContext; session cap via CONTEXT_WINDOW_DEFAULT/RESERVED_RESPONSE_DEFAULT/TEMPLATE_OVERHEAD_DEFAULT; PipelineStepsRequest.conversationTokens; runPipelineSteps passes sessionContext to allocate; compilation-runner forwards request.conversationTokens into pipelineRequest; three new budget-allocator tests (session_cap_applied_when_conversation_tokens_provided, cap_does_not_exceed_base_budget, available_budget_clamped_non_negative). Lint, typecheck, test, knip (no new findings), lint:clones 0.
+- Adaptive scoring weights per task class (task 091): ScoringWeights type in heuristic-selector-config; DEFAULT_WEIGHTS_BY_TASK_CLASS (REFACTOR/BUGFIX/DOCS/FEATURE/TEST/GENERAL); selectContext uses config.weights ?? DEFAULT_WEIGHTS_BY_TASK_CLASS[task.taskClass]; four tests (refactor_uses_higher_import_proximity_weight, bugfix_uses_higher_recency_and_import_weights, docs_uses_higher_path_relevance_weight, config_weights_override_per_task_defaults). Lint, typecheck, test, lint:clones 0.
 
 ### 2025-03-04
 
