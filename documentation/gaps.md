@@ -51,19 +51,6 @@ Claude Code solves the two capabilities that are structurally impossible in Curs
 
 ---
 
-### GAP-03: Real `aic_inspect` output in README
-
-**Status:** Tracked — Phase R in `mvp-progress.md`
-**Impact:** Medium — the README shows a synthetic example instead of real output
-
-**What we have:** A working `aic_inspect` MCP tool and a real project to run it on.
-
-**What we need:** Run `aic_inspect` on a real project, capture the output, and replace the synthetic example in the README.
-
-**Action:** Phase R: Real `aic_inspect` output in README.
-
----
-
 ### GAP-06: Project plan describes unimplemented features in present tense
 
 **Status:** Tracked — Phase R in `mvp-progress.md`
@@ -160,18 +147,18 @@ Open gaps, ordered by Phase 1.0 priority. Claude Code items deprioritised (user 
 | Priority | Gap                                         | Phase R item                             | Effort                          | Impact                                          |
 | -------- | ------------------------------------------- | ---------------------------------------- | ------------------------------- | ----------------------------------------------- |
 | 1        | GAP-09: Visual demo in README               | Visual demo (GIF/recording) in README    | Small (terminal recording)      | High — first-impression impact for OSS browsers |
-| 2        | GAP-03: Real inspect output in README       | Real `aic_inspect` output in README      | Small (run command + docs edit) | Medium — credibility                            |
-| 3        | GAP-11: Multi-scale datapoints              | Multi-repo benchmark suite               | Medium (run on multiple repos)  | Medium — "will this work on my project?"        |
-| 4        | GAP-10: Comparative benchmarks              | Comparative benchmarks vs. native editor | Medium (analysis + methodology) | High — team adoption requires comparison data   |
-| 5        | GAP-06: Present-tense audit of project plan | Present-tense audit of project plan      | Small (docs edit)               | Low — polish                                    |
-| 6        | GAP-02: Claude Code integration layer       | Phase P + Phase Q (deprioritised)        | Large (implementation)          | High — but not needed until user adopts CC      |
+| 2        | GAP-11: Multi-scale datapoints              | Multi-repo benchmark suite               | Medium (run on multiple repos)  | Medium — "will this work on my project?"        |
+| 3        | GAP-10: Comparative benchmarks              | Comparative benchmarks vs. native editor | Medium (analysis + methodology) | High — team adoption requires comparison data   |
+| 4        | GAP-06: Present-tense audit of project plan | Present-tense audit of project plan      | Small (docs edit)               | Low — polish                                    |
+| 5        | GAP-02: Claude Code integration layer       | Phase P + Phase Q (deprioritised)        | Large (implementation)          | High — but not needed until user adopts CC      |
 
 ### Resolved
 
-| Gap    | Resolution                                                                                        |
-| ------ | ------------------------------------------------------------------------------------------------- |
-| GAP-01 | Phase K benchmarks complete (single repo). Multi-repo tracked in Phase R (GAP-11).                |
-| GAP-04 | triggerSource (Phase I), conversation tracking (Phase M), telemetry docs in README/security.md.   |
-| GAP-05 | Best practices now include technical reasoning (attention degradation, compaction loss, etc.).    |
-| GAP-07 | Limitations reframed as editor capability gaps. README + project plan updated.                    |
-| GAP-08 | triggerSource implemented in Phase I — enum, CompilationRequest field, migration 005, MCP schema. |
+| Gap    | Resolution                                                                                         |
+| ------ | -------------------------------------------------------------------------------------------------- |
+| GAP-03 | Real `aic_inspect`/status/last output in README — replaced synthetic example with captured output. |
+| GAP-01 | Phase K benchmarks complete (single repo). Multi-repo tracked in Phase R (GAP-11).                 |
+| GAP-04 | triggerSource (Phase I), conversation tracking (Phase M), telemetry docs in README/security.md.    |
+| GAP-05 | Best practices now include technical reasoning (attention degradation, compaction loss, etc.).     |
+| GAP-07 | Limitations reframed as editor capability gaps. README + project plan updated.                     |
+| GAP-08 | triggerSource implemented in Phase I — enum, CompilationRequest field, migration 005, MCP schema.  |

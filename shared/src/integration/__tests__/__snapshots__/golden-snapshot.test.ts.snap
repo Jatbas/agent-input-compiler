@@ -1,5 +1,83 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`golden snapshot > full_pipeline_trace_is_deterministic 1`] = `
+{
+  "budget": 8000,
+  "compiledAt": "2026-01-01T00:00:00.000Z",
+  "constraints": [],
+  "guard": {
+    "filesBlocked": [],
+    "filesRedacted": [],
+    "filesWarned": [],
+    "findings": [],
+    "passed": true,
+  },
+  "intent": "refactor auth module to use middleware pattern",
+  "rulePacks": [
+    "built-in:default",
+    "built-in:refactor",
+  ],
+  "selectedFiles": [
+    {
+      "estimatedTokens": 10,
+      "language": "ts",
+      "path": "src/auth/service.ts",
+      "relevanceScore": 0.1,
+      "tier": "L0",
+    },
+    {
+      "estimatedTokens": 12,
+      "language": "ts",
+      "path": "src/index.ts",
+      "relevanceScore": 0,
+      "tier": "L0",
+    },
+  ],
+  "summarisationTiers": {
+    "L0": 2,
+    "L1": 0,
+    "L2": 0,
+    "L3": 0,
+  },
+  "taskClass": {
+    "confidence": 0.07692307692307693,
+    "matchedKeywords": [
+      "refactor",
+    ],
+    "taskClass": "refactor",
+  },
+  "tokenSummary": {
+    "afterGuard": 22,
+    "afterLadder": 224,
+    "afterTransforms": 224,
+    "promptTotal": 545,
+    "raw": 22,
+    "reductionPct": -23.772727272727273,
+    "selected": 22,
+  },
+  "transforms": [
+    {
+      "filePath": "src/auth/service.ts",
+      "originalTokens": 390,
+      "transformedTokens": 190,
+      "transformersApplied": [
+        "comment-stripper",
+        "whitespace-normalizer",
+      ],
+    },
+    {
+      "filePath": "src/index.ts",
+      "originalTokens": 75,
+      "transformedTokens": 34,
+      "transformersApplied": [
+        "comment-stripper",
+        "whitespace-normalizer",
+      ],
+    },
+  ],
+}
+`;
+
 exports[`golden snapshot > full_pipeline_trace_matches_golden_snapshot 1`] = `
 {
   "budget": 8000,

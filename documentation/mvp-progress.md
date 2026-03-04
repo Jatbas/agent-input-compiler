@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 5/27 done
+**Phase 1.0:** 6/27 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -30,7 +30,7 @@ Session-level intelligence for multi-step agent workflows. Deduplication prevent
 | Session-level compilation deduplication      | Done    | shared/src/pipeline/ | —                   |
 | Conversation context compression             | Done    | shared/src/pipeline/ | Session-level dedup |
 | Adaptive budget allocation (session history) | Pending | shared/src/pipeline/ | Session-level dedup |
-| Session tracking storage (migration)         | Pending | shared/src/storage/  | —                   |
+| Session tracking storage (migration)         | Done    | shared/src/storage/  | —                   |
 
 ### Phase P — Claude Code Hook-Based Delivery
 
@@ -69,7 +69,7 @@ Final polish for public release. npm publish, changelog, benchmarks, visual demo
 | Contributing guide (final)                          | Pending | ./      | —      | —         |
 | Multi-repo benchmark suite (multi-scale datapoints) | Pending | test/   | GAP-11 | —         |
 | Comparative benchmarks vs. native editor context    | Pending | test/   | GAP-10 | —         |
-| Real `aic_inspect` output in README                 | Pending | ./      | GAP-03 | —         |
+| Real `aic_inspect` output in README                 | Done    | ./      | GAP-03 | —         |
 | Visual demo (GIF/recording) in README               | Pending | ./      | GAP-09 | Phase N–Q |
 | Present-tense audit of project plan                 | Pending | ./      | GAP-06 | —         |
 
@@ -287,9 +287,10 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2025-03-04
 
-**Components:** Budget utilization in status, `aic report` (static HTML), Drop CLI package (Phase M 0.5), Spec file discovery and scoring, Spec-aware summarisation tier, Session-level compilation deduplication, Spec injection in prompt assembler, Conversation context compression
+**Components:** Budget utilization in status, `aic report` (static HTML), Drop CLI package (Phase M 0.5), Spec file discovery and scoring, Spec-aware summarisation tier, Session-level compilation deduplication, Spec injection in prompt assembler, Conversation context compression, Session tracking storage (migration)
 **Completed:**
 
+- Session tracking storage (migration) (task 089): Migration 008 session_state table; AgenticSessionState.getPreviouslyShownFiles optional fileLastModified param; SqliteAgenticSessionStore (getSteps, recordStep, getPreviouslyShownFiles with modifiedSince from fileLastModified or true); run-pipeline-steps builds fileLastModified from repoMap.files and passes to getPreviouslyShownFiles; open-database runs migration 008; MCP server wires SqliteAgenticSessionStore(scope.db) as 10th CompilationRunner arg; compilation-runner test mocks accept optional second param. Six store tests. Lint, typecheck, test, lint:clones 0.
 - Conversation context compression (task 088): ConversationCompressor interface and ConversationCompressorImpl; AgenticSessionState.getSteps(sessionId); PromptAssembler.assemble optional sessionContextSummary, ## Session context block before ## Context when non-empty; runPipelineSteps conversationCompressor in deps, getSteps + compress when sessionId and agenticSessionState present, pass summary to assemble; create-pipeline-deps ConversationCompressorImpl; tests conversation-compressor (5), prompt-assembler session context (2), getSteps on AgenticSessionState mocks in compilation-runner; full-pipeline, golden-snapshot, inspect-runner deps updated with conversationCompressor. Lint, typecheck, test, knip (no new findings), lint:clones 0.
 - Spec injection in prompt assembler (task 087): PromptAssembler.assemble optional specFiles param; buildSpecParts helper; ## Specification section before ## Context when specFiles length > 0; run-pipeline-steps isSpecPath/buildSpecRepoMap, spec discover → guard → transform → ladder (spec budget 20% of main), specLadderFiles passed to assemble; PipelineStepsDeps.specFileDiscoverer; create-pipeline-deps and createFullPipelineDeps instantiate SpecFileDiscoverer; tests prompt_assembler_spec_section_emitted, prompt_assembler_no_spec_when_empty, prompt_assembler_spec_getContent_called; integration/unit tests updated with specFileDiscoverer mock. Lint, typecheck, test, lint:clones 0.
 - Session-level compilation deduplication (task 086): AgenticSessionState interface and PreviousFile/SessionStep types; SelectedFile.previouslyShownAtStep; runPipelineSteps marks previously shown via getPreviouslyShownFiles when sessionId and agenticSessionState present; PromptAssembler emits placeholder for previously shown files (no getContent); CompilationRunner 10th param agenticSessionState, cache key includes sessionId+stepIndex, recordSessionStepIfNeeded after fresh run; MCP passes null. Four tests (record_step_called, cache_key_includes_session_and_step, prompt_contains_placeholder_when_previous_returned, prompt_assembler_previously_shown_emits_placeholder). Lint, typecheck, test, lint:clones 0.

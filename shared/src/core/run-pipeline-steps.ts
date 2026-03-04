@@ -22,7 +22,7 @@ import type { GuardResult } from "#core/types/guard-types.js";
 import type { TransformResult } from "#core/types/transform-types.js";
 import type { SelectedFile } from "#core/types/selected-file.js";
 import type { TokenCount, StepIndex } from "#core/types/units.js";
-import type { SessionId } from "#core/types/identifiers.js";
+import type { SessionId, ISOTimestamp } from "#core/types/identifiers.js";
 import { toTokenCount } from "#core/types/units.js";
 import { OUTPUT_FORMAT } from "#core/types/enums.js";
 
@@ -112,11 +112,16 @@ export async function runPipelineSteps(
     budget,
     rulePack,
   );
+  const fileLastModified = repoMap.files.reduce<Record<string, ISOTimestamp>>(
+    (acc, f) => ({ ...acc, [f.path]: f.lastModified }),
+    {},
+  );
   const selectedFilesAfterDedup =
     request.sessionId && deps.agenticSessionState
       ? (() => {
           const previous = deps.agenticSessionState.getPreviouslyShownFiles(
             request.sessionId,
+            fileLastModified,
           );
           const byPath = previous.reduce<Readonly<Record<string, PreviousFile>>>(
             (acc, p) => ({ ...acc, [p.path]: p }),

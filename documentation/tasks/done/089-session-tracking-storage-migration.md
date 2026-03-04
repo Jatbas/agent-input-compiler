@@ -1,6 +1,6 @@
 # Task 089: Session tracking storage (migration)
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** O (Agentic Session Tracking)
 > **Layer:** storage
 > **Depends on:** —

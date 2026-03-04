@@ -43,6 +43,7 @@ import {
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CompilationRunner as CompilationRunnerImpl } from "@aic/shared/pipeline/compilation-runner.js";
+import { SqliteAgenticSessionStore } from "@aic/shared/storage/sqlite-agentic-session-store.js";
 import { Sha256Adapter } from "@aic/shared/adapters/sha256-adapter.js";
 import { loadRulePackFromPath } from "@aic/shared/core/load-rule-pack.js";
 import { createProjectFileReader } from "@aic/shared/adapters/project-file-reader-adapter.js";
@@ -154,7 +155,7 @@ export function createMcpServer(
     scope.guardStore,
     scope.compilationLogStore,
     scope.idGenerator,
-    null,
+    new SqliteAgenticSessionStore(scope.db),
   );
   const server = new McpServer({ name: "aic", version: "0.1.0" });
   const editorConfigReader = new EditorModelConfigReaderAdapter(

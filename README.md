@@ -19,30 +19,47 @@ AIC fixes this by acting as a deterministic context compiler. It filters the noi
 
 Every token you save is capacity you reclaim. A leaner context means the model reasons over signal, not noise — producing more accurate code with fewer iterations. If you're on a metered plan, it also means more requests from the same budget. AIC makes the context window work harder so you can ship faster.
 
-```
-> show aic status
+> `show aic status`
 
+```
 Status = project-level AIC status.
 
-  Compilations:       875+
-  Tokens saved:       420M (98.5% reduction)
-  Budget:             6,300 / 8,000 tokens (79% utilized)
-  Files guarded:      60 blocked across all sessions
-  Cache hit rate:     42%
-  Last compiled:      2 minutes ago
-
-> show aic last
-
-Last = what AIC sent to the model.
-
-  Intent:    "refactor auth module"
-  Task:      refactor (confidence: 0.92)
-  Selected:  8 of 142 files
-  Guard:     clean (0 blocked)
-  Tokens:    45,000 → 3,970 (91.2% reduction)
+| Field                          | Value                                         |
+| ------------------------------ | --------------------------------------------- |
+| Compilations (total)           | 1,001                                         |
+| Compilations (today)           | 150                                           |
+| Total tokens (raw → compiled)  | 501.8M → 7.4M                                 |
+| Total tokens saved             | 494.4M                                        |
+| Budget (max tokens)            | 8,000                                         |
+| Budget utilization             | 96.2%                                         |
+| Cache hit rate                 | 43.4%                                         |
+| Avg reduction                  | 98.5%                                         |
+| Guard by type                  | prompt-injection: 40, secret: 20              |
+| Top task classes               | general 422, refactor 313, bugfix 91          |
+| Last compilation               | Execute task 089… — 10 of 405 files,          |
+|                                | 7,692 tokens (98.8%), cursor                  |
+| Installation                   | OK                                            |
+| Installation notes             | (none)                                        |
 ```
 
-| The Problem                            | How AIC helps                                                                                                                                     |
+> `show aic last`
+
+```
+Last = most recent compilation.
+
+| Field            | Value                                                  |
+| ---------------- | ------------------------------------------------------ |
+| Intent           | Update the README example with the real show aic last  |
+| Selected         | 1 of 405 files                                         |
+| Tokens compiled  | 2,842                                                  |
+| Reduction        | 99.5%                                                  |
+| Created          | 2026-03-04T21:38:50Z (recent)                          |
+| Editor           | cursor                                                 |
+```
+
+### Problems that AIC solves
+
+| Problem                                | How AIC helps                                                                                                                                     |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **"Lost in the Middle" hallucination** | Scores every file by relevance and compresses them, so the model focuses on the right code                                                        |
 | **Inconsistent outputs**               | Same intent + same codebase = same compiled context, every time                                                                                   |
@@ -54,7 +71,7 @@ Last = what AIC sent to the model.
 
 ## Measured Impact
 
-In real-world use during development with Cursor, AIC consistently reduces context sent to the model by over **98%** — compiling over 400M raw tokens (the full project scan across all compilations) down to under 7M. Every token saved is context window capacity recovered: the model focuses on relevant code instead of noise, produces fewer hallucinations, and you iterate faster.
+In real-world use during development with Cursor, AIC consistently reduces context sent to the model by over **98%** — compiling over 500M raw tokens (the full project scan across all compilations) down to ~7M. Every token saved is context window capacity recovered: the model focuses on relevant code instead of noise, produces fewer hallucinations, and you iterate faster.
 
 ---
 
@@ -141,7 +158,9 @@ AIC's core pipeline processes context through a multi-step pipeline:
 3. **Allocate** token budget based on model context window
 4. **Select** relevant files via heuristic scoring (path relevance, imports, recency, size)
 5. **Guard** — scan selected files for secrets, excluded paths, and prompt injection; block before content reaches the model
-   - 5.5. **Transform** — compress file content (comment stripping, JSON compaction, lock file skipping)
+
+- 5.5. **Transform** — compress file content (comment stripping, JSON compaction, lock file skipping)
+
 6. **Compress** through a 4-tier summarisation ladder (full content → signatures+docs → signatures only → names only)
 7. **Inject** constraints from rule packs
 8. **Assemble** the final compiled prompt
