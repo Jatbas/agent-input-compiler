@@ -45,6 +45,7 @@ describe("RulePackResolver", () => {
       taskClass: TASK_CLASS.REFACTOR,
       confidence: toConfidence(0.8),
       matchedKeywords: ["refactor"],
+      subjectTokens: [],
     };
     const result = resolver.resolve(task, toAbsolutePath("/proj"));
     expect(result.constraints).toEqual(["default-constraint", "refactor-constraint"]);
@@ -77,6 +78,7 @@ describe("RulePackResolver", () => {
       taskClass: TASK_CLASS.FEATURE,
       confidence: toConfidence(1),
       matchedKeywords: [],
+      subjectTokens: [],
     };
     const result = resolver.resolve(task, toAbsolutePath("/proj"));
     expect(result.constraints).toEqual(["default", "project"]);
@@ -98,6 +100,7 @@ describe("RulePackResolver", () => {
       taskClass: TASK_CLASS.BUGFIX,
       confidence: toConfidence(0.5),
       matchedKeywords: [],
+      subjectTokens: [],
     };
     const result = resolver.resolve(task, toAbsolutePath("/proj"));
     expect(result.constraints).toEqual(["only-default"]);
@@ -123,6 +126,7 @@ describe("RulePackResolver", () => {
       taskClass: TASK_CLASS.DOCS,
       confidence: toConfidence(0),
       matchedKeywords: [],
+      subjectTokens: [],
     };
     const result = resolver.resolve(task, toAbsolutePath("/proj"));
     expect(result.constraints).toEqual(["a", "b", "c"]);

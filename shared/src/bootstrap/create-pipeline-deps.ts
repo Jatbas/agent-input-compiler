@@ -12,6 +12,7 @@ import { RulePackResolver } from "#pipeline/rule-pack-resolver.js";
 import { BudgetAllocator } from "#pipeline/budget-allocator.js";
 import { HeuristicSelector } from "#pipeline/heuristic-selector.js";
 import { ImportGraphProximityScorer } from "#pipeline/import-graph-proximity-scorer.js";
+import { SymbolRelevanceScorer } from "#pipeline/symbol-relevance-scorer.js";
 import { ExclusionScanner } from "#pipeline/exclusion-scanner.js";
 import { SecretScanner } from "#pipeline/secret-scanner.js";
 import { PromptInjectionScanner } from "#pipeline/prompt-injection-scanner.js";
@@ -87,10 +88,15 @@ export function createPipelineDeps(
     fileContentReader,
     languageProviders,
   );
+  const symbolRelevanceScorer = new SymbolRelevanceScorer(
+    fileContentReader,
+    languageProviders,
+  );
   const heuristicSelector = new HeuristicSelector(
     languageProviders,
     heuristicSelectorConfig ?? { maxFiles: 20 },
     importProximityScorer,
+    symbolRelevanceScorer,
   );
   const exclusionScanner = new ExclusionScanner();
   const secretScanner = new SecretScanner();

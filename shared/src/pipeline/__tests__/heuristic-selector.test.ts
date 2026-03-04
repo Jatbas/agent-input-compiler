@@ -52,13 +52,19 @@ describe("HeuristicSelector", () => {
       taskClass: TASK_CLASS.REFACTOR,
       confidence: toConfidence(0.8),
       matchedKeywords: ["refactor"],
+      subjectTokens: [],
     };
     const rulePack: RulePack = {
       constraints: [],
       includePatterns: [],
       excludePatterns: [],
     };
-    const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
+    const selector = new HeuristicSelector(
+      noProviders,
+      { maxFiles: 20 },
+      stubScorer,
+      stubScorer,
+    );
     const result = await selector.selectContext(task, repo, toTokenCount(1000), rulePack);
     expect(result.files.length).toBeGreaterThanOrEqual(1);
     expect(result.files[0]?.path).toBe(toRelativePath("src/refactor/service.ts"));
@@ -77,13 +83,19 @@ describe("HeuristicSelector", () => {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0),
       matchedKeywords: [],
+      subjectTokens: [],
     };
     const rulePack: RulePack = {
       constraints: [],
       includePatterns: [],
       excludePatterns: [],
     };
-    const selector = new HeuristicSelector(noProviders, { maxFiles: 5 }, stubScorer);
+    const selector = new HeuristicSelector(
+      noProviders,
+      { maxFiles: 5 },
+      stubScorer,
+      stubScorer,
+    );
     const result = await selector.selectContext(
       task,
       repo,
@@ -102,13 +114,19 @@ describe("HeuristicSelector", () => {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0),
       matchedKeywords: [],
+      subjectTokens: [],
     };
     const rulePack: RulePack = {
       constraints: [],
       includePatterns: [toGlobPattern("src/**")],
       excludePatterns: [],
     };
-    const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
+    const selector = new HeuristicSelector(
+      noProviders,
+      { maxFiles: 20 },
+      stubScorer,
+      stubScorer,
+    );
     const result = await selector.selectContext(task, repo, toTokenCount(1000), rulePack);
     expect(result.files.map((f) => f.path)).toEqual([toRelativePath("src/a.ts")]);
   });
@@ -122,13 +140,19 @@ describe("HeuristicSelector", () => {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0),
       matchedKeywords: [],
+      subjectTokens: [],
     };
     const rulePack: RulePack = {
       constraints: [],
       includePatterns: [],
       excludePatterns: [toGlobPattern("src/ignore/**")],
     };
-    const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
+    const selector = new HeuristicSelector(
+      noProviders,
+      { maxFiles: 20 },
+      stubScorer,
+      stubScorer,
+    );
     const result = await selector.selectContext(task, repo, toTokenCount(1000), rulePack);
     expect(result.files.map((f) => f.path)).toEqual([toRelativePath("src/a.ts")]);
   });
@@ -143,6 +167,7 @@ describe("HeuristicSelector", () => {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0),
       matchedKeywords: [],
+      subjectTokens: [],
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -153,7 +178,12 @@ describe("HeuristicSelector", () => {
         penalizePatterns: [toGlobPattern("penalize/**")],
       },
     };
-    const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
+    const selector = new HeuristicSelector(
+      noProviders,
+      { maxFiles: 20 },
+      stubScorer,
+      stubScorer,
+    );
     const result = await selector.selectContext(task, repo, toTokenCount(1000), rulePack);
     expect(result.files.length).toBe(3);
     const boostFile = result.files.find((f) => (f.path as string).includes("boost"));
@@ -177,13 +207,19 @@ describe("HeuristicSelector", () => {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0),
       matchedKeywords: [],
+      subjectTokens: [],
     };
     const rulePack: RulePack = {
       constraints: [],
       includePatterns: [],
       excludePatterns: [],
     };
-    const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
+    const selector = new HeuristicSelector(
+      noProviders,
+      { maxFiles: 20 },
+      stubScorer,
+      stubScorer,
+    );
     const result = await selector.selectContext(task, repo, toTokenCount(500), rulePack);
     expect(result.files.length).toBe(1);
     expect(result.totalTokens).toBe(400);
@@ -197,13 +233,19 @@ describe("HeuristicSelector", () => {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0),
       matchedKeywords: [],
+      subjectTokens: [],
     };
     const rulePack: RulePack = {
       constraints: [],
       includePatterns: [],
       excludePatterns: [],
     };
-    const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
+    const selector = new HeuristicSelector(
+      noProviders,
+      { maxFiles: 20 },
+      stubScorer,
+      stubScorer,
+    );
     const result = await selector.selectContext(task, repo, toTokenCount(1000), rulePack);
     expect(result.files.length).toBe(1);
     expect(result.files[0]?.relevanceScore).toBeDefined();
@@ -218,6 +260,7 @@ describe("HeuristicSelector", () => {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0.5),
       matchedKeywords: ["seed"],
+      subjectTokens: [],
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -227,7 +270,12 @@ describe("HeuristicSelector", () => {
     const zeroScorer: ImportProximityScorer = {
       getScores: () => Promise.resolve(new Map()),
     };
-    const selectorZero = new HeuristicSelector(noProviders, { maxFiles: 20 }, zeroScorer);
+    const selectorZero = new HeuristicSelector(
+      noProviders,
+      { maxFiles: 20 },
+      zeroScorer,
+      zeroScorer,
+    );
     const resultZero = await selectorZero.selectContext(
       task,
       repo,
@@ -243,6 +291,7 @@ describe("HeuristicSelector", () => {
     const selectorNonZero = new HeuristicSelector(
       noProviders,
       { maxFiles: 20 },
+      nonZeroScorer,
       nonZeroScorer,
     );
     const resultNonZero = await selectorNonZero.selectContext(
@@ -270,16 +319,21 @@ describe("HeuristicSelector", () => {
     const importHeavyScorer: ImportProximityScorer = {
       getScores: () => Promise.resolve(new Map([[toRelativePath("other.ts"), 0.8]])),
     };
+    const zeroScorerRefactor: ImportProximityScorer = {
+      getScores: () => Promise.resolve(new Map()),
+    };
     const selector = new HeuristicSelector(
       noProviders,
       { maxFiles: 20 },
       importHeavyScorer,
+      zeroScorerRefactor,
     );
     const refactorResult = await selector.selectContext(
       {
         taskClass: TASK_CLASS.REFACTOR,
         confidence: toConfidence(0.8),
         matchedKeywords: ["refactor"],
+        subjectTokens: [],
       },
       repo,
       toTokenCount(1000),
@@ -290,6 +344,7 @@ describe("HeuristicSelector", () => {
         taskClass: TASK_CLASS.GENERAL,
         confidence: toConfidence(0.5),
         matchedKeywords: ["seed"],
+        subjectTokens: [],
       },
       repo,
       toTokenCount(1000),
@@ -312,16 +367,21 @@ describe("HeuristicSelector", () => {
     const importOnOlderScorer: ImportProximityScorer = {
       getScores: () => Promise.resolve(new Map([[toRelativePath("older.ts"), 0.8]])),
     };
+    const zeroScorerBugfix: ImportProximityScorer = {
+      getScores: () => Promise.resolve(new Map()),
+    };
     const selector = new HeuristicSelector(
       noProviders,
       { maxFiles: 20 },
       importOnOlderScorer,
+      zeroScorerBugfix,
     );
     const bugfixResult = await selector.selectContext(
       {
         taskClass: TASK_CLASS.BUGFIX,
         confidence: toConfidence(0.8),
         matchedKeywords: [],
+        subjectTokens: [],
       },
       repo,
       toTokenCount(1000),
@@ -332,6 +392,7 @@ describe("HeuristicSelector", () => {
         taskClass: TASK_CLASS.GENERAL,
         confidence: toConfidence(0),
         matchedKeywords: [],
+        subjectTokens: [],
       },
       repo,
       toTokenCount(1000),
@@ -351,12 +412,18 @@ describe("HeuristicSelector", () => {
       includePatterns: [],
       excludePatterns: [],
     };
-    const selector = new HeuristicSelector(noProviders, { maxFiles: 20 }, stubScorer);
+    const selector = new HeuristicSelector(
+      noProviders,
+      { maxFiles: 20 },
+      stubScorer,
+      stubScorer,
+    );
     const docsResult = await selector.selectContext(
       {
         taskClass: TASK_CLASS.DOCS,
         confidence: toConfidence(0.8),
         matchedKeywords: ["readme"],
+        subjectTokens: [],
       },
       repo,
       toTokenCount(1000),
@@ -367,6 +434,7 @@ describe("HeuristicSelector", () => {
         taskClass: TASK_CLASS.GENERAL,
         confidence: toConfidence(0),
         matchedKeywords: [],
+        subjectTokens: [],
       },
       repo,
       toTokenCount(1000),
@@ -393,10 +461,12 @@ describe("HeuristicSelector", () => {
         weights: {
           pathRelevance: 0.1,
           importProximity: 0.1,
+          symbolRelevance: 0,
           recency: 0.7,
           sizePenalty: 0.1,
         },
       },
+      stubScorer,
       stubScorer,
     );
     const result = await selector.selectContext(
@@ -404,6 +474,7 @@ describe("HeuristicSelector", () => {
         taskClass: TASK_CLASS.REFACTOR,
         confidence: toConfidence(0.8),
         matchedKeywords: [],
+        subjectTokens: [],
       },
       repo,
       toTokenCount(1000),

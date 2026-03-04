@@ -42,6 +42,7 @@ describe("IntentAwareFileDiscoverer", () => {
       taskClass: TASK_CLASS.REFACTOR,
       confidence: toConfidence(0.9),
       matchedKeywords: ["auth"],
+      subjectTokens: [],
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -64,6 +65,7 @@ describe("IntentAwareFileDiscoverer", () => {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0.5),
       matchedKeywords: [],
+      subjectTokens: [],
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -86,6 +88,7 @@ describe("IntentAwareFileDiscoverer", () => {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0.5),
       matchedKeywords: [],
+      subjectTokens: [],
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -110,6 +113,7 @@ describe("IntentAwareFileDiscoverer", () => {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0.5),
       matchedKeywords: [],
+      subjectTokens: [],
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -131,6 +135,7 @@ describe("IntentAwareFileDiscoverer", () => {
       taskClass: TASK_CLASS.REFACTOR,
       confidence: toConfidence(0.8),
       matchedKeywords: ["xyznone"],
+      subjectTokens: [],
     };
     const rulePack: RulePack = {
       constraints: [],

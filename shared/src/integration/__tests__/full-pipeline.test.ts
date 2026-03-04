@@ -159,6 +159,7 @@ function createRunner(fixtureRoot: ReturnType<typeof toAbsolutePath>): Compilati
       maxFiles: 20,
     },
     { getScores: () => Promise.resolve(new Map()) },
+    { getScores: () => Promise.resolve(new Map()) },
   );
   const exclusionScanner = new ExclusionScanner();
   const secretScanner = new SecretScanner();

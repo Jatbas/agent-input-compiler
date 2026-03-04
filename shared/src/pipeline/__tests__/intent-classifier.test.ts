@@ -40,6 +40,7 @@ describe("IntentClassifier", () => {
     expect(result.taskClass).toBe(TASK_CLASS.GENERAL);
     expect(result.confidence).toBe(0);
     expect(result.matchedKeywords).toEqual([]);
+    expect(result).toHaveProperty("subjectTokens");
   });
 
   it("tie-breaks to alphabetical first when multiple classes match same count", () => {
@@ -52,6 +53,7 @@ describe("IntentClassifier", () => {
     expect(result.taskClass).toBe(TASK_CLASS.BUGFIX);
     expect(result.matchedKeywords).toContain("fix");
     expect(result.matchedKeywords).toContain("bug");
+    expect(result).toHaveProperty("subjectTokens");
   });
 
   it("is case insensitive", () => {
@@ -84,5 +86,31 @@ describe("IntentClassifier", () => {
   it("richer_keywords_test", () => {
     expect(classifier.classify("stub the service").taskClass).toBe(TASK_CLASS.TEST);
     expect(classifier.classify("e2e test").taskClass).toBe(TASK_CLASS.TEST);
+  });
+
+  it("subject_tokens_extracted_from_intent", () => {
+    const result = classifier.classify("fix the auth module login bug");
+    expect(result.subjectTokens).toContain("auth");
+    expect(result.subjectTokens).toContain("module");
+    expect(result.subjectTokens).toContain("login");
+    expect(result.subjectTokens).not.toContain("fix");
+    expect(result.subjectTokens).not.toContain("bug");
+    expect(result.subjectTokens).not.toContain("the");
+  });
+
+  it("subject_tokens_empty_when_only_keywords", () => {
+    const result = classifier.classify("fix bug");
+    expect(result.subjectTokens).toEqual([]);
+  });
+
+  it("subject_tokens_present_for_general_task", () => {
+    const result = classifier.classify("hello world");
+    expect(result.subjectTokens).toContain("hello");
+    expect(result.subjectTokens).toContain("world");
+  });
+
+  it("subject_tokens_deduplicates", () => {
+    const result = classifier.classify("fix auth auth bug");
+    expect(result.subjectTokens).toEqual(["auth"]);
   });
 });

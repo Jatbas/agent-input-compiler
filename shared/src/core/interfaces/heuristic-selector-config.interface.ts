@@ -1,6 +1,7 @@
 export type ScoringWeights = {
   readonly pathRelevance: number;
   readonly importProximity: number;
+  readonly symbolRelevance: number;
   readonly recency: number;
   readonly sizePenalty: number;
 };

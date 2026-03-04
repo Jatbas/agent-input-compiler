@@ -4,6 +4,84 @@ import type { TaskClass } from "#core/types/enums.js";
 import { TASK_CLASS } from "#core/types/enums.js";
 import { toConfidence } from "#core/types/scores.js";
 
+const STOPWORDS: ReadonlySet<string> = new Set([
+  "the",
+  "a",
+  "an",
+  "to",
+  "for",
+  "in",
+  "on",
+  "at",
+  "of",
+  "with",
+  "from",
+  "by",
+  "is",
+  "are",
+  "was",
+  "were",
+  "be",
+  "been",
+  "being",
+  "and",
+  "or",
+  "but",
+  "not",
+  "no",
+  "this",
+  "that",
+  "it",
+  "its",
+  "my",
+  "our",
+  "your",
+  "their",
+  "all",
+  "any",
+  "each",
+  "every",
+  "some",
+  "can",
+  "will",
+  "should",
+  "would",
+  "could",
+  "do",
+  "does",
+  "did",
+  "has",
+  "have",
+  "had",
+  "about",
+  "into",
+  "through",
+  "during",
+  "before",
+  "after",
+  "above",
+  "below",
+  "between",
+  "same",
+  "so",
+  "than",
+  "too",
+  "very",
+  "just",
+  "also",
+  "now",
+  "here",
+  "there",
+  "when",
+  "where",
+  "how",
+  "what",
+  "which",
+  "who",
+  "whom",
+  "why",
+]);
+
 const KEYWORDS: Readonly<Record<Exclude<TaskClass, "general">, readonly string[]>> = {
   [TASK_CLASS.REFACTOR]: [
     "refactor",
@@ -83,6 +161,21 @@ const ORDERED_CLASSES: readonly Exclude<TaskClass, "general">[] = [
   TASK_CLASS.TEST,
 ];
 
+const ALL_CLASSIFIER_KEYWORDS: ReadonlySet<string> = new Set(
+  (Object.values(KEYWORDS) as readonly (readonly string[])[]).flat(),
+);
+
+function extractSubjectTokens(intent: string): readonly string[] {
+  const tokens = intent
+    .toLowerCase()
+    .split(/[\s\-_./\\:;,!?'"(){}[\]<>]+/)
+    .filter(
+      (token) =>
+        token.length >= 2 && !STOPWORDS.has(token) && !ALL_CLASSIFIER_KEYWORDS.has(token),
+    );
+  return [...new Set(tokens)];
+}
+
 export class IntentClassifier implements IIntentClassifier {
   classify(intent: string): TaskClassification {
     const lower = intent.toLowerCase();
@@ -105,6 +198,7 @@ export class IntentClassifier implements IIntentClassifier {
         taskClass: TASK_CLASS.GENERAL,
         confidence: toConfidence(0),
         matchedKeywords: [],
+        subjectTokens: extractSubjectTokens(intent),
       };
     }
 
@@ -115,6 +209,7 @@ export class IntentClassifier implements IIntentClassifier {
       taskClass: best.taskClass,
       confidence,
       matchedKeywords: [...best.matched],
+      subjectTokens: extractSubjectTokens(intent),
     };
   }
 }

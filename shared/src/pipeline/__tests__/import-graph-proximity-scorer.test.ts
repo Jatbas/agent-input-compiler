@@ -36,6 +36,7 @@ function makeTask(matchedKeywords: readonly string[]): TaskClassification {
     taskClass: TASK_CLASS.GENERAL,
     confidence: toConfidence(0.5),
     matchedKeywords,
+    subjectTokens: [],
   };
 }
 

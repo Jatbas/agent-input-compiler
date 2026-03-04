@@ -43,6 +43,7 @@ describe("SpecFileDiscoverer", () => {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0.5),
       matchedKeywords: [],
+      subjectTokens: [],
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -67,6 +68,7 @@ describe("SpecFileDiscoverer", () => {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0.5),
       matchedKeywords: [],
+      subjectTokens: [],
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -92,6 +94,7 @@ describe("SpecFileDiscoverer", () => {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0.5),
       matchedKeywords: [],
+      subjectTokens: [],
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -114,6 +117,7 @@ describe("SpecFileDiscoverer", () => {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0.5),
       matchedKeywords: ["plan"],
+      subjectTokens: [],
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -136,6 +140,7 @@ describe("SpecFileDiscoverer", () => {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0.5),
       matchedKeywords: [],
+      subjectTokens: [],
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -162,6 +167,7 @@ describe("SpecFileDiscoverer", () => {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0.5),
       matchedKeywords: [],
+      subjectTokens: [],
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -189,6 +195,7 @@ describe("SpecFileDiscoverer", () => {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0.5),
       matchedKeywords: [],
+      subjectTokens: [],
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -219,6 +226,7 @@ describe("SpecFileDiscoverer", () => {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0.5),
       matchedKeywords: [],
+      subjectTokens: [],
     };
     const rulePack: RulePack = {
       constraints: [],

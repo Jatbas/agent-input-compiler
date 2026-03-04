@@ -25,6 +25,7 @@ describe("PromptAssembler", () => {
     taskClass: TASK_CLASS.FEATURE,
     confidence: toConfidence(0.9),
     matchedKeywords: ["add", "feature"],
+    subjectTokens: [],
   };
 
   it("renders template correctly for unified-diff format", async () => {

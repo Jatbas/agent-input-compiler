@@ -23,40 +23,46 @@ import { pathRelevance } from "./path-relevance.js";
 
 const DEFAULT_WEIGHTS_BY_TASK_CLASS: Record<TaskClass, ScoringWeights> = {
   [TASK_CLASS.REFACTOR]: {
-    pathRelevance: 0.25,
-    importProximity: 0.45,
-    recency: 0.2,
-    sizePenalty: 0.1,
+    pathRelevance: 0.2,
+    importProximity: 0.36,
+    symbolRelevance: 0.2,
+    recency: 0.16,
+    sizePenalty: 0.08,
   },
   [TASK_CLASS.BUGFIX]: {
-    pathRelevance: 0.25,
-    importProximity: 0.35,
-    recency: 0.3,
-    sizePenalty: 0.1,
+    pathRelevance: 0.2,
+    importProximity: 0.28,
+    symbolRelevance: 0.2,
+    recency: 0.24,
+    sizePenalty: 0.08,
   },
   [TASK_CLASS.DOCS]: {
-    pathRelevance: 0.5,
-    importProximity: 0.2,
-    recency: 0.2,
-    sizePenalty: 0.1,
+    pathRelevance: 0.4,
+    importProximity: 0.16,
+    symbolRelevance: 0.2,
+    recency: 0.16,
+    sizePenalty: 0.08,
   },
   [TASK_CLASS.FEATURE]: {
-    pathRelevance: 0.4,
-    importProximity: 0.3,
-    recency: 0.2,
-    sizePenalty: 0.1,
+    pathRelevance: 0.32,
+    importProximity: 0.24,
+    symbolRelevance: 0.2,
+    recency: 0.16,
+    sizePenalty: 0.08,
   },
   [TASK_CLASS.TEST]: {
-    pathRelevance: 0.4,
-    importProximity: 0.3,
-    recency: 0.2,
-    sizePenalty: 0.1,
+    pathRelevance: 0.32,
+    importProximity: 0.24,
+    symbolRelevance: 0.2,
+    recency: 0.16,
+    sizePenalty: 0.08,
   },
   [TASK_CLASS.GENERAL]: {
-    pathRelevance: 0.4,
-    importProximity: 0.3,
-    recency: 0.2,
-    sizePenalty: 0.1,
+    pathRelevance: 0.32,
+    importProximity: 0.24,
+    symbolRelevance: 0.2,
+    recency: 0.16,
+    sizePenalty: 0.08,
   },
 };
 
@@ -95,6 +101,7 @@ function scoreCandidate(
   recencyRanks: readonly number[],
   tokenValues: readonly number[],
   importProximityScores: ReadonlyMap<RelativePath, number>,
+  symbolRelevanceScores: ReadonlyMap<RelativePath, number>,
   weights: ScoringWeights,
   rulePack: RulePack,
 ): number {
@@ -102,9 +109,11 @@ function scoreCandidate(
   const rec = recencyRanks[index] ?? 0;
   const sizeP = 1 - minMaxNorm(tokenValues, tokenValues[index] ?? 0);
   const importProx = importProximityScores.get(entry.path) ?? 0;
+  const symbolRel = symbolRelevanceScores.get(entry.path) ?? 0;
   const baseScore =
     pathRel * weights.pathRelevance +
     importProx * weights.importProximity +
+    symbolRel * weights.symbolRelevance +
     rec * weights.recency +
     sizeP * weights.sizePenalty;
   const boostCount =
@@ -152,6 +161,7 @@ export class HeuristicSelector implements ContextSelector {
     private readonly languageProviders: readonly LanguageProvider[],
     private readonly config: HeuristicSelectorConfig,
     private readonly importProximityScorer: ImportProximityScorer,
+    private readonly symbolRelevanceScorer: ImportProximityScorer,
   ) {}
 
   async selectContext(
@@ -162,6 +172,7 @@ export class HeuristicSelector implements ContextSelector {
   ): Promise<ContextResult> {
     const weights = this.config.weights ?? DEFAULT_WEIGHTS_BY_TASK_CLASS[task.taskClass];
     const importProximityScores = await this.importProximityScorer.getScores(repo, task);
+    const symbolRelevanceScores = await this.symbolRelevanceScorer.getScores(repo, task);
     const candidates = filterCandidates(repo.files, rulePack);
     const pathRelevances = candidates.map((f) =>
       pathRelevance(f.path, task.matchedKeywords),
@@ -178,6 +189,7 @@ export class HeuristicSelector implements ContextSelector {
         recencyRanks,
         tokenValues,
         importProximityScores,
+        symbolRelevanceScores,
         weights,
         rulePack,
       ),
