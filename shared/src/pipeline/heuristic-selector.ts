@@ -14,6 +14,7 @@ import { INCLUSION_TIER } from "#core/types/enums.js";
 import { toRelevanceScore } from "#core/types/scores.js";
 import { toTokenCount } from "#core/types/units.js";
 import { matchesGlob } from "./glob-match.js";
+import { minMaxNorm } from "./min-max-norm.js";
 import { pathRelevance } from "./path-relevance.js";
 
 const DEFAULT_WEIGHTS = {
@@ -22,14 +23,6 @@ const DEFAULT_WEIGHTS = {
   recency: 0.2,
   sizePenalty: 0.1,
 };
-
-function minMaxNorm(values: readonly number[], value: number): number {
-  if (values.length === 0) return 0;
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  if (max === min) return 1;
-  return (value - min) / (max - min);
-}
 
 function filterCandidates(
   files: readonly FileEntry[],
@@ -132,10 +125,7 @@ export class HeuristicSelector implements ContextSelector {
     rulePack: RulePack,
   ): Promise<ContextResult> {
     const weights = this.config.weights ?? DEFAULT_WEIGHTS;
-    const importProximityScores = await this.importProximityScorer.getScores(
-      repo,
-      task,
-    );
+    const importProximityScores = await this.importProximityScorer.getScores(repo, task);
     const candidates = filterCandidates(repo.files, rulePack);
     const pathRelevances = candidates.map((f) =>
       pathRelevance(f.path, task.matchedKeywords),

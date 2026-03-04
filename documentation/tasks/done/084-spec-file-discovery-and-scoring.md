@@ -1,6 +1,6 @@
 # Task 084: Spec file discovery and scoring
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** N (Specification Compiler)
 > **Layer:** pipeline
 > **Depends on:** (none — first in Phase N)

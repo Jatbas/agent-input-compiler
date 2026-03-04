@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 0/27 done
+**Phase 1.0:** 1/27 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -17,7 +17,7 @@ Compile project specifications and documentation into structured context alongsi
 
 | Component                          | Status  | Package              |
 | ---------------------------------- | ------- | -------------------- |
-| Spec file discovery and scoring    | Pending | shared/src/pipeline/ |
+| Spec file discovery and scoring    | Done    | shared/src/pipeline/ |
 | Spec-aware summarisation tier      | Pending | shared/src/pipeline/ |
 | Spec injection in prompt assembler | Pending | shared/src/pipeline/ |
 
@@ -287,9 +287,10 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2025-03-04
 
-**Components:** Budget utilization in status, `aic report` (static HTML), Drop CLI package (Phase M 0.5)
+**Components:** Budget utilization in status, `aic report` (static HTML), Drop CLI package (Phase M 0.5), Spec file discovery and scoring
 **Completed:**
 
+- Spec file discovery and scoring (task 084): SpecFileDiscoverer interface and implementation; filter by exclude/include/keywords, score by spec path tier (SPEC_PATH_TIERS), pathRelevance, recency, size penalty, heuristic boost/penalize; returns ContextResult; shared min-max-norm.ts for HeuristicSelector and SpecFileDiscoverer (0 clones). Eight tests. Lint, typecheck, test, knip (no new findings), lint:clones 0.
 - Budget utilization in status (task 082): statusCommand resolves budget via LoadConfigFromFile.load(projectRoot, configPath ?? null), passes budget (result.config.contextBudget.maxTokens) to formatStatusOutput; formatStatusOutput gains third parameter budget: number and outputs "Budget utilization: X% (last: A/B)" when lastCompilation non-null, "Budget utilization: —" when null, placed after Total tokens saved and before Guard; three tests (budget_utilization_shown_with_default_budget, budget_utilization_dash_when_no_last_compilation, budget_utilization_uses_config_when_present). Lint, typecheck, test, knip (no new findings), lint:clones 0.
 - `aic report` (static HTML) (task 083): ReportArgsSchema (BaseArgs + outputPath); reportCommand with formatStatusAsHtml (escapeHtml for user-controlled strings), default output .aic/report.html via ensureAicDir; main.ts registers report command, createStatusRunner() shared with status; status-display.ts (buildStatusSections, formatLastCompilationTerminal/Html), status-flow.ts (loadStatusContext, handleStatusFlowResult) to eliminate clones; six tests (report_writes_html_file, report_no_database_exits_with_message, report_no_compilations_exits_with_message, report_uses_default_output_path, report_escapes_html_in_intent, report_runner_throws_propagates). Lint, typecheck, test, knip (no new findings), lint:clones 0.
 - Drop CLI package (Phase M 0.5): Entire `cli/` package removed (31 files). Init logic migrated to `mcp/src/init-project.ts` (ensureAicDir + config + trigger rule + hooks); `npx @aic/mcp init` entrypoint in mcp/src/server.ts (exit code 0 success, 1 ConfigError, 2 internal). MCP resources renamed: `aic://session-summary` → `aic://status` (now includes `budgetMaxTokens`, `budgetUtilizationPct`), `aic://last-compilation` → `aic://last` (now includes `compiledPrompt` from `.aic/last-compiled-prompt.txt`). MCP tool renamed: `aic_conversation_summary` → `aic_chat_summary`. Prompt commands in aic-architect.mdc updated: "show aic status", "show aic last", "show aic chat summary". compile-handler writes last prompt to `.aic/last-compiled-prompt.txt`. Monorepo config cleaned: pnpm-workspace, tsconfig, vitest, eslint, knip, root package.json. Test: mcp/**tests**/init-project.test.ts (5 cases), server.test.ts updated. Lint, typecheck, test, knip (no new findings).
