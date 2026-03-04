@@ -1,6 +1,6 @@
 # Task 085: Spec-aware summarisation tier
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** N (Specification Compiler)
 > **Layer:** adapter
 > **Depends on:** Spec file discovery and scoring (084)

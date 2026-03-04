@@ -41,6 +41,7 @@ import { PromptAssembler } from "#pipeline/prompt-assembler.js";
 import { IntentAwareFileDiscoverer } from "#pipeline/intent-aware-file-discoverer.js";
 import { TiktokenAdapter } from "#adapters/tiktoken-adapter.js";
 import { TypeScriptProvider } from "#adapters/typescript-provider.js";
+import { MarkdownProvider } from "#adapters/markdown-provider.js";
 import { GenericImportProvider } from "#adapters/generic-import-provider.js";
 import { GenericProvider } from "#adapters/generic-provider.js";
 import { FastGlobAdapter } from "#adapters/fast-glob-adapter.js";
@@ -67,10 +68,12 @@ export function createPipelineDeps(
   const tiktokenAdapter = new TiktokenAdapter();
   const tokenCounter = (text: string): TokenCount => tiktokenAdapter.countTokens(text);
   const typeScriptProvider = new TypeScriptProvider();
+  const markdownProvider = new MarkdownProvider();
   const genericImportProvider = new GenericImportProvider();
   const genericProvider = new GenericProvider();
   const languageProviders = [
     typeScriptProvider,
+    markdownProvider,
     ...(additionalProviders ?? []),
     genericImportProvider,
     genericProvider,
