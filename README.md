@@ -24,11 +24,11 @@ Every token you save is capacity you reclaim. A leaner context means the model r
 
 Status = project-level AIC status.
 
-  Compilations:       847
-  Tokens saved:       353M (98.4% reduction)
-  Budget:             3,970 / 8,000 tokens (49.6% utilized)
-  Files guarded:      12 blocked across all sessions
-  Cache hit rate:     72%
+  Compilations:       875+
+  Tokens saved:       420M (98.5% reduction)
+  Budget:             6,300 / 8,000 tokens (79% utilized)
+  Files guarded:      60 blocked across all sessions
+  Cache hit rate:     42%
   Last compiled:      2 minutes ago
 
 > show aic last
@@ -54,7 +54,7 @@ Last = what AIC sent to the model.
 
 ## Measured Impact
 
-In real-world use during development with Cursor, AIC consistently reduces context sent to the model by over **98%** — compiling 359M raw tokens (the full project scan across all compilations) down to 5.6M. Every token saved is context window capacity recovered: the model focuses on relevant code instead of noise, produces fewer hallucinations, and you iterate faster. On metered API plans, that also translates to roughly **€1000 in costs** that would have been spent on tokens the model didn't need.
+In real-world use during development with Cursor, AIC consistently reduces context sent to the model by over **98%** — compiling over 400M raw tokens (the full project scan across all compilations) down to under 7M. Every token saved is context window capacity recovered: the model focuses on relevant code instead of noise, produces fewer hallucinations, and you iterate faster.
 
 ---
 

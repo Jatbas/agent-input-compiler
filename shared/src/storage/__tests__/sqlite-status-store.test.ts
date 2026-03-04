@@ -134,6 +134,8 @@ describe("SqliteStatusStore", () => {
     expect(summary.compilationsToday).toBe(0);
     expect(summary.totalTokensRaw).toBe(45000);
     expect(summary.totalTokensCompiled).toBe(7200);
+    expect(summary.totalTokensSaved).toBe(37800);
+    expect(summary.avgReductionPct).toBe(84);
     expect(summary.lastCompilation).not.toBeNull();
     if (summary.lastCompilation !== null) {
       expect(summary.lastCompilation.intent).toBe("fix auth");
@@ -147,7 +149,7 @@ describe("SqliteStatusStore", () => {
     }
   });
 
-  it("sqlite_status_store_telemetry", () => {
+  it("sqlite_status_store_telemetry_disabled_flag", () => {
     setup();
     const compilationId = "018c3d4e-0000-7000-8000-000000000001";
     insertCompilationLog(db, compilationId, {
@@ -156,11 +158,42 @@ describe("SqliteStatusStore", () => {
       token_reduction_pct: 60,
       duration_ms: 500,
     });
+    const before = store.getSummary();
+    expect(before.telemetryDisabled).toBe(true);
+    expect(before.totalTokensSaved).toBe(6000);
+    expect(before.avgReductionPct).toBe(60);
     insertTelemetryEvent(db, "018c3d4e-0000-7000-8000-000000000002", compilationId);
+    const after = store.getSummary();
+    expect(after.telemetryDisabled).toBe(false);
+    expect(after.totalTokensSaved).toBe(6000);
+    expect(after.avgReductionPct).toBe(60);
+  });
+
+  it("cache_hits_do_not_skew_avgReductionPct", () => {
+    setup();
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000040", {
+      tokens_raw: 10000,
+      tokens_compiled: 200,
+      token_reduction_pct: 98,
+      cache_hit: 0,
+    });
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000041", {
+      tokens_raw: 10000,
+      tokens_compiled: 200,
+      token_reduction_pct: 0,
+      cache_hit: 1,
+    });
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000042", {
+      tokens_raw: 10000,
+      tokens_compiled: 200,
+      token_reduction_pct: 0,
+      cache_hit: 1,
+    });
     const summary = store.getSummary();
-    expect(summary.telemetryDisabled).toBe(false);
-    expect(summary.avgReductionPct).toBe(60);
-    expect(summary.totalTokensSaved).toBe(6000);
+    expect(summary.totalTokensRaw).toBe(30000);
+    expect(summary.totalTokensCompiled).toBe(600);
+    expect(summary.totalTokensSaved).toBe(29400);
+    expect(summary.avgReductionPct).toBe(98);
   });
 
   it("sqlite_status_store_guard_by_type", () => {
@@ -296,6 +329,31 @@ describe("SqliteStatusStore", () => {
     const testClass = result.topTaskClasses.find((t) => t.taskClass === "test");
     expect(refactor?.count).toBe(1);
     expect(testClass?.count).toBe(1);
+  });
+
+  it("getConversationSummary_cache_hits_do_not_skew_avgReductionPct", () => {
+    setup();
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000050", {
+      conversation_id: "conv-cache",
+      tokens_raw: 5000,
+      tokens_compiled: 100,
+      token_reduction_pct: 98,
+      cache_hit: 0,
+    });
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000051", {
+      conversation_id: "conv-cache",
+      tokens_raw: 5000,
+      tokens_compiled: 100,
+      token_reduction_pct: 0,
+      cache_hit: 1,
+    });
+    const result = store.getConversationSummary(toConversationId("conv-cache"));
+    expect(result).not.toBeNull();
+    if (result === null) return;
+    expect(result.totalTokensRaw).toBe(10000);
+    expect(result.totalTokensCompiled).toBe(200);
+    expect(result.totalTokensSaved).toBe(9800);
+    expect(result.avgReductionPct).toBe(98);
   });
 
   it("getConversationSummary_ignores_other_conversations", () => {

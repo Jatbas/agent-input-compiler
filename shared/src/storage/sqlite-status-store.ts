@@ -66,23 +66,22 @@ export class SqliteStatusStore implements StatusStore {
 
     const aggRows = this.db
       .prepare(
-        `SELECT AVG(token_reduction_pct) as avgPct,
-                COALESCE(SUM(tokens_raw), 0) as raw,
-                COALESCE(SUM(tokens_compiled), 0) as compiled,
-                SUM(tokens_raw - tokens_compiled) as saved
+        `SELECT COALESCE(SUM(tokens_raw), 0) as raw,
+                COALESCE(SUM(tokens_compiled), 0) as compiled
          FROM compilation_log WHERE conversation_id = ?`,
       )
       .all(conversationId) as {
-      avgPct: number | null;
       raw: number;
       compiled: number;
-      saved: number | null;
     }[];
     const aggRow = aggRows[0];
-    const avgReductionPct = aggRow === undefined ? null : (aggRow.avgPct ?? null);
     const totalTokensRaw = aggRow?.raw ?? 0;
     const totalTokensCompiled = aggRow?.compiled ?? 0;
-    const totalTokensSaved = aggRow === undefined ? null : (aggRow.saved ?? null);
+    const totalTokensSaved = totalTokensRaw - totalTokensCompiled;
+    const avgReductionPct =
+      totalTokensRaw > 0
+        ? ((totalTokensRaw - totalTokensCompiled) / totalTokensRaw) * 100
+        : null;
 
     const topRows = this.db
       .prepare(
@@ -146,23 +145,17 @@ export class SqliteStatusStore implements StatusStore {
       .all() as { raw: number; compiled: number }[];
     const totalTokensRaw = tokenSumsRow[0]?.raw ?? 0;
     const totalTokensCompiled = tokenSumsRow[0]?.compiled ?? 0;
+    const totalTokensSaved =
+      compilationsTotal > 0 ? totalTokensRaw - totalTokensCompiled : null;
+    const avgReductionPct =
+      compilationsTotal > 0 && totalTokensRaw > 0
+        ? ((totalTokensRaw - totalTokensCompiled) / totalTokensRaw) * 100
+        : null;
 
     const telemetryCountRow = this.db
       .prepare("SELECT COUNT(*) as c FROM telemetry_events")
       .all() as { c: number }[];
-    const hasTelemetry = (telemetryCountRow[0]?.c ?? 0) > 0;
-    const telemetryRows = this.db
-      .prepare(
-        `SELECT AVG(cl.token_reduction_pct) as avgPct,
-                SUM(cl.tokens_raw - cl.tokens_compiled) as totalSaved
-         FROM telemetry_events te
-         JOIN compilation_log cl ON cl.id = te.compilation_id`,
-      )
-      .all() as { avgPct: number | null; totalSaved: number | null }[];
-    const telemetryRow = telemetryRows[0];
-    const avgReductionPct = hasTelemetry ? (telemetryRow?.avgPct ?? null) : null;
-    const totalTokensSaved = hasTelemetry ? (telemetryRow?.totalSaved ?? null) : null;
-    const telemetryDisabled = !hasTelemetry;
+    const telemetryDisabled = (telemetryCountRow[0]?.c ?? 0) === 0;
 
     const guardRows = this.db
       .prepare("SELECT type, COUNT(*) as cnt FROM guard_findings GROUP BY type")
