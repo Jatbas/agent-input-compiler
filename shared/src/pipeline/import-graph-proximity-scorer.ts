@@ -69,9 +69,23 @@ async function buildEdges(
   return edges;
 }
 
+function buildReverseEdges(
+  edges: ReadonlyMap<RelativePath, readonly RelativePath[]>,
+): ReadonlyMap<RelativePath, readonly RelativePath[]> {
+  const pairs = Array.from(edges.entries()).flatMap(([from, toList]) =>
+    toList.map((to): [RelativePath, RelativePath] => [to, from]),
+  );
+  return pairs.reduce<Map<RelativePath, readonly RelativePath[]>>(
+    (acc, [to, from]) =>
+      new Map([...acc.entries(), [to, [...(acc.get(to) ?? []), from]]]),
+    new Map(),
+  );
+}
+
 function bfsScores(
   seeds: readonly RelativePath[],
   edges: ReadonlyMap<RelativePath, readonly RelativePath[]>,
+  reverseEdges: ReadonlyMap<RelativePath, readonly RelativePath[]>,
   allPaths: readonly RelativePath[],
 ): ReadonlyMap<RelativePath, number> {
   const scoreMap = new Map<RelativePath, number>();
@@ -90,7 +104,9 @@ function bfsScores(
     }
     visited.add(head.path);
     scoreMap.set(head.path, depthToScore(head.depth));
-    const nexts = edges.get(head.path) ?? [];
+    const forward = edges.get(head.path) ?? [];
+    const reverse = reverseEdges.get(head.path) ?? [];
+    const nexts = [...forward, ...reverse];
     const newTail = nexts
       .filter((to) => !visited.has(to))
       .map((path) => ({ path, depth: head.depth + 1 }));
@@ -111,11 +127,8 @@ export class ImportGraphProximityScorer implements ImportProximityScorer {
     task: TaskClassification,
   ): Promise<ReadonlyMap<RelativePath, number>> {
     const allPaths = repo.files.map((f) => f.path);
-    const edges = await buildEdges(
-      repo,
-      this.fileContentReader,
-      this.languageProviders,
-    );
+    const edges = await buildEdges(repo, this.fileContentReader, this.languageProviders);
+    const reverseEdges = buildReverseEdges(edges);
     const seeds = repo.files
       .filter(
         (e) =>
@@ -123,6 +136,6 @@ export class ImportGraphProximityScorer implements ImportProximityScorer {
           getProvider(e.path, this.languageProviders) !== undefined,
       )
       .map((e) => e.path);
-    return bfsScores(seeds, edges, allPaths);
+    return bfsScores(seeds, edges, reverseEdges, allPaths);
   }
 }

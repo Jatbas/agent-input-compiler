@@ -1,6 +1,6 @@
 # Task 092: Reverse dependency walking (bidirectional BFS)
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** Phase R — OSS Release Prep (Project Plan Phase 1.0)
 > **Layer:** pipeline
 > **Depends on:** Import graph signal (TS/JS)

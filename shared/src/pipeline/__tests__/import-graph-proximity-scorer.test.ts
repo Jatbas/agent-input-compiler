@@ -79,8 +79,7 @@ describe("ImportGraphProximityScorer", () => {
       [otherPath, ""],
     ]);
     const reader: FileContentReader = {
-      getContent: (path) =>
-        Promise.resolve(contentByPath.get(path) ?? ""),
+      getContent: (path) => Promise.resolve(contentByPath.get(path) ?? ""),
     };
     const refOther: ImportRef = {
       source: "./other",
@@ -121,6 +120,36 @@ describe("ImportGraphProximityScorer", () => {
     expect(scores.get(toRelativePath("readme.md"))).toBe(0);
   });
 
+  it("reverse_dependency_scores_importer_of_seed", async () => {
+    const seedPath = toRelativePath("seed.ts");
+    const callerPath = toRelativePath("caller.ts");
+    const contentByPath = new Map<string, string>([
+      [seedPath, ""],
+      [callerPath, "import x from './seed';"],
+    ]);
+    const reader: FileContentReader = {
+      getContent: (path) => Promise.resolve(contentByPath.get(path) ?? ""),
+    };
+    const refSeed: ImportRef = {
+      source: "./seed",
+      symbols: [],
+      isRelative: true,
+    };
+    const provider: LanguageProvider = {
+      id: "ts",
+      extensions: [toFileExtension(".ts")],
+      parseImports: (_content, path) => (path === callerPath ? [refSeed] : []),
+      extractSignaturesWithDocs: () => [],
+      extractSignaturesOnly: () => [],
+      extractNames: () => [],
+    };
+    const scorer = new ImportGraphProximityScorer(reader, [provider]);
+    const repo = makeRepo([makeEntry("seed.ts"), makeEntry("caller.ts")]);
+    const task = makeTask(["seed"]);
+    const scores = await scorer.getScores(repo, task);
+    expect(scores.get(callerPath)).toBe(0.6);
+  });
+
   it("import_graph_bfs_depth_two", async () => {
     const seedPath = toRelativePath("seed.ts");
     const aPath = toRelativePath("a.ts");
@@ -131,8 +160,7 @@ describe("ImportGraphProximityScorer", () => {
       [bPath, ""],
     ]);
     const reader: FileContentReader = {
-      getContent: (path) =>
-        Promise.resolve(contentByPath.get(path) ?? ""),
+      getContent: (path) => Promise.resolve(contentByPath.get(path) ?? ""),
     };
     const provider: LanguageProvider = {
       id: "ts",
