@@ -12,14 +12,16 @@ import type { StringHasher } from "#core/interfaces/string-hasher.interface.js";
 import type { GuardStore } from "#core/interfaces/guard-store.interface.js";
 import type { CompilationLogStore } from "#core/interfaces/compilation-log-store.interface.js";
 import type { IdGenerator } from "#core/interfaces/id-generator.interface.js";
+import type { AgenticSessionState } from "#core/interfaces/agentic-session-state.interface.js";
 import type { PipelineStepsDeps, PipelineStepsResult } from "#core/run-pipeline-steps.js";
 import type { RepoMap, FileEntry } from "#core/types/repo-map.js";
-import type { Milliseconds } from "#core/types/units.js";
+import type { Milliseconds, StepIndex } from "#core/types/units.js";
 import type { CompilationLogEntry } from "#core/types/compilation-log-entry.js";
 import type { GuardFinding } from "#core/types/guard-types.js";
 import type { UUIDv7, SessionId, ConversationId } from "#core/types/identifiers.js";
 import type { ISOTimestamp } from "#core/types/identifiers.js";
-import { toTokenCount } from "#core/types/units.js";
+import type { InclusionTier } from "#core/types/enums.js";
+import { toTokenCount, toStepIndex } from "#core/types/units.js";
 import { toMilliseconds } from "#core/types/units.js";
 import { toPercentage } from "#core/types/scores.js";
 import { runPipelineSteps } from "#core/run-pipeline-steps.js";
@@ -93,8 +95,18 @@ function buildCacheKey(
   fileTreeHash: string,
   configHash: string,
   hasher: StringHasher,
+  sessionId?: SessionId | null,
+  stepIndex?: StepIndex | null,
 ): string {
-  return hasher.hash([taskClass, projectRoot, fileTreeHash, configHash].join("\0"));
+  const base = [taskClass, projectRoot, fileTreeHash, configHash];
+  const parts =
+    sessionId !== undefined &&
+    sessionId !== null &&
+    stepIndex !== undefined &&
+    stepIndex !== null
+      ? [...base, sessionId, String(stepIndex)]
+      : base;
+  return hasher.hash(parts.join("\0"));
 }
 
 function buildLogEntry(
@@ -183,8 +195,32 @@ function runCacheHitPath(
   return { compiledPrompt: cached.compiledPrompt, meta, compilationId };
 }
 
+function recordSessionStepIfNeeded(
+  agenticSessionState: AgenticSessionState | null,
+  request: CompilationRequest,
+  r: PipelineStepsResult,
+  clock: Clock,
+): void {
+  if (!request.sessionId || !agenticSessionState) return;
+  const stepIndex = request.stepIndex ?? toStepIndex(0);
+  const tiers = r.ladderFiles.reduce<Record<string, InclusionTier>>(
+    (acc, f) => ({ ...acc, [f.path]: f.tier }),
+    {},
+  );
+  agenticSessionState.recordStep(request.sessionId, {
+    stepIndex,
+    stepIntent: request.stepIntent ?? null,
+    filesSelected: r.ladderFiles.map((f) => f.path),
+    tiers,
+    tokensCompiled: r.promptTotal,
+    toolOutputs: request.toolOutputs ?? [],
+    completedAt: clock.now(),
+  });
+}
+
 function runFreshPath(
   deps: PipelineStepsDeps,
+  agenticSessionState: AgenticSessionState | null,
   cacheStore: CacheStore,
   compilationLogStore: CompilationLogStore,
   guardStore: GuardStore,
@@ -199,11 +235,15 @@ function runFreshPath(
   repoMap: RepoMap,
 ): Promise<{ compiledPrompt: string; meta: CompilationMeta; compilationId: UUIDv7 }> {
   const start = clock.now();
-  return runPipelineSteps(
-    deps,
-    { intent: request.intent, projectRoot: request.projectRoot },
-    repoMap,
-  ).then((r) => {
+  const depsWithSession = { ...deps, agenticSessionState };
+  const pipelineRequest = {
+    intent: request.intent,
+    projectRoot: request.projectRoot,
+    ...(request.sessionId !== undefined ? { sessionId: request.sessionId } : {}),
+    ...(request.stepIndex !== undefined ? { stepIndex: request.stepIndex } : {}),
+    ...(request.stepIntent !== undefined ? { stepIntent: request.stepIntent } : {}),
+  };
+  return runPipelineSteps(depsWithSession, pipelineRequest, repoMap).then((r) => {
     const durationMs = clock.durationMs(start, clock.now());
     cacheStore.set({
       key,
@@ -227,6 +267,7 @@ function runFreshPath(
       request.triggerSource ?? null,
       request.conversationId ?? null,
     );
+    recordSessionStepIfNeeded(agenticSessionState, request, r, clock);
     return { compiledPrompt: r.assembledPrompt, meta, compilationId };
   });
 }
@@ -241,6 +282,7 @@ export class CompilationRunner implements ICompilationRunner {
     private readonly guardStore: GuardStore,
     private readonly compilationLogStore: CompilationLogStore,
     private readonly idGenerator: IdGenerator,
+    private readonly agenticSessionState: AgenticSessionState | null,
   ) {}
 
   async run(
@@ -258,6 +300,8 @@ export class CompilationRunner implements ICompilationRunner {
       fileTreeHash,
       configHash,
       this.stringHasher,
+      request.sessionId,
+      request.stepIndex,
     );
     const cached = this.cacheStore.get(key);
     if (cached !== null) {
@@ -276,6 +320,7 @@ export class CompilationRunner implements ICompilationRunner {
     }
     return runFreshPath(
       this.deps,
+      this.agenticSessionState,
       this.cacheStore,
       this.compilationLogStore,
       this.guardStore,

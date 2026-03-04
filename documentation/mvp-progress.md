@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 2/27 done
+**Phase 1.0:** 3/27 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -25,53 +25,53 @@ Compile project specifications and documentation into structured context alongsi
 
 Session-level intelligence for multi-step agent workflows. Deduplication prevents re-compiling identical context across turns; conversation compression maintains quality over long sessions; adaptive budget adjusts allocation based on session history.
 
-| Component                                    | Status  | Package              |
-| -------------------------------------------- | ------- | -------------------- |
-| Session-level compilation deduplication      | Pending | shared/src/pipeline/ |
-| Conversation context compression             | Pending | shared/src/pipeline/ |
-| Adaptive budget allocation (session history) | Pending | shared/src/pipeline/ |
-| Session tracking storage (migration)         | Pending | shared/src/storage/  |
+| Component                                    | Status  | Package              | Deps                |
+| -------------------------------------------- | ------- | -------------------- | ------------------- |
+| Session-level compilation deduplication      | Done    | shared/src/pipeline/ | —                   |
+| Conversation context compression             | Pending | shared/src/pipeline/ | Session-level dedup |
+| Adaptive budget allocation (session history) | Pending | shared/src/pipeline/ | Session-level dedup |
+| Session tracking storage (migration)         | Pending | shared/src/storage/  | —                   |
 
 ### Phase P — Claude Code Hook-Based Delivery
 
 Highest-impact item. Claude Code's hook system exposes all 7 capabilities AIC needs (per-prompt, subagent, pre-compaction) — structurally impossible in Cursor. Eliminates the fragile trigger rule + tool-call round-trip by injecting compiled context via `UserPromptSubmit` → `additionalContext`. `TRIGGER_SOURCE.HOOK` enum value already exists. See `documentation/architecture.md` for capability comparison.
 
-| Component                                      | Status  | Package        |
-| ---------------------------------------------- | ------- | -------------- |
-| `UserPromptSubmit` hook: compile + inject      | Pending | .claude/hooks/ |
-| `SubagentStart` hook: compile + inject         | Pending | .claude/hooks/ |
-| `PreCompaction` hook: re-compile before trim   | Pending | .claude/hooks/ |
-| `SessionEnd` hook: session lifecycle telemetry | Pending | .claude/hooks/ |
-| `PostToolUse` additionalContext workaround     | Pending | .claude/hooks/ |
-| Hook-based delivery integration tests          | Pending | mcp/src/       |
+| Component                                      | Status  | Package        | Deps                  |
+| ---------------------------------------------- | ------- | -------------- | --------------------- |
+| `UserPromptSubmit` hook: compile + inject      | Pending | .claude/hooks/ | —                     |
+| `SubagentStart` hook: compile + inject         | Pending | .claude/hooks/ | UserPromptSubmit hook |
+| `PreCompaction` hook: re-compile before trim   | Pending | .claude/hooks/ | UserPromptSubmit hook |
+| `SessionEnd` hook: session lifecycle telemetry | Pending | .claude/hooks/ | —                     |
+| `PostToolUse` additionalContext workaround     | Pending | .claude/hooks/ | UserPromptSubmit hook |
+| Hook-based delivery integration tests          | Pending | mcp/src/       | All P hooks           |
 
 ### Phase Q — Claude Code Zero-Install
 
 Editor detection and auto-install so Claude Code users get the same zero-install experience Cursor has. Currently Cursor-only (`installTriggerRule`, `installCursorHooks`). Absorbs KL-006 and Zero-Install Gaps.
 
-| Component                                                 | Status  | Package  |
-| --------------------------------------------------------- | ------- | -------- |
-| Editor detection (`detectEditorForInit`)                  | Pending | mcp/src/ |
-| `installClaudeCodeTriggerRule` (`.claude/CLAUDE.md`)      | Pending | mcp/src/ |
-| `installClaudeCodeHooks` (`.claude/settings.local.json`)  | Pending | mcp/src/ |
-| `createMcpServer` dispatches installer by detected editor | Pending | mcp/src/ |
-| Startup self-check covers Claude Code artifacts           | Pending | mcp/src/ |
+| Component                                                 | Status  | Package  | Deps                             |
+| --------------------------------------------------------- | ------- | -------- | -------------------------------- |
+| Editor detection (`detectEditorForInit`)                  | Pending | mcp/src/ | —                                |
+| `installClaudeCodeTriggerRule` (`.claude/CLAUDE.md`)      | Pending | mcp/src/ | Editor detection                 |
+| `installClaudeCodeHooks` (`.claude/settings.local.json`)  | Pending | mcp/src/ | Editor detection, Phase P        |
+| `createMcpServer` dispatches installer by detected editor | Pending | mcp/src/ | Editor detection, trigger, hooks |
+| Startup self-check covers Claude Code artifacts           | Pending | mcp/src/ | createMcpServer dispatches       |
 
 ### Phase R — OSS Release Prep
 
 Final polish for public release. npm publish, changelog, benchmarks, visual demo, documentation audit. See `documentation/gaps.md` for detailed descriptions of GAP items.
 
-| Component                                           | Status  | Package | Gap    |
-| --------------------------------------------------- | ------- | ------- | ------ |
-| npm publish pipeline (`@aic/mcp`)                   | Pending | mcp/    | —      |
-| CHANGELOG.md                                        | Pending | ./      | —      |
-| License headers audit                               | Pending | ./      | —      |
-| Contributing guide (final)                          | Pending | ./      | —      |
-| Multi-repo benchmark suite (multi-scale datapoints) | Pending | test/   | GAP-11 |
-| Comparative benchmarks vs. native editor context    | Pending | test/   | GAP-10 |
-| Real `aic_inspect` output in README                 | Pending | ./      | GAP-03 |
-| Visual demo (GIF/recording) in README               | Pending | ./      | GAP-09 |
-| Present-tense audit of project plan                 | Pending | ./      | GAP-06 |
+| Component                                           | Status  | Package | Gap    | Deps      |
+| --------------------------------------------------- | ------- | ------- | ------ | --------- |
+| npm publish pipeline (`@aic/mcp`)                   | Pending | mcp/    | —      | Phase N–Q |
+| CHANGELOG.md                                        | Pending | ./      | —      | —         |
+| License headers audit                               | Pending | ./      | —      | —         |
+| Contributing guide (final)                          | Pending | ./      | —      | —         |
+| Multi-repo benchmark suite (multi-scale datapoints) | Pending | test/   | GAP-11 | —         |
+| Comparative benchmarks vs. native editor context    | Pending | test/   | GAP-10 | —         |
+| Real `aic_inspect` output in README                 | Pending | ./      | GAP-03 | —         |
+| Visual demo (GIF/recording) in README               | Pending | ./      | GAP-09 | Phase N–Q |
+| Present-tense audit of project plan                 | Pending | ./      | GAP-06 | —         |
 
 ---
 
@@ -287,9 +287,10 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2025-03-04
 
-**Components:** Budget utilization in status, `aic report` (static HTML), Drop CLI package (Phase M 0.5), Spec file discovery and scoring, Spec-aware summarisation tier
+**Components:** Budget utilization in status, `aic report` (static HTML), Drop CLI package (Phase M 0.5), Spec file discovery and scoring, Spec-aware summarisation tier, Session-level compilation deduplication
 **Completed:**
 
+- Session-level compilation deduplication (task 086): AgenticSessionState interface and PreviousFile/SessionStep types; SelectedFile.previouslyShownAtStep; runPipelineSteps marks previously shown via getPreviouslyShownFiles when sessionId and agenticSessionState present; PromptAssembler emits placeholder for previously shown files (no getContent); CompilationRunner 10th param agenticSessionState, cache key includes sessionId+stepIndex, recordSessionStepIfNeeded after fresh run; MCP passes null. Four tests (record_step_called, cache_key_includes_session_and_step, prompt_contains_placeholder_when_previous_returned, prompt_assembler_previously_shown_emits_placeholder). Lint, typecheck, test, lint:clones 0.
 - Spec-aware summarisation tier (task 085): MarkdownProvider (LanguageProvider) for .md and .mdc; parseImports returns []; extractSignaturesWithDocs = ATX heading sections (heading + content until next heading); extractSignaturesOnly = one CodeChunk per ATX line; extractNames = heading titles as SYMBOL_KIND.CONST; wired in createPipelineDeps after typeScriptProvider. Six tests. Lint, typecheck, test, lint:clones 0.
 - Spec file discovery and scoring (task 084): SpecFileDiscoverer interface and implementation; filter by exclude/include/keywords, score by spec path tier (SPEC_PATH_TIERS), pathRelevance, recency, size penalty, heuristic boost/penalize; returns ContextResult; shared min-max-norm.ts for HeuristicSelector and SpecFileDiscoverer (0 clones). Eight tests. Lint, typecheck, test, knip (no new findings), lint:clones 0.
 - Budget utilization in status (task 082): statusCommand resolves budget via LoadConfigFromFile.load(projectRoot, configPath ?? null), passes budget (result.config.contextBudget.maxTokens) to formatStatusOutput; formatStatusOutput gains third parameter budget: number and outputs "Budget utilization: X% (last: A/B)" when lastCompilation non-null, "Budget utilization: —" when null, placed after Total tokens saved and before Guard; three tests (budget_utilization_shown_with_default_budget, budget_utilization_dash_when_no_last_compilation, budget_utilization_uses_config_when_present). Lint, typecheck, test, knip (no new findings), lint:clones 0.

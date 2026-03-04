@@ -26,7 +26,11 @@ import type { CompilationLogEntry } from "#core/types/compilation-log-entry.js";
 import type { GuardFinding } from "#core/types/guard-types.js";
 import type { UUIDv7 } from "#core/types/identifiers.js";
 import { EDITOR_ID, TRIGGER_SOURCE } from "#core/types/enums.js";
-import { toUUIDv7, toConversationId } from "#core/types/identifiers.js";
+import { toUUIDv7, toConversationId, toSessionId } from "#core/types/identifiers.js";
+import { toStepIndex } from "#core/types/units.js";
+import { INCLUSION_TIER } from "#core/types/enums.js";
+import type { AgenticSessionState } from "#core/interfaces/agentic-session-state.interface.js";
+import type { PreviousFile, SessionStep } from "#core/types/session-dedup-types.js";
 import { CompilationRunner } from "../compilation-runner.js";
 import { IntentClassifier } from "../intent-classifier.js";
 import { RulePackResolver } from "../rule-pack-resolver.js";
@@ -270,6 +274,7 @@ describe("CompilationRunner", () => {
       guardStore,
       compilationLogStore,
       mockIdGenerator,
+      null,
     );
     const request = makeRequest(fixtureRoot);
     const result = await runner.run(request);
@@ -312,6 +317,7 @@ describe("CompilationRunner", () => {
       guardStore,
       compilationLogStore,
       mockIdGenerator,
+      null,
     );
     const request = makeRequest(fixtureRoot);
     const first = await runner.run(request);
@@ -359,6 +365,7 @@ describe("CompilationRunner", () => {
       guardStore,
       compilationLogStore,
       mockIdGenerator,
+      null,
     );
     const request = makeRequest(fixtureRoot);
     await expect(runner.run(request)).rejects.toThrow("getRepoMap failed");
@@ -399,6 +406,7 @@ describe("CompilationRunner", () => {
       guardStore,
       compilationLogStore,
       mockIdGenerator,
+      null,
     );
     const request = makeRequest(fixtureRoot);
     const result = await runner.run(request);
@@ -456,6 +464,7 @@ describe("CompilationRunner", () => {
       guardStore,
       compilationLogStore,
       mockIdGenerator,
+      null,
     );
     const request = makeRequest(fixtureRoot);
     await runner.run(request);
@@ -503,6 +512,7 @@ describe("CompilationRunner", () => {
       guardStore,
       compilationLogStore,
       mockIdGenerator,
+      null,
     );
     const request: CompilationRequest = {
       ...makeRequest(fixtureRoot),
@@ -553,6 +563,7 @@ describe("CompilationRunner", () => {
       guardStore,
       compilationLogStore,
       mockIdGenerator,
+      null,
     );
     const convId = toConversationId("runner-conv");
     const request: CompilationRequest = {
@@ -567,4 +578,173 @@ describe("CompilationRunner", () => {
       expect(entry.conversationId).toBe(convId);
     }
   });
+
+  it("compilation_runner_record_step_called", async () => {
+    const recordStepCalls: Array<[ReturnType<typeof toSessionId>, SessionStep]> = [];
+    const mockAgenticSessionState: AgenticSessionState = {
+      getPreviouslyShownFiles: () => [],
+      recordStep: (sessionId, step) => {
+        recordStepCalls.push([sessionId, step]);
+      },
+    };
+    const cacheStore = createInMemoryCacheStore();
+    const configStore: ConfigStore = {
+      getLatestHash: () => null,
+      writeSnapshot() {},
+    };
+    const stringHasher: StringHasher = {
+      hash(input: string) {
+        return `h-${input.length}`;
+      },
+    };
+    const { guardStore, compilationLogStore } = createGuardAndLogMocks();
+    const deps = {
+      intentClassifier,
+      rulePackResolver,
+      budgetAllocator,
+      contextSelector: heuristicSelector,
+      contextGuard,
+      contentTransformerPipeline,
+      summarisationLadder,
+      promptAssembler,
+      intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
+      repoMapSupplier: mockRepoMapSupplier,
+      tokenCounter: tiktokenAdapter,
+    };
+    const runner = new CompilationRunner(
+      deps,
+      mockClock,
+      cacheStore,
+      configStore,
+      stringHasher,
+      guardStore,
+      compilationLogStore,
+      mockIdGenerator,
+      mockAgenticSessionState,
+    );
+    const sessionId = toSessionId("session-1");
+    const request: CompilationRequest = {
+      ...makeRequest(fixtureRoot),
+      sessionId,
+      stepIndex: toStepIndex(1),
+    };
+    const result = await runner.run(request);
+    expect(recordStepCalls.length).toBe(1);
+    const firstCall = recordStepCalls[0];
+    expect(firstCall).toBeDefined();
+    if (firstCall === undefined) return;
+    const [calledSessionId, step] = firstCall;
+    expect(calledSessionId).toBe(sessionId);
+    expect(step.filesSelected.length).toBe(result.meta.filesSelected);
+  }, 30_000);
+
+  it("compilation_runner_cache_key_includes_session_and_step", async () => {
+    const cacheStore = createInMemoryCacheStore();
+    const configStore: ConfigStore = {
+      getLatestHash: () => null,
+      writeSnapshot() {},
+    };
+    const hashInputs: string[] = [];
+    const stringHasher: StringHasher = {
+      hash(input: string) {
+        hashInputs.push(input);
+        return `h-${input.length}-${hashInputs.length}`;
+      },
+    };
+    const { guardStore, compilationLogStore } = createGuardAndLogMocks();
+    const deps = {
+      intentClassifier,
+      rulePackResolver,
+      budgetAllocator,
+      contextSelector: heuristicSelector,
+      contextGuard,
+      contentTransformerPipeline,
+      summarisationLadder,
+      promptAssembler,
+      intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
+      repoMapSupplier: mockRepoMapSupplier,
+      tokenCounter: tiktokenAdapter,
+    };
+    const runner = new CompilationRunner(
+      deps,
+      mockClock,
+      cacheStore,
+      configStore,
+      stringHasher,
+      guardStore,
+      compilationLogStore,
+      mockIdGenerator,
+      null,
+    );
+    const request1: CompilationRequest = {
+      ...makeRequest(fixtureRoot),
+      sessionId: toSessionId("s1"),
+      stepIndex: toStepIndex(0),
+    };
+    const request2: CompilationRequest = {
+      ...makeRequest(fixtureRoot),
+      sessionId: toSessionId("s2"),
+      stepIndex: toStepIndex(1),
+    };
+    await runner.run(request1);
+    const second = await runner.run(request2);
+    expect(second.meta.cacheHit).toBe(false);
+    const cacheKeyInputs = hashInputs.filter((_, i) => i % 2 === 1);
+    expect(cacheKeyInputs[0]).not.toBe(cacheKeyInputs[1]);
+  }, 30_000);
+
+  it("compilation_runner_prompt_contains_placeholder_when_previous_returned", async () => {
+    const prevPath = toRelativePath("src/auth/service.ts");
+    const previousFile: PreviousFile = {
+      path: prevPath,
+      lastTier: INCLUSION_TIER.L0,
+      lastStepIndex: toStepIndex(0),
+      modifiedSince: false,
+    };
+    const mockAgenticSessionState: AgenticSessionState = {
+      getPreviouslyShownFiles: () => [previousFile],
+      recordStep: () => {},
+    };
+    const cacheStore = createInMemoryCacheStore();
+    const configStore: ConfigStore = {
+      getLatestHash: () => null,
+      writeSnapshot() {},
+    };
+    const stringHasher: StringHasher = {
+      hash(input: string) {
+        return `h-${input.length}`;
+      },
+    };
+    const { guardStore, compilationLogStore } = createGuardAndLogMocks();
+    const deps = {
+      intentClassifier,
+      rulePackResolver,
+      budgetAllocator,
+      contextSelector: heuristicSelector,
+      contextGuard,
+      contentTransformerPipeline,
+      summarisationLadder,
+      promptAssembler,
+      intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
+      repoMapSupplier: mockRepoMapSupplier,
+      tokenCounter: tiktokenAdapter,
+    };
+    const runner = new CompilationRunner(
+      deps,
+      mockClock,
+      cacheStore,
+      configStore,
+      stringHasher,
+      guardStore,
+      compilationLogStore,
+      mockIdGenerator,
+      mockAgenticSessionState,
+    );
+    const request: CompilationRequest = {
+      ...makeRequest(fixtureRoot),
+      sessionId: toSessionId("session-placeholder"),
+    };
+    const result = await runner.run(request);
+    expect(result.compiledPrompt).toContain("Previously shown in step");
+  }, 30_000);
 });

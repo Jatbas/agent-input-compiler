@@ -72,6 +72,7 @@ function createRunner(): CompilationRunner {
     scope.guardStore,
     scope.compilationLogStore,
     scope.idGenerator,
+    null,
   );
 }
 

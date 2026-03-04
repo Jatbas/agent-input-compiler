@@ -99,6 +99,7 @@ describe("token reduction benchmarks", () => {
       scope.guardStore,
       scope.compilationLogStore,
       scope.idGenerator,
+      null,
     );
     const request = {
       intent: "refactor auth module to use middleware pattern",

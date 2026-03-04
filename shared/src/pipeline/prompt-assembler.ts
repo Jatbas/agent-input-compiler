@@ -27,14 +27,22 @@ export class PromptAssembler implements IPromptAssembler {
     format: OutputFormat,
   ): Promise<string> {
     const intent = task.matchedKeywords.join(" ") || task.taskClass;
+    const needContent = files.filter((f) => f.previouslyShownAtStep === undefined);
     const contents = await Promise.all(
-      files.map((f) => this.fileContentReader.getContent(f.path)),
+      needContent.map((f) => this.fileContentReader.getContent(f.path)),
     );
-    const contextParts = files.flatMap((file, i) => [
-      `### ${file.path} [Tier: ${file.tier}]`,
-      contents[i] ?? "",
-      "",
-    ]);
+    const contentIndexFor = (upTo: number): number =>
+      files.slice(0, upTo).filter((f) => f.previouslyShownAtStep === undefined).length;
+    const contextParts = files.flatMap((file, i) => {
+      if (file.previouslyShownAtStep !== undefined) {
+        return [
+          `### ${file.path} [Tier: ${file.tier}] — Previously shown in step ${file.previouslyShownAtStep}`,
+          "",
+        ];
+      }
+      const content = contents[contentIndexFor(i)] ?? "";
+      return [`### ${file.path} [Tier: ${file.tier}]`, content, ""];
+    });
     const constraintSection =
       constraints.length > 0
         ? ["## Constraints", ...constraints.map((c) => `- ${c}`), ""]

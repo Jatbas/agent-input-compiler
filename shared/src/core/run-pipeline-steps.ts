@@ -10,6 +10,8 @@ import type { PromptAssembler } from "#core/interfaces/prompt-assembler.interfac
 import type { RepoMapSupplier } from "#core/interfaces/repo-map-supplier.interface.js";
 import type { IntentAwareFileDiscoverer } from "#core/interfaces/intent-aware-file-discoverer.interface.js";
 import type { TokenCounter } from "#core/interfaces/token-counter.interface.js";
+import type { AgenticSessionState } from "#core/interfaces/agentic-session-state.interface.js";
+import type { PreviousFile } from "#core/types/session-dedup-types.js";
 import type { TaskClassification } from "#core/types/task-classification.js";
 import type { RulePack } from "#core/types/rule-pack.js";
 import type { RepoMap } from "#core/types/repo-map.js";
@@ -17,7 +19,8 @@ import type { ContextResult } from "#core/types/selected-file.js";
 import type { GuardResult } from "#core/types/guard-types.js";
 import type { TransformResult } from "#core/types/transform-types.js";
 import type { SelectedFile } from "#core/types/selected-file.js";
-import type { TokenCount } from "#core/types/units.js";
+import type { TokenCount, StepIndex } from "#core/types/units.js";
+import type { SessionId } from "#core/types/identifiers.js";
 import { OUTPUT_FORMAT } from "#core/types/enums.js";
 
 export interface PipelineStepsDeps {
@@ -32,11 +35,15 @@ export interface PipelineStepsDeps {
   readonly repoMapSupplier: RepoMapSupplier;
   readonly intentAwareFileDiscoverer: IntentAwareFileDiscoverer;
   readonly tokenCounter: TokenCounter;
+  readonly agenticSessionState?: AgenticSessionState | null;
 }
 
 export interface PipelineStepsRequest {
   readonly intent: string;
   readonly projectRoot: AbsolutePath;
+  readonly sessionId?: SessionId;
+  readonly stepIndex?: StepIndex;
+  readonly stepIntent?: string;
 }
 
 export interface PipelineStepsResult {
@@ -80,10 +87,27 @@ export async function runPipelineSteps(
     budget,
     rulePack,
   );
-  const selectedFiles = contextResult.files;
-  const { result: guardResult, safeFiles } = await deps.contextGuard.scan(
-    selectedFiles,
-  );
+  const selectedFilesAfterDedup =
+    request.sessionId && deps.agenticSessionState
+      ? (() => {
+          const previous = deps.agenticSessionState.getPreviouslyShownFiles(
+            request.sessionId,
+          );
+          const byPath = previous.reduce<Readonly<Record<string, PreviousFile>>>(
+            (acc, p) => ({ ...acc, [p.path]: p }),
+            {},
+          );
+          return contextResult.files.map((f) => {
+            const prev = byPath[f.path];
+            if (prev && !prev.modifiedSince) {
+              return { ...f, previouslyShownAtStep: prev.lastStepIndex };
+            }
+            return f;
+          });
+        })()
+      : contextResult.files;
+  const selectedFiles = selectedFilesAfterDedup;
+  const { result: guardResult, safeFiles } = await deps.contextGuard.scan(selectedFiles);
   const transformResult = await deps.contentTransformerPipeline.transform(
     safeFiles,
     TRANSFORM_CONTEXT,

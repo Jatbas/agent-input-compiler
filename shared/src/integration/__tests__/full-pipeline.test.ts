@@ -226,6 +226,7 @@ function createRunner(fixtureRoot: ReturnType<typeof toAbsolutePath>): Compilati
     guardStore,
     compilationLogStore,
     idGenerator,
+    null,
   );
 }
 

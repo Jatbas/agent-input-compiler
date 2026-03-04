@@ -1,5 +1,5 @@
 import type { RelativePath } from "#core/types/paths.js";
-import type { TokenCount } from "#core/types/units.js";
+import type { TokenCount, StepIndex } from "#core/types/units.js";
 import type { RelevanceScore } from "#core/types/scores.js";
 import type { InclusionTier } from "#core/types/enums.js";
 
@@ -9,6 +9,7 @@ export interface SelectedFile {
   readonly estimatedTokens: TokenCount;
   readonly relevanceScore: RelevanceScore;
   readonly tier: InclusionTier;
+  readonly previouslyShownAtStep?: StepIndex;
 }
 
 export interface ContextResult {

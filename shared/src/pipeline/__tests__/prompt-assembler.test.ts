@@ -4,7 +4,7 @@ import type { FileContentReader } from "#core/interfaces/file-content-reader.int
 import type { TaskClassification } from "#core/types/task-classification.js";
 import type { SelectedFile } from "#core/types/selected-file.js";
 import { toRelativePath } from "#core/types/paths.js";
-import { toTokenCount } from "#core/types/units.js";
+import { toTokenCount, toStepIndex } from "#core/types/units.js";
 import { toConfidence } from "#core/types/scores.js";
 import { toRelevanceScore } from "#core/types/scores.js";
 import { TASK_CLASS, OUTPUT_FORMAT, type OutputFormat } from "#core/types/enums.js";
@@ -101,5 +101,28 @@ describe("PromptAssembler", () => {
     const secondIdx = result.indexOf("### second.ts");
     expect(firstIdx).toBeGreaterThanOrEqual(0);
     expect(secondIdx).toBeGreaterThan(firstIdx);
+  });
+
+  it("prompt_assembler_previously_shown_emits_placeholder", async () => {
+    const getContentCalls: string[] = [];
+    const reader: FileContentReader = {
+      getContent: (path) => {
+        getContentCalls.push(path as string);
+        return Promise.resolve("content");
+      },
+    };
+    const assembler = new PromptAssembler(reader);
+    const fileWithPrevious = {
+      ...makeFile("src/seen.ts"),
+      previouslyShownAtStep: toStepIndex(2),
+    };
+    const result = await assembler.assemble(
+      task,
+      [fileWithPrevious],
+      [],
+      OUTPUT_FORMAT.PLAIN,
+    );
+    expect(result).toContain("Previously shown in step 2");
+    expect(getContentCalls).not.toContain("src/seen.ts");
   });
 });

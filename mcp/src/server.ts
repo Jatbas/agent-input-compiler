@@ -154,6 +154,7 @@ export function createMcpServer(
     scope.guardStore,
     scope.compilationLogStore,
     scope.idGenerator,
+    null,
   );
   const server = new McpServer({ name: "aic", version: "0.1.0" });
   const editorConfigReader = new EditorModelConfigReaderAdapter(

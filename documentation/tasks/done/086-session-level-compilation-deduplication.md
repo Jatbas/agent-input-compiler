@@ -1,6 +1,6 @@
 # Task 086: Session-level compilation deduplication
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** O (Agentic Session Tracking)
 > **Layer:** pipeline + core (compound)
 > **Depends on:** —
