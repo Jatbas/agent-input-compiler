@@ -17,6 +17,25 @@ const FORMAT_DESCRIPTIONS: Readonly<Record<OutputFormat, string>> = {
   [OUTPUT_FORMAT.PLAIN]: "Respond in plain text.",
 };
 
+async function buildSpecParts(
+  fileContentReader: FileContentReader,
+  specFiles: readonly SelectedFile[],
+): Promise<readonly string[]> {
+  if (specFiles.length === 0) return [];
+  const specContentList = await Promise.all(
+    specFiles.map((f) => fileContentReader.getContent(f.path)),
+  );
+  return [
+    "## Specification",
+    "",
+    ...specFiles.flatMap((file, i) => [
+      `### ${file.path} [Tier: ${file.tier}]`,
+      specContentList[i] ?? "",
+      "",
+    ]),
+  ];
+}
+
 export class PromptAssembler implements IPromptAssembler {
   constructor(private readonly fileContentReader: FileContentReader) {}
 
@@ -25,8 +44,10 @@ export class PromptAssembler implements IPromptAssembler {
     files: readonly SelectedFile[],
     constraints: readonly string[],
     format: OutputFormat,
+    specFiles?: readonly SelectedFile[],
   ): Promise<string> {
     const intent = task.matchedKeywords.join(" ") || task.taskClass;
+    const specParts = await buildSpecParts(this.fileContentReader, specFiles ?? []);
     const needContent = files.filter((f) => f.previouslyShownAtStep === undefined);
     const contents = await Promise.all(
       needContent.map((f) => this.fileContentReader.getContent(f.path)),
@@ -54,6 +75,7 @@ export class PromptAssembler implements IPromptAssembler {
       "## Task Classification",
       `Type: ${task.taskClass} (confidence: ${task.confidence})`,
       "",
+      ...specParts,
       "## Context",
       ...contextParts,
       ...constraintSection,

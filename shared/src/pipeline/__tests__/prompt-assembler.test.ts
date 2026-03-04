@@ -125,4 +125,73 @@ describe("PromptAssembler", () => {
     expect(result).toContain("Previously shown in step 2");
     expect(getContentCalls).not.toContain("src/seen.ts");
   });
+
+  it("prompt_assembler_spec_section_emitted", async () => {
+    const reader: FileContentReader = {
+      getContent: (path) =>
+        Promise.resolve(
+          (path as string).startsWith("documentation/")
+            ? "spec content here"
+            : "code content here",
+        ),
+    };
+    const assembler = new PromptAssembler(reader);
+    const codeFile = makeFile("src/a.ts");
+    const specFile = {
+      ...makeFile("documentation/readme.md"),
+      path: toRelativePath("documentation/readme.md"),
+    };
+    const result = await assembler.assemble(task, [codeFile], [], OUTPUT_FORMAT.PLAIN, [
+      specFile,
+    ]);
+    expect(result).toContain("## Specification");
+    expect(result).toContain("### documentation/readme.md");
+    expect(result).toContain("spec content here");
+    expect(result).toContain("## Context");
+    const specIdx = result.indexOf("## Specification");
+    const contextIdx = result.indexOf("## Context");
+    expect(contextIdx).toBeGreaterThan(specIdx);
+    expect(result).toContain("code content here");
+  });
+
+  it("prompt_assembler_no_spec_when_empty", async () => {
+    const reader: FileContentReader = { getContent: () => Promise.resolve("") };
+    const assembler = new PromptAssembler(reader);
+    const resultOmitted = await assembler.assemble(
+      task,
+      [makeFile("x.ts")],
+      [],
+      OUTPUT_FORMAT.PLAIN,
+    );
+    expect(resultOmitted).not.toContain("## Specification");
+    expect(resultOmitted).toContain("## Task");
+    expect(resultOmitted).toContain("## Task Classification");
+    expect(resultOmitted).toContain("## Context");
+    expect(resultOmitted).toContain("## Output Format");
+    const resultEmpty = await assembler.assemble(
+      task,
+      [makeFile("x.ts")],
+      [],
+      OUTPUT_FORMAT.PLAIN,
+      [],
+    );
+    expect(resultEmpty).not.toContain("## Specification");
+  });
+
+  it("prompt_assembler_spec_getContent_called", async () => {
+    const getContentCalls: string[] = [];
+    const reader: FileContentReader = {
+      getContent: (path) => {
+        getContentCalls.push(path as string);
+        return Promise.resolve("spec body");
+      },
+    };
+    const assembler = new PromptAssembler(reader);
+    const specFile = {
+      ...makeFile("documentation/plan.md"),
+      path: toRelativePath("documentation/plan.md"),
+    };
+    await assembler.assemble(task, [], [], OUTPUT_FORMAT.PLAIN, [specFile]);
+    expect(getContentCalls).toContain("documentation/plan.md");
+  });
 });

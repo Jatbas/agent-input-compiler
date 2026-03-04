@@ -10,6 +10,7 @@ import type { SummarisationLadder } from "#core/interfaces/summarisation-ladder.
 import type { PromptAssembler } from "#core/interfaces/prompt-assembler.interface.js";
 import type { RepoMapSupplier } from "#core/interfaces/repo-map-supplier.interface.js";
 import type { IntentAwareFileDiscoverer } from "#core/interfaces/intent-aware-file-discoverer.interface.js";
+import type { SpecFileDiscoverer } from "#core/interfaces/spec-file-discoverer.interface.js";
 import type { Clock } from "#core/interfaces/clock.interface.js";
 import type { TokenCounter } from "#core/interfaces/token-counter.interface.js";
 import type { InspectRequest } from "#core/types/inspect-types.js";
@@ -134,8 +135,7 @@ describe("InspectRunner", () => {
       selectContext: () => Promise.resolve(contextResult),
     };
     const mockContextGuard = {
-      scan: () =>
-        Promise.resolve({ result: guardResult, safeFiles: [...safeFiles] }),
+      scan: () => Promise.resolve({ result: guardResult, safeFiles: [...safeFiles] }),
     };
     const mockContentTransformerPipeline = {
       transform: () => Promise.resolve(transformResult),
@@ -164,6 +164,13 @@ describe("InspectRunner", () => {
       } as IntentAwareFileDiscoverer,
       repoMapSupplier: mockRepoMapSupplier as RepoMapSupplier,
       tokenCounter: mockTokenCounter as TokenCounter,
+      specFileDiscoverer: {
+        discover: () => ({
+          files: [],
+          totalTokens: toTokenCount(0),
+          truncated: false,
+        }),
+      } as SpecFileDiscoverer,
     };
     const runner = new InspectRunner(deps, mockClock as Clock);
 
@@ -188,8 +195,7 @@ describe("InspectRunner", () => {
       selectContext: () => Promise.resolve(contextResult),
     };
     const mockContextGuard = {
-      scan: () =>
-        Promise.resolve({ result: guardResult, safeFiles: [...safeFiles] }),
+      scan: () => Promise.resolve({ result: guardResult, safeFiles: [...safeFiles] }),
     };
     const mockContentTransformerPipeline = {
       transform: () => Promise.resolve(transformResult),
@@ -218,6 +224,13 @@ describe("InspectRunner", () => {
       } as IntentAwareFileDiscoverer,
       repoMapSupplier: mockRepoMapSupplier as RepoMapSupplier,
       tokenCounter: mockTokenCounter as TokenCounter,
+      specFileDiscoverer: {
+        discover: () => ({
+          files: [],
+          totalTokens: toTokenCount(0),
+          truncated: false,
+        }),
+      } as SpecFileDiscoverer,
     };
     const runner = new InspectRunner(deps, mockClock as Clock);
 
@@ -233,8 +246,7 @@ describe("InspectRunner", () => {
       selectContext: () => Promise.resolve(contextResult),
     };
     const mockContextGuard = {
-      scan: () =>
-        Promise.resolve({ result: guardResult, safeFiles: [...safeFiles] }),
+      scan: () => Promise.resolve({ result: guardResult, safeFiles: [...safeFiles] }),
     };
     const mockContentTransformerPipeline = {
       transform: () => Promise.resolve(transformResult),
@@ -264,6 +276,13 @@ describe("InspectRunner", () => {
       } as IntentAwareFileDiscoverer,
       repoMapSupplier: mockRepoMapSupplier as RepoMapSupplier,
       tokenCounter: mockTokenCounter as TokenCounter,
+      specFileDiscoverer: {
+        discover: () => ({
+          files: [],
+          totalTokens: toTokenCount(0),
+          truncated: false,
+        }),
+      } as SpecFileDiscoverer,
     };
     const runner = new InspectRunner(deps, mockClock as Clock);
 

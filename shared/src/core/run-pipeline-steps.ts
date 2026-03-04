@@ -8,6 +8,7 @@ import type { ContentTransformerPipeline } from "#core/interfaces/content-transf
 import type { SummarisationLadder } from "#core/interfaces/summarisation-ladder.interface.js";
 import type { PromptAssembler } from "#core/interfaces/prompt-assembler.interface.js";
 import type { RepoMapSupplier } from "#core/interfaces/repo-map-supplier.interface.js";
+import type { SpecFileDiscoverer } from "#core/interfaces/spec-file-discoverer.interface.js";
 import type { IntentAwareFileDiscoverer } from "#core/interfaces/intent-aware-file-discoverer.interface.js";
 import type { TokenCounter } from "#core/interfaces/token-counter.interface.js";
 import type { AgenticSessionState } from "#core/interfaces/agentic-session-state.interface.js";
@@ -21,6 +22,7 @@ import type { TransformResult } from "#core/types/transform-types.js";
 import type { SelectedFile } from "#core/types/selected-file.js";
 import type { TokenCount, StepIndex } from "#core/types/units.js";
 import type { SessionId } from "#core/types/identifiers.js";
+import { toTokenCount } from "#core/types/units.js";
 import { OUTPUT_FORMAT } from "#core/types/enums.js";
 
 export interface PipelineStepsDeps {
@@ -35,6 +37,7 @@ export interface PipelineStepsDeps {
   readonly repoMapSupplier: RepoMapSupplier;
   readonly intentAwareFileDiscoverer: IntentAwareFileDiscoverer;
   readonly tokenCounter: TokenCounter;
+  readonly specFileDiscoverer: SpecFileDiscoverer;
   readonly agenticSessionState?: AgenticSessionState | null;
 }
 
@@ -65,6 +68,26 @@ const TRANSFORM_CONTEXT = {
   directTargetPaths: [],
   rawMode: false,
 } as const;
+
+function isSpecPath(path: string): boolean {
+  return (
+    path.startsWith("documentation/") ||
+    path.startsWith(".cursor/rules/") ||
+    path.startsWith(".cursor/skills/") ||
+    path.startsWith("adr-")
+  );
+}
+
+function buildSpecRepoMap(repoMap: RepoMap): RepoMap {
+  const specFiles = repoMap.files.filter((f) => isSpecPath(f.path));
+  const total = specFiles.reduce((sum, f) => sum + f.estimatedTokens, 0);
+  return {
+    root: repoMap.root,
+    files: specFiles,
+    totalFiles: specFiles.length,
+    totalTokens: toTokenCount(total),
+  };
+}
 
 export async function runPipelineSteps(
   deps: PipelineStepsDeps,
@@ -107,6 +130,27 @@ export async function runPipelineSteps(
         })()
       : contextResult.files;
   const selectedFiles = selectedFilesAfterDedup;
+  const specRepoMap = buildSpecRepoMap(repoMap);
+  const specContextResult = deps.specFileDiscoverer.discover(specRepoMap, task, rulePack);
+  const specLadderFiles =
+    specContextResult.files.length === 0
+      ? []
+      : await (async () => {
+          const { safeFiles: specSafeFiles } = await deps.contextGuard.scan(
+            specContextResult.files,
+          );
+          const specTransformResult = await deps.contentTransformerPipeline.transform(
+            specSafeFiles,
+            TRANSFORM_CONTEXT,
+          );
+          const specBudget = toTokenCount(
+            Math.min(
+              Number(specContextResult.totalTokens),
+              Math.floor(Number(budget) * 0.2),
+            ),
+          );
+          return deps.summarisationLadder.compress(specTransformResult.files, specBudget);
+        })();
   const { result: guardResult, safeFiles } = await deps.contextGuard.scan(selectedFiles);
   const transformResult = await deps.contentTransformerPipeline.transform(
     safeFiles,
@@ -121,6 +165,7 @@ export async function runPipelineSteps(
     ladderFiles,
     rulePack.constraints,
     OUTPUT_FORMAT.UNIFIED_DIFF,
+    specLadderFiles,
   );
   const promptTotal = deps.tokenCounter.countTokens(assembledPrompt);
   return {

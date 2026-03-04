@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 3/27 done
+**Phase 1.0:** 4/27 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -15,11 +15,11 @@ Specification Compiler, agentic session tracking, Claude Code hook-based deliver
 
 Compile project specifications and documentation into structured context alongside code. Rules, ADRs, and design docs are selected and compressed through the same pipeline, ensuring the model has both code and spec awareness.
 
-| Component                          | Status  | Package              |
-| ---------------------------------- | ------- | -------------------- |
-| Spec file discovery and scoring    | Done    | shared/src/pipeline/ |
-| Spec-aware summarisation tier      | Done    | shared/src/adapters/ |
-| Spec injection in prompt assembler | Pending | shared/src/pipeline/ |
+| Component                          | Status | Package              |
+| ---------------------------------- | ------ | -------------------- |
+| Spec file discovery and scoring    | Done   | shared/src/pipeline/ |
+| Spec-aware summarisation tier      | Done   | shared/src/adapters/ |
+| Spec injection in prompt assembler | Done   | shared/src/pipeline/ |
 
 ### Phase O — Agentic Session Tracking
 
@@ -287,9 +287,10 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2025-03-04
 
-**Components:** Budget utilization in status, `aic report` (static HTML), Drop CLI package (Phase M 0.5), Spec file discovery and scoring, Spec-aware summarisation tier, Session-level compilation deduplication
+**Components:** Budget utilization in status, `aic report` (static HTML), Drop CLI package (Phase M 0.5), Spec file discovery and scoring, Spec-aware summarisation tier, Session-level compilation deduplication, Spec injection in prompt assembler
 **Completed:**
 
+- Spec injection in prompt assembler (task 087): PromptAssembler.assemble optional specFiles param; buildSpecParts helper; ## Specification section before ## Context when specFiles length > 0; run-pipeline-steps isSpecPath/buildSpecRepoMap, spec discover → guard → transform → ladder (spec budget 20% of main), specLadderFiles passed to assemble; PipelineStepsDeps.specFileDiscoverer; create-pipeline-deps and createFullPipelineDeps instantiate SpecFileDiscoverer; tests prompt_assembler_spec_section_emitted, prompt_assembler_no_spec_when_empty, prompt_assembler_spec_getContent_called; integration/unit tests updated with specFileDiscoverer mock. Lint, typecheck, test, lint:clones 0.
 - Session-level compilation deduplication (task 086): AgenticSessionState interface and PreviousFile/SessionStep types; SelectedFile.previouslyShownAtStep; runPipelineSteps marks previously shown via getPreviouslyShownFiles when sessionId and agenticSessionState present; PromptAssembler emits placeholder for previously shown files (no getContent); CompilationRunner 10th param agenticSessionState, cache key includes sessionId+stepIndex, recordSessionStepIfNeeded after fresh run; MCP passes null. Four tests (record_step_called, cache_key_includes_session_and_step, prompt_contains_placeholder_when_previous_returned, prompt_assembler_previously_shown_emits_placeholder). Lint, typecheck, test, lint:clones 0.
 - Spec-aware summarisation tier (task 085): MarkdownProvider (LanguageProvider) for .md and .mdc; parseImports returns []; extractSignaturesWithDocs = ATX heading sections (heading + content until next heading); extractSignaturesOnly = one CodeChunk per ATX line; extractNames = heading titles as SYMBOL_KIND.CONST; wired in createPipelineDeps after typeScriptProvider. Six tests. Lint, typecheck, test, lint:clones 0.
 - Spec file discovery and scoring (task 084): SpecFileDiscoverer interface and implementation; filter by exclude/include/keywords, score by spec path tier (SPEC_PATH_TIERS), pathRelevance, recency, size penalty, heuristic boost/penalize; returns ContextResult; shared min-max-norm.ts for HeuristicSelector and SpecFileDiscoverer (0 clones). Eight tests. Lint, typecheck, test, knip (no new findings), lint:clones 0.
