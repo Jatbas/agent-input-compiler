@@ -7,7 +7,7 @@
 ![MCP Compatible](https://img.shields.io/badge/MCP-compatible-purple)
 ![AI-Assisted Engineering](https://img.shields.io/badge/AI--assisted-engineering-blueviolet)
 
-> Deterministic context compiler for AI coding tools. Local-first MCP server + CLI that selects relevant files and compresses context before it reaches the model.
+> Deterministic context compiler for AI coding tools. Local-first MCP server that selects relevant files and compresses context before it reaches the model.
 
 ---
 
@@ -20,34 +20,35 @@ AIC fixes this by acting as a deterministic context compiler. It filters the noi
 Every token you save is capacity you reclaim. A leaner context means the model reasons over signal, not noise — producing more accurate code with fewer iterations. If you're on a metered plan, it also means more requests from the same budget. AIC makes the context window work harder so you can ship faster.
 
 ```
-$ aic inspect "refactor auth module"
+> show aic status
 
-Task Classification
-  Class: refactor (confidence: 0.92)
+Status = project-level AIC status.
 
-Selected Files (8 of 142)
-  # | File                          | Score | Tokens | Tier
-  1 | src/auth/service.ts           | 0.91  | 1,240  | L0
-  2 | src/auth/middleware.ts        | 0.87  |   890  | L0
-  3 | src/auth/types.ts             | 0.82  |   340  | L0
-  ...
+  Compilations:       847
+  Tokens saved:       353M (98.4% reduction)
+  Budget:             3,970 / 8,000 tokens (49.6% utilized)
+  Files guarded:      12 blocked across all sessions
+  Cache hit rate:     72%
+  Last compiled:      2 minutes ago
 
-Guard: clean (0 files blocked)
+> show aic last
 
-Token Summary
-  Raw (all 142 files):  45,000 tokens
-  Selected (8 files):   17,210 tokens
-  After transforms:      3,970 tokens
-  Reduction:             91.2%
+Last = what AIC sent to the model.
+
+  Intent:    "refactor auth module"
+  Task:      refactor (confidence: 0.92)
+  Selected:  8 of 142 files
+  Guard:     clean (0 blocked)
+  Tokens:    45,000 → 3,970 (91.2% reduction)
 ```
 
-| The Problem                            | How AIC helps                                                                                                                                  |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| **"Lost in the Middle" hallucination** | Selects only high-relevance files (via heuristic scoring) and compresses them, focusing the model on the right code                            |
-| **Inconsistent outputs**               | Deterministic pipeline: same intent + same codebase = same compiled context, every time                                                        |
-| **Wasted tokens**                      | Content transformation + 4-tier summarisation ladder reduce token usage by 98%, freeing context window capacity for the code that actually matters |
-| **Leaked credentials**                 | **Context Guard** blocks secrets, API keys, and `.env` files before they reach the model                                                       |
-| **No visibility into context**         | `aic inspect` shows exactly which files were selected, why, and how they were transformed — full pipeline transparency                         |
+| The Problem                            | How AIC helps                                                                                                                                     |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **"Lost in the Middle" hallucination** | Scores every file by relevance and compresses them, so the model focuses on the right code                                                        |
+| **Inconsistent outputs**               | Same intent + same codebase = same compiled context, every time                                                                                   |
+| **Wasted tokens**                      | Strips comments, compacts JSON, and progressively summarises files to cut token usage by 98%                                                      |
+| **Leaked credentials**                 | **Context Guard** blocks secrets, API keys, and `.env` files before they reach the model                                                          |
+| **No visibility into context**         | "show aic last" displays which files were selected, how they were compressed, and what was blocked — full pipeline transparency inside the editor |
 
 ---
 
@@ -119,6 +120,18 @@ Note: without an integration layer (hooks), AIC relies on the model voluntarily 
 
 ---
 
+## Prompt commands
+
+Ask the model in your editor:
+
+```
+show aic status        # "Is it working?" — health check + lifetime stats
+show aic last          # "What just happened?" — what AIC sent to the model last time
+show aic chat summary  # this conversation's compilation stats
+```
+
+---
+
 ## How it works
 
 AIC's core pipeline processes context through a multi-step pipeline:
@@ -162,20 +175,6 @@ Blocked files are removed from the compiled context. Findings are attached to co
 
 ---
 
-## Developer utilities
-
-For inspection and debugging:
-
-```bash
-aic compile "fix the login bug"         # output the compiled prompt to stdout
-aic inspect "refactor auth module"      # full pipeline breakdown (no model call)
-aic status                              # project summary from local database
-aic report                              # write project status to a static HTML file
-aic init                                # scaffold aic.config.json, .aic/ directory, and .gitignore entry
-```
-
----
-
 ## Telemetry
 
 AIC records compilation telemetry locally in `.aic/aic.sqlite` — token counts, file selection, duration, cache hits. Never file paths, file content, prompts, or PII. Local-only by default; anonymous aggregate reporting is opt-in.
@@ -202,14 +201,14 @@ Current integration gaps are editor-specific — the core pipeline handles all c
 
 ## Documentation
 
-| Document                                                                   | Description                                                   |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| [`architecture.md`](documentation/architecture.md)                         | Two-layer design, editor hook capabilities, integration status |
-| [`best-practices.md`](documentation/best-practices.md)                     | Best practices for AI-assisted coding with AIC                |
-| [`project-plan.md`](documentation/project-plan.md)                         | Architecture, design principles, interfaces, ADRs, roadmap    |
-| [`mvp-specification-phase0.md`](documentation/mvp-specification-phase0.md) | Implementation details, pipeline spec, success criteria       |
-| [`security.md`](documentation/security.md)                                 | Security model, vulnerability reporting, compliance readiness |
-| [`mvp-progress.md`](documentation/mvp-progress.md)                         | Current progress, daily log                                   |
+| Document                                                         | Description                                                    |
+| ---------------------------------------------------------------- | -------------------------------------------------------------- |
+| [`architecture.md`](documentation/architecture.md)               | Two-layer design, editor hook capabilities, integration status |
+| [`best-practices.md`](documentation/best-practices.md)           | Best practices for AI-assisted coding with AIC                 |
+| [`project-plan.md`](documentation/project-plan.md)               | Architecture, design principles, interfaces, ADRs, roadmap     |
+| [`implementation-spec.md`](documentation/implementation-spec.md) | Implementation details, pipeline spec, success criteria        |
+| [`security.md`](documentation/security.md)                       | Security model, vulnerability reporting, compliance readiness  |
+| [`mvp-progress.md`](documentation/mvp-progress.md)               | Current progress, daily log                                    |
 
 ---
 
@@ -217,7 +216,7 @@ Current integration gaps are editor-specific — the core pipeline handles all c
 
 | Phase                           | Focus                                                                                  | Status      |
 | ------------------------------- | -------------------------------------------------------------------------------------- | ----------- |
-| MVP (`0.1.0`)                   | Core pipeline, transformers, Guard, telemetry, MCP server, CLI                         | Done        |
+| MVP (`0.1.0`)                   | Core pipeline, transformers, Guard, telemetry, MCP server                              | Done        |
 | Quality Release (`0.2.0`)       | Cursor integration layer, multi-language imports, intent-aware discovery, benchmarks   | In progress |
 | OSS Release (`1.0.0`)           | Public repo, Claude Code integration, agentic session tracking, Specification Compiler | Planned     |
 | Semantic + Governance (`2.0.0`) | Vector search, policy engine, conversation compression for agents                      | Planned     |

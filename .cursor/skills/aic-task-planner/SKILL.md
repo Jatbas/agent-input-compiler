@@ -43,7 +43,7 @@ The planner's natural bias is toward comprehensiveness — more types, more file
 
 1. `documentation/mvp-progress.md` — what is done, what is next
 2. `documentation/project-plan.md` — architecture, ADRs, conventions
-3. `documentation/mvp-specification-phase0.md` — detailed component specs
+3. `documentation/implementation-spec.md` — detailed component specs
 4. `documentation/security.md` — security constraints
 5. `.cursor/rules/AIC-architect.mdc` — active architectural rules
 6. Existing source in `shared/src/` — current interfaces, types, patterns
@@ -83,7 +83,7 @@ If `git pull --ff-only` fails (diverged history), tell the user: "Cannot fast-fo
 
 - `documentation/mvp-progress.md`
 - `documentation/project-plan.md`
-- `documentation/mvp-specification-phase0.md`
+- `documentation/implementation-spec.md`
 - `documentation/security.md`
 - `.cursor/rules/AIC-architect.mdc`
 - `shared/package.json`
@@ -149,7 +149,7 @@ Complete every item. Each produces evidence for the report. Items are organized 
    **When a sibling exists but has NOT yet extracted shared utilities (second-of-its-kind):** This is the critical extraction moment. Compare the new component's needs against the sibling's inline code. Any function that is structurally identical but differs only in callbacks, predicates, or config values MUST be extracted to a shared utility file as a prerequisite step in the task. Add "Create" or "Modify" rows to the Files table for the shared utility file, and a "Modify" row for the first sibling (to refactor it to use the new shared utility). Signs of extractable code: traversal logic parameterized only by node-type predicates, factory/builder functions parameterized only by config objects, collection logic parameterized only by filter functions, import-extraction logic parameterized only by node-type identifiers.
    **When first of its kind (no siblings):** Predict which parts of the component are generic vs specific. Generic code is logic whose structure would be identical in a future sibling with different config/predicates — e.g., a tree walker that takes a node-type predicate, a factory that takes a config object, a collector that takes a filter function. If 2+ functions are identified as generic, extract them to a shared utility file from day one so future siblings reuse them without refactoring. If all logic is genuinely specific (no parameterizable structure), document why in the exploration report.
    Record all findings in the SIBLING PATTERN field of the Exploration Report. Additionally, check if any existing class already solves part of the problem or if an existing interface could gain a method. Record reuse findings in the EXISTING SOLUTIONS field.
-7. **Cross-package duplication check** (conditional — if the task creates a new utility, helper, or factory function) — Grep the entire codebase for functionally equivalent code. Check `mcp/src/`, `cli/src/`, and `shared/src/` — not just the target layer. If equivalent logic already exists in another package, the task must either (a) extract the shared logic to `shared/` and modify both consumers, or (b) justify the duplication in Architecture Notes. Record in the EXISTING SOLUTIONS field.
+7. **Cross-package duplication check** (conditional — if the task creates a new utility, helper, or factory function) — Grep the entire codebase for functionally equivalent code. Check `mcp/src/` and `shared/src/` — not just the target layer. If equivalent logic already exists in another package, the task must either (a) extract the shared logic to `shared/` and modify both consumers, or (b) justify the duplication in Architecture Notes. Record in the EXISTING SOLUTIONS field.
 8. **Wiring completeness check** (conditional — composition root tasks) — For every function called in the wiring steps, verify that its return value is either (a) consumed by a subsequent step, or (b) the function is explicitly called for side effects only (document which side effects). If a function returns a rich object and only side effects are needed, note this in Architecture Notes as a follow-up to wire the return value when consumers are ready.
 
 **Batch B — fire in one parallel round after Batch A completes** (depends on interfaces, types, and library APIs discovered in Batch A):

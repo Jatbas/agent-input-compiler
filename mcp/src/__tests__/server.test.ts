@@ -44,16 +44,17 @@ describe("MCP server", () => {
     const names = result.tools.map((t) => t.name);
     expect(names).toContain("aic_compile");
     expect(names).toContain("aic_inspect");
+    expect(names).toContain("aic_chat_summary");
   });
 
-  it("session_summary_resource_returns_json", async () => {
+  it("status_resource_returns_json", async () => {
     tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
     server = createMcpServer(toAbsolutePath(tmpDir));
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
     await client.connect(transportClient);
-    const result = await client.readResource({ uri: "aic://session-summary" });
+    const result = await client.readResource({ uri: "aic://status" });
     expect(result.contents).toHaveLength(1);
     const first = result.contents[0];
     expect(first?.mimeType).toBe("application/json");
@@ -71,14 +72,14 @@ describe("MCP server", () => {
     ).toBe(true);
   });
 
-  it("session_summary_resource_empty_db", async () => {
+  it("status_resource_empty_db", async () => {
     tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
     server = createMcpServer(toAbsolutePath(tmpDir));
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
     await client.connect(transportClient);
-    const result = await client.readResource({ uri: "aic://session-summary" });
+    const result = await client.readResource({ uri: "aic://status" });
     const first = result.contents[0];
     const rawText: string =
       first && "text" in first && typeof first.text === "string" ? first.text : "{}";
@@ -95,13 +96,15 @@ describe("MCP server", () => {
       "installationNotes",
       "totalTokensRaw",
       "totalTokensCompiled",
+      "budgetMaxTokens",
+      "budgetUtilizationPct",
     ];
     for (const key of expectedKeys) {
       expect(Object.prototype.hasOwnProperty.call(parsed, key)).toBe(true);
     }
   });
 
-  it("last_compilation_resource_returns_json", async () => {
+  it("last_resource_returns_json", async () => {
     tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
     server = createMcpServer(toAbsolutePath(tmpDir));
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
@@ -112,7 +115,7 @@ describe("MCP server", () => {
       name: "aic_compile",
       arguments: { intent: "fix bug", projectRoot: tmpDir },
     });
-    const result = await client.readResource({ uri: "aic://last-compilation" });
+    const result = await client.readResource({ uri: "aic://last" });
     expect(result.contents).toHaveLength(1);
     expect(result.contents[0]?.mimeType).toBe("application/json");
     const text: string =
@@ -151,14 +154,14 @@ describe("MCP server", () => {
     }
   });
 
-  it("last_compilation_resource_empty_db", async () => {
+  it("last_resource_empty_db", async () => {
     tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
     server = createMcpServer(toAbsolutePath(tmpDir));
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
     await client.connect(transportClient);
-    const result = await client.readResource({ uri: "aic://last-compilation" });
+    const result = await client.readResource({ uri: "aic://last" });
     const first = result.contents[0];
     const rawText: string =
       first && "text" in first && typeof first.text === "string" ? first.text : "{}";
@@ -168,8 +171,11 @@ describe("MCP server", () => {
     };
     expect(parsed.compilationCount).toBe(0);
     expect(parsed.lastCompilation).toBeNull();
-    expect(Object.keys(parsed)).toHaveLength(2);
-    expect(Object.keys(parsed).sort()).toEqual(["compilationCount", "lastCompilation"]);
+    expect(Object.keys(parsed).sort()).toEqual([
+      "compilationCount",
+      "compiledPrompt",
+      "lastCompilation",
+    ]);
   });
 
   it("valid_args_returns_compiled_prompt", async () => {
@@ -220,7 +226,7 @@ describe("MCP server", () => {
     expect((result as { isError?: boolean }).isError).not.toBe(true);
   });
 
-  it("aic_conversation_summary_tool_returns_json_when_compilations_exist", async () => {
+  it("aic_chat_summary_tool_returns_json_when_compilations_exist", async () => {
     tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
     server = createMcpServer(toAbsolutePath(tmpDir));
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
@@ -237,7 +243,7 @@ describe("MCP server", () => {
       },
     });
     const result = await client.callTool({
-      name: "aic_conversation_summary",
+      name: "aic_chat_summary",
       arguments: { conversationId },
     });
     type ContentItem = { type: string; text?: string };
@@ -253,7 +259,7 @@ describe("MCP server", () => {
     expect(parsed.compilationsInConversation).toBeGreaterThanOrEqual(1);
   });
 
-  it("aic_conversation_summary_tool_returns_zero_when_no_compilations", async () => {
+  it("aic_chat_summary_tool_returns_zero_when_no_compilations", async () => {
     tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
     server = createMcpServer(toAbsolutePath(tmpDir));
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
@@ -261,7 +267,7 @@ describe("MCP server", () => {
     const client = new Client({ name: "test", version: "1.0" });
     await client.connect(transportClient);
     const result = await client.callTool({
-      name: "aic_conversation_summary",
+      name: "aic_chat_summary",
       arguments: { conversationId: "conv-unknown-no-rows" },
     });
     type ContentItem = { type: string; text?: string };

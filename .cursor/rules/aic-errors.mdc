@@ -1,6 +1,6 @@
 ---
 description: Error handling rules — custom error classes, no bare throws, composition root catches
-globs: shared/src/**/*.ts, mcp/src/**/*.ts, cli/src/**/*.ts
+globs: shared/src/**/*.ts, mcp/src/**/*.ts
 alwaysApply: false
 ---
 
@@ -51,10 +51,10 @@ Defined subclasses:
 - **Never** use `try/catch` for control flow — let errors propagate to the composition root
 - Exception: wrapping a dependency call that may throw, where the step must translate the error
 
-### Composition roots (`mcp/src/server.ts`, `cli/src/commands/*.ts`)
+### Composition root (`mcp/src/server.ts`)
 
 - Catch at the outermost boundary
-- Translate `AicError` subclasses into user-facing messages (CLI) or MCP error codes (server)
+- Translate `AicError` subclasses into MCP error codes
 - Log the full error at `error` level before returning
 - Never let an unhandled exception crash the process
 

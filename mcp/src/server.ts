@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -20,6 +21,7 @@ import { InspectRequestSchema } from "./schemas/inspect-request.schema.js";
 import { createCompileHandler } from "./handlers/compile-handler.js";
 import { handleInspect } from "./handlers/inspect-handler.js";
 import { closeDatabase } from "@aic/shared/storage/open-database.js";
+import { ConfigError } from "@aic/shared/core/errors/config-error.js";
 import { createProjectScope } from "@aic/shared/storage/create-project-scope.js";
 import { SqliteStatusStore } from "@aic/shared/storage/sqlite-status-store.js";
 import type { CacheStore } from "@aic/shared/core/interfaces/cache-store.interface.js";
@@ -32,6 +34,7 @@ import { STOP_REASON } from "@aic/shared/core/types/enums.js";
 import { createFullPipelineDeps } from "@aic/shared/bootstrap/create-pipeline-deps.js";
 import { installCursorHooks } from "./install-cursor-hooks.js";
 import { installTriggerRule } from "./install-trigger-rule.js";
+import { runInit } from "./init-project.js";
 import { runStartupSelfCheck } from "./startup-self-check.js";
 import {
   LoadConfigFromFile,
@@ -198,7 +201,7 @@ export function createMcpServer(
     handleInspect(args, inspectRunner),
   );
   server.tool(
-    "aic_conversation_summary",
+    "aic_chat_summary",
     "Get per-conversation AIC compilation summary.",
     ConversationSummaryRequestSchema,
     (args) => {
@@ -222,31 +225,54 @@ export function createMcpServer(
       });
     },
   );
-  server.resource("last-compilation", "aic://last-compilation", () => {
+  server.resource("last", "aic://last", () => {
     const statusStore = new SqliteStatusStore(scope.db, scope.clock);
     const summary = statusStore.getSummary();
+    const lastPromptPath = path.join(
+      scope.projectRoot,
+      ".aic",
+      "last-compiled-prompt.txt",
+    );
+    let compiledPrompt: string | null = null;
+    if (fs.existsSync(lastPromptPath)) {
+      try {
+        compiledPrompt = fs.readFileSync(lastPromptPath, "utf8");
+      } catch {
+        compiledPrompt = null;
+      }
+    }
     return {
       contents: [
         {
-          uri: "aic://last-compilation",
+          uri: "aic://last",
           mimeType: "application/json",
           text: JSON.stringify({
             compilationCount: summary.compilationsTotal,
             lastCompilation: summary.lastCompilation,
+            compiledPrompt,
           }),
         },
       ],
     };
   });
-  server.resource("session-summary", "aic://session-summary", () => {
+  server.resource("status", "aic://status", () => {
     const statusStore = new SqliteStatusStore(scope.db, scope.clock);
     const summary = statusStore.getSummary();
+    const budgetMaxTokens = budgetConfig.getMaxTokens();
+    const budgetUtilizationPct =
+      summary.lastCompilation !== null
+        ? (summary.lastCompilation.tokensCompiled / budgetMaxTokens) * 100
+        : null;
     return {
       contents: [
         {
-          uri: "aic://session-summary",
+          uri: "aic://status",
           mimeType: "application/json",
-          text: JSON.stringify(summary),
+          text: JSON.stringify({
+            ...summary,
+            budgetMaxTokens,
+            budgetUtilizationPct,
+          }),
         },
       ],
     };
@@ -271,7 +297,17 @@ export async function main(): Promise<void> {
 const isEntry =
   process.argv[1] !== undefined &&
   path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
-if (isEntry) {
+
+if (isEntry && process.argv[2] === "init") {
+  try {
+    runInit(toAbsolutePath(process.cwd()));
+    process.exit(0);
+  } catch (err) {
+    process.stderr.write(err instanceof Error ? err.message : String(err));
+    const code = err instanceof ConfigError ? 1 : 2;
+    process.exit(code);
+  }
+} else if (isEntry) {
   main().catch((err) => {
     process.stderr.write(String(err));
     process.exit(1);

@@ -19,7 +19,6 @@
     "skipLibCheck": true,
     "paths": {
       "@aic/shared/*": ["./shared/src/*"],
-      "@aic/cli/*": ["./cli/src/*"],
       "@aic/mcp/*": ["./mcp/src/*"]
     }
   }

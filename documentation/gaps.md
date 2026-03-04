@@ -65,16 +65,16 @@ Claude Code solves the two capabilities that are structurally impossible in Curs
 
 ---
 
-### GAP-03: Real `aic inspect` output in README
+### GAP-03: Real `aic_inspect` output in README
 
 **Status:** Actionable now
 **Impact:** Medium — the README shows a synthetic example instead of real output
 
-**What we have:** A working `aic inspect` command and a real project to run it on.
+**What we have:** A working `aic_inspect` MCP tool and a real project to run it on.
 
-**What we need:** Run `aic inspect` on a real project, capture the output, and replace the synthetic example in the README.
+**What we need:** Run `aic_inspect` on a real project, capture the output, and replace the synthetic example in the README.
 
-**Action:** Run `aic inspect "refactor auth module"` on a benchmark repo. Replace the synthetic output in the README with real output.
+**Action:** Run `aic_inspect "refactor auth module"` on a benchmark repo. Replace the synthetic output in the README with real output.
 
 ---
 
@@ -87,7 +87,7 @@ Claude Code solves the two capabilities that are structurally impossible in Curs
 **What we need:**
 
 1. **Telemetry source tracking** — distinguish hook-triggered compilations from model-triggered ones (Phase I: `triggerSource` field)
-2. ~~**Telemetry conversation tracking** — link compilations to conversation IDs~~ **Implemented for Cursor.** `conversation_id` is in schema and populated when Cursor sends it (sessionStart hook passes `session_id`, preToolUse hook injects `conversation_id` into aic_compile args). Remaining nulls are from CLI or MCP clients that do not identify as Cursor (see Research below).
+2. ~~**Telemetry conversation tracking** — link compilations to conversation IDs~~ **Implemented for Cursor.** `conversation_id` is in schema and populated when Cursor sends it (sessionStart hook passes `session_id`, preToolUse hook injects `conversation_id` into aic_compile args). Remaining nulls are from MCP clients that do not identify as Cursor (see Research below).
 3. Documentation explaining what these will enable (per-session cost analysis, adoption metrics)
 
 **Action:** Item 1 is in `mvp-progress.md` Phase I. Item 2 done for Cursor; summary/prompt cmd deferred to Phase 1.
@@ -128,37 +128,31 @@ Claude Code solves the two capabilities that are structurally impossible in Curs
 
 - The MCP server sets `editor_id` from (1) the client’s `initialize` handshake (`clientInfo.name`) and (2) the env fallback `CURSOR_AGENT === "1"` (see `mcp/src/detect-editor-id.ts`).
 - If the client does not send a name containing `"cursor"` and the process does not have `CURSOR_AGENT=1`, we get `generic`.
-- So `generic` means: CLI (no MCP), or an MCP connection that did not identify as Cursor (e.g. another IDE, test harness, or a Cursor subagent whose process does not set `CURSOR_AGENT` or whose client does not send a Cursor-like name).
+- So `generic` means: an MCP connection that did not identify as Cursor (e.g. another IDE, test harness, or a Cursor subagent whose process does not set `CURSOR_AGENT` or whose client does not send a Cursor-like name).
 
 **Why conversation_id is null for those rows**
 
-- For **CLI**: there is no conversation; null is expected.
-- For **MCP**: `conversation_id` is only set when the caller passes it in the tool arguments. Cursor’s preToolUse hook injects it only when Cursor provides `conversation_id` in the hook stdin. If the tool call is from a subagent or another process, either (a) the preToolUse hook does not run in that context, or (b) Cursor does not supply `conversation_id` in that hook invocation, so we have nothing to inject.
+- `conversation_id` is only set when the caller passes it in the tool arguments. Cursor’s preToolUse hook injects it only when Cursor provides `conversation_id` in the hook stdin. If the tool call is from a subagent or another process, either (a) the preToolUse hook does not run in that context, or (b) Cursor does not supply `conversation_id` in that hook invocation, so we have nothing to inject.
 
 **What we already support**
 
-- The compile handler **always** accepts `conversationId` in the tool args and persists it. So any caller (CLI, script, subagent) can pass `conversationId` and it will be stored.
+- The compile handler **always** accepts `conversationId` in the tool args and persists it. So any caller (script, subagent) can pass `conversationId` and it will be stored.
 - So we can get `conversation_id` even when `editor_id` is generic, as long as the caller sends it.
 
 **Options**
 
-1. **CLI**
-   - Add an optional `--conversation-id` to `aic compile` so scripts or wrappers can tag compilations (e.g. for grouping in telemetry).
-   - No change to MCP or hooks.
-
-2. **Cursor subagents**
+1. **Cursor subagents**
    - We cannot change Cursor. We can only document expectations:
      - If Cursor sets `CURSOR_AGENT=1` in the subagent’s MCP process env, we will treat it as Cursor and `editor_id` will be `cursor`.
      - If Cursor includes `conversation_id` in the preToolUse hook input for subagent tool calls, our inject hook will add it to the aic_compile args and we will persist it (even if `editor_id` stays `generic`).
    - So remaining nulls for subagent-like flows depend on Cursor’s behaviour (client name and/or `CURSOR_AGENT`, and hook input for subagent tool calls).
 
-3. **Other MCP clients**
+2. **Other MCP clients**
    - Any client can send `conversationId` in the `aic_compile` arguments; we will store it. No AIC code change required.
 
 **Conclusion**
 
-- Rows with `editor_id = generic` and null `conversation_id` are expected for CLI, or for MCP callers that do not identify as Cursor and do not pass `conversationId`.
-- To reduce nulls from scripts or automation, add optional `--conversation-id` to the CLI.
+- Rows with `editor_id = generic` and null `conversation_id` are expected for MCP callers that do not identify as Cursor and do not pass `conversationId`.
 - To get `conversation_id` (and optionally `editor_id = cursor`) for Cursor subagents, behaviour would need to come from Cursor (env and/or hook input); we already consume and persist whatever is passed.
 
 ---
@@ -179,7 +173,7 @@ Claude Code solves the two capabilities that are structurally impossible in Curs
 
 **What we have:** `CompilationRequest` has `editorId` but no indication of what triggered the compilation.
 
-**What we need:** An optional `triggerSource` field on `CompilationRequest` with values like `"session_start"`, `"prompt_submit"`, `"tool_gate"`, `"subagent_start"`, `"cli"`, `"model_initiated"`. This field is metadata — the pipeline ignores it, telemetry records it.
+**What we need:** An optional `triggerSource` field on `CompilationRequest` with values like `"session_start"`, `"prompt_submit"`, `"tool_gate"`, `"subagent_start"`, `"model_initiated"`. This field is metadata — the pipeline ignores it, telemetry records it.
 
 **Implementation:**
 
@@ -198,11 +192,11 @@ No core pipeline changes. Pipeline steps ignore the field. Only the telemetry lo
 **Status:** Blocked (needs real terminal recording)
 **Impact:** High — OSS browsers expect a visual demo in the first scroll; without one, many leave immediately
 
-**What we have:** A working `aic inspect` command and real projects to run it on.
+**What we have:** A working `aic_inspect` MCP tool and real projects to run it on.
 
-**What we need:** A terminal recording (GIF or animated SVG via asciinema/vhs) showing `aic inspect` running on a real project, placed at the top of the README near the one-liner.
+**What we need:** A screen recording showing AIC in action inside an editor — "show aic status" and "show aic last" prompt commands, and `aic_inspect` output. Placed at the top of the README near the one-liner.
 
-**Action:** Record `aic inspect` on a benchmark repo using a tool like `vhs` or `asciinema`. Convert to GIF. Embed in README above "Why use it."
+**Action:** Record a session showing AIC prompt commands in Cursor. Convert to GIF. Embed in README above "Why use it."
 
 ---
 
@@ -234,17 +228,17 @@ No core pipeline changes. Pipeline steps ignore the field. Only the telemetry lo
 
 ## Priority Order
 
-| Priority | Gap                                           | Effort                          | Impact                                           |
-| -------- | --------------------------------------------- | ------------------------------- | ------------------------------------------------ |
-| 1        | GAP-02: Build Claude Code integration layer   | Large (implementation)          | High — enables per-prompt + subagent compilation |
-| 2        | GAP-01: Benchmark token reduction numbers     | Large (Phase K)                 | High — core value proposition                    |
-| 3        | GAP-09: Visual demo in README                 | Small (terminal recording)      | High — first-impression impact for OSS browsers  |
-| 4        | GAP-10: Comparative benchmarks                | Medium (Phase K + analysis)     | High — team adoption requires comparison data    |
+| Priority | Gap                                           | Effort                          | Impact                                            |
+| -------- | --------------------------------------------- | ------------------------------- | ------------------------------------------------- |
+| 1        | GAP-02: Build Claude Code integration layer   | Large (implementation)          | High — enables per-prompt + subagent compilation  |
+| 2        | GAP-01: Benchmark token reduction numbers     | Large (Phase K)                 | High — core value proposition                     |
+| 3        | GAP-09: Visual demo in README                 | Small (terminal recording)      | High — first-impression impact for OSS browsers   |
+| 4        | GAP-10: Comparative benchmarks                | Medium (Phase K + analysis)     | High — team adoption requires comparison data     |
 | 5        | GAP-11: Multi-scale datapoints                | Medium (run on multiple repos)  | Medium — addresses "will this work on my project" |
-| 6        | GAP-08: `triggerSource` on CompilationRequest | Small (implementation)          | Medium — telemetry quality                       |
-| 7        | GAP-04: Telemetry story                       | Medium (implementation + docs)  | Medium — completeness                            |
-| 8        | GAP-03: Real inspect output                   | Small (run command + docs edit) | Medium — credibility                             |
-| 9        | GAP-06: Present-tense audit of project plan   | Small (docs edit)               | Low — polish                                     |
+| 6        | GAP-08: `triggerSource` on CompilationRequest | Small (implementation)          | Medium — telemetry quality                        |
+| 7        | GAP-04: Telemetry story                       | Medium (implementation + docs)  | Medium — completeness                             |
+| 8        | GAP-03: Real inspect output                   | Small (run command + docs edit) | Medium — credibility                              |
+| 9        | GAP-06: Present-tense audit of project plan   | Small (docs edit)               | Low — polish                                      |
 
 ### Resolved
 

@@ -2,7 +2,7 @@
 
 **Created:** 2026-02-28
 **Purpose:** Identify gaps, confusion points, and improvement opportunities in AIC's public-facing documentation by reading it through four distinct professional lenses.
-**Documents reviewed:** `README.md`, `documentation/mvp-specification-phase0.md`, `documentation/project-plan.md`
+**Documents reviewed:** `README.md`, `documentation/implementation-spec.md`, `documentation/project-plan.md`
 
 ---
 

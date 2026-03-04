@@ -14,12 +14,7 @@
         "tree-sitter-java"
       ]
     },
-    "mcp": {},
-    "cli": {
-      "entry": [],
-      "project": [],
-      "ignoreDependencies": ["zod"]
-    }
+    "mcp": {}
   },
   "ignoreExportsUsedInFile": true
 }

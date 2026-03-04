@@ -16,11 +16,11 @@ Prerequisite for everything else. Quick fixes to make the tool fully functional.
 | ------------------------------- | -------- | --------------------------------------------------------- |
 | FileSystemRepoMapSupplier       | Done     | shared/src/adapters/                                      |
 | createFullPipelineDeps          | Done     | shared/src/bootstrap                                      |
-| Wire real RepoMap in MCP/CLI    | Done     | mcp/, cli/                                                |
-| Wire real InspectRunner (CLI)   | Done     | cli/src/main.ts                                           |
-| Telemetry write on compile      | Done     | shared/src/core/ + mcp + cli                              |
+| Wire real RepoMap in MCP        | Done     | mcp/                                                      |
+| Wire real InspectRunner (MCP)   | Done     | mcp/src/                                                  |
+| Telemetry write on compile      | Done     | shared/src/core/ + mcp                                    |
 | Guard findings write on scan    | Done     | shared/src/storage/                                       |
-| Config loading from aic.config  | Done     | shared/src/config/ + mcp + cli                            |
+| Config loading from aic.config  | Done     | shared/src/config/ + mcp                                  |
 | Real token counting in repo map | Done     | shared/src/adapters/                                      |
 | WhitespaceNormalizer exclusions | Done     | shared/src/pipeline/                                      |
 | 002-server-sessions migration   | Done     | shared/src/storage/migrations/                            |
@@ -102,14 +102,28 @@ Incremental output quality improvements, measured by Phase K benchmarks. New tra
 
 User-facing polish. Comes last because it doesn't improve the core algorithm.
 
-| Component                                    | Status | Package      |
-| -------------------------------------------- | ------ | ------------ |
-| `aic://session-summary` resource             | Done   | mcp/src/     |
-| `aic://last-compilation` resource (fix stub) | Done   | mcp/src/     |
-| Conversation tracking: schema + plumbing     | Done   | shared + mcp |
-| Conversation tracking: summary + prompt cmd  | Done   | shared + mcp |
-| Budget utilization in status                 | Done   | cli/src/     |
-| `aic report` (static HTML)                   | Done   | cli/src/     |
+| Component                                                | Status | Package      |
+| -------------------------------------------------------- | ------ | ------------ |
+| `aic://status` resource (was `aic://session-summary`)    | Done   | mcp/src/     |
+| `aic://last` resource (was `aic://last-compilation`)     | Done   | mcp/src/     |
+| Conversation tracking: schema + plumbing                 | Done   | shared + mcp |
+| Conversation tracking: summary + prompt cmd              | Done   | shared + mcp |
+| Budget utilization in `aic://status`                     | Done   | mcp/src/     |
+| `aic_chat_summary` tool (was `aic_conversation_summary`) | Done   | mcp/src/     |
+
+### Phase M 0.5 — MCP-only (Drop CLI)
+
+CLI package removed. User questions ("Is it working?", "What just happened?", "How much has it saved me?") are answered via MCP resources and prompt commands inside the editor.
+
+| Component                                   | Status | Delivered as                                                                      |
+| ------------------------------------------- | ------ | --------------------------------------------------------------------------------- |
+| `aic last`                                  | Done   | `aic://last` resource + "show aic last" prompt command                            |
+| `aic last --full`                           | Done   | `compiledPrompt` field in `aic://last` (file: `.aic/last-compiled-prompt.txt`)    |
+| Redesign `aic status`                       | Done   | `aic://status` with `budgetMaxTokens`, `budgetUtilizationPct` + "show aic status" |
+| Remove `aic compile` / `inspect` / `report` | Done   | CLI package removed; MCP tools `aic_compile`, `aic_inspect` are the interface     |
+| `aic init`                                  | Done   | `npx @aic/mcp init` + auto-init on MCP startup (`ensureAicDir`)                   |
+| Init logic ported to MCP                    | Done   | `mcp/src/init-project.ts` with test                                               |
+| Update README                               | Done   | MCP-only branding, prompt command examples, CLI section replaced with Visibility  |
 
 ---
 
@@ -128,11 +142,11 @@ On MCP server startup, `createMcpServer` auto-installs the trigger rule (`.curso
 
 Remaining gaps:
 
-| Component                                         | Project plan says                                    | Actually implemented                                  | Gap         |
-| ------------------------------------------------- | ---------------------------------------------------- | ----------------------------------------------------- | ----------- |
-| Claude Code trigger rule (`.claude/CLAUDE.md`)    | Auto-install on MCP startup when editor=claude-code  | **No** — only `installTriggerRule` writes Cursor rule | **Missing** |
-| Claude Code hooks (`.claude/settings.local.json`) | Hook installer detects editor, writes hooks          | **No** — hooks exist in repo but not installed        | **Missing** |
-| Editor detection for init                         | MCP startup detects editor, writes to correct path   | **No** — hardcoded for Cursor only                    | **Missing** |
+| Component                                         | Project plan says                                   | Actually implemented                                  | Gap         |
+| ------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------- | ----------- |
+| Claude Code trigger rule (`.claude/CLAUDE.md`)    | Auto-install on MCP startup when editor=claude-code | **No** — only `installTriggerRule` writes Cursor rule | **Missing** |
+| Claude Code hooks (`.claude/settings.local.json`) | Hook installer detects editor, writes hooks         | **No** — hooks exist in repo but not installed        | **Missing** |
+| Editor detection for init                         | MCP startup detects editor, writes to correct path  | **No** — hardcoded for Cursor only                    | **Missing** |
 
 ---
 
@@ -210,15 +224,9 @@ Remaining gaps:
 | inspect handler         | Done   | mcp/src/         |
 | Zod schemas (MCP)       | Done   | mcp/src/schemas/ |
 
-### Phase G — CLI
+### Phase G — CLI (Archived)
 
-| Component         | Status | Package           |
-| ----------------- | ------ | ----------------- |
-| compile command   | Done   | cli/src/commands/ |
-| inspect command   | Done   | cli/src/commands/ |
-| status command    | Done   | cli/src/commands/ |
-| init command      | Done   | cli/src/commands/ |
-| Zod schemas (CLI) | Done   | cli/src/schemas/  |
+CLI package removed in Phase M 0.5. Init logic migrated to `mcp/src/init-project.ts`. Status, last, and chat summary served via MCP resources and tools.-.
 
 ### Phase H — Integration Tests
 
@@ -233,11 +241,12 @@ Remaining gaps:
 
 ### 2025-03-04
 
-**Components:** Budget utilization in status, `aic report` (static HTML)
+**Components:** Budget utilization in status, `aic report` (static HTML), Drop CLI package (Phase M 0.5)
 **Completed:**
 
 - Budget utilization in status (task 082): statusCommand resolves budget via LoadConfigFromFile.load(projectRoot, configPath ?? null), passes budget (result.config.contextBudget.maxTokens) to formatStatusOutput; formatStatusOutput gains third parameter budget: number and outputs "Budget utilization: X% (last: A/B)" when lastCompilation non-null, "Budget utilization: —" when null, placed after Total tokens saved and before Guard; three tests (budget_utilization_shown_with_default_budget, budget_utilization_dash_when_no_last_compilation, budget_utilization_uses_config_when_present). Lint, typecheck, test, knip (no new findings), lint:clones 0.
 - `aic report` (static HTML) (task 083): ReportArgsSchema (BaseArgs + outputPath); reportCommand with formatStatusAsHtml (escapeHtml for user-controlled strings), default output .aic/report.html via ensureAicDir; main.ts registers report command, createStatusRunner() shared with status; status-display.ts (buildStatusSections, formatLastCompilationTerminal/Html), status-flow.ts (loadStatusContext, handleStatusFlowResult) to eliminate clones; six tests (report_writes_html_file, report_no_database_exits_with_message, report_no_compilations_exits_with_message, report_uses_default_output_path, report_escapes_html_in_intent, report_runner_throws_propagates). Lint, typecheck, test, knip (no new findings), lint:clones 0.
+- Drop CLI package (Phase M 0.5): Entire `cli/` package removed (31 files). Init logic migrated to `mcp/src/init-project.ts` (ensureAicDir + config + trigger rule + hooks); `npx @aic/mcp init` entrypoint in mcp/src/server.ts (exit code 0 success, 1 ConfigError, 2 internal). MCP resources renamed: `aic://session-summary` → `aic://status` (now includes `budgetMaxTokens`, `budgetUtilizationPct`), `aic://last-compilation` → `aic://last` (now includes `compiledPrompt` from `.aic/last-compiled-prompt.txt`). MCP tool renamed: `aic_conversation_summary` → `aic_chat_summary`. Prompt commands in aic-architect.mdc updated: "show aic status", "show aic last", "show aic chat summary". compile-handler writes last prompt to `.aic/last-compiled-prompt.txt`. Monorepo config cleaned: pnpm-workspace, tsconfig, vitest, eslint, knip, root package.json. Test: mcp/**tests**/init-project.test.ts (5 cases), server.test.ts updated. Lint, typecheck, test, knip (no new findings).
 
 ### 2026-03-03
 
@@ -256,10 +265,10 @@ Remaining gaps:
 
 - Guard `warn` severity (task 081): GuardResult.filesWarned added; PromptInjectionScanner split into BLOCK_PATTERNS (special tokens, instruction blocks) and WARN_PATTERNS (text heuristics); ContextGuard computes warnedPaths (WARN findings whose file not in blockedSet); five new context-guard tests (warn_findings_do_not_block_files, block_injection_still_blocks, mixed_warn_and_block_different_files, mixed_severity_same_file_counts_as_blocked, clean_files_empty_filesWarned); instruction-override test asserts severity WARN; inspect-runner and build-telemetry-event mocks updated; golden snapshot updated. Lint, typecheck, test, lint:clones 0.
 - Transformer safety tests (task 080): Test-only backfill; added 3 safety tests to whitespace-normalizer.test.ts (safety_python_indentation_preserved, safety_yaml_structure_unchanged, safety_jsx_structure_unchanged); created comment-stripper.test.ts (6 functional + 7 safety), json-compactor.test.ts (3 functional + 1 safety), lock-file-skipper.test.ts (5 functional + 1 safety). All 26 test cases pass; lint, typecheck, test, lint:clones 0; knip no new findings.
-- SchemaFileCompactor (task 078): ContentTransformer that compacts schema files: JSON Schema (strip description, title, examples, $comment, default recursively), GraphQL (strip """ blocks and # line/EOL comments), Prisma (// and /// and /* */), Proto (// and /* */); detection by content ($schema or $ref at root) for JSON or by path (.graphql, .gql, .prisma, .proto); fileExtensions = []; wired after envExampleRedactor before htmlToMarkdownTransformer; thirteen tests (json_schema_*, graphql_*, prisma_*, proto_*, non_schema_*, empty_content, invalid_json, safety_*); token benchmark unchanged (1192); selection quality pass.
-- EnvExampleRedactor (task 077): ContentTransformer that redacts KEY=value to KEY=*** in .env.example, .env.sample, .env.template (basename starts with .env and ends with suffix); comment/blank lines preserved, export prefix and quoted values redacted; fileExtensions = []; wired after autoGeneratedSkipper before htmlToMarkdownTransformer; twelve tests (env_example_values_redacted, env_sample_values_redacted, env_template_values_redacted, comment_lines_preserved, export_prefix_redacted, quoted_values_redacted, non_env_example_path_unchanged, empty_content_returns_unchanged, env_local_example_path_matched, safety_python_indentation_preserved, safety_yaml_structure_unchanged, safety_jsx_structure_unchanged); token and selection benchmarks unchanged.
+- SchemaFileCompactor (task 078): ContentTransformer that compacts schema files: JSON Schema (strip description, title, examples, $comment, default recursively), GraphQL (strip """ blocks and # line/EOL comments), Prisma (// and /// and /* */), Proto (// and /* */); detection by content ($schema or $ref at root) for JSON or by path (.graphql, .gql, .prisma, .proto); fileExtensions = []; wired after envExampleRedactor before htmlToMarkdownTransformer; thirteen tests (json*schema*\_, graphql\__, prisma*\*, proto*_, non*schema*\_, empty*content, invalid_json, safety*\*); token benchmark unchanged (1192); selection quality pass.
+- EnvExampleRedactor (task 077): ContentTransformer that redacts KEY=value to KEY=\*\*\* in .env.example, .env.sample, .env.template (basename starts with .env and ends with suffix); comment/blank lines preserved, export prefix and quoted values redacted; fileExtensions = []; wired after autoGeneratedSkipper before htmlToMarkdownTransformer; twelve tests (env_example_values_redacted, env_sample_values_redacted, env_template_values_redacted, comment_lines_preserved, export_prefix_redacted, quoted_values_redacted, non_env_example_path_unchanged, empty_content_returns_unchanged, env_local_example_path_matched, safety_python_indentation_preserved, safety_yaml_structure_unchanged, safety_jsx_structure_unchanged); token and selection benchmarks unchanged.
 - AutoGeneratedSkipper (task 076): ContentTransformer that replaces content with `[Auto-generated: {name} — skipped]` when header region (first 30 lines or 2048 chars, whichever smaller) contains case-insensitive "code generated" or "auto-generated"; fileExtensions = []; wired after minifiedCodeSkipper before htmlToMarkdownTransformer; eight tests (code_generated_comment_returns_placeholder, hash_auto_generated_returns_placeholder, no_marker_returns_unchanged, empty_content_returns_unchanged, marker_beyond_header_unchanged, safety_python_indentation_preserved, safety_yaml_structure_unchanged, safety_jsx_structure_unchanged); token and selection benchmarks unchanged.
-- YamlCompactor (task 075): ContentTransformer that compacts YAML: strip whole-line comments (/^\s*#/), normalize indent to 2 spaces per level (detect step from first non-empty/min positive indent), collapse single-key blocks to flow form key: { childKey: value }; fileExtensions = [".yaml", ".yml"]; wired after htmlToMarkdownTransformer before svgDescriber; seven tests (comment_lines_removed, indent_normalized, single_value_map_collapsed, empty_content_returns_unchanged, no_yaml_pattern_unchanged, safety_yaml_structure_preserved, safety_yml_extension_same_behavior); token benchmark unchanged (1192); lint, typecheck, test, lint:clones 0.
+- YamlCompactor (task 075): ContentTransformer that compacts YAML: strip whole-line comments (/^\s\*#/), normalize indent to 2 spaces per level (detect step from first non-empty/min positive indent), collapse single-key blocks to flow form key: { childKey: value }; fileExtensions = [".yaml", ".yml"]; wired after htmlToMarkdownTransformer before svgDescriber; seven tests (comment_lines_removed, indent_normalized, single_value_map_collapsed, empty_content_returns_unchanged, no_yaml_pattern_unchanged, safety_yaml_structure_preserved, safety_yml_extension_same_behavior); token benchmark unchanged (1192); lint, typecheck, test, lint:clones 0.
 - MinifiedCodeSkipper (task 074): ContentTransformer that replaces minified/build file content with placeholder [Minified: {name}, {bytes} bytes — skipped] for .min.js, .min.css, dist/, build/ paths; fileExtensions = []; isMinifiedPath + lastSegment helpers; wired after lockFileSkipper before htmlToMarkdownTransformer; nine tests (min_js_path_returns_placeholder, min_css_path_returns_placeholder, dist_segment_returns_placeholder, build_segment_returns_placeholder, non_minified_path_returns_unchanged, empty_content_returns_unchanged, safety_python_indentation_preserved, safety_yaml_structure_unchanged, safety_jsx_structure_unchanged); token benchmark unchanged (1192); lint, typecheck, test, lint:clones 0.
 - SvgDescriber (task 073): ContentTransformer that replaces full SVG content with placeholder [SVG: {viewBox}, {elementCount} elements, {bytes} bytes]; extract viewBox from first <svg (or "—"), count opening tags, byte length; fileExtensions = [".svg"]; wired after htmlToMarkdownTransformer before cssVariableSummarizer; six tests (viewbox_and_elements_described, no_viewbox_uses_placeholder, empty_content_returns_unchanged, single_element_count, safety_svg_placeholder_format, safety_svg_extension_same_behavior); token benchmark unchanged (1192).
 - HtmlToMarkdownTransformer (task 072): ContentTransformer that converts HTML to Markdown; strip script/style blocks (case-insensitive), block tags (h1–h6, p, li, br) to Markdown, inline (a, strong/b, em/i, code) with recursive pass for nesting, strip remaining tags, normalize whitespace; fileExtensions = [".html", ".htm"]; wired after lockFileSkipper before cssVariableSummarizer; seven tests (html_heading_converted, html_link_converted, script_block_stripped, style_block_stripped, empty_content_returns_unchanged, safety_html_structure_markdown_valid, safety_htm_extension_same_behavior); token benchmark unchanged (1192). Verification: 17/17 dimensions pass (one fix during implementation: no let — refactored to reduce for block replacements, recursive helper for inline passes).
@@ -414,7 +423,7 @@ Remaining gaps:
 - Phase B domain types (task-classification, rule-pack, selected-file, guard-types, transform-types, repo-map, compilation-types, telemetry-types)
 - Phase B port interfaces (intent-classifier, rule-pack-resolver, budget-allocator, context-selector, context-guard, guard-scanner, content-transformer, content-transformer-pipeline, summarisation-ladder, prompt-assembler, cache-store, telemetry-store, config-store, guard-store)
 - Types barrel and ISP split for CachedCompilation/TelemetryEvent into core/types
-- Renamed documentation files to kebab-case (`project-plan.md`, `mvp-specification-phase0.md`)
+- Renamed documentation files to kebab-case (`project-plan.md`, `implementation-spec.md`)
 - Added file naming conventions to Cursor rules and CLAUDE.md
 - Configured pnpm workspaces (`shared`, `cli`, `mcp`)
 - Created per-package `tsconfig.json` with project references

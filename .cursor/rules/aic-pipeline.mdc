@@ -51,7 +51,7 @@ These are enforced by ESLint and will fail CI:
 2. Define input/output types in `shared/src/core/types/`
 3. Implement the step in `shared/src/pipeline/<step-name>/<step-name>.ts`
 4. Add event type to `PipelineEventType` if the step emits events
-5. Register in the composition roots (`mcp/src/server.ts`, `cli/src/commands/*.ts`)
+5. Register in the composition root (`mcp/src/server.ts`)
 6. Add unit tests in `shared/src/pipeline/<step-name>/__tests__/`
 7. No changes to existing pipeline steps are expected or needed (OCP)
 

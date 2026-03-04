@@ -1,4 +1,4 @@
 {
   "files": [],
-  "references": [{ "path": "shared" }, { "path": "cli" }, { "path": "mcp" }]
+  "references": [{ "path": "shared" }, { "path": "mcp" }]
 }

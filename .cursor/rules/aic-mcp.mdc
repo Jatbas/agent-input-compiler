@@ -93,12 +93,10 @@ See `AIC-errors.mdc §Error response sanitization` for the full rules.
 - Every pipeline class, adapter, and store is instantiated here
 - Dependencies are wired via constructor injection
 - No `new` anywhere else in `mcp/src/`
-- This is the same pattern used by `cli/src/commands/*.ts`
 
 ## Import Restrictions
 
 Files in `mcp/src/`:
 
 - **May** import from `@aic/shared` (pipeline, core, adapters, storage)
-- **Must not** import from `@aic/cli` or `cli/src/`
 - **Must not** import Node.js APIs except in the composition root (for process lifecycle)

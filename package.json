@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "clean": "rm -rf shared/dist cli/dist mcp/dist && find . -name '*.tsbuildinfo' -not -path './node_modules/*' -delete && rm -rf coverage .turbo",
+    "clean": "rm -rf shared/dist mcp/dist && find . -name '*.tsbuildinfo' -not -path './node_modules/*' -delete && rm -rf coverage .turbo",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
@@ -18,9 +18,8 @@
     "test": "vitest run",
     "test:watch": "vitest --watch",
     "dev:mcp": "tsx mcp/src/server.ts",
-    "dev:cli": "tsx cli/src/main.ts",
     "knip": "knip",
-    "lint:clones": "jscpd shared/src mcp/src cli/src",
+    "lint:clones": "jscpd shared/src mcp/src",
     "bench": "echo 'No benchmarks configured yet (Phase 0.5+)'",
     "prepare": "husky"
   },

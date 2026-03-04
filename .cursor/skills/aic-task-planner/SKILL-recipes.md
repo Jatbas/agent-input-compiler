@@ -100,17 +100,17 @@ Type field → Column:
 
 ---
 
-## Composition root recipe (mcp/src/server.ts, cli/src/commands/\*.ts)
+## Composition root recipe (mcp/src/server.ts)
 
 Composition roots are fundamentally different from all other components. They do NOT implement an interface — they **wire** interfaces to concrete implementations. All the rules that ban `new`, Node APIs, and direct library imports in other layers exist precisely because composition roots are the ONE place where those things happen.
 
-**Identifying a composition root:** If the component's job is to instantiate concrete classes, open databases, connect transports, register handlers, or start a process — it is a composition root. Examples: `mcp/src/server.ts`, `cli/src/commands/compile.ts`.
+**Identifying a composition root:** If the component's job is to instantiate concrete classes, open databases, connect transports, register handlers, or start a process — it is a composition root. Example: `mcp/src/server.ts`.
 
 **Files pattern:**
 
 | Action | Path                                                       |
 | ------ | ---------------------------------------------------------- |
-| Create | `mcp/src/server.ts` (or `cli/src/commands/[name].ts`)      |
+| Create | `mcp/src/server.ts`                                        |
 | Create | `mcp/src/__tests__/server.test.ts` (or corresponding test) |
 | Modify | `shared/package.json` (if exports needed)                  |
 | Modify | `[package]/package.json` (if dependencies needed)          |
@@ -164,7 +164,7 @@ Each provider gets one `const` line; the return statement spreads them all. New 
 
 **Shared expensive init:** When multiple providers share an expensive initialization step (e.g. `Parser.init()` for WASM-based tree-sitter providers), factor it into the orchestrating function (`initLanguageProviders`) rather than duplicating it in each provider's `create()` factory. Call it once before creating any provider that depends on it.
 
-**Wiring steps must be split per file:** When a task wires into multiple composition roots (e.g. both `mcp/src/server.ts` and `cli/src/main.ts`), split into separate steps (Step 5a, Step 5b) — one per file. The one-file-per-step guardrail applies even for near-identical changes.
+**Wiring steps must be split per file:** When a task wires into multiple files within the composition root, split into separate steps (Step 5a, Step 5b) — one per file. The one-file-per-step guardrail applies even for near-identical changes.
 
 **Shared vs. single-file library imports in ESLint:** When restricting library imports via ESLint, distinguish between:
 

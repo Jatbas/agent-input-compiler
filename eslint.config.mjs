@@ -60,7 +60,7 @@ const MATH_RANDOM = {
 const NEW_DATABASE = {
   selector: 'NewExpression[callee.name="Database"]',
   message:
-    "Receive the Database instance via constructor injection. Only composition roots (mcp/src/server.ts, cli/src/commands/) may call new Database(). See DIP.",
+    "Receive the Database instance via constructor injection. Only composition root (mcp/src/server.ts) may call new Database(). See DIP.",
 };
 
 const IF_CHAIN_BAN = {
@@ -977,44 +977,6 @@ export default tseslint.config(
     files: ["**/*.interface.ts"],
     rules: {
       "no-restricted-syntax": ["error", ...INTERFACE_FILE_RESTRICTED],
-    },
-  },
-
-  // ─── CLI boundary ───────────────────────────────────────────────────
-  // CLI imports adapters from @aic/shared — never external libs directly.
-  // Exception: zod (CLI parser is a validation boundary per ADR-009).
-  {
-    files: ["cli/src/**/*.ts"],
-    rules: {
-      "no-restricted-imports": [
-        "error",
-        {
-          paths: [
-            {
-              name: "tiktoken",
-              message:
-                "Import the Tokenizer adapter from @aic/shared, not tiktoken directly.",
-            },
-            {
-              name: "fast-glob",
-              message:
-                "Import the GlobProvider adapter from @aic/shared, not fast-glob directly.",
-            },
-            {
-              name: "ignore",
-              message:
-                "Import the IgnoreProvider adapter from @aic/shared, not ignore directly.",
-            },
-          ],
-          patterns: [
-            BAN_RELATIVE_PARENT,
-            {
-              group: ["@aic/mcp", "@aic/mcp/*", "**/mcp/**"],
-              message: "CLI must not import MCP code.",
-            },
-          ],
-        },
-      ],
     },
   },
 

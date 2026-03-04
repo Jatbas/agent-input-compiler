@@ -1,3 +1,5 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
 import {
   McpError,
   ErrorCode,
@@ -64,6 +66,16 @@ export function createCompileHandler(
         telemetryDeps,
         (msg) => process.stderr.write(msg),
       );
+      const lastPromptPath = path.join(
+        request.projectRoot,
+        ".aic",
+        "last-compiled-prompt.txt",
+      );
+      try {
+        fs.writeFileSync(lastPromptPath, result.compiledPrompt, "utf8");
+      } catch {
+        // Non-fatal — do not fail the request
+      }
       const reinforcement =
         "\n\nIMPORTANT: On your NEXT message in this conversation, call aic_compile again BEFORE doing anything else. Every message needs fresh context — do not reuse this result.";
       return {

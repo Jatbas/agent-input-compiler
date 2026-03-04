@@ -26,8 +26,7 @@
    - 4.4 [Architecture Decision Records (ADRs)](#44-architecture-decision-records-adrs)
 5. [Multi-Project Support](#5-multi-project-support)
 6. [Configuration — `aic.config.json`](#6-configuration--aicconfigjson)
-7. [CLI Specification](#7-cli-specification)
-   - 7.1 [`aic compare` Specification](#71-aic-compare-specification)
+7. [User Interface (MCP-Only)](#7-user-interface-mcp-only)
 8. [ContextSelector Interface](#8-contextselector-interface)
    - 8.1 [LanguageProvider Interface](#81-languageprovider-interface)
    - 8.2 [ModelClient Interface](#82-modelclient-interface)
@@ -70,7 +69,7 @@ AIC is a **local-first context compilation layer** that runs as an **MCP server*
 { "mcpServers": { "aic": { "command": "npx", "args": ["@aic/mcp"] } } }
 ```
 
-**Package:** `@aic/mcp` — the MCP server (primary). `@aic/cli` — developer inspection utilities (secondary).
+**Package:** `@aic/mcp` — the MCP server. Single package; no separate CLI.
 
 ### Non-Goals (Phase 0 / MVP)
 
@@ -79,7 +78,7 @@ These are explicitly out of scope for the MVP. Documenting them here prevents sc
 | Non-Goal                          | Rationale                                                                                                                                            |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Replacing your AI editor**      | AIC enhances the context going in; it never replaces Cursor, Claude Code, or any editor                                                              |
-| **Calling models directly**       | AIC compiles context; the editor's configured model makes the actual call (unless `aic run` used as a utility)                                       |
+| **Calling models directly**       | AIC compiles context; the editor's configured model makes the actual call                                                                            |
 | **Cross-project shared database** | Per-project isolation is a core principle (ADR-005); global state adds coupling and privacy risk                                                     |
 | **Multi-model orchestration**     | Single model per session; routing/fallback is Phase 2+                                                                                               |
 | **Cloud or SaaS deployment**      | Local-first by design; no server, no account, no internet required for AIC itself                                                                    |
@@ -137,7 +136,7 @@ Each class has exactly one reason to change. Every pipeline step is a single cla
 | `AdaptiveBudgetAllocator` _(Phase 1+)_ | Adjust token budget for conversation length and project utilization patterns → `number` (see [§2.7](#27-agentic-workflow-support))  |
 | `SpecificationCompiler` _(Phase 1+)_   | Compile structured specification context within a token budget → `SpecCompilationResult` (see [§2.7](#27-agentic-workflow-support)) |
 
-No pipeline class touches storage, no storage class touches prompt logic, no CLI class contains business logic.
+No pipeline class touches storage, no storage class touches prompt logic, no MCP handler contains business logic.
 
 #### O — Open/Closed Principle
 
@@ -172,7 +171,7 @@ Interfaces are small and focused. No class is forced to implement methods it doe
 
 #### D — Dependency Inversion Principle
 
-All pipeline steps depend on abstractions, not concrete implementations. Concrete classes are wired at the composition root (MCP server handler or CLI command), not inside pipeline logic.
+All pipeline steps depend on abstractions, not concrete implementations. Concrete classes are wired at the composition root (`mcp/server.ts`), not inside pipeline logic.
 
 ```typescript
 // ✅ Correct — step6 depends on the interface
@@ -186,7 +185,7 @@ class SummarisationLadder {
 }
 ```
 
-The MCP server handler (`mcp/server.ts`) and CLI command files (`compile.ts`, `run.ts`, etc.) are the only places where concrete classes are instantiated and injected.
+The MCP server handler (`mcp/server.ts`) is the only place where concrete classes are instantiated and injected.
 
 ---
 
@@ -202,7 +201,7 @@ The MCP server handler (`mcp/server.ts`) and CLI command files (`compile.ts`, `r
 | **Chain of Responsibility** | `ContextGuard` — ordered scanner chain                              | Secret scanner, exclusion-pattern scanner, and prompt-injection scanner run in order; each can block a file independently                   |
 | **Registry**                | `ProviderRegistry`, `ModelAdapterRegistry`, `EditorAdapterRegistry` | Decouple lookup from instantiation; new adapters self-register                                                                              |
 | **Factory**                 | `ModelAdapterFactory`                                               | Resolve the correct `ModelAdapter` from detected or configured model ID; falls back to `GenericModelAdapter`                                |
-| **Facade**                  | MCP server request handler + CLI commands                           | Thin wrappers that wire pipeline + adapters; no business logic at the edge                                                                  |
+| **Facade**                  | MCP server request handler                                          | Thin wrapper that wires pipeline + adapters; no business logic at the edge                                                                  |
 | **Builder**                 | `PromptAssembler`                                                   | Constructs the final prompt step-by-step (task block → context block → constraints block → format block), each block independently testable |
 | **Observer**                | `TelemetryLogger`                                                   | Observes pipeline completion events; pipeline steps do not call the logger directly — they emit events                                      |
 | **Null Object**             | `GenericProvider`, `GenericModelAdapter`                            | Safe defaults for unsupported languages/models; return empty/estimated values instead of throwing                                           |
@@ -254,7 +253,7 @@ The editor's model, endpoint, and API key are **never touched by AIC**. AIC only
 
 ### 2.2.1 Integration Layer & Enforcement
 
-AIC's core pipeline handles every compilation scenario identically — it receives a `CompilationRequest`, runs the pipeline, and returns compiled context. The pipeline doesn't know or care whether it was triggered by a session-start hook, a per-prompt hook, a subagent hook, or a CLI invocation. This is by design: the core is complete, and the only variable is **when** and **how** the editor calls it.
+AIC's core pipeline handles every compilation scenario identically — it receives a `CompilationRequest`, runs the pipeline, and returns compiled context. The pipeline doesn't know or care whether it was triggered by a session-start hook, a per-prompt hook, a subagent hook, or a direct MCP tool call. This is by design: the core is complete, and the only variable is **when** and **how** the editor calls it.
 
 The **integration layer** is a thin set of hook scripts, specific to each editor, that call `aic_compile` at the right moments in the editor's lifecycle. Because AIC follows SOLID principles (dependency injection, single responsibility), adding a new integration layer means writing new hook scripts that call the same core pipeline — no core changes required.
 
@@ -318,9 +317,9 @@ _Claude Code_ — add to `~/.claude/settings.json`:
 npx @aic/mcp init
 ```
 
-Detects your editor, writes the trigger rule to the correct rule file (`.cursor/rules/aic.mdc` for Cursor, `.claude/CLAUDE.md` for Claude Code), and creates `.aic/` with `0700` permissions. No `aic.config.json` is created — that is a separate step via `aic init` (CLI) if customisation is needed.
+Detects your editor, writes the trigger rule to the correct rule file (`.cursor/rules/aic.mdc` for Cursor, `.claude/CLAUDE.md` for Claude Code), creates `aic.config.json` with defaults, installs editor hooks, and creates `.aic/` with `0700` permissions.
 
-That's it. With the Cursor integration layer (hooks installed by `aic init`), AIC compiles context at session start and enforces compilation on tool-using turns. In editors without hook support, AIC relies on the trigger rule and the model's willingness to call `aic_compile`.
+That's it. With the Cursor integration layer (hooks installed by `npx @aic/mcp init`), AIC compiles context at session start and enforces compilation on tool-using turns. In editors without hook support, AIC relies on the trigger rule and the model's willingness to call `aic_compile`.
 
 ### Model Auto-detection
 
@@ -352,10 +351,11 @@ AIC exposes two MCP tools and two MCP resources:
 
 **Resources:**
 
-| Resource URI             | Format                       | Content                                                        |
-| ------------------------ | ---------------------------- | -------------------------------------------------------------- |
-| `aic://last-compilation` | JSON                         | Full `CompilationMeta` from the most recent `aic_compile` call |
-| `aic://rules-analysis`   | JSON (`RulesAnalysisResult`) | Latest findings from the Rules & Hooks Analyzer                |
+| Resource URI           | Format                       | Content                                                                       |
+| ---------------------- | ---------------------------- | ----------------------------------------------------------------------------- |
+| `aic://status`         | JSON                         | Project-level summary: compilations, token savings, budget utilization, guard |
+| `aic://last`           | JSON                         | Most recent compilation: meta, compiled prompt, compilation count             |
+| `aic://rules-analysis` | JSON (`RulesAnalysisResult`) | Latest findings from the Rules & Hooks Analyzer                               |
 
 ### Core MCP Types
 
@@ -556,19 +556,18 @@ AIC uses **manual constructor injection** with no DI framework. This keeps start
 
 ### Rule
 
-Concrete classes are instantiated **only** in composition roots. There are two composition roots:
+Concrete classes are instantiated **only** in the composition root:
 
-1. **MCP server request handler** (`mcp/server.ts`) — the primary runtime
-2. **CLI command files** (`cli/commands/*.ts`) — developer utility entrypoints
+1. **MCP server request handler** (`mcp/server.ts`) — the sole runtime entrypoint
 
 All other files receive their dependencies through their constructor and never call `new` on anything except primitive value objects.
 
 ### Composition template
 
-The MCP server handler and every CLI command follow the same wiring order:
+The MCP server handler follows this wiring order:
 
 ```typescript
-// cli/commands/compile.ts  (one of two composition roots; mcp/server.ts follows the same pattern)
+// mcp/server.ts  (composition root)
 // All pipeline/provider/storage classes live in @aic/shared; only edge-specific code lives here.
 import { TaskClassifier } from "@aic/shared/pipeline/step1-classifier/task-classifier";
 import { RulePackResolver } from "@aic/shared/pipeline/step2-rule-resolver/rule-pack-resolver";
@@ -624,8 +623,7 @@ export function registerCompileCommand(program: Command): void {
     const ladder = new SummarisationLadder(registry, tokenizer);
     const injector = new ConstraintInjector();
     const assembler = new PromptAssembler(tokenizer);
-    // Note: Executor (Step 9) is not wired here — `aic compile` stops at Step 8.
-    //       It is wired in cli/commands/run.ts.
+    // Note: Executor (Step 9) is not wired here — `aic_compile` stops at Step 8.
 
     // 6. Attach telemetry observer (no-op if telemetry disabled)
     const logger = new TelemetryLogger(
@@ -645,7 +643,7 @@ export function registerCompileCommand(program: Command): void {
 | Rule                                                  | Detail                                                                                                                                        |
 | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | **One `new` per concrete class per composition root** | Never instantiate the same class twice in the same root                                                                                       |
-| **No `new` outside composition roots**                | Only `mcp/server.ts` and `cli/commands/*.ts`; if a pipeline class needs a dependency, add a constructor parameter                             |
+| **No `new` outside composition roots**                | Only `mcp/server.ts`; if a pipeline class needs a dependency, add a constructor parameter                                                     |
 | **Infrastructure first, pipeline second**             | Always construct `Tokenizer`, `EventBus`, and stores before pipeline steps                                                                    |
 | **RepoMap built before pipeline invocation**          | `RepoMapBuilder.build()` must complete before the pipeline run starts (`HeuristicSelector.selectContext()` receives `repoMap` as a parameter) |
 | **Providers registered before selector**              | `ProviderRegistry` must be fully populated before `HeuristicSelector` or `SummarisationLadder` receive it                                     |
@@ -721,7 +719,7 @@ The core pipeline (Steps 1–10) remains unchanged. A new **Session Layer** sits
 
 ### Extended `CompilationRequest` (backward-compatible)
 
-All session fields are optional. Existing single-shot callers (non-agentic editors, `aic compile` CLI) continue to work identically — they simply don't send session parameters. When session fields are absent, the pipeline behaves exactly as it does today.
+All session fields are optional. Existing single-shot callers (non-agentic editors, direct MCP tool calls) continue to work identically — they simply don't send session parameters. When session fields are absent, the pipeline behaves exactly as it does today.
 
 ```typescript
 interface CompilationRequest {
@@ -819,9 +817,9 @@ availableBudget = modelContextWindow - reservedResponse - conversationTokens - t
 
 #### Utilization-based learning (Phase 0.5 feedback → Phase 1 auto-tuning)
 
-The MVP's formula-derived `suggestedBudget` (see [MVP Spec — Model-Specific Budget Profiles](mvp-specification-phase0.md#model-specific-budget-profiles)) provides a sensible starting point but cannot account for project-specific characteristics. A 50-file microservice and a 5,000-file monorepo have very different context needs. The adaptive path uses `compilation_log` data — already collected in MVP — to close this gap:
+The MVP's formula-derived `suggestedBudget` (see [MVP Spec — Model-Specific Budget Profiles](implementation-spec.md#model-specific-budget-profiles)) provides a sensible starting point but cannot account for project-specific characteristics. A 50-file microservice and a 5,000-file monorepo have very different context needs. The adaptive path uses `compilation_log` data — already collected in MVP — to close this gap:
 
-**Phase 0.5 — Utilization feedback:** `aic status` analyses recent `compilation_log` entries and surfaces actionable recommendations:
+**Phase 0.5 — Utilization feedback:** The `aic://status` resource analyses recent `compilation_log` entries and surfaces actionable recommendations:
 
 - If compilations consistently use <50% of budget → recommend lowering `windowRatio`
 - If compilations consistently hit L2+ Summarisation Ladder tiers → recommend raising `windowRatio`
@@ -930,13 +928,13 @@ The algorithm is deterministic: same input + same budget = same compiled specifi
 
 **Exposed via MCP:**
 
-The `aic_compile_spec` MCP tool (see [§2.2](#22-mcp-server--primary-interface)) exposes this capability. Callers pass a `SpecificationInput` and optional budget; the tool returns the compiled specification and metadata. The CLI equivalent is `aic compile-spec` (Phase 1).
+The `aic_compile_spec` MCP tool (see [§2.2](#22-mcp-server--primary-interface)) exposes this capability. Callers pass a `SpecificationInput` and optional budget; the tool returns the compiled specification and metadata.
 
 **What this enables:**
 
 - Task planning tools can call `aic_compile_spec` to produce optimally-sized task briefings for executor agents
 - The same pipeline that compiles code context now compiles specification context — AIC uses its own product on its own process
-- Specification compilation is deterministic and inspectable via `aic inspect` — two planners producing the same exploration report get the same compiled task file
+- Specification compilation is deterministic and inspectable via `aic_inspect` — two planners producing the same exploration report get the same compiled task file
 
 ### Cache Keying for Sessions
 
@@ -947,7 +945,7 @@ The current cache key is `hash(intent + config + fileTreeHash)`. For agentic ses
 | Phase       | Agentic capability                                                                                                                                                                                               | Notes                                                                                    |
 | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | **0 (MVP)** | Formula-derived budget from model context window. Single-shot compilation. Agentic editors can call `aic_compile` per-step with different `intent` strings — functional but not optimized.                       | Budget scales automatically with new models; agents work, just without session awareness |
-| **0.5**     | `aic://session-summary` resource provides read-only view of recent compilations. **Budget utilization feedback** in `aic status` recommends `windowRatio` adjustments based on `compilation_log` history         | Lightweight; uses existing `compilation_log` data; no new schema                         |
+| **0.5**     | `aic://status` resource provides read-only view of recent compilations with budget utilization. Prompt commands ("show aic status") surface recommendations based on `compilation_log` history                   | Lightweight; uses existing `compilation_log` data; no new schema                         |
 | **1**       | Session Tracker + extended `CompilationRequest` + **Adaptive Budget Allocator** (conversation-length + utilization-based auto-tuning) + Specification Compiler (`aic_compile_spec`) + session-aware cache keying | Core agentic support; backward-compatible; no pipeline changes                           |
 | **2**       | Conversation Compressor + editor-specific conversation adapters                                                                                                                                                  | Requires MCP extensions or editor-specific negotiation for conversation history access   |
 
@@ -958,7 +956,7 @@ Even before any agentic-specific code ships, AIC provides value in agentic workf
 1. **Security is maintained**: Context Guard runs on every `aic_compile` call, regardless of session state. Secrets are blocked at every agent step.
 2. **Per-step compilation works**: If the agent calls `aic_compile` with a different intent each time, AIC compiles fresh context. The agent gets relevant files per step — just without session deduplication or conversation compression.
 3. **Token reduction per call**: Each compilation reduces tokens compared to the model reading raw files. When the agent makes multiple compilation calls per task, the savings apply to each one.
-4. **Determinism across steps**: Each step's compilation is deterministic, making agentic workflows reproducible and debuggable via `aic inspect`.
+4. **Determinism across steps**: Each step's compilation is deterministic, making agentic workflows reproducible and debuggable via `aic_inspect`.
 
 ### Agentic Limitations (Current)
 
@@ -1033,7 +1031,7 @@ A rule pack is a JSON file that configures constraints and context selection for
 }
 ```
 
-**Merge behavior:** When multiple packs apply, arrays (`constraints`, `includePatterns`, `excludePatterns`) are concatenated and deduplicated. Scalar values (`budgetOverride`) use last-wins within the rule-pack layer only (project > task-specific > default). The `--budget` CLI flag always overrides all rule-pack and config values — it is never part of the rule-pack merge.
+**Merge behavior:** When multiple packs apply, arrays (`constraints`, `includePatterns`, `excludePatterns`) are concatenated and deduplicated. Scalar values (`budgetOverride`) use last-wins within the rule-pack layer only (project > task-specific > default). The `budgetOverride` in `CompilationRequest` always overrides all rule-pack and config values — it is never part of the rule-pack merge.
 
 **`RulePack` TypeScript interface** (the merged result produced by `RulePackResolver`):
 
@@ -1066,7 +1064,7 @@ Rule packs are the primary customization surface for AIC. A well-written rule pa
 | ------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | **Be specific and actionable**              | `"Preserve all existing public API signatures"`                  | `"Be careful with the code"`                                        | The model can verify compliance with the first; the second is vacuous                                 |
 | **Constrain the output, not the reasoning** | `"Output unified diff format only"`                              | `"Think carefully about what format to use"`                        | Constraints should tell the model _what to produce_, not _how to think_                               |
-| **Avoid redundancy with default packs**     | `"Add @deprecated JSDoc to replaced methods"` (project-specific) | `"Output unified diff format only"` (already in `built-in:default`) | Duplicate constraints waste constraint-block tokens; use `aic inspect` to see what's already injected |
+| **Avoid redundancy with default packs**     | `"Add @deprecated JSDoc to replaced methods"` (project-specific) | `"Output unified diff format only"` (already in `built-in:default`) | Duplicate constraints waste constraint-block tokens; use `aic_inspect` to see what's already injected |
 | **Keep count manageable**                   | 3–7 constraints per pack                                         | 20+ constraints per pack                                            | Beyond ~10 constraints, models start ignoring or deprioritising later entries (recency bias)          |
 | **Use imperative mood**                     | `"Do not modify files outside src/"`                             | `"Files outside src/ should probably not be modified"`              | Imperative instructions are followed more reliably by language models                                 |
 
@@ -1092,10 +1090,10 @@ Boost and penalize patterns apply a ±0.2 additive modifier to the `HeuristicSel
 
 | Mistake                                              | Consequence                                                        | Fix                                                                                                                                                                 |
 | ---------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Constraints that repeat what the model already knows | Wastes tokens in constraint block                                  | Remove; check `aic inspect` output to see effective constraints                                                                                                     |
+| Constraints that repeat what the model already knows | Wastes tokens in constraint block                                  | Remove; check `aic_inspect` output to see effective constraints                                                                                                     |
 | `includePatterns: ["**"]` (include everything)       | Selector has no whitelist benefit; falls back to scoring all files | Scope to the relevant directory tree                                                                                                                                |
 | `budgetOverride` set too high (e.g., 50,000)         | Context bloat; "Lost in the Middle" hallucination                  | Stay within the 16,000-token ceiling for most tasks; the formula-derived budget already optimises for the model's window. Only exceed for `docs` or broad refactors |
-| Contradictory constraints across packs               | Model receives conflicting instructions                            | Run `aic inspect` to see the merged constraint list; resolve conflicts at the project pack level                                                                    |
+| Contradictory constraints across packs               | Model receives conflicting instructions                            | Run `aic_inspect` to see the merged constraint list; resolve conflicts at the project pack level                                                                    |
 
 ---
 
@@ -1103,14 +1101,15 @@ Boost and penalize patterns apply a ±0.2 additive modifier to the `HeuristicSel
 
 ### 4.0 Component Overview
 
-The diagram below shows AIC's three packages, their key classes, and how they depend on each other. Both `@aic/mcp` (primary) and `@aic/cli` (secondary) import pipeline steps, providers, and storage from `@aic/shared` — the pipeline is never duplicated.
+The diagram below shows AIC's two packages, their key classes, and how they depend on each other. `@aic/mcp` imports pipeline steps, providers, and storage from `@aic/shared` — the pipeline is never duplicated.
 
 ```mermaid
 graph TB
-    subgraph mcp ["@aic/mcp — MCP Server (primary)"]
+    subgraph mcp ["@aic/mcp — MCP Server"]
         Server["server.ts\n(composition root)"]
         CompileHandler["compile-handler"]
         InspectHandler["inspect-handler"]
+        InitProject["init-project"]
         subgraph EditorAdapters ["Editor Adapters"]
             CursorAdapter
             ClaudeCodeAdapter
@@ -1123,15 +1122,6 @@ graph TB
             GenericModelAdapter
         end
         RulesAnalyzer["Rules & Hooks Analyzer"]
-    end
-
-    subgraph cli ["@aic/cli — Developer Utilities (secondary)"]
-        CLIRoot["index.ts\n(composition root)"]
-        CompileCmd["compile.ts"]
-        RunCmd["run.ts"]
-        CompareCmd["compare.ts"]
-        InitCmd["init.ts"]
-        InspectCmd["inspect.ts"]
     end
 
     subgraph shared ["@aic/shared — Core Library"]
@@ -1169,14 +1159,10 @@ graph TB
 
     Server --> CompileHandler
     Server --> InspectHandler
+    Server --> InitProject
     CompileHandler --> Pipeline
     InspectHandler --> InspectRunner
     InspectRunner --> Pipeline
-
-    CLIRoot --> CompileCmd & RunCmd & CompareCmd & InitCmd & InspectCmd
-    CompileCmd --> Pipeline
-    RunCmd --> Pipeline
-    InspectCmd --> InspectRunner
 
     S4 --> ProviderRegistry
     S6 --> ProviderRegistry
@@ -1187,7 +1173,6 @@ graph TB
     S4 --> RepoMapBuilder
 
     style mcp fill:#1a1a2e,stroke:#e94560,color:#fff
-    style cli fill:#1a1a2e,stroke:#0f3460,color:#fff
     style shared fill:#16213e,stroke:#533483,color:#fff
 ```
 
@@ -1346,19 +1331,19 @@ Core remains untouched; enterprise features wrap around it:
 
 ## 4.4 Architecture Decision Records (ADRs)
 
-#### ADR-001: MCP-First (not IDE plugin, not library, not CLI-primary)
+#### ADR-001: MCP-Only (not IDE plugin, not library, not CLI)
 
-- **Decision:** AIC's primary interface is an MCP server (`@aic/mcp`). CLI utilities (`@aic/cli`) are secondary — for developer inspection and debugging.
+- **Decision:** AIC's interface is an MCP server (`@aic/mcp`). There is no separate CLI package — all user-facing functionality is delivered via MCP tools, resources, and prompt commands inside the editor.
 - **Context:** IDE plugins lock users into specific editors. A library requires integration work from each tool author. A CLI requires manual invocation, which creates friction that kills adoption. MCP is an open protocol supported by Cursor, Claude Code, and a growing ecosystem — it gives editor-native integration without locking to any one editor.
-- **Rationale:** MCP is the standard extension point for AI editors. The protocol is open, so supporting a new editor costs one `EditorAdapter` class, not a plugin rebuild. Effective enforcement of `aic_compile` usage requires an editor-specific integration layer (hooks, context injection), but the core pipeline works identically across all editors. CLI tools remain available for power users and debugging.
-- **Tradeoffs:** Requires the editor to support MCP (all primary targets do). Developers on unsupported editors fall back to `aic compile` CLI manually.
+- **Rationale:** MCP is the standard extension point for AI editors. The protocol is open, so supporting a new editor costs one `EditorAdapter` class, not a plugin rebuild. Effective enforcement of `aic_compile` usage requires an editor-specific integration layer (hooks, context injection), but the core pipeline works identically across all editors. Status and last-compilation data are served via MCP resources (`aic://status`, `aic://last`) and surfaced via prompt commands in the editor.
+- **Tradeoffs:** Requires the editor to support MCP (all primary targets do). One-time setup is the only terminal command: `npx @aic/mcp init`.
 
 #### ADR-002: SQLite for local storage (not LevelDB, not JSON files)
 
 - **Decision:** Use SQLite via `better-sqlite3` for telemetry + cache metadata
 - **Context:** LevelDB is fast but lacks SQL querying. JSON files are simple but don't scale. PostgreSQL requires infrastructure.
 - **Rationale:** SQLite is zero-config, supports complex queries for telemetry analysis, ships as a single file, and has a well-defined migration path to Postgres for enterprise. `better-sqlite3` is synchronous (no async overhead) and battle-tested.
-- **Tradeoffs:** Slightly larger binary than JSON; SQLite doesn't support concurrent writes (not a concern for single-user CLI).
+- **Tradeoffs:** Slightly larger binary than JSON; SQLite doesn't support concurrent writes (not a concern for single-user MCP server).
 
 #### ADR-003: tiktoken with cl100k_base for token counting (not word-based, not model-specific)
 
@@ -1419,7 +1404,7 @@ Core remains untouched; enterprise features wrap around it:
 - **Context:** The MCP handler receives arbitrary JSON from editors. Config files are user-authored JSON. Both need runtime validation. Hand-written validation is error-prone and duplicates type information. Joi and Ajv are larger, less TypeScript-native, and require separate type definitions.
 - **Rationale:** Zod is TypeScript-first (parse once, infer types), zero-dependency (~13KB minified), MIT-licensed, and can generate JSON Schema for MCP tool descriptors. It validates at boundaries, producing branded types for the core pipeline. Core and pipeline code never imports Zod — it trusts the branded types produced by the boundary layer. This aligns with hexagonal architecture: validation is an adapter concern, not a core concern.
 - **Tradeoffs:** One additional runtime dependency. Mitigated by Zod's minimal size and zero transitive dependencies.
-- **Hexagonal enforcement:** ESLint `no-restricted-imports` blocks `zod` in `shared/src/core/` and `shared/src/pipeline/`. Zod is imported only in `mcp/src/`, `cli/src/`, and `shared/src/adapters/`.
+- **Hexagonal enforcement:** ESLint `no-restricted-imports` blocks `zod` in `shared/src/core/` and `shared/src/pipeline/`. Zod is imported only in `mcp/src/` and `shared/src/adapters/`.
 
 #### ADR-010: Branded types for domain values (not raw primitives)
 
@@ -1482,17 +1467,7 @@ packages/
 │           ├── cursor-rules-analyzer.ts
 │           └── rules-analyzer.registry.ts
 │
-├── cli/                              # @aic/cli — SECONDARY package (dev utilities)
-│   └── src/
-│       └── commands/                 # Commander.js entry points (all CLI-specific code)
-│           ├── compile.ts
-│           ├── run.ts
-│           ├── compare.ts
-│           ├── init.ts
-│           ├── inspect.ts
-│           └── index.ts              # CLI root; registers all commands
-│
-└── shared/                           # @aic/shared — imported by both mcp/ and cli/; never duplicated
+└── shared/                           # @aic/shared — imported by mcp/; never duplicated
     └── src/
         ├── pipeline/                     # Steps 1–10 (one directory per step)
         │   ├── step1-classifier/
@@ -1597,16 +1572,16 @@ packages/
             └── index.ts
 ```
 
-One file per class; no barrel re-exports at the pipeline step level to keep dependency graphs explicit. Both `mcp/` and `cli/` packages import from `shared/` — the pipeline is never duplicated.
+One file per class; no barrel re-exports at the pipeline step level to keep dependency graphs explicit. The `mcp/` package imports from `shared/` — the pipeline is never duplicated.
 
-| Behavior             | Detail                                                                |
-| -------------------- | --------------------------------------------------------------------- |
-| **Default root**     | Current working directory                                             |
-| **Override root**    | `--root /path/to/project`                                             |
-| **Config discovery** | Walk up from CWD until `aic.config.json` found (like `.eslintrc`)     |
-| **Cross-project**    | CLI flags `--root`, `--config`, `--db` allow operating on any project |
-| **Isolation**        | Projects never share state; no global database or config              |
-| **Repo identity**    | `repo_id` = SHA-256 of absolute root path (for telemetry correlation) |
+| Behavior             | Detail                                                                                  |
+| -------------------- | --------------------------------------------------------------------------------------- |
+| **Default root**     | Current working directory                                                               |
+| **Override root**    | `--root /path/to/project`                                                               |
+| **Config discovery** | Walk up from CWD until `aic.config.json` found (like `.eslintrc`)                       |
+| **Cross-project**    | MCP tool arguments `projectRoot`, `configPath`, `dbPath` allow operating on any project |
+| **Isolation**        | Projects never share state; no global database or config                                |
+| **Repo identity**    | `repo_id` = SHA-256 of absolute root path (for telemetry correlation)                   |
 
 ---
 
@@ -1663,132 +1638,77 @@ All fields are optional. AIC works with an empty `{}` or no config file at all.
 
 ### Field Reference
 
-| Field                                       | Default                              | Notes                                                                                                                                                                                                         |
-| ------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `version`                                   | `1`                                  | Config format version; used for automatic DB/schema migrations on startup                                                                                                                                     |
-| `contextBudget.maxTokens`                   | `8000`                               | Default token limit for all task classes                                                                                                                                                                      |
-| `contextBudget.perTaskClass`                | —                                    | Optional per-task-class overrides; e.g. `bugfix` may warrant a higher budget                                                                                                                                  |
-| `rulePacks`                                 | `["built-in:default"]`               | Rule packs loaded in priority order; later entries override earlier ones                                                                                                                                      |
-| `output.format`                             | `"unified-diff"`                     | `"unified-diff"` \| `"full-file"` \| `"markdown"` \| `"json"` \| `"plain"`                                                                                                                                    |
-| `output.includeExplanation`                 | `false`                              | When `true`, appends a prose explanation block after the diff/code                                                                                                                                            |
-| `contextSelector.type`                      | `"heuristic"`                        | `"heuristic"` (MVP default) \| `"vector"` (Phase 2+)                                                                                                                                                          |
-| `contextSelector.heuristic.maxFiles`        | `20`                                 | Cap on files passed to the summarisation ladder                                                                                                                                                               |
-| `contextSelector.heuristic.includePatterns` | `["src/**"]`                         | Glob whitelist for file scanning; merged with rule pack `includePatterns`                                                                                                                                     |
-| `contextSelector.heuristic.excludePatterns` | `["**/*.test.*", "node_modules/**"]` | Glob blacklist; merged with rule pack `excludePatterns`                                                                                                                                                       |
-| `model.provider`                            | `null`                               | **Required only for `aic run`.** `"openai"` \| `"anthropic"` \| `"ollama"` \| `"custom"`. `"ollama"` runs locally — no API key needed.                                                                        |
-| `model.endpoint`                            | `null`                               | `null` uses the provider's default endpoint; set for Ollama (e.g. `"http://localhost:11434"`)                                                                                                                 |
-| `model.apiKeyEnv`                           | `null`                               | Name of the env var holding the API key — never the key itself. `null` for Ollama (no key required).                                                                                                          |
-| `guard.enabled`                             | `true`                               | Set to `false` to disable all Guard scanning (not recommended in production)                                                                                                                                  |
-| `guard.additionalExclusions`                | `[]`                                 | Extra glob patterns added to the built-in never-include list; useful when test fixtures contain intentional secret-like strings                                                                               |
-| `guard.allowPatterns`                       | `[]`                                 | Glob patterns for files exempt from Guard scanning (e.g. `test/fixtures/**`). Does **not** override built-in never-include patterns (`.env`, `*.pem`, etc.)                                                   |
-| `guard.allowFiles`                          | `[]`                                 | Exact relative paths for files exempt from Guard scanning (e.g. `src/config/example-keys.ts`). Same restriction as `allowPatterns` — never-include patterns cannot be overridden                              |
-| `contentTransformers.enabled`               | `true`                               | Set to `false` to skip all content transformations (raw content passes through unchanged)                                                                                                                     |
-| `contentTransformers.stripComments`         | `true`                               | Remove line/block comments from source files. Preserves JSDoc `@param`/`@returns` at L1 tier                                                                                                                  |
-| `contentTransformers.normalizeWhitespace`   | `true`                               | Collapse blank lines (≥3→1), normalize indent to 2-space, trim trailing whitespace                                                                                                                            |
-| `contentTransformers.htmlToMarkdown`        | `true`                               | Convert HTML files to Markdown equivalents                                                                                                                                                                    |
-| `contentTransformers.compactJson`           | `true`                               | Collapse simple JSON structures to single line                                                                                                                                                                |
-| `contentTransformers.skipMinified`          | `true`                               | Replace minified files (`*.min.*`, `dist/**`) with placeholder                                                                                                                                                |
-| `contentTransformers.skipLockFiles`         | `true`                               | Replace lock files with placeholder                                                                                                                                                                           |
-| `contentTransformers.skipAutoGenerated`     | `true`                               | Replace auto-generated files (detected via header comment) with placeholder                                                                                                                                   |
-| `telemetry.enabled`                         | `false`                              | Opt-in; when `true`, records token counts, duration, and cache hit/miss to local SQLite                                                                                                                       |
-| `telemetry.anonymousUsage`                  | `false`                              | Opt-in; when `true`, sends anonymised aggregate metrics to `https://telemetry.aic.dev`. No file paths, prompts, or code. See [MVP Spec §4d](mvp-specification-phase0.md) for payload schema and privacy rules |
-| `telemetry.storage`                         | `"local"`                            | `"local"` = SQLite only; no data leaves the machine                                                                                                                                                           |
-| `cache.enabled`                             | `true`                               | Set to `false` or pass `--no-cache` to skip cache read/write                                                                                                                                                  |
-| `cache.ttlMinutes`                          | `60`                                 | Cached compilations expire after this many minutes                                                                                                                                                            |
-| `cache.invalidateOn`                        | `["config-change", "file-change"]`   | Triggers that bust the cache; `"file-change"` detects via file-tree hash                                                                                                                                      |
-| `extends`                                   | `null`                               | URL or local path to a parent config. Local values override parent. Enables team/org config inheritance (see §23)                                                                                             |
+| Field                                       | Default                              | Notes                                                                                                                                                                                                    |
+| ------------------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `version`                                   | `1`                                  | Config format version; used for automatic DB/schema migrations on startup                                                                                                                                |
+| `contextBudget.maxTokens`                   | `8000`                               | Default token limit for all task classes                                                                                                                                                                 |
+| `contextBudget.perTaskClass`                | —                                    | Optional per-task-class overrides; e.g. `bugfix` may warrant a higher budget                                                                                                                             |
+| `rulePacks`                                 | `["built-in:default"]`               | Rule packs loaded in priority order; later entries override earlier ones                                                                                                                                 |
+| `output.format`                             | `"unified-diff"`                     | `"unified-diff"` \| `"full-file"` \| `"markdown"` \| `"json"` \| `"plain"`                                                                                                                               |
+| `output.includeExplanation`                 | `false`                              | When `true`, appends a prose explanation block after the diff/code                                                                                                                                       |
+| `contextSelector.type`                      | `"heuristic"`                        | `"heuristic"` (MVP default) \| `"vector"` (Phase 2+)                                                                                                                                                     |
+| `contextSelector.heuristic.maxFiles`        | `20`                                 | Cap on files passed to the summarisation ladder                                                                                                                                                          |
+| `contextSelector.heuristic.includePatterns` | `["src/**"]`                         | Glob whitelist for file scanning; merged with rule pack `includePatterns`                                                                                                                                |
+| `contextSelector.heuristic.excludePatterns` | `["**/*.test.*", "node_modules/**"]` | Glob blacklist; merged with rule pack `excludePatterns`                                                                                                                                                  |
+| `model.provider`                            | `null`                               | `"openai"` \| `"anthropic"` \| `"ollama"` \| `"custom"`. `"ollama"` runs locally — no API key needed. Used for model-specific token counting and context formatting.                                     |
+| `model.endpoint`                            | `null`                               | `null` uses the provider's default endpoint; set for Ollama (e.g. `"http://localhost:11434"`)                                                                                                            |
+| `model.apiKeyEnv`                           | `null`                               | Name of the env var holding the API key — never the key itself. `null` for Ollama (no key required).                                                                                                     |
+| `guard.enabled`                             | `true`                               | Set to `false` to disable all Guard scanning (not recommended in production)                                                                                                                             |
+| `guard.additionalExclusions`                | `[]`                                 | Extra glob patterns added to the built-in never-include list; useful when test fixtures contain intentional secret-like strings                                                                          |
+| `guard.allowPatterns`                       | `[]`                                 | Glob patterns for files exempt from Guard scanning (e.g. `test/fixtures/**`). Does **not** override built-in never-include patterns (`.env`, `*.pem`, etc.)                                              |
+| `guard.allowFiles`                          | `[]`                                 | Exact relative paths for files exempt from Guard scanning (e.g. `src/config/example-keys.ts`). Same restriction as `allowPatterns` — never-include patterns cannot be overridden                         |
+| `contentTransformers.enabled`               | `true`                               | Set to `false` to skip all content transformations (raw content passes through unchanged)                                                                                                                |
+| `contentTransformers.stripComments`         | `true`                               | Remove line/block comments from source files. Preserves JSDoc `@param`/`@returns` at L1 tier                                                                                                             |
+| `contentTransformers.normalizeWhitespace`   | `true`                               | Collapse blank lines (≥3→1), normalize indent to 2-space, trim trailing whitespace                                                                                                                       |
+| `contentTransformers.htmlToMarkdown`        | `true`                               | Convert HTML files to Markdown equivalents                                                                                                                                                               |
+| `contentTransformers.compactJson`           | `true`                               | Collapse simple JSON structures to single line                                                                                                                                                           |
+| `contentTransformers.skipMinified`          | `true`                               | Replace minified files (`*.min.*`, `dist/**`) with placeholder                                                                                                                                           |
+| `contentTransformers.skipLockFiles`         | `true`                               | Replace lock files with placeholder                                                                                                                                                                      |
+| `contentTransformers.skipAutoGenerated`     | `true`                               | Replace auto-generated files (detected via header comment) with placeholder                                                                                                                              |
+| `telemetry.enabled`                         | `false`                              | Opt-in; when `true`, records token counts, duration, and cache hit/miss to local SQLite                                                                                                                  |
+| `telemetry.anonymousUsage`                  | `false`                              | Opt-in; when `true`, sends anonymised aggregate metrics to `https://telemetry.aic.dev`. No file paths, prompts, or code. See [MVP Spec §4d](implementation-spec.md) for payload schema and privacy rules |
+| `telemetry.storage`                         | `"local"`                            | `"local"` = SQLite only; no data leaves the machine                                                                                                                                                      |
+| `cache.enabled`                             | `true`                               | Set to `false` or pass `--no-cache` to skip cache read/write                                                                                                                                             |
+| `cache.ttlMinutes`                          | `60`                                 | Cached compilations expire after this many minutes                                                                                                                                                       |
+| `cache.invalidateOn`                        | `["config-change", "file-change"]`   | Triggers that bust the cache; `"file-change"` detects via file-tree hash                                                                                                                                 |
+| `extends`                                   | `null`                               | URL or local path to a parent config. Local values override parent. Enables team/org config inheritance (see §23)                                                                                        |
 
 ---
 
-## 7. CLI Specification
+## 7. User Interface (MCP-Only)
 
-**Package name:** `@aic/cli` — install globally via `npm install -g @aic/cli` (or `pnpm add -g @aic/cli`) to make the `aic` binary available.
-
-### Commands
-
-| Command                | Description                                                                                 | Example                              |
-| ---------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------ |
-| `aic compile <intent>` | Compiles intent into a raw prompt package (no model-specific formatting); outputs to stdout | `aic compile "refactor auth module"` |
-| `aic run <intent>`     | Compiles + sends to configured model; outputs agent result                                  | `aic run "fix login bug in auth.ts"` |
-| `aic compare <intent>` | Compiles and shows diff vs. last cached compilation                                         | `aic compare "refactor auth module"` |
-| `aic init`             | Creates `aic.config.json` with defaults in CWD; also adds `.aic/` to `.gitignore`           | `aic init`                           |
-| `aic init --upgrade`   | Rewrites `aic.config.json` to the current schema version; backs up the original file first  | `aic init --upgrade`                 |
-| `aic inspect <intent>` | Shows full pipeline decision trail without executing                                        | `aic inspect "refactor auth"`        |
-| `aic status`           | Project-level summary: compilations, token savings, Guard blocks, config health             | `aic status`                         |
-| `aic telemetry log`    | Inspect the anonymous telemetry audit log — see exactly what was sent                       | `aic telemetry log --json`           |
-
-### 7.1 `aic compare` Specification
-
-`aic compare <intent>` recompiles the intent against the current codebase and produces a structured diff against the most recent cached compilation for that intent. It is designed to answer: _"what changed about the context AIC would send?"_ — useful after editing source files, updating rule packs, or bumping the budget.
-
-#### What is diffed
-
-| Layer               | What `compare` shows                                                                                          |
-| ------------------- | ------------------------------------------------------------------------------------------------------------- |
-| **Selected files**  | Files added, removed (score drop), or guard-blocked since last compilation                                    |
-| **Tier changes**    | Files that moved between summarisation tiers (e.g. L0 → L1)                                                   |
-| **Token delta**     | Compiled prompt token count (`promptTotal`) for previous and current run, and the absolute + percentage delta |
-| **Constraints**     | Constraints added, removed, or reordered                                                                      |
-| **Config snapshot** | Whether config changed since the last cached run (uses `config_history` table)                                |
-
-#### How "last cached version" is determined
-
-1. AIC looks up `cache_metadata` keyed by `hash(intent + config-snapshot + file-tree-hash)`
-2. If **no entry exists** (expired TTL, purged, or first run) → `compare` exits with: `No previous compilation found for this intent. Run 'aic compile' first.`
-3. If **config changed** since the last entry (detected via `config_history`) → the diff includes a `[config changed]` header noting which fields differ
-4. If **TTL has expired** but the cache file still exists on disk → `compare` uses it with a warning: `Cache entry expired ({N} minutes ago). Diff may not reflect current config.`
-
-> **Phase 1+ (agentic sessions):** When `sessionId` and `stepIndex` are present, the cache key includes these fields (see [§2.7](#27-agentic-workflow-support) and [§10 Caching](#10-caching)). `compare` will diff against the previous compilation _for the same session step_, not just the same intent string.
-
-#### Output format
+AIC has no separate CLI package. All user-facing functionality is delivered through MCP tools, resources, and prompt commands inside the editor. The only terminal command is one-time project setup:
 
 ```
-$ aic compare "refactor auth module"
-
-[compare] Intent: "refactor auth module"
-[compare] Previous: 2026-02-21T14:30:00Z  |  Current: 2026-02-22T09:15:00Z
-
-Files
-  + src/auth/jwt.ts          (new)            score=0.81  tier=L0  tokens=+420
-  - src/auth/legacy.ts       (removed)        score dropped below threshold
-  - src/config/keys.ts       (guard-blocked: secret)
-  ~ src/services/user.ts     (tier L0→L1)                 tokens=-890
-
-Token Summary
-  Previous:  7,200 tokens
-  Current:   6,730 tokens
-  Delta:     -470 tokens (-6.5%)
-
-Constraints
-  (no change)
-
-Config
-  (no change)
+npx @aic/mcp init
 ```
 
-#### Edge cases
+This creates `aic.config.json`, installs the trigger rule, installs editor hooks, and creates `.aic/` with `0700` permissions.
 
-| Scenario          | Behaviour                                              |
-| ----------------- | ------------------------------------------------------ |
-| No previous cache | Exit with message; suggest running `aic compile` first |
-| Cache expired     | Use expired entry with warning; show age of cached run |
-| Config changed    | Show `[config changed]` header; diff proceeds normally |
-| Identical output  | Print `No material changes detected.` and exit 0       |
+### MCP Tools
 
----
+| Tool               | Description                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------ |
+| `aic_compile`      | Compiles intent into context; returns compiled prompt to the model                   |
+| `aic_inspect`      | Runs the pipeline and returns the full decision trail (JSON) without model execution |
+| `aic_chat_summary` | Returns compilation stats for the current conversation                               |
 
-### Global Flags
+### MCP Resources
 
-| Flag                | Default            | Description                                                             |
-| ------------------- | ------------------ | ----------------------------------------------------------------------- |
-| `--root <path>`     | CWD                | Project root directory                                                  |
-| `--config <path>`   | Auto-discovered    | Path to `aic.config.json`                                               |
-| `--db <path>`       | `.aic/aic.sqlite`  | Path to SQLite database                                                 |
-| `--budget <tokens>` | From config (8000) | Override context budget                                                 |
-| `--format <fmt>`    | From config        | Output format: `unified-diff`, `full-file`, `markdown`, `json`, `plain` |
-| `--no-cache`        | `false`            | Skip cache read/write                                                   |
-| `--verbose`         | `false`            | Print pipeline step details                                             |
-| `--dry-run`         | `false`            | Run pipeline but don't execute model call                               |
+| Resource       | Description                                                                                  |
+| -------------- | -------------------------------------------------------------------------------------------- |
+| `aic://status` | Project-level summary: compilations, token savings, budget utilization, guard blocks, config |
+| `aic://last`   | Most recent compilation: intent, task class, tokens, files, guard findings, compiled prompt  |
+
+### Prompt Commands
+
+Users ask these inside the editor:
+
+| Command                 | What it shows                                                       |
+| ----------------------- | ------------------------------------------------------------------- |
+| "show aic status"       | Formatted table from `aic://status` resource                        |
+| "show aic last"         | Formatted table from `aic://last` resource                          |
+| "show aic chat summary" | Formatted table from `aic_chat_summary` tool (current conversation) |
 
 ---
 
@@ -2262,7 +2182,7 @@ Format-specific transformers run first, followed by non-format-specific transfor
 
 ## 8.6 InspectRunner Interface
 
-Both `aic inspect` (CLI) and the `aic_inspect` MCP tool share the same execution path via `InspectRunner` from the `shared/` package. This ensures parity between CLI and MCP inspection output and prevents logic duplication.
+The `aic_inspect` MCP tool uses `InspectRunner` from the `shared/` package.
 
 ```typescript
 interface InspectRunner {
@@ -2279,7 +2199,7 @@ interface InspectRequest {
 
 `PipelineTrace` is defined in [§2.2 Core MCP Types](#22-mcp-server--primary-interface) and contains one field per pipeline step: `taskClass`, `rulePacks`, `budget`, `selectedFiles`, `guard`, `transforms`, `summarisationTiers`, `constraints`, and `tokenSummary`.
 
-**Composition:** `InspectRunner` receives all pipeline steps and infrastructure via constructor injection, just like the compile handler. It is instantiated in both composition roots (`mcp/handlers/inspect-handler.ts` and `cli/commands/inspect.ts`) with identical wiring.
+**Composition:** `InspectRunner` receives all pipeline steps and infrastructure via constructor injection, just like the compile handler. It is instantiated in the composition root (`mcp/handlers/inspect-handler.ts`).
 
 **Side effects:** `InspectRunner` must **not** write to `cache_metadata`, must **not** call the Executor (Step 9), and must **not** emit `compilation:complete` events to the `PipelineEventBus`. It **may** read and update `repomap_cache` (caching is orthogonal to inspection).
 
@@ -2383,8 +2303,8 @@ MVP uses a synchronous in-process implementation (`SyncEventBus`). The interface
 | **Metadata**                     | `cache_metadata` table in SQLite holds the key, file path, `created_at`, `expires_at`, and `file_tree_hash`; the JSON file holds the actual prompt content                                                                                                                                                                      |
 | **TTL**                          | Configurable, default 60 minutes                                                                                                                                                                                                                                                                                                |
 | **Invalidation triggers**        | Config change, any source file change (detected via file-tree hash), manual `--no-cache`                                                                                                                                                                                                                                        |
-| **Write trigger**                | Any successful `aic compile`, `aic run`, or `aic run --dry-run` invocation (unless `--no-cache` is set); the MCP `aic_compile` tool also writes on every non-cache-hit call                                                                                                                                                     |
-| **Cache hit**                    | `aic compile` returns cached output instantly; logged as cache-hit in telemetry                                                                                                                                                                                                                                                 |
+| **Write trigger**                | Any successful `aic_compile` invocation; writes on every non-cache-hit call                                                                                                                                                                                                                                                     |
+| **Cache hit**                    | `aic_compile` returns cached output instantly; logged as cache-hit in telemetry                                                                                                                                                                                                                                                 |
 | **Determinism**                  | Cache ensures identical outputs for identical inputs within TTL window                                                                                                                                                                                                                                                          |
 | **Agentic extension (Phase 1+)** | Cache key extends to `hash(intent + config-snapshot + file-tree-hash + sessionId + stepIndex)` when agentic session fields are present. Same task, different step = different cache entry. When `sessionId` is absent, cache behaviour is identical to above. See [§2.7 Agentic Workflow Support](#27-agentic-workflow-support) |
 
@@ -2392,21 +2312,21 @@ MVP uses a synchronous in-process implementation (`SyncEventBus`). The interface
 
 ## 11. Error Handling
 
-| Scenario                                                  | Behaviour                                                                                                                                                                                                  |
-| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **No config file found**                                  | Use all defaults; log info message                                                                                                                                                                         |
-| **Invalid config JSON**                                   | Exit with error, print validation message pointing to the invalid field                                                                                                                                    |
-| **Unknown task class**                                    | Fall back to `general` task class with default rule pack                                                                                                                                                   |
-| **Rule pack not found**                                   | Warning + skip missing pack; continue with remaining packs                                                                                                                                                 |
-| **Context budget = 0 files selected**                     | Exit with error: "No relevant files found. Broaden your intent or check includePatterns in config."                                                                                                        |
-| **Guard blocks all selected files**                       | Exit with error: "Context Guard blocked all selected files. Review `aic://last-compilation` or run `aic inspect` to see findings. Add `guard.additionalExclusions` if legitimate files are being blocked." |
-| **Guard blocks some files**                               | Silent — blocked files removed; pipeline continues with remaining files; findings recorded in `CompilationMeta.guard`                                                                                      |
-| **Context exceeds budget after all summarisation levels** | Include what fits at `names-only` level; warn user of heavy truncation                                                                                                                                     |
-| **Compiled prompt exceeds model context window**          | Exit with error: reduce budget or use larger-context model                                                                                                                                                 |
-| **Model endpoint unreachable** (`aic run`)                | Exit with error + suggest checking config and API key                                                                                                                                                      |
-| **Model returns error**                                   | Surface model error message; log to telemetry                                                                                                                                                              |
-| **SQLite write failure**                                  | Warning only (telemetry is non-critical); continue execution                                                                                                                                               |
-| **Corrupt cache entry**                                   | Delete entry, recompute, warn user                                                                                                                                                                         |
+| Scenario                                                  | Behaviour                                                                                                                                                                                      |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **No config file found**                                  | Use all defaults; log info message                                                                                                                                                             |
+| **Invalid config JSON**                                   | Exit with error, print validation message pointing to the invalid field                                                                                                                        |
+| **Unknown task class**                                    | Fall back to `general` task class with default rule pack                                                                                                                                       |
+| **Rule pack not found**                                   | Warning + skip missing pack; continue with remaining packs                                                                                                                                     |
+| **Context budget = 0 files selected**                     | Exit with error: "No relevant files found. Broaden your intent or check includePatterns in config."                                                                                            |
+| **Guard blocks all selected files**                       | Exit with error: "Context Guard blocked all selected files. Review `aic://last` or use `aic_inspect` to see findings. Add `guard.additionalExclusions` if legitimate files are being blocked." |
+| **Guard blocks some files**                               | Silent — blocked files removed; pipeline continues with remaining files; findings recorded in `CompilationMeta.guard`                                                                          |
+| **Context exceeds budget after all summarisation levels** | Include what fits at `names-only` level; warn user of heavy truncation                                                                                                                         |
+| **Compiled prompt exceeds model context window**          | Exit with error: reduce budget or use larger-context model                                                                                                                                     |
+| **Model endpoint unreachable** (`aic run`)                | Exit with error + suggest checking config and API key                                                                                                                                          |
+| **Model returns error**                                   | Surface model error message; log to telemetry                                                                                                                                                  |
+| **SQLite write failure**                                  | Warning only (telemetry is non-critical); continue execution                                                                                                                                   |
+| **Corrupt cache entry**                                   | Delete entry, recompute, warn user                                                                                                                                                             |
 
 ### 11.1 MCP Transport Error Handling
 
@@ -2535,12 +2455,12 @@ When `--verbose` is enabled, AIC prints the full decision trail:
 
 The four values in parentheses are **raw signal values** (`[0.0, 1.0]` each) before weighting. Final score = `(path × 0.4) + (imports × 0.3) + (recency × 0.2) + (size × 0.1)`.
 
-### `aic inspect` Output
+### `aic_inspect` Output
 
-`aic inspect` provides the same information as `--verbose` but without executing the model call. It's designed for debugging context selection. Both `aic inspect` (CLI) and the `aic_inspect` MCP tool share the same execution path — both invoke the same `InspectRunner` from the `shared/` package, which runs Steps 1–8 without writing to the **compilation cache** (`cache_metadata`) or calling the model. The `repomap_cache` is still read and updated normally for performance.
+`aic_inspect` provides the same information as `--verbose` but without executing the model call. It's designed for debugging context selection. The `aic_inspect` MCP tool invokes `InspectRunner` from the `shared/` package, which runs Steps 1–8 without writing to the **compilation cache** (`cache_metadata`) or calling the model. The `repomap_cache` is still read and updated normally for performance.
 
 ```
-$ aic inspect "refactor auth module"
+aic_inspect "refactor auth module"
 
 Task Classification
   Class: refactor (confidence: 0.92)
@@ -2772,9 +2692,9 @@ The `repomap_cache` stores a single row per project root: the serialised `RepoMa
 ### 15.1 Normal Flow (Cold Cache)
 
 ```
-Developer           CLI             Classifier     RuleResolver       Budget        HeuristicSel    CtxGuard       Transformer       Ladder         Assembler        Model
+Editor            MCP Server       Classifier     RuleResolver       Budget        HeuristicSel    CtxGuard       Transformer       Ladder         Assembler        Model
     │                │                   │               │               │               │               │               │               │               │               │
-    │── aic run ────▶│                   │               │               │               │               │               │               │               │               │
+    │── aic_compile ▶│                   │               │               │               │               │               │               │               │               │
     │  "fix auth"    │── classify ──────▶│               │               │               │               │               │               │               │               │
     │                │◀── bugfix(0.9) ───│               │               │               │               │               │               │               │               │
     │                │── resolve ───────────────────────▶│               │               │               │               │               │               │               │
@@ -2799,9 +2719,9 @@ Developer           CLI             Classifier     RuleResolver       Budget    
 ### 15.2 Cache Hit Flow
 
 ```
-Developer               CLI             Cache
+Editor              MCP Server       Cache
     │                    │                │
-    │── aic compile ────▶│                │
+    │── aic_compile ────▶│                │
     │  "fix auth"        │── lookup ─────▶│
     │                    │  key=hash(...) │
     │                    │◀──── HIT ──────│
@@ -2813,9 +2733,9 @@ Developer               CLI             Cache
 ### 15.3 Budget Exceeded Flow
 
 ```
-Developer           CLI           Selector        CtxGuard       Transformer       Ladder
+Editor            MCP Server     Selector        CtxGuard       Transformer       Ladder
     │                │               │               │               │               │
-    │── aic compile ▶│               │               │               │               │
+    │── aic_compile ▶│               │               │               │               │
     │                │──── selectContext ───────────▶│               │               │
     │                │◀── 20 files ──│               │               │               │
     │                │   (25,000 tokens)             │               │               │
@@ -2918,9 +2838,8 @@ All dependency versions are **pinned to exact versions** in `package.json` (no `
 
 ### E2E Tests
 
-- `aic compile` → verify output format and token count
-- `aic run` → mock model endpoint, verify request payload
-- `aic compare` → modify source file, verify diff is meaningful
+- `aic_compile` → verify MCP tool returns output with correct format and token count
+- `aic_inspect` → verify pipeline trace JSON structure and content
 
 ---
 
@@ -2928,9 +2847,9 @@ All dependency versions are **pinned to exact versions** in `package.json` (no `
 
 ### Persona 1: Solo Developer
 
-> "I want to paste my intent into `aic run` and get a better result than pasting raw into ChatGPT, with less context and fewer back-and-forth cycles."
+> "I want AIC to automatically compile the right context so my AI assistant produces better code with less back-and-forth."
 
-Workflow: `aic run "add input validation to signup form"` → receives targeted diff
+Workflow: Opens editor → AIC compiles context via MCP → model receives targeted, relevant code
 
 ### Persona 2: Tech Lead
 
@@ -2963,10 +2882,10 @@ Workflow: Planning agent calls `aic_compile_spec` with the exploration report an
 | `compilation_log`         | One row per compilation: `id` (TEXT PK, UUIDv7), `intent` (TEXT), `task_class` (TEXT), `files_selected` (INT), `files_total` (INT), `tokens_compiled` (INT), `cache_hit` (BOOL), `duration_ms` (INT), `created_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`). Written on every successful compilation regardless of telemetry setting. Powers `aic status`. See [ADR-007](#adr-007) and [ADR-008](#adr-008)                                                                                                                                                                                                       |
 | `telemetry_events`        | `id` (TEXT PK, UUIDv7), task class, token counts (raw + compiled), duration, cache hit/miss, repo_id, model, summarisation tiers, guard counts, `created_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`). Written only when `telemetry.enabled: true`. Superset of `compilation_log` with additional metrics                                                                                                                                                                                                                                                                                                        |
 | `cache_metadata`          | Cache key (TEXT PK), file path, `created_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`), `expires_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`), file_tree_hash                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| `config_history`          | Config snapshots for `aic compare`: columns `config_hash` (TEXT PK, SHA-256 of content — intentionally content-addressed, not UUIDv7), `config_json` (TEXT, full JSON snapshot), `created_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`)                                                                                                                                                                                                                                                                                                                                                                           |
-| `guard_findings`          | One row per Guard finding: `id` (TEXT PK, UUIDv7), `compilation_id` (TEXT FK → `compilation_log.id`), `type` (TEXT: `secret` / `excluded-file` / `prompt-injection`), `file` (TEXT), `line` (INT nullable), `message` (TEXT), `created_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`). Powers `aic status` Guard section and `aic://last-compilation` findings                                                                                                                                                                                                                                                     |
+| `config_history`          | Config snapshots: columns `config_hash` (TEXT PK, SHA-256 of content — intentionally content-addressed, not UUIDv7), `config_json` (TEXT, full JSON snapshot), `created_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`)                                                                                                                                                                                                                                                                                                                                                                                             |
+| `guard_findings`          | One row per Guard finding: `id` (TEXT PK, UUIDv7), `compilation_id` (TEXT FK → `compilation_log.id`), `type` (TEXT: `secret` / `excluded-file` / `prompt-injection`), `file` (TEXT), `line` (INT nullable), `message` (TEXT), `created_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`). Powers `aic://status` Guard section and `aic://last` findings                                                                                                                                                                                                                                                               |
 | `repomap_cache`           | Serialised RepoMap (JSON blob), file_tree_hash, `built_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`); one row per project, replaced on invalidation                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| `anonymous_telemetry_log` | One row per anonymous telemetry payload: `id` (TEXT PK, UUIDv7), `created_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`), `payload_json` (TEXT, exact JSON sent or queued), `status` (TEXT: `sent` / `dropped` / `queued`). Written only when `telemetry.anonymousUsage: true`. Rows are removed after successful send to the cloud database, so the table acts as a bounded send queue. Powers `aic telemetry log`. See [MVP Spec §4d](mvp-specification-phase0.md) for the full payload schema                                                                                                                   |
+| `anonymous_telemetry_log` | One row per anonymous telemetry payload: `id` (TEXT PK, UUIDv7), `created_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`), `payload_json` (TEXT, exact JSON sent or queued), `status` (TEXT: `sent` / `dropped` / `queued`). Written only when `telemetry.anonymousUsage: true`. Rows are removed after successful send to the cloud database, so the table acts as a bounded send queue. See [MVP Spec §4d](implementation-spec.md) for the full payload schema                                                                                                                                                    |
 | `schema_migrations`       | `id` (TEXT PK, migration identifier e.g. `001_initial`), `applied_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`). Single source of truth for DB schema version                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `server_sessions`         | **(Phase 0.5)** One row per MCP server run: `session_id` (TEXT PK, UUIDv7), `started_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`), `stopped_at` (TEXT, nullable), `stop_reason` (TEXT, nullable: `graceful` / `crash`), `pid` (INTEGER), `version` (TEXT). Written on server startup; updated on graceful shutdown. Orphaned rows (`stopped_at IS NULL`) are backfilled as `stop_reason = 'crash'` on next startup. See [§13.2 Server Lifecycle Tracking](#132-server-lifecycle-tracking)                                                                                                                        |
 | `session_state`           | **(Phase 1+)** One row per active session: `session_id` (TEXT PK, UUIDv7 — generated by the caller or by AIC on first step), `task_intent` (TEXT, original intent that started the session), `steps_json` (TEXT, JSON array of `SessionStep` objects — see [§2.7](#27-agentic-workflow-support)), `created_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`), `last_activity_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`, updated on each step). Rows expire after 30 min of inactivity (configurable via `session.expiryMinutes`). Powers `SessionTracker`. Not created by the MVP migration; added by a Phase 1 migration |
@@ -3120,14 +3039,14 @@ This guide is intentionally written before the Phase 1 OSS release so new contri
 
 Every contribution must comply with the principles in §2.1. This is not optional and is checked in code review before any other criterion.
 
-| Rule                | What reviewers check                                                                                                                                                        |
-| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **SRP**             | Each class has one public method and one reason to change; no class mixes pipeline logic with storage or CLI concerns                                                       |
-| **OCP**             | New behaviour is added via a new class implementing an existing interface, not by editing an existing class                                                                 |
-| **LSP**             | Every interface implementation honours the full contract; no narrowing, no unexpected throws                                                                                |
-| **ISP**             | New interfaces have ≤5 methods; existing interfaces are not extended with unrelated methods                                                                                 |
-| **DIP**             | Concrete classes are only instantiated at the composition roots (`mcp/server.ts`, `cli/commands/*.ts`); all pipeline classes receive abstractions via constructor injection |
-| **Design patterns** | Use the patterns from §2.1 where they apply; do not introduce ad-hoc abstractions that duplicate an established pattern                                                     |
+| Rule                | What reviewers check                                                                                                                                  |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **SRP**             | Each class has one public method and one reason to change; no class mixes pipeline logic with storage or MCP handler concerns                         |
+| **OCP**             | New behaviour is added via a new class implementing an existing interface, not by editing an existing class                                           |
+| **LSP**             | Every interface implementation honours the full contract; no narrowing, no unexpected throws                                                          |
+| **ISP**             | New interfaces have ≤5 methods; existing interfaces are not extended with unrelated methods                                                           |
+| **DIP**             | Concrete classes are only instantiated at the composition root (`mcp/server.ts`); all pipeline classes receive abstractions via constructor injection |
+| **Design patterns** | Use the patterns from §2.1 where they apply; do not introduce ad-hoc abstractions that duplicate an established pattern                               |
 
 If a SOLID violation is identified in review, the PR is blocked until resolved — regardless of test coverage or functionality.
 
@@ -3195,13 +3114,13 @@ Add it automatically with `git commit -s`. By signing off, you certify that you 
 
 ## 22. Roadmap
 
-| Phase   | Name                  | Version | Deliverables                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Exit Criteria                                                                                      |
-| ------- | --------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| **0**   | MVP                   | `0.1.0` | `compile`, `init`, `inspect`, `status` commands; HeuristicSelector; SQLite storage; default rule packs; Guard with `allowPatterns`; first-run message; formula-derived model budget profiles (`windowRatio`); trigger rule; anonymous telemetry (opt-in); full test suite                                                                                                                                                                                                                                                                                                                                         | All CLI commands functional; benchmark suite passes; measurable token reduction on canonical tasks |
-| **0.5** | Quality Release       | `0.2.0` | Cursor integration layer (session-start hooks, tool gate, prompt logging); `GenericImportProvider` (Python/Go/Rust/Java regex imports); intent-aware file discovery; `aic://session-summary` resource (basic agentic history via `compilation_log`); Guard `warn` severity; CSS/TypeDecl/test-structure transformers; **budget utilization feedback** in `aic status`; **error telemetry**; **server lifecycle tracking** (`server_sessions` table)                                                                                                                                                               | Context selection quality improved for non-TypeScript repos; Cursor integration layer functional   |
-| **1**   | OSS Release           | `1.0.0` | Public repo; docs site; CI/CD; npm package; `postinstall` team deployment; auto-detected dependency constraints; reverse dependency walking; `aic history`; `aic suggest`; optional cost estimation in `aic status` (model-specific pricing, deferred from MVP since AIC is model-agnostic); **Session Tracker** + extended `CompilationRequest` agentic fields + **Adaptive Budget Allocator** (conversation-length + utilization-based auto-tuning) + **Specification Compiler** (`aic_compile_spec` MCP tool + `aic compile-spec` CLI) + session-aware cache keying (see [§2.7](#27-agentic-workflow-support)) | 10+ external contributors; 100+ GitHub stars; stable API (no breaking changes for 4 weeks)         |
-| **2**   | Semantic + Governance | `2.0.0` | VectorSelector (Zvec integration); HybridSelector; governance adapters; policy engine; `aic trends`; `extends` config for org-level deployment; centralised config server; **Conversation Compressor** + editor-specific conversation adapters for multi-step agentic workflows                                                                                                                                                                                                                                                                                                                                   | Vector retrieval improves relevance by ≥15% over heuristic; policy engine passes compliance audit  |
-| **3**   | Enterprise Platform   | `3.0.0` | Control plane; RBAC; SSO; audit logs; fleet management via MDM; live enterprise dashboard; hosted option                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | 3+ enterprise pilot customers; SLA-backed uptime; SOC 2 readiness                                  |
+| Phase   | Name                  | Version | Deliverables                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Exit Criteria                                                                                     |
+| ------- | --------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| **0**   | MVP                   | `0.1.0` | MCP tools (`aic_compile`, `aic_inspect`); `npx @aic/mcp init`; HeuristicSelector; SQLite storage; default rule packs; Guard with `allowPatterns`; first-run message; formula-derived model budget profiles (`windowRatio`); trigger rule; anonymous telemetry (opt-in); full test suite                                                                                                                                                                                                                                                                      | MCP tools functional; benchmark suite passes; measurable token reduction on canonical tasks       |
+| **0.5** | Quality Release       | `0.2.0` | Cursor integration layer (session-start hooks, tool gate, prompt logging); `GenericImportProvider` (Python/Go/Rust/Java regex imports); intent-aware file discovery; `aic://status` resource; `aic://last` resource; `aic_chat_summary` tool; Guard `warn` severity; CSS/TypeDecl/test-structure transformers; **budget utilization** in `aic://status`; prompt commands; **error telemetry**; **server lifecycle tracking** (`server_sessions` table)                                                                                                       | Context selection quality improved for non-TypeScript repos; Cursor integration layer functional  |
+| **1**   | OSS Release           | `1.0.0` | Public repo; docs site; CI/CD; npm package; `postinstall` team deployment; auto-detected dependency constraints; reverse dependency walking; optional cost estimation in `aic://status` (model-specific pricing, deferred from MVP since AIC is model-agnostic); **Session Tracker** + extended `CompilationRequest` agentic fields + **Adaptive Budget Allocator** (conversation-length + utilization-based auto-tuning) + **Specification Compiler** (`aic_compile_spec` MCP tool) + session-aware cache keying (see [§2.7](#27-agentic-workflow-support)) | 10+ external contributors; 100+ GitHub stars; stable API (no breaking changes for 4 weeks)        |
+| **2**   | Semantic + Governance | `2.0.0` | VectorSelector (Zvec integration); HybridSelector; governance adapters; policy engine; `extends` config for org-level deployment; centralised config server; **Conversation Compressor** + editor-specific conversation adapters for multi-step agentic workflows                                                                                                                                                                                                                                                                                            | Vector retrieval improves relevance by ≥15% over heuristic; policy engine passes compliance audit |
+| **3**   | Enterprise Platform   | `3.0.0` | Control plane; RBAC; SSO; audit logs; fleet management via MDM; live enterprise dashboard; hosted option                                                                                                                                                                                                                                                                                                                                                                                                                                                     | 3+ enterprise pilot customers; SLA-backed uptime; SOC 2 readiness                                 |
 
 ### Versioning Policy
 
@@ -3209,8 +3128,8 @@ AIC follows **Semantic Versioning 2.0.0** (`MAJOR.MINOR.PATCH`).
 
 | Change type                                            | Version bump | Examples                                                                                  |
 | ------------------------------------------------------ | ------------ | ----------------------------------------------------------------------------------------- |
-| Breaking change to any public interface or CLI flag    | `MAJOR`      | Removing a flag, changing `ContextSelector` method signature, changing config field names |
-| New backward-compatible feature                        | `MINOR`      | New CLI command, new `LanguageProvider`, new output format                                |
+| Breaking change to any public interface or MCP tool    | `MAJOR`      | Removing a tool, changing `ContextSelector` method signature, changing config field names |
+| New backward-compatible feature                        | `MINOR`      | New MCP tool/resource, new `LanguageProvider`, new output format                          |
 | Bug fix or internal refactor with no public API change | `PATCH`      | Fix scoring bug, fix cache TTL calculation, fix retry logic                               |
 
 **What counts as "public":** All TypeScript interfaces in `shared/src/*/interfaces/`, all CLI commands and flags, the `aic.config.json` schema, and the cache/telemetry file formats.
@@ -3330,7 +3249,7 @@ AIC is designed to be **technically compliant** with GDPR, SOC 2, and ISO 27001 
 | ---------------------- | --------------------------------------------------------------------------------------------- |
 | **Privacy by default** | No data collection without explicit opt-in. No PII in any storage.                            |
 | **Data minimisation**  | Telemetry collects only typed aggregates — no code, paths, or prompts                         |
-| **User control**       | Opt-in/out at any time. `aic telemetry log` shows exactly what was sent. `--clear` erases it. |
+| **User control**       | Opt-in/out at any time. Telemetry data visible in `.aic/aic.sqlite`. Config toggle erases it. |
 | **Local-first**        | All processing on user’s machine. No cloud dependency for core functionality.                 |
 | **Transparency**       | Every telemetry payload logged locally before sending. Audit trail always available.          |
 | **Security by design** | Context Guard, API key isolation, `.aic/` permissions, no symlink traversal                   |
@@ -3339,10 +3258,10 @@ AIC is designed to be **technically compliant** with GDPR, SOC 2, and ISO 27001 
 
 | Requirement               |   Status   | Implementation                                                    |
 | ------------------------- | :--------: | ----------------------------------------------------------------- |
-| Lawful basis (consent)    |     ✅     | Opt-in prompt during `aic init`. Default: disabled.               |
+| Lawful basis (consent)    |     ✅     | Opt-in via config. Default: disabled.                             |
 | Data minimisation         |     ✅     | Fixed enum fields only. No free-text. No PII.                     |
-| Right to access           |     ✅     | `aic telemetry log --json` exports all sent data                  |
-| Right to erasure          |     ✅     | `aic telemetry log --clear` + `telemetry.anonymousUsage: false`   |
+| Right to access           |     ✅     | Telemetry data in `.aic/aic.sqlite` `anonymous_telemetry_log`     |
+| Right to erasure          |     ✅     | Set `telemetry.anonymousUsage: false`; delete `.aic/aic.sqlite`   |
 | Right to withdraw consent |     ✅     | Set config to `false` at any time. Immediate effect.              |
 | Purpose limitation        |     ✅     | "Product improvement" stated in opt-in prompt and privacy policy  |
 | Data retention limit      | ⚠️ Phase 1 | Server-side: auto-delete after 90 days. Define in privacy policy. |

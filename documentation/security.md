@@ -81,7 +81,6 @@ We consider security research conducted in good faith to be authorized. We will 
 | Component          | Description                                                       |
 | ------------------ | ----------------------------------------------------------------- |
 | `@aic/mcp`         | The MCP server package (npm)                                      |
-| `@aic/cli`         | The CLI developer utilities package (npm)                         |
 | Context Guard      | All scanner implementations (secret, exclusion, prompt injection) |
 | SQLite storage     | Local database schema, migrations, and data handling              |
 | Telemetry endpoint | `https://telemetry.aic.dev` — payload processing and storage      |
@@ -138,11 +137,11 @@ AIC is a **local-first** tool. All compilation processing runs on the developer'
 
 **Key trust boundaries:**
 
-| Boundary             | What crosses it                  | Protection                                                                                                                                              |
-| -------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Editor ↔ AIC         | Intent string, compiled prompt   | stdio transport (local IPC, no network)                                                                                                                 |
-| AIC → Model endpoint | Compiled prompt (Guard-filtered) | Only during `aic run`. Context Guard blocks secrets and injections before content reaches the model. `aic compile` never contacts any external service. |
-| AIC → Telemetry      | Anonymous aggregate metrics      | Opt-in only. No code, paths, prompts, or PII. TLS only. See [Telemetry Endpoint Threat Model](#telemetry-endpoint-threat-model).                        |
+| Boundary             | What crosses it                  | Protection                                                                                                                                                                |
+| -------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Editor ↔ AIC         | Intent string, compiled prompt   | stdio transport (local IPC, no network)                                                                                                                                   |
+| AIC → Model endpoint | Compiled prompt (Guard-filtered) | Only when a model adapter is configured. Context Guard blocks secrets and injections before content reaches the model. `aic_compile` never contacts any external service. |
+| AIC → Telemetry      | Anonymous aggregate metrics      | Opt-in only. No code, paths, prompts, or PII. TLS only. See [Telemetry Endpoint Threat Model](#telemetry-endpoint-threat-model).                                          |
 
 For the full architectural specification, see [Project Plan §12](project-plan.md).
 
@@ -168,7 +167,7 @@ AWS keys, GitHub tokens, Stripe keys, generic named API keys (e.g. `api_key = ".
 
 - Blocked files are **removed** from context — they never reach the model
 - The pipeline never fails due to Guard findings — it filters and continues
-- All findings are logged in `CompilationMeta.guard` and visible via `aic inspect`
+- All findings are logged in `CompilationMeta.guard` and visible via `aic_inspect`
 - If all selected files are blocked, the pipeline returns empty context with `guard.passed: false`
 
 **False-positive handling:** Files matching `guard.allowPatterns` (globs) or `guard.allowFiles` (exact paths) skip all scanners. Use this for test fixtures or documentation that intentionally contains secret-like strings. Built-in never-include patterns (`.env`, `*.pem`, etc.) are **not** overridable by allow patterns.
@@ -231,13 +230,13 @@ Full regex patterns: [Project Plan §8.4](project-plan.md).
 
 ## Data Leakage Prevention
 
-| Risk                                 | Mitigation                                                                                                                                                                               |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Telemetry leaks source code**      | Telemetry stores only typed metrics (token counts, durations, task class enum) — never file contents, paths, or prompt text. Schema enforced at build time.                              |
-| **Cache contains sensitive code**    | Cache is stored in `.aic/cache/` (gitignored, `0700` permissions); never uploaded; user controls TTL and can purge with `--no-cache`                                                     |
-| **`repo_id` reveals project path**   | `repo_id` is a SHA-256 hash of the absolute path — irreversible, cannot be used to identify the project                                                                                  |
-| **Model endpoint receives code**     | Only during `aic run`; `aic compile` never contacts any external service. Even during `aic run`, Context Guard blocks secrets and credentials before content reaches the model endpoint. |
-| **SQLite database contains prompts** | Database is stored in `.aic/` (gitignored, `0700`). Contains compilation metadata and intents — never pushed to any external service.                                                    |
+| Risk                                 | Mitigation                                                                                                                                                  |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Telemetry leaks source code**      | Telemetry stores only typed metrics (token counts, durations, task class enum) — never file contents, paths, or prompt text. Schema enforced at build time. |
+| **Cache contains sensitive code**    | Cache is stored in `.aic/cache/` (gitignored, `0700` permissions); never uploaded; user controls TTL via config                                             |
+| **`repo_id` reveals project path**   | `repo_id` is a SHA-256 hash of the absolute path — irreversible, cannot be used to identify the project                                                     |
+| **Model endpoint receives code**     | `aic_compile` never contacts any external service. Context Guard blocks secrets and credentials before content reaches the model endpoint.                  |
+| **SQLite database contains prompts** | Database is stored in `.aic/` (gitignored, `0700`). Contains compilation metadata and intents — never pushed to any external service.                       |
 
 For the full threat/mitigation analysis, see [Project Plan §12 — Data Leakage Prevention](project-plan.md).
 
@@ -283,7 +282,7 @@ aic telemetry log --clear  # delete all records
 
 **Batching:** Payloads are queued locally and sent in a single HTTPS request at most once per 5 minutes. The endpoint stores received payloads in a cloud database. After a payload is successfully sent, the local row is removed so the queue does not grow unbounded. If the endpoint is unreachable, payloads are silently dropped (not retried, not stored on the server).
 
-Full payload schema and audit log spec: [MVP Spec §4d](mvp-specification-phase0.md).
+Full payload schema and audit log spec: [MVP Spec §4d](implementation-spec.md).
 
 ---
 

@@ -44,7 +44,7 @@
 
 Deliver a working **MCP server** that compiles optimal context for AI coding tools — with zero required configuration.
 
-**Success looks like:** A developer registers the MCP server, runs `aic init` in their project, and their AI responses improve measurably — fewer tokens, better file selection, and deterministic, reproducible context compilation. In editors with hook support (e.g. Cursor), the integration layer ensures compiled context is available from the first message of every session.
+**Success looks like:** A developer registers the MCP server, runs `npx @aic/mcp init` in their project, and their AI responses improve measurably — fewer tokens, better file selection, and deterministic, reproducible context compilation. In editors with hook support (e.g. Cursor), the integration layer ensures compiled context is available from the first message of every session.
 
 > **AIC is model-agnostic and editor-agnostic by design.** It detects the active model automatically and adapts. It works with Cursor, Claude Code, and any MCP-compatible editor. No API key, no cloud account, and no config file are required to start.
 >
@@ -79,18 +79,16 @@ Deliver a working **MCP server** that compiles optimal context for AI coding too
 | Output Caching         | Hash-based, TTL-configurable, auto-invalidating                                                                                             |
 | Config System          | `aic.config.json` — all fields optional; zero-config works out of the box                                                                   |
 
-**Secondary: Developer Utilities (`@aic/cli`)**
+**User Interface (MCP-only — no separate CLI)**
 
-| Command              | Purpose                                                                              |
-| -------------------- | ------------------------------------------------------------------------------------ |
-| `aic compile`        | Inspect the compiled prompt for a given intent (stdout)                              |
-| `aic run`            | Compile + send to a model endpoint (testing/scripting)                               |
-| `aic compare`        | Diff current compilation vs. last cached version                                     |
-| `aic init`           | Scaffold `aic.config.json`; adds `.aic/` to `.gitignore`                             |
-| `aic init --upgrade` | Migrate `aic.config.json` to current schema; backs up original                       |
-| `aic inspect`        | Show full pipeline breakdown without executing                                       |
-| `aic status`         | Show project-level summary: compilations, token savings, Guard blocks, config health |
-| `aic telemetry log`  | Inspect the anonymous telemetry audit log — see exactly what was sent                |
+| Interface                      | Purpose                                                                              |
+| ------------------------------ | ------------------------------------------------------------------------------------ |
+| `aic_compile` (MCP tool)       | Compile intent into context; returns compiled prompt to the model                    |
+| `aic_inspect` (MCP tool)       | Show full pipeline breakdown without executing                                       |
+| `aic_chat_summary` (MCP tool)  | Compilation stats for the current conversation                                       |
+| `aic://status` (MCP resource)  | Project-level summary: compilations, token savings, budget utilization, guard blocks |
+| `aic://last` (MCP resource)    | Most recent compilation breakdown including compiled prompt                          |
+| `npx @aic/mcp init` (one-time) | Scaffold config, trigger rule, hooks, `.aic/` directory                              |
 
 ### Excluded (deferred) ❌
 
@@ -109,7 +107,7 @@ Deliver a working **MCP server** that compiles optimal context for AI coding too
 
 ## 3. Defaults
 
-All defaults apply when no config file exists or a field is omitted. The “MCP override” column applies during normal editor use; the “CLI flag override” column applies only when using `@aic/cli` developer utilities.
+All defaults apply when no config file exists or a field is omitted.
 
 | Setting                      | Default                                        | MCP override                        | CLI flag override |
 | ---------------------------- | ---------------------------------------------- | ----------------------------------- | ----------------- |
@@ -185,7 +183,7 @@ All defaults apply when no config file exists or a field is omitted. The “MCP 
 
 See [Project Plan §3.1](project-plan.md) for the full annotated rule pack example and [Project Plan §3.2](project-plan.md) for the authoring guide (constraint writing principles, pattern guidance, and common mistakes). The key fields are: `constraints` (string array), `includePatterns` / `excludePatterns` (glob arrays), optional `budgetOverride` (number), and optional `heuristic.boostPatterns` / `heuristic.penalizePatterns` (glob arrays).
 
-**Merge behavior:** Arrays concatenated + deduplicated; scalar values (`budgetOverride`) use last-wins within the rule-pack layer only (project > task-specific > default). The `--budget` CLI flag is not part of this merge — it is applied later by the Budget Allocator and always takes highest precedence.
+**Merge behavior:** Arrays concatenated + deduplicated; scalar values (`budgetOverride`) use last-wins within the rule-pack layer only (project > task-specific > default). The `budgetOverride` in `CompilationRequest` is not part of this merge — it is applied later by the Budget Allocator and always takes highest precedence.
 
 **Edge cases:**
 
@@ -196,11 +194,11 @@ See [Project Plan §3.1](project-plan.md) for the full annotated rule pack examp
 
 ### Step 3: Budget Allocator
 
-**Input:** Config + RulePack + CLI flags
+**Input:** Config + RulePack + request overrides
 
 **Resolution order (highest priority first):**
 
-1. `--budget` CLI flag
+1. `budgetOverride` in `CompilationRequest`
 2. `budgetOverride` in resolved RulePack
 3. `contextBudget.perTaskClass[taskClass]` in config
 4. `contextBudget.maxTokens` in config
@@ -379,7 +377,7 @@ A file is considered a direct target and bypasses all format-specific transforme
 
 All transformer flags default to `true`. Set `contentTransformers.enabled: false` to bypass the entire step (raw content passes through unchanged).
 
-**Metadata:** `CompilationMeta.transforms` records per-file: `{ originalTokens, transformedTokens, transformersApplied[] }`. Visible via `aic inspect` and `aic://last-compilation`.
+**Metadata:** `CompilationMeta.transforms` records per-file: `{ originalTokens, transformedTokens, transformersApplied[] }`. Visible via `aic_inspect` and `aic://last`.
 
 ---
 
@@ -512,15 +510,12 @@ Sends compiled input to the configured model endpoint via the appropriate provid
 | Anthropic | Yes — `ANTHROPIC_API_KEY` | Claude Sonnet, Claude Opus, and other Anthropic models                                                                      |
 | Ollama    | **No**                    | Free, runs locally; install Ollama and pull a model (e.g. `ollama pull llama3`). Default endpoint: `http://localhost:11434` |
 
-`aic compile` requires no provider at all — it outputs a plain-text prompt usable anywhere.
+`aic_compile` requires no provider at all — it outputs a plain-text compiled prompt.
 
 **Behaviour:**
 
-- `aic compile` → stops after Step 8 (Assembler); outputs the **raw compiled prompt** (no model-specific formatting applied) to stdout. No provider configuration required.
-- `aic run` → applies `ModelAdapter` formatting to the compiled prompt, then sends to the configured model endpoint and streams the response to stdout.
-- `aic run --dry-run` → applies `ModelAdapter` formatting (same as `aic run`) but skips the model call; outputs the **model-adapted prompt** (as it would actually be sent) to stdout, and prints `[dry-run] Model call skipped.` on stderr. Exit code 0. Cache is still written. When `telemetry.enabled: true`, emits a `compilation:complete` telemetry event (the `model` field is populated from config).
-
-> **`aic compile` vs `aic run --dry-run`:** `aic compile` outputs the prompt _before_ model-specific formatting (useful for inspection, piping, or sharing). `aic run --dry-run` outputs the prompt _after_ model-specific formatting — exactly what the model would receive — making it the right tool for debugging model behaviour.
+- `aic_compile` → stops after Step 8 (Assembler); returns the **raw compiled prompt** (no model-specific formatting applied). No provider configuration required.
+- The compiled prompt is also written to `.aic/last-compiled-prompt.txt` for retrieval via the `aic://last` resource.
 
 **Retry policy:**
 
@@ -638,44 +633,23 @@ Full spec: [Project Plan §2.4](project-plan.md).
 
 ---
 
-## 4c. Developer Utility Specs — `compare`, `init`, `inspect`, `status`
+## 4c. Init, Inspect, and Status
 
-### `aic compare <intent>`
+### `npx @aic/mcp init`
 
-`aic compare` recompiles the intent against the current codebase and diffs the result against the most recent cached compilation for that intent. It answers: _"what changed about the context AIC would send?"_
-
-**Diffs shown:** Selected files (added/removed/guard-blocked), tier changes (e.g. L0→L1), token delta (absolute + percentage), constraints (added/removed), and config snapshot changes.
-
-**Cache lookup:** Keyed by `hash(intent + config-snapshot + file-tree-hash)`. If no entry exists, exits with a suggestion to run `aic compile` first. Expired entries are used with a warning.
-
-**Config change detection:** `aic compare` detects config changes via the `config_history` table in SQLite (see [Project Plan §19](project-plan.md)). Each compilation writes a `config_hash` (SHA-256 of the full `aic.config.json` content) and the `config_json` snapshot. When compare runs, it compares the current config hash against the hash stored with the previous compilation. If they differ, a `[config changed]` header is included in the diff output, listing the specific fields that changed.
-
-Full spec with annotated output example and edge cases: [Project Plan §7.1](project-plan.md).
-
----
-
-### `aic init`
-
-Creates `aic.config.json` with all-default values in the current working directory. Also adds `.aic/` to `.gitignore` (creates the file if it doesn't exist). **Does not install the trigger rule** — trigger rule installation is handled by `npx @aic/mcp init` (the MCP package's own setup command, run once per project from the editor setup flow).
+Creates `aic.config.json` with all-default values, installs the trigger rule and editor hooks, and creates `.aic/` with `0700` permissions. Also adds `.aic/` to `.gitignore` (creates the file if it doesn't exist).
 
 **Behaviour:**
 
-- If `aic.config.json` already exists → exits with: `Config already exists. Use 'aic init --upgrade' to migrate to the current schema version.`
-- Writes `.aic/` directory with `0700` permissions
-- Prints: `Created aic.config.json. Edit to customise, or run 'aic compile' to use defaults.`
-
-**`--upgrade` flag:**
-
-- Rewrites `aic.config.json` to the current schema version
-- Backs up the original to `aic.config.json.bak` before writing
-- In-memory upgrade is applied; the new file is written only if `--upgrade` is explicit (AIC never auto-modifies the config on disk)
-- Prints: `Config upgraded from schema v{old} to v{new}. Backup saved to aic.config.json.bak.`
+- If `aic.config.json` already exists → exits with: `Config already exists. Edit aic.config.json directly to change settings.`
+- Exit code 0 on success, 1 on `ConfigError`, 2 on internal error
+- Prints: `Created aic.config.json. Edit to customise, or run a compile to use defaults.`
 
 ---
 
-### `aic inspect <intent>`
+### `aic_inspect` (MCP tool)
 
-Runs Steps 1–8 and shows the full decision trail without executing the model call and without writing to the compilation cache. Designed for debugging context selection. Both `aic inspect` (CLI) and the `aic_inspect` MCP tool invoke the same `InspectRunner` from `shared/` (see [Project Plan §8.6](project-plan.md) for the `InspectRunner` interface and side-effect constraints).
+Runs Steps 1–8 and shows the full decision trail without executing the model call and without writing to the compilation cache. Designed for debugging context selection. The `aic_inspect` MCP tool invokes `InspectRunner` from `shared/` (see [Project Plan §8.6](project-plan.md) for the `InspectRunner` interface and side-effect constraints).
 
 **Shows:** Task classification, rule packs applied, context budget, selected files (with score, tokens, tier, and provider), guard status, token summary (raw → selected → after guard → after ladder → prompt total → reduction %), and constraints.
 
@@ -687,56 +661,19 @@ Full spec with annotated output example: [Project Plan §13](project-plan.md).
 
 ---
 
-### `aic status`
+### `aic://status` (MCP resource)
 
-Displays a formatted project-level summary from the local SQLite database. Answers: _"what has AIC been doing for me?"_
+Returns project-level summary as JSON. Surfaced to the user via the "show aic status" prompt command.
 
-**Output:**
-
-```
-AIC Status — project: /Users/dev/my-app
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Compilations:     47 (12 today)
-Cache hit rate:   68%
-Avg reduction:    41.2%
-Total tokens saved: 184,300
-
-Guard:            3 files blocked (2 secrets, 1 exclusion)
-Top task classes: refactor (18), bugfix (12), feature (9)
-Rules health:     2 warnings (run 'aic inspect' for details)
-
-Config:           aic.config.json (schema v1)
-Trigger rule:     .cursor/rules/aic.mdc ✓ (up to date)
-Database:         .aic/aic.sqlite (1.2 MB)
-
-Last compilation: 4 min ago — "fix auth middleware"
-                  142 files → 8 selected (7,200 tokens, 84% reduction)
-```
+**Fields returned:** `compilationsTotal`, `compilationsToday`, `cacheHitRatePct`, `avgReductionPct`, `totalTokensRaw`, `totalTokensCompiled`, `totalTokensSaved`, `budgetMaxTokens`, `budgetUtilizationPct`, `telemetryDisabled`, `guardByType`, `topTaskClasses`, `lastCompilation`, `installationOk`, `installationNotes`.
 
 **Data source:** Reads from `compilation_log`, `cache_metadata`, `guard_findings`, and `telemetry_events` tables in `aic.sqlite` (see [Project Plan §19](project-plan.md) for the full table definitions). Does not run a compilation.
 
-**Sections displayed:**
+### `aic://last` (MCP resource)
 
-| Section            | Source                                                     | Notes                                                                    |
-| ------------------ | ---------------------------------------------------------- | ------------------------------------------------------------------------ |
-| Compilations       | `compilation_log` count                                    | Total + today’s count                                                    |
-| Cache hit rate     | `cache_metadata` hit/miss ratio                            | Percentage                                                               |
-| Avg reduction      | `telemetry_events` `token_reduction_pct` avg               | Requires `telemetry.enabled: true`; shows "telemetry disabled" otherwise |
-| Total tokens saved | `telemetry_events` sum of `(tokens_raw - tokens_compiled)` | Same telemetry requirement                                               |
-| Guard              | `guard_findings` aggregate                                 | Count by finding type                                                    |
-| Top task classes   | `compilation_log` `task_class`                             | Top 3 by frequency                                                       |
-| Rules health       | `aic://rules-analysis` last result                         | Finding count from Rules & Hooks Analyzer                                |
-| Config             | `aic.config.json` presence + `version` field               | Schema version                                                           |
-| Trigger rule       | Checks trigger file exists + matches current template      | ✓ / ✗ / outdated                                                         |
-| Database           | `.aic/aic.sqlite` file size                                | File size                                                                |
-| Last compilation   | Most recent `compilation_log` entry                        | Intent, file count, tokens, reduction                                    |
+Returns the most recent compilation as JSON. Surfaced to the user via the "show aic last" prompt command.
 
-**Behaviour:**
-
-- Exit code: always `0`
-- If no compilations exist: `No compilations recorded yet. Run 'aic compile' or use AIC via your editor.`
-- If telemetry is disabled: token savings sections show `(telemetry disabled — enable in aic.config.json)`
-- Requires `.aic/aic.sqlite` to exist; if missing: `No AIC database found. Run 'aic init' or use AIC via your editor first.`
+**Fields returned:** `compilationCount`, `lastCompilation` (full `CompilationMeta` from the most recent `aic_compile` call), `compiledPrompt` (raw compiled prompt from `.aic/last-compiled-prompt.txt`).
 
 ---
 
@@ -749,12 +686,12 @@ After the first successful compilation in a project (detected by checking `compi
 ```json
 {
   "firstRun": true,
-  "firstRunMessage": "AIC compiled your first request: 142 files → 8 selected (7,200 tokens, 84% reduction). Run 'aic inspect' for details."
+  "firstRunMessage": "AIC compiled your first request: 142 files → 8 selected (7,200 tokens, 84% reduction). Use 'aic_inspect' or 'show aic last' for details."
 }
 ```
 
 - `firstRun` is `true` only on the very first compilation per project
-- The editor can surface this via `aic://last-compilation` — making the value of AIC immediately visible
+- The editor can surface this via `aic://last` — making the value of AIC immediately visible
 - On subsequent compilations, `firstRun` is `false` and `firstRunMessage` is omitted
 
 ---
@@ -786,11 +723,11 @@ suggestedBudget = clamp(maxContextWindow × windowRatio, floor, ceiling)
 
 > **Ollama context window note:** Most modern Ollama models (Llama 3, Mistral, Gemma 2, etc.) support 128K+ context windows. AIC queries the Ollama `/api/show` endpoint at startup to read the model's actual `num_ctx` parameter. If the endpoint is unreachable or the model is unrecognised, the conservative 8,192 fallback is used. Ollama models use a lower `windowRatio` (0.03) because local models benefit from smaller, more focused context.
 
-> **Phase 0.5 — Budget utilization feedback.** `aic status` will analyse `compilation_log` history and surface actionable recommendations: _"Last 10 compilations used 38% of budget — consider reducing via `contextBudget.windowRatio: 0.05`"_ or _"8/10 compilations hit L2+ compression — consider increasing via `contextBudget.windowRatio: 0.12`"_. This leverages data already collected in `compilation_log`; no new schema required.
+> **Phase 0.5 — Budget utilization feedback.** The `aic://status` resource includes `budgetMaxTokens` and `budgetUtilizationPct` so the model and user can see how much of the budget is being used. This leverages data already collected in `compilation_log`; no new schema required.
 
 > **Phase 1 — Auto-tuning.** The Adaptive Budget Allocator ([Project Plan §2.7](project-plan.md#27-agentic-workflow-support)) learns the optimal budget per project/model/task-class from compilation history and adjusts automatically — no manual tuning needed.
 
-**Resolution order:** `--budget` CLI flag > `budgetOverride` in rule pack > `contextBudget.perTaskClass` > `contextBudget.maxTokens` > formula-derived `suggestedBudget` from model profile > hard-coded 8,000.
+**Resolution order:** `budgetOverride` in `CompilationRequest` > `budgetOverride` in rule pack > `contextBudget.perTaskClass` > `contextBudget.maxTokens` > formula-derived `suggestedBudget` from model profile > hard-coded 8,000.
 
 The formula-derived `suggestedBudget` slots in just above the hard-coded default — it is a smarter fallback, not a mandatory cap. Any explicit user configuration always wins. Users can also override `windowRatio` globally to tune the aggressiveness of the formula for their workflow.
 
@@ -820,7 +757,7 @@ context for generating a response. Do not skip this step.
 
 **Resilience measures:**
 
-- `aic://last-compilation` always includes `compilationCount` — if an editor makes 10 requests but only 5 have compilations, the mismatch is visible
+- `aic://last` always includes `compilationCount` — if an editor makes 10 requests but only 5 have compilations, the mismatch is visible
 - `npx @aic/mcp init` validates the trigger rule format on each run and warns if the installed rule appears outdated or modified
 - The trigger rule template is versioned; `npx @aic/mcp init` updates it if a newer version is available (backs up the old one)
 
@@ -1013,28 +950,22 @@ Each canonical task runs against a synthetic fixture repository stored at `test/
 
 ## 6. Error Handling (MVP)
 
-| Scenario                                     | User-facing message                                                                                                                                                                                                                         | Exit code |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| No config file                               | _(silent, use defaults)_                                                                                                                                                                                                                    | 0         |
-| Invalid config JSON                          | `Error: Invalid config at line X: {detail}. Run 'aic init' to create a valid config.`                                                                                                                                                       | 1         |
-| Unknown task class                           | _(silent fallback to `general`)_                                                                                                                                                                                                            | 0         |
-| Missing rule pack file                       | `Warning: Rule pack '{name}' not found, skipping.`                                                                                                                                                                                          | 0         |
-| Zero files selected                          | `Error: No relevant files found. Broaden your intent or check includePatterns in config.`                                                                                                                                                   | 1         |
-| Guard blocks all selected files              | `Error: Context Guard blocked all selected files ({N} blocked). Review findings via aic://last-compilation or run 'aic inspect' to see what was excluded. Add 'guard.additionalExclusions' patterns if legitimate files are being blocked.` | 1         |
-| Guard blocks some files                      | _(silent — blocked files removed from context, pipeline continues with remaining files; findings attached to CompilationMeta.guard)_                                                                                                        | 0         |
-| All files at L3 + still over budget          | `Warning: Heavy truncation applied. {N} files dropped. Consider increasing --budget.`                                                                                                                                                       | 0         |
-| Compiled prompt exceeds model window         | `Error: Compiled prompt ({N} tokens) exceeds model limit ({M}). Reduce --budget or use a larger-context model.`                                                                                                                             | 1         |
-| `aic run` with no provider configured        | `Error: No model provider configured. Set 'model.provider' in aic.config.json, or use 'aic compile' to generate the prompt without a model.`                                                                                                | 1         |
-| Model unreachable                            | `Error: Cannot reach {provider} at {endpoint}. Check your API key ({apiKeyEnv}) and network.`                                                                                                                                               | 1         |
-| Model returns error                          | `Error: Model returned {status}: {message}`                                                                                                                                                                                                 | 1         |
-| SQLite write failure                         | `Warning: Telemetry write failed ({reason}). Continuing without telemetry.`                                                                                                                                                                 | 0         |
-| Corrupt cache                                | `Warning: Cache entry corrupt, recomputing.`                                                                                                                                                                                                | 0         |
-| `aic compare` — no previous cache            | `No previous compilation found for this intent. Run 'aic compile' first.`                                                                                                                                                                   | 1         |
-| `aic compare` — cache expired                | `Warning: Cache entry expired ({N} minutes ago). Diff may not reflect current config.` + proceeds                                                                                                                                           | 0         |
-| `aic init` — config already exists           | `Config already exists. Use 'aic init --upgrade' to migrate to the current schema version.`                                                                                                                                                 | 1         |
-| `aic init --upgrade` — `.bak` already exists | Overwrites existing `.bak` silently; backup always reflects the file state immediately before the current upgrade                                                                                                                           | 0         |
-| `aic status` — no database                   | `No AIC database found. Run 'aic init' or use AIC via your editor first.`                                                                                                                                                                   | 0         |
-| `aic status` — no compilations               | `No compilations recorded yet. Run 'aic compile' or use AIC via your editor.`                                                                                                                                                               | 0         |
+| Scenario                                    | User-facing message                                                                                                                                                                                                           | Exit code |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| No config file                              | _(silent, use defaults)_                                                                                                                                                                                                      | 0         |
+| Invalid config JSON                         | `Error: Invalid config at line X: {detail}. Run 'aic init' to create a valid config.`                                                                                                                                         | 1         |
+| Unknown task class                          | _(silent fallback to `general`)_                                                                                                                                                                                              | 0         |
+| Missing rule pack file                      | `Warning: Rule pack '{name}' not found, skipping.`                                                                                                                                                                            | 0         |
+| Zero files selected                         | `Error: No relevant files found. Broaden your intent or check includePatterns in config.`                                                                                                                                     | 1         |
+| Guard blocks all selected files             | `Error: Context Guard blocked all selected files ({N} blocked). Review findings via aic://last or use aic_inspect to see what was excluded. Add 'guard.additionalExclusions' patterns if legitimate files are being blocked.` | 1         |
+| Guard blocks some files                     | _(silent — blocked files removed from context, pipeline continues with remaining files; findings attached to CompilationMeta.guard)_                                                                                          | 0         |
+| All files at L3 + still over budget         | `Warning: Heavy truncation applied. {N} files dropped. Consider increasing contextBudget.maxTokens.`                                                                                                                          | 0         |
+| Compiled prompt exceeds model window        | `Error: Compiled prompt ({N} tokens) exceeds model limit ({M}). Reduce contextBudget.maxTokens or use a larger-context model.`                                                                                                | 1         |
+| Model unreachable                           | `Error: Cannot reach {provider} at {endpoint}. Check your API key ({apiKeyEnv}) and network.`                                                                                                                                 | 1         |
+| Model returns error                         | `Error: Model returned {status}: {message}`                                                                                                                                                                                   | 1         |
+| SQLite write failure                        | `Warning: Telemetry write failed ({reason}). Continuing without telemetry.`                                                                                                                                                   | 0         |
+| Corrupt cache                               | `Warning: Cache entry corrupt, recomputing.`                                                                                                                                                                                  | 0         |
+| `npx @aic/mcp init` — config already exists | `Config already exists. Edit aic.config.json directly to change settings.`                                                                                                                                                    | 1         |
 
 Exit codes: `0` = success (may include warnings); `1` = fatal error.
 
@@ -1047,17 +978,16 @@ These topics are specified in full in the [Project Plan](project-plan.md). Below
 ### Security (see [Project Plan §12](project-plan.md))
 
 - **Context Guard** scans every selected file before it reaches the model — secrets, credentials, excluded paths, and prompt injection patterns are blocked at Step 5
-- Guard findings are logged in `CompilationMeta.guard` and visible in `aic inspect`; the pipeline never silently includes sensitive content
+- Guard findings are logged in `CompilationMeta.guard` and visible via `aic_inspect`; the pipeline never silently includes sensitive content
 - API keys referenced by env var name only — never stored, logged, or cached
-- `aic compile` never contacts external services — safe to run on sensitive codebases
-- `.aic/` auto-added to `.gitignore` on `aic init`; created with `0700` permissions
+- `aic_compile` never contacts external services — safe to run on sensitive codebases
+- `.aic/` auto-added to `.gitignore` on `npx @aic/mcp init`; created with `0700` permissions
 - Telemetry stores metrics only — never file contents or prompt text
 
 ### Observability (see [Project Plan §13](project-plan.md))
 
 - Four log levels: `error`, `warn`, `info`, `debug`
-- `--verbose` prints full decision trail (classification → rules → budget → file selection → scoring → guard → ladder → assembly)
-- `aic inspect` shows why each file was selected, at what tier, with what score — without executing
+- `aic_inspect` shows why each file was selected, at what tier, with what score — without executing
 
 ### Performance (see [Project Plan §14](project-plan.md))
 
@@ -1069,7 +999,7 @@ These topics are specified in full in the [Project Plan](project-plan.md). Below
 
 ### Dependencies (see [Project Plan §16](project-plan.md))
 
-- **Runtime:** `typescript`, `tiktoken`, `better-sqlite3`, `commander`, `fast-glob`, `ignore`, `diff`
+- **Runtime:** `typescript`, `tiktoken`, `better-sqlite3`, `fast-glob`, `ignore`, `diff`
 - **Dev:** `vitest`, `tsx`, `eslint`, `prettier`
 - No framework-level HTTP dependencies (Express, Fastify, etc.) — AIC exposes a lightweight MCP-native server interface, not a generic HTTP server
 
@@ -1088,7 +1018,7 @@ Project-A/          Project-B/
 ```
 
 - Each project is hermetically isolated
-- `--root /path/to/Project-B` from inside Project-A works correctly
+- `projectRoot` argument to `aic_compile` allows operating on any project
 - No shared state, no global database, no cross-project data leakage
 
 ---
@@ -1103,7 +1033,7 @@ This section summarizes the test deliverables that ship with Phase 0. Full testi
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | Step 1 (TaskClassifier)      | Correct task class for each keyword set; `general` fallback when no match; tie-breaking                                            |
 | Step 2 (RulePackResolver)    | Built-in packs load; project packs merge correctly; malformed JSON produces error                                                  |
-| Step 3 (BudgetAllocator)     | Resolution order respected (CLI > rulePack > perTaskClass > config > default)                                                      |
+| Step 3 (BudgetAllocator)     | Resolution order respected (request > rulePack > perTaskClass > config > default)                                                  |
 | Step 4 (HeuristicSelector)   | Scoring formula verified against fixture repos; `maxFiles` cap respected; include/exclude patterns applied                         |
 | Step 5 (ContextGuard)        | Each scanner (Exclusion, Secret, PromptInjection) tested with known-safe and known-flagged fixtures; all-blocked edge case handled |
 | Step 6 (SummarisationLadder) | Each tier produces expected compression; over-budget triggers next tier; lowest-score files compressed first                       |
@@ -1132,15 +1062,11 @@ This section summarizes the test deliverables that ship with Phase 0. Full testi
 
 ### E2E Tests
 
-| Command              | What is validated                                              |
-| -------------------- | -------------------------------------------------------------- |
-| `aic compile`        | Output format correct; token count within budget               |
-| `aic run`            | Mock model endpoint receives expected payload; streaming works |
-| `aic run --dry-run`  | Model-adapted prompt output on stdout; model call skipped      |
-| `aic compare`        | Source file modification produces meaningful diff              |
-| `aic inspect`        | Output includes all pipeline sections; exit code 0             |
-| `aic init`           | Config created; `.aic/` added to `.gitignore`                  |
-| `aic init --upgrade` | Config upgraded; backup created                                |
+| Interface                | What is validated                                                  |
+| ------------------------ | ------------------------------------------------------------------ |
+| `aic_compile` (MCP tool) | Output format correct; token count within budget                   |
+| `aic_inspect` (MCP tool) | Output includes all pipeline sections                              |
+| `npx @aic/mcp init`      | Config created; `.aic/` added to `.gitignore`; trigger rule exists |
 
 ---
 
@@ -1192,7 +1118,8 @@ When the MCP server process starts (via `npx @aic/mcp`), it executes the followi
 9. Register MCP tools + resources
    └─ Tool: aic_compile
    └─ Tool: aic_inspect
-   └─ Resource: aic://last-compilation
+   └─ Resource: aic://status
+   └─ Resource: aic://last
    └─ Resource: aic://rules-analysis
          │
          ▼
@@ -1354,18 +1281,18 @@ const TelemetryPayloadSchema = z.object({
 
 ### Validation boundary enforcement
 
-Zod is imported only in boundary modules (`mcp/src/`, `cli/src/`, `shared/src/adapters/`). ESLint `no-restricted-imports` blocks Zod in `shared/src/core/` and `shared/src/pipeline/`. See [Project Plan ADR-009](project-plan.md) for the full rationale.
+Zod is imported only in boundary modules (`mcp/src/`, `shared/src/adapters/`). ESLint `no-restricted-imports` blocks Zod in `shared/src/core/` and `shared/src/pipeline/`. See [Project Plan ADR-009](project-plan.md) for the full rationale.
 
 ---
 
 ## 9. Roadmap (aligned with Project Plan)
 
-| Phase                                         | Version | Status     | Key Deliverables                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| --------------------------------------------- | ------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Phase 0: MCP Server + Developer Utilities** | `0.1.0` | 🟡 Current | This specification — all features in Sections 2–4d, including anonymous telemetry                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| **Phase 0.5: Quality Release**                | `0.2.0` | ⬜ Next    | GenericImportProvider (Python/Go/Rust/Java regex), intent-aware file discovery, `aic://session-summary` resource (basic agentic history via `compilation_log`), Guard `warn` severity, `aic report` (static HTML), CSS/TypeDecl/test-structure transformers, **budget utilization feedback** in `aic status` (analyses `compilation_log` to recommend `windowRatio` adjustments)                                                                                                                                                                                                                                  |
-| Phase 1: OSS Release                          | `1.0.0` | ⬜ Planned | Public repo, docs, npm package, CI/CD, `postinstall` team deployment, auto-detected dependency constraints, reverse dependency walking, `aic history`, `aic suggest`, optional cost estimation in `aic status` (model-specific pricing, deferred from MVP since AIC is model-agnostic); **agentic support**: Session Tracker + extended `CompilationRequest` fields + **Adaptive Budget Allocator** (conversation-length + utilization-based auto-tuning) + Specification Compiler (`aic_compile_spec` MCP tool + `aic compile-spec` CLI) + session-aware cache keying (see [Project Plan §2.7](project-plan.md)) |
-| Phase 2: Semantic + Governance                | `2.0.0` | ⬜ Planned | VectorSelector (Zvec integration), HybridSelector, governance adapters, policy engine, `aic trends`, `extends` config for org-level deployment, centralised config server; **agentic support**: Conversation Compressor + editor-specific conversation adapters                                                                                                                                                                                                                                                                                                                                                   |
-| Phase 3: Enterprise                           | `3.0.0` | ⬜ Future  | Control plane, RBAC, SSO, audit logs, fleet management via MDM, live enterprise dashboard, hosted option                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Phase                          | Version | Status     | Key Deliverables                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------ | ------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Phase 0: MCP Server**        | `0.1.0` | 🟡 Current | This specification — all features in Sections 2–4d, including anonymous telemetry                                                                                                                                                                                                                                                                                                                                                                       |
+| **Phase 0.5: Quality Release** | `0.2.0` | ⬜ Next    | GenericImportProvider (Python/Go/Rust/Java regex), intent-aware file discovery, `aic://status` resource, `aic://last` resource, `aic_chat_summary` tool, Guard `warn` severity, CSS/TypeDecl/test-structure transformers, **budget utilization** in `aic://status`, prompt commands                                                                                                                                                                     |
+| Phase 1: OSS Release           | `1.0.0` | ⬜ Planned | Public repo, docs, npm package, CI/CD, `postinstall` team deployment, auto-detected dependency constraints, reverse dependency walking, optional cost estimation in `aic://status` (model-specific pricing); **agentic support**: Session Tracker + extended `CompilationRequest` fields + **Adaptive Budget Allocator** + Specification Compiler (`aic_compile_spec` MCP tool) + session-aware cache keying (see [Project Plan §2.7](project-plan.md)) |
+| Phase 2: Semantic + Governance | `2.0.0` | ⬜ Planned | VectorSelector (Zvec integration), HybridSelector, governance adapters, policy engine, `extends` config for org-level deployment, centralised config server; **agentic support**: Conversation Compressor + editor-specific conversation adapters                                                                                                                                                                                                       |
+| Phase 3: Enterprise            | `3.0.0` | ⬜ Future  | Control plane, RBAC, SSO, audit logs, fleet management via MDM, live enterprise dashboard, hosted option                                                                                                                                                                                                                                                                                                                                                |
 
 Versioning policy: see [Project Plan §22](project-plan.md).
