@@ -49,6 +49,7 @@ import { SummarisationLadder } from "../summarisation-ladder.js";
 import { PromptAssembler } from "../prompt-assembler.js";
 import { IntentAwareFileDiscoverer } from "../intent-aware-file-discoverer.js";
 import { SpecFileDiscoverer } from "../spec-file-discoverer.js";
+import { ConversationCompressorImpl } from "../conversation-compressor.js";
 import { TiktokenAdapter } from "#adapters/tiktoken-adapter.js";
 import { TypeScriptProvider } from "#adapters/typescript-provider.js";
 import { GenericProvider } from "#adapters/generic-provider.js";
@@ -266,6 +267,7 @@ describe("CompilationRunner", () => {
       repoMapSupplier: mockRepoMapSupplier,
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
+      conversationCompressor: new ConversationCompressorImpl(),
     };
     const runner = new CompilationRunner(
       deps,
@@ -310,6 +312,7 @@ describe("CompilationRunner", () => {
       repoMapSupplier: mockRepoMapSupplier,
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
+      conversationCompressor: new ConversationCompressorImpl(),
     };
     const runner = new CompilationRunner(
       deps,
@@ -359,6 +362,7 @@ describe("CompilationRunner", () => {
       repoMapSupplier: rejectingRepoMapSupplier,
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
+      conversationCompressor: new ConversationCompressorImpl(),
     };
     const runner = new CompilationRunner(
       deps,
@@ -401,6 +405,7 @@ describe("CompilationRunner", () => {
       repoMapSupplier: mockRepoMapSupplier,
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
+      conversationCompressor: new ConversationCompressorImpl(),
     };
     const runner = new CompilationRunner(
       deps,
@@ -460,6 +465,7 @@ describe("CompilationRunner", () => {
       repoMapSupplier: mockRepoMapSupplier,
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
+      conversationCompressor: new ConversationCompressorImpl(),
     };
     const runner = new CompilationRunner(
       deps,
@@ -509,6 +515,7 @@ describe("CompilationRunner", () => {
       repoMapSupplier: mockRepoMapSupplier,
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
+      conversationCompressor: new ConversationCompressorImpl(),
     };
     const runner = new CompilationRunner(
       deps,
@@ -561,6 +568,7 @@ describe("CompilationRunner", () => {
       repoMapSupplier: mockRepoMapSupplier,
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
+      conversationCompressor: new ConversationCompressorImpl(),
     };
     const runner = new CompilationRunner(
       deps,
@@ -591,6 +599,7 @@ describe("CompilationRunner", () => {
     const recordStepCalls: Array<[ReturnType<typeof toSessionId>, SessionStep]> = [];
     const mockAgenticSessionState: AgenticSessionState = {
       getPreviouslyShownFiles: () => [],
+      getSteps: () => [],
       recordStep: (sessionId, step) => {
         recordStepCalls.push([sessionId, step]);
       },
@@ -619,6 +628,7 @@ describe("CompilationRunner", () => {
       repoMapSupplier: mockRepoMapSupplier,
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
+      conversationCompressor: new ConversationCompressorImpl(),
     };
     const runner = new CompilationRunner(
       deps,
@@ -674,6 +684,7 @@ describe("CompilationRunner", () => {
       repoMapSupplier: mockRepoMapSupplier,
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
+      conversationCompressor: new ConversationCompressorImpl(),
     };
     const runner = new CompilationRunner(
       deps,
@@ -713,6 +724,7 @@ describe("CompilationRunner", () => {
     };
     const mockAgenticSessionState: AgenticSessionState = {
       getPreviouslyShownFiles: () => [previousFile],
+      getSteps: () => [],
       recordStep: () => {},
     };
     const cacheStore = createInMemoryCacheStore();
@@ -739,6 +751,7 @@ describe("CompilationRunner", () => {
       repoMapSupplier: mockRepoMapSupplier,
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
+      conversationCompressor: new ConversationCompressorImpl(),
     };
     const runner = new CompilationRunner(
       deps,

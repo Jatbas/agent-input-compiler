@@ -194,4 +194,35 @@ describe("PromptAssembler", () => {
     await assembler.assemble(task, [], [], OUTPUT_FORMAT.PLAIN, [specFile]);
     expect(getContentCalls).toContain("documentation/plan.md");
   });
+
+  it("prompt_assembler_session_context_section_emitted", async () => {
+    const reader: FileContentReader = { getContent: () => Promise.resolve("") };
+    const assembler = new PromptAssembler(reader);
+    const result = await assembler.assemble(
+      task,
+      [],
+      [],
+      OUTPUT_FORMAT.PLAIN,
+      undefined,
+      "Steps completed:\n1) Done.",
+    );
+    expect(result).toContain("## Session context");
+    expect(result).toContain("1) Done.");
+  });
+
+  it("prompt_assembler_session_context_omitted_when_empty", async () => {
+    const reader: FileContentReader = { getContent: () => Promise.resolve("") };
+    const assembler = new PromptAssembler(reader);
+    const resultEmpty = await assembler.assemble(
+      task,
+      [],
+      [],
+      OUTPUT_FORMAT.PLAIN,
+      undefined,
+      "",
+    );
+    const resultUndefined = await assembler.assemble(task, [], [], OUTPUT_FORMAT.PLAIN);
+    expect(resultEmpty).not.toContain("## Session context");
+    expect(resultUndefined).not.toContain("## Session context");
+  });
 });

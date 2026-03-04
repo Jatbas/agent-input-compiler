@@ -33,6 +33,7 @@ import { SummarisationLadder } from "#pipeline/summarisation-ladder.js";
 import { PromptAssembler } from "#pipeline/prompt-assembler.js";
 import { IntentAwareFileDiscoverer } from "#pipeline/intent-aware-file-discoverer.js";
 import { SpecFileDiscoverer } from "#pipeline/spec-file-discoverer.js";
+import { ConversationCompressorImpl } from "#pipeline/conversation-compressor.js";
 import { TiktokenAdapter } from "#adapters/tiktoken-adapter.js";
 import { TypeScriptProvider } from "#adapters/typescript-provider.js";
 import { GenericProvider } from "#adapters/generic-provider.js";
@@ -174,6 +175,7 @@ function createRunner(fixtureRoot: ReturnType<typeof toAbsolutePath>): InspectRu
     repoMapSupplier: mockRepoMapSupplier,
     tokenCounter: tiktokenAdapter,
     specFileDiscoverer: new SpecFileDiscoverer(),
+    conversationCompressor: new ConversationCompressorImpl(),
   };
   return new InspectRunner(deps, mockClock);
 }

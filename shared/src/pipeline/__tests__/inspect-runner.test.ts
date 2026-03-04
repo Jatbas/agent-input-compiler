@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { InspectRunner } from "../inspect-runner.js";
+import { ConversationCompressorImpl } from "../conversation-compressor.js";
 import type { IntentClassifier } from "#core/interfaces/intent-classifier.interface.js";
 import type { RulePackResolver } from "#core/interfaces/rule-pack-resolver.interface.js";
 import type { BudgetAllocator } from "#core/interfaces/budget-allocator.interface.js";
@@ -11,6 +12,7 @@ import type { PromptAssembler } from "#core/interfaces/prompt-assembler.interfac
 import type { RepoMapSupplier } from "#core/interfaces/repo-map-supplier.interface.js";
 import type { IntentAwareFileDiscoverer } from "#core/interfaces/intent-aware-file-discoverer.interface.js";
 import type { SpecFileDiscoverer } from "#core/interfaces/spec-file-discoverer.interface.js";
+import type { ConversationCompressor } from "#core/interfaces/conversation-compressor.interface.js";
 import type { Clock } from "#core/interfaces/clock.interface.js";
 import type { TokenCounter } from "#core/interfaces/token-counter.interface.js";
 import type { InspectRequest } from "#core/types/inspect-types.js";
@@ -171,6 +173,7 @@ describe("InspectRunner", () => {
           truncated: false,
         }),
       } as SpecFileDiscoverer,
+      conversationCompressor: new ConversationCompressorImpl() as ConversationCompressor,
     };
     const runner = new InspectRunner(deps, mockClock as Clock);
 
@@ -231,6 +234,7 @@ describe("InspectRunner", () => {
           truncated: false,
         }),
       } as SpecFileDiscoverer,
+      conversationCompressor: new ConversationCompressorImpl() as ConversationCompressor,
     };
     const runner = new InspectRunner(deps, mockClock as Clock);
 
@@ -283,6 +287,7 @@ describe("InspectRunner", () => {
           truncated: false,
         }),
       } as SpecFileDiscoverer,
+      conversationCompressor: new ConversationCompressorImpl() as ConversationCompressor,
     };
     const runner = new InspectRunner(deps, mockClock as Clock);
 

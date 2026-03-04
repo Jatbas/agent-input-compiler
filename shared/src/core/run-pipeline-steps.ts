@@ -12,6 +12,7 @@ import type { SpecFileDiscoverer } from "#core/interfaces/spec-file-discoverer.i
 import type { IntentAwareFileDiscoverer } from "#core/interfaces/intent-aware-file-discoverer.interface.js";
 import type { TokenCounter } from "#core/interfaces/token-counter.interface.js";
 import type { AgenticSessionState } from "#core/interfaces/agentic-session-state.interface.js";
+import type { ConversationCompressor } from "#core/interfaces/conversation-compressor.interface.js";
 import type { PreviousFile } from "#core/types/session-dedup-types.js";
 import type { TaskClassification } from "#core/types/task-classification.js";
 import type { RulePack } from "#core/types/rule-pack.js";
@@ -38,6 +39,7 @@ export interface PipelineStepsDeps {
   readonly intentAwareFileDiscoverer: IntentAwareFileDiscoverer;
   readonly tokenCounter: TokenCounter;
   readonly specFileDiscoverer: SpecFileDiscoverer;
+  readonly conversationCompressor: ConversationCompressor;
   readonly agenticSessionState?: AgenticSessionState | null;
 }
 
@@ -160,12 +162,19 @@ export async function runPipelineSteps(
     transformResult.files,
     budget,
   );
+  const sessionContextSummary =
+    request.sessionId && deps.agenticSessionState
+      ? deps.conversationCompressor.compress(
+          deps.agenticSessionState.getSteps(request.sessionId),
+        )
+      : "";
   const assembledPrompt = await deps.promptAssembler.assemble(
     task,
     ladderFiles,
     rulePack.constraints,
     OUTPUT_FORMAT.UNIFIED_DIFF,
     specLadderFiles,
+    sessionContextSummary,
   );
   const promptTotal = deps.tokenCounter.countTokens(assembledPrompt);
   return {

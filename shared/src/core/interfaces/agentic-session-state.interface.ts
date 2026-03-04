@@ -4,5 +4,6 @@ import type { SessionStep } from "#core/types/session-dedup-types.js";
 
 export interface AgenticSessionState {
   getPreviouslyShownFiles(sessionId: SessionId): readonly PreviousFile[];
+  getSteps(sessionId: SessionId): readonly SessionStep[];
   recordStep(sessionId: SessionId, step: SessionStep): void;
 }

@@ -40,6 +40,7 @@ import { SummarisationLadder } from "#pipeline/summarisation-ladder.js";
 import { PromptAssembler } from "#pipeline/prompt-assembler.js";
 import { IntentAwareFileDiscoverer } from "#pipeline/intent-aware-file-discoverer.js";
 import { SpecFileDiscoverer } from "#pipeline/spec-file-discoverer.js";
+import { ConversationCompressorImpl } from "#pipeline/conversation-compressor.js";
 import { TiktokenAdapter } from "#adapters/tiktoken-adapter.js";
 import { TypeScriptProvider } from "#adapters/typescript-provider.js";
 import { MarkdownProvider } from "#adapters/markdown-provider.js";
@@ -149,6 +150,7 @@ export function createPipelineDeps(
   const promptAssembler = new PromptAssembler(fileContentReader);
   const intentAwareFileDiscoverer = new IntentAwareFileDiscoverer();
   const specFileDiscoverer = new SpecFileDiscoverer();
+  const conversationCompressor = new ConversationCompressorImpl();
   return {
     intentClassifier,
     rulePackResolver,
@@ -161,6 +163,7 @@ export function createPipelineDeps(
     intentAwareFileDiscoverer,
     tokenCounter: tiktokenAdapter,
     specFileDiscoverer,
+    conversationCompressor,
   };
 }
 
