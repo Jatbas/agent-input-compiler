@@ -1,12 +1,168 @@
 # AIC Progress
 
-**Current phase:** 0.5 (Quality Release)
-**Version target:** 0.2.0
-**Phase I (Live Wiring):** 23/24 done
+**Current phase:** 1.0 (OSS Release)
+**Version target:** 1.0.0
+**Phase 1.0:** 0/27 done
+**Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
 
-## Phase 0.5 — Quality Release
+## Phase 1.0 — OSS Release
+
+Specification Compiler, agentic session tracking, Claude Code hook-based delivery, OSS release prep.
+
+### Phase N — Specification Compiler
+
+Compile project specifications and documentation into structured context alongside code. Rules, ADRs, and design docs are selected and compressed through the same pipeline, ensuring the model has both code and spec awareness.
+
+| Component                          | Status  | Package              |
+| ---------------------------------- | ------- | -------------------- |
+| Spec file discovery and scoring    | Pending | shared/src/pipeline/ |
+| Spec-aware summarisation tier      | Pending | shared/src/pipeline/ |
+| Spec injection in prompt assembler | Pending | shared/src/pipeline/ |
+
+### Phase O — Agentic Session Tracking
+
+Session-level intelligence for multi-step agent workflows. Deduplication prevents re-compiling identical context across turns; conversation compression maintains quality over long sessions; adaptive budget adjusts allocation based on session history.
+
+| Component                                    | Status  | Package              |
+| -------------------------------------------- | ------- | -------------------- |
+| Session-level compilation deduplication      | Pending | shared/src/pipeline/ |
+| Conversation context compression             | Pending | shared/src/pipeline/ |
+| Adaptive budget allocation (session history) | Pending | shared/src/pipeline/ |
+| Session tracking storage (migration)         | Pending | shared/src/storage/  |
+
+### Phase P — Claude Code Hook-Based Delivery
+
+Highest-impact item. Claude Code's hook system exposes all 7 capabilities AIC needs (per-prompt, subagent, pre-compaction) — structurally impossible in Cursor. Eliminates the fragile trigger rule + tool-call round-trip by injecting compiled context via `UserPromptSubmit` → `additionalContext`. `TRIGGER_SOURCE.HOOK` enum value already exists. See `documentation/architecture.md` for capability comparison.
+
+| Component                                      | Status  | Package        |
+| ---------------------------------------------- | ------- | -------------- |
+| `UserPromptSubmit` hook: compile + inject      | Pending | .claude/hooks/ |
+| `SubagentStart` hook: compile + inject         | Pending | .claude/hooks/ |
+| `PreCompaction` hook: re-compile before trim   | Pending | .claude/hooks/ |
+| `SessionEnd` hook: session lifecycle telemetry | Pending | .claude/hooks/ |
+| `PostToolUse` additionalContext workaround     | Pending | .claude/hooks/ |
+| Hook-based delivery integration tests          | Pending | mcp/src/       |
+
+### Phase Q — Claude Code Zero-Install
+
+Editor detection and auto-install so Claude Code users get the same zero-install experience Cursor has. Currently Cursor-only (`installTriggerRule`, `installCursorHooks`). Absorbs KL-006 and Zero-Install Gaps.
+
+| Component                                                 | Status  | Package  |
+| --------------------------------------------------------- | ------- | -------- |
+| Editor detection (`detectEditorForInit`)                  | Pending | mcp/src/ |
+| `installClaudeCodeTriggerRule` (`.claude/CLAUDE.md`)      | Pending | mcp/src/ |
+| `installClaudeCodeHooks` (`.claude/settings.local.json`)  | Pending | mcp/src/ |
+| `createMcpServer` dispatches installer by detected editor | Pending | mcp/src/ |
+| Startup self-check covers Claude Code artifacts           | Pending | mcp/src/ |
+
+### Phase R — OSS Release Prep
+
+Final polish for public release. npm publish, changelog, benchmarks, visual demo, documentation audit. See `documentation/gaps.md` for detailed descriptions of GAP items.
+
+| Component                                           | Status  | Package | Gap    |
+| --------------------------------------------------- | ------- | ------- | ------ |
+| npm publish pipeline (`@aic/mcp`)                   | Pending | mcp/    | —      |
+| CHANGELOG.md                                        | Pending | ./      | —      |
+| License headers audit                               | Pending | ./      | —      |
+| Contributing guide (final)                          | Pending | ./      | —      |
+| Multi-repo benchmark suite (multi-scale datapoints) | Pending | test/   | GAP-11 |
+| Comparative benchmarks vs. native editor context    | Pending | test/   | GAP-10 |
+| Real `aic_inspect` output in README                 | Pending | ./      | GAP-03 |
+| Visual demo (GIF/recording) in README               | Pending | ./      | GAP-09 |
+| Present-tense audit of project plan                 | Pending | ./      | GAP-06 |
+
+---
+
+## Phase 0 — MVP (complete)
+
+### Implementation Order
+
+### Phase A — Foundation
+
+| Component                    | Status | Package                        |
+| ---------------------------- | ------ | ------------------------------ |
+| MigrationRunner              | Done   | shared/src/storage/            |
+| 001-initial-schema migration | Done   | shared/src/storage/migrations/ |
+| UUIDv7 generator             | Done   | shared/src/adapters/           |
+| Clock implementation         | Done   | shared/src/adapters/           |
+| AicError hierarchy           | Done   | shared/src/core/errors/        |
+| sanitizeError utility        | Done   | shared/src/core/errors/        |
+
+### Phase B — Core Interfaces
+
+| Component                  | Status | Package                     |
+| -------------------------- | ------ | --------------------------- |
+| IntentClassifier (port)    | Done   | shared/src/core/interfaces/ |
+| RulePackResolver (port)    | Done   | shared/src/core/interfaces/ |
+| BudgetAllocator (port)     | Done   | shared/src/core/interfaces/ |
+| ContextSelector (port)     | Done   | shared/src/core/interfaces/ |
+| ContextGuard (port)        | Done   | shared/src/core/interfaces/ |
+| ContentTransformer (port)  | Done   | shared/src/core/interfaces/ |
+| SummarisationLadder (port) | Done   | shared/src/core/interfaces/ |
+| PromptAssembler (port)     | Done   | shared/src/core/interfaces/ |
+| Clock (port)               | Done   | shared/src/core/interfaces/ |
+| CacheStore (port)          | Done   | shared/src/core/interfaces/ |
+| TelemetryStore (port)      | Done   | shared/src/core/interfaces/ |
+| ConfigStore (port)         | Done   | shared/src/core/interfaces/ |
+| GuardStore (port)          | Done   | shared/src/core/interfaces/ |
+
+### Phase C — Pipeline Steps 1–8
+
+| Component                  | Status | Package              |
+| -------------------------- | ------ | -------------------- |
+| IntentClassifier impl      | Done   | shared/src/pipeline/ |
+| RulePackResolver impl      | Done   | shared/src/pipeline/ |
+| BudgetAllocator impl       | Done   | shared/src/pipeline/ |
+| HeuristicSelector impl     | Done   | shared/src/pipeline/ |
+| ContextGuard impl          | Done   | shared/src/pipeline/ |
+| ContentTransformerPipeline | Done   | shared/src/pipeline/ |
+| SummarisationLadder impl   | Done   | shared/src/pipeline/ |
+| PromptAssembler impl       | Done   | shared/src/pipeline/ |
+
+### Phase D — Adapters
+
+| Component          | Status | Package              |
+| ------------------ | ------ | -------------------- |
+| TiktokenAdapter    | Done   | shared/src/adapters/ |
+| FastGlobAdapter    | Done   | shared/src/adapters/ |
+| IgnoreAdapter      | Done   | shared/src/adapters/ |
+| TypeScriptProvider | Done   | shared/src/adapters/ |
+| GenericProvider    | Done   | shared/src/adapters/ |
+
+### Phase E — Storage
+
+| Component            | Status | Package             |
+| -------------------- | ------ | ------------------- |
+| SqliteCacheStore     | Done   | shared/src/storage/ |
+| SqliteTelemetryStore | Done   | shared/src/storage/ |
+| SqliteConfigStore    | Done   | shared/src/storage/ |
+| SqliteGuardStore     | Done   | shared/src/storage/ |
+
+### Phase F — MCP Server
+
+| Component               | Status | Package          |
+| ----------------------- | ------ | ---------------- |
+| Server composition root | Done   | mcp/src/         |
+| compile handler         | Done   | mcp/src/         |
+| inspect handler         | Done   | mcp/src/         |
+| Zod schemas (MCP)       | Done   | mcp/src/schemas/ |
+
+### Phase G — CLI (Archived)
+
+CLI package removed in Phase M 0.5. Init logic migrated to `mcp/src/init-project.ts`. Status, last, and chat summary served via MCP resources and tools.-.
+
+### Phase H — Integration Tests
+
+| Component             | Status | Package     |
+| --------------------- | ------ | ----------- |
+| Golden snapshot tests | Done   | shared/src/ |
+| Full pipeline test    | Done   | shared/src/ |
+
+---
+
+## Phase 0.5 — Quality Release (complete)
 
 ### Phase I — Live Wiring & Bug Fixes
 
@@ -124,116 +280,6 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 | `aic init`                                  | Done   | `npx @aic/mcp init` + auto-init on MCP startup (`ensureAicDir`)                   |
 | Init logic ported to MCP                    | Done   | `mcp/src/init-project.ts` with test                                               |
 | Update README                               | Done   | MCP-only branding, prompt command examples, CLI section replaced with Visibility  |
-
----
-
-## Known Limitations & Future Work
-
-| ID     | Area     | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Target  |
-| ------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| KL-005 | Delivery | Hook-based context delivery for Claude Code. Claude Code's `UserPromptSubmit` hook can inject compiled context as `additionalContext` before Claude processes the message — eliminating the fragile trigger rule and tool-call round-trip. See `documentation/future/claude-code-hook-integration.md` for the full plan. `TRIGGER_SOURCE.HOOK` enum value already added. Blocked on hooks API stability (PostToolUse `additionalContext` bug anthropics/claude-code#24788). | Phase 1 |
-| KL-006 | Setup    | `installClaudeCodeHooks()` for Claude Code editor detection. When init/setup detects Claude Code, install trigger rule (`.claude/CLAUDE.md`) and hooks (e.g. `.claude/settings.local.json` or equivalent) so AIC works zero-install for Claude Code users. Cursor path is currently hardcoded in `installTriggerRule`.                                                                                                                                                      | Phase 1 |
-
----
-
-## Zero-Install Gaps
-
-On MCP server startup, `createMcpServer` auto-installs the trigger rule (`.cursor/rules/aic.mdc`), Cursor hooks (`.cursor/hooks.json` + five `AIC-*.cjs` scripts), and the `.aic/` directory. For Cursor users, zero-install works end-to-end — no manual `init` step required.
-
-Remaining gaps:
-
-| Component                                         | Project plan says                                   | Actually implemented                                  | Gap         |
-| ------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------- | ----------- |
-| Claude Code trigger rule (`.claude/CLAUDE.md`)    | Auto-install on MCP startup when editor=claude-code | **No** — only `installTriggerRule` writes Cursor rule | **Missing** |
-| Claude Code hooks (`.claude/settings.local.json`) | Hook installer detects editor, writes hooks         | **No** — hooks exist in repo but not installed        | **Missing** |
-| Editor detection for init                         | MCP startup detects editor, writes to correct path  | **No** — hardcoded for Cursor only                    | **Missing** |
-
----
-
-## Phase 0 — MVP (complete)
-
-### Implementation Order
-
-### Phase A — Foundation
-
-| Component                    | Status | Package                        |
-| ---------------------------- | ------ | ------------------------------ |
-| MigrationRunner              | Done   | shared/src/storage/            |
-| 001-initial-schema migration | Done   | shared/src/storage/migrations/ |
-| UUIDv7 generator             | Done   | shared/src/adapters/           |
-| Clock implementation         | Done   | shared/src/adapters/           |
-| AicError hierarchy           | Done   | shared/src/core/errors/        |
-| sanitizeError utility        | Done   | shared/src/core/errors/        |
-
-### Phase B — Core Interfaces
-
-| Component                  | Status | Package                     |
-| -------------------------- | ------ | --------------------------- |
-| IntentClassifier (port)    | Done   | shared/src/core/interfaces/ |
-| RulePackResolver (port)    | Done   | shared/src/core/interfaces/ |
-| BudgetAllocator (port)     | Done   | shared/src/core/interfaces/ |
-| ContextSelector (port)     | Done   | shared/src/core/interfaces/ |
-| ContextGuard (port)        | Done   | shared/src/core/interfaces/ |
-| ContentTransformer (port)  | Done   | shared/src/core/interfaces/ |
-| SummarisationLadder (port) | Done   | shared/src/core/interfaces/ |
-| PromptAssembler (port)     | Done   | shared/src/core/interfaces/ |
-| Clock (port)               | Done   | shared/src/core/interfaces/ |
-| CacheStore (port)          | Done   | shared/src/core/interfaces/ |
-| TelemetryStore (port)      | Done   | shared/src/core/interfaces/ |
-| ConfigStore (port)         | Done   | shared/src/core/interfaces/ |
-| GuardStore (port)          | Done   | shared/src/core/interfaces/ |
-
-### Phase C — Pipeline Steps 1–8
-
-| Component                  | Status | Package              |
-| -------------------------- | ------ | -------------------- |
-| IntentClassifier impl      | Done   | shared/src/pipeline/ |
-| RulePackResolver impl      | Done   | shared/src/pipeline/ |
-| BudgetAllocator impl       | Done   | shared/src/pipeline/ |
-| HeuristicSelector impl     | Done   | shared/src/pipeline/ |
-| ContextGuard impl          | Done   | shared/src/pipeline/ |
-| ContentTransformerPipeline | Done   | shared/src/pipeline/ |
-| SummarisationLadder impl   | Done   | shared/src/pipeline/ |
-| PromptAssembler impl       | Done   | shared/src/pipeline/ |
-
-### Phase D — Adapters
-
-| Component          | Status | Package              |
-| ------------------ | ------ | -------------------- |
-| TiktokenAdapter    | Done   | shared/src/adapters/ |
-| FastGlobAdapter    | Done   | shared/src/adapters/ |
-| IgnoreAdapter      | Done   | shared/src/adapters/ |
-| TypeScriptProvider | Done   | shared/src/adapters/ |
-| GenericProvider    | Done   | shared/src/adapters/ |
-
-### Phase E — Storage
-
-| Component            | Status | Package             |
-| -------------------- | ------ | ------------------- |
-| SqliteCacheStore     | Done   | shared/src/storage/ |
-| SqliteTelemetryStore | Done   | shared/src/storage/ |
-| SqliteConfigStore    | Done   | shared/src/storage/ |
-| SqliteGuardStore     | Done   | shared/src/storage/ |
-
-### Phase F — MCP Server
-
-| Component               | Status | Package          |
-| ----------------------- | ------ | ---------------- |
-| Server composition root | Done   | mcp/src/         |
-| compile handler         | Done   | mcp/src/         |
-| inspect handler         | Done   | mcp/src/         |
-| Zod schemas (MCP)       | Done   | mcp/src/schemas/ |
-
-### Phase G — CLI (Archived)
-
-CLI package removed in Phase M 0.5. Init logic migrated to `mcp/src/init-project.ts`. Status, last, and chat summary served via MCP resources and tools.-.
-
-### Phase H — Integration Tests
-
-| Component             | Status | Package     |
-| --------------------- | ------ | ----------- |
-| Golden snapshot tests | Done   | shared/src/ |
-| Full pipeline test    | Done   | shared/src/ |
 
 ---
 

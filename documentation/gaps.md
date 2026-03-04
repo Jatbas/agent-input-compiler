@@ -1,7 +1,7 @@
 # AIC Documentation & Implementation Gaps
 
 **Created:** 2026-02-27
-**Updated:** 2026-03-04
+**Updated:** 2026-03-04 (Phase 1.0 cross-reference)
 **Purpose:** Track gaps between documentation, implementation reality, and opportunities.
 
 ---
@@ -32,91 +32,48 @@ Claude Code solves the two capabilities that are structurally impossible in Curs
 
 ## Gaps
 
-### GAP-01: No benchmarked token reduction numbers
-
-**Status:** Blocked (needs Phase K implementation)
-**Impact:** High — the project's core value proposition is token reduction, and we have no published, reproducible numbers
-
-**What we have:** One live test data point (303,855 raw tokens to ~8,000 compiled tokens on this project). Daily log entry from 2026-02-27.
-
-**What we need:** Phase K benchmark suite running on multiple real-world repos across all 10 canonical tasks, with reproducible results tracked in CI.
-
-**Action:** Complete Phase K (selection quality benchmarks + token reduction benchmarks). Until then, documentation uses "significant reduction" and "measurable reduction" without hard percentages.
-
----
-
 ### GAP-02: Claude Code integration layer not built
 
-**Status:** Actionable — hook API is documented, capabilities confirmed
+**Status:** Tracked — Phase P (hook-based delivery) + Phase Q (zero-install) in `mvp-progress.md`
 **Impact:** High — Claude Code's hooks solve limitations we documented as fundamental
 
-**What we have:** Working Cursor integration layer. Confirmed Claude Code hook capabilities (see table above).
+**What we have:** Working Cursor integration layer. Confirmed Claude Code hook capabilities (see table above). Basic Claude Code hooks exist in `.claude/hooks/` but lack full delivery and zero-install.
 
 **What we need:**
 
-1. `SessionStart` hook — compile context at session start (same as Cursor)
-2. `UserPromptSubmit` hook — compile per-prompt context with `additionalContext` injection
-3. `PreToolUse` hook — gate tool calls until `aic_compile` has run
-4. `SubagentStart` hook — compile and inject context for subagents
-5. `SessionEnd` hook — log session end for telemetry
-6. `PreCompact` hook — re-compile context before compaction to preserve quality
+1. `UserPromptSubmit` hook — compile per-prompt context with `additionalContext` injection
+2. `SubagentStart` hook — compile and inject context for subagents
+3. `PreCompaction` hook — re-compile context before compaction
+4. `SessionEnd` hook — session lifecycle telemetry
+5. Editor detection and auto-install for Claude Code artifacts
 
-**Action:** Build Claude Code integration layer. This is the single highest-impact item because it solves two documented limitations (per-prompt context, subagent context) that are impossible in Cursor.
+**Action:** Phase P + Phase Q in `mvp-progress.md`. Deprioritised — user does not currently use Claude Code.
 
 ---
 
 ### GAP-03: Real `aic_inspect` output in README
 
-**Status:** Actionable now
+**Status:** Tracked — Phase R in `mvp-progress.md`
 **Impact:** Medium — the README shows a synthetic example instead of real output
 
 **What we have:** A working `aic_inspect` MCP tool and a real project to run it on.
 
 **What we need:** Run `aic_inspect` on a real project, capture the output, and replace the synthetic example in the README.
 
-**Action:** Run `aic_inspect "refactor auth module"` on a benchmark repo. Replace the synthetic output in the README with real output.
-
----
-
-### GAP-04: Telemetry story incomplete
-
-**Status:** Partially resolved
-
-**What we have:** Compilation telemetry (token counts, duration, cache hits). Prompt logging via hooks. Session-level grouping via `compilation_log.session_id` (migration 004). Cursor hooks log `conversation_id` to `.aic/prompt-log.jsonl`.
-
-**What we need:**
-
-1. **Telemetry source tracking** — distinguish hook-triggered compilations from model-triggered ones (Phase I: `triggerSource` field)
-2. ~~**Telemetry conversation tracking** — link compilations to conversation IDs~~ **Implemented for Cursor.** `conversation_id` is in schema and populated when Cursor sends it (sessionStart hook passes `session_id`, preToolUse hook injects `conversation_id` into aic_compile args). Remaining nulls are from MCP clients that do not identify as Cursor (see Research below).
-3. Documentation explaining what these will enable (per-session cost analysis, adoption metrics)
-
-**Action:** Item 1 is in `mvp-progress.md` Phase I. Item 2 done for Cursor; summary/prompt cmd deferred to Phase 1.
-
----
-
-### GAP-05: "How to Use AIC" best practices lack supporting evidence
-
-**Status:** Can improve now with reasoning, hard data requires research
-**Impact:** Low-medium — the advice is sound but unsupported
-
-**What we have:** Common-sense AI coding best practices in the README.
-
-**What we need:** Brief explanations of _why_ each practice works (context window mechanics, attention degradation, compaction behavior). Not academic citations, but technical reasoning.
-
-**Action:** Add one-sentence technical justifications to each best practice in the README. These can reference known LLM behaviors (attention degradation with long contexts, compaction summarization loss, etc.).
+**Action:** Phase R: Real `aic_inspect` output in README.
 
 ---
 
 ### GAP-06: Project plan describes unimplemented features in present tense
 
-**Status:** Actionable now
+**Status:** Tracked — Phase R in `mvp-progress.md`
 **Impact:** Low — a project plan is expected to describe future work, but some sections read as if features exist
 
 **What we have:** Rules & Hooks Analyzer marked as "Planned." But other items like `EditorAdapterRegistry`, `ModelAdapterRegistry`, and `aic://rules-analysis` MCP resource are described in present tense without phase markers.
 
 **What we need:** Audit the project plan for features described in present tense that are not yet implemented. Add phase markers where appropriate.
 
-**Action:** Review §2.3 (Model Adapter), §8.2 (ModelClient), and §8.3 (OutputFormatter) for items that are specced but not built. These are design specifications and belong in the plan, but should be clearly distinguished from what exists today.
+**Action:** Phase R: Present-tense audit of project plan.
 
 ---
 
@@ -157,92 +114,64 @@ Claude Code solves the two capabilities that are structurally impossible in Curs
 
 ---
 
-### GAP-07: Documentation inconsistency — README limitations vs Claude Code reality
-
-**Status:** Done
-**Impact:** High — the README said "no mechanism to inject context into subagent conversations" but Claude Code supports exactly this
-
-**Resolution:** Limitations reframed as editor-specific integration gaps, not AIC limitations. README and project plan updated with editor capability comparison tables. Core pipeline described as complete, with the integration layer as the only variable.
-
----
-
-### GAP-08: `triggerSource` field on CompilationRequest
-
-**Status:** Actionable (small implementation)
-**Impact:** Medium — enables telemetry to distinguish how compilations are triggered
-
-**What we have:** `CompilationRequest` has `editorId` but no indication of what triggered the compilation.
-
-**What we need:** An optional `triggerSource` field on `CompilationRequest` with values like `"session_start"`, `"prompt_submit"`, `"tool_gate"`, `"subagent_start"`, `"model_initiated"`. This field is metadata — the pipeline ignores it, telemetry records it.
-
-**Implementation:**
-
-1. Add `TRIGGER_SOURCE` enum to `shared/src/core/types/enums.ts`
-2. Add optional `triggerSource?: TriggerSource` to `CompilationRequest`
-3. Add `triggerSource` column to telemetry event (nullable for backward compat)
-4. Hook scripts pass the appropriate source when calling `aic_compile`
-5. MCP schema gains optional `triggerSource` field
-
-No core pipeline changes. Pipeline steps ignore the field. Only the telemetry logger reads it.
-
----
-
 ### GAP-09: Visual demo (GIF/recording) in README
 
-**Status:** Blocked (needs real terminal recording)
+**Status:** Tracked — Phase R in `mvp-progress.md`
 **Impact:** High — OSS browsers expect a visual demo in the first scroll; without one, many leave immediately
 
 **What we have:** A working `aic_inspect` MCP tool and real projects to run it on.
 
-**What we need:** A screen recording showing AIC in action inside an editor — "show aic status" and "show aic last" prompt commands, and `aic_inspect` output. Placed at the top of the README near the one-liner.
+**What we need:** A screen recording showing AIC in action inside an editor — "show aic status" and "show aic last" prompt commands. Placed at the top of the README near the one-liner.
 
-**Action:** Record a session showing AIC prompt commands in Cursor. Convert to GIF. Embed in README above "Why use it."
+**Action:** Phase R: Visual demo (GIF/recording) in README.
 
 ---
 
 ### GAP-10: Comparative benchmarks — AIC vs. native editor context
 
-**Status:** Blocked (needs Phase K + comparison methodology)
+**Status:** Tracked — Phase R in `mvp-progress.md`
 **Impact:** High — team leads evaluating AIC need to see how it compares to Cursor's built-in context selection (@codebase, @file), not just raw-to-compiled reduction
 
-**What we have:** AIC's own token reduction numbers (98%+). No data on what editors send natively.
+**What we have:** AIC's own token reduction numbers (98%+). Phase K benchmarks complete on single repo. No data on what editors send natively.
 
 **What we need:** Side-by-side comparison: for the same prompt on the same project, measure (a) what Cursor sends without AIC, (b) what AIC compiles. Show file selection quality, not just token count.
 
-**Action:** Design comparison methodology as part of Phase K. Capture editor baseline where possible (Cursor's context is harder to measure; may require proxy/logging approach).
+**Action:** Phase R: Comparative benchmarks vs. native editor context.
 
 ---
 
 ### GAP-11: Token reduction datapoints at multiple project scales
 
-**Status:** Blocked (needs benchmark repos of varying sizes)
+**Status:** Tracked — Phase R in `mvp-progress.md`
 **Impact:** Medium — a single datapoint from one project doesn't answer "will this help a project my size?"
 
-**What we have:** One real-world datapoint (this project: 359M raw → 5.6M compiled).
+**What we have:** One real-world datapoint (this project: 420M+ raw → ~7M compiled, 98%+ reduction across 900+ compilations). Phase K single-repo benchmarks complete.
 
 **What we need:** At least three datapoints at different scales (e.g. ~50 files, ~500 files, ~5000 files) showing reduction percentages, selected file counts, and summarisation tier distribution.
 
-**Action:** Select 2–3 open-source repos of varying sizes. Run AIC's benchmark suite on each. Publish results in README or a linked benchmark report.
+**Action:** Phase R: Multi-repo benchmark suite (multi-scale datapoints).
 
 ---
 
-## Priority Order
+## Priority Order (Phase 1.0)
 
-| Priority | Gap                                           | Effort                          | Impact                                            |
-| -------- | --------------------------------------------- | ------------------------------- | ------------------------------------------------- |
-| 1        | GAP-02: Build Claude Code integration layer   | Large (implementation)          | High — enables per-prompt + subagent compilation  |
-| 2        | GAP-01: Benchmark token reduction numbers     | Large (Phase K)                 | High — core value proposition                     |
-| 3        | GAP-09: Visual demo in README                 | Small (terminal recording)      | High — first-impression impact for OSS browsers   |
-| 4        | GAP-10: Comparative benchmarks                | Medium (Phase K + analysis)     | High — team adoption requires comparison data     |
-| 5        | GAP-11: Multi-scale datapoints                | Medium (run on multiple repos)  | Medium — addresses "will this work on my project" |
-| 6        | GAP-08: `triggerSource` on CompilationRequest | Small (implementation)          | Medium — telemetry quality                        |
-| 7        | GAP-04: Telemetry story                       | Medium (implementation + docs)  | Medium — completeness                             |
-| 8        | GAP-03: Real inspect output                   | Small (run command + docs edit) | Medium — credibility                              |
-| 9        | GAP-06: Present-tense audit of project plan   | Small (docs edit)               | Low — polish                                      |
+Open gaps, ordered by Phase 1.0 priority. Claude Code items deprioritised (user does not currently use Claude Code).
+
+| Priority | Gap                                         | Phase R item                             | Effort                          | Impact                                          |
+| -------- | ------------------------------------------- | ---------------------------------------- | ------------------------------- | ----------------------------------------------- |
+| 1        | GAP-09: Visual demo in README               | Visual demo (GIF/recording) in README    | Small (terminal recording)      | High — first-impression impact for OSS browsers |
+| 2        | GAP-03: Real inspect output in README       | Real `aic_inspect` output in README      | Small (run command + docs edit) | Medium — credibility                            |
+| 3        | GAP-11: Multi-scale datapoints              | Multi-repo benchmark suite               | Medium (run on multiple repos)  | Medium — "will this work on my project?"        |
+| 4        | GAP-10: Comparative benchmarks              | Comparative benchmarks vs. native editor | Medium (analysis + methodology) | High — team adoption requires comparison data   |
+| 5        | GAP-06: Present-tense audit of project plan | Present-tense audit of project plan      | Small (docs edit)               | Low — polish                                    |
+| 6        | GAP-02: Claude Code integration layer       | Phase P + Phase Q (deprioritised)        | Large (implementation)          | High — but not needed until user adopts CC      |
 
 ### Resolved
 
-| Gap    | Resolution                                                                                    |
-| ------ | --------------------------------------------------------------------------------------------- |
-| GAP-05 | Best practices now include technical reasoning (attention degradation, compaction loss, etc.) |
-| GAP-07 | Limitations reframed as editor capability gaps. README + project plan updated.                |
+| Gap    | Resolution                                                                                        |
+| ------ | ------------------------------------------------------------------------------------------------- |
+| GAP-01 | Phase K benchmarks complete (single repo). Multi-repo tracked in Phase R (GAP-11).                |
+| GAP-04 | triggerSource (Phase I), conversation tracking (Phase M), telemetry docs in README/security.md.   |
+| GAP-05 | Best practices now include technical reasoning (attention degradation, compaction loss, etc.).    |
+| GAP-07 | Limitations reframed as editor capability gaps. README + project plan updated.                    |
+| GAP-08 | triggerSource implemented in Phase I — enum, CompilationRequest field, migration 005, MCP schema. |

@@ -208,12 +208,28 @@ When a task wraps an external library, the step that implements the adapter must
 
 ## Dispatch pattern
 
-If any method in the task dispatches on an enum value or type discriminator with 3+ branches, the Architecture Notes must specify the dispatch pattern. The step instructions must show the dispatch map structure. If/else-if chains with 3+ branches are banned by ESLint. Two patterns are available:
+If any method in the task has 3+ branches — dispatching on an enum, a type discriminator, **or ordered predicate matching** (path prefix tiers, conditional scoring maps, node-type checks) — the Architecture Notes must specify the dispatch pattern. The step instructions must show the dispatch map structure as a code block. If/else-if chains with 3+ branches are banned by ESLint. Two patterns are available:
 
 - **`Record<Enum, Handler>`** — for exhaustive enum dispatch (compile-time safety that all variants are covered).
-- **Handler array** (`readonly { matches: predicate; extract: handler }[]`) — for predicate-based dispatch (e.g. AST node types) where you cannot index by a single key.
+- **Handler array** (`readonly { matches: predicate; score/handler: value }[]`) — for predicate-based dispatch (e.g. AST node types, path prefix tiers) where you cannot index by a single key, or where ordering matters (most specific match first).
+
+**Detection heuristic:** Any algorithm sketch containing a list of "X => value, Y => value, Z => value, else => default" with 3+ entries is a dispatch pattern. This includes scoring tier maps (path prefix => score), conditional classification tables, and feature flag routing.
 
 The planner must choose one and write it into the task. The executor must not decide.
+
+## Optional field access
+
+When the implementation reads a field from a dependent type and that field is declared optional (`?:`), the step instructions must explicitly specify optional chaining (`?.`) and a fallback value. Never write `obj.optionalField.method()` in step text — write `obj.optionalField?.method() ?? fallback`.
+
+**Detection:** During exploration (A.1 item 9), the planner reads every dependent type and flags optional fields the implementation accesses. These are recorded in the OPTIONAL FIELD HAZARDS section of the Exploration Report. During writing (Pass 2), every field access in step instructions is cross-checked against this list.
+
+**Red flags:**
+
+- A step says `rulePack.heuristic.boostPatterns` but `heuristic` is `heuristic?:` — runtime error when undefined
+- A step says `config.weights.pathRelevance` but `weights` is `weights?:` — same issue
+- The exploration report lists a Tier 1 type member as `heuristic` without noting it is optional
+
+**Enforced by:** A.1 item 9 (flag optional fields), Exploration Report OPTIONAL FIELD HAZARDS section, C.5 check B (verify step instructions handle optional fields).
 
 ## Never guess library APIs or protocol behavior
 

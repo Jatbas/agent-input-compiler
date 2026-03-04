@@ -1,7 +1,7 @@
 # Agent Input Compiler (AIC)
 
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
-![Status](https://img.shields.io/badge/status-0.2.0%20in%20progress-yellow)
+![Status](https://img.shields.io/badge/status-0.2.0-brightgreen)
 ![Local-first](https://img.shields.io/badge/local--first-yes-brightgreen)
 ![Telemetry](https://img.shields.io/badge/telemetry-opt--in-lightgrey)
 ![MCP Compatible](https://img.shields.io/badge/MCP-compatible-purple)
@@ -214,13 +214,13 @@ Current integration gaps are editor-specific — the core pipeline handles all c
 
 ## Roadmap
 
-| Phase                           | Focus                                                                                  | Status      |
-| ------------------------------- | -------------------------------------------------------------------------------------- | ----------- |
-| MVP (`0.1.0`)                   | Core pipeline, transformers, Guard, telemetry, MCP server                              | Done        |
-| Quality Release (`0.2.0`)       | Cursor integration layer, multi-language imports, intent-aware discovery, benchmarks   | In progress |
-| OSS Release (`1.0.0`)           | Public repo, Claude Code integration, agentic session tracking, Specification Compiler | Planned     |
-| Semantic + Governance (`2.0.0`) | Vector search, policy engine, conversation compression for agents                      | Planned     |
-| Enterprise Platform (`3.0.0`)   | RBAC, SSO, fleet management, dashboard                                                 | Future      |
+| Phase                           | Focus                                                                                  | Status  |
+| ------------------------------- | -------------------------------------------------------------------------------------- | ------- |
+| MVP (`0.1.0`)                   | Core pipeline, transformers, Guard, telemetry, MCP server                              | Done    |
+| Quality Release (`0.2.0`)       | Cursor integration layer, multi-language imports, intent-aware discovery, benchmarks   | Done    |
+| OSS Release (`1.0.0`)           | Public repo, Claude Code integration, agentic session tracking, Specification Compiler | Planned |
+| Semantic + Governance (`2.0.0`) | Vector search, policy engine, conversation compression for agents                      | Planned |
+| Enterprise Platform (`3.0.0`)   | RBAC, SSO, fleet management, dashboard                                                 | Future  |
 
 ---
 

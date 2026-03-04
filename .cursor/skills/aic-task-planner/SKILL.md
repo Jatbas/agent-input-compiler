@@ -154,7 +154,7 @@ Complete every item. Each produces evidence for the report. Items are organized 
 
 **Batch B — fire in one parallel round after Batch A completes** (depends on interfaces, types, and library APIs discovered in Batch A):
 
-9. **Read every domain type the component reads or writes** — copy full type definitions verbatim. Never write "see task NNN."
+9. **Read every domain type the component reads or writes** — copy full type definitions verbatim. Never write "see task NNN." For each type, flag every optional field (`?:`) that the implementation will access. Record these in the OPTIONAL FIELD HAZARDS section of the Exploration Report. The step instructions must use optional chaining (`?.`) and a fallback value when accessing these fields — verify this during C.5.
 10. **For adapters wrapping a library**: determine sync vs async from the interface return type.
 11. **Check branded types** — for every parameter, verify the correct branded type from `core/types/`. Check factory function usage.
 12. **Plan the step breakdown** — count methods, assign to steps (max 2 per step, max 1 file per step). Record the mapping.
@@ -237,6 +237,10 @@ DEPENDENT TYPES (classified by tier — see SKILL-guardrails.md):
 SCHEMA (if storage, paste from migration):
   Source: [migration file path]
 [exact CREATE TABLE]
+
+OPTIONAL FIELD HAZARDS (mandatory — list every optional field the implementation accesses):
+- [TypeName].[fieldName] (`?:` [FieldType]) — accessed in [method/step] — handle with `?.` and default [value]
+- Or: No optional fields accessed by this component.
 
 CONSTRUCTOR:
 - [param]: [Type] — [why needed]
@@ -367,7 +371,7 @@ If unsure whether a parameter is needed, **ask the user**.
 
 **Module resolution (if config changes):** Verify tsconfig supports proposed exports format.
 
-**Dispatch pattern:** If 3+ branches on enum/discriminator, choose `Record<Enum, Handler>` or handler array. Write the chosen pattern.
+**Dispatch pattern:** If any logic in the component has 3+ branches — whether dispatching on an enum, a type discriminator, or ordered predicate matching (path prefix tiers, conditional scoring maps, node-type checks) — choose `Record<Enum, Handler>` for exhaustive enum dispatch or a handler array for predicate-based dispatch. Write the chosen pattern and show the data structure in the step instructions. Review the algorithm sketch from A.0/A.1: any list of "X => value, Y => value, Z => value, else => default" with 3+ entries is a dispatch pattern that needs this treatment.
 
 ### A.4b Simplicity sweep
 
@@ -502,7 +506,7 @@ Layer 2 — Grep for `" or "` in the task file. Read each match. Does it present
 Acceptable "or": conditional behavior, conjunctions ("zero errors or warnings").
 Layer 3 — Grep for parenthesized hedges: `\(if needed\)`, `\(optional\)`, `\(e\.g\.`, `\(or similar\)`, `\(sync or async\)`. Any banned pattern inside parentheses = fail.
 
-B. **SIGNATURE CROSS-CHECK:** For each method in the class code block, compare against the interface source file — parameter names, types (including readonly), return types must match exactly.
+B. **SIGNATURE CROSS-CHECK:** For each method in the class code block, compare against the interface source file — parameter names, types (including readonly), return types must match exactly. Additionally, for every optional field (`?:`) in dependent types that the implementation accesses, verify the step instructions use optional chaining (`?.`) and a fallback value. If the exploration report has an OPTIONAL FIELD HAZARDS section, cross-check every entry against the step text.
 
 C. **DEPENDENT TYPES:** If the component reads/writes/returns any domain type, are type definitions present inline (Tier 0 verbatim, Tier 1 signature+path, Tier 2 path-only)? Never "see task NNN", never empty.
 
