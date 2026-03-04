@@ -49,6 +49,7 @@ export interface PipelineStepsRequest {
   readonly sessionId?: SessionId;
   readonly stepIndex?: StepIndex;
   readonly stepIntent?: string;
+  readonly conversationTokens?: TokenCount;
 }
 
 export interface PipelineStepsResult {
@@ -98,7 +99,11 @@ export async function runPipelineSteps(
 ): Promise<PipelineStepsResult> {
   const task = deps.intentClassifier.classify(request.intent);
   const rulePack = deps.rulePackResolver.resolve(task, request.projectRoot);
-  const budget = deps.budgetAllocator.allocate(rulePack, task.taskClass);
+  const sessionContext =
+    request.conversationTokens !== undefined
+      ? { conversationTokens: request.conversationTokens }
+      : undefined;
+  const budget = deps.budgetAllocator.allocate(rulePack, task.taskClass, sessionContext);
   const repoMap =
     repoMapOverride ?? (await deps.repoMapSupplier.getRepoMap(request.projectRoot));
   const discoveredRepoMap = deps.intentAwareFileDiscoverer.discover(

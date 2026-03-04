@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 6/27 done
+**Phase 1.0:** 7/27 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -25,12 +25,12 @@ Compile project specifications and documentation into structured context alongsi
 
 Session-level intelligence for multi-step agent workflows. Deduplication prevents re-compiling identical context across turns; conversation compression maintains quality over long sessions; adaptive budget adjusts allocation based on session history.
 
-| Component                                    | Status  | Package              | Deps                |
-| -------------------------------------------- | ------- | -------------------- | ------------------- |
-| Session-level compilation deduplication      | Done    | shared/src/pipeline/ | —                   |
-| Conversation context compression             | Done    | shared/src/pipeline/ | Session-level dedup |
-| Adaptive budget allocation (session history) | Pending | shared/src/pipeline/ | Session-level dedup |
-| Session tracking storage (migration)         | Done    | shared/src/storage/  | —                   |
+| Component                                    | Status | Package              | Deps                |
+| -------------------------------------------- | ------ | -------------------- | ------------------- |
+| Session-level compilation deduplication      | Done   | shared/src/pipeline/ | —                   |
+| Conversation context compression             | Done   | shared/src/pipeline/ | Session-level dedup |
+| Adaptive budget allocation (session history) | Done   | shared/src/pipeline/ | Session-level dedup |
+| Session tracking storage (migration)         | Done   | shared/src/storage/  | —                   |
 
 ### Phase P — Claude Code Hook-Based Delivery
 
@@ -284,6 +284,13 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 ---
 
 ## Daily Log
+
+### 2025-03-05
+
+**Components:** Adaptive budget allocation (session history)
+**Completed:**
+
+- Adaptive budget allocation (session history) (task 090): SessionBudgetContext type; BudgetAllocator.allocate optional sessionContext; session cap via CONTEXT_WINDOW_DEFAULT/RESERVED_RESPONSE_DEFAULT/TEMPLATE_OVERHEAD_DEFAULT; PipelineStepsRequest.conversationTokens; runPipelineSteps passes sessionContext to allocate; compilation-runner forwards request.conversationTokens into pipelineRequest; three new budget-allocator tests (session_cap_applied_when_conversation_tokens_provided, cap_does_not_exceed_base_budget, available_budget_clamped_non_negative). Lint, typecheck, test, knip (no new findings), lint:clones 0.
 
 ### 2025-03-04
 

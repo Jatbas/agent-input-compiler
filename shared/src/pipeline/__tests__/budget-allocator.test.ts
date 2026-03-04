@@ -67,4 +67,46 @@ describe("BudgetAllocator", () => {
     const result = allocator.allocate(rulePack, TASK_CLASS.GENERAL);
     expect(result).toBe(8000);
   });
+
+  it("session_cap_applied_when_conversation_tokens_provided", () => {
+    const config = makeConfig(10000);
+    const allocator = new BudgetAllocator(config);
+    const rulePack: RulePack = {
+      constraints: [],
+      includePatterns: [],
+      excludePatterns: [],
+    };
+    const result = allocator.allocate(rulePack, TASK_CLASS.FEATURE, {
+      conversationTokens: toTokenCount(115_000),
+    });
+    expect(result).toBe(8500);
+  });
+
+  it("cap_does_not_exceed_base_budget", () => {
+    const config = makeConfig(10000);
+    const allocator = new BudgetAllocator(config);
+    const rulePack: RulePack = {
+      constraints: [],
+      includePatterns: [],
+      excludePatterns: [],
+    };
+    const result = allocator.allocate(rulePack, TASK_CLASS.FEATURE, {
+      conversationTokens: toTokenCount(1000),
+    });
+    expect(result).toBe(10000);
+  });
+
+  it("available_budget_clamped_non_negative", () => {
+    const config = makeConfig(10000);
+    const allocator = new BudgetAllocator(config);
+    const rulePack: RulePack = {
+      constraints: [],
+      includePatterns: [],
+      excludePatterns: [],
+    };
+    const result = allocator.allocate(rulePack, TASK_CLASS.FEATURE, {
+      conversationTokens: toTokenCount(200_000),
+    });
+    expect(result).toBe(toTokenCount(0));
+  });
 });

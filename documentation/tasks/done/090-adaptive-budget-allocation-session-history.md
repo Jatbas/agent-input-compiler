@@ -1,6 +1,6 @@
 # Task 090: Adaptive budget allocation (session history)
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** O — Agentic Session Tracking (from mvp-progress.md)
 > **Layer:** pipeline
 > **Depends on:** Session-level compilation deduplication

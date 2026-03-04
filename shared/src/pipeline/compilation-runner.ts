@@ -242,6 +242,9 @@ function runFreshPath(
     ...(request.sessionId !== undefined ? { sessionId: request.sessionId } : {}),
     ...(request.stepIndex !== undefined ? { stepIndex: request.stepIndex } : {}),
     ...(request.stepIntent !== undefined ? { stepIntent: request.stepIntent } : {}),
+    ...(request.conversationTokens !== undefined
+      ? { conversationTokens: request.conversationTokens }
+      : {}),
   };
   return runPipelineSteps(depsWithSession, pipelineRequest, repoMap).then((r) => {
     const durationMs = clock.durationMs(start, clock.now());
