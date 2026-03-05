@@ -10,12 +10,15 @@ import path from "node:path";
 export class FastGlobAdapter implements GlobProvider {
   constructor() {}
 
-  find(patterns: readonly string[], cwd: AbsolutePath): readonly RelativePath[] {
+  async find(
+    patterns: readonly string[],
+    cwd: AbsolutePath,
+  ): Promise<readonly RelativePath[]> {
     if (patterns.length === 0) {
       return [];
     }
     const cwdStr = cwd;
-    const raw = fg.sync([...patterns], { cwd: cwdStr });
+    const raw = await fg([...patterns], { cwd: cwdStr });
     const relative = raw.map((p) => {
       const abs = path.isAbsolute(p) ? p : path.resolve(cwdStr, p);
       return toRelativePath(path.relative(cwdStr, abs));
@@ -23,12 +26,15 @@ export class FastGlobAdapter implements GlobProvider {
     return relative as readonly RelativePath[];
   }
 
-  findWithStats(patterns: readonly string[], cwd: AbsolutePath): readonly PathWithStat[] {
+  async findWithStats(
+    patterns: readonly string[],
+    cwd: AbsolutePath,
+  ): Promise<readonly PathWithStat[]> {
     if (patterns.length === 0) {
       return [];
     }
     const cwdStr = cwd;
-    const raw = fg.sync([...patterns], { cwd: cwdStr, stats: true });
+    const raw = await fg([...patterns], { cwd: cwdStr, stats: true });
     const withStats = raw.filter(
       (entry): entry is typeof entry & { stats: NonNullable<typeof entry.stats> } =>
         entry.stats !== undefined,

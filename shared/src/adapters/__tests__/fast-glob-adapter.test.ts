@@ -13,62 +13,63 @@ describe("FastGlobAdapter", () => {
     if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("find empty patterns returns []", () => {
+  it("find empty patterns returns []", async () => {
     tmpDir = mkdtempSync(join(tmpdir(), "aic-glob-test-"));
     const cwd = toAbsolutePath(tmpDir);
     const adapter = new FastGlobAdapter();
-    expect(adapter.find([], cwd)).toEqual([]);
+    const result = await adapter.find([], cwd);
+    expect(result).toEqual([]);
   });
 
-  it("find matching pattern returns relative paths under cwd", () => {
+  it("find matching pattern returns relative paths under cwd", async () => {
     tmpDir = mkdtempSync(join(tmpdir(), "aic-glob-test-"));
     writeFileSync(join(tmpDir, "a.ts"), "");
     writeFileSync(join(tmpDir, "b.js"), "");
     const cwd = toAbsolutePath(tmpDir);
     const adapter = new FastGlobAdapter();
-    const result = adapter.find(["**/*.ts"], cwd);
+    const result = await adapter.find(["**/*.ts"], cwd);
     expect(result).toContainEqual("a.ts");
     expect(result).toHaveLength(1);
   });
 
-  it("find with negation excludes matching files", () => {
+  it("find with negation excludes matching files", async () => {
     tmpDir = mkdtempSync(join(tmpdir(), "aic-glob-test-"));
     writeFileSync(join(tmpDir, "include.ts"), "");
     writeFileSync(join(tmpDir, "exclude.ts"), "");
     const cwd = toAbsolutePath(tmpDir);
     const adapter = new FastGlobAdapter();
-    const result = adapter.find(["**/*.ts", "!**/exclude.ts"], cwd);
+    const result = await adapter.find(["**/*.ts", "!**/exclude.ts"], cwd);
     expect(result).toContainEqual("include.ts");
     expect(result).not.toContainEqual("exclude.ts");
     expect(result).toHaveLength(1);
   });
 
-  it("find deterministic: same input gives same output order across calls", () => {
+  it("find deterministic: same input gives same output order across calls", async () => {
     tmpDir = mkdtempSync(join(tmpdir(), "aic-glob-test-"));
     writeFileSync(join(tmpDir, "a.ts"), "");
     writeFileSync(join(tmpDir, "b.ts"), "");
     const cwd = toAbsolutePath(tmpDir);
     const adapter = new FastGlobAdapter();
-    const first = adapter.find(["**/*.ts"], cwd);
-    const second = adapter.find(["**/*.ts"], cwd);
+    const first = await adapter.find(["**/*.ts"], cwd);
+    const second = await adapter.find(["**/*.ts"], cwd);
     expect(first).toEqual(second);
   });
 
-  it("find non-existent cwd propagates error", () => {
+  it("find non-existent cwd propagates error", async () => {
     tmpDir = mkdtempSync(join(tmpdir(), "aic-glob-test-"));
     const filePath = join(tmpDir, "a.ts");
     writeFileSync(filePath, "");
     const adapter = new FastGlobAdapter();
     const cwd = toAbsolutePath(filePath);
-    expect(() => adapter.find(["**/*.ts"], cwd)).toThrow();
+    await expect(adapter.find(["**/*.ts"], cwd)).rejects.toThrow();
   });
 
-  it("findWithStats_returns_path_size_mtime", () => {
+  it("findWithStats_returns_path_size_mtime", async () => {
     tmpDir = mkdtempSync(join(tmpdir(), "aic-glob-test-"));
     writeFileSync(join(tmpDir, "a.ts"), "x");
     const cwd = toAbsolutePath(tmpDir);
     const adapter = new FastGlobAdapter();
-    const result = adapter.findWithStats(["**/*.ts"], cwd);
+    const result = await adapter.findWithStats(["**/*.ts"], cwd);
     expect(result).toHaveLength(1);
     const first = result[0];
     expect(first).toBeDefined();

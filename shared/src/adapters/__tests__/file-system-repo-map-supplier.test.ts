@@ -26,14 +26,15 @@ describe("FileSystemRepoMapSupplier", () => {
     const content = "const x = 1;";
     writeFileSync(join(tmpDir, "a.ts"), content);
     const mockGlob: GlobProvider = {
-      find: () => [toRelativePath("a.ts")],
-      findWithStats: () => [
-        {
-          path: toRelativePath("a.ts"),
-          sizeBytes: toBytes(Buffer.byteLength(content, "utf8")),
-          lastModified: MOCK_LAST_MODIFIED,
-        },
-      ],
+      find: () => Promise.resolve([toRelativePath("a.ts")]),
+      findWithStats: () =>
+        Promise.resolve([
+          {
+            path: toRelativePath("a.ts"),
+            sizeBytes: toBytes(Buffer.byteLength(content, "utf8")),
+            lastModified: MOCK_LAST_MODIFIED,
+          },
+        ]),
     };
     const mockIgnore: IgnoreProvider = { accepts: () => true };
     const supplier = new FileSystemRepoMapSupplier(mockGlob, mockIgnore);
@@ -54,14 +55,15 @@ describe("FileSystemRepoMapSupplier", () => {
     const projectRoot = toAbsolutePath(tmpDir);
     writeFileSync(join(tmpDir, "x.png"), "binary");
     const mockGlob: GlobProvider = {
-      find: () => [toRelativePath("x.png")],
-      findWithStats: () => [
-        {
-          path: toRelativePath("x.png"),
-          sizeBytes: toBytes(6),
-          lastModified: MOCK_LAST_MODIFIED,
-        },
-      ],
+      find: () => Promise.resolve([toRelativePath("x.png")]),
+      findWithStats: () =>
+        Promise.resolve([
+          {
+            path: toRelativePath("x.png"),
+            sizeBytes: toBytes(6),
+            lastModified: MOCK_LAST_MODIFIED,
+          },
+        ]),
     };
     const mockIgnore: IgnoreProvider = { accepts: () => true };
     const supplier = new FileSystemRepoMapSupplier(mockGlob, mockIgnore);
@@ -75,19 +77,20 @@ describe("FileSystemRepoMapSupplier", () => {
     writeFileSync(join(tmpDir, "a.ts"), "a");
     writeFileSync(join(tmpDir, "b.ts"), "bb");
     const mockGlob: GlobProvider = {
-      find: () => [toRelativePath("a.ts"), toRelativePath("b.ts")],
-      findWithStats: () => [
-        {
-          path: toRelativePath("a.ts"),
-          sizeBytes: toBytes(1),
-          lastModified: MOCK_LAST_MODIFIED,
-        },
-        {
-          path: toRelativePath("b.ts"),
-          sizeBytes: toBytes(2),
-          lastModified: MOCK_LAST_MODIFIED,
-        },
-      ],
+      find: () => Promise.resolve([toRelativePath("a.ts"), toRelativePath("b.ts")]),
+      findWithStats: () =>
+        Promise.resolve([
+          {
+            path: toRelativePath("a.ts"),
+            sizeBytes: toBytes(1),
+            lastModified: MOCK_LAST_MODIFIED,
+          },
+          {
+            path: toRelativePath("b.ts"),
+            sizeBytes: toBytes(2),
+            lastModified: MOCK_LAST_MODIFIED,
+          },
+        ]),
     };
     const mockIgnore: IgnoreProvider = { accepts: () => true };
     const supplier = new FileSystemRepoMapSupplier(mockGlob, mockIgnore);
@@ -107,8 +110,8 @@ describe("FileSystemRepoMapSupplier", () => {
     tmpDir = mkdtempSync(join(tmpdir(), "aic-repomap-"));
     const projectRoot = toAbsolutePath(tmpDir);
     const mockGlob: GlobProvider = {
-      find: () => [],
-      findWithStats: () => [],
+      find: () => Promise.resolve([]),
+      findWithStats: () => Promise.resolve([]),
     };
     const mockIgnore: IgnoreProvider = { accepts: () => true };
     const supplier = new FileSystemRepoMapSupplier(mockGlob, mockIgnore);

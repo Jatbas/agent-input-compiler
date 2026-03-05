@@ -15,39 +15,51 @@ import { SwiftProvider } from "./swift-provider.js";
 import { KotlinProvider } from "./kotlin-provider.js";
 import { DartProvider } from "./dart-provider.js";
 
-function projectHasExtension(projectRoot: string, ext: string): boolean {
+async function projectHasExtension(projectRoot: string, ext: string): Promise<boolean> {
   const glob = new FastGlobAdapter();
-  return (
-    glob.find(
-      [`**/*${ext}`, `!node_modules/**`, `!.git/**`, `!.aic/**`],
-      toAbsolutePath(projectRoot),
-    ).length > 0
+  const paths = await glob.find(
+    [`**/*${ext}`, `!node_modules/**`, `!.git/**`, `!.aic/**`],
+    toAbsolutePath(projectRoot),
   );
+  return paths.length > 0;
 }
 
 export async function initLanguageProviders(
   projectRoot: string,
 ): Promise<readonly LanguageProvider[]> {
   await initTreeSitter();
-  const py = projectHasExtension(projectRoot, ".py")
+  const py = (await projectHasExtension(projectRoot, ".py"))
     ? [await PythonProvider.create()]
     : [];
-  const go = projectHasExtension(projectRoot, ".go") ? [await GoProvider.create()] : [];
-  const rs = projectHasExtension(projectRoot, ".rs") ? [await RustProvider.create()] : [];
-  const java = projectHasExtension(projectRoot, ".java")
+  const go = (await projectHasExtension(projectRoot, ".go"))
+    ? [await GoProvider.create()]
+    : [];
+  const rs = (await projectHasExtension(projectRoot, ".rs"))
+    ? [await RustProvider.create()]
+    : [];
+  const java = (await projectHasExtension(projectRoot, ".java"))
     ? [await JavaProvider.create()]
     : [];
-  const rb = projectHasExtension(projectRoot, ".rb") ? [new RubyProvider()] : [];
-  const php = projectHasExtension(projectRoot, ".php") ? [new PhpProvider()] : [];
-  const css = projectHasExtension(projectRoot, ".css") ? [new CssProvider()] : [];
-  const html = projectHasExtension(projectRoot, ".html") ? [new HtmlJsxProvider()] : [];
+  const rb = (await projectHasExtension(projectRoot, ".rb")) ? [new RubyProvider()] : [];
+  const php = (await projectHasExtension(projectRoot, ".php")) ? [new PhpProvider()] : [];
+  const css = (await projectHasExtension(projectRoot, ".css")) ? [new CssProvider()] : [];
+  const html = (await projectHasExtension(projectRoot, ".html"))
+    ? [new HtmlJsxProvider()]
+    : [];
   const sh =
-    projectHasExtension(projectRoot, ".sh") || projectHasExtension(projectRoot, ".bash")
+    (await projectHasExtension(projectRoot, ".sh")) ||
+    (await projectHasExtension(projectRoot, ".bash"))
       ? [new ShellScriptProvider()]
       : [];
-  const swift = projectHasExtension(projectRoot, ".swift") ? [new SwiftProvider()] : [];
-  const kt = projectHasExtension(projectRoot, ".kt") ? [new KotlinProvider()] : [];
-  const dart = projectHasExtension(projectRoot, ".dart") ? [new DartProvider()] : [];
+  const swift = (await projectHasExtension(projectRoot, ".swift"))
+    ? [new SwiftProvider()]
+    : [];
+  const kt = (await projectHasExtension(projectRoot, ".kt"))
+    ? [new KotlinProvider()]
+    : [];
+  const dart = (await projectHasExtension(projectRoot, ".dart"))
+    ? [new DartProvider()]
+    : [];
   return [
     ...py,
     ...go,

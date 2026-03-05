@@ -115,9 +115,9 @@ export class FileSystemRepoMapSupplier implements RepoMapSupplier {
     private readonly ignoreProvider: IgnoreProvider,
   ) {}
 
-  getRepoMap(projectRoot: AbsolutePath): Promise<RepoMap> {
+  async getRepoMap(projectRoot: AbsolutePath): Promise<RepoMap> {
     const patterns = ["**/*", ...DEFAULT_NEGATIVE_PATTERNS];
-    const withStats = this.globProvider.findWithStats(patterns, projectRoot);
+    const withStats = await this.globProvider.findWithStats(patterns, projectRoot);
     const entries = withStats
       .filter((e) => this.ignoreProvider.accepts(e.path, projectRoot))
       .reduce<readonly FileEntry[]>((acc, entry) => {
