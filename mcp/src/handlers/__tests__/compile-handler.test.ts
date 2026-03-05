@@ -85,7 +85,7 @@ describe("createCompileHandler", () => {
     const handler = createCompileHandler(
       mockRunner,
       telemetryDeps,
-      sessionId,
+      () => sessionId,
       () => EDITOR_ID.GENERIC,
       () => null,
       null,
@@ -137,7 +137,7 @@ describe("createCompileHandler", () => {
     const handler = createCompileHandler(
       mockRunner,
       telemetryDeps,
-      toSessionId("018c3d4e-0000-7000-8000-000000000010"),
+      () => toSessionId("018c3d4e-0000-7000-8000-000000000010"),
       () => EDITOR_ID.GENERIC,
       () => null,
       null,
@@ -182,7 +182,7 @@ describe("createCompileHandler", () => {
     const handler = createCompileHandler(
       mockRunner,
       telemetryDeps,
-      toSessionId("018c3d4e-0000-7000-8000-000000000010"),
+      () => toSessionId("018c3d4e-0000-7000-8000-000000000010"),
       () => EDITOR_ID.GENERIC,
       () => null,
       "config-model",
@@ -227,7 +227,7 @@ describe("createCompileHandler", () => {
     const handler = createCompileHandler(
       mockRunner,
       telemetryDeps,
-      toSessionId("018c3d4e-0000-7000-8000-000000000010"),
+      () => toSessionId("018c3d4e-0000-7000-8000-000000000010"),
       () => EDITOR_ID.GENERIC,
       () => null,
       null,
@@ -273,7 +273,7 @@ describe("createCompileHandler", () => {
     const handler = createCompileHandler(
       mockRunner,
       telemetryDeps,
-      toSessionId("018c3d4e-0000-7000-8000-000000000010"),
+      () => toSessionId("018c3d4e-0000-7000-8000-000000000010"),
       () => EDITOR_ID.GENERIC,
       () => "detected-model",
       "config-model",

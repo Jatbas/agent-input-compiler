@@ -1,5 +1,8 @@
 import { z } from "zod";
 
-export const ConversationSummaryRequestSchema = {
+const conversationSummaryRequestShape = {
   conversationId: z.string().min(1),
 } as const;
+
+export const ConversationSummaryRequestSchema: typeof conversationSummaryRequestShape =
+  conversationSummaryRequestShape;

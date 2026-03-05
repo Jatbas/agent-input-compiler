@@ -22,7 +22,7 @@ import { writeCompilationTelemetry } from "@aic/shared/core/write-compilation-te
 export function createCompileHandler(
   runner: CompilationRunner,
   telemetryDeps: TelemetryDeps,
-  sessionId: SessionId,
+  getSessionId: () => SessionId,
   getEditorId: () => EditorId,
   getModelId: (editorId: EditorId) => string | null,
   modelIdOverride: string | null,
@@ -50,7 +50,7 @@ export function createCompileHandler(
         modelId: resolvedModelId,
         editorId: resolvedEditorId,
         configPath: args.configPath !== null ? toFilePath(args.configPath) : null,
-        sessionId,
+        sessionId: getSessionId(),
         triggerSource: args.triggerSource ?? TRIGGER_SOURCE.TOOL_GATE,
         ...(args.conversationId !== null &&
         args.conversationId !== undefined &&

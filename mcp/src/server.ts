@@ -19,6 +19,7 @@ import { CompilationRequestSchema } from "./schemas/compilation-request.js";
 import { ConversationSummaryRequestSchema } from "./schemas/conversation-summary-request.js";
 import { InspectRequestSchema } from "./schemas/inspect-request.schema.js";
 import { createCompileHandler } from "./handlers/compile-handler.js";
+import { SessionContext } from "./handlers/session-context-cache.js";
 import { handleInspect } from "./handlers/inspect-handler.js";
 import { closeDatabase } from "@aic/shared/storage/open-database.js";
 import { ConfigError } from "@aic/shared/core/errors/config-error.js";
@@ -172,13 +173,16 @@ export function createMcpServer(
     ...(typeof cursorModel === "string" && cursorModel !== "" ? { cursorModel } : {}),
   };
   const modelDetector = new ModelDetectorDispatch(envHints);
-  const getEditorId = (): EditorId => {
-    const clientName = server.server.getClientVersion()?.name;
-    process.stderr.write(`[aic] MCP client name: ${clientName ?? "(none)"}\n`);
-    return detectEditorId(clientName, {
-      cursorAgent: process.env["CURSOR_AGENT"] === "1",
+  const sessionContext = new SessionContext(sessionId);
+  const getEditorId = (): EditorId =>
+    sessionContext.getEditorId(() => {
+      const clientName = server.server.getClientVersion()?.name;
+      process.stderr.write(`[aic] MCP client name: ${clientName ?? "(none)"}\n`);
+      return detectEditorId(clientName, {
+        cursorAgent: process.env["CURSOR_AGENT"] === "1",
+      });
     });
-  };
+  const getSessionId = (): SessionId => sessionContext.getSessionId();
   const getModelId = (editorId: EditorId): string | null =>
     modelDetector.detect(editorId);
   server.tool(
@@ -193,7 +197,7 @@ export function createMcpServer(
         idGenerator: scope.idGenerator,
         stringHasher: sha256Adapter,
       },
-      sessionId,
+      getSessionId,
       getEditorId,
       getModelId,
       configModelId,

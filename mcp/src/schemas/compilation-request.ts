@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const CompilationRequestSchema = {
+const compilationRequestShape = {
   intent: z.string().min(1).max(10_000),
   projectRoot: z.string().min(1),
   modelId: z.string().nullable().default(null),
@@ -18,3 +18,6 @@ export const CompilationRequestSchema = {
     .optional(),
   conversationId: z.string().min(1).nullable().optional(),
 } as const;
+
+export const CompilationRequestSchema: typeof compilationRequestShape =
+  compilationRequestShape;
