@@ -3,7 +3,8 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, it, expect, afterEach } from "vitest";
 import { FastGlobAdapter } from "../fast-glob-adapter.js";
-import { toAbsolutePath } from "#core/types/paths.js";
+import { toAbsolutePath, toRelativePath } from "#core/types/paths.js";
+import { toBytes } from "#core/types/units.js";
 
 describe("FastGlobAdapter", () => {
   let tmpDir: string;
@@ -60,5 +61,21 @@ describe("FastGlobAdapter", () => {
     const adapter = new FastGlobAdapter();
     const cwd = toAbsolutePath(filePath);
     expect(() => adapter.find(["**/*.ts"], cwd)).toThrow();
+  });
+
+  it("findWithStats_returns_path_size_mtime", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "aic-glob-test-"));
+    writeFileSync(join(tmpDir, "a.ts"), "x");
+    const cwd = toAbsolutePath(tmpDir);
+    const adapter = new FastGlobAdapter();
+    const result = adapter.findWithStats(["**/*.ts"], cwd);
+    expect(result).toHaveLength(1);
+    const first = result[0];
+    expect(first).toBeDefined();
+    if (first !== undefined) {
+      expect(first.path).toBe(toRelativePath("a.ts"));
+      expect(first.sizeBytes).toBe(toBytes(1));
+      expect(first.lastModified).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    }
   });
 });

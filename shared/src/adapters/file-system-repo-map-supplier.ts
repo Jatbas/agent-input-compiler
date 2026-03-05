@@ -1,12 +1,10 @@
-import * as fs from "node:fs";
 import * as path from "node:path";
 import type { RepoMapSupplier } from "#core/interfaces/repo-map-supplier.interface.js";
 import type { GlobProvider } from "#core/interfaces/glob-provider.interface.js";
 import type { IgnoreProvider } from "#core/interfaces/ignore-provider.interface.js";
-import type { AbsolutePath, RelativePath } from "#core/types/paths.js";
+import type { AbsolutePath } from "#core/types/paths.js";
 import type { RepoMap, FileEntry } from "#core/types/repo-map.js";
-import { toBytes, toTokenCount } from "#core/types/units.js";
-import { toISOTimestamp } from "#core/types/identifiers.js";
+import { toTokenCount } from "#core/types/units.js";
 
 const BINARY_EXTENSIONS: ReadonlySet<string> = new Set([
   ".png",
@@ -111,29 +109,6 @@ function isBinaryExtension(ext: string): boolean {
   return BINARY_EXTENSIONS.has(ext);
 }
 
-function tryBuildEntry(fullPath: string, relativePath: RelativePath): FileEntry | null {
-  try {
-    const stat = fs.statSync(fullPath);
-    if (!stat.isFile()) return null;
-    const ext = path.extname(relativePath).toLowerCase();
-    if (isBinaryExtension(ext)) return null;
-    const sizeBytes = toBytes(stat.size);
-    const lastModified = toISOTimestamp(stat.mtime.toISOString());
-    const language = languageFromExtension(ext);
-    // bytes/4 is a fast approximation; exact counts happen in the transformer step
-    const estimatedTokens = toTokenCount(Math.ceil(stat.size / 4));
-    return {
-      path: relativePath,
-      language,
-      sizeBytes,
-      estimatedTokens,
-      lastModified,
-    };
-  } catch {
-    return null;
-  }
-}
-
 export class FileSystemRepoMapSupplier implements RepoMapSupplier {
   constructor(
     private readonly globProvider: GlobProvider,
@@ -142,13 +117,24 @@ export class FileSystemRepoMapSupplier implements RepoMapSupplier {
 
   getRepoMap(projectRoot: AbsolutePath): Promise<RepoMap> {
     const patterns = ["**/*", ...DEFAULT_NEGATIVE_PATTERNS];
-    const allFiles = this.globProvider.find(patterns, projectRoot);
-    const entries = allFiles
-      .filter((f) => this.ignoreProvider.accepts(f, projectRoot))
-      .reduce<readonly FileEntry[]>((acc, relativePath) => {
-        const fullPath = path.join(projectRoot, relativePath);
-        const entry = tryBuildEntry(fullPath, relativePath);
-        return entry !== null ? [...acc, entry] : acc;
+    const withStats = this.globProvider.findWithStats(patterns, projectRoot);
+    const entries = withStats
+      .filter((e) => this.ignoreProvider.accepts(e.path, projectRoot))
+      .reduce<readonly FileEntry[]>((acc, entry) => {
+        const ext = path.extname(entry.path).toLowerCase();
+        if (isBinaryExtension(ext)) return acc;
+        const language = languageFromExtension(ext);
+        const estimatedTokens = toTokenCount(Math.ceil(entry.sizeBytes / 4));
+        return [
+          ...acc,
+          {
+            path: entry.path,
+            language,
+            sizeBytes: entry.sizeBytes,
+            estimatedTokens,
+            lastModified: entry.lastModified,
+          },
+        ];
       }, []);
     const totalTokensRaw = entries.reduce((sum, e) => sum + e.estimatedTokens, 0);
     return Promise.resolve({

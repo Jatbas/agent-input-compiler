@@ -1,6 +1,6 @@
 # Task 097: Scan — eliminate double-stat via fast-glob stats
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** P (Context Quality, Token Efficiency & Compilation Performance)
 > **Layer:** adapter
 > **Depends on:** —

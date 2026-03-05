@@ -77,6 +77,7 @@ export {
   type RulesFindingSeverity,
 } from "./enums.js";
 
+export type { PathWithStat } from "./path-with-stat.js";
 export type { ImportRef } from "./import-ref.js";
 export type { CodeChunk } from "./code-chunk.js";
 export type { ExportedSymbol } from "./exported-symbol.js";

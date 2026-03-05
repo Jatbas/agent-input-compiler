@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 11/32 done
+**Phase 1.0:** 12/36 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -32,23 +32,28 @@ Session-level intelligence for multi-step agent workflows. Deduplication prevent
 | Adaptive budget allocation (session history) | Done   | shared/src/pipeline/ | Session-level dedup | Adjusts token budget based on accumulated session token usage      |
 | Session tracking storage (migration)         | Done   | shared/src/storage/  | —                   | Persistent session state across turns (migration + store)          |
 
-### Phase P — Context Quality & Token Efficiency
+### Phase P — Context Quality, Token Efficiency & Compilation Performance
 
-Improve file selection precision and token reduction beyond the current heuristic pipeline. Research-backed improvements: symbol-level intent matching (ContextBench 2025 — LLMs favor recall over precision; better precision at selection time directly addresses this), bidirectional import graph (InlineCoder/RIG 2026 — 12.2% accuracy gain from exposing dependency edges in both directions), git-aware recency, adaptive scoring weights per task class, cross-file deduplication in assembled prompt, structural context map (RIG 2026 — 57.8% efficiency gain from deterministic architectural maps), and chunk-level file inclusion (SWE-Pruner 2025 — 23-54% token reduction via task-aware line-level pruning). All implementable within AIC's existing hexagonal architecture via new classes/interfaces (OCP).
+Improve file selection precision, token reduction, and compilation speed beyond the current heuristic pipeline. Research-backed improvements: symbol-level intent matching (ContextBench 2025 — LLMs favor recall over precision; better precision at selection time directly addresses this), bidirectional import graph (InlineCoder/RIG 2026 — 12.2% accuracy gain from exposing dependency edges in both directions), git-aware recency, adaptive scoring weights per task class, cross-file deduplication in assembled prompt, structural context map (RIG 2026 — 57.8% efficiency gain from deterministic architectural maps), and chunk-level file inclusion (SWE-Pruner 2025 — 23-54% token reduction via task-aware line-level pruning). Compilation performance: eliminate redundant file system scans and per-file processing via incremental caching, async I/O, and file watching. All implementable within AIC's existing hexagonal architecture via new classes/interfaces (OCP).
 
-**Implementation order:** 7 → 2 → 1 (increasing selection quality, small-to-medium effort, each builds on the last), then 6 → 4 (larger, need design first).
-
-| Component                                      | Status  | Package              | Deps                     | Description                                                                    |
-| ---------------------------------------------- | ------- | -------------------- | ------------------------ | ------------------------------------------------------------------------------ |
-| Adaptive scoring weights per task class        | Done    | shared/src/pipeline/ | —                        | Per-task-class weight profiles (bugfix → recency, refactor → import proximity) |
-| Reverse dependency walking (bidirectional BFS) | Done    | shared/src/pipeline/ | —                        | Invert import graph to also score files that import seed files                 |
-| Symbol-level intent matching                   | Done    | shared/src/pipeline/ | —                        | Match intent subject tokens against exported symbol names via subjectTokens    |
-| Structural context map (RIG-inspired)          | Done    | shared/src/pipeline/ | —                        | Compact project architecture summary injected before code context              |
-| Chunk-level file inclusion                     | Pending | shared/src/pipeline/ | Symbol-level intent (#1) | Include only relevant functions/blocks instead of whole files                  |
+| Component                                       | Status  | Package              | Deps                     | Description                                                                     |
+| ----------------------------------------------- | ------- | -------------------- | ------------------------ | ------------------------------------------------------------------------------- |
+| Adaptive scoring weights per task class         | Done    | shared/src/pipeline/ | —                        | Per-task-class weight profiles (bugfix → recency, refactor → import proximity)  |
+| Reverse dependency walking (bidirectional BFS)  | Done    | shared/src/pipeline/ | —                        | Invert import graph to also score files that import seed files                  |
+| Symbol-level intent matching                    | Done    | shared/src/pipeline/ | —                        | Match intent subject tokens against exported symbol names via subjectTokens     |
+| Structural context map (RIG-inspired)           | Done    | shared/src/pipeline/ | —                        | Compact project architecture summary injected before code context               |
+| Chunk-level file inclusion                      | Pending | shared/src/pipeline/ | Symbol-level intent (#1) | Include only relevant functions/blocks instead of whole files                   |
+| Granular file-level transformation cache        | Pending | shared/src/storage/  | —                        | Per-file L0–L3 output cached by content hash; skip unchanged files on recompile |
+| Scan: eliminate double-stat via fast-glob stats | Done    | shared/src/adapters/ | —                        | Use fast-glob `stats: true` to avoid second `fs.statSync` pass over all files   |
+| Scan: async parallel file system I/O            | Pending | shared/src/adapters/ | Eliminate double-stat    | Replace `fg.sync`/`fs.statSync` with async + `Promise.all` for parallel I/O     |
+| Scan: cached RepoMap with file watcher          | Pending | shared/src/adapters/ | Async parallel I/O       | `fs.watch` keeps RepoMap in memory; subsequent `getRepoMap()` returns instantly |
 
 **Notes:**
 
 - **Chunk-level inclusion:** Biggest architectural question. Currently: select files → transform whole files → summarize → assemble. Chunk-level means: select files → extract relevant chunks → include those at full fidelity, rest at signature level. `LanguageProviders` extract signatures with line ranges but not full function bodies. Needs `ChunkExtractor` or chunk-aware `SummarisationLadder`. Largest effort but single biggest token savings opportunity. SWE-Pruner (2025) achieved 23-54% reduction on multi-turn agent tasks.
+- **Granular file-level transformation cache (validated via external architecture review):** Currently `SqliteCacheStore` caches the entire compiled prompt under a single key; any file change causes a full cache miss and re-runs all transformers, tree-sitter parsing, and summarisation on every file. A per-file `SqliteFileTransformStore` keyed by content hash would let `ContentTransformerPipeline` and `SummarisationLadder` skip unchanged files entirely. On typical recompiles where 1–3 files change out of hundreds, this eliminates 95%+ of CPU work (tree-sitter AST parsing, tokenizer calls, transformer chains). Medium effort — pipeline is already modular; needs new storage table, content-hash computation, and cache-check wrappers in the transformer pipeline and summarisation ladder. Inspired by Cursor's Merkle-tree approach to incremental context assembly.
+- **Scan optimizations (three-stage approach):** Currently `FileSystemRepoMapSupplier` runs `fast-glob.sync` (directory traversal) then `fs.statSync` on every file — both synchronous, blocking the MCP event loop. Stage 1 (eliminate double-stat): fast-glob's `stats: true` returns `fs.Stats` during traversal, removing the second stat pass; ~20% scan speedup, tiny effort. Stage 2 (async parallel I/O): replace `fg.sync`/`statSync` with async `fg()`/`fs.promises.stat` batched via `Promise.all`; unblocks MCP event loop and parallelizes I/O; ~40–60% scan speedup, small effort. Stage 3 (cached RepoMap with watcher): MCP server is long-running — cache the RepoMap after first scan, register `fs.watch` (recursive) to update individual entries on change; subsequent `getRepoMap()` returns ~0ms; new `WatchingRepoMapSupplier` adapter with graceful fallback to full scan if watcher fails; medium effort, biggest single performance win.
+- **Deferred concepts (validated, post-1.0):** _Intent semantic caching_ (BM25 over `subjectTokens` to reuse file selections for semantically similar intents) — valid but session-level dedup already covers the primary multi-turn case. _Runtime state injection_ (dev server logs, test watcher output, browser errors injected into context) — architecture supports a `RuntimeStateSupplier` interface, but adapter-layer complexity for cross-platform process detection is substantial.
 
 ### Phase Q — Claude Code Hook-Based Delivery
 
@@ -305,9 +310,10 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2025-03-05
 
-**Components:** Adaptive budget allocation (session history), Adaptive scoring weights per task class, Reverse dependency walking (bidirectional BFS), Symbol-level intent matching, Structural context map (RIG-inspired)
+**Components:** Adaptive budget allocation (session history), Adaptive scoring weights per task class, Reverse dependency walking (bidirectional BFS), Symbol-level intent matching, Structural context map (RIG-inspired), Scan: eliminate double-stat via fast-glob stats
 **Completed:**
 
+- Scan: eliminate double-stat via fast-glob stats (task 097): PathWithStat type; GlobProvider.findWithStats; FastGlobAdapter.findWithStats with fg.sync(..., { stats: true }); FileSystemRepoMapSupplier uses findWithStats, no node:fs; four file-system-repo-map-supplier tests (findWithStats mocks), one fast-glob-adapter findWithStats test. Lint, typecheck, test, lint:clones 0.
 - Structural context map (RIG-inspired) (task 095): StructuralMapBuilder interface and implementation; directory tree from repoMap.files up to depth 4, one line per dir "{dir}/ (n files)", sorted; PromptAssembler optional 7th param structuralMap, injects ## Project structure before ## Context; run-pipeline-steps and create-pipeline-deps wire builder; four structural-map-builder tests, two prompt-assembler tests; integration snapshots updated. Lint, typecheck, test, lint:clones 0.
 - Symbol-level intent matching (task 093): TaskClassification.subjectTokens; IntentClassifier extractSubjectTokens (STOPWORDS, ALL*CLASSIFIER_KEYWORDS); SymbolRelevanceScorer (ImportProximityScorer) getScores by subjectTokens vs extractNames; HeuristicSelector fourth param symbolRelevanceScorer, DEFAULT_WEIGHTS_BY_TASK_CLASS rebalanced with symbolRelevance 0.2; ScoringWeights.symbolRelevance; create-pipeline-deps wires SymbolRelevanceScorer; intent-classifier tests (subject_tokens*\*), symbol-relevance-scorer tests (5). Golden/full-pipeline snapshots updated. Lint, typecheck, test, lint:clones 0.
 - Adaptive budget allocation (session history) (task 090): SessionBudgetContext type; BudgetAllocator.allocate optional sessionContext; session cap via CONTEXT_WINDOW_DEFAULT/RESERVED_RESPONSE_DEFAULT/TEMPLATE_OVERHEAD_DEFAULT; PipelineStepsRequest.conversationTokens; runPipelineSteps passes sessionContext to allocate; compilation-runner forwards request.conversationTokens into pipelineRequest; three new budget-allocator tests (session_cap_applied_when_conversation_tokens_provided, cap_does_not_exceed_base_budget, available_budget_clamped_non_negative). Lint, typecheck, test, knip (no new findings), lint:clones 0.
