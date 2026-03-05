@@ -51,6 +51,7 @@ import { GenericProvider } from "#adapters/generic-provider.js";
 import { FastGlobAdapter } from "#adapters/fast-glob-adapter.js";
 import { IgnoreAdapter } from "#adapters/ignore-adapter.js";
 import { FileSystemRepoMapSupplier } from "#adapters/file-system-repo-map-supplier.js";
+import { WatchingRepoMapSupplier } from "#adapters/watching-repo-map-supplier.js";
 
 export type PipelineDepsWithoutRepoMap = Omit<PipelineStepsDeps, "repoMapSupplier">;
 
@@ -190,9 +191,8 @@ export function createFullPipelineDeps(
     additionalProviders,
     heuristicSelectorConfig,
   );
-  const repoMapSupplier = new FileSystemRepoMapSupplier(
-    new FastGlobAdapter(),
-    new IgnoreAdapter(),
-  );
+  const ignoreAdapter = new IgnoreAdapter();
+  const inner = new FileSystemRepoMapSupplier(new FastGlobAdapter(), ignoreAdapter);
+  const repoMapSupplier = new WatchingRepoMapSupplier(inner, ignoreAdapter);
   return { ...partial, repoMapSupplier };
 }

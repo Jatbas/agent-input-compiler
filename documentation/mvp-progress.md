@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 14/36 done
+**Phase 1.0:** 15/36 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -46,7 +46,7 @@ Improve file selection precision, token reduction, and compilation speed beyond 
 | Granular file-level transformation cache        | Done    | shared/src/storage/  | —                        | Per-file L0–L3 output cached by content hash; skip unchanged files on recompile |
 | Scan: eliminate double-stat via fast-glob stats | Done    | shared/src/adapters/ | —                        | Use fast-glob `stats: true` to avoid second `fs.statSync` pass over all files   |
 | Scan: async parallel file system I/O            | Done    | shared/src/adapters/ | Eliminate double-stat    | Replace `fg.sync`/`fs.statSync` with async + `Promise.all` for parallel I/O     |
-| Scan: cached RepoMap with file watcher          | Pending | shared/src/adapters/ | Async parallel I/O       | `fs.watch` keeps RepoMap in memory; subsequent `getRepoMap()` returns instantly |
+| Scan: cached RepoMap with file watcher          | Done    | shared/src/adapters/ | Async parallel I/O       | `fs.watch` keeps RepoMap in memory; subsequent `getRepoMap()` returns instantly |
 
 **Notes:**
 
@@ -307,6 +307,13 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 ---
 
 ## Daily Log
+
+### 2026-03-05
+
+**Components:** Closeable interface, file-entry-utils, WatchingRepoMapSupplier, create-pipeline-deps wiring
+**Completed:**
+
+- Scan: cached RepoMap with file watcher (task 099): Closeable interface; file-entry-utils.ts (BINARY_EXTENSIONS, EXTENSION_TO_LANGUAGE, languageFromExtension, isBinaryExtension, buildFileEntry) extracted from FileSystemRepoMapSupplier; WatchingRepoMapSupplier decorator (getRepoMap cache + fs.watch, handleWatchEvent/handleWatchError, rebuildRepoMap, invalidateCache, close); watchFn and statFn injected for tests; createFullPipelineDeps wraps FileSystemRepoMapSupplier with WatchingRepoMapSupplier; seven tests (first_call_delegates_and_returns, second_call_same_root_returns_cached, watcher_event_updates_entry, watcher_filename_undefined_invalidates_cache, watch_throws_graceful_fallback, watcher_error_event_invalidates_cache, close_stops_all_watchers). Lint, typecheck, test, knip (no new findings), lint:clones 0.
 
 ### 2025-03-05
 

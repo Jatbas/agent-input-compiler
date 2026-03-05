@@ -1,6 +1,6 @@
 # Task 099: Scan — cached RepoMap with file watcher
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** P (Context Quality, Token Efficiency & Compilation Performance)
 > **Layer:** adapter
 > **Depends on:** Scan: async parallel file system I/O (Done)
