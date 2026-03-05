@@ -24,6 +24,12 @@
         "matcher": "MCP"
       }
     ],
+    "beforeShellExecution": [
+      {
+        "command": "node .cursor/hooks/AIC-block-no-verify.cjs",
+        "matcher": "git"
+      }
+    ],
     "afterFileEdit": []
   }
 }

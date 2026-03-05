@@ -39,15 +39,17 @@ If a dependency is not done, **stop and tell the user**.
 
 **Create a worktree** to isolate all work. The main working tree stays on `main`, untouched — multiple executors can run in parallel, each in its own worktree.
 
-```
-git worktree add -b feat/task-NNN-kebab-name .git-worktrees/task-NNN-kebab-name main
-```
-
-Use the task number and kebab-case name from the task file (e.g. `.git-worktrees/task-011-sqlite-cache-store` with branch `feat/task-011-sqlite-cache-store`). If the branch already exists (e.g. resuming a blocked task), omit `-b`:
+Generate a unique name using the Unix epoch, with an optional task prefix for readability:
 
 ```
-git worktree add .git-worktrees/task-NNN-kebab-name feat/task-NNN-kebab-name
+EPOCH=$(date +%s)
+# With a task file: use the task number as prefix
+git worktree add -b feat/task-NNN-$EPOCH .git-worktrees/task-NNN-$EPOCH main
+# Without a task file (ad-hoc): epoch only
+git worktree add -b feat/$EPOCH .git-worktrees/$EPOCH main
 ```
+
+Examples: `.git-worktrees/task-011-1741209600` with branch `feat/task-011-1741209600`, or `.git-worktrees/1741209600` with branch `feat/1741209600` for ad-hoc work. **Store the epoch value** — you will use it in branch/directory names throughout.
 
 If the worktree directory already exists (stale from a previous run), prune and retry:
 
@@ -69,11 +71,11 @@ Run with `working_directory` set to the worktree absolute path.
 git rev-parse --abbrev-ref HEAD
 ```
 
-Run with `working_directory` set to the worktree. Output must be `feat/task-NNN-kebab-name`. If it does not match, stop and tell the user.
+Run with `working_directory` set to the worktree. Output must match the branch you created. If it does not match, stop and tell the user.
 
-**Store the worktree absolute path** (e.g. `<workspace>/.git-worktrees/task-075-yaml-compactor`) and **branch name** (e.g. `feat/task-075-yaml-compactor`). You will need both throughout execution — all file operations and shell commands target the worktree.
+**Store the worktree absolute path** and **branch name**. You will need both throughout execution — all file operations and shell commands target the worktree.
 
-**Update the task file status to `In Progress`** — edit the worktree copy of the task file (at `<worktree>/documentation/tasks/NNN-name.md`).
+**If a task file exists,** update its status to `In Progress` — edit the worktree copy (at `<worktree>/documentation/tasks/NNN-name.md`).
 
 ### 2. Internalize the task
 
@@ -293,7 +295,7 @@ Run these sequentially in one flow — no user gate between them:
    git rev-parse --abbrev-ref HEAD
    ```
 
-   Run with `working_directory` set to the worktree. If the output is NOT `feat/task-NNN-kebab-name`, go to **Blocked diagnostic**. **Never commit to main** — the worktree isolates all work until the user approves the merge in §6.
+   Run with `working_directory` set to the worktree. If the output does NOT match the stored branch name, go to **Blocked diagnostic**. **Never commit to main** — the worktree isolates all work until the user approves the merge in §6.
 
 5. **Stage only touched files and commit in the worktree.**
 
@@ -317,7 +319,7 @@ Run these sequentially in one flow — no user gate between them:
    b. Stage only the dirty touched files and amend: `git add <touched dirty files> && git commit --amend --no-edit`.
    c. Run `pnpm lint && pnpm typecheck && pnpm test`. If any fail, fix the issues, then stage only the fixed touched files and amend again. Repeat at most twice — if still failing after 2 fix attempts, go to **Blocked diagnostic**.
    d. Run `git status --porcelain` again. Filter against touched-files list. If touched files are still dirty (another lint-staged pass reformatted), repeat from (b). Cap at 3 iterations — if still dirty, something is structurally wrong; go to **Blocked diagnostic**.
-   e. Run `git diff main...HEAD --stat` to produce the final file list for the merge proposal. Verify that `git rev-parse --abbrev-ref HEAD` still shows the worktree's branch name (`feat/task-NNN-kebab-name`).
+   e. Run `git diff main...HEAD --stat` to produce the final file list for the merge proposal. Verify that `git rev-parse --abbrev-ref HEAD` still shows the stored branch name.
 
 ### 6. Merge and Clean Up
 
@@ -327,8 +329,8 @@ This step merges the feature branch into main and removes the worktree. All comm
 
 Present:
 
-- The branch name (`feat/task-NNN-kebab-name`)
-- The worktree path (`.git-worktrees/task-NNN-kebab-name`)
+- The branch name (stored from §1)
+- The worktree path (stored from §1)
 - The list of files changed (from the `--stat` output in 5c)
 - The commit message used
 - Ask: **"Merge to main? (yes / adjust message / discard)"**
@@ -340,15 +342,15 @@ Present:
 The main workspace is already on `main` — no checkout needed.
 
 ```
-git merge --squash feat/task-NNN-kebab-name
+git merge --squash <branch>
 ```
 
 **If the merge succeeds without conflicts:**
 
 ```
 git commit -m "feat(<scope>): <what was built>"
-git worktree remove .git-worktrees/task-NNN-kebab-name
-git branch -D feat/task-NNN-kebab-name
+git worktree remove <worktree-dir>
+git branch -D <branch>
 ```
 
 The squash merge produces a single clean commit on main. Use the same commit message from 5c (or the user's adjusted version).
@@ -360,15 +362,15 @@ The squash merge produces a single clean commit on main. Use the same commit mes
 3. Stage resolved files: `git add <resolved files>`
 4. Verify no conflict markers remain: Grep for `<<<<<<<` in the resolved files (expect 0 matches).
 5. Complete the commit: `git commit -m "feat(<scope>): <what was built>"`
-6. Clean up: `git worktree remove .git-worktrees/task-NNN-kebab-name && git branch -D feat/task-NNN-kebab-name`
+6. Clean up: `git worktree remove <worktree-dir> && git branch -D <branch>`
 
 If conflicts cannot be resolved automatically (semantic conflicts in code logic), show the user the conflicted files and conflict markers. Ask for guidance before committing.
 
 **6c — If the user says "discard":**
 
 ```
-git worktree remove .git-worktrees/task-NNN-kebab-name
-git branch -D feat/task-NNN-kebab-name
+git worktree remove <worktree-dir>
+git branch -D <branch>
 ```
 
 Report that the worktree and branch were deleted and no changes were merged.
@@ -402,7 +404,7 @@ Before declaring Blocked, check whether the failure is in your code or in the ta
    git add <touched files> && git commit -m "wip(task-NNN): blocked — <short reason>"
    ```
 4. Change the task file status to `Blocked` (in the worktree copy).
-5. Report to the user: include the worktree path (`.git-worktrees/task-NNN-kebab-name`) and branch name (`feat/task-NNN-kebab-name`) so they know where the partial work lives. The user can resume later by re-entering the worktree, or discard it with `git worktree remove .git-worktrees/task-NNN-kebab-name && git branch -D feat/task-NNN-kebab-name`.
+5. Report to the user: include the worktree path and branch name so they know where the partial work lives. The user can resume later by re-entering the worktree, or discard it with `git worktree remove <worktree-dir> && git branch -D <branch>`.
 6. **Wait for guidance**. Do not continue.
 
 ---
