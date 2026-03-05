@@ -37,14 +37,16 @@ function insertCompilationLog(
     model_id: null,
     created_at: "2026-02-26T12:00:00.000Z",
     conversation_id: null as string | null,
+    trigger_source: null as string | null,
     ...overrides,
   };
   const conversationId = defaults.conversation_id ?? null;
+  const triggerSource = defaults.trigger_source ?? null;
   db.prepare(
     `INSERT INTO compilation_log (
       id, intent, task_class, files_selected, files_total, tokens_raw, tokens_compiled,
-      token_reduction_pct, cache_hit, duration_ms, editor_id, model_id, created_at, conversation_id
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      token_reduction_pct, cache_hit, duration_ms, editor_id, model_id, created_at, conversation_id, trigger_source
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     defaults.intent,
@@ -60,6 +62,7 @@ function insertCompilationLog(
     defaults.model_id,
     defaults.created_at,
     conversationId,
+    triggerSource,
   );
 }
 
@@ -374,5 +377,49 @@ describe("SqliteStatusStore", () => {
     expect(result.compilationsInConversation).toBe(1);
     expect(result.totalTokensRaw).toBe(100);
     expect(result.totalTokensCompiled).toBe(50);
+  });
+
+  it("getSummary_excludes_internal_test", () => {
+    setup();
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000060", {
+      trigger_source: null,
+      intent: "user intent",
+      created_at: "2026-02-26T14:00:00.000Z",
+    });
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000061", {
+      trigger_source: "internal_test",
+      intent: "internal test",
+      created_at: "2026-02-26T14:01:00.000Z",
+    });
+    const summary = store.getSummary();
+    expect(summary.compilationsTotal).toBe(1);
+    expect(summary.lastCompilation).not.toBeNull();
+    if (summary.lastCompilation !== null) {
+      expect(summary.lastCompilation.intent).toBe("user intent");
+    }
+  });
+
+  it("getConversationSummary_excludes_internal_test", () => {
+    setup();
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000070", {
+      conversation_id: "conv-excl",
+      trigger_source: null,
+      intent: "user compilation",
+      created_at: "2026-02-26T15:00:00.000Z",
+    });
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000071", {
+      conversation_id: "conv-excl",
+      trigger_source: "internal_test",
+      intent: "internal test compilation",
+      created_at: "2026-02-26T15:01:00.000Z",
+    });
+    const result = store.getConversationSummary(toConversationId("conv-excl"));
+    expect(result).not.toBeNull();
+    if (result === null) return;
+    expect(result.compilationsInConversation).toBe(1);
+    expect(result.lastCompilationInConversation).not.toBeNull();
+    if (result.lastCompilationInConversation !== null) {
+      expect(result.lastCompilationInConversation.intent).toBe("user compilation");
+    }
   });
 });

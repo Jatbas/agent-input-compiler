@@ -3,6 +3,7 @@ import type { Clock } from "#core/interfaces/clock.interface.js";
 import type { StatusStore } from "#core/interfaces/status-store.interface.js";
 import type { ConversationSummary, StatusAggregates } from "#core/types/status-types.js";
 import type { ConversationId } from "#core/types/identifiers.js";
+import { TRIGGER_SOURCE } from "#core/types/enums.js";
 
 type LastCompilationRow = {
   intent: string;
@@ -52,25 +53,27 @@ export class SqliteStatusStore implements StatusStore {
 
   getConversationSummary(conversationId: ConversationId): ConversationSummary | null {
     const countRows = this.db
-      .prepare("SELECT COUNT(*) as c FROM compilation_log WHERE conversation_id = ?")
-      .all(conversationId) as { c: number }[];
+      .prepare(
+        "SELECT COUNT(*) as c FROM compilation_log WHERE conversation_id = ? AND (trigger_source IS NULL OR trigger_source != ?)",
+      )
+      .all(conversationId, TRIGGER_SOURCE.INTERNAL_TEST) as { c: number }[];
     const count = countRows[0]?.c ?? 0;
     if (count === 0) return null;
 
     const cacheRateRows = this.db
       .prepare(
-        "SELECT SUM(cache_hit=1)*100.0/NULLIF(COUNT(*),0) as rate FROM compilation_log WHERE conversation_id = ?",
+        "SELECT SUM(cache_hit=1)*100.0/NULLIF(COUNT(*),0) as rate FROM compilation_log WHERE conversation_id = ? AND (trigger_source IS NULL OR trigger_source != ?)",
       )
-      .all(conversationId) as { rate: number | null }[];
+      .all(conversationId, TRIGGER_SOURCE.INTERNAL_TEST) as { rate: number | null }[];
     const cacheHitRatePct = cacheRateRows[0]?.rate ?? null;
 
     const aggRows = this.db
       .prepare(
         `SELECT COALESCE(SUM(tokens_raw), 0) as raw,
                 COALESCE(SUM(tokens_compiled), 0) as compiled
-         FROM compilation_log WHERE conversation_id = ?`,
+         FROM compilation_log WHERE conversation_id = ? AND (trigger_source IS NULL OR trigger_source != ?)`,
       )
-      .all(conversationId) as {
+      .all(conversationId, TRIGGER_SOURCE.INTERNAL_TEST) as {
       raw: number;
       compiled: number;
     }[];
@@ -86,19 +89,22 @@ export class SqliteStatusStore implements StatusStore {
     const topRows = this.db
       .prepare(
         `SELECT task_class as taskClass, COUNT(*) as count
-         FROM compilation_log WHERE conversation_id = ?
+         FROM compilation_log WHERE conversation_id = ? AND (trigger_source IS NULL OR trigger_source != ?)
          GROUP BY task_class ORDER BY count DESC LIMIT 3`,
       )
-      .all(conversationId) as { taskClass: string; count: number }[];
+      .all(conversationId, TRIGGER_SOURCE.INTERNAL_TEST) as {
+      taskClass: string;
+      count: number;
+    }[];
     const topTaskClasses = topRows.map(mapTaskClassRow);
 
     const lastRows = this.db
       .prepare(
         `SELECT intent, files_selected, files_total, tokens_compiled, token_reduction_pct, created_at, editor_id, model_id
-         FROM compilation_log WHERE conversation_id = ?
+         FROM compilation_log WHERE conversation_id = ? AND (trigger_source IS NULL OR trigger_source != ?)
          ORDER BY created_at DESC LIMIT 1`,
       )
-      .all(conversationId) as LastCompilationRow[];
+      .all(conversationId, TRIGGER_SOURCE.INTERNAL_TEST) as LastCompilationRow[];
     const lastRow = lastRows[0];
     const lastCompilationInConversation =
       lastRow === undefined ? null : mapLastCompilationRow(lastRow);
@@ -118,31 +124,33 @@ export class SqliteStatusStore implements StatusStore {
 
   getSummary(): StatusAggregates {
     const compilationsTotalRow = this.db
-      .prepare("SELECT COUNT(*) as c FROM compilation_log")
-      .all() as { c: number }[];
+      .prepare(
+        "SELECT COUNT(*) as c FROM compilation_log WHERE (trigger_source IS NULL OR trigger_source != ?)",
+      )
+      .all(TRIGGER_SOURCE.INTERNAL_TEST) as { c: number }[];
     const compilationsTotal = compilationsTotalRow[0]?.c ?? 0;
 
     const todayDate = this.clock.now().slice(0, 10);
     const compilationsTodayRow = this.db
       .prepare(
-        "SELECT COUNT(*) as c FROM compilation_log WHERE date(created_at) = date(?)",
+        "SELECT COUNT(*) as c FROM compilation_log WHERE date(created_at) = date(?) AND (trigger_source IS NULL OR trigger_source != ?)",
       )
-      .all(todayDate) as { c: number }[];
+      .all(todayDate, TRIGGER_SOURCE.INTERNAL_TEST) as { c: number }[];
     const compilationsToday = compilationsTodayRow[0]?.c ?? 0;
 
     const cacheRateRow = this.db
       .prepare(
-        "SELECT SUM(cache_hit=1)*100.0/NULLIF(COUNT(*),0) as rate FROM compilation_log",
+        "SELECT SUM(cache_hit=1)*100.0/NULLIF(COUNT(*),0) as rate FROM compilation_log WHERE (trigger_source IS NULL OR trigger_source != ?)",
       )
-      .all() as { rate: number | null }[];
+      .all(TRIGGER_SOURCE.INTERNAL_TEST) as { rate: number | null }[];
     const cacheHitRatePct =
       compilationsTotal === 0 ? null : (cacheRateRow[0]?.rate ?? null);
 
     const tokenSumsRow = this.db
       .prepare(
-        "SELECT COALESCE(SUM(tokens_raw), 0) as raw, COALESCE(SUM(tokens_compiled), 0) as compiled FROM compilation_log",
+        "SELECT COALESCE(SUM(tokens_raw), 0) as raw, COALESCE(SUM(tokens_compiled), 0) as compiled FROM compilation_log WHERE (trigger_source IS NULL OR trigger_source != ?)",
       )
-      .all() as { raw: number; compiled: number }[];
+      .all(TRIGGER_SOURCE.INTERNAL_TEST) as { raw: number; compiled: number }[];
     const totalTokensRaw = tokenSumsRow[0]?.raw ?? 0;
     const totalTokensCompiled = tokenSumsRow[0]?.compiled ?? 0;
     const totalTokensSaved =
@@ -167,16 +175,16 @@ export class SqliteStatusStore implements StatusStore {
 
     const topRows = this.db
       .prepare(
-        "SELECT task_class as taskClass, COUNT(*) as count FROM compilation_log GROUP BY task_class ORDER BY count DESC LIMIT 3",
+        "SELECT task_class as taskClass, COUNT(*) as count FROM compilation_log WHERE (trigger_source IS NULL OR trigger_source != ?) GROUP BY task_class ORDER BY count DESC LIMIT 3",
       )
-      .all() as { taskClass: string; count: number }[];
+      .all(TRIGGER_SOURCE.INTERNAL_TEST) as { taskClass: string; count: number }[];
     const topTaskClasses = topRows.map(mapTaskClassRow);
 
     const lastRows = this.db
       .prepare(
-        "SELECT intent, files_selected, files_total, tokens_compiled, token_reduction_pct, created_at, editor_id, model_id FROM compilation_log ORDER BY created_at DESC LIMIT 1",
+        "SELECT intent, files_selected, files_total, tokens_compiled, token_reduction_pct, created_at, editor_id, model_id FROM compilation_log WHERE (trigger_source IS NULL OR trigger_source != ?) ORDER BY created_at DESC LIMIT 1",
       )
-      .all() as LastCompilationRow[];
+      .all(TRIGGER_SOURCE.INTERNAL_TEST) as LastCompilationRow[];
     const lastRow = lastRows[0];
     const lastCompilation = lastRow === undefined ? null : mapLastCompilationRow(lastRow);
 
