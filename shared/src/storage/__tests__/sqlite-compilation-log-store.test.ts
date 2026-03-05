@@ -55,6 +55,7 @@ describe("SqliteCompilationLogStore", () => {
       configHash: null,
       createdAt: toISOTimestamp("2026-02-27T12:00:00.000Z"),
       conversationId: null,
+      triggerSource: TRIGGER_SOURCE.INTERNAL_TEST,
     };
     store.record(entry);
     const row = db
@@ -108,6 +109,7 @@ describe("SqliteCompilationLogStore", () => {
       configHash: null,
       createdAt: toISOTimestamp("2026-02-27T12:00:00.000Z"),
       conversationId: null,
+      triggerSource: TRIGGER_SOURCE.INTERNAL_TEST,
     };
     store.record(entry);
     const row = db
@@ -150,6 +152,7 @@ describe("SqliteCompilationLogStore", () => {
       configHash,
       createdAt: toISOTimestamp("2026-02-28T12:00:00.000Z"),
       conversationId: null,
+      triggerSource: TRIGGER_SOURCE.INTERNAL_TEST,
     };
     store.record(entry);
     const row = db
@@ -209,6 +212,7 @@ describe("SqliteCompilationLogStore", () => {
       configHash: null,
       createdAt: toISOTimestamp("2026-02-28T12:00:00.000Z"),
       conversationId: convId,
+      triggerSource: TRIGGER_SOURCE.INTERNAL_TEST,
     };
     store.record(entry);
     const row = db

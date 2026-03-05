@@ -120,6 +120,7 @@ function makeRequest(fixtureRoot: ReturnType<typeof toAbsolutePath>): Compilatio
     modelId: null,
     editorId: EDITOR_ID.GENERIC,
     configPath: null,
+    triggerSource: TRIGGER_SOURCE.INTERNAL_TEST,
   };
 }
 
@@ -439,7 +440,7 @@ describe("CompilationRunner", () => {
     expect(entry.taskClass).toBe(result.meta.taskClass);
     expect(entry.filesSelected).toBe(result.meta.filesSelected);
     expect(entry.cacheHit).toBe(false);
-    expect(entry.triggerSource === null || entry.triggerSource === undefined).toBe(true);
+    expect(entry.triggerSource).toBe(TRIGGER_SOURCE.INTERNAL_TEST);
     expect(Array.isArray(guardCall.findings)).toBe(true);
     expect(result.meta.guard !== null).toBe(true);
     expect(guardCall.findings).toEqual(result.meta.guard?.findings ?? []);

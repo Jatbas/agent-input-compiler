@@ -14,6 +14,7 @@ const compilationRequestShape = {
       "subagent_start",
       "cli",
       "model_initiated",
+      "internal_test",
     ])
     .optional(),
   conversationId: z.string().min(1).nullable().optional(),

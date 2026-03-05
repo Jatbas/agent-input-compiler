@@ -21,7 +21,7 @@ import type { IdGenerator } from "#core/interfaces/id-generator.interface.js";
 import type { RulePackProvider } from "#core/interfaces/rule-pack-provider.interface.js";
 import type { BudgetConfig } from "#core/interfaces/budget-config.interface.js";
 import type { TaskClass } from "#core/types/enums.js";
-import { EDITOR_ID } from "#core/types/enums.js";
+import { EDITOR_ID, TRIGGER_SOURCE } from "#core/types/enums.js";
 import { toUUIDv7 } from "#core/types/identifiers.js";
 import { CompilationRunner } from "#pipeline/compilation-runner.js";
 import { IntentClassifier } from "#pipeline/intent-classifier.js";
@@ -247,6 +247,7 @@ describe("full pipeline", () => {
     modelId: null,
     editorId: EDITOR_ID.GENERIC,
     configPath: null,
+    triggerSource: TRIGGER_SOURCE.INTERNAL_TEST,
   };
 
   it("full_pipeline_compiled_output_matches_snapshot", async () => {

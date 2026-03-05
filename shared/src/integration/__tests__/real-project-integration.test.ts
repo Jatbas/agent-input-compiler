@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterEach } from "vitest";
 import { toAbsolutePath } from "#core/types/paths.js";
-import { EDITOR_ID } from "#core/types/enums.js";
+import { EDITOR_ID, TRIGGER_SOURCE } from "#core/types/enums.js";
 import type { TaskClass } from "#core/types/enums.js";
 import type { RulePackProvider } from "#core/interfaces/rule-pack-provider.interface.js";
 import type { RulePack } from "#core/types/rule-pack.js";
@@ -94,6 +94,7 @@ describe("real project integration", () => {
     modelId: null,
     editorId: EDITOR_ID.GENERIC,
     configPath: null,
+    triggerSource: TRIGGER_SOURCE.INTERNAL_TEST,
   };
 
   it("real_project_compile_succeeds", async () => {

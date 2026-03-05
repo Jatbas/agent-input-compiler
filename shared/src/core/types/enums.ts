@@ -120,5 +120,6 @@ export const TRIGGER_SOURCE = {
   CLI: "cli",
   MODEL_INITIATED: "model_initiated",
   HOOK: "hook",
+  INTERNAL_TEST: "internal_test",
 } as const;
 export type TriggerSource = (typeof TRIGGER_SOURCE)[keyof typeof TRIGGER_SOURCE];
