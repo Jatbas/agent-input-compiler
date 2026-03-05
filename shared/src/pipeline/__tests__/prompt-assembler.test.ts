@@ -263,4 +263,28 @@ describe("PromptAssembler", () => {
     expect(resultNoArg).not.toContain("## Project structure");
     expect(resultEmpty).not.toContain("## Project structure");
   });
+
+  it("assembler_uses_resolvedContent_when_present", async () => {
+    const getContentCalls: string[] = [];
+    const reader: FileContentReader = {
+      getContent: (path) => {
+        getContentCalls.push(path as string);
+        return Promise.resolve("raw content");
+      },
+    };
+    const assembler = new PromptAssembler(reader);
+    const fileWithResolved = {
+      ...makeFile("src/resolved.ts"),
+      resolvedContent: "resolved text",
+    };
+    const result = await assembler.assemble(
+      task,
+      [fileWithResolved],
+      [],
+      OUTPUT_FORMAT.PLAIN,
+    );
+    expect(result).toContain("resolved text");
+    expect(result).toContain("### src/resolved.ts");
+    expect(getContentCalls).not.toContain("src/resolved.ts");
+  });
 });

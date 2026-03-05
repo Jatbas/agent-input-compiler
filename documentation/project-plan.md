@@ -2683,6 +2683,40 @@ The `repomap_cache` stores a single row per project root: the serialised `RepoMa
 
 **On cache miss:** `RepoMapBuilder` performs a full scan, replaces the cached row, and returns the fresh `RepoMap`. The scan itself respects the performance targets in the table above (<1s for repos <1,000 files).
 
+### Incremental Compilation Performance (Phase P)
+
+The whole-prompt cache (§10) provides instant responses for identical inputs, but any change — different intent, single file edit, or config tweak — causes a full cache miss and re-processes all selected files from scratch. Phase P introduces three layers of incremental processing so that subsequent compilations pay cost proportional to what changed, not to the total project size.
+
+**Layer 1: File system scan optimization.** `FileSystemRepoMapSupplier` currently runs `fast-glob.sync` (directory traversal) then `fs.statSync` on every file — both synchronous, blocking the MCP event loop. Three staged improvements:
+
+| Stage                       | Change                                                                                                                                                                                               | Impact                                        |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Eliminate double-stat       | Use fast-glob's `stats: true` to return `fs.Stats` during traversal, removing the second `statSync` pass                                                                                             | ~20% scan speedup                             |
+| Async parallel I/O          | Replace `fg.sync`/`statSync` with async `fg()`/`fs.promises.stat` batched via `Promise.all`                                                                                                          | ~40–60% scan speedup; unblocks MCP event loop |
+| Cached RepoMap with watcher | MCP server caches the RepoMap after first scan; `fs.watch` (recursive) updates individual entries on change; subsequent `getRepoMap()` returns ~0ms; graceful fallback to full scan if watcher fails | ~95% scan elimination for 2nd+ compilation    |
+
+**Layer 2: Per-file transformation and summarisation cache.** A `SqliteFileTransformStore` keyed by `(file_path, content_hash)` stores the output of `ContentTransformerPipeline` (transformed content, token count, transformers applied) and `SummarisationLadder` tier outputs (L0–L3 text and token counts) per file. When a file's content hash hasn't changed since the last compilation, the pipeline skips all 16+ transformers, tree-sitter AST parsing (for LanguageProvider operations in the summarisation ladder), and tiktoken calls for that file. In the typical development scenario (1–3 files changed out of 50+ selected), this eliminates 95%+ of per-file CPU work.
+
+| Aspect       | Detail                                                                                     |
+| ------------ | ------------------------------------------------------------------------------------------ |
+| Cache key    | `(file_path, content_hash)` — composite PK, no UUIDv7                                      |
+| Content hash | SHA-256 of raw file content, computed via existing `StringHasher` interface                |
+| Stored data  | Transformed content, tier outputs (L0–L3 text + token counts), timestamps                  |
+| TTL          | Configurable, default matches whole-prompt cache TTL (60 minutes)                          |
+| Invalidation | File edit changes content hash (automatic miss); explicit `invalidate(path)` for deletions |
+| Purge        | `purgeExpired()` runs on MCP server shutdown alongside existing cache purge                |
+
+**Layer 3: Import graph caching (future).** `ImportGraphProximityScorer` currently calls `parseImports` on all repo files to build the dependency graph — the most expensive single operation for large repos. The same content-hash caching approach applies: cache `parseImports` results per file, recompute only for changed files. This is an adjacent optimization to Layer 2 using the same storage pattern.
+
+**Combined effect on the iterative development loop (edit → ask → edit → ask):**
+
+| Compilation                       | Without Phase P                          | With Phase P                                                                         |
+| --------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------ |
+| First (cold)                      | Full scan + full pipeline                | Same (no prior cache)                                                                |
+| 2nd+ same intent, no edits        | Whole-prompt cache hit (<100ms)          | Same                                                                                 |
+| 2nd+ different intent, no edits   | Full re-scan + full re-process all files | Watcher: ~0ms scan; per-file cache: skip all files; only selection + assembly re-run |
+| 2nd+ any intent, 1–3 files edited | Full re-scan + full re-process all files | Watcher: update 1–3 entries; per-file cache: re-process 1–3 files, skip rest         |
+
 ---
 
 ## 15. Sequence Diagrams

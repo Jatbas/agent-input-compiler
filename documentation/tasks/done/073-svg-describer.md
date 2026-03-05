@@ -18,10 +18,10 @@ Implement a ContentTransformer that replaces full SVG file content with a short 
 
 ## Files
 
-| Action | Path |
-| ------ | ---- |
-| Create | `shared/src/pipeline/svg-describer.ts` |
-| Create | `shared/src/pipeline/__tests__/svg-describer.test.ts` |
+| Action | Path                                                                                                                                            |
+| ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Create | `shared/src/pipeline/svg-describer.ts`                                                                                                          |
+| Create | `shared/src/pipeline/__tests__/svg-describer.test.ts`                                                                                           |
 | Modify | `shared/src/bootstrap/create-pipeline-deps.ts` (instantiate SvgDescriber and add after htmlToMarkdownTransformer, before cssVariableSummarizer) |
 
 ## Interface / Signature
@@ -54,10 +54,10 @@ Interface and parameter types are defined by ContentTransformer (RelativePath, I
 
 ### Tier 2 — path-only
 
-| Type | Path | Factory |
-| ---- | ---- | ------- |
-| `FileExtension` | `shared/src/core/types/paths.js` | `toFileExtension(raw)` |
-| `RelativePath` | `shared/src/core/types/paths.js` | `toRelativePath(raw)` |
+| Type            | Path                             | Factory                      |
+| --------------- | -------------------------------- | ---------------------------- |
+| `FileExtension` | `shared/src/core/types/paths.js` | `toFileExtension(raw)`       |
+| `RelativePath`  | `shared/src/core/types/paths.js` | `toRelativePath(raw)`        |
 | `InclusionTier` | `shared/src/core/types/enums.js` | Use `INCLUSION_TIER.L0` etc. |
 
 ## Config Changes
@@ -119,14 +119,14 @@ Expected: all pass, zero warnings, no new knip findings.
 
 ## Tests
 
-| Test case | Description |
-| --------- | ----------- |
-| viewbox_and_elements_described | Output contains viewBox value, element count, and bytes |
-| no_viewbox_uses_placeholder | Missing viewBox yields "—" in placeholder |
-| empty_content_returns_unchanged | Empty string in, empty string out |
-| single_element_count | Single child element reflected in count |
-| safety_svg_placeholder_format | Output matches [SVG: ...] format exactly |
-| safety_svg_extension_same_behavior | .svg path produces placeholder consistently |
+| Test case                          | Description                                             |
+| ---------------------------------- | ------------------------------------------------------- |
+| viewbox_and_elements_described     | Output contains viewBox value, element count, and bytes |
+| no_viewbox_uses_placeholder        | Missing viewBox yields "—" in placeholder               |
+| empty_content_returns_unchanged    | Empty string in, empty string out                       |
+| single_element_count               | Single child element reflected in count                 |
+| safety_svg_placeholder_format      | Output matches [SVG: ...] format exactly                |
+| safety_svg_extension_same_behavior | .svg path produces placeholder consistently             |
 
 ## Acceptance Criteria
 

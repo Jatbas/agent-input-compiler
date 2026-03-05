@@ -71,3 +71,11 @@ LLMs are autoregressive. Because the model must generate the rules itself immedi
 If the objective is to **truly force** compliance, **Option 1 (The Middleware Enforcer)** is the only deterministic path.
 
 It stops the LLM from making a mistake before the file is ever touched, removing the probabilistic "will the model listen to the prompt?" gamble entirely. Because the hook system for Cursor is already active, expanding the `PreToolUse` gate to include a fast local rule validation step is a natural next step and a massive differentiator for AIC's integration layer.
+
+---
+
+## Related Work (Phase Q → Phase 2+)
+
+Phase Q (`mvp-progress.md`) ships foundational guard scanners (`CommandInjectionScanner`, `MarkdownInstructionScanner`) and the constraints preamble (Strategy 2 lite). The full Middleware Enforcer (Strategy 1: `aic_validate_action` tool + `PreToolUse` gate) and AST-aware localized rule injection (Strategy 2 full) are Phase 2+ — they depend on the Phase Q guard infrastructure and Claude Code hook delivery (Phase R).
+
+Research reinforcement: SWE-Pruner (2026) and emerging prompt injection analysis targeting coding assistant tool execution validate the need for both context-level filtering (guard scanners) and action-level validation (Middleware Enforcer). "Verifiably safe tool use" work suggests moving from "ask the model to behave" to "make forbidden actions impossible" — which is exactly the Middleware Enforcer approach.

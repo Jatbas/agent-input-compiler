@@ -25,9 +25,7 @@ process.stdin.on("end", () => {
     }
 
     const updated = { ...toolInput, conversationId };
-    process.stdout.write(
-      JSON.stringify({ decision: "allow", updated_input: updated }),
-    );
+    process.stdout.write(JSON.stringify({ decision: "allow", updated_input: updated }));
   } catch {
     process.stdout.write(JSON.stringify({ decision: "allow" }));
   }

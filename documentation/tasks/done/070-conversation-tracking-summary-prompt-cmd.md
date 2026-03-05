@@ -104,7 +104,7 @@ In `shared/src/core/types/status-types.ts`, add interface ConversationSummary wi
 
 ### Step 2: Implement getConversationSummary in SqliteStatusStore
 
-In `shared/src/storage/sqlite-status-store.ts`, implement getConversationSummary(conversationId): run SQL against compilation*log WHERE conversation_id = ?. Compute: COUNT(*), cache hit rate (SUM(cache_hit=1)*100.0/NULLIF(COUNT(*),0)), AVG(token*reduction_pct), SUM(tokens_raw), SUM(tokens_compiled), SUM(tokens_raw - tokens_compiled) for tokens saved, last row ORDER BY created_at DESC LIMIT 1 (map to lastCompilationInConversation), task_class counts GROUP BY task_class ORDER BY count DESC LIMIT 3 for topTaskClasses. If COUNT(*) = 0, return null. Return object matching ConversationSummary with conversationId as the string value of the param.
+In `shared/src/storage/sqlite-status-store.ts`, implement getConversationSummary(conversationId): run SQL against compilation*log WHERE conversation_id = ?. Compute: COUNT(*), cache hit rate (SUM(cache*hit=1)\_100.0/NULLIF(COUNT(*),0)), AVG(token*reduction_pct), SUM(tokens_raw), SUM(tokens_compiled), SUM(tokens_raw - tokens_compiled) for tokens saved, last row ORDER BY created_at DESC LIMIT 1 (map to lastCompilationInConversation), task_class counts GROUP BY task_class ORDER BY count DESC LIMIT 3 for topTaskClasses. If COUNT(*) = 0, return null. Return object matching ConversationSummary with conversationId as the string value of the param.
 
 **Verify:** pnpm typecheck passes. Implementation uses only db.prepare and bound params; no Date.now().
 

@@ -21,10 +21,10 @@ Implement a ContentTransformer that compacts schema-definition files (JSON Schem
 
 ## Files
 
-| Action | Path |
-| ------ | ---- |
-| Create | `shared/src/pipeline/schema-file-compactor.ts` |
-| Create | `shared/src/pipeline/__tests__/schema-file-compactor.test.ts` |
+| Action | Path                                                                                                                                                |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Create | `shared/src/pipeline/schema-file-compactor.ts`                                                                                                      |
+| Create | `shared/src/pipeline/__tests__/schema-file-compactor.test.ts`                                                                                       |
 | Modify | `shared/src/bootstrap/create-pipeline-deps.ts` (instantiate SchemaFileCompactor and add after envExampleRedactor, before htmlToMarkdownTransformer) |
 
 ## Interface / Signature
@@ -45,11 +45,7 @@ export class SchemaFileCompactor implements ContentTransformer {
   readonly id = "schema-file-compactor";
   readonly fileExtensions: readonly FileExtension[] = [];
 
-  transform(
-    content: string,
-    _tier: InclusionTier,
-    filePath: RelativePath,
-  ): string;
+  transform(content: string, _tier: InclusionTier, filePath: RelativePath): string;
 }
 ```
 
@@ -61,10 +57,10 @@ Interface and parameter types are defined by ContentTransformer (RelativePath, I
 
 ### Tier 2 — path-only
 
-| Type | Path | Factory |
-| ---- | ---- | ------- |
-| `FileExtension` | `shared/src/core/types/paths.ts` | `toFileExtension(raw)` |
-| `RelativePath` | `shared/src/core/types/paths.ts` | `toRelativePath(raw)` |
+| Type            | Path                             | Factory                      |
+| --------------- | -------------------------------- | ---------------------------- |
+| `FileExtension` | `shared/src/core/types/paths.ts` | `toFileExtension(raw)`       |
+| `RelativePath`  | `shared/src/core/types/paths.ts` | `toRelativePath(raw)`        |
 | `InclusionTier` | `shared/src/core/types/enums.ts` | Use `INCLUSION_TIER.L0` etc. |
 
 ## Config Changes
@@ -87,10 +83,10 @@ Create `shared/src/pipeline/schema-file-compactor.ts`.
 - Helper `compactJsonSchema(content: string): string`: try { const parsed = JSON.parse(content.trim()); if (!isJsonSchemaRoot(parsed)) return content; return JSON.stringify(stripJsonSchemaMetadata(parsed)); } catch { return content; }.
 - Helper `isSchemaPath(path: RelativePath): boolean`: const ext = getExtension(path).toLowerCase(); return ext === ".graphql" || ext === ".gql" || ext === ".prisma" || ext === ".proto".
 - Helper `stripLineComments(content: string, lineCommentStart: string): string`: split by "\n", filter out lines that after trim start with lineCommentStart, join "\n".
-- Helper `stripBlockComments(content: string, open: string, close: string): string`: remove substrings between open and close (for block comments use "/*" and "*/"), handling nested content only to the first close; keep rest. Use a single pass (no regex that could miss nested); prefer reduce or explicit index scan.
+- Helper `stripBlockComments(content: string, open: string, close: string): string`: remove substrings between open and close (for block comments use "/_" and "_/"), handling nested content only to the first close; keep rest. Use a single pass (no regex that could miss nested); prefer reduce or explicit index scan.
 - Helper `compactGraphql(content: string): string`: strip lines starting with # (after trim); strip triple-quote description blocks ("""...""" on one or more lines). Return trimmed result with blank lines collapsed to at most one.
-- Helper `compactPrisma(content: string): string`: strip lines starting with // or ///; strip block comments /* */. Return trimmed result.
-- Helper `compactProto(content: string): string`: strip lines starting with //; strip block comments /* */. Return trimmed result.
+- Helper `compactPrisma(content: string): string`: strip lines starting with // or ///; strip block comments /\* \*/. Return trimmed result.
+- Helper `compactProto(content: string): string`: strip lines starting with //; strip block comments /\* \*/. Return trimmed result.
 - In `transform(content, _tier, filePath)`: if content.length === 0 return content. Try compactJsonSchema(content) — if result is not equal to content (i.e. was JSON Schema), return result. If isSchemaPath(filePath): if path ends with .graphql or .gql return compactGraphql(content); if path ends with .prisma return compactPrisma(content); if path ends with .proto return compactProto(content). Return content unchanged otherwise. Explicit return type `string`. Max 60 lines per function; extract helpers as needed.
 
 **Verify:** `pnpm typecheck` passes. File exists and exports `SchemaFileCompactor`.
@@ -121,8 +117,8 @@ Create `shared/src/pipeline/__tests__/schema-file-compactor.test.ts`.
   - **non_schema_path_unchanged:** filePath = toRelativePath("src/index.ts"), content = `const x = 1`. After transform, result is exactly content.
   - **empty_content_returns_unchanged:** filePath = toRelativePath("schema.json"), content = "". After transform, result is "".
   - **invalid_json_returns_unchanged:** filePath = toRelativePath("bad.json"), content = `{ invalid `. After transform, result is exactly content.
-  - **safety_python_indentation_preserved:** filePath = toRelativePath("src/main.py"), content = "def f():\n  pass". After transform, result is unchanged.
-  - **safety_yaml_structure_unchanged:** filePath = toRelativePath("config.yml"), content = "key:\n  nested: 1". After transform, result is unchanged.
+  - **safety_python_indentation_preserved:** filePath = toRelativePath("src/main.py"), content = "def f():\n pass". After transform, result is unchanged.
+  - **safety_yaml_structure_unchanged:** filePath = toRelativePath("config.yml"), content = "key:\n nested: 1". After transform, result is unchanged.
   - **safety_jsx_structure_unchanged:** filePath = toRelativePath("src/App.tsx"), content = "<div>x</div>". After transform, result is unchanged.
 
 **Verify:** `pnpm test shared/src/pipeline/__tests__/schema-file-compactor.test.ts` passes.
@@ -143,21 +139,21 @@ Expected: all pass, zero warnings, no new knip findings.
 
 ## Tests
 
-| Test case | Description |
-| --------- | ----------- |
-| json_schema_description_fields_stripped | JSON with $schema and description fields → descriptions removed, structure preserved |
-| json_schema_examples_stripped | JSON with $schema and examples → examples removed |
-| json_schema_nested_metadata_stripped | Deeply nested JSON Schema → description/title/examples/$comment/default stripped recursively |
-| graphql_descriptions_stripped | GraphQL """...""" and # comments stripped, types preserved |
-| prisma_comments_stripped | Prisma // and /// comments stripped, models preserved |
-| proto_comments_stripped | Proto // and block comments stripped, messages preserved |
-| non_schema_json_unchanged | JSON without $schema or $ref at root returned unchanged |
-| non_schema_path_unchanged | Non-schema path (.ts) returned unchanged |
-| empty_content_returns_unchanged | Empty string in, empty string out |
-| invalid_json_returns_unchanged | Malformed JSON returned unchanged |
-| safety_python_indentation_preserved | Non-matching .py path leaves content unchanged |
-| safety_yaml_structure_unchanged | Non-matching .yml path leaves content unchanged |
-| safety_jsx_structure_unchanged | Non-matching .tsx path leaves content unchanged |
+| Test case                               | Description                                                                                  |
+| --------------------------------------- | -------------------------------------------------------------------------------------------- |
+| json_schema_description_fields_stripped | JSON with $schema and description fields → descriptions removed, structure preserved         |
+| json_schema_examples_stripped           | JSON with $schema and examples → examples removed                                            |
+| json_schema_nested_metadata_stripped    | Deeply nested JSON Schema → description/title/examples/$comment/default stripped recursively |
+| graphql_descriptions_stripped           | GraphQL """...""" and # comments stripped, types preserved                                   |
+| prisma_comments_stripped                | Prisma // and /// comments stripped, models preserved                                        |
+| proto_comments_stripped                 | Proto // and block comments stripped, messages preserved                                     |
+| non_schema_json_unchanged               | JSON without $schema or $ref at root returned unchanged                                      |
+| non_schema_path_unchanged               | Non-schema path (.ts) returned unchanged                                                     |
+| empty_content_returns_unchanged         | Empty string in, empty string out                                                            |
+| invalid_json_returns_unchanged          | Malformed JSON returned unchanged                                                            |
+| safety_python_indentation_preserved     | Non-matching .py path leaves content unchanged                                               |
+| safety_yaml_structure_unchanged         | Non-matching .yml path leaves content unchanged                                              |
+| safety_jsx_structure_unchanged          | Non-matching .tsx path leaves content unchanged                                              |
 
 ## Acceptance Criteria
 

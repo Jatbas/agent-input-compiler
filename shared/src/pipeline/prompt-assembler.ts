@@ -36,6 +36,19 @@ async function buildSpecParts(
   ];
 }
 
+async function fetchContextContents(
+  fileContentReader: FileContentReader,
+  needContent: readonly SelectedFile[],
+): Promise<readonly string[]> {
+  return Promise.all(
+    needContent.map((f) =>
+      f.resolvedContent !== undefined
+        ? Promise.resolve(f.resolvedContent)
+        : fileContentReader.getContent(f.path),
+    ),
+  );
+}
+
 export class PromptAssembler implements IPromptAssembler {
   constructor(private readonly fileContentReader: FileContentReader) {}
 
@@ -59,9 +72,7 @@ export class PromptAssembler implements IPromptAssembler {
         ? ["## Project structure", "", structuralMap, ""]
         : [];
     const needContent = files.filter((f) => f.previouslyShownAtStep === undefined);
-    const contents = await Promise.all(
-      needContent.map((f) => this.fileContentReader.getContent(f.path)),
-    );
+    const contents = await fetchContextContents(this.fileContentReader, needContent);
     const contentIndexFor = (upTo: number): number =>
       files.slice(0, upTo).filter((f) => f.previouslyShownAtStep === undefined).length;
     const contextParts = files.flatMap((file, i) => {

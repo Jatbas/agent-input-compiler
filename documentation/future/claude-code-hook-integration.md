@@ -1,9 +1,9 @@
 # Claude Code Hook-Based Context Delivery
 
-> **Status:** Planned (post-MVP)
-> **Target:** Phase 1
+> **Status:** Planned (Phase R in `mvp-progress.md`)
+> **Target:** Phase 1.0
 > **Prep done:** `TRIGGER_SOURCE.HOOK` added to `shared/src/core/types/enums.ts`
-> **Tracked as:** KL-005 in `mvp-progress.md`
+> **Tracked as:** Phase R (was Phase Q before Phase Q research-backed upgrades inserted)
 
 ## Problem
 

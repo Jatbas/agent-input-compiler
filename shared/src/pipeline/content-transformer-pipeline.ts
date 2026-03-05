@@ -66,39 +66,40 @@ export class ContentTransformerPipeline implements IContentTransformerPipeline {
     const result = files.map(
       (file, i): { file: SelectedFile; meta: TransformMetadata } => {
         const rawContent = rawContents[i] ?? "";
-      const originalTokens = this.tokenCounter(rawContent);
-      const applicable = context.rawMode
-        ? []
-        : getApplicableTransformers(
-            formatSpecific,
-            nonFormatSpecific,
-            getExtension(file.path),
-            directSet.has(file.path),
-          );
-      const { content, applied } = applicable.reduce<{
-        readonly content: string;
-        readonly applied: readonly string[];
-      }>(
-        (acc, t) => ({
-          content: t.transform(acc.content, file.tier, file.path),
-          applied: [...acc.applied, t.id],
-        }),
-        { content: rawContent, applied: [] },
-      );
+        const originalTokens = this.tokenCounter(rawContent);
+        const applicable = context.rawMode
+          ? []
+          : getApplicableTransformers(
+              formatSpecific,
+              nonFormatSpecific,
+              getExtension(file.path),
+              directSet.has(file.path),
+            );
+        const { content, applied } = applicable.reduce<{
+          readonly content: string;
+          readonly applied: readonly string[];
+        }>(
+          (acc, t) => ({
+            content: t.transform(acc.content, file.tier, file.path),
+            applied: [...acc.applied, t.id],
+          }),
+          { content: rawContent, applied: [] },
+        );
 
-      const transformedTokens = this.tokenCounter(content);
-      const updatedFile: SelectedFile = {
-        ...file,
-        estimatedTokens: transformedTokens,
-      };
-      const meta: TransformMetadata = {
-        filePath: file.path,
-        originalTokens,
-        transformedTokens,
-        transformersApplied: applied,
-      };
-      return { file: updatedFile, meta };
-    });
+        const transformedTokens = this.tokenCounter(content);
+        const updatedFile: SelectedFile = {
+          ...file,
+          estimatedTokens: transformedTokens,
+        };
+        const meta: TransformMetadata = {
+          filePath: file.path,
+          originalTokens,
+          transformedTokens,
+          transformersApplied: applied,
+        };
+        return { file: updatedFile, meta };
+      },
+    );
 
     return {
       files: result.map((r) => r.file),

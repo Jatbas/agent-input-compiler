@@ -7,8 +7,7 @@ const EMPTY_EXTENSIONS: readonly FileExtension[] = [];
 function isMinifiedPath(path: RelativePath): boolean {
   const lower = path.toLowerCase();
   if (lower.endsWith(".min.js") || lower.endsWith(".min.css")) return true;
-  if (path.startsWith("dist/") || path.includes("/dist/") || path === "dist")
-    return true;
+  if (path.startsWith("dist/") || path.includes("/dist/") || path === "dist") return true;
   if (path.startsWith("build/") || path.includes("/build/") || path === "build")
     return true;
   return false;
@@ -24,11 +23,7 @@ export class MinifiedCodeSkipper implements ContentTransformer {
   readonly id = "minified-code-skipper";
   readonly fileExtensions: readonly FileExtension[] = EMPTY_EXTENSIONS;
 
-  transform(
-    content: string,
-    _tier: InclusionTier,
-    filePath: RelativePath,
-  ): string {
+  transform(content: string, _tier: InclusionTier, filePath: RelativePath): string {
     if (content.length === 0) return content;
     if (!isMinifiedPath(filePath)) return content;
     const name = lastSegment(filePath);

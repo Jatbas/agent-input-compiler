@@ -8,11 +8,7 @@ describe("EnvExampleRedactor", () => {
     const transformer = new EnvExampleRedactor();
     const filePath = toRelativePath("config/.env.example");
     const content = "DB_HOST=localhost\nDB_PORT=5432\nAPI_KEY=secret123";
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).toBe("DB_HOST=***\nDB_PORT=***\nAPI_KEY=***");
   });
 
@@ -20,11 +16,7 @@ describe("EnvExampleRedactor", () => {
     const transformer = new EnvExampleRedactor();
     const filePath = toRelativePath(".env.sample");
     const content = "KEY=value";
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).toBe("KEY=***");
   });
 
@@ -32,50 +24,31 @@ describe("EnvExampleRedactor", () => {
     const transformer = new EnvExampleRedactor();
     const filePath = toRelativePath("deploy/.env.template");
     const content = "HOST=0.0.0.0";
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).toBe("HOST=***");
   });
 
   it("comment_lines_preserved", () => {
     const transformer = new EnvExampleRedactor();
     const filePath = toRelativePath(".env.example");
-    const content =
-      "# Database config\nDB_HOST=localhost\n\n# API\nAPI_KEY=secret";
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
-    expect(result).toBe(
-      "# Database config\nDB_HOST=***\n\n# API\nAPI_KEY=***",
-    );
+    const content = "# Database config\nDB_HOST=localhost\n\n# API\nAPI_KEY=secret";
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
+    expect(result).toBe("# Database config\nDB_HOST=***\n\n# API\nAPI_KEY=***");
   });
 
   it("export_prefix_redacted", () => {
     const transformer = new EnvExampleRedactor();
     const filePath = toRelativePath(".env.example");
     const content = "export DB_HOST=localhost\nexport API_KEY=secret";
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).toBe("export DB_HOST=***\nexport API_KEY=***");
   });
 
   it("quoted_values_redacted", () => {
     const transformer = new EnvExampleRedactor();
     const filePath = toRelativePath(".env.example");
-    const content = 'KEY="quoted value"\nOTHER=\'single quoted\'';
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const content = "KEY=\"quoted value\"\nOTHER='single quoted'";
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).toBe("KEY=***\nOTHER=***");
   });
 
@@ -83,11 +56,7 @@ describe("EnvExampleRedactor", () => {
     const transformer = new EnvExampleRedactor();
     const filePath = toRelativePath("src/index.ts");
     const content = "DB_HOST=localhost";
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).toBe(content);
   });
 
@@ -95,11 +64,7 @@ describe("EnvExampleRedactor", () => {
     const transformer = new EnvExampleRedactor();
     const filePath = toRelativePath(".env.example");
     const content = "";
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).toBe("");
   });
 
@@ -107,11 +72,7 @@ describe("EnvExampleRedactor", () => {
     const transformer = new EnvExampleRedactor();
     const filePath = toRelativePath(".env.local.example");
     const content = "KEY=val";
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).toBe("KEY=***");
   });
 
@@ -119,11 +80,7 @@ describe("EnvExampleRedactor", () => {
     const transformer = new EnvExampleRedactor();
     const filePath = toRelativePath("src/main.py");
     const content = "def f():\n  pass";
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).toBe(content);
   });
 
@@ -131,11 +88,7 @@ describe("EnvExampleRedactor", () => {
     const transformer = new EnvExampleRedactor();
     const filePath = toRelativePath("config.yml");
     const content = "key:\n  nested: 1";
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).toBe(content);
   });
 
@@ -143,11 +96,7 @@ describe("EnvExampleRedactor", () => {
     const transformer = new EnvExampleRedactor();
     const filePath = toRelativePath("src/App.tsx");
     const content = "<div>x</div>";
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).toBe(content);
   });
 });

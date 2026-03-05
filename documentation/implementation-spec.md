@@ -997,6 +997,16 @@ These topics are specified in full in the [Project Plan](project-plan.md). Below
 - Startup: <500ms to first pipeline step
 - Max repo: 10,000 files (beyond this, use `includePatterns` to scope)
 
+### Incremental Compilation Performance (Phase P)
+
+Beyond the whole-prompt cache (cache hit <100ms), Phase P adds per-file incremental processing so cache misses are fast too:
+
+- **File system scan:** Cached RepoMap with `fs.watch` — subsequent `getRepoMap()` returns ~0ms instead of rescanning all files. Prerequisite stages: fast-glob `stats: true` (eliminate double-stat), async parallel I/O (unblock event loop).
+- **Per-file transformation cache:** `SqliteFileTransformStore` keyed by `(file_path, content_hash)` — `ContentTransformerPipeline` and `SummarisationLadder` skip unchanged files entirely. On typical recompiles (1–3 files changed), 95%+ of CPU work (tree-sitter parsing, transformer chains, tokenizer calls) is eliminated.
+- **Target:** After first compilation, intent-change-only recompiles (no file edits) complete in <500ms for repos <1,000 files. Recompiles with 1–3 file edits complete in <1s.
+
+See [Project Plan §14 — Incremental Compilation Performance](project-plan.md) for full design.
+
 ### Dependencies (see [Project Plan §16](project-plan.md))
 
 - **Runtime:** `typescript`, `tiktoken`, `better-sqlite3`, `fast-glob`, `ignore`, `diff`

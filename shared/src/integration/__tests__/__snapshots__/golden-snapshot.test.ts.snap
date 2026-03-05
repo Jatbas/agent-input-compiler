@@ -55,11 +55,11 @@ exports[`golden snapshot > full_pipeline_trace_matches_golden_snapshot 1`] = `
   },
   "tokenSummary": {
     "afterGuard": 22,
-    "afterLadder": 224,
+    "afterLadder": 195,
     "afterTransforms": 224,
-    "promptTotal": 562,
+    "promptTotal": 292,
     "raw": 22,
-    "reductionPct": -24.545454545454547,
+    "reductionPct": -12.272727272727273,
     "selected": 22,
   },
   "transforms": [

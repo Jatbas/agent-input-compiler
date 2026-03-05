@@ -18,10 +18,10 @@ Implement a ContentTransformer that converts HTML content to Markdown: strip `<s
 
 ## Files
 
-| Action | Path |
-| ------ | ---- |
-| Create | `shared/src/pipeline/html-to-markdown-transformer.ts` |
-| Create | `shared/src/pipeline/__tests__/html-to-markdown-transformer.test.ts` |
+| Action | Path                                                                                                                                               |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Create | `shared/src/pipeline/html-to-markdown-transformer.ts`                                                                                              |
+| Create | `shared/src/pipeline/__tests__/html-to-markdown-transformer.test.ts`                                                                               |
 | Modify | `shared/src/bootstrap/create-pipeline-deps.ts` (instantiate HtmlToMarkdownTransformer and add after lockFileSkipper, before cssVariableSummarizer) |
 
 ## Interface / Signature
@@ -54,10 +54,10 @@ Interface and parameter types are defined by ContentTransformer (RelativePath, I
 
 ### Tier 2 — path-only
 
-| Type | Path | Factory |
-| ---- | ---- | ------- |
-| `FileExtension` | `shared/src/core/types/paths.js` | `toFileExtension(raw)` |
-| `RelativePath` | `shared/src/core/types/paths.js` | `toRelativePath(raw)` |
+| Type            | Path                             | Factory                      |
+| --------------- | -------------------------------- | ---------------------------- |
+| `FileExtension` | `shared/src/core/types/paths.js` | `toFileExtension(raw)`       |
+| `RelativePath`  | `shared/src/core/types/paths.js` | `toRelativePath(raw)`        |
 | `InclusionTier` | `shared/src/core/types/enums.js` | Use `INCLUSION_TIER.L0` etc. |
 
 ## Config Changes
@@ -120,15 +120,15 @@ Expected: all pass, zero warnings, no new knip findings.
 
 ## Tests
 
-| Test case | Description |
-| --------- | ----------- |
-| html_heading_converted | Output contains # and ## for h1/h2 |
-| html_link_converted | Output contains [text](url) for anchor |
-| script_block_stripped | Script body removed from output |
-| style_block_stripped | Style body removed from output |
-| empty_content_returns_unchanged | Empty string in, empty string out |
-| safety_html_structure_markdown_valid | Output is well-formed Markdown |
-| safety_htm_extension_same_behavior | .htm path gets same conversion as .html |
+| Test case                            | Description                             |
+| ------------------------------------ | --------------------------------------- |
+| html_heading_converted               | Output contains # and ## for h1/h2      |
+| html_link_converted                  | Output contains [text](url) for anchor  |
+| script_block_stripped                | Script body removed from output         |
+| style_block_stripped                 | Style body removed from output          |
+| empty_content_returns_unchanged      | Empty string in, empty string out       |
+| safety_html_structure_markdown_valid | Output is well-formed Markdown          |
+| safety_htm_extension_same_behavior   | .htm path gets same conversion as .html |
 
 ## Acceptance Criteria
 

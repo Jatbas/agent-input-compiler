@@ -1,6 +1,6 @@
 # Task 100: Chunk-level file inclusion
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** P (Context Quality, Token Efficiency & Compilation Performance)
 > **Layer:** pipeline + core
 > **Depends on:** Symbol-level intent matching (task 093)
@@ -113,35 +113,43 @@ In `shared/src/core/types/selected-file.ts`: add `readonly resolvedContent?: str
 
 **Verify:** `pnpm typecheck` passes. No other file changes required for this step.
 
-### Step 2: Extend SummarisationLadder interface and implement chunk-level logic
+### Step 2: Extend SummarisationLadder interface
 
 In `shared/src/core/interfaces/summarisation-ladder.interface.ts`: add optional third parameter `subjectTokens?: readonly string[]` to the compress method signature.
 
-In `shared/src/pipeline/summarisation-ladder.ts`: implement chunk-level behaviour. When subjectTokens is non-empty and has length > 0: for each file, get provider via getProvider(file.path, languageProviders). If provider exists, get content from contentMap (preload as today), call provider.extractSignaturesWithDocs(content) and provider.extractSignaturesOnly(content). For each chunk, treat as matched when subjectTokens.some((t) => chunk.symbolName.toLowerCase().includes(t.toLowerCase())). Build resolvedContent by concatenating: matched chunks use full content (from extractSignaturesWithDocs), non-matched use signature only (from extractSignaturesOnly). Set file.resolvedContent and file.estimatedTokens = tokenCounter(resolvedContent). After processing all files, if sum(estimatedTokens) <= budget return the files with resolvedContent set. If sum > budget do not set resolvedContent on any file and run existing demoteLoop and dropToFit (current behaviour). When subjectTokens is undefined or empty, do not set resolvedContent and run current behaviour unchanged. Preserve immutability: return new file objects with spread, never mutate input.
+**Verify:** `pnpm typecheck` passes.
+
+### Step 3: Implement chunk-level logic in SummarisationLadder
+
+In `shared/src/pipeline/summarisation-ladder.ts`: add `subjectTokens?: readonly string[]` as the third parameter to the compress method. When subjectTokens has length > 0, the chunk-level path runs BEFORE the existing early return (`if (initialTotal <= budgetNum) return files`). The early return must be skipped when subjectTokens is non-empty because chunk-level is about context quality (matching functions at full fidelity), not just budget fitting. Structure: build contentMap (preload as today). Then for each file, get provider via getProvider(file.path, languageProviders). If provider exists, call provider.extractSignaturesWithDocs(content) and provider.extractSignaturesOnly(content). Build a Map from symbolName to signature-only chunk content from extractSignaturesOnly. For each chunk from extractSignaturesWithDocs, treat as matched when subjectTokens.some((t) => chunk.symbolName.toLowerCase().includes(t.toLowerCase())). Build resolvedContent by concatenating: matched chunks use full content (from extractSignaturesWithDocs), non-matched use the signature-only Map entry for that symbolName; if no matching signature-only chunk exists for a symbolName, use the full content as fallback. If no provider exists for a file, do not set resolvedContent on that file. Set file.resolvedContent and file.estimatedTokens = tokenCounter(resolvedContent). After processing all files, if sum(estimatedTokens) <= budget return the files with resolvedContent set. If sum > budget do not set resolvedContent on any file and run existing demoteLoop and dropToFit (current behaviour). When subjectTokens is undefined or empty, run current behaviour unchanged (including the early return). Preserve immutability: return new file objects with spread, never mutate input.
 
 **Verify:** `pnpm typecheck` and `pnpm lint` pass. Existing summarisation-ladder tests still pass.
 
-### Step 3: Pass task.subjectTokens to compress in run-pipeline-steps
+### Step 4: Pass task.subjectTokens to compress in run-pipeline-steps
 
 In `shared/src/core/run-pipeline-steps.ts`: change the call to `deps.summarisationLadder.compress(transformResult.files, budget)` to `deps.summarisationLadder.compress(transformResult.files, budget, task.subjectTokens)`. Change the spec ladder call similarly: pass `task.subjectTokens` as the third argument to compress when calling for spec files.
 
 **Verify:** `pnpm typecheck` passes.
 
-### Step 4: Use resolvedContent in PromptAssembler when present
+### Step 5: Use resolvedContent in PromptAssembler when present
 
 In `shared/src/pipeline/prompt-assembler.ts`: in the contextParts construction, for each file that needs content (not previouslyShownAtStep), use `file.resolvedContent !== undefined ? file.resolvedContent : (await this.fileContentReader.getContent(file.path))`. Await content for all needContent files in one Promise.all; for files with resolvedContent use the resolved string from the file object, for others use the result from getContent in the same order as needContent. Preserve existing ordering and section layout.
 
 **Verify:** `pnpm typecheck` and `pnpm lint` pass. Existing prompt-assembler tests still pass.
 
-### Step 5: Add tests for chunk-level and assembler resolvedContent
+### Step 6: Add chunk-level tests in summarisation-ladder.test.ts
 
 In `shared/src/pipeline/__tests__/summarisation-ladder.test.ts`: add test **chunk_level_when_subjectTokens_match_sets_resolvedContent**: provider that returns chunks with distinct symbolNames "auth" and "util"; subjectTokens `["auth"]`; one file with that provider; compress(files, budget, ["auth"]); assert the returned file has resolvedContent containing full content for the auth chunk and signature-only for the other; assert estimatedTokens equals tokenCounter(resolvedContent). Add test **chunk_level_when_subjectTokens_empty_no_resolvedContent**: compress with subjectTokens [] or undefined; assert no file in the result has resolvedContent. Add test **chunk_level_file_without_provider_no_resolvedContent**: one file with extension that has no LanguageProvider in the test (use .xyz); compress with non-empty subjectTokens; assert that file has no resolvedContent.
 
+**Verify:** `pnpm test shared/src/pipeline/__tests__/summarisation-ladder.test.ts` passes.
+
+### Step 7: Add assembler resolvedContent test in prompt-assembler.test.ts
+
 In `shared/src/pipeline/__tests__/prompt-assembler.test.ts`: add test **assembler_uses_resolvedContent_when_present**: build a file list with one SelectedFile that has resolvedContent set to "resolved text"; mock FileContentReader.getContent to track calls; call assemble; assert the assembled string contains "resolved text" for that file's section and getContent was not called for that file's path.
 
-**Verify:** `pnpm test shared/src/pipeline/__tests__/summarisation-ladder.test.ts shared/src/pipeline/__tests__/prompt-assembler.test.ts` passes.
+**Verify:** `pnpm test shared/src/pipeline/__tests__/prompt-assembler.test.ts` passes.
 
-### Step 6: Final verification
+### Step 8: Final verification
 
 Run: `pnpm lint && pnpm typecheck && pnpm test && pnpm knip`
 Expected: all pass, zero warnings, no new knip findings.

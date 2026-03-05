@@ -50,12 +50,9 @@ describe("SvgDescriber", () => {
 
   it("safety_svg_placeholder_format", () => {
     const transformer = new SvgDescriber();
-    const content =
-      '<svg viewBox="0 0 24 24"><rect/><circle/><path d=""/></svg>';
+    const content = '<svg viewBox="0 0 24 24"><rect/><circle/><path d=""/></svg>';
     const result = transformer.transform(content, INCLUSION_TIER.L0, pathSvg);
-    expect(result).toMatch(
-      /^\[SVG: [^,]+, \d+ elements, \d+ bytes\]$/,
-    );
+    expect(result).toMatch(/^\[SVG: [^,]+, \d+ elements, \d+ bytes\]$/);
     expect(result.startsWith("[SVG: ")).toBe(true);
     expect(result.endsWith(" bytes]")).toBe(true);
   });
@@ -66,11 +63,7 @@ describe("SvgDescriber", () => {
       '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="40"/><path d="M0 0"/></svg>';
     const resultSvg = transformer.transform(content, INCLUSION_TIER.L0, pathSvg);
     const pathSvgAlt = toRelativePath("src/icon.svg");
-    const resultAlt = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      pathSvgAlt,
-    );
+    const resultAlt = transformer.transform(content, INCLUSION_TIER.L0, pathSvgAlt);
     expect(resultAlt).toBe(resultSvg);
   });
 });

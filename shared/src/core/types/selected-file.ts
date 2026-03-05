@@ -10,6 +10,7 @@ export interface SelectedFile {
   readonly relevanceScore: RelevanceScore;
   readonly tier: InclusionTier;
   readonly previouslyShownAtStep?: StepIndex;
+  readonly resolvedContent?: string;
 }
 
 export interface ContextResult {

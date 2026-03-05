@@ -2,11 +2,12 @@ import { describe, it, expect } from "vitest";
 import { SummarisationLadder } from "../summarisation-ladder.js";
 import type { FileContentReader } from "#core/interfaces/file-content-reader.interface.js";
 import type { LanguageProvider } from "#core/interfaces/language-provider.interface.js";
+import type { CodeChunk } from "#core/types/code-chunk.js";
 import type { SelectedFile } from "#core/types/selected-file.js";
-import { toRelativePath } from "#core/types/paths.js";
-import { toTokenCount } from "#core/types/units.js";
+import { toRelativePath, toFileExtension } from "#core/types/paths.js";
+import { toTokenCount, toLineNumber } from "#core/types/units.js";
 import { toRelevanceScore } from "#core/types/scores.js";
-import { INCLUSION_TIER } from "#core/types/enums.js";
+import { INCLUSION_TIER, SYMBOL_TYPE } from "#core/types/enums.js";
 
 function makeFile(
   path: string,
@@ -90,5 +91,107 @@ describe("SummarisationLadder", () => {
     const result = await ladder.compress(files, toTokenCount(50));
     expect(result).not.toBe(files);
     expect(files[0]?.tier).toBe(INCLUSION_TIER.L0);
+  });
+
+  it("chunk_level_when_subjectTokens_match_sets_resolvedContent", async () => {
+    const fullAuth = "full auth body content";
+    const fullUtil = "full util body content";
+    const sigAuth = "auth signature";
+    const sigUtil = "util signature";
+    const path = toRelativePath("src/auth.ts");
+    const chunk = (name: string, content: string): CodeChunk => ({
+      filePath: path,
+      symbolName: name,
+      symbolType: SYMBOL_TYPE.FUNCTION,
+      startLine: toLineNumber(1),
+      endLine: toLineNumber(10),
+      content,
+      tokenCount: toTokenCount(content.length),
+    });
+    const provider: LanguageProvider = {
+      id: "test-ts",
+      extensions: [toFileExtension(".ts")],
+      parseImports: () => [],
+      extractSignaturesWithDocs: () => [chunk("auth", fullAuth), chunk("util", fullUtil)],
+      extractSignaturesOnly: () => [chunk("auth", sigAuth), chunk("util", sigUtil)],
+      extractNames: () => [],
+    };
+    const readerWithContent: FileContentReader = {
+      getContent: () => Promise.resolve("file content"),
+    };
+    const ladder = new SummarisationLadder([provider], tokenCounter, readerWithContent);
+    const files = [makeFile("src/auth.ts", 100, 0.5)];
+    const result = await ladder.compress(files, toTokenCount(500), ["auth"]);
+    expect(result).toHaveLength(1);
+    const file = result[0];
+    expect(file?.resolvedContent).toBeDefined();
+    expect(file?.resolvedContent).toContain(fullAuth);
+    expect(file?.resolvedContent).toContain(sigUtil);
+    expect(file?.resolvedContent).not.toContain(fullUtil);
+    const expectedTokens = tokenCounter(file?.resolvedContent ?? "");
+    expect(file?.estimatedTokens).toBe(expectedTokens);
+  });
+
+  it("chunk_level_when_subjectTokens_empty_no_resolvedContent", async () => {
+    const path = toRelativePath("src/a.ts");
+    const chunk = (name: string, content: string): CodeChunk => ({
+      filePath: path,
+      symbolName: name,
+      symbolType: SYMBOL_TYPE.FUNCTION,
+      startLine: toLineNumber(1),
+      endLine: toLineNumber(5),
+      content,
+      tokenCount: toTokenCount(content.length),
+    });
+    const provider: LanguageProvider = {
+      id: "test-ts",
+      extensions: [toFileExtension(".ts")],
+      parseImports: () => [],
+      extractSignaturesWithDocs: () => [chunk("foo", "body")],
+      extractSignaturesOnly: () => [chunk("foo", "sig")],
+      extractNames: () => [],
+    };
+    const readerWithContent: FileContentReader = {
+      getContent: () => Promise.resolve("content"),
+    };
+    const ladder = new SummarisationLadder([provider], tokenCounter, readerWithContent);
+    const files = [makeFile("src/a.ts", 100, 0.5)];
+    const resultEmpty = await ladder.compress(files, toTokenCount(500), []);
+    const resultUndef = await ladder.compress(files, toTokenCount(500));
+    expect(resultEmpty.every((f) => f.resolvedContent === undefined)).toBe(true);
+    expect(resultUndef.every((f) => f.resolvedContent === undefined)).toBe(true);
+  });
+
+  it("chunk_level_file_without_provider_no_resolvedContent", async () => {
+    const path = toRelativePath("src/a.ts");
+    const chunk = (name: string, content: string): CodeChunk => ({
+      filePath: path,
+      symbolName: name,
+      symbolType: SYMBOL_TYPE.FUNCTION,
+      startLine: toLineNumber(1),
+      endLine: toLineNumber(5),
+      content,
+      tokenCount: toTokenCount(content.length),
+    });
+    const provider: LanguageProvider = {
+      id: "ts-only",
+      extensions: [toFileExtension(".ts")],
+      parseImports: () => [],
+      extractSignaturesWithDocs: () => [chunk("x", "y")],
+      extractSignaturesOnly: () => [chunk("x", "y")],
+      extractNames: () => [],
+    };
+    const readerWithContent: FileContentReader = {
+      getContent: () => Promise.resolve("content"),
+    };
+    const ladder = new SummarisationLadder([provider], tokenCounter, readerWithContent);
+    const tsFile = makeFile("src/a.ts", 50, 0.5);
+    const xyzFile = makeFile("file.xyz", 50, 0.5);
+    const result = await ladder.compress([tsFile, xyzFile], toTokenCount(500), ["x"]);
+    expect(result).toHaveLength(2);
+    const tsResult = result.find((f) => (f.path as string).endsWith(".ts"));
+    const xyzResult = result.find((f) => (f.path as string).endsWith(".xyz"));
+    expect(tsResult?.resolvedContent).toBeDefined();
+    expect(xyzResult?.resolvedContent).toBeUndefined();
   });
 });

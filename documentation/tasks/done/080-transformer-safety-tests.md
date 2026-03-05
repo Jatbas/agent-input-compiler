@@ -20,12 +20,12 @@ Add safety tests and backfill functional tests for the 4 ContentTransformer impl
 
 ## Files
 
-| Action | Path                                                              |
-| ------ | ----------------------------------------------------------------- |
+| Action | Path                                                                               |
+| ------ | ---------------------------------------------------------------------------------- |
 | Modify | `shared/src/pipeline/__tests__/whitespace-normalizer.test.ts` (add 3 safety tests) |
-| Create | `shared/src/pipeline/__tests__/comment-stripper.test.ts`          |
-| Create | `shared/src/pipeline/__tests__/json-compactor.test.ts`            |
-| Create | `shared/src/pipeline/__tests__/lock-file-skipper.test.ts`         |
+| Create | `shared/src/pipeline/__tests__/comment-stripper.test.ts`                           |
+| Create | `shared/src/pipeline/__tests__/json-compactor.test.ts`                             |
+| Create | `shared/src/pipeline/__tests__/lock-file-skipper.test.ts`                          |
 
 ## Interface / Signature
 
@@ -89,11 +89,11 @@ export interface ContentTransformer {
 
 ### Tier 2 — path-only
 
-| Type             | Path                              | Factory               |
-| ---------------- | --------------------------------- | --------------------- |
-| `RelativePath`   | `shared/src/core/types/paths.ts`  | `toRelativePath(raw)` |
-| `FileExtension`  | `shared/src/core/types/paths.ts`  | `toFileExtension(raw)` |
-| `InclusionTier`  | `shared/src/core/types/enums.ts`  | `INCLUSION_TIER.L0`   |
+| Type            | Path                             | Factory                |
+| --------------- | -------------------------------- | ---------------------- |
+| `RelativePath`  | `shared/src/core/types/paths.ts` | `toRelativePath(raw)`  |
+| `FileExtension` | `shared/src/core/types/paths.ts` | `toFileExtension(raw)` |
+| `InclusionTier` | `shared/src/core/types/enums.ts` | `INCLUSION_TIER.L0`    |
 
 ## Config Changes
 
@@ -248,34 +248,34 @@ Expected: all pass, zero warnings, no new knip findings.
 
 ## Tests
 
-| Test case                                | Description                                                                |
-| ---------------------------------------- | -------------------------------------------------------------------------- |
-| `safety_python_indentation_preserved`    | WhitespaceNormalizer with `.py` exclusion returns Python content unchanged |
-| `safety_yaml_structure_unchanged`        | WhitespaceNormalizer with `.yml` exclusion returns YAML content unchanged  |
-| `safety_jsx_structure_unchanged`         | WhitespaceNormalizer preserves JSX tag nesting after normalization         |
-| `strips_single_line_comments`            | CommentStripper removes `//` lines, preserves code                        |
-| `strips_block_comments`                  | CommentStripper removes `/* */` blocks, preserves code                    |
-| `jsdoc_params_preserved_at_l1`           | CommentStripper at L1 tier keeps `@param`/`@returns` lines               |
-| `inline_comment_stripped`                 | CommentStripper removes trailing `// ...` from code lines                 |
-| `empty_content_returns_unchanged` (CS)   | CommentStripper returns empty string unchanged                            |
-| `no_comments_returns_unchanged`          | CommentStripper returns comment-free code unchanged                       |
-| `safety_ts_code_structure_preserved`     | TypeScript code lines intact after comment stripping                      |
-| `safety_js_code_structure_preserved`     | JavaScript code lines intact after comment stripping                      |
-| `safety_go_code_structure_preserved`     | Go code lines intact after comment stripping                              |
-| `safety_java_code_structure_preserved`   | Java code lines intact after comment stripping                            |
-| `safety_rs_code_structure_preserved`     | Rust code lines intact after comment stripping                            |
-| `safety_c_code_structure_preserved`      | C preprocessor directives intact after comment stripping                  |
-| `safety_cpp_code_structure_preserved`    | C++ code lines intact after comment stripping                             |
-| `minifies_valid_json`                    | JsonCompactor minifies pretty-printed JSON to single line                 |
-| `invalid_json_returns_unchanged`         | JsonCompactor returns invalid JSON content unchanged                      |
-| `empty_content_returns_unchanged` (JC)   | JsonCompactor returns empty string unchanged                              |
-| `safety_json_validity_preserved`         | JsonCompactor output is valid JSON (JSON.parse succeeds)                  |
-| `lock_file_returns_placeholder`          | LockFileSkipper replaces yarn.lock content with placeholder               |
-| `non_lock_path_returns_unchanged`        | LockFileSkipper returns non-lock path content unchanged                   |
-| `package_lock_json_returns_placeholder`  | LockFileSkipper replaces package-lock.json with placeholder               |
-| `shrinkwrap_returns_placeholder`         | LockFileSkipper replaces npm-shrinkwrap.json with placeholder             |
-| `empty_lock_file_returns_placeholder`    | LockFileSkipper placeholder shows 0 bytes for empty content               |
-| `safety_lock_placeholder_format`         | LockFileSkipper placeholder matches exact format pattern                  |
+| Test case                               | Description                                                                |
+| --------------------------------------- | -------------------------------------------------------------------------- |
+| `safety_python_indentation_preserved`   | WhitespaceNormalizer with `.py` exclusion returns Python content unchanged |
+| `safety_yaml_structure_unchanged`       | WhitespaceNormalizer with `.yml` exclusion returns YAML content unchanged  |
+| `safety_jsx_structure_unchanged`        | WhitespaceNormalizer preserves JSX tag nesting after normalization         |
+| `strips_single_line_comments`           | CommentStripper removes `//` lines, preserves code                         |
+| `strips_block_comments`                 | CommentStripper removes `/* */` blocks, preserves code                     |
+| `jsdoc_params_preserved_at_l1`          | CommentStripper at L1 tier keeps `@param`/`@returns` lines                 |
+| `inline_comment_stripped`               | CommentStripper removes trailing `// ...` from code lines                  |
+| `empty_content_returns_unchanged` (CS)  | CommentStripper returns empty string unchanged                             |
+| `no_comments_returns_unchanged`         | CommentStripper returns comment-free code unchanged                        |
+| `safety_ts_code_structure_preserved`    | TypeScript code lines intact after comment stripping                       |
+| `safety_js_code_structure_preserved`    | JavaScript code lines intact after comment stripping                       |
+| `safety_go_code_structure_preserved`    | Go code lines intact after comment stripping                               |
+| `safety_java_code_structure_preserved`  | Java code lines intact after comment stripping                             |
+| `safety_rs_code_structure_preserved`    | Rust code lines intact after comment stripping                             |
+| `safety_c_code_structure_preserved`     | C preprocessor directives intact after comment stripping                   |
+| `safety_cpp_code_structure_preserved`   | C++ code lines intact after comment stripping                              |
+| `minifies_valid_json`                   | JsonCompactor minifies pretty-printed JSON to single line                  |
+| `invalid_json_returns_unchanged`        | JsonCompactor returns invalid JSON content unchanged                       |
+| `empty_content_returns_unchanged` (JC)  | JsonCompactor returns empty string unchanged                               |
+| `safety_json_validity_preserved`        | JsonCompactor output is valid JSON (JSON.parse succeeds)                   |
+| `lock_file_returns_placeholder`         | LockFileSkipper replaces yarn.lock content with placeholder                |
+| `non_lock_path_returns_unchanged`       | LockFileSkipper returns non-lock path content unchanged                    |
+| `package_lock_json_returns_placeholder` | LockFileSkipper replaces package-lock.json with placeholder                |
+| `shrinkwrap_returns_placeholder`        | LockFileSkipper replaces npm-shrinkwrap.json with placeholder              |
+| `empty_lock_file_returns_placeholder`   | LockFileSkipper placeholder shows 0 bytes for empty content                |
+| `safety_lock_placeholder_format`        | LockFileSkipper placeholder matches exact format pattern                   |
 
 ## Acceptance Criteria
 

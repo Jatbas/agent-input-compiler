@@ -8,11 +8,7 @@ describe("SchemaFileCompactor", () => {
     const transformer = new SchemaFileCompactor();
     const filePath = toRelativePath("schema/user.json");
     const content = `{"$schema":"http://json-schema.org/draft-07/schema","type":"object","description":"User model","properties":{"name":{"description":"Full name","type":"string"}}}`;
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).not.toContain('"description"');
     expect(result).toContain('"type"');
     expect(result).toContain('"properties"');
@@ -23,11 +19,7 @@ describe("SchemaFileCompactor", () => {
     const transformer = new SchemaFileCompactor();
     const filePath = toRelativePath("api/schema.json");
     const content = `{"$schema":"http://json-schema.org/draft-07/schema","examples":[1,2,3],"type":"string"}`;
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).not.toContain('"examples"');
     expect(result).toContain('"type"');
   });
@@ -36,11 +28,7 @@ describe("SchemaFileCompactor", () => {
     const transformer = new SchemaFileCompactor();
     const filePath = toRelativePath("schemas/root.json");
     const content = `{"$ref":"#/definitions/Foo","definitions":{"Foo":{"title":"Foo","description":"Bar","properties":{"a":{"default":1}}}}}`;
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).not.toContain('"title"');
     expect(result).not.toContain('"description"');
     expect(result).not.toContain('"default"');
@@ -53,11 +41,7 @@ describe("SchemaFileCompactor", () => {
     const transformer = new SchemaFileCompactor();
     const filePath = toRelativePath("schema.graphql");
     const content = `type User """User type""" { id: ID } # comment`;
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).not.toContain('"""');
     expect(result).not.toContain("# comment");
     expect(result).toContain("type User");
@@ -68,11 +52,7 @@ describe("SchemaFileCompactor", () => {
     const transformer = new SchemaFileCompactor();
     const filePath = toRelativePath("prisma/schema.prisma");
     const content = `// comment\nmodel User { id Int }\n/// doc`;
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).not.toContain("// comment");
     expect(result).not.toContain("/// doc");
     expect(result).toContain("model User");
@@ -83,11 +63,7 @@ describe("SchemaFileCompactor", () => {
     const transformer = new SchemaFileCompactor();
     const filePath = toRelativePath("api/service.proto");
     const content = `// comment\nmessage Foo { string x = 1; }`;
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).not.toContain("// comment");
     expect(result).toContain("message Foo");
   });
@@ -96,11 +72,7 @@ describe("SchemaFileCompactor", () => {
     const transformer = new SchemaFileCompactor();
     const filePath = toRelativePath("package.json");
     const content = `{"name":"pkg","version":"1.0.0"}`;
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).toBe(content);
   });
 
@@ -108,11 +80,7 @@ describe("SchemaFileCompactor", () => {
     const transformer = new SchemaFileCompactor();
     const filePath = toRelativePath("src/index.ts");
     const content = "const x = 1";
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).toBe(content);
   });
 
@@ -120,11 +88,7 @@ describe("SchemaFileCompactor", () => {
     const transformer = new SchemaFileCompactor();
     const filePath = toRelativePath("schema.json");
     const content = "";
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).toBe("");
   });
 
@@ -132,11 +96,7 @@ describe("SchemaFileCompactor", () => {
     const transformer = new SchemaFileCompactor();
     const filePath = toRelativePath("bad.json");
     const content = `{ invalid `;
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).toBe(content);
   });
 
@@ -144,11 +104,7 @@ describe("SchemaFileCompactor", () => {
     const transformer = new SchemaFileCompactor();
     const filePath = toRelativePath("src/main.py");
     const content = "def f():\n  pass";
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).toBe(content);
   });
 
@@ -156,11 +112,7 @@ describe("SchemaFileCompactor", () => {
     const transformer = new SchemaFileCompactor();
     const filePath = toRelativePath("config.yml");
     const content = "key:\n  nested: 1";
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).toBe(content);
   });
 
@@ -168,11 +120,7 @@ describe("SchemaFileCompactor", () => {
     const transformer = new SchemaFileCompactor();
     const filePath = toRelativePath("src/App.tsx");
     const content = "<div>x</div>";
-    const result = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      filePath,
-    );
+    const result = transformer.transform(content, INCLUSION_TIER.L0, filePath);
     expect(result).toBe(content);
   });
 });

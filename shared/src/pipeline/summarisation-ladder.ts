@@ -4,6 +4,7 @@ import type { FileContentReader } from "#core/interfaces/file-content-reader.int
 import type { SelectedFile } from "#core/types/selected-file.js";
 import type { TokenCount } from "#core/types/units.js";
 import type { InclusionTier } from "#core/types/enums.js";
+import type { CodeChunk } from "#core/types/code-chunk.js";
 import { INCLUSION_TIER } from "#core/types/enums.js";
 import { getProvider } from "./get-provider.js";
 
@@ -51,6 +52,26 @@ function nextTier(tier: InclusionTier): InclusionTier | null {
   return i >= 0 && i < TIER_ORDER.length - 1 ? (TIER_ORDER[i + 1] ?? null) : null;
 }
 
+function buildChunkResolvedContent(
+  content: string,
+  provider: LanguageProvider,
+  subjectTokens: readonly string[],
+): string {
+  const withDocs = provider.extractSignaturesWithDocs(content);
+  const signaturesOnly = provider.extractSignaturesOnly(content);
+  const sigBySymbol = signaturesOnly.reduce<Record<string, string>>(
+    (acc, c) => ({ ...acc, [c.symbolName]: c.content }),
+    {},
+  );
+  const parts = withDocs.map((chunk: CodeChunk) => {
+    const matched = subjectTokens.some((t) =>
+      chunk.symbolName.toLowerCase().includes(t.toLowerCase()),
+    );
+    return matched ? chunk.content : (sigBySymbol[chunk.symbolName] ?? chunk.content);
+  });
+  return parts.join("\n");
+}
+
 export class SummarisationLadder implements ISummarisationLadder {
   constructor(
     private readonly languageProviders: readonly LanguageProvider[],
@@ -61,10 +82,12 @@ export class SummarisationLadder implements ISummarisationLadder {
   async compress(
     files: readonly SelectedFile[],
     budget: TokenCount,
+    subjectTokens?: readonly string[],
   ): Promise<readonly SelectedFile[]> {
     const budgetNum = budget;
     const initialTotal = sumTokens(files);
-    if (initialTotal <= budgetNum) return files;
+    const useChunkLevel = subjectTokens !== undefined && subjectTokens.length > 0;
+    if (!useChunkLevel && initialTotal <= budgetNum) return files;
 
     const contentMap = new Map<SelectedFile["path"], string>();
     await Promise.all(
@@ -72,6 +95,22 @@ export class SummarisationLadder implements ISummarisationLadder {
         contentMap.set(f.path, await this.fileContentReader.getContent(f.path));
       }),
     );
+
+    if (useChunkLevel) {
+      const chunkLevelFiles = files.map((f) => {
+        const content = contentMap.get(f.path) ?? "";
+        const provider = getProvider(f.path, this.languageProviders);
+        if (provider === undefined) return f;
+        const resolvedContent = buildChunkResolvedContent(
+          content,
+          provider,
+          subjectTokens,
+        );
+        const estimatedTokens = this.tokenCounter(resolvedContent);
+        return { ...f, resolvedContent, estimatedTokens };
+      });
+      if (sumTokens(chunkLevelFiles) <= budgetNum) return chunkLevelFiles;
+    }
 
     const sorted = files.toSorted(byRelevanceThenSize);
     const tokenAtTier = (file: SelectedFile, tier: InclusionTier): TokenCount => {

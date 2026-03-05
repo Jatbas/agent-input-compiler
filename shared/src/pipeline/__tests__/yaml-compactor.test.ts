@@ -53,12 +53,7 @@ describe("YamlCompactor", () => {
 
   it("safety_yaml_structure_preserved", () => {
     const transformer = new YamlCompactor();
-    const content = [
-      "key: value",
-      "list:",
-      "  - one",
-      "  - two",
-    ].join("\n");
+    const content = ["key: value", "list:", "  - one", "  - two"].join("\n");
     const result = transformer.transform(content, INCLUSION_TIER.L0, pathYaml);
     expect(result).toContain("key: value");
     expect(result).toContain("list:");
@@ -69,16 +64,8 @@ describe("YamlCompactor", () => {
   it("safety_yml_extension_same_behavior", () => {
     const transformer = new YamlCompactor();
     const content = ["# comment", "key: value", "other: 1"].join("\n");
-    const resultYaml = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      pathYaml,
-    );
-    const resultYml = transformer.transform(
-      content,
-      INCLUSION_TIER.L0,
-      pathYml,
-    );
+    const resultYaml = transformer.transform(content, INCLUSION_TIER.L0, pathYaml);
+    const resultYml = transformer.transform(content, INCLUSION_TIER.L0, pathYml);
     expect(resultYml).toBe(resultYaml);
   });
 });

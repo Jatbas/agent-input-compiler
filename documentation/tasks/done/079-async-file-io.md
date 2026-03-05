@@ -19,33 +19,33 @@ Make `FileContentReader.getContent` and all pipeline steps that read file conten
 
 ## Files
 
-| Action | Path |
-| ------ | ---- |
-| Modify | `shared/src/core/interfaces/file-content-reader.interface.ts` (getContent → Promise<string>) |
-| Modify | `shared/src/core/interfaces/import-proximity-scorer.interface.ts` (getScores → Promise<...>) |
-| Modify | `shared/src/core/interfaces/context-selector.interface.ts` (selectContext → Promise<ContextResult>) |
-| Modify | `shared/src/core/interfaces/context-guard.interface.ts` (scan → Promise<...>) |
+| Action | Path                                                                                                          |
+| ------ | ------------------------------------------------------------------------------------------------------------- |
+| Modify | `shared/src/core/interfaces/file-content-reader.interface.ts` (getContent → Promise<string>)                  |
+| Modify | `shared/src/core/interfaces/import-proximity-scorer.interface.ts` (getScores → Promise<...>)                  |
+| Modify | `shared/src/core/interfaces/context-selector.interface.ts` (selectContext → Promise<ContextResult>)           |
+| Modify | `shared/src/core/interfaces/context-guard.interface.ts` (scan → Promise<...>)                                 |
 | Modify | `shared/src/core/interfaces/content-transformer-pipeline.interface.ts` (transform → Promise<TransformResult>) |
-| Modify | `shared/src/core/interfaces/summarisation-ladder.interface.ts` (compress → Promise<readonly SelectedFile[]>) |
-| Modify | `shared/src/core/interfaces/prompt-assembler.interface.ts` (assemble → Promise<string>) |
-| Modify | `shared/src/adapters/caching-file-content-reader.ts` (fs.promises, async getContent) |
-| Modify | `shared/src/pipeline/import-graph-proximity-scorer.ts` (async getScores, await getContent) |
-| Modify | `shared/src/pipeline/heuristic-selector.ts` (async selectContext, await getScores) |
-| Modify | `shared/src/pipeline/context-guard.ts` (async scan, await getContent) |
-| Modify | `shared/src/pipeline/content-transformer-pipeline.ts` (async transform, await getContent) |
-| Modify | `shared/src/pipeline/summarisation-ladder.ts` (async compress, preload content map) |
-| Modify | `shared/src/pipeline/prompt-assembler.ts` (async assemble, await getContent) |
-| Modify | `shared/src/core/run-pipeline-steps.ts` (await selectContext, scan, transform, compress, assemble) |
-| Modify | `shared/src/pipeline/__tests__/content-transformer-pipeline.test.ts` (await transform) |
-| Modify | `shared/src/pipeline/__tests__/prompt-assembler.test.ts` (await assemble) |
-| Modify | `shared/src/pipeline/__tests__/context-guard.test.ts` (await scan) |
-| Modify | `shared/src/pipeline/__tests__/heuristic-selector.test.ts` (await selectContext) |
-| Modify | `shared/src/pipeline/__tests__/summarisation-ladder.test.ts` (await compress) |
-| Modify | `shared/src/pipeline/__tests__/compilation-runner.test.ts` (mocks return Promises) |
-| Modify | `shared/src/pipeline/__tests__/inspect-runner.test.ts` (mocks return Promises) |
+| Modify | `shared/src/core/interfaces/summarisation-ladder.interface.ts` (compress → Promise<readonly SelectedFile[]>)  |
+| Modify | `shared/src/core/interfaces/prompt-assembler.interface.ts` (assemble → Promise<string>)                       |
+| Modify | `shared/src/adapters/caching-file-content-reader.ts` (fs.promises, async getContent)                          |
+| Modify | `shared/src/pipeline/import-graph-proximity-scorer.ts` (async getScores, await getContent)                    |
+| Modify | `shared/src/pipeline/heuristic-selector.ts` (async selectContext, await getScores)                            |
+| Modify | `shared/src/pipeline/context-guard.ts` (async scan, await getContent)                                         |
+| Modify | `shared/src/pipeline/content-transformer-pipeline.ts` (async transform, await getContent)                     |
+| Modify | `shared/src/pipeline/summarisation-ladder.ts` (async compress, preload content map)                           |
+| Modify | `shared/src/pipeline/prompt-assembler.ts` (async assemble, await getContent)                                  |
+| Modify | `shared/src/core/run-pipeline-steps.ts` (await selectContext, scan, transform, compress, assemble)            |
+| Modify | `shared/src/pipeline/__tests__/content-transformer-pipeline.test.ts` (await transform)                        |
+| Modify | `shared/src/pipeline/__tests__/prompt-assembler.test.ts` (await assemble)                                     |
+| Modify | `shared/src/pipeline/__tests__/context-guard.test.ts` (await scan)                                            |
+| Modify | `shared/src/pipeline/__tests__/heuristic-selector.test.ts` (await selectContext)                              |
+| Modify | `shared/src/pipeline/__tests__/summarisation-ladder.test.ts` (await compress)                                 |
+| Modify | `shared/src/pipeline/__tests__/compilation-runner.test.ts` (mocks return Promises)                            |
+| Modify | `shared/src/pipeline/__tests__/inspect-runner.test.ts` (mocks return Promises)                                |
 | Modify | `shared/src/pipeline/__tests__/import-graph-proximity-scorer.test.ts` (mocks return Promise; await getScores) |
-| Modify | `shared/src/integration/__tests__/full-pipeline.test.ts` (getContent mock returns Promise) |
-| Modify | `shared/src/integration/__tests__/golden-snapshot.test.ts` (getContent mock returns Promise) |
+| Modify | `shared/src/integration/__tests__/full-pipeline.test.ts` (getContent mock returns Promise)                    |
+| Modify | `shared/src/integration/__tests__/golden-snapshot.test.ts` (getContent mock returns Promise)                  |
 
 ## Interface / Signature
 
@@ -193,9 +193,9 @@ Expected: all pass, no new warnings or knip findings.
 
 ## Tests
 
-| Test case | Description |
-| --------- | ----------- |
-| Existing unit tests | All pipeline and adapter tests updated to await async methods; mocks return Promises. |
+| Test case                  | Description                                                                                                                                                                                                              |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Existing unit tests        | All pipeline and adapter tests updated to await async methods; mocks return Promises.                                                                                                                                    |
 | Existing integration tests | full-pipeline, golden-snapshot, real-project, selection-quality, token-reduction: no API change to runPipelineSteps result; they already await run(); file reader mock or real CachingFileContentReader returns Promise. |
 
 ## Acceptance Criteria

@@ -29,9 +29,7 @@ function detectIndentStep(lines: readonly string[]): number {
   if (firstNonEmpty === undefined) return 2;
   const firstSpaces = countLeadingSpaces(firstNonEmpty);
   if (firstSpaces > 0) return firstSpaces;
-  const positiveIndents = withContent
-    .map(countLeadingSpaces)
-    .filter((n) => n > 0);
+  const positiveIndents = withContent.map(countLeadingSpaces).filter((n) => n > 0);
   const minIndent = positiveIndents.reduce(
     (min, n) => Math.min(min, n),
     Number.MAX_SAFE_INTEGER,
@@ -70,16 +68,10 @@ function collapseSingleKeyBlocks(content: string): string {
     const parentIndent = (blockMatch?.[1] ?? "").length;
     const childIndent = (nextMatch?.[1] ?? "").length;
     const noSibling =
-      i + 1 >= lines.length ||
-      countLeadingSpaces(lines[i + 1] ?? "") <= parentIndent;
+      i + 1 >= lines.length || countLeadingSpaces(lines[i + 1] ?? "") <= parentIndent;
     const blockOk = blockMatch !== null && blockMatch !== undefined;
     const nextOk = nextMatch !== null;
-    if (
-      !blockOk ||
-      !nextOk ||
-      childIndent <= parentIndent ||
-      !noSibling
-    ) {
+    if (!blockOk || !nextOk || childIndent <= parentIndent || !noSibling) {
       return { result: [...acc.result, line], skipNext: false };
     }
     {
@@ -88,13 +80,9 @@ function collapseSingleKeyBlocks(content: string): string {
       const parentKey = blockMatch[2] ?? "";
       const childKey = nextMatch[2] ?? "";
       const childVal = nextMatch[3] ?? "";
-      const flowVal =
-        childVal.length > 0 ? `${childKey}: ${childVal}` : childKey;
+      const flowVal = childVal.length > 0 ? `${childKey}: ${childVal}` : childKey;
       const newLine = `${indent}${parentKey}: { ${flowVal} }`;
-      const newResult = [
-        ...acc.result.slice(0, lastIdx),
-        newLine,
-      ];
+      const newResult = [...acc.result.slice(0, lastIdx), newLine];
       return { result: newResult, skipNext: true };
     }
   }, initial);
@@ -105,11 +93,7 @@ export class YamlCompactor implements ContentTransformer {
   readonly id = "yaml-compactor";
   readonly fileExtensions: readonly FileExtension[] = YAML_EXTENSIONS;
 
-  transform(
-    content: string,
-    _tier: InclusionTier,
-    _filePath: RelativePath,
-  ): string {
+  transform(content: string, _tier: InclusionTier, _filePath: RelativePath): string {
     if (content.length === 0) return content;
     const withoutComments = stripCommentLines(content);
     const reindented = normalizeIndent(withoutComments);

@@ -57,9 +57,7 @@ function applyOneInlinePass(content: string): string {
 function inlineTagsToMarkdown(content: string, passesLeft: number): string {
   if (passesLeft <= 0) return content;
   const next = applyOneInlinePass(content);
-  return next === content
-    ? content
-    : inlineTagsToMarkdown(next, passesLeft - 1);
+  return next === content ? content : inlineTagsToMarkdown(next, passesLeft - 1);
 }
 
 function stripRemainingTags(content: string): string {
@@ -82,11 +80,7 @@ export class HtmlToMarkdownTransformer implements ContentTransformer {
   readonly id = "html-to-markdown-transformer";
   readonly fileExtensions: readonly FileExtension[] = HTML_EXTENSIONS;
 
-  transform(
-    content: string,
-    _tier: InclusionTier,
-    _filePath: RelativePath,
-  ): string {
+  transform(content: string, _tier: InclusionTier, _filePath: RelativePath): string {
     if (content.length === 0) return content;
     return htmlToMarkdown(content);
   }

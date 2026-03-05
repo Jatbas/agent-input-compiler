@@ -38,7 +38,10 @@ describe("runStartupSelfCheck", () => {
           sessionStart: [{ command: "node .cursor/hooks/AIC-compile-context.cjs" }],
           preToolUse: [
             { command: "node .cursor/hooks/AIC-require-aic-compile.cjs" },
-            { command: "node .cursor/hooks/AIC-inject-conversation-id.cjs", matcher: "MCP" },
+            {
+              command: "node .cursor/hooks/AIC-inject-conversation-id.cjs",
+              matcher: "MCP",
+            },
           ],
         },
       }),
@@ -73,7 +76,9 @@ describe("runStartupSelfCheck", () => {
     const result = runStartupSelfCheck(projectRoot);
     expect(result.installationOk).toBe(false);
     expect(result.installationNotes).toContain("preToolUse require hook not configured");
-    expect(result.installationNotes).toContain("preToolUse inject conversation_id hook not configured");
+    expect(result.installationNotes).toContain(
+      "preToolUse inject conversation_id hook not configured",
+    );
   });
 
   it("only_trigger_missing_notes_mention_trigger", () => {
@@ -87,7 +92,10 @@ describe("runStartupSelfCheck", () => {
           sessionStart: [{ command: "node .cursor/hooks/AIC-compile-context.cjs" }],
           preToolUse: [
             { command: "node .cursor/hooks/AIC-require-aic-compile.cjs" },
-            { command: "node .cursor/hooks/AIC-inject-conversation-id.cjs", matcher: "MCP" },
+            {
+              command: "node .cursor/hooks/AIC-inject-conversation-id.cjs",
+              matcher: "MCP",
+            },
           ],
         },
       }),

@@ -341,6 +341,24 @@ Present:
 
 The main workspace is already on `main` — no checkout needed.
 
+**Step 0 — Handle dirty working tree on main (data-safe stash).**
+
+The user may have uncommitted changes on main (from other work, the planner, or editor activity). These must be preserved — never discarded.
+
+```
+git status --porcelain
+```
+
+If the output is non-empty (dirty working tree), stash the changes before merging:
+
+```
+git stash
+```
+
+**Store a flag** (`stashedBeforeMerge = true`) so you remember to restore them after the merge. If the working tree is clean, set `stashedBeforeMerge = false` and proceed directly to the merge.
+
+**Step 1 — Squash merge.**
+
 ```
 git merge --squash <branch>
 ```
@@ -349,8 +367,6 @@ git merge --squash <branch>
 
 ```
 git commit -m "feat(<scope>): <what was built>"
-git worktree remove <worktree-dir>
-git branch -D <branch>
 ```
 
 The squash merge produces a single clean commit on main. Use the same commit message from 5c (or the user's adjusted version).
@@ -362,9 +378,49 @@ The squash merge produces a single clean commit on main. Use the same commit mes
 3. Stage resolved files: `git add <resolved files>`
 4. Verify no conflict markers remain: Grep for `<<<<<<<` in the resolved files (expect 0 matches).
 5. Complete the commit: `git commit -m "feat(<scope>): <what was built>"`
-6. Clean up: `git worktree remove <worktree-dir> && git branch -D <branch>`
 
 If conflicts cannot be resolved automatically (semantic conflicts in code logic), show the user the conflicted files and conflict markers. Ask for guidance before committing.
+
+**Step 2 — Remove worktree and branch.**
+
+```
+rm -rf <worktree-dir>
+git worktree prune
+git branch -D <branch>
+```
+
+Note: `git worktree remove` may not be available on all git versions. The `rm -rf` + `git worktree prune` sequence is universally safe and equivalent.
+
+**Step 3 — Restore stashed changes (if stashedBeforeMerge).**
+
+Skip this step if `stashedBeforeMerge = false`.
+
+Lint-staged runs during the commit hook and may hold `index.lock` briefly. Remove it if stale before restoring:
+
+```
+rm -f .git/index.lock
+```
+
+Then restore the stashed changes:
+
+```
+git stash pop
+```
+
+Three possible outcomes:
+
+a. **Clean pop (exit 0, no conflicts):** Done. The user's changes are back exactly as they were. The stash is auto-dropped.
+
+b. **Pop with conflicts:** The stash was applied but not dropped (git keeps it as insurance). Resolve the conflicts:
+
+1.  Run `git diff --name-only --diff-filter=U` to list conflicted files.
+2.  For each file, read it, resolve the conflict markers. For additive files like `mvp-progress.md`, keep both the merged task changes and the stashed user changes.
+3.  Stage resolved files: `git add <resolved files>`.
+4.  Verify no conflict markers remain: Grep for `<<<<<<<` (expect 0 matches).
+5.  Do NOT commit — the resolved files stay staged/unstaged in the working tree, matching the user's original pre-stash state (uncommitted changes).
+6.  Drop the stash now that it's safely applied: `git stash drop`.
+
+c. **Pop fails entirely (rare):** Do NOT drop the stash. Report to the user: "Your pre-merge changes are preserved in `git stash list` (stash@{0}). Run `git stash pop` manually when ready." The stash is the safety net — it is never dropped until changes are confirmed restored.
 
 **6c — If the user says "discard":**
 

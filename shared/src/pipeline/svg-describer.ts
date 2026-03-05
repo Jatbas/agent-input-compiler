@@ -28,11 +28,7 @@ export class SvgDescriber implements ContentTransformer {
   readonly id = "svg-describer";
   readonly fileExtensions: readonly FileExtension[] = SVG_EXTENSIONS;
 
-  transform(
-    content: string,
-    _tier: InclusionTier,
-    _filePath: RelativePath,
-  ): string {
+  transform(content: string, _tier: InclusionTier, _filePath: RelativePath): string {
     if (content.length === 0) return content;
     return describeSvg(content);
   }

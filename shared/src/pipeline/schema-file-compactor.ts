@@ -46,22 +46,12 @@ function compactJsonSchema(content: string): string {
 
 function isSchemaPath(path: RelativePath): boolean {
   const ext = getExtension(path).toLowerCase();
-  return (
-    ext === ".graphql" ||
-    ext === ".gql" ||
-    ext === ".prisma" ||
-    ext === ".proto"
-  );
+  return ext === ".graphql" || ext === ".gql" || ext === ".prisma" || ext === ".proto";
 }
 
-function stripLineComments(
-  content: string,
-  lineCommentStart: string,
-): string {
+function stripLineComments(content: string, lineCommentStart: string): string {
   const lines = content.split("\n");
-  const kept = lines.filter(
-    (line) => !line.trim().startsWith(lineCommentStart),
-  );
+  const kept = lines.filter((line) => !line.trim().startsWith(lineCommentStart));
   return kept.join("\n");
 }
 
@@ -118,8 +108,7 @@ function compactGraphql(content: string): string {
 function compactPrisma(content: string): string {
   const lines = content.split("\n");
   const noLineComments = lines.filter(
-    (line) =>
-      !line.trim().startsWith("//") && !line.trim().startsWith("///"),
+    (line) => !line.trim().startsWith("//") && !line.trim().startsWith("///"),
   );
   const rejoined = noLineComments.join("\n");
   const noBlock = stripBlockComments(rejoined, "/*", "*/");
@@ -136,11 +125,7 @@ export class SchemaFileCompactor implements ContentTransformer {
   readonly id = "schema-file-compactor";
   readonly fileExtensions: readonly FileExtension[] = EMPTY_EXTENSIONS;
 
-  transform(
-    content: string,
-    _tier: InclusionTier,
-    filePath: RelativePath,
-  ): string {
+  transform(content: string, _tier: InclusionTier, filePath: RelativePath): string {
     if (content.length === 0) return content;
     const jsonResult = compactJsonSchema(content);
     if (jsonResult !== content) return jsonResult;

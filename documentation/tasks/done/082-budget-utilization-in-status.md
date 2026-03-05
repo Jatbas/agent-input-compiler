@@ -17,10 +17,10 @@ Add a "Budget utilization" line to `aic status` output showing what fraction of 
 
 ## Files
 
-| Action | Path |
-| ------ | ---- |
+| Action | Path                                                                                    |
+| ------ | --------------------------------------------------------------------------------------- |
 | Modify | `cli/src/commands/status.ts` (resolve budget, add Budget utilization line to formatter) |
-| Modify | `cli/src/commands/__tests__/status.test.ts` (three new test cases) |
+| Modify | `cli/src/commands/__tests__/status.test.ts` (three new test cases)                      |
 
 ## Interface / Signature
 
@@ -45,12 +45,12 @@ export async function statusCommand(
 
 ### Tier 2 — path-only
 
-| Type | Path | Purpose |
-| ---- | ---- | ------- |
-| `StatusRequest` | shared/src/core/types/status-types.js | request.projectRoot, request.configPath |
-| `StatusAggregates` | shared/src/core/types/status-types.js | aggregates.lastCompilation.tokensCompiled |
-| `ResolvedConfig` | shared/src/core/types/resolved-config.js | config.contextBudget.maxTokens |
-| `LoadConfigResult` | shared/src/config/load-config-from-file.js | result.config |
+| Type               | Path                                       | Purpose                                   |
+| ------------------ | ------------------------------------------ | ----------------------------------------- |
+| `StatusRequest`    | shared/src/core/types/status-types.js      | request.projectRoot, request.configPath   |
+| `StatusAggregates` | shared/src/core/types/status-types.js      | aggregates.lastCompilation.tokensCompiled |
+| `ResolvedConfig`   | shared/src/core/types/resolved-config.js   | config.contextBudget.maxTokens            |
+| `LoadConfigResult` | shared/src/config/load-config-from-file.js | result.config                             |
 
 ## Config Changes
 
@@ -93,11 +93,11 @@ Expected: all pass, zero warnings, no new knip findings.
 
 ## Tests
 
-| Test case | Description |
-| --------- | ----------- |
-| budget_utilization_shown_with_default_budget | Last compilation present, no config → 90%, 7,200/8,000 |
-| budget_utilization_dash_when_no_last_compilation | lastCompilation null → "Budget utilization: —" |
-| budget_utilization_uses_config_when_present | Config maxTokens 10000, last 7200 → 72%, 7,200/10,000 |
+| Test case                                        | Description                                            |
+| ------------------------------------------------ | ------------------------------------------------------ |
+| budget_utilization_shown_with_default_budget     | Last compilation present, no config → 90%, 7,200/8,000 |
+| budget_utilization_dash_when_no_last_compilation | lastCompilation null → "Budget utilization: —"         |
+| budget_utilization_uses_config_when_present      | Config maxTokens 10000, last 7200 → 72%, 7,200/10,000  |
 
 ## Acceptance Criteria
 

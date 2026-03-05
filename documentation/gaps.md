@@ -34,7 +34,7 @@ Claude Code solves the two capabilities that are structurally impossible in Curs
 
 ### GAP-02: Claude Code integration layer not built
 
-**Status:** Tracked — Phase Q (hook-based delivery) + Phase R (zero-install) in `mvp-progress.md`
+**Status:** Tracked — Phase R (hook-based delivery) + Phase S (zero-install) in `mvp-progress.md`
 **Impact:** High — Claude Code's hooks solve limitations we documented as fundamental
 
 **What we have:** Working Cursor integration layer. Confirmed Claude Code hook capabilities (see table above). Basic Claude Code hooks exist in `.claude/hooks/` but lack full delivery and zero-install.
@@ -47,7 +47,7 @@ Claude Code solves the two capabilities that are structurally impossible in Curs
 4. `SessionEnd` hook — session lifecycle telemetry
 5. Editor detection and auto-install for Claude Code artifacts
 
-**Action:** Phase Q + Phase R in `mvp-progress.md`. Deprioritised — user does not currently use Claude Code.
+**Action:** Phase R + Phase S in `mvp-progress.md`. Deprioritised — user does not currently use Claude Code.
 
 ---
 
@@ -143,7 +143,7 @@ Open gaps, ordered by Phase 1.0 priority. Claude Code items deprioritised (user 
 | 2        | GAP-11: Multi-scale datapoints              | Multi-repo benchmark suite               | Medium (run on multiple repos)  | Medium — "will this work on my project?"        |
 | 3        | GAP-10: Comparative benchmarks              | Comparative benchmarks vs. native editor | Medium (analysis + methodology) | High — team adoption requires comparison data   |
 | 4        | GAP-06: Present-tense audit of project plan | Present-tense audit of project plan      | Small (docs edit)               | Low — polish                                    |
-| 5        | GAP-02: Claude Code integration layer       | Phase Q + Phase R (deprioritised)        | Large (implementation)          | High — but not needed until user adopts CC      |
+| 5        | GAP-02: Claude Code integration layer       | Phase R + Phase S (deprioritised)        | Large (implementation)          | High — but not needed until user adopts CC      |
 
 ### Resolved
 

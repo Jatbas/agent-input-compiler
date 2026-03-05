@@ -3,18 +3,13 @@ import type { FileExtension, RelativePath } from "#core/types/paths.js";
 import type { InclusionTier } from "#core/types/enums.js";
 
 const EMPTY_EXTENSIONS: readonly FileExtension[] = [];
-const ENV_EXAMPLE_SUFFIXES: readonly string[] = [
-  ".example",
-  ".sample",
-  ".template",
-];
+const ENV_EXAMPLE_SUFFIXES: readonly string[] = [".example", ".sample", ".template"];
 
 const VALUE_LINE_RE = /^(export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$/;
 
 function isEnvExamplePath(path: RelativePath): boolean {
   const segments = path.split("/");
-  const basename =
-    segments.length > 0 ? (segments[segments.length - 1] ?? path) : path;
+  const basename = segments.length > 0 ? (segments[segments.length - 1] ?? path) : path;
   const lower = basename.toLowerCase();
   if (!lower.startsWith(".env")) return false;
   return ENV_EXAMPLE_SUFFIXES.some((suffix) => lower.endsWith(suffix));
@@ -33,11 +28,7 @@ export class EnvExampleRedactor implements ContentTransformer {
   readonly id = "env-example-redactor";
   readonly fileExtensions: readonly FileExtension[] = EMPTY_EXTENSIONS;
 
-  transform(
-    content: string,
-    _tier: InclusionTier,
-    filePath: RelativePath,
-  ): string {
+  transform(content: string, _tier: InclusionTier, filePath: RelativePath): string {
     if (content.length === 0) return content;
     if (!isEnvExamplePath(filePath)) return content;
     const lines = content.split("\n");

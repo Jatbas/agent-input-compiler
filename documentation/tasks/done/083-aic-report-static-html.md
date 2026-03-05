@@ -18,11 +18,11 @@ Add a CLI command `aic report` that writes the same project-level summary as `ai
 
 ## Files
 
-| Action | Path |
-| ------ | ---- |
-| Create | `cli/src/schemas/report-args.ts` |
-| Create | `cli/src/commands/report.ts` |
-| Create | `cli/src/commands/__tests__/report.test.ts` |
+| Action | Path                                                           |
+| ------ | -------------------------------------------------------------- |
+| Create | `cli/src/schemas/report-args.ts`                               |
+| Create | `cli/src/commands/report.ts`                                   |
+| Create | `cli/src/commands/__tests__/report.test.ts`                    |
 | Modify | `cli/src/main.ts` (register report command, wire StatusRunner) |
 
 ## Interface / Signature
@@ -50,16 +50,16 @@ StatusRequest and StatusAggregates (report builds request and consumes aggregate
 
 ### Tier 1 — signature + path
 
-| Type | Path | Members | Purpose |
-| ---- | ---- | ------- | ------- |
+| Type         | Path                                                  | Members                                          | Purpose                                       |
+| ------------ | ----------------------------------------------------- | ------------------------------------------------ | --------------------------------------------- |
 | StatusRunner | shared/src/core/interfaces/status-runner.interface.js | status(StatusRequest): Promise<StatusAggregates> | Injected; report calls runner.status(request) |
 
 ### Tier 2 — path-only
 
-| Type | Path | Factory |
-| ---- | ---- | ------- |
+| Type         | Path                           | Factory             |
+| ------------ | ------------------------------ | ------------------- |
 | AbsolutePath | shared/src/core/types/paths.js | toAbsolutePath(raw) |
-| FilePath | shared/src/core/types/paths.js | toFilePath(raw) |
+| FilePath     | shared/src/core/types/paths.js | toFilePath(raw)     |
 
 ## Config Changes
 
@@ -96,7 +96,7 @@ In `cli/src/main.ts`: Import reportCommand from ./commands/report.js; Import Rep
 
 Create `cli/src/commands/__tests__/report.test.ts`. Use fixture StatusAggregates (same shape as status.test.ts). Stub StatusRunner. Tests: (1) report_writes_html_file: temp dir with .aic/aic.sqlite, stub runner returns fixture aggregates, reportCommand with outputPath to temp file; assert file exists, content includes "<!DOCTYPE html>" or "DOCTYPE", "Compilations", and fixture intent string (escaped). (2) report_no_database_exits_with_message: projectRoot with no .aic; reportCommand; assert stdout contains "No AIC database found"; output file not created when outputPath was set to a temp path. (3) report_no_compilations_exits_with_message: stub runner returns compilationsTotal: 0; reportCommand; assert stdout contains "No compilations recorded yet"; file not created. (4) report_uses_default_output_path: stub runner, args with outputPath null, projectRoot with existing .aic and aic.sqlite; reportCommand; assert file exists at path.join(projectRoot, ".aic", "report.html"). (5) report_escapes_html_in_intent: stub runner returns aggregates with lastCompilation.intent = "<script>"; reportCommand; read output file; assert content includes "&lt;script&gt;" and does not include unescaped "<script>". (6) report_runner_throws_propagates: stub runner throws new ConfigError("test"); expect(reportCommand(...)).rejects.toThrow(); assert stderr contains "test".
 
-**Verify:** pnpm test cli/src/commands/__tests__/report.test.ts passes.
+**Verify:** pnpm test cli/src/commands/**tests**/report.test.ts passes.
 
 ### Step 6: Final verification
 
@@ -105,14 +105,14 @@ Expected: all pass, zero warnings, no new knip findings.
 
 ## Tests
 
-| Test case | Description |
-| --------- | ----------- |
-| report_writes_html_file | Stub runner, temp output path; file exists, contains DOCTYPE, Compilations, intent |
-| report_no_database_exits_with_message | No .aic/aic.sqlite; stdout "No AIC database found", no file created |
-| report_no_compilations_exits_with_message | compilationsTotal 0; stdout "No compilations recorded yet", no file created |
-| report_uses_default_output_path | outputPath null; file at .aic/report.html |
-| report_escapes_html_in_intent | intent "<script>"; output contains &lt;script&gt; |
-| report_runner_throws_propagates | Runner throws ConfigError; rejects, stderr contains message |
+| Test case                                 | Description                                                                        |
+| ----------------------------------------- | ---------------------------------------------------------------------------------- |
+| report_writes_html_file                   | Stub runner, temp output path; file exists, contains DOCTYPE, Compilations, intent |
+| report_no_database_exits_with_message     | No .aic/aic.sqlite; stdout "No AIC database found", no file created                |
+| report_no_compilations_exits_with_message | compilationsTotal 0; stdout "No compilations recorded yet", no file created        |
+| report_uses_default_output_path           | outputPath null; file at .aic/report.html                                          |
+| report_escapes_html_in_intent             | intent "<script>"; output contains &lt;script&gt;                                  |
+| report_runner_throws_propagates           | Runner throws ConfigError; rejects, stderr contains message                        |
 
 ## Acceptance Criteria
 

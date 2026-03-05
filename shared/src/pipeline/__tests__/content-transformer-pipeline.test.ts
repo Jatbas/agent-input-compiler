@@ -65,9 +65,7 @@ describe("ContentTransformerPipeline", () => {
   it("directTargetPaths skips format-specific only", async () => {
     const reader: FileContentReader = {
       getContent: (path) =>
-        Promise.resolve(
-          (path as string).endsWith(".json") ? '{"x":1}' : "  code  ",
-        ),
+        Promise.resolve((path as string).endsWith(".json") ? '{"x":1}' : "  code  "),
     };
     const pipeline = new ContentTransformerPipeline(
       [new JsonCompactor(), new WhitespaceNormalizer()],

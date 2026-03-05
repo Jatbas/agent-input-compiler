@@ -30,8 +30,7 @@ export function runStartupSelfCheck(projectRoot: AbsolutePath): {
     const parsed = JSON.parse(fs.readFileSync(hooksPath, "utf8")) as HooksParsed;
     const sessionStart: readonly { command?: string }[] =
       parsed.hooks?.sessionStart ?? [];
-    const preToolUse: readonly { command?: string }[] =
-      parsed.hooks?.preToolUse ?? [];
+    const preToolUse: readonly { command?: string }[] = parsed.hooks?.preToolUse ?? [];
     sessionStartHasCompile = sessionStart.some((e) =>
       commandIncludes(e, "AIC-compile-context.cjs"),
     );

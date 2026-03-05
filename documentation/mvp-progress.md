@@ -2,14 +2,14 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 15/36 done
+**Phase 1.0:** 15/43 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
 
 ## Phase 1.0 — OSS Release
 
-Specification Compiler, agentic session tracking, Claude Code hook-based delivery, OSS release prep.
+Specification Compiler, agentic session tracking, research-backed quality and security upgrades, Claude Code hook-based delivery, OSS release prep.
 
 ### Phase N — Specification Compiler
 
@@ -34,30 +34,37 @@ Session-level intelligence for multi-step agent workflows. Deduplication prevent
 
 ### Phase P — Context Quality, Token Efficiency & Compilation Performance
 
-Improve file selection precision, token reduction, and compilation speed beyond the current heuristic pipeline. Research-backed improvements: symbol-level intent matching (ContextBench 2025 — LLMs favor recall over precision; better precision at selection time directly addresses this), bidirectional import graph (InlineCoder/RIG 2026 — 12.2% accuracy gain from exposing dependency edges in both directions), git-aware recency, adaptive scoring weights per task class, cross-file deduplication in assembled prompt, structural context map (RIG 2026 — 57.8% efficiency gain from deterministic architectural maps), and chunk-level file inclusion (SWE-Pruner 2025 — 23-54% token reduction via task-aware line-level pruning). Compilation performance: eliminate redundant file system scans and per-file processing via incremental caching, async I/O, and file watching. All implementable within AIC's existing hexagonal architecture via new classes/interfaces (OCP).
+Context quality and compilation performance beyond the base heuristic pipeline. Delivered: symbol-level intent matching (ContextBench 2025), bidirectional import graph with reverse dependency walking (InlineCoder/RIG 2026 — 12.2% accuracy gain), adaptive scoring weights per task class, structural context map (RIG 2026 — 57.8% efficiency gain), granular file-level transformation cache, async parallel file I/O, and fast-glob double-stat elimination. Remaining: chunk-level file inclusion (SWE-Pruner 2025 — 23-54% token reduction via task-aware line-level pruning) and cached RepoMap with file watcher for near-zero subsequent scan latency. All implemented within AIC's hexagonal architecture via new classes/interfaces (OCP).
 
-| Component                                       | Status  | Package              | Deps                     | Description                                                                     |
-| ----------------------------------------------- | ------- | -------------------- | ------------------------ | ------------------------------------------------------------------------------- |
-| Adaptive scoring weights per task class         | Done    | shared/src/pipeline/ | —                        | Per-task-class weight profiles (bugfix → recency, refactor → import proximity)  |
-| Reverse dependency walking (bidirectional BFS)  | Done    | shared/src/pipeline/ | —                        | Invert import graph to also score files that import seed files                  |
-| Symbol-level intent matching                    | Done    | shared/src/pipeline/ | —                        | Match intent subject tokens against exported symbol names via subjectTokens     |
-| Structural context map (RIG-inspired)           | Done    | shared/src/pipeline/ | —                        | Compact project architecture summary injected before code context               |
-| Chunk-level file inclusion                      | Pending | shared/src/pipeline/ | Symbol-level intent (#1) | Include only relevant functions/blocks instead of whole files                   |
-| Granular file-level transformation cache        | Done    | shared/src/storage/  | —                        | Per-file L0–L3 output cached by content hash; skip unchanged files on recompile |
-| Scan: eliminate double-stat via fast-glob stats | Done    | shared/src/adapters/ | —                        | Use fast-glob `stats: true` to avoid second `fs.statSync` pass over all files   |
-| Scan: async parallel file system I/O            | Done    | shared/src/adapters/ | Eliminate double-stat    | Replace `fg.sync`/`fs.statSync` with async + `Promise.all` for parallel I/O     |
-| Scan: cached RepoMap with file watcher          | Done    | shared/src/adapters/ | Async parallel I/O       | `fs.watch` keeps RepoMap in memory; subsequent `getRepoMap()` returns instantly |
+| Component                                       | Status | Package              | Deps                     | Description                                                                     |
+| ----------------------------------------------- | ------ | -------------------- | ------------------------ | ------------------------------------------------------------------------------- |
+| Adaptive scoring weights per task class         | Done   | shared/src/pipeline/ | —                        | Per-task-class weight profiles (bugfix → recency, refactor → import proximity)  |
+| Reverse dependency walking (bidirectional BFS)  | Done   | shared/src/pipeline/ | —                        | Invert import graph to also score files that import seed files                  |
+| Symbol-level intent matching                    | Done   | shared/src/pipeline/ | —                        | Match intent subject tokens against exported symbol names via subjectTokens     |
+| Structural context map (RIG-inspired)           | Done   | shared/src/pipeline/ | —                        | Compact project architecture summary injected before code context               |
+| Chunk-level file inclusion                      | Done   | shared/src/pipeline/ | Symbol-level intent (#1) | Include only relevant functions/blocks instead of whole files                   |
+| Granular file-level transformation cache        | Done   | shared/src/storage/  | —                        | Per-file L0–L3 output cached by content hash; skip unchanged files on recompile |
+| Scan: eliminate double-stat via fast-glob stats | Done   | shared/src/adapters/ | —                        | Use fast-glob `stats: true` to avoid second `fs.statSync` pass over all files   |
+| Scan: async parallel file system I/O            | Done   | shared/src/adapters/ | Eliminate double-stat    | Replace `fg.sync`/`fs.statSync` with async + `Promise.all` for parallel I/O     |
+| Scan: cached RepoMap with file watcher          | Done   | shared/src/adapters/ | Async parallel I/O       | `fs.watch` keeps RepoMap in memory; subsequent `getRepoMap()` returns instantly |
 
-**Notes:**
+### Phase Q — Research-Backed Quality & Security
 
-- **Chunk-level inclusion:** Biggest architectural question. Currently: select files → transform whole files → summarize → assemble. Chunk-level means: select files → extract relevant chunks → include those at full fidelity, rest at signature level. `LanguageProviders` extract signatures with line ranges but not full function bodies. Needs `ChunkExtractor` or chunk-aware `SummarisationLadder`. Largest effort but single biggest token savings opportunity. SWE-Pruner (2025) achieved 23-54% reduction on multi-turn agent tasks.
-- **Granular file-level transformation cache (validated via external architecture review):** Currently `SqliteCacheStore` caches the entire compiled prompt under a single key; any file change causes a full cache miss and re-runs all transformers, tree-sitter parsing, and summarisation on every file. A per-file `SqliteFileTransformStore` keyed by content hash would let `ContentTransformerPipeline` and `SummarisationLadder` skip unchanged files entirely. On typical recompiles where 1–3 files change out of hundreds, this eliminates 95%+ of CPU work (tree-sitter AST parsing, tokenizer calls, transformer chains). Medium effort — pipeline is already modular; needs new storage table, content-hash computation, and cache-check wrappers in the transformer pipeline and summarisation ladder. Inspired by Cursor's Merkle-tree approach to incremental context assembly.
-- **Scan optimizations (three-stage approach):** Currently `FileSystemRepoMapSupplier` runs `fast-glob.sync` (directory traversal) then `fs.statSync` on every file — both synchronous, blocking the MCP event loop. Stage 1 (eliminate double-stat): fast-glob's `stats: true` returns `fs.Stats` during traversal, removing the second stat pass; ~20% scan speedup, tiny effort. Stage 2 (async parallel I/O): replace `fg.sync`/`statSync` with async `fg()`/`fs.promises.stat` batched via `Promise.all`; unblocks MCP event loop and parallelizes I/O; ~40–60% scan speedup, small effort. Stage 3 (cached RepoMap with watcher): MCP server is long-running — cache the RepoMap after first scan, register `fs.watch` (recursive) to update individual entries on change; subsequent `getRepoMap()` returns ~0ms; new `WatchingRepoMapSupplier` adapter with graceful fallback to full scan if watcher fails; medium effort, biggest single performance win.
-- **Deferred concepts (validated, post-1.0):** _Intent semantic caching_ (BM25 over `subjectTokens` to reuse file selections for semantically similar intents) — valid but session-level dedup already covers the primary multi-turn case. _Runtime state injection_ (dev server logs, test watcher output, browser errors injected into context) — architecture supports a `RuntimeStateSupplier` interface, but adapter-layer complexity for cross-platform process detection is substantial.
+Research-driven improvements to context retrieval quality, token efficiency, security, and prompt assembly. Motivated by: ContextBench (2026) for process-level evaluation at file/block/line granularity; SWE-Pruner (Jan 2026) for task-aware line-level pruning (23–54% additional token reduction); InlineCoder (Jan 2026) for confidence estimation via deterministic proxies; "Lost in the Middle" (2023–2026) for prompt assembly ordering; and emerging prompt injection analysis targeting coding assistant tool execution. Builds on Phase P foundations (chunk-level inclusion, symbol matching, import graph). See `documentation/future/rule-enforcement-strategies.md` for the Middleware Enforcer design (Phase 2+).
 
-### Phase Q — Claude Code Hook-Based Delivery
+| Component                                              | Status  | Package              | Deps             | Description                                                                              |
+| ------------------------------------------------------ | ------- | -------------------- | ---------------- | ---------------------------------------------------------------------------------------- |
+| Constraints preamble in prompt assembler (LitM)        | Pending | shared/src/pipeline/ | —                | Duplicate top-3 constraints as short preamble before bulk context to mitigate LitM       |
+| `contextCompleteness` confidence signal in CompileMeta | Pending | shared/src/core/     | —                | Unresolved imports, missing symbols, intent token coverage in CompilationMeta            |
+| Line-level pruner within matched chunks (SWE-Pruner)   | Pending | shared/src/pipeline/ | Chunk-level (#P) | Score lines within L0 chunks against intent tokens; remove irrelevant, keep syntax       |
+| `CommandInjectionScanner` (GuardScanner)               | Pending | shared/src/pipeline/ | —                | Detect `$(...)`, backtick substitution, pipe chains in comments/docs                     |
+| `MarkdownInstructionScanner` (GuardScanner)            | Pending | shared/src/pipeline/ | —                | Detect high-risk instruction payloads in markdown/doc files                              |
+| Block/line-level gold annotations in benchmark suite   | Pending | test/benchmarks/     | —                | Enrich gold set from path-only to block/line ranges per file for ContextBench-style eval |
+| Per-task-class precision/recall metrics in benchmarks  | Pending | test/benchmarks/     | Gold annotations | Precision/recall at file, block, line granularity grouped by task class                  |
 
-Highest-impact item. Claude Code's hook system exposes all 7 capabilities AIC needs (per-prompt, subagent, pre-compaction) — structurally impossible in Cursor. Eliminates the fragile trigger rule + tool-call round-trip by injecting compiled context via `UserPromptSubmit` → `additionalContext`. `TRIGGER_SOURCE.HOOK` enum value already exists. See `documentation/architecture.md` for capability comparison.
+### Phase R — Claude Code Hook-Based Delivery
+
+Highest-impact delivery item. Claude Code's hook system exposes all 7 capabilities AIC needs (per-prompt, subagent, pre-compaction) — structurally impossible in Cursor. Eliminates the fragile trigger rule + tool-call round-trip by injecting compiled context via `UserPromptSubmit` → `additionalContext`. `TRIGGER_SOURCE.HOOK` enum value already exists. See `documentation/future/claude-code-hook-integration.md` for full design.
 
 | Component                                      | Status  | Package        | Deps                  | Description                                      |
 | ---------------------------------------------- | ------- | -------------- | --------------------- | ------------------------------------------------ |
@@ -66,9 +73,9 @@ Highest-impact item. Claude Code's hook system exposes all 7 capabilities AIC ne
 | `PreCompaction` hook: re-compile before trim   | Pending | .claude/hooks/ | UserPromptSubmit hook | Re-compile before editor trims context           |
 | `SessionEnd` hook: session lifecycle telemetry | Pending | .claude/hooks/ | —                     | Session end telemetry                            |
 | `PostToolUse` additionalContext workaround     | Pending | .claude/hooks/ | UserPromptSubmit hook | Workaround when PostToolUse supplies context     |
-| Hook-based delivery integration tests          | Pending | mcp/src/       | All Q hooks           | Tests for Claude Code hook delivery              |
+| Hook-based delivery integration tests          | Pending | mcp/src/       | All R hooks           | Tests for Claude Code hook delivery              |
 
-### Phase R — Claude Code Zero-Install
+### Phase S — Claude Code Zero-Install
 
 Editor detection and auto-install so Claude Code users get the same zero-install experience Cursor has. Currently Cursor-only (`installTriggerRule`, `installCursorHooks`). Absorbs KL-006 and Zero-Install Gaps.
 
@@ -76,24 +83,24 @@ Editor detection and auto-install so Claude Code users get the same zero-install
 | --------------------------------------------------------- | ------- | -------- | -------------------------------- | --------------------------------------------------- |
 | Editor detection (`detectEditorForInit`)                  | Pending | mcp/src/ | —                                | Detect Claude Code vs Cursor for installer dispatch |
 | `installClaudeCodeTriggerRule` (`.claude/CLAUDE.md`)      | Pending | mcp/src/ | Editor detection                 | Auto-create Claude Code trigger rule                |
-| `installClaudeCodeHooks` (`.claude/settings.local.json`)  | Pending | mcp/src/ | Editor detection, Phase Q        | Auto-install Claude Code hooks                      |
+| `installClaudeCodeHooks` (`.claude/settings.local.json`)  | Pending | mcp/src/ | Editor detection, Phase R        | Auto-install Claude Code hooks                      |
 | `createMcpServer` dispatches installer by detected editor | Pending | mcp/src/ | Editor detection, trigger, hooks | One startup path per editor                         |
 | Startup self-check covers Claude Code artifacts           | Pending | mcp/src/ | createMcpServer dispatches       | Validate Claude Code artifacts on startup           |
 
-### Phase S — OSS Release Prep
+### Phase T — OSS Release Prep
 
 Final polish for public release. npm publish, changelog, benchmarks, visual demo, documentation audit. See `documentation/gaps.md` for detailed descriptions of GAP items.
 
 | Component                                           | Status  | Package | Gap    | Deps      | Description                                   |
 | --------------------------------------------------- | ------- | ------- | ------ | --------- | --------------------------------------------- |
-| npm publish pipeline (`@aic/mcp`)                   | Pending | mcp/    | —      | Phase N–R | Publish MCP package to npm                    |
+| npm publish pipeline (`@aic/mcp`)                   | Pending | mcp/    | —      | Phase N–S | Publish MCP package to npm                    |
 | CHANGELOG.md                                        | Pending | ./      | —      | —         | Version history for release                   |
 | License headers audit                               | Pending | ./      | —      | —         | Ensure license headers present                |
 | Contributing guide (final)                          | Pending | ./      | —      | —         | How to contribute                             |
 | Multi-repo benchmark suite (multi-scale datapoints) | Pending | test/   | GAP-11 | —         | Token reduction at multiple project scales    |
 | Comparative benchmarks vs. native editor context    | Pending | test/   | GAP-10 | —         | AIC vs native editor context selection        |
 | Real `aic_inspect` output in README                 | Done    | ./      | GAP-03 | —         | Real output example in README                 |
-| Visual demo (GIF/recording) in README               | Pending | ./      | GAP-09 | Phase N–R | Screen recording of AIC in editor             |
+| Visual demo (GIF/recording) in README               | Pending | ./      | GAP-09 | Phase N–S | Screen recording of AIC in editor             |
 | Present-tense audit of project plan                 | Pending | ./      | GAP-06 | —         | Fix present-tense descriptions of future work |
 
 ---
@@ -317,9 +324,10 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2025-03-05
 
-**Components:** Adaptive budget allocation (session history), Adaptive scoring weights per task class, Reverse dependency walking (bidirectional BFS), Symbol-level intent matching, Structural context map (RIG-inspired), Scan: eliminate double-stat via fast-glob stats, Scan: async parallel file system I/O, Granular file-level transformation cache
+**Components:** Adaptive budget allocation (session history), Adaptive scoring weights per task class, Reverse dependency walking (bidirectional BFS), Symbol-level intent matching, Structural context map (RIG-inspired), Scan: eliminate double-stat via fast-glob stats, Scan: async parallel file system I/O, Granular file-level transformation cache, Chunk-level file inclusion
 **Completed:**
 
+- Chunk-level file inclusion (task 100): SelectedFile.resolvedContent optional; SummarisationLadder.compress(files, budget, subjectTokens?) with chunk-level path when subjectTokens non-empty (matched chunks full, rest signature-only; over budget falls back to demoteLoop/dropToFit); run-pipeline-steps passes task.subjectTokens to both compress calls; PromptAssembler uses file.resolvedContent when present else getContent; fetchContextContents helper; three summarisation-ladder chunk-level tests, one prompt-assembler resolvedContent test; integration snapshots updated. Lint, typecheck, test, lint:clones 0.
 - Granular file-level transformation cache (task 096): CachedFileTransform type; FileTransformStore interface; migration 009 file_transform_cache (file_path, content_hash PK); SqliteFileTransformStore get/set/invalidate/purgeExpired; isoToSqliteDatetime/sqliteDatetimeToIso extracted to sqlite-datetime.ts (0 clones); ProjectScope.fileTransformStore; seven store tests. Lint, typecheck, test, lint:clones 0.
 - Scan: async parallel file system I/O (task 098): GlobProvider find/findWithStats return Promise; FastGlobAdapter uses async fg() instead of fg.sync; FileSystemRepoMapSupplier getRepoMap awaits findWithStats; projectHasExtension async and awaits glob.find in init-language-providers; file-system-repo-map-supplier and fast-glob-adapter tests updated for async mocks and await. Lint, typecheck, test, lint:clones 0.
 - Scan: eliminate double-stat via fast-glob stats (task 097): PathWithStat type; GlobProvider.findWithStats; FastGlobAdapter.findWithStats with fg.sync(..., { stats: true }); FileSystemRepoMapSupplier uses findWithStats, no node:fs; four file-system-repo-map-supplier tests (findWithStats mocks), one fast-glob-adapter findWithStats test. Lint, typecheck, test, lint:clones 0.

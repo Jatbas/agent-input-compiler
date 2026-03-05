@@ -18,10 +18,10 @@ Implement a ContentTransformer that replaces minified or build-output file conte
 
 ## Files
 
-| Action | Path |
-| ------ | ---- |
-| Create | `shared/src/pipeline/minified-code-skipper.ts` |
-| Create | `shared/src/pipeline/__tests__/minified-code-skipper.test.ts` |
+| Action | Path                                                                                                                                             |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Create | `shared/src/pipeline/minified-code-skipper.ts`                                                                                                   |
+| Create | `shared/src/pipeline/__tests__/minified-code-skipper.test.ts`                                                                                    |
 | Modify | `shared/src/bootstrap/create-pipeline-deps.ts` (instantiate MinifiedCodeSkipper and add after lockFileSkipper, before htmlToMarkdownTransformer) |
 
 ## Interface / Signature
@@ -54,10 +54,10 @@ Interface and parameter types are defined by ContentTransformer (RelativePath, I
 
 ### Tier 2 — path-only
 
-| Type | Path | Factory |
-| ---- | ---- | ------- |
-| `FileExtension` | `shared/src/core/types/paths.js` | `toFileExtension(raw)` |
-| `RelativePath` | `shared/src/core/types/paths.js` | `toRelativePath(raw)` |
+| Type            | Path                             | Factory                      |
+| --------------- | -------------------------------- | ---------------------------- |
+| `FileExtension` | `shared/src/core/types/paths.js` | `toFileExtension(raw)`       |
+| `RelativePath`  | `shared/src/core/types/paths.js` | `toRelativePath(raw)`        |
 | `InclusionTier` | `shared/src/core/types/enums.js` | Use `INCLUSION_TIER.L0` etc. |
 
 ## Config Changes
@@ -100,8 +100,8 @@ Create `shared/src/pipeline/__tests__/minified-code-skipper.test.ts`.
   - **build_segment_returns_placeholder:** filePath = toRelativePath("build/out.js"), content = "x". After transform, output contains `[Minified: out.js,` and `bytes — skipped]`.
   - **non_minified_path_returns_unchanged:** filePath = toRelativePath("src/index.js"), content = "const x = 1;". After transform, result is exactly content.
   - **empty_content_returns_unchanged:** filePath = toRelativePath("src/foo.js"), content = "". After transform, result is "".
-  - **safety_python_indentation_preserved:** filePath = toRelativePath("src/main.py"), content = "def f():\n    pass". After transform, result is unchanged (not a minified path).
-  - **safety_yaml_structure_unchanged:** filePath = toRelativePath("config.yml"), content = "key:\n  nested: 1". After transform, result is unchanged.
+  - **safety_python_indentation_preserved:** filePath = toRelativePath("src/main.py"), content = "def f():\n pass". After transform, result is unchanged (not a minified path).
+  - **safety_yaml_structure_unchanged:** filePath = toRelativePath("config.yml"), content = "key:\n nested: 1". After transform, result is unchanged.
   - **safety_jsx_structure_unchanged:** filePath = toRelativePath("src/App.tsx"), content = "<div>x</div>". After transform, result is unchanged.
 
 **Verify:** `pnpm test shared/src/pipeline/__tests__/minified-code-skipper.test.ts` passes.
@@ -122,17 +122,17 @@ Expected: all pass, zero warnings, no new knip findings.
 
 ## Tests
 
-| Test case | Description |
-| --------- | ----------- |
-| min_js_path_returns_placeholder | Path ending .min.js yields [Minified: name, N bytes — skipped] |
-| min_css_path_returns_placeholder | Path ending .min.css yields placeholder |
-| dist_segment_returns_placeholder | Path dist/bundle.js yields placeholder |
-| build_segment_returns_placeholder | Path build/out.js yields placeholder |
-| non_minified_path_returns_unchanged | Path src/index.js leaves content unchanged |
-| empty_content_returns_unchanged | Empty string in, empty string out |
-| safety_python_indentation_preserved | Non-minified .py path leaves content unchanged |
-| safety_yaml_structure_unchanged | Non-minified .yml path leaves content unchanged |
-| safety_jsx_structure_unchanged | Non-minified .tsx path leaves content unchanged |
+| Test case                           | Description                                                    |
+| ----------------------------------- | -------------------------------------------------------------- |
+| min_js_path_returns_placeholder     | Path ending .min.js yields [Minified: name, N bytes — skipped] |
+| min_css_path_returns_placeholder    | Path ending .min.css yields placeholder                        |
+| dist_segment_returns_placeholder    | Path dist/bundle.js yields placeholder                         |
+| build_segment_returns_placeholder   | Path build/out.js yields placeholder                           |
+| non_minified_path_returns_unchanged | Path src/index.js leaves content unchanged                     |
+| empty_content_returns_unchanged     | Empty string in, empty string out                              |
+| safety_python_indentation_preserved | Non-minified .py path leaves content unchanged                 |
+| safety_yaml_structure_unchanged     | Non-minified .yml path leaves content unchanged                |
+| safety_jsx_structure_unchanged      | Non-minified .tsx path leaves content unchanged                |
 
 ## Acceptance Criteria
 

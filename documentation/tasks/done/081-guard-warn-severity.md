@@ -40,9 +40,7 @@ import type { SelectedFile } from "#core/types/selected-file.js";
 import type { GuardResult } from "#core/types/guard-types.js";
 
 export interface ContextGuard {
-  scan(
-    files: readonly SelectedFile[],
-  ): Promise<{
+  scan(files: readonly SelectedFile[]): Promise<{
     readonly result: GuardResult;
     readonly safeFiles: readonly SelectedFile[];
   }>;
@@ -119,20 +117,20 @@ export interface ScanPattern {
 
 ### Tier 1 — signature + path
 
-| Type              | Path                                                              | Members | Purpose                    |
-| ----------------- | ----------------------------------------------------------------- | ------- | -------------------------- |
-| `GuardScanner`    | `shared/src/core/interfaces/guard-scanner.interface.ts`           | 2       | scan + props: name         |
-| `SelectedFile`    | `shared/src/core/types/selected-file.js`                          | 5       | props: path, language, estimatedTokens, relevanceScore, tier |
-| `FileContentReader` | `shared/src/core/interfaces/file-content-reader.interface.ts`   | 1       | getContent               |
+| Type                | Path                                                          | Members | Purpose                                                      |
+| ------------------- | ------------------------------------------------------------- | ------- | ------------------------------------------------------------ |
+| `GuardScanner`      | `shared/src/core/interfaces/guard-scanner.interface.ts`       | 2       | scan + props: name                                           |
+| `SelectedFile`      | `shared/src/core/types/selected-file.js`                      | 5       | props: path, language, estimatedTokens, relevanceScore, tier |
+| `FileContentReader` | `shared/src/core/interfaces/file-content-reader.interface.ts` | 1       | getContent                                                   |
 
 ### Tier 2 — path-only
 
-| Type             | Path                              | Factory               |
-| ---------------- | --------------------------------- | --------------------- |
-| `RelativePath`   | `shared/src/core/types/paths.ts`  | `toRelativePath(raw)` |
-| `GlobPattern`    | `shared/src/core/types/paths.ts`  | `toGlobPattern(raw)`  |
-| `LineNumber`     | `shared/src/core/types/units.ts`  | `toLineNumber(n)`     |
-| `GuardSeverity`  | `shared/src/core/types/enums.ts`  | enum value            |
+| Type               | Path                             | Factory               |
+| ------------------ | -------------------------------- | --------------------- |
+| `RelativePath`     | `shared/src/core/types/paths.ts` | `toRelativePath(raw)` |
+| `GlobPattern`      | `shared/src/core/types/paths.ts` | `toGlobPattern(raw)`  |
+| `LineNumber`       | `shared/src/core/types/units.ts` | `toLineNumber(n)`     |
+| `GuardSeverity`    | `shared/src/core/types/enums.ts` | enum value            |
 | `GuardFindingType` | `shared/src/core/types/enums.ts` | enum value            |
 
 ## Config Changes
@@ -318,13 +316,13 @@ Update the golden snapshot: run `pnpm test shared/src/integration/__tests__/gold
 
 ## Tests
 
-| Test case                                     | Description                                                                                     |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `warn_findings_do_not_block_files`             | File with `system: foo` produces WARN finding, stays in safeFiles, appears in `filesWarned`    |
-| `block_injection_still_blocks`                 | File with `<\|system\|>` produces BLOCK finding, removed from safeFiles, in `filesBlocked`     |
-| `mixed_warn_and_block_different_files`         | WARN file in safeFiles + filesWarned; BLOCK file in filesBlocked; passed is true               |
-| `mixed_severity_same_file_counts_as_blocked`   | File with both patterns: in filesBlocked, NOT in filesWarned                                   |
-| `clean_files_empty_filesWarned`                | Clean file: empty filesWarned, empty filesBlocked, empty findings                              |
+| Test case                                    | Description                                                                                 |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `warn_findings_do_not_block_files`           | File with `system: foo` produces WARN finding, stays in safeFiles, appears in `filesWarned` |
+| `block_injection_still_blocks`               | File with `<\|system\|>` produces BLOCK finding, removed from safeFiles, in `filesBlocked`  |
+| `mixed_warn_and_block_different_files`       | WARN file in safeFiles + filesWarned; BLOCK file in filesBlocked; passed is true            |
+| `mixed_severity_same_file_counts_as_blocked` | File with both patterns: in filesBlocked, NOT in filesWarned                                |
+| `clean_files_empty_filesWarned`              | Clean file: empty filesWarned, empty filesBlocked, empty findings                           |
 
 ## Acceptance Criteria
 

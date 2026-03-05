@@ -5,5 +5,6 @@ export interface SummarisationLadder {
   compress(
     files: readonly SelectedFile[],
     budget: TokenCount,
+    subjectTokens?: readonly string[],
   ): Promise<readonly SelectedFile[]>;
 }

@@ -49,7 +49,7 @@ describe("HtmlToMarkdownTransformer", () => {
     const transformer = new HtmlToMarkdownTransformer();
     const content = [
       "<h1>Doc</h1>",
-      "<p>Intro <a href=\"https://example.com\">example</a>.</p>",
+      '<p>Intro <a href="https://example.com">example</a>.</p>',
       "<ul><li>one</li><li>two</li></ul>",
     ].join("");
     const result = transformer.transform(content, INCLUSION_TIER.L0, pathHtml);

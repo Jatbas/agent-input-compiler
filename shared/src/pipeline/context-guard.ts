@@ -18,18 +18,14 @@ export class ContextGuard implements IContextGuard {
     private readonly allowPatterns: readonly GlobPattern[],
   ) {}
 
-  async scan(
-    files: readonly SelectedFile[],
-  ): Promise<{
+  async scan(files: readonly SelectedFile[]): Promise<{
     readonly result: GuardResult;
     readonly safeFiles: readonly SelectedFile[];
   }> {
     const contents = await Promise.all(
       files.map((file) => this.fileContentReader.getContent(file.path)),
     );
-    const contentByPath = new Map(
-      files.map((file, i) => [file.path, contents[i] ?? ""]),
-    );
+    const contentByPath = new Map(files.map((file, i) => [file.path, contents[i] ?? ""]));
     const allFindings = files.flatMap((file): GuardFinding[] => {
       const path = file.path;
       if (pathAllowed(path, this.allowPatterns)) return [];

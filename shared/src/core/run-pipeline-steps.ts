@@ -163,7 +163,11 @@ export async function runPipelineSteps(
               Math.floor(Number(budget) * 0.2),
             ),
           );
-          return deps.summarisationLadder.compress(specTransformResult.files, specBudget);
+          return deps.summarisationLadder.compress(
+            specTransformResult.files,
+            specBudget,
+            task.subjectTokens,
+          );
         })();
   const { result: guardResult, safeFiles } = await deps.contextGuard.scan(selectedFiles);
   const transformResult = await deps.contentTransformerPipeline.transform(
@@ -173,6 +177,7 @@ export async function runPipelineSteps(
   const ladderFiles = await deps.summarisationLadder.compress(
     transformResult.files,
     budget,
+    task.subjectTokens,
   );
   const sessionContextSummary =
     request.sessionId && deps.agenticSessionState

@@ -1,1 +1,2 @@
+# lint-staged runs eslint --fix and prettier --write on staged files (see .lintstagedrc)
 pnpm exec lint-staged --no-stash
