@@ -37,25 +37,43 @@ Execute a task file produced by the `aic-task-planner` skill. Read the task, int
 
 If a dependency is not done, **stop and tell the user**.
 
-Update the task file status to `In Progress`.
-
-**Create a feature branch** to isolate all work:
+**Create a worktree** to isolate all work. The main working tree stays on `main`, untouched — multiple executors can run in parallel, each in its own worktree.
 
 ```
-git checkout -b feat/task-NNN-kebab-name
+git worktree add -b feat/task-NNN-kebab-name .git-worktrees/task-NNN-kebab-name main
 ```
 
-Use the task number and kebab-case name from the task file (e.g. `feat/task-011-sqlite-cache-store`). All implementation work happens on this branch. If the branch already exists (e.g. resuming a blocked task), check it out instead of creating it.
+Use the task number and kebab-case name from the task file (e.g. `.git-worktrees/task-011-sqlite-cache-store` with branch `feat/task-011-sqlite-cache-store`). If the branch already exists (e.g. resuming a blocked task), omit `-b`:
 
-**Verify the branch is active** immediately after creation:
+```
+git worktree add .git-worktrees/task-NNN-kebab-name feat/task-NNN-kebab-name
+```
+
+If the worktree directory already exists (stale from a previous run), prune and retry:
+
+```
+git worktree prune && git worktree add ...
+```
+
+**Install dependencies in the worktree** (pnpm hard-links from the global store — fast, no re-downloads):
+
+```
+pnpm install
+```
+
+Run with `working_directory` set to the worktree absolute path.
+
+**Verify the worktree HEAD:**
 
 ```
 git rev-parse --abbrev-ref HEAD
 ```
 
-The output must be `feat/task-NNN-kebab-name`. If it shows `main` or any other branch, retry the checkout. If it still fails, stop and tell the user.
+Run with `working_directory` set to the worktree. Output must be `feat/task-NNN-kebab-name`. If it does not match, stop and tell the user.
 
-**Store the branch name** (e.g. `feat/task-075-yaml-compactor`) — you will need it for the branch guard in §5c.
+**Store the worktree absolute path** (e.g. `<workspace>/.git-worktrees/task-075-yaml-compactor`) and **branch name** (e.g. `feat/task-075-yaml-compactor`). You will need both throughout execution — all file operations and shell commands target the worktree.
+
+**Update the task file status to `In Progress`** — edit the worktree copy of the task file (at `<worktree>/documentation/tasks/NNN-name.md`).
 
 ### 2. Internalize the task
 
@@ -111,6 +129,13 @@ If you find any match: **stop and tell the user** that the task file contains un
 ### 3. Implement
 
 Work through the **Steps** section in order.
+
+**Worktree context (applies to §3, §4, and §5).** All file operations target the worktree, not the main workspace:
+
+- **Shell** commands: set `working_directory` to the worktree absolute path.
+- **Read, Write, StrReplace**: use worktree-prefixed absolute paths (e.g. `<worktree>/shared/src/foo.ts`).
+- **Grep, Glob**: set the `path` / `target_directory` to the worktree absolute path.
+- When the task file says `shared/src/foo.ts`, the actual path is `<worktree>/shared/src/foo.ts`.
 
 **Pre-write reference (rules NOT caught by ESLint).** Before writing each production file, scan this table. Every item causes a §4b failure and rework loop if missed. Internalize before your first keystroke.
 
@@ -262,15 +287,15 @@ Run these sequentially in one flow — no user gate between them:
    test ! -f documentation/tasks/NNN-name.md && head -3 documentation/tasks/done/NNN-name.md
    ```
    If the old file still exists, delete it: `rm documentation/tasks/NNN-name.md`.
-4. **Branch guard — verify you are on the feature branch before staging.**
+4. **Worktree guard — verify the worktree HEAD before staging.**
 
    ```
    git rev-parse --abbrev-ref HEAD
    ```
 
-   If the output is NOT `feat/task-NNN-kebab-name`, switch to it immediately: `git checkout feat/task-NNN-kebab-name`. If the branch does not exist, go to **Blocked diagnostic**. **Never commit to main** — the feature branch isolates all work until the user approves the merge in §6.
+   Run with `working_directory` set to the worktree. If the output is NOT `feat/task-NNN-kebab-name`, go to **Blocked diagnostic**. **Never commit to main** — the worktree isolates all work until the user approves the merge in §6.
 
-5. **Stage only touched files and commit on the feature branch.**
+5. **Stage only touched files and commit in the worktree.**
 
    Use the touched-files list built in §2 — never `git add -A`. Stage each file explicitly:
 
@@ -292,42 +317,61 @@ Run these sequentially in one flow — no user gate between them:
    b. Stage only the dirty touched files and amend: `git add <touched dirty files> && git commit --amend --no-edit`.
    c. Run `pnpm lint && pnpm typecheck && pnpm test`. If any fail, fix the issues, then stage only the fixed touched files and amend again. Repeat at most twice — if still failing after 2 fix attempts, go to **Blocked diagnostic**.
    d. Run `git status --porcelain` again. Filter against touched-files list. If touched files are still dirty (another lint-staged pass reformatted), repeat from (b). Cap at 3 iterations — if still dirty, something is structurally wrong; go to **Blocked diagnostic**.
-   e. Run `git diff main...HEAD --stat` to produce the final file list for the merge proposal. Verify that `git rev-parse --abbrev-ref HEAD` still shows the feature branch name.
+   e. Run `git diff main...HEAD --stat` to produce the final file list for the merge proposal. Verify that `git rev-parse --abbrev-ref HEAD` still shows the worktree's branch name (`feat/task-NNN-kebab-name`).
 
 ### 6. Merge and Clean Up
 
-This step handles the merge and cleanup. Present the diff to the user for approval.
+This step merges the feature branch into main and removes the worktree. All commands in §6 run from the **main workspace root** (not the worktree).
 
 **6a — Propose merge:**
 
 Present:
 
 - The branch name (`feat/task-NNN-kebab-name`)
+- The worktree path (`.git-worktrees/task-NNN-kebab-name`)
 - The list of files changed (from the `--stat` output in 5c)
 - The commit message used
-- Ask: **"Merge to main? (yes / adjust message / discard branch)"**
+- Ask: **"Merge to main? (yes / adjust message / discard)"**
 
 **Do NOT merge automatically.** Wait for the user's response.
 
 **6b — On approval, merge and clean up:**
 
+The main workspace is already on `main` — no checkout needed.
+
 ```
-git checkout main
 git merge --squash feat/task-NNN-kebab-name
+```
+
+**If the merge succeeds without conflicts:**
+
+```
 git commit -m "feat(<scope>): <what was built>"
+git worktree remove .git-worktrees/task-NNN-kebab-name
 git branch -D feat/task-NNN-kebab-name
 ```
 
 The squash merge produces a single clean commit on main. Use the same commit message from 5c (or the user's adjusted version).
 
+**If the merge has conflicts** (common when multiple executors modify `mvp-progress.md`):
+
+1. List conflicted files: `git diff --name-only --diff-filter=U`
+2. For each conflicted file, read it, resolve the conflict markers — prefer the feature branch changes and integrate main's additions where they don't overlap (e.g. new entries appended by another executor in `mvp-progress.md`).
+3. Stage resolved files: `git add <resolved files>`
+4. Verify no conflict markers remain: Grep for `<<<<<<<` in the resolved files (expect 0 matches).
+5. Complete the commit: `git commit -m "feat(<scope>): <what was built>"`
+6. Clean up: `git worktree remove .git-worktrees/task-NNN-kebab-name && git branch -D feat/task-NNN-kebab-name`
+
+If conflicts cannot be resolved automatically (semantic conflicts in code logic), show the user the conflicted files and conflict markers. Ask for guidance before committing.
+
 **6c — If the user says "discard":**
 
 ```
-git checkout main
+git worktree remove .git-worktrees/task-NNN-kebab-name
 git branch -D feat/task-NNN-kebab-name
 ```
 
-Report that the branch was deleted and no changes were merged.
+Report that the worktree and branch were deleted and no changes were merged.
 
 ---
 
@@ -353,14 +397,13 @@ Before declaring Blocked, check whether the failure is in your code or in the ta
    - What went wrong (exact error message)
    - Whether the issue is in your code or the task file's spec
    - What decision you need from the user
-3. Commit the partial work on the feature branch so nothing is lost — stage only files from the touched-files list:
+3. Commit the partial work in the worktree so nothing is lost — stage only files from the touched-files list (run with `working_directory` set to the worktree):
    ```
    git add <touched files> && git commit -m "wip(task-NNN): blocked — <short reason>"
    ```
-4. Switch back to main: `git checkout main`
-5. Change the task file status to `Blocked`.
-6. Report to the user: include the branch name (`feat/task-NNN-kebab-name`) so they know where the partial work lives. The user can resume later by checking out the branch, or discard it with `git branch -D`.
-7. **Wait for guidance**. Do not continue.
+4. Change the task file status to `Blocked` (in the worktree copy).
+5. Report to the user: include the worktree path (`.git-worktrees/task-NNN-kebab-name`) and branch name (`feat/task-NNN-kebab-name`) so they know where the partial work lives. The user can resume later by re-entering the worktree, or discard it with `git worktree remove .git-worktrees/task-NNN-kebab-name && git branch -D feat/task-NNN-kebab-name`.
+6. **Wait for guidance**. Do not continue.
 
 ---
 
@@ -372,7 +415,7 @@ Before declaring Blocked, check whether the failure is in your code or in the ta
 - If something in the task file seems wrong, ask the user rather than silently fixing it
 - All verification must pass before reporting success
 - Evidence over claims — always read and report actual command output
-- All work happens on a feature branch — never commit directly to main. Run `git rev-parse --abbrev-ref HEAD` before every commit to verify
+- All work happens in a git worktree under `.git-worktrees/` — never commit directly to main. The main workspace stays on `main` throughout execution
 - Merge only when the user approves — present the diff and wait for confirmation
-- On discard, delete the feature branch cleanly — main stays untouched
-- The planner operates on main; the executor operates on a feature branch — this enables parallel operation without conflicts
+- On discard, remove the worktree and delete the branch cleanly — main stays untouched
+- Multiple executors can run in parallel — each in its own worktree. The planner operates on main; executors operate in worktrees — no conflicts between concurrent tasks

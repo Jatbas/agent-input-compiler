@@ -60,20 +60,48 @@ The process has **two passes** plus a presentation step. Each pass produces a co
 
 ---
 
-## §0. Branch setup (mandatory — run before anything else)
+## §0. Worktree setup (mandatory — run before anything else)
 
-The planner always operates on the `main` branch so that task files and exploration reports reflect the merged state. This enables **parallel operation with the executor**: the planner writes task files to `documentation/tasks/` on main, while the executor works on source files in a feature branch — no file conflicts.
+The planner operates in a dedicated worktree based on `main` so that task files and exploration reports reflect the current merged state. This enables **parallel operation**: the planner works in its own worktree, executors work in theirs, and the main workspace stays on `main`, untouched.
 
-1. Record the current branch: `git rev-parse --abbrev-ref HEAD`
-2. If there are uncommitted changes, stash them: `git stash push -m "aic-planner: auto-stash before switching to main"`
-3. Switch to main and pull latest: `git checkout main && git pull --ff-only`
-4. **All planning work (§1 through §6 or §7) happens on `main`.** The planner never creates a feature branch. Task files are committed directly to main.
-5. After the task file is saved (end of §6 or §7), commit the task file on main, then switch back to the original branch and pop the stash if one was created:
-   - `git add documentation/tasks/NNN-name.md && git commit -m "docs(tasks): plan task NNN — <component name>"`
-   - `git checkout <original-branch>`
-   - If stashed in step 2: `git stash pop`
+1. From the main workspace root, ensure main is up to date:
 
-If `git pull --ff-only` fails (diverged history), tell the user: "Cannot fast-forward main. Please resolve manually before planning." Do not proceed.
+   ```
+   git pull --ff-only
+   ```
+
+   If this fails (not on main, or diverged), tell the user: "Cannot fast-forward main. Please resolve manually before planning." Do not proceed.
+
+2. Create a worktree for planning:
+
+   ```
+   git worktree add -b plan/next-task .git-worktrees/plan-next-task main
+   ```
+
+   If the branch or worktree directory already exists (stale from a previous run), prune and retry:
+
+   ```
+   git worktree prune && git branch -D plan/next-task 2>/dev/null; git worktree add -b plan/next-task .git-worktrees/plan-next-task main
+   ```
+
+3. Install dependencies in the worktree (needed for `.d.ts` reads during exploration):
+
+   ```
+   pnpm install
+   ```
+
+   Run with `working_directory` set to the worktree absolute path.
+
+4. **All planning work (§1 through §6 or §7) happens in the worktree.** Set `working_directory` to the worktree for all Shell commands. Use worktree-prefixed absolute paths for Read, Write, StrReplace, Grep, and Glob. When the process refers to `documentation/tasks/NNN-name.md`, the actual path is `<worktree>/documentation/tasks/NNN-name.md`.
+
+5. After the task file is saved and verified (end of §6 or §7), commit in the worktree, merge to main, and clean up:
+   - Commit in the worktree (run with `working_directory` set to the worktree):
+     `git add documentation/tasks/NNN-name.md && git commit -m "docs(tasks): plan task NNN — <component name>"`
+   - From the **main workspace root**, merge:
+     `git merge --squash plan/next-task && git commit -m "docs(tasks): plan task NNN — <component name>"`
+   - Clean up:
+     `git worktree remove .git-worktrees/plan-next-task && git branch -D plan/next-task`
+   - If the merge has conflicts (rare for documentation-only changes), resolve them: read each conflicted file, fix conflict markers, stage, and commit. If unresolvable, tell the user.
 
 ---
 
