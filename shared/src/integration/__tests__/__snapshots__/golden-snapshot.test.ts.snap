@@ -57,9 +57,9 @@ exports[`golden snapshot > full_pipeline_trace_matches_golden_snapshot 1`] = `
     "afterGuard": 22,
     "afterLadder": 224,
     "afterTransforms": 224,
-    "promptTotal": 545,
+    "promptTotal": 562,
     "raw": 22,
-    "reductionPct": -23.772727272727273,
+    "reductionPct": -24.545454545454547,
     "selected": 22,
   },
   "transforms": [

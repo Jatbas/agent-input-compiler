@@ -226,4 +226,41 @@ describe("PromptAssembler", () => {
     expect(resultEmpty).not.toContain("## Session context");
     expect(resultUndefined).not.toContain("## Session context");
   });
+
+  it("assemble_includes_project_structure_when_provided", async () => {
+    const reader: FileContentReader = { getContent: () => Promise.resolve("") };
+    const assembler = new PromptAssembler(reader);
+    const result = await assembler.assemble(
+      task,
+      [],
+      [],
+      OUTPUT_FORMAT.PLAIN,
+      undefined,
+      undefined,
+      "src/ (2 files)",
+    );
+    expect(result).toContain("## Project structure");
+    expect(result).toContain("src/ (2 files)");
+    const contextIdx = result.indexOf("## Context");
+    const structureIdx = result.indexOf("## Project structure");
+    expect(structureIdx).toBeGreaterThanOrEqual(0);
+    expect(contextIdx).toBeGreaterThan(structureIdx);
+  });
+
+  it("assemble_omits_project_structure_when_empty", async () => {
+    const reader: FileContentReader = { getContent: () => Promise.resolve("") };
+    const assembler = new PromptAssembler(reader);
+    const resultNoArg = await assembler.assemble(task, [], [], OUTPUT_FORMAT.PLAIN);
+    const resultEmpty = await assembler.assemble(
+      task,
+      [],
+      [],
+      OUTPUT_FORMAT.PLAIN,
+      undefined,
+      undefined,
+      "",
+    );
+    expect(resultNoArg).not.toContain("## Project structure");
+    expect(resultEmpty).not.toContain("## Project structure");
+  });
 });

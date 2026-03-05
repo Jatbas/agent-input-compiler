@@ -10,5 +10,6 @@ export interface PromptAssembler {
     format: OutputFormat,
     specFiles?: readonly SelectedFile[],
     sessionContextSummary?: string,
+    structuralMap?: string,
   ): Promise<string>;
 }

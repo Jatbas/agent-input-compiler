@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { InspectRunner } from "../inspect-runner.js";
 import { ConversationCompressorImpl } from "../conversation-compressor.js";
+import { StructuralMapBuilder } from "../structural-map-builder.js";
 import type { IntentClassifier } from "#core/interfaces/intent-classifier.interface.js";
 import type { RulePackResolver } from "#core/interfaces/rule-pack-resolver.interface.js";
 import type { BudgetAllocator } from "#core/interfaces/budget-allocator.interface.js";
@@ -175,6 +176,7 @@ describe("InspectRunner", () => {
         }),
       } as SpecFileDiscoverer,
       conversationCompressor: new ConversationCompressorImpl() as ConversationCompressor,
+      structuralMapBuilder: new StructuralMapBuilder(),
     };
     const runner = new InspectRunner(deps, mockClock as Clock);
 
@@ -236,6 +238,7 @@ describe("InspectRunner", () => {
         }),
       } as SpecFileDiscoverer,
       conversationCompressor: new ConversationCompressorImpl() as ConversationCompressor,
+      structuralMapBuilder: new StructuralMapBuilder(),
     };
     const runner = new InspectRunner(deps, mockClock as Clock);
 
@@ -289,6 +292,7 @@ describe("InspectRunner", () => {
         }),
       } as SpecFileDiscoverer,
       conversationCompressor: new ConversationCompressorImpl() as ConversationCompressor,
+      structuralMapBuilder: new StructuralMapBuilder(),
     };
     const runner = new InspectRunner(deps, mockClock as Clock);
 

@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 10/32 done
+**Phase 1.0:** 11/32 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -43,7 +43,7 @@ Improve file selection precision and token reduction beyond the current heuristi
 | Adaptive scoring weights per task class        | Done    | shared/src/pipeline/ | —                        | Per-task-class weight profiles (bugfix → recency, refactor → import proximity) |
 | Reverse dependency walking (bidirectional BFS) | Done    | shared/src/pipeline/ | —                        | Invert import graph to also score files that import seed files                 |
 | Symbol-level intent matching                   | Done    | shared/src/pipeline/ | —                        | Match intent subject tokens against exported symbol names via subjectTokens    |
-| Structural context map (RIG-inspired)          | Pending | shared/src/pipeline/ | —                        | Compact project architecture summary injected before code context              |
+| Structural context map (RIG-inspired)          | Done    | shared/src/pipeline/ | —                        | Compact project architecture summary injected before code context              |
 | Chunk-level file inclusion                     | Pending | shared/src/pipeline/ | Symbol-level intent (#1) | Include only relevant functions/blocks instead of whole files                  |
 
 **Notes:**
@@ -305,9 +305,10 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2025-03-05
 
-**Components:** Adaptive budget allocation (session history), Adaptive scoring weights per task class, Reverse dependency walking (bidirectional BFS), Symbol-level intent matching
+**Components:** Adaptive budget allocation (session history), Adaptive scoring weights per task class, Reverse dependency walking (bidirectional BFS), Symbol-level intent matching, Structural context map (RIG-inspired)
 **Completed:**
 
+- Structural context map (RIG-inspired) (task 095): StructuralMapBuilder interface and implementation; directory tree from repoMap.files up to depth 4, one line per dir "{dir}/ (n files)", sorted; PromptAssembler optional 7th param structuralMap, injects ## Project structure before ## Context; run-pipeline-steps and create-pipeline-deps wire builder; four structural-map-builder tests, two prompt-assembler tests; integration snapshots updated. Lint, typecheck, test, lint:clones 0.
 - Symbol-level intent matching (task 093): TaskClassification.subjectTokens; IntentClassifier extractSubjectTokens (STOPWORDS, ALL*CLASSIFIER_KEYWORDS); SymbolRelevanceScorer (ImportProximityScorer) getScores by subjectTokens vs extractNames; HeuristicSelector fourth param symbolRelevanceScorer, DEFAULT_WEIGHTS_BY_TASK_CLASS rebalanced with symbolRelevance 0.2; ScoringWeights.symbolRelevance; create-pipeline-deps wires SymbolRelevanceScorer; intent-classifier tests (subject_tokens*\*), symbol-relevance-scorer tests (5). Golden/full-pipeline snapshots updated. Lint, typecheck, test, lint:clones 0.
 - Adaptive budget allocation (session history) (task 090): SessionBudgetContext type; BudgetAllocator.allocate optional sessionContext; session cap via CONTEXT_WINDOW_DEFAULT/RESERVED_RESPONSE_DEFAULT/TEMPLATE_OVERHEAD_DEFAULT; PipelineStepsRequest.conversationTokens; runPipelineSteps passes sessionContext to allocate; compilation-runner forwards request.conversationTokens into pipelineRequest; three new budget-allocator tests (session_cap_applied_when_conversation_tokens_provided, cap_does_not_exceed_base_budget, available_budget_clamped_non_negative). Lint, typecheck, test, knip (no new findings), lint:clones 0.
 - Adaptive scoring weights per task class (task 091): ScoringWeights type in heuristic-selector-config; DEFAULT_WEIGHTS_BY_TASK_CLASS (REFACTOR/BUGFIX/DOCS/FEATURE/TEST/GENERAL); selectContext uses config.weights ?? DEFAULT_WEIGHTS_BY_TASK_CLASS[task.taskClass]; four tests (refactor_uses_higher_import_proximity_weight, bugfix_uses_higher_recency_and_import_weights, docs_uses_higher_path_relevance_weight, config_weights_override_per_task_defaults). Lint, typecheck, test, lint:clones 0.

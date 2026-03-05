@@ -7,6 +7,11 @@ refactor
 ## Task Classification
 Type: refactor (confidence: 0.07692307692307693)
 
+## Project structure
+
+src/ (1 files)
+src/auth/ (1 files)
+
 ## Context
 ### src/auth/service.ts [Tier: L0]
 // MIT License

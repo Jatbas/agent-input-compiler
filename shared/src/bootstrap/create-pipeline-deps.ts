@@ -39,6 +39,7 @@ import { TypeDeclarationCompactor } from "#pipeline/type-declaration-compactor.j
 import { ContentTransformerPipeline } from "#pipeline/content-transformer-pipeline.js";
 import { SummarisationLadder } from "#pipeline/summarisation-ladder.js";
 import { PromptAssembler } from "#pipeline/prompt-assembler.js";
+import { StructuralMapBuilder } from "#pipeline/structural-map-builder.js";
 import { IntentAwareFileDiscoverer } from "#pipeline/intent-aware-file-discoverer.js";
 import { SpecFileDiscoverer } from "#pipeline/spec-file-discoverer.js";
 import { ConversationCompressorImpl } from "#pipeline/conversation-compressor.js";
@@ -154,6 +155,7 @@ export function createPipelineDeps(
     fileContentReader,
   );
   const promptAssembler = new PromptAssembler(fileContentReader);
+  const structuralMapBuilder = new StructuralMapBuilder();
   const intentAwareFileDiscoverer = new IntentAwareFileDiscoverer();
   const specFileDiscoverer = new SpecFileDiscoverer();
   const conversationCompressor = new ConversationCompressorImpl();
@@ -166,6 +168,7 @@ export function createPipelineDeps(
     contentTransformerPipeline,
     summarisationLadder,
     promptAssembler,
+    structuralMapBuilder,
     intentAwareFileDiscoverer,
     tokenCounter: tiktokenAdapter,
     specFileDiscoverer,

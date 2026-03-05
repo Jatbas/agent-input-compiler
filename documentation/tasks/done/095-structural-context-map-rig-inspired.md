@@ -1,6 +1,6 @@
 # Task 095: Structural context map (RIG-inspired)
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** P (Context Quality & Token Efficiency)
 > **Layer:** pipeline (+ core interface, runner, bootstrap)
 > **Depends on:** —

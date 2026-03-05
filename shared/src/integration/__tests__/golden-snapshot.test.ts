@@ -34,6 +34,7 @@ import { PromptAssembler } from "#pipeline/prompt-assembler.js";
 import { IntentAwareFileDiscoverer } from "#pipeline/intent-aware-file-discoverer.js";
 import { SpecFileDiscoverer } from "#pipeline/spec-file-discoverer.js";
 import { ConversationCompressorImpl } from "#pipeline/conversation-compressor.js";
+import { StructuralMapBuilder } from "#pipeline/structural-map-builder.js";
 import { TiktokenAdapter } from "#adapters/tiktoken-adapter.js";
 import { TypeScriptProvider } from "#adapters/typescript-provider.js";
 import { GenericProvider } from "#adapters/generic-provider.js";
@@ -177,6 +178,7 @@ function createRunner(fixtureRoot: ReturnType<typeof toAbsolutePath>): InspectRu
     tokenCounter: tiktokenAdapter,
     specFileDiscoverer: new SpecFileDiscoverer(),
     conversationCompressor: new ConversationCompressorImpl(),
+    structuralMapBuilder: new StructuralMapBuilder(),
   };
   return new InspectRunner(deps, mockClock);
 }

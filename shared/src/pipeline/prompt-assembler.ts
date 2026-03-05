@@ -46,12 +46,17 @@ export class PromptAssembler implements IPromptAssembler {
     format: OutputFormat,
     specFiles?: readonly SelectedFile[],
     sessionContextSummary?: string,
+    structuralMap?: string,
   ): Promise<string> {
     const intent = task.matchedKeywords.join(" ") || task.taskClass;
     const specParts = await buildSpecParts(this.fileContentReader, specFiles ?? []);
     const sessionContextBlock =
       sessionContextSummary !== undefined && sessionContextSummary !== ""
         ? ["## Session context", "", sessionContextSummary, ""]
+        : [];
+    const projectStructureBlock =
+      structuralMap !== undefined && structuralMap !== ""
+        ? ["## Project structure", "", structuralMap, ""]
         : [];
     const needContent = files.filter((f) => f.previouslyShownAtStep === undefined);
     const contents = await Promise.all(
@@ -82,6 +87,7 @@ export class PromptAssembler implements IPromptAssembler {
       "",
       ...specParts,
       ...sessionContextBlock,
+      ...projectStructureBlock,
       "## Context",
       ...contextParts,
       ...constraintSection,

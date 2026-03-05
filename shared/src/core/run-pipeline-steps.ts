@@ -7,6 +7,7 @@ import type { ContextGuard } from "#core/interfaces/context-guard.interface.js";
 import type { ContentTransformerPipeline } from "#core/interfaces/content-transformer-pipeline.interface.js";
 import type { SummarisationLadder } from "#core/interfaces/summarisation-ladder.interface.js";
 import type { PromptAssembler } from "#core/interfaces/prompt-assembler.interface.js";
+import type { StructuralMapBuilder } from "#core/interfaces/structural-map-builder.interface.js";
 import type { RepoMapSupplier } from "#core/interfaces/repo-map-supplier.interface.js";
 import type { SpecFileDiscoverer } from "#core/interfaces/spec-file-discoverer.interface.js";
 import type { IntentAwareFileDiscoverer } from "#core/interfaces/intent-aware-file-discoverer.interface.js";
@@ -40,6 +41,7 @@ export interface PipelineStepsDeps {
   readonly tokenCounter: TokenCounter;
   readonly specFileDiscoverer: SpecFileDiscoverer;
   readonly conversationCompressor: ConversationCompressor;
+  readonly structuralMapBuilder: StructuralMapBuilder;
   readonly agenticSessionState?: AgenticSessionState | null;
 }
 
@@ -178,6 +180,7 @@ export async function runPipelineSteps(
           deps.agenticSessionState.getSteps(request.sessionId),
         )
       : "";
+  const structuralMap = deps.structuralMapBuilder.build(repoMap);
   const assembledPrompt = await deps.promptAssembler.assemble(
     task,
     ladderFiles,
@@ -185,6 +188,7 @@ export async function runPipelineSteps(
     OUTPUT_FORMAT.UNIFIED_DIFF,
     specLadderFiles,
     sessionContextSummary,
+    structuralMap,
   );
   const promptTotal = deps.tokenCounter.countTokens(assembledPrompt);
   return {
