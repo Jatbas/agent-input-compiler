@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 13/36 done
+**Phase 1.0:** 14/36 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -43,7 +43,7 @@ Improve file selection precision, token reduction, and compilation speed beyond 
 | Symbol-level intent matching                    | Done    | shared/src/pipeline/ | —                        | Match intent subject tokens against exported symbol names via subjectTokens     |
 | Structural context map (RIG-inspired)           | Done    | shared/src/pipeline/ | —                        | Compact project architecture summary injected before code context               |
 | Chunk-level file inclusion                      | Pending | shared/src/pipeline/ | Symbol-level intent (#1) | Include only relevant functions/blocks instead of whole files                   |
-| Granular file-level transformation cache        | Pending | shared/src/storage/  | —                        | Per-file L0–L3 output cached by content hash; skip unchanged files on recompile |
+| Granular file-level transformation cache        | Done    | shared/src/storage/  | —                        | Per-file L0–L3 output cached by content hash; skip unchanged files on recompile |
 | Scan: eliminate double-stat via fast-glob stats | Done    | shared/src/adapters/ | —                        | Use fast-glob `stats: true` to avoid second `fs.statSync` pass over all files   |
 | Scan: async parallel file system I/O            | Done    | shared/src/adapters/ | Eliminate double-stat    | Replace `fg.sync`/`fs.statSync` with async + `Promise.all` for parallel I/O     |
 | Scan: cached RepoMap with file watcher          | Pending | shared/src/adapters/ | Async parallel I/O       | `fs.watch` keeps RepoMap in memory; subsequent `getRepoMap()` returns instantly |
@@ -310,9 +310,10 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2025-03-05
 
-**Components:** Adaptive budget allocation (session history), Adaptive scoring weights per task class, Reverse dependency walking (bidirectional BFS), Symbol-level intent matching, Structural context map (RIG-inspired), Scan: eliminate double-stat via fast-glob stats, Scan: async parallel file system I/O
+**Components:** Adaptive budget allocation (session history), Adaptive scoring weights per task class, Reverse dependency walking (bidirectional BFS), Symbol-level intent matching, Structural context map (RIG-inspired), Scan: eliminate double-stat via fast-glob stats, Scan: async parallel file system I/O, Granular file-level transformation cache
 **Completed:**
 
+- Granular file-level transformation cache (task 096): CachedFileTransform type; FileTransformStore interface; migration 009 file_transform_cache (file_path, content_hash PK); SqliteFileTransformStore get/set/invalidate/purgeExpired; isoToSqliteDatetime/sqliteDatetimeToIso extracted to sqlite-datetime.ts (0 clones); ProjectScope.fileTransformStore; seven store tests. Lint, typecheck, test, lint:clones 0.
 - Scan: async parallel file system I/O (task 098): GlobProvider find/findWithStats return Promise; FastGlobAdapter uses async fg() instead of fg.sync; FileSystemRepoMapSupplier getRepoMap awaits findWithStats; projectHasExtension async and awaits glob.find in init-language-providers; file-system-repo-map-supplier and fast-glob-adapter tests updated for async mocks and await. Lint, typecheck, test, lint:clones 0.
 - Scan: eliminate double-stat via fast-glob stats (task 097): PathWithStat type; GlobProvider.findWithStats; FastGlobAdapter.findWithStats with fg.sync(..., { stats: true }); FileSystemRepoMapSupplier uses findWithStats, no node:fs; four file-system-repo-map-supplier tests (findWithStats mocks), one fast-glob-adapter findWithStats test. Lint, typecheck, test, lint:clones 0.
 - Structural context map (RIG-inspired) (task 095): StructuralMapBuilder interface and implementation; directory tree from repoMap.files up to depth 4, one line per dir "{dir}/ (n files)", sorted; PromptAssembler optional 7th param structuralMap, injects ## Project structure before ## Context; run-pipeline-steps and create-pipeline-deps wire builder; four structural-map-builder tests, two prompt-assembler tests; integration snapshots updated. Lint, typecheck, test, lint:clones 0.

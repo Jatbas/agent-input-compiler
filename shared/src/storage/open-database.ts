@@ -8,6 +8,7 @@ import { migration as migration005 } from "#storage/migrations/005-trigger-sourc
 import { migration as migration006 } from "#storage/migrations/006-cache-datetime-format.js";
 import { migration as migration007 } from "#storage/migrations/007-conversation-id.js";
 import { migration as migration008 } from "#storage/migrations/008-session-state.js";
+import { migration as migration009 } from "#storage/migrations/009-file-transform-cache.js";
 import type { Clock } from "#core/interfaces/clock.interface.js";
 import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
 
@@ -26,6 +27,7 @@ export function openDatabase(dbPath: string, clock: Clock): ExecutableDb {
     migration006,
     migration007,
     migration008,
+    migration009,
   ]);
   return db;
 }

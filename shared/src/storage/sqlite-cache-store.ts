@@ -1,25 +1,12 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { AbsolutePath } from "#core/types/paths.js";
-import type { ISOTimestamp } from "#core/types/identifiers.js";
-import { toISOTimestamp } from "#core/types/identifiers.js";
 import { toTokenCount } from "#core/types/units.js";
 import type { CacheStore } from "#core/interfaces/cache-store.interface.js";
 import type { CachedCompilation } from "#core/types/compilation-types.js";
 import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
 import type { Clock } from "#core/interfaces/clock.interface.js";
-
-const SQLITE_DATETIME_LEN = 19;
-
-function isoToSqliteDatetime(iso: string): string {
-  const prefix = iso.slice(0, SQLITE_DATETIME_LEN);
-  return prefix.includes("T") ? prefix.replace("T", " ") : prefix;
-}
-
-function sqliteDatetimeToIso(sqlite: string): ISOTimestamp {
-  if (sqlite.includes("T")) return sqlite as ISOTimestamp;
-  return toISOTimestamp(sqlite.slice(0, 10) + "T" + sqlite.slice(11, 19) + ".000Z");
-}
+import { isoToSqliteDatetime, sqliteDatetimeToIso } from "#storage/sqlite-datetime.js";
 
 function safeBlobFilename(key: string): string {
   const base64 = Buffer.from(key, "utf8").toString("base64");

@@ -1,6 +1,6 @@
 # Task 096: Granular file-level transformation cache
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** P (Context Quality & Token Efficiency)
 > **Layer:** storage
 > **Depends on:** —
@@ -26,6 +26,7 @@ Add a per-file transformation cache store (interface, types, migration, SqliteFi
 | Create | `shared/src/storage/migrations/009-file-transform-cache.ts`                                                  |
 | Create | `shared/src/storage/sqlite-file-transform-store.ts`                                                          |
 | Create | `shared/src/storage/__tests__/sqlite-file-transform-store.test.ts`                                           |
+| Modify | `shared/src/storage/open-database.ts` (import and register migration009 in migrationRunner.run array)        |
 | Modify | `shared/src/storage/create-project-scope.ts` (add fileTransformStore to ProjectScope and createProjectScope) |
 
 ## Interface / Signature
@@ -124,9 +125,15 @@ Create `shared/src/storage/migrations/009-file-transform-cache.ts`. Export `migr
 
 **Verify:** Migration file exists; `pnpm typecheck` passes.
 
+### Step 3b: Register migration 009 in open-database.ts
+
+In `shared/src/storage/open-database.ts`: add `import { migration as migration009 } from "#storage/migrations/009-file-transform-cache.js";` alongside the other migration imports. Append `migration009` to the array passed to `migrationRunner.run()`.
+
+**Verify:** `pnpm typecheck` passes.
+
 ### Step 4: Implement get and set in SqliteFileTransformStore
 
-Create `shared/src/storage/sqlite-file-transform-store.ts`. Class implements FileTransformStore; constructor(db: ExecutableDb, clock: Clock). Implement get(filePath, contentHash): SELECT row where file_path = ? AND content_hash = ? AND expires_at > clock.now(); if no row return null; parse tier_outputs_json (JSON.parse) and map tokens with toTokenCount; return CachedFileTransform with toISOTimestamp for created_at and expires_at. Implement set(entry): serialize tierOutputs to JSON (tokens as number); INSERT OR REPLACE into file_transform_cache with entry.filePath, entry.contentHash, transformed_content, tier_outputs_json, isoToSqliteDatetime(entry.createdAt), isoToSqliteDatetime(entry.expiresAt). Use SQLite TEXT for timestamps in YYYY-MM-DD HH:MM:SS format (same as cache_metadata). Add two helper functions in the same file: isoToSqliteDatetime(iso: string) returning string (slice 0–19, replace "T" with " ") and sqliteDatetimeToIso(sqlite: string) returning ISOTimestamp (reverse conversion).
+Create `shared/src/storage/sqlite-file-transform-store.ts`. Class implements FileTransformStore; constructor(db: ExecutableDb, clock: Clock). Add two module-private helper functions (same pattern as SqliteCacheStore): isoToSqliteDatetime(iso: string) returning string (slice 0–19, replace "T" with " ") and sqliteDatetimeToIso(sqlite: string) returning ISOTimestamp (reverse conversion). Implement get(filePath, contentHash): bind `const nowSql = isoToSqliteDatetime(this.clock.now())`, SELECT row where file_path = ? AND content_hash = ? AND expires_at > ? (passing nowSql as the third param). Cast result with `as readonly { file_path: string; content_hash: string; transformed_content: string; tier_outputs_json: string; created_at: string; expires_at: string }[]` (established row-shape cast pattern from ExecutableDb.prepare().all()). If rows[0] is undefined return null; parse tier_outputs_json (JSON.parse) and map tokens with toTokenCount; return CachedFileTransform with sqliteDatetimeToIso for created_at and expires_at. Implement set(entry): serialize tierOutputs to JSON (tokens as number); INSERT OR REPLACE into file_transform_cache with entry.filePath, entry.contentHash, transformed_content, tier_outputs_json, isoToSqliteDatetime(entry.createdAt), isoToSqliteDatetime(entry.expiresAt).
 
 **Verify:** `pnpm typecheck` and `pnpm lint` pass. Store file has no imports of node:fs or node:path.
 
