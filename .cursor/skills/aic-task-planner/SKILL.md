@@ -72,17 +72,14 @@ The planner operates in a dedicated worktree based on `main` so that task files 
 
    If this fails (not on main, or diverged), tell the user: "Cannot fast-forward main. Please resolve manually before planning." Do not proceed.
 
-2. Create a worktree for planning:
+2. Generate a unique worktree name using the Unix epoch:
 
    ```
-   git worktree add -b plan/next-task .git-worktrees/plan-next-task main
+   EPOCH=$(date +%s)
+   git worktree add -b plan/$EPOCH .git-worktrees/plan-$EPOCH main
    ```
 
-   If the branch or worktree directory already exists (stale from a previous run), prune and retry:
-
-   ```
-   git worktree prune && git branch -D plan/next-task 2>/dev/null; git worktree add -b plan/next-task .git-worktrees/plan-next-task main
-   ```
+   The epoch suffix guarantees uniqueness — multiple planners can run in parallel without name collisions. **Store the epoch value** (e.g. `1741209600`) — you will use it in branch/directory names throughout.
 
 3. Install dependencies in the worktree (needed for `.d.ts` reads during exploration):
 
@@ -98,9 +95,9 @@ The planner operates in a dedicated worktree based on `main` so that task files 
    - Commit in the worktree (run with `working_directory` set to the worktree):
      `git add documentation/tasks/NNN-name.md && git commit -m "docs(tasks): plan task NNN — <component name>"`
    - From the **main workspace root**, merge:
-     `git merge --squash plan/next-task && git commit -m "docs(tasks): plan task NNN — <component name>"`
+     `git merge --squash plan/$EPOCH && git commit -m "docs(tasks): plan task NNN — <component name>"`
    - Clean up:
-     `git worktree remove .git-worktrees/plan-next-task && git branch -D plan/next-task`
+     `git worktree remove .git-worktrees/plan-$EPOCH && git branch -D plan/$EPOCH`
    - If the merge has conflicts (rare for documentation-only changes), resolve them: read each conflicted file, fix conflict markers, stage, and commit. If unresolvable, tell the user.
 
 ---
