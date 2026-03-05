@@ -6,7 +6,7 @@ import { toUUIDv7, toISOTimestamp, toRepoId } from "#core/types/identifiers.js";
 import { toTokenCount, toMilliseconds } from "#core/types/units.js";
 import { toRelativePath } from "#core/types/paths.js";
 import { EDITOR_ID, INCLUSION_TIER, TASK_CLASS } from "#core/types/enums.js";
-import { toPercentage } from "#core/types/scores.js";
+import { toPercentage, toConfidence } from "#core/types/scores.js";
 import { GUARD_FINDING_TYPE, GUARD_SEVERITY } from "#core/types/enums.js";
 
 function metaOverrides(overrides: Partial<CompilationMeta>): CompilationMeta {
@@ -30,6 +30,7 @@ function metaOverrides(overrides: Partial<CompilationMeta>): CompilationMeta {
       [INCLUSION_TIER.L3]: 0,
     },
     guard: null,
+    contextCompleteness: toConfidence(1),
     ...overrides,
   };
 }

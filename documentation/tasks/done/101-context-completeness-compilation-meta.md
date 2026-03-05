@@ -1,6 +1,6 @@
 # Task 101: contextCompleteness confidence signal in CompilationMeta
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** Q (Research-Backed Quality & Security)
 > **Layer:** core (type) + pipeline (wiring)
 > **Depends on:** —

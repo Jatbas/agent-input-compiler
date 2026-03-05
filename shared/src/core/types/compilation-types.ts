@@ -1,6 +1,6 @@
 import type { AbsolutePath, FilePath, RelativePath } from "#core/types/paths.js";
 import type { TokenCount, Milliseconds, StepIndex } from "#core/types/units.js";
-import type { Percentage } from "#core/types/scores.js";
+import type { Percentage, Confidence } from "#core/types/scores.js";
 import type { SessionId, ConversationId, ISOTimestamp } from "#core/types/identifiers.js";
 import type {
   TaskClass,
@@ -48,6 +48,7 @@ export interface CompilationMeta {
   readonly transformTokensSaved: TokenCount;
   readonly summarisationTiers: Readonly<Record<InclusionTier, number>>;
   readonly guard: GuardResult | null;
+  readonly contextCompleteness: Confidence;
 }
 
 export interface CachedCompilation {

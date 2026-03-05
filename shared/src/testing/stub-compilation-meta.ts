@@ -1,7 +1,7 @@
 // Temporary stub — remove when real CompilationRunner is wired.
 import type { CompilationMeta } from "#core/types/compilation-types.js";
 import { toTokenCount, toMilliseconds } from "#core/types/units.js";
-import { toPercentage } from "#core/types/scores.js";
+import { toPercentage, toConfidence } from "#core/types/scores.js";
 import { TASK_CLASS, EDITOR_ID, INCLUSION_TIER } from "#core/types/enums.js";
 
 export const STUB_COMPILATION_META: CompilationMeta = {
@@ -24,4 +24,5 @@ export const STUB_COMPILATION_META: CompilationMeta = {
     [INCLUSION_TIER.L3]: 0,
   },
   guard: null,
+  contextCompleteness: toConfidence(1),
 };

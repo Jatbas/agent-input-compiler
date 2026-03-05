@@ -23,7 +23,7 @@ import type { ISOTimestamp } from "#core/types/identifiers.js";
 import type { InclusionTier } from "#core/types/enums.js";
 import { toTokenCount, toStepIndex } from "#core/types/units.js";
 import { toMilliseconds } from "#core/types/units.js";
-import { toPercentage } from "#core/types/scores.js";
+import { toPercentage, toConfidence } from "#core/types/scores.js";
 import { runPipelineSteps } from "#core/run-pipeline-steps.js";
 import {
   sumFileTokens,
@@ -59,6 +59,7 @@ function buildCacheHitMeta(
     transformTokensSaved: toTokenCount(0),
     summarisationTiers: { L0: 0, L1: 0, L2: 0, L3: 0 },
     guard: null,
+    contextCompleteness: toConfidence(1),
   };
 }
 
@@ -86,6 +87,7 @@ function buildFreshMeta(
     transformTokensSaved: toTokenCount(Math.max(0, beforeTransform - afterTransforms)),
     summarisationTiers: buildSummarisationTiers(r.ladderFiles),
     guard: r.guardResult,
+    contextCompleteness: toConfidence(1),
   };
 }
 

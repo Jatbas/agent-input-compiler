@@ -10,7 +10,7 @@ import type { TelemetryEvent } from "@aic/shared/core/types/telemetry-types.js";
 import type { ISOTimestamp, UUIDv7 } from "@aic/shared/core/types/identifiers.js";
 import type { Milliseconds } from "@aic/shared/core/types/units.js";
 import { toTokenCount, toMilliseconds } from "@aic/shared/core/types/units.js";
-import { toPercentage } from "@aic/shared/core/types/scores.js";
+import { toPercentage, toConfidence } from "@aic/shared/core/types/scores.js";
 import { toSessionId, toConversationId } from "@aic/shared/core/types/identifiers.js";
 import {
   EDITOR_ID,
@@ -39,6 +39,7 @@ const stubMeta: CompilationMeta = {
     [INCLUSION_TIER.L3]: 0,
   },
   guard: null,
+  contextCompleteness: toConfidence(1),
 };
 
 const stubCompilationId = "00000000-0000-7000-8000-000000000050" as UUIDv7;
