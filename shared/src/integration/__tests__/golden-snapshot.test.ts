@@ -30,6 +30,7 @@ import { JsonCompactor } from "#pipeline/json-compactor.js";
 import { LockFileSkipper } from "#pipeline/lock-file-skipper.js";
 import { ContentTransformerPipeline } from "#pipeline/content-transformer-pipeline.js";
 import { SummarisationLadder } from "#pipeline/summarisation-ladder.js";
+import { LineLevelPruner } from "#pipeline/line-level-pruner.js";
 import { PromptAssembler } from "#pipeline/prompt-assembler.js";
 import { IntentAwareFileDiscoverer } from "#pipeline/intent-aware-file-discoverer.js";
 import { SpecFileDiscoverer } from "#pipeline/spec-file-discoverer.js";
@@ -172,6 +173,7 @@ function createRunner(fixtureRoot: ReturnType<typeof toAbsolutePath>): InspectRu
     contextGuard,
     contentTransformerPipeline,
     summarisationLadder,
+    lineLevelPruner: new LineLevelPruner(tiktokenAdapter, fileContentReader),
     promptAssembler,
     intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
     repoMapSupplier: mockRepoMapSupplier,

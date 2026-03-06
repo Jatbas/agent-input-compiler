@@ -31,6 +31,7 @@ export interface PipelineTrace {
     readonly afterGuard: TokenCount;
     readonly afterTransforms: TokenCount;
     readonly afterLadder: TokenCount;
+    readonly afterPrune: TokenCount;
     readonly promptTotal: TokenCount;
     readonly reductionPct: Percentage;
   };

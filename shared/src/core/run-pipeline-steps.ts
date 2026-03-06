@@ -6,6 +6,7 @@ import type { ContextSelector } from "#core/interfaces/context-selector.interfac
 import type { ContextGuard } from "#core/interfaces/context-guard.interface.js";
 import type { ContentTransformerPipeline } from "#core/interfaces/content-transformer-pipeline.interface.js";
 import type { SummarisationLadder } from "#core/interfaces/summarisation-ladder.interface.js";
+import type { LineLevelPruner } from "#core/interfaces/line-level-pruner.interface.js";
 import type { PromptAssembler } from "#core/interfaces/prompt-assembler.interface.js";
 import type { StructuralMapBuilder } from "#core/interfaces/structural-map-builder.interface.js";
 import type { RepoMapSupplier } from "#core/interfaces/repo-map-supplier.interface.js";
@@ -35,6 +36,7 @@ export interface PipelineStepsDeps {
   readonly contextGuard: ContextGuard;
   readonly contentTransformerPipeline: ContentTransformerPipeline;
   readonly summarisationLadder: SummarisationLadder;
+  readonly lineLevelPruner: LineLevelPruner;
   readonly promptAssembler: PromptAssembler;
   readonly repoMapSupplier: RepoMapSupplier;
   readonly intentAwareFileDiscoverer: IntentAwareFileDiscoverer;
@@ -65,6 +67,7 @@ export interface PipelineStepsResult {
   readonly safeFiles: readonly SelectedFile[];
   readonly transformResult: TransformResult;
   readonly ladderFiles: readonly SelectedFile[];
+  readonly prunedFiles: readonly SelectedFile[];
   readonly assembledPrompt: string;
   readonly promptTotal: TokenCount;
 }
@@ -179,6 +182,10 @@ export async function runPipelineSteps(
     budget,
     task.subjectTokens,
   );
+  const prunedFiles =
+    task.subjectTokens.length > 0
+      ? await deps.lineLevelPruner.prune(ladderFiles, task.subjectTokens)
+      : ladderFiles;
   const sessionContextSummary =
     request.sessionId && deps.agenticSessionState
       ? deps.conversationCompressor.compress(
@@ -188,7 +195,7 @@ export async function runPipelineSteps(
   const structuralMap = deps.structuralMapBuilder.build(repoMap);
   const assembledPrompt = await deps.promptAssembler.assemble(
     task,
-    ladderFiles,
+    prunedFiles,
     rulePack.constraints,
     OUTPUT_FORMAT.UNIFIED_DIFF,
     specLadderFiles,
@@ -207,6 +214,7 @@ export async function runPipelineSteps(
     safeFiles,
     transformResult,
     ladderFiles,
+    prunedFiles,
     assembledPrompt,
     promptTotal,
   };

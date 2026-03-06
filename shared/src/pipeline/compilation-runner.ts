@@ -74,7 +74,7 @@ function buildFreshMeta(
   return {
     intent: request.intent,
     taskClass: r.task.taskClass,
-    filesSelected: r.selectedFiles.length,
+    filesSelected: r.prunedFiles.length,
     filesTotal: r.repoMap.totalFiles,
     tokensRaw: r.repoMap.totalTokens,
     tokensCompiled: r.promptTotal,
@@ -205,14 +205,14 @@ function recordSessionStepIfNeeded(
 ): void {
   if (!request.sessionId || !agenticSessionState) return;
   const stepIndex = request.stepIndex ?? toStepIndex(0);
-  const tiers = r.ladderFiles.reduce<Record<string, InclusionTier>>(
+  const tiers = r.prunedFiles.reduce<Record<string, InclusionTier>>(
     (acc, f) => ({ ...acc, [f.path]: f.tier }),
     {},
   );
   agenticSessionState.recordStep(request.sessionId, {
     stepIndex,
     stepIntent: request.stepIntent ?? null,
-    filesSelected: r.ladderFiles.map((f) => f.path),
+    filesSelected: r.prunedFiles.map((f) => f.path),
     tiers,
     tokensCompiled: r.promptTotal,
     toolOutputs: request.toolOutputs ?? [],

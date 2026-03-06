@@ -42,6 +42,7 @@ export class InspectRunner implements IInspectRunner {
         afterGuard: sumFileTokens(r.safeFiles),
         afterTransforms: sumTransformTokens(r.transformResult.metadata),
         afterLadder: sumFileTokens(r.ladderFiles),
+        afterPrune: sumFileTokens(r.prunedFiles),
         promptTotal: r.promptTotal,
         reductionPct,
       },

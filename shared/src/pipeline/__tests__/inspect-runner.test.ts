@@ -9,6 +9,7 @@ import type { ContextSelector } from "#core/interfaces/context-selector.interfac
 import type { ContextGuard } from "#core/interfaces/context-guard.interface.js";
 import type { ContentTransformerPipeline } from "#core/interfaces/content-transformer-pipeline.interface.js";
 import type { SummarisationLadder } from "#core/interfaces/summarisation-ladder.interface.js";
+import type { LineLevelPruner } from "#core/interfaces/line-level-pruner.interface.js";
 import type { PromptAssembler } from "#core/interfaces/prompt-assembler.interface.js";
 import type { RepoMapSupplier } from "#core/interfaces/repo-map-supplier.interface.js";
 import type { IntentAwareFileDiscoverer } from "#core/interfaces/intent-aware-file-discoverer.interface.js";
@@ -20,7 +21,7 @@ import type { InspectRequest } from "#core/types/inspect-types.js";
 import type { TaskClassification } from "#core/types/task-classification.js";
 import type { RulePack } from "#core/types/rule-pack.js";
 import type { RepoMap } from "#core/types/repo-map.js";
-import type { ContextResult } from "#core/types/selected-file.js";
+import type { ContextResult, SelectedFile } from "#core/types/selected-file.js";
 import type { GuardResult } from "#core/types/guard-types.js";
 import type { TransformResult } from "#core/types/transform-types.js";
 import type { ISOTimestamp } from "#core/types/identifiers.js";
@@ -162,6 +163,9 @@ describe("InspectRunner", () => {
       contentTransformerPipeline:
         mockContentTransformerPipeline as ContentTransformerPipeline,
       summarisationLadder: mockSummarisationLadder as SummarisationLadder,
+      lineLevelPruner: {
+        prune: (files: readonly SelectedFile[]) => Promise.resolve([...files]),
+      } as LineLevelPruner,
       promptAssembler: mockPromptAssembler as PromptAssembler,
       intentAwareFileDiscoverer: {
         discover: (repo: RepoMap) => repo,
@@ -224,6 +228,9 @@ describe("InspectRunner", () => {
       contentTransformerPipeline:
         mockContentTransformerPipeline as ContentTransformerPipeline,
       summarisationLadder: mockSummarisationLadder as SummarisationLadder,
+      lineLevelPruner: {
+        prune: (files: readonly SelectedFile[]) => Promise.resolve([...files]),
+      } as LineLevelPruner,
       promptAssembler: mockPromptAssembler as PromptAssembler,
       intentAwareFileDiscoverer: {
         discover: (repo: RepoMap) => repo,
@@ -278,6 +285,9 @@ describe("InspectRunner", () => {
       contentTransformerPipeline:
         mockContentTransformerPipeline as ContentTransformerPipeline,
       summarisationLadder: mockSummarisationLadder as SummarisationLadder,
+      lineLevelPruner: {
+        prune: (files: readonly SelectedFile[]) => Promise.resolve([...files]),
+      } as LineLevelPruner,
       promptAssembler: mockPromptAssembler as PromptAssembler,
       intentAwareFileDiscoverer: {
         discover: (repo: RepoMap) => repo,

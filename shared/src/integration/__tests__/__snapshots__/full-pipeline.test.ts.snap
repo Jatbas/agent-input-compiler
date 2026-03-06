@@ -14,23 +14,15 @@ src/auth/ (1 files)
 
 ## Context
 ### src/auth/service.ts [Tier: L0]
-export function validateToken(token: string): { }
-/**
- * Validates a JWT token and returns the decoded payload.
  * @param token - The JWT string to validate
  * @returns The decoded user payload or null if invalid
  */
 export function validateToken(token: string): { userId: string; role: string } | null {
   // Check token format before processing
-  if (!token.startsWith("Bearer ")) {
     return null;
   }
 
-  // Extract the actual token value
-  const raw = token.slice(7);
 
-  // Simple validation — in production this would verify signature
-  if (raw.length < 10) {
     return null;
   }
 

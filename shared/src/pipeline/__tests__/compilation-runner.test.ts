@@ -46,6 +46,7 @@ import { JsonCompactor } from "../json-compactor.js";
 import { LockFileSkipper } from "../lock-file-skipper.js";
 import { ContentTransformerPipeline } from "../content-transformer-pipeline.js";
 import { SummarisationLadder } from "../summarisation-ladder.js";
+import { LineLevelPruner } from "../line-level-pruner.js";
 import { PromptAssembler } from "../prompt-assembler.js";
 import { IntentAwareFileDiscoverer } from "../intent-aware-file-discoverer.js";
 import { SpecFileDiscoverer } from "../spec-file-discoverer.js";
@@ -265,6 +266,7 @@ describe("CompilationRunner", () => {
       contextGuard,
       contentTransformerPipeline,
       summarisationLadder,
+      lineLevelPruner: new LineLevelPruner(tiktokenAdapter, fileContentReader),
       promptAssembler,
       intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
       repoMapSupplier: mockRepoMapSupplier,
@@ -311,6 +313,7 @@ describe("CompilationRunner", () => {
       contextGuard,
       contentTransformerPipeline,
       summarisationLadder,
+      lineLevelPruner: new LineLevelPruner(tiktokenAdapter, fileContentReader),
       promptAssembler,
       intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
       repoMapSupplier: mockRepoMapSupplier,
@@ -362,6 +365,7 @@ describe("CompilationRunner", () => {
       contextGuard,
       contentTransformerPipeline,
       summarisationLadder,
+      lineLevelPruner: new LineLevelPruner(tiktokenAdapter, fileContentReader),
       promptAssembler,
       intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
       repoMapSupplier: rejectingRepoMapSupplier,
@@ -406,6 +410,7 @@ describe("CompilationRunner", () => {
       contextGuard,
       contentTransformerPipeline,
       summarisationLadder,
+      lineLevelPruner: new LineLevelPruner(tiktokenAdapter, fileContentReader),
       promptAssembler,
       intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
       repoMapSupplier: mockRepoMapSupplier,
@@ -467,6 +472,7 @@ describe("CompilationRunner", () => {
       contextGuard,
       contentTransformerPipeline,
       summarisationLadder,
+      lineLevelPruner: new LineLevelPruner(tiktokenAdapter, fileContentReader),
       promptAssembler,
       intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
       repoMapSupplier: mockRepoMapSupplier,
@@ -518,6 +524,7 @@ describe("CompilationRunner", () => {
       contextGuard,
       contentTransformerPipeline,
       summarisationLadder,
+      lineLevelPruner: new LineLevelPruner(tiktokenAdapter, fileContentReader),
       promptAssembler,
       intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
       repoMapSupplier: mockRepoMapSupplier,
@@ -572,6 +579,7 @@ describe("CompilationRunner", () => {
       contextGuard,
       contentTransformerPipeline,
       summarisationLadder,
+      lineLevelPruner: new LineLevelPruner(tiktokenAdapter, fileContentReader),
       promptAssembler,
       intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
       repoMapSupplier: mockRepoMapSupplier,
@@ -633,6 +641,7 @@ describe("CompilationRunner", () => {
       contextGuard,
       contentTransformerPipeline,
       summarisationLadder,
+      lineLevelPruner: new LineLevelPruner(tiktokenAdapter, fileContentReader),
       promptAssembler,
       intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
       repoMapSupplier: mockRepoMapSupplier,
@@ -690,6 +699,7 @@ describe("CompilationRunner", () => {
       contextGuard,
       contentTransformerPipeline,
       summarisationLadder,
+      lineLevelPruner: new LineLevelPruner(tiktokenAdapter, fileContentReader),
       promptAssembler,
       intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
       repoMapSupplier: mockRepoMapSupplier,
@@ -758,6 +768,7 @@ describe("CompilationRunner", () => {
       contextGuard,
       contentTransformerPipeline,
       summarisationLadder,
+      lineLevelPruner: new LineLevelPruner(tiktokenAdapter, fileContentReader),
       promptAssembler,
       intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
       repoMapSupplier: mockRepoMapSupplier,

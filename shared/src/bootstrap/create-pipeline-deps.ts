@@ -38,6 +38,7 @@ import { CssVariableSummarizer } from "#pipeline/css-variable-summarizer.js";
 import { TypeDeclarationCompactor } from "#pipeline/type-declaration-compactor.js";
 import { ContentTransformerPipeline } from "#pipeline/content-transformer-pipeline.js";
 import { SummarisationLadder } from "#pipeline/summarisation-ladder.js";
+import { LineLevelPruner } from "#pipeline/line-level-pruner.js";
 import { PromptAssembler } from "#pipeline/prompt-assembler.js";
 import { StructuralMapBuilder } from "#pipeline/structural-map-builder.js";
 import { IntentAwareFileDiscoverer } from "#pipeline/intent-aware-file-discoverer.js";
@@ -155,6 +156,7 @@ export function createPipelineDeps(
     tokenCounter,
     fileContentReader,
   );
+  const lineLevelPruner = new LineLevelPruner(tiktokenAdapter, fileContentReader);
   const promptAssembler = new PromptAssembler(fileContentReader);
   const structuralMapBuilder = new StructuralMapBuilder();
   const intentAwareFileDiscoverer = new IntentAwareFileDiscoverer();
@@ -168,6 +170,7 @@ export function createPipelineDeps(
     contextGuard,
     contentTransformerPipeline,
     summarisationLadder,
+    lineLevelPruner,
     promptAssembler,
     structuralMapBuilder,
     intentAwareFileDiscoverer,
