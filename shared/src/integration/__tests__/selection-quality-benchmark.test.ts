@@ -22,6 +22,23 @@ const fixtureRoot = toAbsolutePath(
   path.join(process.cwd(), "test", "benchmarks", "repos", "1"),
 );
 
+type PrecisionRecall = { precision: number; recall: number };
+type PerTaskClassMetrics = Record<string, PrecisionRecall>;
+
+function fileLevelPrecisionRecall(
+  actualPaths: readonly string[],
+  expectedPaths: readonly string[],
+): PrecisionRecall {
+  const expectedSet = new Set(expectedPaths);
+  const actualSet = new Set(actualPaths);
+  const tp = [...actualSet].filter((p) => expectedSet.has(p)).length;
+  const fp = actualSet.size - tp;
+  const fn = expectedSet.size - tp;
+  const precision = tp + fp > 0 ? tp / (tp + fp) : 0;
+  const recall = tp + fn > 0 ? tp / (tp + fn) : 0;
+  return { precision, recall };
+}
+
 const defaultRulePack: RulePack = {
   constraints: [],
   includePatterns: [],
@@ -112,4 +129,61 @@ describe("selection quality benchmarks", () => {
     expect(Array.isArray(parsed.blocks)).toBe(true);
     expect(parsed.blocks).toHaveLength(3);
   });
+
+  it("precision_recall_file_level_per_task_class", async () => {
+    const taskIds = [1] as const;
+    const metrics: PerTaskClassMetrics = {};
+    for (const id of taskIds) {
+      const fixtureRoot = toAbsolutePath(
+        path.join(process.cwd(), "test", "benchmarks", "repos", String(id)),
+      );
+      scope = createProjectScope(fixtureRoot);
+      const sha256Adapter = new Sha256Adapter();
+      const configResult = new LoadConfigFromFile().load(fixtureRoot, null);
+      const { budgetConfig, heuristicConfig } = applyConfigResult(
+        configResult,
+        scope.configStore,
+        sha256Adapter,
+      );
+      const fileContentReader = createCachingFileContentReader(fixtureRoot);
+      const rulePackProvider = createRulePackProvider();
+      const deps = createFullPipelineDeps(
+        fileContentReader,
+        rulePackProvider,
+        budgetConfig,
+        providers,
+        heuristicConfig,
+      );
+      const runner = new InspectRunner(deps, scope.clock);
+      const baselinePath = path.join(
+        process.cwd(),
+        "test",
+        "benchmarks",
+        "expected-selection",
+        `${id}.json`,
+      );
+      const baseline = JSON.parse(fs.readFileSync(baselinePath, "utf8"));
+      const request = {
+        intent: baseline.intent,
+        projectRoot: fixtureRoot,
+        configPath: null,
+        dbPath: toFilePath(path.join(fixtureRoot as string, ".aic", "aic.sqlite")),
+      };
+      const trace = await runner.inspect(request);
+      const actualPaths = trace.selectedFiles.map((f) => f.path as string);
+      const { precision, recall } = fileLevelPrecisionRecall(
+        actualPaths,
+        baseline.selectedPaths,
+      );
+      const taskClass = trace.taskClass.taskClass;
+      metrics[taskClass] = { precision, recall };
+    }
+    expect(Object.keys(metrics).length).toBeGreaterThanOrEqual(1);
+    for (const entry of Object.values(metrics)) {
+      expect(entry.precision).toBeGreaterThanOrEqual(0);
+      expect(entry.recall).toBeGreaterThanOrEqual(0);
+      expect(entry.precision).toBeLessThanOrEqual(1);
+      expect(entry.recall).toBeLessThanOrEqual(1);
+    }
+  }, 30_000);
 });

@@ -1,6 +1,6 @@
 # Task 108: Per-task-class precision/recall metrics in benchmarks
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** Q (Research-Backed Quality & Security)
 > **Layer:** test/benchmarks
 > **Depends on:** Block/line-level gold annotations in benchmark suite

@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 20/43 done
+**Phase 1.0:** 21/43 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -52,15 +52,15 @@ Context quality and compilation performance beyond the base heuristic pipeline. 
 
 Research-driven improvements to context retrieval quality, token efficiency, security, and prompt assembly. Motivated by: ContextBench (2026) for process-level evaluation at file/block/line granularity; SWE-Pruner (Jan 2026) for task-aware line-level pruning (23–54% additional token reduction); InlineCoder (Jan 2026) for confidence estimation via deterministic proxies; "Lost in the Middle" (2023–2026) for prompt assembly ordering; and emerging prompt injection analysis targeting coding assistant tool execution. Builds on Phase P foundations (chunk-level inclusion, symbol matching, import graph). See `documentation/future/rule-enforcement-strategies.md` for the Middleware Enforcer design (Phase 2+).
 
-| Component                                              | Status  | Package              | Deps             | Description                                                                              |
-| ------------------------------------------------------ | ------- | -------------------- | ---------------- | ---------------------------------------------------------------------------------------- |
-| Constraints preamble in prompt assembler (LitM)        | Done    | shared/src/pipeline/ | —                | Duplicate top-3 constraints as short preamble before bulk context to mitigate LitM       |
-| `contextCompleteness` confidence signal in CompileMeta | Done    | shared/src/core/     | —                | Unresolved imports, missing symbols, intent token coverage in CompilationMeta            |
-| Line-level pruner within matched chunks (SWE-Pruner)   | Done    | shared/src/pipeline/ | Chunk-level (#P) | Score lines within L0 chunks against intent tokens; remove irrelevant, keep syntax       |
-| `CommandInjectionScanner` (GuardScanner)               | Done    | shared/src/pipeline/ | —                | Detect `$(...)`, backtick substitution, pipe chains in comments/docs                     |
-| `MarkdownInstructionScanner` (GuardScanner)            | Done    | shared/src/pipeline/ | —                | Detect high-risk instruction payloads in markdown/doc files                              |
-| Block/line-level gold annotations in benchmark suite   | Done    | test/benchmarks/     | —                | Enrich gold set from path-only to block/line ranges per file for ContextBench-style eval |
-| Per-task-class precision/recall metrics in benchmarks  | Pending | test/benchmarks/     | Gold annotations | Precision/recall at file, block, line granularity grouped by task class                  |
+| Component                                              | Status | Package              | Deps             | Description                                                                              |
+| ------------------------------------------------------ | ------ | -------------------- | ---------------- | ---------------------------------------------------------------------------------------- |
+| Constraints preamble in prompt assembler (LitM)        | Done   | shared/src/pipeline/ | —                | Duplicate top-3 constraints as short preamble before bulk context to mitigate LitM       |
+| `contextCompleteness` confidence signal in CompileMeta | Done   | shared/src/core/     | —                | Unresolved imports, missing symbols, intent token coverage in CompilationMeta            |
+| Line-level pruner within matched chunks (SWE-Pruner)   | Done   | shared/src/pipeline/ | Chunk-level (#P) | Score lines within L0 chunks against intent tokens; remove irrelevant, keep syntax       |
+| `CommandInjectionScanner` (GuardScanner)               | Done   | shared/src/pipeline/ | —                | Detect `$(...)`, backtick substitution, pipe chains in comments/docs                     |
+| `MarkdownInstructionScanner` (GuardScanner)            | Done   | shared/src/pipeline/ | —                | Detect high-risk instruction payloads in markdown/doc files                              |
+| Block/line-level gold annotations in benchmark suite   | Done   | test/benchmarks/     | —                | Enrich gold set from path-only to block/line ranges per file for ContextBench-style eval |
+| Per-task-class precision/recall metrics in benchmarks  | Done   | test/benchmarks/     | Gold annotations | Precision/recall at file, block, line granularity grouped by task class                  |
 
 ### Phase R — Claude Code Hook-Based Delivery
 
@@ -318,9 +318,10 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2025-03-06
 
-**Components:** contextCompleteness confidence signal in CompilationMeta, Constraints preamble in prompt assembler (LitM), Line-level pruner within matched chunks (SWE-Pruner), MarkdownInstructionScanner (GuardScanner), CommandInjectionScanner (GuardScanner), Block/line-level gold annotations in benchmark suite, Conversation ID fallback (task 107)
+**Components:** contextCompleteness confidence signal in CompilationMeta, Constraints preamble in prompt assembler (LitM), Line-level pruner within matched chunks (SWE-Pruner), MarkdownInstructionScanner (GuardScanner), CommandInjectionScanner (GuardScanner), Block/line-level gold annotations in benchmark suite, Conversation ID fallback (task 107), Per-task-class precision/recall metrics in benchmarks
 **Completed:**
 
+- Per-task-class precision/recall metrics in benchmarks (task 108): selection-quality-benchmark.test.ts fileLevelPrecisionRecall helper (actualPaths, expectedPaths → precision/recall, 0 when denominator 0); PerTaskClassMetrics type; precision_recall_file_level_per_task_class test (task ids [1], scope/deps as baseline test, gold intent/selectedPaths, InspectRunner, aggregate by trace.taskClass.taskClass, assert metrics in [0,1]). Lint, typecheck, test; knip no new findings.
 - Conversation ID fallback (task 107): sessionStart hook (AIC-compile-context.cjs) generates UUID or uses session_id, writes to .aic/conversation-id (0700), embeds AIC_CONVERSATION_ID in additional_context; preToolUse hook (AIC-inject-conversation-id.cjs) reads .aic/conversation-id when agent omits conversationId (never creates file); aic-architect.mdc aic_compile bullet includes conversationId from system prompt, "show aic chat summary" describes file fallback; aic_chat_summary schema conversationId optional; server handler reads .aic/conversation-id when omitted, returns zero payload when file missing; server tests aic_chat_summary_omitted_conversation_id_uses_file and aic_chat_summary_omitted_conversation_id_no_file_returns_zero. Lint, typecheck, MCP server tests 18/18 pass; lint:clones 0.
 - Block/line-level gold annotations in benchmark suite (task 106): test/benchmarks/expected-selection/1.json enriched with `blocks` array (three entries: src/auth/service.ts 15–30 and 37–56, src/index.ts 6–12); selection-quality-benchmark.test.ts gold_task1_includes_blocks test (read 1.json, expect blocks array length 3). Lint, typecheck, test, lint:clones 0; knip no new findings.
 - MarkdownInstructionScanner (task 104): GuardScanner for .md/.mdc/.mdx that reuses BLOCK/WARN instruction patterns; instruction-patterns.ts with runInstructionPatternScan shared with PromptInjectionScanner (0 clones); wired in create-pipeline-deps; five tests (non_markdown_path_returns_empty, markdown_path_with_block_pattern_returns_block_finding, markdown_path_with_warn_pattern_returns_warn_finding, markdown_path_clean_returns_empty, mdc_and_mdx_paths_scanned). Lint, typecheck, test, lint:clones 0.
