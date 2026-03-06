@@ -1,6 +1,6 @@
 # Task 105: CommandInjectionScanner (GuardScanner)
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** Q (Research-Backed Quality & Security)
 > **Layer:** pipeline
 > **Depends on:** ContextGuard impl (Done)
@@ -153,7 +153,7 @@ Create `shared/src/pipeline/__tests__/command-injection-scanner.test.ts`. Use vi
 
 ### Step 5: Final verification
 
-Run: `pnpm lint && pnpm typecheck && pnpm test && pnpm knip`  
+Run: `pnpm lint && pnpm typecheck && pnpm test && pnpm knip`
 Expected: all pass, zero warnings, no new knip findings.
 
 ## Tests

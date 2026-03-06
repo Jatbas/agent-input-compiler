@@ -201,7 +201,7 @@ Every field must be filled. Every field with pasted code must include a `Source:
 EXPLORATION REPORT
 
 LAYER: [adapter | storage | pipeline | core | mcp | cli]
-RECIPE: [adapter | storage | pipeline | composition-root | NONE → BLOCKER]
+RECIPE: [adapter | storage | pipeline | composition-root | benchmark | NONE → BLOCKER]
 
 EXISTING FILES (for every file the recipe pattern would create):
 - [file path]: EXISTS / DOES NOT EXIST
@@ -317,7 +317,7 @@ LAYER BLOCKERS:
 - Storage needs node:fs/node:path? [YES → STOP | NO]
 - Core/pipeline imports external package? [YES → STOP | NO]
 - Adapter imports better-sqlite3 or zod? [YES → STOP | NO]
-- Recipe fit? [adapter | storage | pipeline | composition-root | NONE → STOP]
+- Recipe fit? [adapter | storage | pipeline | composition-root | benchmark | NONE → STOP]
 
 LIBRARY API CALLS (exact function chain, no "or equivalent"):
 - [step]: call [exact function]([args]) → [return type]

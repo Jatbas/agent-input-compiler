@@ -76,6 +76,7 @@ export const GUARD_FINDING_TYPE = {
   SECRET: "secret",
   EXCLUDED_FILE: "excluded-file",
   PROMPT_INJECTION: "prompt-injection",
+  COMMAND_INJECTION: "command-injection",
 } as const;
 export type GuardFindingType =
   (typeof GUARD_FINDING_TYPE)[keyof typeof GUARD_FINDING_TYPE];

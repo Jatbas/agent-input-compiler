@@ -17,6 +17,7 @@ import { ExclusionScanner } from "#pipeline/exclusion-scanner.js";
 import { SecretScanner } from "#pipeline/secret-scanner.js";
 import { PromptInjectionScanner } from "#pipeline/prompt-injection-scanner.js";
 import { MarkdownInstructionScanner } from "#pipeline/markdown-instruction-scanner.js";
+import { CommandInjectionScanner } from "#pipeline/command-injection-scanner.js";
 import { ContextGuard } from "#pipeline/context-guard.js";
 import { Base64InlineDataStripper } from "#pipeline/base64-inline-data-stripper.js";
 import { LongStringLiteralTruncator } from "#pipeline/long-string-literal-truncator.js";
@@ -106,11 +107,13 @@ export function createPipelineDeps(
   const secretScanner = new SecretScanner();
   const promptInjectionScanner = new PromptInjectionScanner();
   const markdownInstructionScanner = new MarkdownInstructionScanner();
+  const commandInjectionScanner = new CommandInjectionScanner();
   const scanners = [
     exclusionScanner,
     secretScanner,
     promptInjectionScanner,
     markdownInstructionScanner,
+    commandInjectionScanner,
   ] as const;
   const contextGuard = new ContextGuard(scanners, fileContentReader, []);
   const whitespaceNormalizer = new WhitespaceNormalizer(WHITESPACE_EXCLUDED_EXTENSIONS);

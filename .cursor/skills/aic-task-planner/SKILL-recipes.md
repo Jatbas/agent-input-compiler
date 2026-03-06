@@ -258,3 +258,85 @@ This step ensures that each transformer's token savings are committed to the bas
 - Content without the target pattern is returned unchanged
 - Empty content returns unchanged
 - Edge cases specific to the transformer's logic (e.g. "pattern only in file body, not header" for header strippers)
+
+---
+
+## Benchmark recipe (gold data, fixtures, and evaluation tests)
+
+Benchmark tasks enrich the evaluation suite: gold annotations, fixture repositories, and benchmark tests. They produce no production code — only test infrastructure in `test/benchmarks/` and `shared/src/integration/__tests__/`.
+
+**Identifying a benchmark task:** If the component's job is to define evaluation data (gold annotations, expected outputs), create or modify fixture repositories, or add/change benchmark evaluation tests — it is a benchmark task. These live outside the hexagonal architecture (no core, pipeline, adapter, or storage layers).
+
+**Sub-types:**
+
+- **Gold enrichment:** Add new annotation dimensions to existing gold data (e.g., path-only to block/line ranges)
+- **New benchmark task:** Add a new fixture repo + gold data + evaluation test for a canonical task
+- **Metric evolution:** Change how benchmarks compute and report metrics (e.g., add precision/recall)
+- **Fixture enrichment:** Add files/content to existing fixture repos to exercise new pipeline capabilities
+
+**Files pattern:**
+
+| Action        | Path                                                          |
+| ------------- | ------------------------------------------------------------- |
+| Create/Modify | `test/benchmarks/expected-selection/[N].json` (gold data)     |
+| Create/Modify | `test/benchmarks/repos/[N]/...` (fixture files)               |
+| Create/Modify | `shared/src/integration/__tests__/[benchmark].test.ts`        |
+| Modify        | `test/benchmarks/baseline.json` (only if token counts change) |
+
+**Template differences — the Interface/Signature section becomes "Gold Data Schema":**
+
+Instead of copying a core interface, the task must contain:
+
+1. **A TypeScript interface** defining the gold data JSON structure. This is the contract between the gold data files and the benchmark test that reads them. Even though this interface is not compiled (gold data is read as JSON and cast), the task must define the shape precisely so the executor writes correct gold files and correct parsing code.
+
+2. **A complete example JSON** showing one gold data entry with all fields populated. This serves as the reference for both the executor writing gold data and the benchmark test parsing it.
+
+3. **A field-by-field mapping** showing which gold data field corresponds to which pipeline output field. Example:
+
+   ```
+   Gold field → Pipeline output:
+   - selectedPaths[i] → trace.selectedFiles[i].path
+   - blocks[i].filePath → trace.selectedFiles[i].path
+   - blocks[i].startLine → matched against chunks in trace output
+   ```
+
+**Dependent Types:** Benchmark tests consume pipeline output types. Use the standard tiered system:
+
+- **Tier 0:** Types the test directly reads fields from (e.g., `PipelineTrace`, `SelectedFile` — the test accesses `.selectedFiles`, `.path`, `.chunks`)
+- **Tier 1:** Types passed through but not field-accessed (e.g., `InspectRequest` when constructed and passed to `runner.inspect()`)
+- **Tier 2:** Branded types used to construct test inputs (e.g., `AbsolutePath`, `FilePath`)
+
+**Gold data integrity rule:** Every annotation in the gold data must be verifiable against the fixture repo. If a gold entry says file `src/auth/service.ts` has a relevant block at lines 5–15, the fixture file must actually have meaningful code at those lines. During exploration, read every fixture file that the gold data references and record the line ranges of significant code structures (functions, classes, exported symbols). Gold annotations are written from this verified evidence — never from assumption.
+
+**Fixture stability:** Fixture repos are deterministic snapshots. If the task modifies fixture files, note every change and its impact on existing gold data and baselines. Changes cascade: a modified fixture file may invalidate existing `expected-selection` entries and `baseline.json` token counts.
+
+**Backward compatibility:** When enriching existing gold data (adding fields to existing JSON), the new format must be backward-compatible with any existing benchmark tests that read the old format. New fields are additive; existing fields keep their semantics. If a test only reads `selectedPaths`, the enriched file with `selectedPaths` plus new annotation fields still works for that test.
+
+**Config Changes pattern:** Typically none. Benchmark tasks add no production dependencies and require no ESLint changes (test files and `test/benchmarks/` already have relaxed lint rules).
+
+**Test pattern:** The benchmark test IS the deliverable — there are no separate unit tests for gold data. The test:
+
+- Reads gold data from `test/benchmarks/expected-selection/[N].json`
+- Runs the full pipeline (via `InspectRunner` or `CompilationRunner`) against the fixture repo
+- Compares pipeline output against gold data at every annotated granularity level
+- Uses the same wiring pattern as existing benchmarks: `createProjectScope`, `createFullPipelineDeps`, `initLanguageProviders`, `LoadConfigFromFile`, `applyConfigResult`
+
+**Step granularity:**
+
+- Step 1: Gold data — create or update `expected-selection/[N].json` with new annotations (one step per gold file)
+- Step 2: Fixture changes — modify fixture repo files if needed (one step per fixture change)
+- Step 3: Test code — create or modify benchmark test to consume new gold format (one step per test file)
+- Step 4: Existing benchmark verification — run existing benchmarks to confirm no regressions from fixture/gold changes
+- Step 5: Final verification
+
+Each step still touches max 1 file.
+
+**Sibling reuse:** All benchmark tests follow the same wiring pattern (see existing `selection-quality-benchmark.test.ts` and `token-reduction-benchmark.test.ts`). New benchmark tests must mirror this wiring — not reinvent it. During exploration, read the closest existing benchmark test and replicate its setup structure.
+
+**Exploration specifics for benchmark tasks:** Beyond the standard checklist, the exploration must:
+
+1. **Read every existing gold data file** in `test/benchmarks/expected-selection/` — record the current schema shape.
+2. **Read every existing benchmark test** in `shared/src/integration/__tests__/*benchmark*` — record the wiring pattern.
+3. **Read every fixture file** referenced by gold data — record line numbers of functions, classes, exports, and other structural landmarks that gold annotations will reference.
+4. **Run the pipeline** against the fixture repo (via `pnpm test` on the selection-quality benchmark) and read the actual `PipelineTrace` output shape to confirm which fields are available for gold comparison.
+5. **Check baseline impact** — will the changes affect `baseline.json` token counts or `expected-selection` path lists?

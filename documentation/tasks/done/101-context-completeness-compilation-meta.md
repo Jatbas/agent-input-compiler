@@ -76,31 +76,31 @@ No new class. Type extension only; all sites that build `CompilationMeta` must i
 
 In `shared/src/core/types/compilation-types.ts`: change the import from `import type { Percentage } from "#core/types/scores.js";` to `import type { Percentage, Confidence } from "#core/types/scores.js";`. Add `readonly contextCompleteness: Confidence;` to the `CompilationMeta` interface (after `guard`).
 
-**Verify:** Run `pnpm typecheck`; it reports missing property `contextCompleteness` at compilation-runner, stub-compilation-meta, and the two test files.
+**Verify:** Run `pnpm typecheck`; it reports missing property `contextCompleteness` at `compilation-runner.ts`, `stub-compilation-meta.ts`, `build-telemetry-event.test.ts`, and `compile-handler.test.ts`.
 
 ### Step 2: Wire contextCompleteness in compilation-runner
 
 In `shared/src/pipeline/compilation-runner.ts`: extend the existing scores import from `import { toPercentage } from "#core/types/scores.js";` to `import { toPercentage, toConfidence } from "#core/types/scores.js";`. In `buildCacheHitMeta`, add `contextCompleteness: toConfidence(1)` to the returned object. In `buildFreshMeta`, add `contextCompleteness: toConfidence(1)` to the returned object.
 
-**Verify:** `pnpm typecheck` passes for this file.
+**Verify:** Run `pnpm typecheck`; the `compilation-runner.ts` errors are resolved. Remaining errors expected in `stub-compilation-meta.ts`, `build-telemetry-event.test.ts`, and `compile-handler.test.ts`.
 
 ### Step 3: Add contextCompleteness to STUB_COMPILATION_META
 
 In `shared/src/testing/stub-compilation-meta.ts`: change the import from `import { toPercentage } from "#core/types/scores.js";` to `import { toPercentage, toConfidence } from "#core/types/scores.js";`. Add `contextCompleteness: toConfidence(1)` to `STUB_COMPILATION_META`.
 
-**Verify:** `pnpm typecheck` passes.
+**Verify:** Run `pnpm typecheck`; the `stub-compilation-meta.ts` error is resolved. Remaining errors expected in `build-telemetry-event.test.ts` and `compile-handler.test.ts`.
 
 ### Step 4a: Add contextCompleteness to build-telemetry-event.test metaOverrides
 
 In `shared/src/core/__tests__/build-telemetry-event.test.ts`: change the import from `import { toPercentage } from "#core/types/scores.js";` to `import { toPercentage, toConfidence } from "#core/types/scores.js";`. In the object returned by `metaOverrides` (the default shape before `...overrides`), add `contextCompleteness: toConfidence(1)`.
 
-**Verify:** `pnpm typecheck` passes; `pnpm test shared/src/core/__tests__/build-telemetry-event.test.ts` passes.
+**Verify:** Run `pnpm typecheck`; the `build-telemetry-event.test.ts` error is resolved. Remaining error expected in `compile-handler.test.ts`. Run `pnpm test shared/src/core/__tests__/build-telemetry-event.test.ts` — passes.
 
 ### Step 4b: Add contextCompleteness to compile-handler.test stubMeta
 
 In `mcp/src/handlers/__tests__/compile-handler.test.ts`: change the import from `import { toPercentage } from "@aic/shared/core/types/scores.js";` to `import { toPercentage, toConfidence } from "@aic/shared/core/types/scores.js";`. Add `contextCompleteness: toConfidence(1)` to the `stubMeta` object.
 
-**Verify:** `pnpm typecheck` passes; `pnpm test mcp/src/handlers/__tests__/compile-handler.test.ts` passes.
+**Verify:** Run `pnpm typecheck` — passes clean. Run `pnpm test mcp/src/handlers/__tests__/compile-handler.test.ts` — passes.
 
 ### Step 5: Final verification
 

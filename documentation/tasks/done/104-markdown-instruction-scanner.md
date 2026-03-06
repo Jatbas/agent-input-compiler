@@ -71,10 +71,10 @@ export interface ScanPattern {
 
 ### Tier 1 — signature + path
 
-| Type                                | Path                                     | Members                                                          | Purpose                                      |
-| ----------------------------------- | ---------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------- |
-| `SelectedFile`                      | `shared/src/core/types/selected-file.ts` | path, language, estimatedTokens, relevanceScore, tier, etc.      | Passed to scan; use path for extension check |
-| `GuardSeverity`, `GuardFindingType` | `shared/src/core/types/enums.js`         | GUARD_SEVERITY.BLOCK, .WARN; GUARD_FINDING_TYPE.PROMPT_INJECTION | Arguments to scanWithPatterns                |
+| Type                                | Path                                     | Members                                                                                         | Purpose                                      |
+| ----------------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `SelectedFile`                      | `shared/src/core/types/selected-file.ts` | path, language, estimatedTokens, relevanceScore, tier, previouslyShownAtStep?, resolvedContent? | Passed to scan; use path for extension check |
+| `GuardSeverity`, `GuardFindingType` | `shared/src/core/types/enums.js`         | GUARD_SEVERITY.BLOCK, .WARN; GUARD_FINDING_TYPE.PROMPT_INJECTION                                | Arguments to scanWithPatterns                |
 
 ### Tier 2 — path-only
 

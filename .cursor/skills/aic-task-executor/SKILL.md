@@ -107,6 +107,7 @@ For non-composition-root tasks, all types are Tier 0 (verbatim) — this distinc
 **Build the touched-files list.** Extract every file path from the task's **Files table** (both "Create" and "Modify" rows). Then add the standard files that every task modifies:
 
 - `documentation/mvp-progress.md` (progress update in §5b)
+- `documentation/tasks/NNN-name.md` (deletion — task file moves to `done/` in §5c)
 - `documentation/tasks/done/NNN-name.md` (task file after move+archive in §5c)
 
 If any step mentions auto-ratcheting benchmark files (e.g. `test/benchmarks/baseline.json`), add those too. If Config Changes lists modifications to `shared/package.json` or `eslint.config.mjs`, add those.
