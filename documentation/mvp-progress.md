@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 19/43 done
+**Phase 1.0:** 20/43 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -288,14 +288,15 @@ Incremental output quality improvements, measured by Phase K benchmarks. New tra
 
 User-facing polish. Comes last because it doesn't improve the core algorithm.
 
-| Component                                                | Status | Package      | Description                                                         |
-| -------------------------------------------------------- | ------ | ------------ | ------------------------------------------------------------------- |
-| `aic://status` resource (was `aic://session-summary`)    | Done   | mcp/src/     | Compilation stats, token savings, guard summary, installation check |
-| `aic://last` resource (was `aic://last-compilation`)     | Done   | mcp/src/     | Last compilation details + full compiled prompt                     |
-| Conversation tracking: schema + plumbing                 | Done   | shared + mcp | conversation_id in compilation_log; plumbing through pipeline       |
-| Conversation tracking: summary + prompt cmd              | Done   | shared + mcp | Per-conversation aggregates; "show aic chat summary"                |
-| Budget utilization in `aic://status`                     | Done   | mcp/src/     | % of token budget used by last compilation                          |
-| `aic_chat_summary` tool (was `aic_conversation_summary`) | Done   | mcp/src/     | MCP tool: per-conversation stats by conversationId                  |
+| Component                                                | Status | Package       | Description                                                         |
+| -------------------------------------------------------- | ------ | ------------- | ------------------------------------------------------------------- |
+| `aic://status` resource (was `aic://session-summary`)    | Done   | mcp/src/      | Compilation stats, token savings, guard summary, installation check |
+| `aic://last` resource (was `aic://last-compilation`)     | Done   | mcp/src/      | Last compilation details + full compiled prompt                     |
+| Conversation tracking: schema + plumbing                 | Done   | shared + mcp  | conversation_id in compilation_log; plumbing through pipeline       |
+| Conversation tracking: summary + prompt cmd              | Done   | shared + mcp  | Per-conversation aggregates; "show aic chat summary"                |
+| Budget utilization in `aic://status`                     | Done   | mcp/src/      | % of token budget used by last compilation                          |
+| `aic_chat_summary` tool (was `aic_conversation_summary`) | Done   | mcp/src/      | MCP tool: per-conversation stats by conversationId                  |
+| Conversation ID fallback (our own when editor omits)     | Done   | .cursor + mcp | sessionStart writes .aic/conversation-id; preToolUse/file fallback  |
 
 ### Phase M 0.5 — MCP-only (Drop CLI)
 
@@ -317,9 +318,10 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2025-03-06
 
-**Components:** contextCompleteness confidence signal in CompilationMeta, Constraints preamble in prompt assembler (LitM), Line-level pruner within matched chunks (SWE-Pruner), MarkdownInstructionScanner (GuardScanner), CommandInjectionScanner (GuardScanner), Block/line-level gold annotations in benchmark suite
+**Components:** contextCompleteness confidence signal in CompilationMeta, Constraints preamble in prompt assembler (LitM), Line-level pruner within matched chunks (SWE-Pruner), MarkdownInstructionScanner (GuardScanner), CommandInjectionScanner (GuardScanner), Block/line-level gold annotations in benchmark suite, Conversation ID fallback (task 107)
 **Completed:**
 
+- Conversation ID fallback (task 107): sessionStart hook (AIC-compile-context.cjs) generates UUID or uses session_id, writes to .aic/conversation-id (0700), embeds AIC_CONVERSATION_ID in additional_context; preToolUse hook (AIC-inject-conversation-id.cjs) reads .aic/conversation-id when agent omits conversationId (never creates file); aic-architect.mdc aic_compile bullet includes conversationId from system prompt, "show aic chat summary" describes file fallback; aic_chat_summary schema conversationId optional; server handler reads .aic/conversation-id when omitted, returns zero payload when file missing; server tests aic_chat_summary_omitted_conversation_id_uses_file and aic_chat_summary_omitted_conversation_id_no_file_returns_zero. Lint, typecheck, MCP server tests 18/18 pass; lint:clones 0.
 - Block/line-level gold annotations in benchmark suite (task 106): test/benchmarks/expected-selection/1.json enriched with `blocks` array (three entries: src/auth/service.ts 15–30 and 37–56, src/index.ts 6–12); selection-quality-benchmark.test.ts gold_task1_includes_blocks test (read 1.json, expect blocks array length 3). Lint, typecheck, test, lint:clones 0; knip no new findings.
 - MarkdownInstructionScanner (task 104): GuardScanner for .md/.mdc/.mdx that reuses BLOCK/WARN instruction patterns; instruction-patterns.ts with runInstructionPatternScan shared with PromptInjectionScanner (0 clones); wired in create-pipeline-deps; five tests (non_markdown_path_returns_empty, markdown_path_with_block_pattern_returns_block_finding, markdown_path_with_warn_pattern_returns_warn_finding, markdown_path_clean_returns_empty, mdc_and_mdx_paths_scanned). Lint, typecheck, test, lint:clones 0.
 - contextCompleteness confidence signal in CompilationMeta (task 101): CompilationMeta extended with readonly contextCompleteness: Confidence; compilation-types import Confidence from scores; buildCacheHitMeta and buildFreshMeta set contextCompleteness: toConfidence(1); STUB_COMPILATION_META and test stubs (build-telemetry-event metaOverrides, compile-handler stubMeta) include contextCompleteness. Lint, typecheck, test, lint:clones 0; knip no new findings.

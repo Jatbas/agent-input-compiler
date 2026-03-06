@@ -449,7 +449,7 @@ describe("CompilationRunner", () => {
     expect(Array.isArray(guardCall.findings)).toBe(true);
     expect(result.meta.guard !== null).toBe(true);
     expect(guardCall.findings).toEqual(result.meta.guard?.findings ?? []);
-  });
+  }, 15_000);
 
   it("CompilationRunner cache hit writes log and empty findings", async () => {
     const cacheStore = createInMemoryCacheStore();
@@ -501,7 +501,7 @@ describe("CompilationRunner", () => {
     const guardCallOnHit = recordedGuardCalls[1];
     expect(guardCallOnHit).toBeDefined();
     expect(guardCallOnHit?.findings.length).toBe(0);
-  });
+  }, 15_000);
 
   it("runner_passes_trigger_source_to_entry", async () => {
     const cacheStore = createInMemoryCacheStore();

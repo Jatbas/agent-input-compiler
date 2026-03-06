@@ -212,11 +212,35 @@ export function createMcpServer(
     ConversationSummaryRequestSchema,
     (args) => {
       const parsed = z.object(ConversationSummaryRequestSchema).parse(args);
-      const conversationId = toConversationId(parsed.conversationId);
+      let idRaw: string | null =
+        parsed.conversationId !== undefined &&
+        typeof parsed.conversationId === "string" &&
+        parsed.conversationId.trim().length > 0
+          ? parsed.conversationId.trim()
+          : null;
+      if (idRaw === null) {
+        const conversationIdPath = path.join(
+          scope.projectRoot,
+          ".aic",
+          "conversation-id",
+        );
+        try {
+          const content = fs.readFileSync(conversationIdPath, "utf8");
+          const trimmed = content.trim();
+          if (trimmed.length > 0) idRaw = trimmed;
+        } catch {
+          // File missing or unreadable — leave idRaw null
+        }
+      }
+      const idForPayload = idRaw ?? "";
+      const conversationId = idRaw !== null ? toConversationId(idRaw) : null;
       const statusStore = new SqliteStatusStore(scope.db, scope.clock);
-      const summary = statusStore.getConversationSummary(conversationId);
+      const summary =
+        conversationId !== null
+          ? statusStore.getConversationSummary(conversationId)
+          : null;
       const payload = summary ?? {
-        conversationId: parsed.conversationId,
+        conversationId: idForPayload,
         compilationsInConversation: 0,
         cacheHitRatePct: null,
         avgReductionPct: null,

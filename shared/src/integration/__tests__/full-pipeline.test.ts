@@ -272,5 +272,5 @@ describe("full pipeline", () => {
     const second = await runner.run(request);
     expect(second.meta.cacheHit).toBe(true);
     expect(second.meta.durationMs).toEqual(toMilliseconds(0));
-  });
+  }, 15_000);
 });

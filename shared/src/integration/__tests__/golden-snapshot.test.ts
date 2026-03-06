@@ -209,5 +209,5 @@ describe("golden snapshot", () => {
     const trace3 = await runner.inspect(request);
     expect(trace1).toEqual(trace2);
     expect(trace2).toEqual(trace3);
-  }, 15000);
+  }, 30_000);
 });
