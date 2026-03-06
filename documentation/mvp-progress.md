@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 17/43 done
+**Phase 1.0:** 18/43 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -58,7 +58,7 @@ Research-driven improvements to context retrieval quality, token efficiency, sec
 | `contextCompleteness` confidence signal in CompileMeta | Done    | shared/src/core/     | —                | Unresolved imports, missing symbols, intent token coverage in CompilationMeta            |
 | Line-level pruner within matched chunks (SWE-Pruner)   | Done    | shared/src/pipeline/ | Chunk-level (#P) | Score lines within L0 chunks against intent tokens; remove irrelevant, keep syntax       |
 | `CommandInjectionScanner` (GuardScanner)               | Pending | shared/src/pipeline/ | —                | Detect `$(...)`, backtick substitution, pipe chains in comments/docs                     |
-| `MarkdownInstructionScanner` (GuardScanner)            | Pending | shared/src/pipeline/ | —                | Detect high-risk instruction payloads in markdown/doc files                              |
+| `MarkdownInstructionScanner` (GuardScanner)            | Done    | shared/src/pipeline/ | —                | Detect high-risk instruction payloads in markdown/doc files                              |
 | Block/line-level gold annotations in benchmark suite   | Pending | test/benchmarks/     | —                | Enrich gold set from path-only to block/line ranges per file for ContextBench-style eval |
 | Per-task-class precision/recall metrics in benchmarks  | Pending | test/benchmarks/     | Gold annotations | Precision/recall at file, block, line granularity grouped by task class                  |
 
@@ -317,9 +317,10 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2025-03-06
 
-**Components:** contextCompleteness confidence signal in CompilationMeta, Constraints preamble in prompt assembler (LitM), Line-level pruner within matched chunks (SWE-Pruner)
+**Components:** contextCompleteness confidence signal in CompilationMeta, Constraints preamble in prompt assembler (LitM), Line-level pruner within matched chunks (SWE-Pruner), MarkdownInstructionScanner (GuardScanner)
 **Completed:**
 
+- MarkdownInstructionScanner (task 104): GuardScanner for .md/.mdc/.mdx that reuses BLOCK/WARN instruction patterns; instruction-patterns.ts with runInstructionPatternScan shared with PromptInjectionScanner (0 clones); wired in create-pipeline-deps; five tests (non_markdown_path_returns_empty, markdown_path_with_block_pattern_returns_block_finding, markdown_path_with_warn_pattern_returns_warn_finding, markdown_path_clean_returns_empty, mdc_and_mdx_paths_scanned). Lint, typecheck, test, lint:clones 0.
 - contextCompleteness confidence signal in CompilationMeta (task 101): CompilationMeta extended with readonly contextCompleteness: Confidence; compilation-types import Confidence from scores; buildCacheHitMeta and buildFreshMeta set contextCompleteness: toConfidence(1); STUB_COMPILATION_META and test stubs (build-telemetry-event metaOverrides, compile-handler stubMeta) include contextCompleteness. Lint, typecheck, test, lint:clones 0; knip no new findings.
 - Constraints preamble in prompt assembler (LitM) (task 102): buildConstraintsPreamble helper; top 3 constraints as ## Constraints (key) before ## Context; full ## Constraints section unchanged after context; four tests (preamble_emitted, top_three_only, omitted_when_empty, one_or_two). Lint, typecheck, test, lint:clones 0; max-lines-per-function satisfied via helper.
 - Line-level pruner within matched chunks (task 103): LineLevelPruner interface and implementation; prune runs after SummarisationLadder when subjectTokens.length > 0; keeps lines matching subject token (case-insensitive), ±1 context window, syntax-only lines, structural keywords (return/break/continue/else/case/default/throw); L0 files without resolvedContent read via FileContentReader; PipelineStepsResult.prunedFiles; inspect-types tokenSummary.afterPrune; compilation-runner buildFreshMeta/recordSessionStepIfNeeded use prunedFiles; ten unit tests; integration snapshots and token-reduction baseline ratcheted. Lint, typecheck, test, lint:clones 0.

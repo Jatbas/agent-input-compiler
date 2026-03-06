@@ -1,6 +1,6 @@
 # Task 104: MarkdownInstructionScanner (GuardScanner)
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** Q — Research-Backed Quality & Security (from mvp-progress.md)
 > **Layer:** pipeline
 > **Depends on:** ContextGuard impl (Done)
