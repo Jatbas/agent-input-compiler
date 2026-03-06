@@ -49,6 +49,12 @@ async function fetchContextContents(
   );
 }
 
+function buildConstraintsPreamble(constraints: readonly string[]): readonly string[] {
+  return constraints.length > 0
+    ? ["## Constraints (key)", "", ...constraints.slice(0, 3).map((c) => `- ${c}`), ""]
+    : [];
+}
+
 export class PromptAssembler implements IPromptAssembler {
   constructor(private readonly fileContentReader: FileContentReader) {}
 
@@ -71,6 +77,7 @@ export class PromptAssembler implements IPromptAssembler {
       structuralMap !== undefined && structuralMap !== ""
         ? ["## Project structure", "", structuralMap, ""]
         : [];
+    const constraintsPreamble = buildConstraintsPreamble(constraints);
     const needContent = files.filter((f) => f.previouslyShownAtStep === undefined);
     const contents = await fetchContextContents(this.fileContentReader, needContent);
     const contentIndexFor = (upTo: number): number =>
@@ -99,6 +106,7 @@ export class PromptAssembler implements IPromptAssembler {
       ...specParts,
       ...sessionContextBlock,
       ...projectStructureBlock,
+      ...constraintsPreamble,
       "## Context",
       ...contextParts,
       ...constraintSection,

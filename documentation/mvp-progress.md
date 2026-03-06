@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 16/43 done
+**Phase 1.0:** 17/43 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -54,7 +54,7 @@ Research-driven improvements to context retrieval quality, token efficiency, sec
 
 | Component                                              | Status  | Package              | Deps             | Description                                                                              |
 | ------------------------------------------------------ | ------- | -------------------- | ---------------- | ---------------------------------------------------------------------------------------- |
-| Constraints preamble in prompt assembler (LitM)        | Pending | shared/src/pipeline/ | —                | Duplicate top-3 constraints as short preamble before bulk context to mitigate LitM       |
+| Constraints preamble in prompt assembler (LitM)        | Done    | shared/src/pipeline/ | —                | Duplicate top-3 constraints as short preamble before bulk context to mitigate LitM       |
 | `contextCompleteness` confidence signal in CompileMeta | Done    | shared/src/core/     | —                | Unresolved imports, missing symbols, intent token coverage in CompilationMeta            |
 | Line-level pruner within matched chunks (SWE-Pruner)   | Pending | shared/src/pipeline/ | Chunk-level (#P) | Score lines within L0 chunks against intent tokens; remove irrelevant, keep syntax       |
 | `CommandInjectionScanner` (GuardScanner)               | Pending | shared/src/pipeline/ | —                | Detect `$(...)`, backtick substitution, pipe chains in comments/docs                     |
@@ -317,10 +317,11 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2025-03-06
 
-**Components:** contextCompleteness confidence signal in CompilationMeta
+**Components:** contextCompleteness confidence signal in CompilationMeta, Constraints preamble in prompt assembler (LitM)
 **Completed:**
 
 - contextCompleteness confidence signal in CompilationMeta (task 101): CompilationMeta extended with readonly contextCompleteness: Confidence; compilation-types import Confidence from scores; buildCacheHitMeta and buildFreshMeta set contextCompleteness: toConfidence(1); STUB_COMPILATION_META and test stubs (build-telemetry-event metaOverrides, compile-handler stubMeta) include contextCompleteness. Lint, typecheck, test, lint:clones 0; knip no new findings.
+- Constraints preamble in prompt assembler (LitM) (task 102): buildConstraintsPreamble helper; top 3 constraints as ## Constraints (key) before ## Context; full ## Constraints section unchanged after context; four tests (preamble_emitted, top_three_only, omitted_when_empty, one_or_two). Lint, typecheck, test, lint:clones 0; max-lines-per-function satisfied via helper.
 
 ### 2026-03-05
 

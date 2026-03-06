@@ -287,4 +287,84 @@ describe("PromptAssembler", () => {
     expect(result).toContain("### src/resolved.ts");
     expect(getContentCalls).not.toContain("src/resolved.ts");
   });
+
+  it("prompt_assembler_constraints_preamble_emitted", async () => {
+    const reader: FileContentReader = {
+      getContent: (path) => Promise.resolve(`content of ${path as string}`),
+    };
+    const assembler = new PromptAssembler(reader);
+    const result = await assembler.assemble(
+      task,
+      [makeFile("a.ts")],
+      ["C1", "C2", "C3"],
+      OUTPUT_FORMAT.PLAIN,
+    );
+    expect(result).toContain("## Constraints (key)");
+    expect(result).toContain("- C1");
+    expect(result).toContain("- C2");
+    expect(result).toContain("- C3");
+    const preambleIdx = result.indexOf("## Constraints (key)");
+    const contextIdx = result.indexOf("## Context");
+    expect(contextIdx).toBeGreaterThan(preambleIdx);
+  });
+
+  it("prompt_assembler_constraints_preamble_top_three_only", async () => {
+    const reader: FileContentReader = { getContent: () => Promise.resolve("") };
+    const assembler = new PromptAssembler(reader);
+    const result = await assembler.assemble(
+      task,
+      [],
+      ["A", "B", "C", "D", "E"],
+      OUTPUT_FORMAT.PLAIN,
+    );
+    const preambleEnd = result.indexOf("## Context");
+    const preamble = result.slice(0, preambleEnd);
+    expect(result).toContain("## Constraints (key)");
+    expect(preamble).toContain("- A");
+    expect(preamble).toContain("- B");
+    expect(preamble).toContain("- C");
+    expect(result).toContain("## Constraints");
+    expect(result).toContain("- A");
+    expect(result).toContain("- B");
+    expect(result).toContain("- C");
+    expect(result).toContain("- D");
+    expect(result).toContain("- E");
+  });
+
+  it("prompt_assembler_constraints_preamble_omitted_when_empty", async () => {
+    const reader: FileContentReader = { getContent: () => Promise.resolve("") };
+    const assembler = new PromptAssembler(reader);
+    const result = await assembler.assemble(task, [], [], OUTPUT_FORMAT.PLAIN);
+    expect(result).not.toContain("## Constraints (key)");
+  });
+
+  it("prompt_assembler_constraints_preamble_one_or_two", async () => {
+    const reader: FileContentReader = { getContent: () => Promise.resolve("") };
+    const assembler = new PromptAssembler(reader);
+    const resultOne = await assembler.assemble(
+      task,
+      [],
+      ["Only one"],
+      OUTPUT_FORMAT.PLAIN,
+    );
+    const preambleOneEnd = resultOne.indexOf("## Context");
+    const preambleOne = resultOne.slice(0, preambleOneEnd);
+    expect(resultOne).toContain("## Constraints (key)");
+    expect(preambleOne).toContain("- Only one");
+    const bulletCountOne = (preambleOne.match(/^- /gm) ?? []).length;
+    expect(bulletCountOne).toBe(1);
+
+    const resultTwo = await assembler.assemble(
+      task,
+      [],
+      ["First", "Second"],
+      OUTPUT_FORMAT.PLAIN,
+    );
+    const preambleTwoEnd = resultTwo.indexOf("## Context");
+    const preambleTwo = resultTwo.slice(0, preambleTwoEnd);
+    expect(preambleTwo).toContain("- First");
+    expect(preambleTwo).toContain("- Second");
+    const bulletCountTwo = (preambleTwo.match(/^- /gm) ?? []).length;
+    expect(bulletCountTwo).toBe(2);
+  });
 });
