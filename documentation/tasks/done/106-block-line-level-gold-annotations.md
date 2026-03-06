@@ -1,6 +1,6 @@
 # Task 106: Block/line-level gold annotations in benchmark suite
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** Q (Research-Backed Quality & Security)
 > **Layer:** test/benchmarks
 > **Depends on:** —

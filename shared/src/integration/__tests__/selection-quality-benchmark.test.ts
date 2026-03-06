@@ -97,4 +97,19 @@ describe("selection quality benchmarks", () => {
     const expectedPaths = (baseline.selectedPaths as string[]).toSorted();
     expect(actualPaths).toEqual(expectedPaths);
   }, 30_000);
+
+  it("gold_task1_includes_blocks", () => {
+    const baselinePath = path.join(
+      process.cwd(),
+      "test",
+      "benchmarks",
+      "expected-selection",
+      "1.json",
+    );
+    const content = fs.readFileSync(baselinePath, "utf8");
+    const parsed = JSON.parse(content);
+    expect(parsed).toHaveProperty("blocks");
+    expect(Array.isArray(parsed.blocks)).toBe(true);
+    expect(parsed.blocks).toHaveLength(3);
+  });
 });

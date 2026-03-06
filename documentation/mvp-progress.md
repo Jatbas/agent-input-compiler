@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 18/43 done
+**Phase 1.0:** 19/43 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -59,7 +59,7 @@ Research-driven improvements to context retrieval quality, token efficiency, sec
 | Line-level pruner within matched chunks (SWE-Pruner)   | Done    | shared/src/pipeline/ | Chunk-level (#P) | Score lines within L0 chunks against intent tokens; remove irrelevant, keep syntax       |
 | `CommandInjectionScanner` (GuardScanner)               | Done    | shared/src/pipeline/ | —                | Detect `$(...)`, backtick substitution, pipe chains in comments/docs                     |
 | `MarkdownInstructionScanner` (GuardScanner)            | Done    | shared/src/pipeline/ | —                | Detect high-risk instruction payloads in markdown/doc files                              |
-| Block/line-level gold annotations in benchmark suite   | Pending | test/benchmarks/     | —                | Enrich gold set from path-only to block/line ranges per file for ContextBench-style eval |
+| Block/line-level gold annotations in benchmark suite   | Done    | test/benchmarks/     | —                | Enrich gold set from path-only to block/line ranges per file for ContextBench-style eval |
 | Per-task-class precision/recall metrics in benchmarks  | Pending | test/benchmarks/     | Gold annotations | Precision/recall at file, block, line granularity grouped by task class                  |
 
 ### Phase R — Claude Code Hook-Based Delivery
@@ -317,9 +317,10 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2025-03-06
 
-**Components:** contextCompleteness confidence signal in CompilationMeta, Constraints preamble in prompt assembler (LitM), Line-level pruner within matched chunks (SWE-Pruner), MarkdownInstructionScanner (GuardScanner), CommandInjectionScanner (GuardScanner)
+**Components:** contextCompleteness confidence signal in CompilationMeta, Constraints preamble in prompt assembler (LitM), Line-level pruner within matched chunks (SWE-Pruner), MarkdownInstructionScanner (GuardScanner), CommandInjectionScanner (GuardScanner), Block/line-level gold annotations in benchmark suite
 **Completed:**
 
+- Block/line-level gold annotations in benchmark suite (task 106): test/benchmarks/expected-selection/1.json enriched with `blocks` array (three entries: src/auth/service.ts 15–30 and 37–56, src/index.ts 6–12); selection-quality-benchmark.test.ts gold_task1_includes_blocks test (read 1.json, expect blocks array length 3). Lint, typecheck, test, lint:clones 0; knip no new findings.
 - MarkdownInstructionScanner (task 104): GuardScanner for .md/.mdc/.mdx that reuses BLOCK/WARN instruction patterns; instruction-patterns.ts with runInstructionPatternScan shared with PromptInjectionScanner (0 clones); wired in create-pipeline-deps; five tests (non_markdown_path_returns_empty, markdown_path_with_block_pattern_returns_block_finding, markdown_path_with_warn_pattern_returns_warn_finding, markdown_path_clean_returns_empty, mdc_and_mdx_paths_scanned). Lint, typecheck, test, lint:clones 0.
 - contextCompleteness confidence signal in CompilationMeta (task 101): CompilationMeta extended with readonly contextCompleteness: Confidence; compilation-types import Confidence from scores; buildCacheHitMeta and buildFreshMeta set contextCompleteness: toConfidence(1); STUB_COMPILATION_META and test stubs (build-telemetry-event metaOverrides, compile-handler stubMeta) include contextCompleteness. Lint, typecheck, test, lint:clones 0; knip no new findings.
 - Constraints preamble in prompt assembler (LitM) (task 102): buildConstraintsPreamble helper; top 3 constraints as ## Constraints (key) before ## Context; full ## Constraints section unchanged after context; four tests (preamble_emitted, top_three_only, omitted_when_empty, one_or_two). Lint, typecheck, test, lint:clones 0; max-lines-per-function satisfied via helper.

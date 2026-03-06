@@ -7,5 +7,10 @@
     "src/auth/service.ts",
     "src/index.ts",
     "src/styles.css"
+  ],
+  "blocks": [
+    { "filePath": "src/auth/service.ts", "startLine": 15, "endLine": 30 },
+    { "filePath": "src/auth/service.ts", "startLine": 37, "endLine": 56 },
+    { "filePath": "src/index.ts", "startLine": 6, "endLine": 12 }
   ]
 }
