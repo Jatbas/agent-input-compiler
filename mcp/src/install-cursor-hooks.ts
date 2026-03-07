@@ -21,8 +21,14 @@ const DEFAULT_HOOKS = {
         matcher: "MCP",
       },
     ],
-    afterFileEdit: [],
+    afterFileEdit: [{ command: "node .cursor/hooks/AIC-after-file-edit-tracker.cjs" }],
     sessionEnd: [{ command: "node .cursor/hooks/AIC-session-end.cjs" }],
+    stop: [
+      {
+        command: "node .cursor/hooks/AIC-stop-quality-check.cjs",
+        loop_limit: 5,
+      },
+    ],
   },
 } as const;
 
@@ -38,7 +44,9 @@ const AIC_SCRIPT_NAMES: readonly string[] = [
   "AIC-require-aic-compile.cjs",
   "AIC-inject-conversation-id.cjs",
   "AIC-before-submit-prewarm.cjs",
+  "AIC-after-file-edit-tracker.cjs",
   "AIC-session-end.cjs",
+  "AIC-stop-quality-check.cjs",
 ];
 
 type HookEntry = {
@@ -48,6 +56,8 @@ type HookEntry = {
   readonly failClosed?: boolean;
 };
 
+type StopHookEntry = HookEntry & { readonly loop_limit?: number | null };
+
 function commandIncludes(entry: { command?: string }, scriptName: string): boolean {
   return String(entry.command ?? "").includes(scriptName);
 }
@@ -56,6 +66,19 @@ function mergeHookArray(
   existing: readonly HookEntry[],
   defaults: readonly HookEntry[],
 ): readonly HookEntry[] {
+  const appended = defaults.filter((def) => {
+    const scriptName = (def.command ?? "").match(/AIC-[a-z0-9-]+\.cjs/)?.[0];
+    return (
+      scriptName !== undefined && !existing.some((e) => commandIncludes(e, scriptName))
+    );
+  });
+  return appended.length > 0 ? [...existing, ...appended] : existing;
+}
+
+function mergeStopArray(
+  existing: readonly StopHookEntry[],
+  defaults: readonly StopHookEntry[],
+): readonly StopHookEntry[] {
   const appended = defaults.filter((def) => {
     const scriptName = (def.command ?? "").match(/AIC-[a-z0-9-]+\.cjs/)?.[0];
     return (
@@ -81,6 +104,7 @@ export function installCursorHooks(projectRoot: AbsolutePath): void {
         beforeSubmitPrompt?: readonly HookEntry[];
         afterFileEdit?: readonly HookEntry[];
         sessionEnd?: readonly HookEntry[];
+        stop?: readonly StopHookEntry[];
       };
     };
     const sessionStart = mergeHookArray(
@@ -95,11 +119,15 @@ export function installCursorHooks(projectRoot: AbsolutePath): void {
       parsed.hooks?.beforeSubmitPrompt ?? [],
       DEFAULT_HOOKS.hooks.beforeSubmitPrompt,
     );
-    const afterFileEdit = parsed.hooks?.afterFileEdit ?? [];
+    const afterFileEdit = mergeHookArray(
+      parsed.hooks?.afterFileEdit ?? [],
+      DEFAULT_HOOKS.hooks.afterFileEdit,
+    );
     const sessionEnd = mergeHookArray(
       parsed.hooks?.sessionEnd ?? [],
       DEFAULT_HOOKS.hooks.sessionEnd,
     );
+    const stop = mergeStopArray(parsed.hooks?.stop ?? [], DEFAULT_HOOKS.hooks.stop);
     const merged = {
       version: parsed.version ?? 1,
       hooks: {
@@ -109,6 +137,7 @@ export function installCursorHooks(projectRoot: AbsolutePath): void {
         beforeSubmitPrompt,
         afterFileEdit,
         sessionEnd,
+        stop,
       },
     };
     fs.writeFileSync(hooksPath, JSON.stringify(merged, null, 2), "utf8");

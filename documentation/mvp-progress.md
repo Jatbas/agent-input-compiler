@@ -70,7 +70,7 @@ Cursor exposes hooks AIC was not yet using: sessionEnd, preCompact (observationa
 | ----------------------------------------------------- | ------- | --------------------- | -------- | ------------------------------------------------------------------------------------------ |
 | preToolUse schema alignment + failClosed (Task 109)   | Done    | .cursor/hooks/ + mcp/ | —        | Align `decision`/`reason` to official `permission`/`agent_message`; add `failClosed: true` |
 | sessionEnd hook (Task 110)                            | Done    | .cursor/hooks/ + mcp/ | —        | Cleanup temp files and log session metrics on session end                                  |
-| stop quality check + afterFileEdit tracker (Task 111) | Pending | .cursor/hooks/ + mcp/ | —        | Track edited files; run lint/typecheck on stop; auto-fix via `followup_message`            |
+| stop quality check + afterFileEdit tracker (Task 111) | Done    | .cursor/hooks/ + mcp/ | —        | Track edited files; run lint/typecheck on stop; auto-fix via `followup_message`            |
 | sessionStart env improvements (Task 112)              | Done    | .cursor/hooks/ + mcp/ | —        | Pass `AIC_PROJECT_ROOT` and `AIC_CONVERSATION_ID` via session-scoped env                   |
 | Documentation Cursor hooks update (Task 113)          | Pending | documentation/        | —        | Correct capability tables in architecture, project-plan, gaps, future docs                 |
 | postToolUse compile confirmation (Task 114)           | Pending | .cursor/hooks/ + mcp/ | Optional | Inject `additional_context` confirmation after successful `aic_compile`                    |

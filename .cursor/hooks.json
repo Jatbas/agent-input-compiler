@@ -31,10 +31,20 @@
         "matcher": "git"
       }
     ],
-    "afterFileEdit": [],
+    "afterFileEdit": [
+      {
+        "command": "node .cursor/hooks/AIC-after-file-edit-tracker.cjs"
+      }
+    ],
     "sessionEnd": [
       {
         "command": "node .cursor/hooks/AIC-session-end.cjs"
+      }
+    ],
+    "stop": [
+      {
+        "command": "node .cursor/hooks/AIC-stop-quality-check.cjs",
+        "loop_limit": 5
       }
     ]
   }
