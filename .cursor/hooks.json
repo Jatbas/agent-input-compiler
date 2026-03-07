@@ -31,6 +31,11 @@
         "matcher": "git"
       }
     ],
-    "afterFileEdit": []
+    "afterFileEdit": [],
+    "sessionEnd": [
+      {
+        "command": "node .cursor/hooks/AIC-session-end.cjs"
+      }
+    ]
   }
 }

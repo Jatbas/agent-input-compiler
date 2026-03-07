@@ -22,6 +22,7 @@ const DEFAULT_HOOKS = {
       },
     ],
     afterFileEdit: [],
+    sessionEnd: [{ command: "node .cursor/hooks/AIC-session-end.cjs" }],
   },
 } as const;
 
@@ -37,6 +38,7 @@ const AIC_SCRIPT_NAMES: readonly string[] = [
   "AIC-require-aic-compile.cjs",
   "AIC-inject-conversation-id.cjs",
   "AIC-before-submit-prewarm.cjs",
+  "AIC-session-end.cjs",
 ];
 
 type HookEntry = {
@@ -78,6 +80,7 @@ export function installCursorHooks(projectRoot: AbsolutePath): void {
         preToolUse?: readonly HookEntry[];
         beforeSubmitPrompt?: readonly HookEntry[];
         afterFileEdit?: readonly HookEntry[];
+        sessionEnd?: readonly HookEntry[];
       };
     };
     const sessionStart = mergeHookArray(
@@ -93,6 +96,10 @@ export function installCursorHooks(projectRoot: AbsolutePath): void {
       DEFAULT_HOOKS.hooks.beforeSubmitPrompt,
     );
     const afterFileEdit = parsed.hooks?.afterFileEdit ?? [];
+    const sessionEnd = mergeHookArray(
+      parsed.hooks?.sessionEnd ?? [],
+      DEFAULT_HOOKS.hooks.sessionEnd,
+    );
     const merged = {
       version: parsed.version ?? 1,
       hooks: {
@@ -101,6 +108,7 @@ export function installCursorHooks(projectRoot: AbsolutePath): void {
         preToolUse,
         beforeSubmitPrompt,
         afterFileEdit,
+        sessionEnd,
       },
     };
     fs.writeFileSync(hooksPath, JSON.stringify(merged, null, 2), "utf8");

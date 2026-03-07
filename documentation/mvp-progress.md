@@ -69,7 +69,7 @@ Cursor exposes hooks AIC was not yet using: sessionEnd, preCompact (observationa
 | Component                                             | Status  | Package               | Deps     | Description                                                                                |
 | ----------------------------------------------------- | ------- | --------------------- | -------- | ------------------------------------------------------------------------------------------ |
 | preToolUse schema alignment + failClosed (Task 109)   | Done    | .cursor/hooks/ + mcp/ | —        | Align `decision`/`reason` to official `permission`/`agent_message`; add `failClosed: true` |
-| sessionEnd hook (Task 110)                            | Pending | .cursor/hooks/ + mcp/ | —        | Cleanup temp files and log session metrics on session end                                  |
+| sessionEnd hook (Task 110)                            | Done    | .cursor/hooks/ + mcp/ | —        | Cleanup temp files and log session metrics on session end                                  |
 | stop quality check + afterFileEdit tracker (Task 111) | Pending | .cursor/hooks/ + mcp/ | —        | Track edited files; run lint/typecheck on stop; auto-fix via `followup_message`            |
 | sessionStart env improvements (Task 112)              | Pending | .cursor/hooks/ + mcp/ | —        | Pass `AIC_PROJECT_ROOT` and `AIC_CONVERSATION_ID` via session-scoped env                   |
 | Documentation Cursor hooks update (Task 113)          | Pending | documentation/        | —        | Correct capability tables in architecture, project-plan, gaps, future docs                 |
@@ -331,12 +331,12 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2026-03-07
 
-**Components:** preToolUse schema alignment + failClosed (Task 109)
+**Components:** preToolUse schema alignment + failClosed (Task 109), sessionEnd hook (Task 110)
 **Completed:**
 
 - Aligned preToolUse hooks to Cursor official schema: `permission`, `user_message`, `agent_message`, `updated_input` (no `decision`/`reason`)
-- Added `failClosed: true` to require-aic-compile in hooks.json and install-cursor-hooks.ts DEFAULT_HOOKS
-- Extended HookEntry type with `failClosed?: boolean`
+- Added `failClosed: true` to require-aic-compile in hooks.json and install-cursor-hooks.ts DEFAULT_HOOKS; extended HookEntry type with `failClosed?: boolean`
+- sessionEnd hook (Task 110): AIC-session-end.cjs in .cursor/hooks/ and mcp/hooks/ — reads stdin (session*id, reason, duration_ms), cleans aic-gate-* and aic-prompt-\_ in os.tmpdir(), optionally appends one JSON line to .aic/session-log.jsonl; hooks.json and DEFAULT_HOOKS.sessionEnd; install-cursor-hooks.ts adds AIC-session-end.cjs to AIC_SCRIPT_NAMES, sessionEnd to DEFAULT_HOOKS and merge logic. Lint, typecheck, test, lint:clones 0.
 
 ### 2025-03-06
 
