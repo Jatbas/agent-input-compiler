@@ -34,7 +34,7 @@ Claude Code solves the two capabilities that are structurally impossible in Curs
 
 ### GAP-02: Claude Code integration layer not built
 
-**Status:** Tracked — Phase R (hook-based delivery) + Phase S (zero-install) in `mvp-progress.md`
+**Status:** Tracked — Phase S (hook-based delivery) + Phase T (zero-install) in `mvp-progress.md`
 **Impact:** High — Claude Code's hooks solve limitations we documented as fundamental
 
 **What we have:** Working Cursor integration layer. Confirmed Claude Code hook capabilities (see table above). Basic Claude Code hooks exist in `.claude/hooks/` but lack full delivery and zero-install.
@@ -47,59 +47,59 @@ Claude Code solves the two capabilities that are structurally impossible in Curs
 4. `SessionEnd` hook — session lifecycle telemetry
 5. Editor detection and auto-install for Claude Code artifacts
 
-**Action:** Phase R + Phase S in `mvp-progress.md`. Deprioritised — user does not currently use Claude Code.
+**Action:** Phase S + Phase T in `mvp-progress.md`. Deprioritised — user does not currently use Claude Code.
 
 ---
 
 ### GAP-06: Project plan describes unimplemented features in present tense
 
-**Status:** Tracked — Phase S in `mvp-progress.md`
+**Status:** Tracked — Phase U in `mvp-progress.md`
 **Impact:** Low — a project plan is expected to describe future work, but some sections read as if features exist
 
 **What we have:** Rules & Hooks Analyzer marked as "Planned." But other items like `EditorAdapterRegistry`, `ModelAdapterRegistry`, and `aic://rules-analysis` MCP resource are described in present tense without phase markers.
 
 **What we need:** Audit the project plan for features described in present tense that are not yet implemented. Add phase markers where appropriate.
 
-**Action:** Phase S: Present-tense audit of project plan.
+**Action:** Phase U: Present-tense audit of project plan.
 
 ---
 
 ### GAP-09: Visual demo (GIF/recording) in README
 
-**Status:** Tracked — Phase S in `mvp-progress.md`
+**Status:** Tracked — Phase U in `mvp-progress.md`
 **Impact:** High — OSS browsers expect a visual demo in the first scroll; without one, many leave immediately
 
 **What we have:** A working `aic_inspect` MCP tool and real projects to run it on.
 
 **What we need:** A screen recording showing AIC in action inside an editor — "show aic status" and "show aic last" prompt commands. Placed at the top of the README near the one-liner.
 
-**Action:** Phase S: Visual demo (GIF/recording) in README.
+**Action:** Phase U: Visual demo (GIF/recording) in README.
 
 ---
 
 ### GAP-10: Comparative benchmarks — AIC vs. native editor context
 
-**Status:** Tracked — Phase S in `mvp-progress.md`
+**Status:** Tracked — Phase U in `mvp-progress.md`
 **Impact:** High — team leads evaluating AIC need to see how it compares to Cursor's built-in context selection (@codebase, @file), not just raw-to-compiled reduction
 
 **What we have:** AIC's own token reduction numbers (98%+). Phase K benchmarks complete on single repo. No data on what editors send natively.
 
 **What we need:** Side-by-side comparison: for the same prompt on the same project, measure (a) what Cursor sends without AIC, (b) what AIC compiles. Show file selection quality, not just token count.
 
-**Action:** Phase S: Comparative benchmarks vs. native editor context.
+**Action:** Phase U: Comparative benchmarks vs. native editor context.
 
 ---
 
 ### GAP-11: Token reduction datapoints at multiple project scales
 
-**Status:** Tracked — Phase S in `mvp-progress.md`
+**Status:** Tracked — Phase U in `mvp-progress.md`
 **Impact:** Medium — a single datapoint from one project doesn't answer "will this help a project my size?"
 
 **What we have:** One real-world datapoint (this project: 420M+ raw → ~7M compiled, 98%+ reduction across 900+ compilations). Phase K single-repo benchmarks complete.
 
 **What we need:** At least three datapoints at different scales (e.g. ~50 files, ~500 files, ~5000 files) showing reduction percentages, selected file counts, and summarisation tier distribution.
 
-**Action:** Phase S: Multi-repo benchmark suite (multi-scale datapoints).
+**Action:** Phase U: Multi-repo benchmark suite (multi-scale datapoints).
 
 ---
 
@@ -137,20 +137,20 @@ Claude Code solves the two capabilities that are structurally impossible in Curs
 
 Open gaps, ordered by Phase 1.0 priority. Claude Code items deprioritised (user does not currently use Claude Code).
 
-| Priority | Gap                                         | Phase S item                             | Effort                          | Impact                                          |
+| Priority | Gap                                         | Phase U item                             | Effort                          | Impact                                          |
 | -------- | ------------------------------------------- | ---------------------------------------- | ------------------------------- | ----------------------------------------------- |
 | 1        | GAP-09: Visual demo in README               | Visual demo (GIF/recording) in README    | Small (terminal recording)      | High — first-impression impact for OSS browsers |
 | 2        | GAP-11: Multi-scale datapoints              | Multi-repo benchmark suite               | Medium (run on multiple repos)  | Medium — "will this work on my project?"        |
 | 3        | GAP-10: Comparative benchmarks              | Comparative benchmarks vs. native editor | Medium (analysis + methodology) | High — team adoption requires comparison data   |
 | 4        | GAP-06: Present-tense audit of project plan | Present-tense audit of project plan      | Small (docs edit)               | Low — polish                                    |
-| 5        | GAP-02: Claude Code integration layer       | Phase R + Phase S (deprioritised)        | Large (implementation)          | High — but not needed until user adopts CC      |
+| 5        | GAP-02: Claude Code integration layer       | Phase S + Phase T (deprioritised)        | Large (implementation)          | High — but not needed until user adopts CC      |
 
 ### Resolved
 
 | Gap    | Resolution                                                                                         |
 | ------ | -------------------------------------------------------------------------------------------------- |
 | GAP-03 | Real `aic_inspect`/status/last output in README — replaced synthetic example with captured output. |
-| GAP-01 | Phase K benchmarks complete (single repo). Multi-repo tracked in Phase S (GAP-11).                 |
+| GAP-01 | Phase K benchmarks complete (single repo). Multi-repo tracked in Phase U (GAP-11).                 |
 | GAP-04 | triggerSource (Phase I), conversation tracking (Phase M), telemetry docs in README/security.md.    |
 | GAP-05 | Best practices now include technical reasoning (attention degradation, compaction loss, etc.).     |
 | GAP-07 | Limitations reframed as editor capability gaps. README + project plan updated.                     |

@@ -1,9 +1,9 @@
 # Claude Code Hook-Based Context Delivery
 
-> **Status:** Planned (Phase R in `mvp-progress.md`)
+> **Status:** Planned (Phase S in `mvp-progress.md`)
 > **Target:** Phase 1.0
 > **Prep done:** `TRIGGER_SOURCE.HOOK` added to `shared/src/core/types/enums.ts`
-> **Tracked as:** Phase R (was Phase Q before Phase Q research-backed upgrades inserted)
+> **Tracked as:** Phase S (was Phase R before Phase R Cursor hook upgrades inserted)
 
 ## Problem
 

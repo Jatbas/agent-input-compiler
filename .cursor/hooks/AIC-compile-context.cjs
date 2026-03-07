@@ -4,7 +4,6 @@
 // additional_context. This runs before the model sees anything — deterministic.
 // Passes session_id as conversationId when present so compilation_log has conversation_id.
 const { execSync } = require("child_process");
-const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 
@@ -21,26 +20,14 @@ try {
 }
 
 const sessionId = hookInput.session_id || null;
-const conversationId =
-  sessionId && typeof sessionId === "string" && sessionId.length > 0
-    ? sessionId
-    : crypto.randomUUID();
-try {
-  fs.mkdirSync(path.join(projectRoot, ".aic"), { recursive: true, mode: 0o700 });
-  fs.writeFileSync(
-    path.join(projectRoot, ".aic", "conversation-id"),
-    conversationId,
-    "utf8",
-  );
-} catch {
-  // Non-fatal — proceed without persisting
-}
 const compileArgs = {
   intent: INTENT,
   projectRoot: projectRoot,
   editorId: "cursor",
-  conversationId: conversationId,
 };
+if (sessionId && typeof sessionId === "string" && sessionId.length > 0) {
+  compileArgs.conversationId = sessionId;
+}
 
 // Build a JSON-RPC request to call aic_compile via the MCP server
 const initRequest = JSON.stringify({
@@ -102,7 +89,6 @@ try {
                 "message in this chat — not just the first one. Each follow-up message",
                 "has a different intent that needs fresh context compilation.",
                 "",
-                "AIC_CONVERSATION_ID=" + conversationId,
                 parsed.compiledPrompt,
               ].join("\n"),
             });

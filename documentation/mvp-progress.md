@@ -2,14 +2,14 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 21/43 done
+**Phase 1.0:** 21/49 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
 
 ## Phase 1.0 — OSS Release
 
-Specification Compiler, agentic session tracking, research-backed quality and security upgrades, Claude Code hook-based delivery, OSS release prep.
+Specification Compiler, agentic session tracking, research-backed quality and security upgrades, Cursor hook upgrades, Claude Code hook-based delivery, OSS release prep.
 
 ### Phase N — Specification Compiler
 
@@ -62,7 +62,20 @@ Research-driven improvements to context retrieval quality, token efficiency, sec
 | Block/line-level gold annotations in benchmark suite   | Done   | test/benchmarks/     | —                | Enrich gold set from path-only to block/line ranges per file for ContextBench-style eval |
 | Per-task-class precision/recall metrics in benchmarks  | Done   | test/benchmarks/     | Gold annotations | Precision/recall at file, block, line granularity grouped by task class                  |
 
-### Phase R — Claude Code Hook-Based Delivery
+### Phase R — Cursor Hook Upgrades
+
+Cursor exposes hooks AIC was not yet using: sessionEnd, preCompact (observational only), subagentStart (gating only — no context injection), postToolUse (with `additional_context`), stop (with `followup_message`). This phase aligns existing hooks to the official schema, adds new lifecycle hooks (sessionEnd, stop quality check, afterFileEdit tracking), improves session-scoped env propagation, and updates documentation to reflect the corrected Cursor capability picture.
+
+| Component                                             | Status  | Package               | Deps     | Description                                                                                |
+| ----------------------------------------------------- | ------- | --------------------- | -------- | ------------------------------------------------------------------------------------------ |
+| preToolUse schema alignment + failClosed (Task 109)   | Pending | .cursor/hooks/ + mcp/ | —        | Align `decision`/`reason` to official `permission`/`agent_message`; add `failClosed: true` |
+| sessionEnd hook (Task 110)                            | Pending | .cursor/hooks/ + mcp/ | —        | Cleanup temp files and log session metrics on session end                                  |
+| stop quality check + afterFileEdit tracker (Task 111) | Pending | .cursor/hooks/ + mcp/ | —        | Track edited files; run lint/typecheck on stop; auto-fix via `followup_message`            |
+| sessionStart env improvements (Task 112)              | Pending | .cursor/hooks/ + mcp/ | —        | Pass `AIC_PROJECT_ROOT` and `AIC_CONVERSATION_ID` via session-scoped env                   |
+| Documentation Cursor hooks update (Task 113)          | Pending | documentation/        | —        | Correct capability tables in architecture, project-plan, gaps, future docs                 |
+| postToolUse compile confirmation (Task 114)           | Pending | .cursor/hooks/ + mcp/ | Optional | Inject `additional_context` confirmation after successful `aic_compile`                    |
+
+### Phase S — Claude Code Hook-Based Delivery
 
 Highest-impact delivery item. Claude Code's hook system exposes all 7 capabilities AIC needs (per-prompt, subagent, pre-compaction) — structurally impossible in Cursor. Eliminates the fragile trigger rule + tool-call round-trip by injecting compiled context via `UserPromptSubmit` → `additionalContext`. `TRIGGER_SOURCE.HOOK` enum value already exists. See `documentation/future/claude-code-hook-integration.md` for full design.
 
@@ -73,9 +86,9 @@ Highest-impact delivery item. Claude Code's hook system exposes all 7 capabiliti
 | `PreCompaction` hook: re-compile before trim   | Pending | .claude/hooks/ | UserPromptSubmit hook | Re-compile before editor trims context           |
 | `SessionEnd` hook: session lifecycle telemetry | Pending | .claude/hooks/ | —                     | Session end telemetry                            |
 | `PostToolUse` additionalContext workaround     | Pending | .claude/hooks/ | UserPromptSubmit hook | Workaround when PostToolUse supplies context     |
-| Hook-based delivery integration tests          | Pending | mcp/src/       | All R hooks           | Tests for Claude Code hook delivery              |
+| Hook-based delivery integration tests          | Pending | mcp/src/       | All S hooks           | Tests for Claude Code hook delivery              |
 
-### Phase S — Claude Code Zero-Install
+### Phase T — Claude Code Zero-Install
 
 Editor detection and auto-install so Claude Code users get the same zero-install experience Cursor has. Currently Cursor-only (`installTriggerRule`, `installCursorHooks`). Absorbs KL-006 and Zero-Install Gaps.
 
@@ -83,24 +96,24 @@ Editor detection and auto-install so Claude Code users get the same zero-install
 | --------------------------------------------------------- | ------- | -------- | -------------------------------- | --------------------------------------------------- |
 | Editor detection (`detectEditorForInit`)                  | Pending | mcp/src/ | —                                | Detect Claude Code vs Cursor for installer dispatch |
 | `installClaudeCodeTriggerRule` (`.claude/CLAUDE.md`)      | Pending | mcp/src/ | Editor detection                 | Auto-create Claude Code trigger rule                |
-| `installClaudeCodeHooks` (`.claude/settings.local.json`)  | Pending | mcp/src/ | Editor detection, Phase R        | Auto-install Claude Code hooks                      |
+| `installClaudeCodeHooks` (`.claude/settings.local.json`)  | Pending | mcp/src/ | Editor detection, Phase S        | Auto-install Claude Code hooks                      |
 | `createMcpServer` dispatches installer by detected editor | Pending | mcp/src/ | Editor detection, trigger, hooks | One startup path per editor                         |
 | Startup self-check covers Claude Code artifacts           | Pending | mcp/src/ | createMcpServer dispatches       | Validate Claude Code artifacts on startup           |
 
-### Phase T — OSS Release Prep
+### Phase U — OSS Release Prep
 
 Final polish for public release. npm publish, changelog, benchmarks, visual demo, documentation audit. See `documentation/gaps.md` for detailed descriptions of GAP items.
 
 | Component                                           | Status  | Package | Gap    | Deps      | Description                                   |
 | --------------------------------------------------- | ------- | ------- | ------ | --------- | --------------------------------------------- |
-| npm publish pipeline (`@aic/mcp`)                   | Pending | mcp/    | —      | Phase N–S | Publish MCP package to npm                    |
+| npm publish pipeline (`@aic/mcp`)                   | Pending | mcp/    | —      | Phase N–T | Publish MCP package to npm                    |
 | CHANGELOG.md                                        | Pending | ./      | —      | —         | Version history for release                   |
 | License headers audit                               | Pending | ./      | —      | —         | Ensure license headers present                |
 | Contributing guide (final)                          | Pending | ./      | —      | —         | How to contribute                             |
 | Multi-repo benchmark suite (multi-scale datapoints) | Pending | test/   | GAP-11 | —         | Token reduction at multiple project scales    |
 | Comparative benchmarks vs. native editor context    | Pending | test/   | GAP-10 | —         | AIC vs native editor context selection        |
 | Real `aic_inspect` output in README                 | Done    | ./      | GAP-03 | —         | Real output example in README                 |
-| Visual demo (GIF/recording) in README               | Pending | ./      | GAP-09 | Phase N–S | Screen recording of AIC in editor             |
+| Visual demo (GIF/recording) in README               | Pending | ./      | GAP-09 | Phase N–T | Screen recording of AIC in editor             |
 | Present-tense audit of project plan                 | Pending | ./      | GAP-06 | —         | Fix present-tense descriptions of future work |
 
 ---
