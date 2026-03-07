@@ -1,6 +1,6 @@
 // preToolUse hook — blocks all tools until aic_compile has been called for this generation.
 // Reads the exact user prompt saved by before-submit-prewarm.cjs and includes it
-// in the deny reason so the model copies it verbatim → cache hit from pre-warm.
+// in the deny message so the model copies it verbatim → cache hit from pre-warm.
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
@@ -50,12 +50,12 @@ process.stdin.on("end", () => {
 
     if (isAicCompileMcpCall(toolName, toolInput)) {
       fs.writeFileSync(stateFile, "1");
-      process.stdout.write(JSON.stringify({ decision: "allow" }));
+      process.stdout.write(JSON.stringify({ permission: "allow" }));
       return;
     }
 
     if (fs.existsSync(stateFile)) {
-      process.stdout.write(JSON.stringify({ decision: "allow" }));
+      process.stdout.write(JSON.stringify({ permission: "allow" }));
       return;
     }
 
@@ -66,14 +66,16 @@ process.stdin.on("end", () => {
         ? savedPrompt.replace(/"/g, '\\"')
         : "<summarise the user message>";
 
+    const denyMsg = `BLOCKED: You must call the aic_compile MCP tool FIRST before using any other tool. Call it now with { "intent": "${intentArg}", "projectRoot": "/Users/jatbas/Desktop/AIC" }`;
     process.stdout.write(
       JSON.stringify({
-        decision: "deny",
-        reason: `BLOCKED: You must call the aic_compile MCP tool FIRST before using any other tool. Call it now with { "intent": "${intentArg}", "projectRoot": "/Users/jatbas/Desktop/AIC" }`,
+        permission: "deny",
+        user_message: denyMsg,
+        agent_message: denyMsg,
       }),
     );
   } catch {
     // Fail-open: allow on parse error
-    process.stdout.write(JSON.stringify({ decision: "allow" }));
+    process.stdout.write(JSON.stringify({ permission: "allow" }));
   }
 });

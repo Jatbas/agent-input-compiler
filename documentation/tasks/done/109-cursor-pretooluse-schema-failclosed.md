@@ -1,6 +1,6 @@
 # Task 109: Align preToolUse hooks to Cursor official schema + failClosed
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** 1.0 — OSS Release (Cursor integration)
 > **Layer:** integration (`.cursor/hooks/` CJS + `mcp/hooks/` + `mcp/src/install-cursor-hooks.ts`)
 > **Depends on:** None

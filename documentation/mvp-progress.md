@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 21/49 done
+**Phase 1.0:** 22/49 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -68,7 +68,7 @@ Cursor exposes hooks AIC was not yet using: sessionEnd, preCompact (observationa
 
 | Component                                             | Status  | Package               | Deps     | Description                                                                                |
 | ----------------------------------------------------- | ------- | --------------------- | -------- | ------------------------------------------------------------------------------------------ |
-| preToolUse schema alignment + failClosed (Task 109)   | Pending | .cursor/hooks/ + mcp/ | —        | Align `decision`/`reason` to official `permission`/`agent_message`; add `failClosed: true` |
+| preToolUse schema alignment + failClosed (Task 109)   | Done    | .cursor/hooks/ + mcp/ | —        | Align `decision`/`reason` to official `permission`/`agent_message`; add `failClosed: true` |
 | sessionEnd hook (Task 110)                            | Pending | .cursor/hooks/ + mcp/ | —        | Cleanup temp files and log session metrics on session end                                  |
 | stop quality check + afterFileEdit tracker (Task 111) | Pending | .cursor/hooks/ + mcp/ | —        | Track edited files; run lint/typecheck on stop; auto-fix via `followup_message`            |
 | sessionStart env improvements (Task 112)              | Pending | .cursor/hooks/ + mcp/ | —        | Pass `AIC_PROJECT_ROOT` and `AIC_CONVERSATION_ID` via session-scoped env                   |
@@ -328,6 +328,15 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 ---
 
 ## Daily Log
+
+### 2026-03-07
+
+**Components:** preToolUse schema alignment + failClosed (Task 109)
+**Completed:**
+
+- Aligned preToolUse hooks to Cursor official schema: `permission`, `user_message`, `agent_message`, `updated_input` (no `decision`/`reason`)
+- Added `failClosed: true` to require-aic-compile in hooks.json and install-cursor-hooks.ts DEFAULT_HOOKS
+- Extended HookEntry type with `failClosed?: boolean`
 
 ### 2025-03-06
 

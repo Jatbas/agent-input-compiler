@@ -12,7 +12,10 @@ const DEFAULT_HOOKS = {
     ],
     beforeSubmitPrompt: [{ command: "node .cursor/hooks/AIC-before-submit-prewarm.cjs" }],
     preToolUse: [
-      { command: "node .cursor/hooks/AIC-require-aic-compile.cjs" },
+      {
+        command: "node .cursor/hooks/AIC-require-aic-compile.cjs",
+        failClosed: true,
+      },
       {
         command: "node .cursor/hooks/AIC-inject-conversation-id.cjs",
         matcher: "MCP",
@@ -40,6 +43,7 @@ type HookEntry = {
   readonly command?: string;
   readonly timeout?: number;
   readonly matcher?: string;
+  readonly failClosed?: boolean;
 };
 
 function commandIncludes(entry: { command?: string }, scriptName: string): boolean {

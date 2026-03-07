@@ -20,13 +20,13 @@ process.stdin.on("end", () => {
       typeof toolInput.projectRoot === "string";
 
     if (!isAicCompile || !conversationId || typeof conversationId !== "string") {
-      process.stdout.write(JSON.stringify({ decision: "allow" }));
+      process.stdout.write(JSON.stringify({ permission: "allow" }));
       return;
     }
 
     const updated = { ...toolInput, conversationId };
-    process.stdout.write(JSON.stringify({ decision: "allow", updated_input: updated }));
+    process.stdout.write(JSON.stringify({ permission: "allow", updated_input: updated }));
   } catch {
-    process.stdout.write(JSON.stringify({ decision: "allow" }));
+    process.stdout.write(JSON.stringify({ permission: "allow" }));
   }
 });
