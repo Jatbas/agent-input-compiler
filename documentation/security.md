@@ -14,6 +14,7 @@
 - [`.aic/` Directory Security](#aic-directory-security)
 - [Anonymous Telemetry](#anonymous-telemetry)
 - [Telemetry Endpoint Threat Model](#telemetry-endpoint-threat-model)
+- [MCP Server Top 10 Coverage](#mcp-server-top-10-coverage)
 - [MCP Transport & Rule Pack Security](#mcp-transport--rule-pack-security)
   - [MCP Tool Approval Requirements](#mcp-tool-approval-requirements)
 - [Supply Chain Security](#supply-chain-security)
@@ -104,35 +105,35 @@ We consider security research conducted in good faith to be authorized. We will 
 AIC is a **local-first** tool. All compilation processing runs on the developer's machine. No source code, prompts, or file paths are ever transmitted to AIC servers.
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│  Developer's Machine (trust boundary)                        │
-│                                                              │
-│  ┌──────────┐    stdio     ┌──────────────────────┐         │
-│  │  Editor   │◄───────────►│   AIC MCP Server     │         │
-│  │ (Cursor,  │   (local    │   ┌────────────────┐ │         │
-│  │  Claude   │    IPC)     │   │ Context Guard  │ │         │
-│  │  Code)    │             │   │ (blocks secrets│ │         │
-│  └──────────┘              │   │  & injections) │ │         │
-│                             │   └────────────────┘ │         │
-│                             │   ┌────────────────┐ │         │
-│                             │   │ SQLite (.aic/) │ │         │
-│                             │   │ 0700 perms     │ │         │
-│                             │   │ gitignored     │ │         │
-│                             │   └────────────────┘ │         │
-│                             └──────────┬───────────┘         │
-│                                        │                     │
-└────────────────────────────────────────┼─────────────────────┘
-                                         │
-              ┌──────────────────────────┼──────────────────┐
-              │  External (crosses trust boundary)          │
-              │                                             │
-              │  ┌─────────────────┐  ┌──────────────────┐ │
-              │  │ Model endpoint  │  │telemetry.aic.dev │ │
-              │  │ (aic run only)  │  │ (opt-in only)    │ │
-              │  │ Guarded content │  │ no code/paths/PII│ │
-              │  └─────────────────┘  └──────────────────┘ │
-              │                                             │
-              └─────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│  Developer's Machine (trust boundary)                      │
+│                                                            │
+│  ┌──────────┐    stdio    ┌──────────────────────┐         │
+│  │  Editor  │◄───────────►│   AIC MCP Server     │         │
+│  │ (Cursor, │   (local    │   ┌────────────────┐ │         │
+│  │  Claude  │    IPC)     │   │ Context Guard  │ │         │
+│  │  Code)   │             │   │ (blocks secrets│ │         │
+│  └──────────┘             │   │  & injections) │ │         │
+│                           │   └────────────────┘ │         │
+│                           │   ┌────────────────┐ │         │
+│                           │   │ SQLite (.aic/) │ │         │
+│                           │   │ 0700 perms     │ │         │
+│                           │   │ gitignored     │ │         │
+│                           │   └────────────────┘ │         │
+│                           └──────────┬───────────┘         │
+│                                      │                     │
+└──────────────────────────────────────┼─────────────────────┘
+                                       │
+              ┌────────────────────────┼──────────────────┐
+              │  External (crosses trust boundary)        │
+              │                                           │
+              │ ┌─────────────────┐  ┌──────────────────┐ │
+              │ │ Model endpoint  │  │telemetry.aic.dev │ │
+              │ │ (aic run only)  │  │ (opt-in only)    │ │
+              │ │ Guarded content │  │ no code/paths/PII│ │
+              │ └─────────────────┘  └──────────────────┘ │
+              │                                           │
+              └───────────────────────────────────────────┘
 ```
 
 **Key trust boundaries:**
@@ -301,6 +302,34 @@ The `https://telemetry.aic.dev` endpoint is designed as an append-only, anonymou
 **Design principle:** If the telemetry endpoint goes down, AIC continues working normally. If it's compromised, no user data is at risk.
 
 Full threat model: [Project Plan §12 — Telemetry Endpoint Security](project-plan.md).
+
+---
+
+## MCP Server Top 10 Coverage
+
+Mapping of AIC against the [CSA MCP Server Top 10 Security Risks](https://modelcontextprotocol-security.io/top10/server/) and the [MCP Security Best Practices spec](https://modelcontextprotocol.io/specification/2025-11-25/basic/security_best_practices).
+
+| #      | Risk                          |  AIC Status   | AIC Controls                                                                                                                                                                                                                                              | Notes                                                                                                   |
+| ------ | ----------------------------- | :-----------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| MCP-01 | Prompt Injection              |    Covered    | Context Guard (6 pattern categories), `PromptInjectionScanner`, `MarkdownInstructionScanner`, `CommandInjectionScanner`, structural prompt template (intent is opaque, code in delimited blocks, constraints after context)                               | See [Prompt Injection Prevention](#prompt-injection-prevention)                                         |
+| MCP-02 | Confused Deputy               |      N/A      | AIC is a local stdio server with no OAuth, no delegated auth, no multi-user. Single-user, single-process.                                                                                                                                                 | Would apply if AIC added HTTP transport or multi-user auth (Phase 2+)                                   |
+| MCP-03 | Tool Poisoning                |      N/A      | AIC exposes exactly 3 tools (`aic_compile`, `aic_inspect`, `aic_chat_summary`). No dynamic tool loading, no third-party tool registry, no remote tool discovery.                                                                                          | Fixed tool set compiled into the binary                                                                 |
+| MCP-04 | Credential & Token Exposure   |    Covered    | Config references env var _names_ only (never values). Log sanitization replaces secrets with `***`. Context Guard blocks `.env`, `*.pem`, `*.key`. `compiledPrompt` removed from `aic://last` resource. No API keys in SQLite or cache.                  | See [API Key Handling](#api-key-handling)                                                               |
+| MCP-05 | Insecure Server Configuration |    Covered    | stdio only (no network exposure). `projectRoot`/`configPath` path containment guards reject traversal and sensitive prefixes. `.aic/` directory `0700` permissions, auto-gitignored. Zod schema validation at boundary with `max`/`regex` constraints.    | See [`.aic/` Directory Security](#aic-directory-security)                                               |
+| MCP-06 | Supply Chain Attacks          | Covered (MVP) | Lockfile committed and verified. `pnpm audit` in CI. Exact version pinning (no `^`). Minimal runtime deps. Rule packs are local JSON only — no remote loading in MVP.                                                                                     | SBOM, signed npm releases, Dependabot/Snyk planned for Phase 1                                          |
+| MCP-07 | Excessive Permissions         |    Covered    | All 3 tools are read-only (compile, inspect, summary). No file write, no shell exec, no network access exposed via MCP. Path containment guards prevent tools from reading outside the project home directory.                                            | Principle of least privilege by design                                                                  |
+| MCP-08 | Data Exfiltration             |    Covered    | `aic_compile` never contacts external services. Telemetry is opt-in with no code, paths, or PII. `compiledPrompt` removed from `aic://last`. `tool_invocation_log` provides audit trail for all tool calls.                                               | See [Data Leakage Prevention](#data-leakage-prevention) and [Anonymous Telemetry](#anonymous-telemetry) |
+| MCP-09 | Context Spoofing              |    Covered    | Intent is treated as opaque text (never interpolated into system instructions). Zod schema validation at boundary. Intent control-char strip removes `\x00-\x08`, `\x0B-\x1F`. `conversationId`/`modelId` constrained to printable ASCII with max length. | See [Prompt Injection Prevention](#prompt-injection-prevention)                                         |
+| MCP-10 | Insecure Communication        |    Covered    | stdio transport only — local IPC, no network. No plaintext fallback.                                                                                                                                                                                      | If HTTP transport added (Phase 2+), mutual TLS or token auth required                                   |
+
+**Honourable Mentions coverage:**
+
+| Risk                      | AIC Status | AIC Controls                                                                                                                                             |
+| ------------------------- | :--------: | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Insufficient Logging      |  Covered   | `tool_invocation_log` records every tool call with `params_shape` (typeof-only). `compilation_log` and `guard_findings` tables provide full audit trail. |
+| Resource Exhaustion (DoS) |  Covered   | 30s compilation timeout via `Promise.race`. Intent capped at 10,000 chars. `configPath` capped at 4,096 chars.                                           |
+| Input Validation Failures |  Covered   | Zod schemas validate all MCP handler inputs. Path containment guards reject traversal. `conversationId`/`modelId` regex-constrained to printable ASCII.  |
+| Session Management        |  Covered   | Session tracking with `startSession`/`stopSession`. Shutdown handler for graceful cleanup. Crashed session backfill on startup.                          |
 
 ---
 
