@@ -32,17 +32,18 @@ No editor has a complete AIC integration for all of these yet. But the core pipe
 
 **Integrated** = editor exposes the hook and AIC's integration is built. **Hook available** = editor exposes the hook but AIC integration is not yet built. **—** = editor does not expose this hook.
 
-| Capability                         | Cursor     | Claude Code    |
-| ---------------------------------- | ---------- | -------------- |
-| Session start + context injection  | Integrated | Hook available |
-| Per-prompt + context injection     | —          | Hook available |
-| Pre-tool-use gating                | Integrated | Hook available |
-| Subagent start + context injection | —          | Hook available |
-| Session end                        | —          | Hook available |
-| Pre-compaction                     | —          | Hook available |
-| Trigger rule                       | Integrated | Hook available |
+| Capability                         | Cursor                         | Claude Code    |
+| ---------------------------------- | ------------------------------ | -------------- |
+| Session start + context injection  | Integrated                     | Hook available |
+| Per-prompt + context injection     | —                              | Hook available |
+| Pre-tool-use gating                | Integrated                     | Hook available |
+| Subagent start + context injection | —                              | Hook available |
+| Subagent start (gating only)       | Hook available                 | —              |
+| Session end                        | Integrated                     | Hook available |
+| Pre-compaction                     | Hook available (observational) | Hook available |
+| Trigger rule                       | Integrated                     | Hook available |
 
-Cursor has the most mature AIC integration (3 of 7 capabilities built and active). Claude Code's hook system covers all 7 capabilities, but the integration layer is not yet built — making it the highest-impact target for future work.
+Cursor exposes sessionEnd, preCompact, subagentStart (gating only — no context injection), stop, afterFileEdit, and others (see cursor.com/docs/agent/hooks). AIC uses sessionEnd (Task 110), stop and afterFileEdit (Task 111) where implemented. Cursor has the most mature AIC integration. Claude Code's hook system covers all 7 capabilities, but the integration layer is not yet built — making it the highest-impact target for future work.
 
 ---
 
@@ -51,6 +52,8 @@ Cursor has the most mature AIC integration (3 of 7 capabilities built and active
 AIC's integration layer currently targets **Cursor**, which has the most mature integration for context injection and tool gating.
 
 ### What the Cursor integration does
+
+Cursor exposes sessionEnd, preCompact, subagentStart (gating only), subagentStop, postToolUse, postToolUseFailure, stop, afterAgentResponse, afterAgentThought (see cursor.com/docs/agent/hooks). AIC uses sessionEnd (Task 110), stop and afterFileEdit tracking (Task 111) where implemented.
 
 | Hook               | What happens                                                                                                                                                                      | When                           |
 | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
@@ -79,6 +82,6 @@ Even if AIC doesn't compile every subsequent prompt in the conversation (that de
 
 Each editor exposes a different subset of the hook capabilities AIC can use. Gaps in one editor may not exist in another:
 
-- **Cursor** does not support per-prompt context injection or subagent context injection. AIC can inject compiled context at session start and enforce compilation via tool gating, but text-only turns and subagent spawns bypass AIC.
+- **Cursor** supports sessionEnd and preCompact as hooks (AIC uses sessionEnd; preCompact is observational only — no context injection). Cursor does not support per-prompt context injection or subagent context injection; subagentStart is gating only (no additional_context). AIC can inject compiled context at session start and enforce compilation via tool gating, but text-only turns and subagent spawns bypass AIC for context injection.
 - **Claude Code** supports all hook capabilities AIC needs (including per-prompt and subagent injection), but the integration layer is not yet built.
 - **Other editors** without hooks rely solely on the trigger rule, which is suggestive — the model may or may not call `aic_compile`.

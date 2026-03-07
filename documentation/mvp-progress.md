@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 22/49 done
+**Phase 1.0:** 23/49 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -72,7 +72,7 @@ Cursor exposes hooks AIC was not yet using: sessionEnd, preCompact (observationa
 | sessionEnd hook (Task 110)                            | Done    | .cursor/hooks/ + mcp/ | —        | Cleanup temp files and log session metrics on session end                                  |
 | stop quality check + afterFileEdit tracker (Task 111) | Done    | .cursor/hooks/ + mcp/ | —        | Track edited files; run lint/typecheck on stop; auto-fix via `followup_message`            |
 | sessionStart env improvements (Task 112)              | Done    | .cursor/hooks/ + mcp/ | —        | Pass `AIC_PROJECT_ROOT` and `AIC_CONVERSATION_ID` via session-scoped env                   |
-| Documentation Cursor hooks update (Task 113)          | Pending | documentation/        | —        | Correct capability tables in architecture, project-plan, gaps, future docs                 |
+| Documentation Cursor hooks update (Task 113)          | Done    | documentation/        | —        | Correct capability tables in architecture, project-plan, gaps, future docs                 |
 | postToolUse compile confirmation (Task 114)           | Pending | .cursor/hooks/ + mcp/ | Optional | Inject `additional_context` confirmation after successful `aic_compile`                    |
 
 ### Phase S — Claude Code Hook-Based Delivery
@@ -228,8 +228,8 @@ Prerequisite for everything else. Quick fixes to make the tool fully functional.
 | sessionStart compile hook       | Done   | .cursor/hooks/                                              | Compile on session start for initial context                    |
 | preToolUse gate hook            | Done   | .cursor/hooks/                                              | Injects conversationId/editorId into aic_compile args           |
 | beforeSubmitPrompt logging hook | Done   | .cursor/hooks/                                              | Logging hook                                                    |
-| afterFileEdit tracking hook     | Done   | .cursor/hooks/                                              | Track file edits                                                |
-| stop quality check hook         | Done   | .cursor/hooks/                                              | Quality check on stop                                           |
+| afterFileEdit tracking hook     | Done   | .cursor/hooks/ (Task 111)                                   | Track file edits                                                |
+| stop quality check hook         | Done   | .cursor/hooks/ (Task 111)                                   | Quality check on stop                                           |
 | Startup self-check (integrity)  | Done   | mcp/src/                                                    | Validates trigger rule, hooks, DB on startup                    |
 | Auto-install trigger rule       | Done   | mcp/src/                                                    | Creates .cursor/rules/aic.mdc when missing                      |
 | Install Cursor hooks            | Done   | mcp/src/                                                    | Copies AIC hooks to .cursor/hooks/ on startup                   |
@@ -333,7 +333,7 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2025-03-07
 
-**Components:** preToolUse schema alignment + failClosed (Task 109), sessionEnd hook (Task 110), sessionStart env improvements (Task 112)
+**Components:** preToolUse schema alignment + failClosed (Task 109), sessionEnd hook (Task 110), sessionStart env improvements (Task 112), Documentation Cursor hooks update (Task 113)
 
 **Completed:**
 
@@ -341,6 +341,7 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 - Added `failClosed: true` to require-aic-compile in hooks.json and install-cursor-hooks.ts DEFAULT_HOOKS; extended HookEntry type with `failClosed?: boolean`
 - sessionEnd hook (Task 110): AIC-session-end.cjs in .cursor/hooks/ and mcp/hooks/ — reads stdin (session*id, reason, duration_ms), cleans aic-gate-* and aic-prompt-\_ in os.tmpdir(), optionally appends one JSON line to .aic/session-log.jsonl; hooks.json and DEFAULT_HOOKS.sessionEnd; install-cursor-hooks.ts adds AIC-session-end.cjs to AIC_SCRIPT_NAMES, sessionEnd to DEFAULT_HOOKS and merge logic. Lint, typecheck, test, lint:clones 0.
 - sessionStart env improvements (Task 112): AIC-compile-context.cjs (sessionStart) now outputs `env: { AIC_PROJECT_ROOT, AIC_CONVERSATION_ID }` so Cursor passes them to all later hooks; AIC-inject-conversation-id.cjs uses `process.env.AIC_CONVERSATION_ID` as fallback when `input.conversation_id` is missing; changes mirrored to mcp/hooks/.
+- Documentation Cursor hooks update (Task 113): architecture.md — coverage table (sessionEnd Integrated, preCompact Hook available observational, subagent gating-only row), Cursor Integration note (sessionEnd/preCompact/subagentStart/stop), Editor-specific gaps (Cursor supports sessionEnd/preCompact; subagentStart gating only); project-plan.md — capability table (Session end Yes, Pre-compaction Yes observational), subagentStart narrative fix; gaps.md — Cursor column Session end/Pre-compaction Yes; claude-code-hook-integration.md — "Cursor hook limits" (no "Cursor has no hooks"); mvp-progress.md — afterFileEdit/stop refs (Task 111). Lint, typecheck, test pass; knip/lint:clones pre-existing.
 
 ### 2025-03-06
 

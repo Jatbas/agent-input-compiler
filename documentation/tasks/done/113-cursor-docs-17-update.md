@@ -1,6 +1,6 @@
 # Task 113: Update documentation for Cursor hook reality
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** 1.0 — OSS Release (Cursor integration)
 > **Layer:** documentation
 > **Depends on:** None (can be done in parallel with 109–112)

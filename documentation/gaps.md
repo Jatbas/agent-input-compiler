@@ -16,17 +16,17 @@ This means all "limitations" live in the integration layer, not in AIC's core. A
 
 Claude Code provides the most complete hook system for AIC — it covers all capabilities in the editor checklist:
 
-| Capability                         | Cursor | Claude Code |
-| ---------------------------------- | ------ | ----------- |
-| Session start + context injection  | Yes    | Yes         |
-| Per-prompt + context injection     | No     | **Yes**     |
-| Pre-tool-use gating                | Yes    | Yes         |
-| Subagent start + context injection | No     | **Yes**     |
-| Session end                        | No     | **Yes**     |
-| Pre-compaction                     | No     | **Yes**     |
-| Trigger rule                       | Yes    | Yes         |
+| Capability                         | Cursor                               | Claude Code |
+| ---------------------------------- | ------------------------------------ | ----------- |
+| Session start + context injection  | Yes                                  | Yes         |
+| Per-prompt + context injection     | No                                   | **Yes**     |
+| Pre-tool-use gating                | Yes                                  | Yes         |
+| Subagent start + context injection | No                                   | **Yes**     |
+| Session end                        | Yes (sessionEnd; AIC Task 110)       | **Yes**     |
+| Pre-compaction                     | Yes (preCompact, observational only) | **Yes**     |
+| Trigger rule                       | Yes                                  | Yes         |
 
-Claude Code solves the two capabilities that are structurally impossible in Cursor (per-prompt context, subagent context). These are available today via Claude Code's hook API.
+Cursor exposes sessionEnd and preCompact; AIC integrates sessionEnd (Task 110). Pre-compaction in Cursor is observational only (no context injection). Claude Code solves the two capabilities that are structurally impossible in Cursor (per-prompt context, subagent context injection). These are available today via Claude Code's hook API.
 
 ---
 

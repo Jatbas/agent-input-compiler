@@ -277,11 +277,13 @@ The **integration layer** is a thin set of hook scripts, specific to each editor
 | Per-prompt + context injection     | No                                          | Yes (`UserPromptSubmit` + `additionalContext`)  | No          |
 | Pre-tool-use gating                | Yes (`preToolUse` + `deny`)                 | Yes (`PreToolUse` + `permissionDecision: deny`) | No          |
 | Subagent start + context injection | No                                          | Yes (`SubagentStart` + `additionalContext`)     | No          |
-| Session end                        | No                                          | Yes (`SessionEnd`)                              | No          |
-| Pre-compaction                     | No                                          | Yes (`PreCompact`)                              | No          |
+| Session end                        | Yes (`sessionEnd`)                          | Yes (`SessionEnd`)                              | No          |
+| Pre-compaction                     | Yes (`preCompact`, observational only)      | Yes (`PreCompact`)                              | No          |
 | Trigger rule                       | Yes (`.cursor/rules/aic.mdc`)               | Yes (`.claude/CLAUDE.md`)                       | No          |
 
-**Current state:** The Cursor integration layer is built (session-start injection, tool gating, prompt logging, quality checks). The Claude Code integration layer is not yet built but its hook system covers all capabilities in the checklist. Generic MCP editors have no hooks — they rely on the trigger rule.
+Cursor exposes sessionEnd, preCompact, subagentStart (gating only — no context injection), stop, and others; the AIC integration layer is being updated (Tasks 109–111, 113).
+
+**Current state:** The Cursor integration layer is built (session-start injection, tool gating, sessionEnd, stop quality check, afterFileEdit tracking, prompt logging). The Claude Code integration layer is not yet built but its hook system covers all capabilities in the checklist. Generic MCP editors have no hooks — they rely on the trigger rule.
 
 **Key architectural insight:** Any perceived limitation in what AIC "can do" is a limitation of the editor's hook system, not of AIC's core pipeline. When an editor adds a new hook, AIC can immediately use it without core changes. This is why Claude Code — with its richer hook system — can enable per-prompt and subagent compilation that Cursor cannot.
 
@@ -962,7 +964,7 @@ Even before any agentic-specific code ships, AIC provides value in agentic workf
 
 These are fundamental constraints of the current editor extension model, not AIC-specific limitations:
 
-1. **Subagents start with fresh context (Cursor).** In Cursor, when an agent spawns a subagent (Task tool), the subagent starts its own conversation without AIC's session-start context. Cursor does not provide a `SubagentStart` hook, so AIC cannot inject context at subagent spawn time. **Note:** Claude Code provides a `SubagentStart` hook with `additionalContext` injection, which solves this limitation. See the integration layer comparison in [§2.2.1](#221-integration-layer--enforcement).
+1. **Subagents start with fresh context (Cursor).** In Cursor, when an agent spawns a subagent (Task tool), the subagent starts its own conversation without AIC's session-start context. Cursor exposes `subagentStart` for gating only (no `additional_context`), so AIC cannot inject context at subagent spawn time. **Note:** Claude Code provides a `SubagentStart` hook with `additionalContext` injection, which solves this limitation. See the integration layer comparison in [§2.2.1](#221-integration-layer--enforcement).
 2. **No per-prompt context injection (Cursor).** In Cursor, the `beforeSubmitPrompt` hook cannot inject `additionalContext`. AIC can only inject compiled context at session start. Claude Code's `UserPromptSubmit` hook supports `additionalContext`, enabling per-prompt compilation — a significant capability gap between editors.
 3. **Agent tool calls are not guaranteed.** AIC depends on the model calling `aic_compile`. In editors with `PreToolUse` gating (Cursor, Claude Code), this is enforced on tool-using turns. But if the agent responds with only text (no tool calls), no gate fires. On editors without hook support, enforcement relies entirely on the trigger rule.
 4. **No visibility into agent token usage.** AIC measures its own compilation efficiency (tokens before and after compilation). It cannot measure total tokens consumed by the agent during a session, including raw file reads, search results, and intermediate outputs that the agent generates independently.
