@@ -62,23 +62,10 @@ function commandIncludes(entry: { command?: string }, scriptName: string): boole
   return String(entry.command ?? "").includes(scriptName);
 }
 
-function mergeHookArray(
-  existing: readonly HookEntry[],
-  defaults: readonly HookEntry[],
-): readonly HookEntry[] {
-  const appended = defaults.filter((def) => {
-    const scriptName = (def.command ?? "").match(/AIC-[a-z0-9-]+\.cjs/)?.[0];
-    return (
-      scriptName !== undefined && !existing.some((e) => commandIncludes(e, scriptName))
-    );
-  });
-  return appended.length > 0 ? [...existing, ...appended] : existing;
-}
-
-function mergeStopArray(
-  existing: readonly StopHookEntry[],
-  defaults: readonly StopHookEntry[],
-): readonly StopHookEntry[] {
+function mergeHookArray<T extends HookEntry>(
+  existing: readonly T[],
+  defaults: readonly T[],
+): readonly T[] {
   const appended = defaults.filter((def) => {
     const scriptName = (def.command ?? "").match(/AIC-[a-z0-9-]+\.cjs/)?.[0];
     return (
@@ -129,7 +116,7 @@ export function installCursorHooks(projectRoot: AbsolutePath): void {
       parsed.hooks?.sessionEnd ?? [],
       DEFAULT_HOOKS.hooks.sessionEnd,
     );
-    const stop = mergeStopArray(parsed.hooks?.stop ?? [], DEFAULT_HOOKS.hooks.stop);
+    const stop = mergeHookArray(parsed.hooks?.stop ?? [], DEFAULT_HOOKS.hooks.stop);
     const merged = {
       version: parsed.version ?? 1,
       hooks: {

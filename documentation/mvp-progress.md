@@ -2,14 +2,14 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 23/49 done
+**Phase 1.0:** 23/55 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
 
 ## Phase 1.0 — OSS Release
 
-Specification Compiler, agentic session tracking, research-backed quality and security upgrades, Cursor hook upgrades, Claude Code hook-based delivery, OSS release prep.
+Specification Compiler, agentic session tracking, research-backed quality and security upgrades, MCP server security hardening, Cursor hook upgrades, Claude Code hook-based delivery, OSS release prep.
 
 ### Phase N — Specification Compiler
 
@@ -62,7 +62,19 @@ Research-driven improvements to context retrieval quality, token efficiency, sec
 | Block/line-level gold annotations in benchmark suite   | Done   | test/benchmarks/     | —                | Enrich gold set from path-only to block/line ranges per file for ContextBench-style eval |
 | Per-task-class precision/recall metrics in benchmarks  | Done   | test/benchmarks/     | Gold annotations | Precision/recall at file, block, line granularity grouped by task class                  |
 
-### Phase R — Cursor Hook Upgrades
+### Phase R — MCP Server Security Hardening
+
+Industry-standard security hardening for the AIC MCP server, motivated by the official MCP Security Best Practices spec, the Cloud Security Alliance MCP Server Top 10, and a code-level gap analysis. Addresses six confirmed gaps: `projectRoot`/`configPath` path traversal, unconstrained `intent`/`conversationId` character sets, missing compilation timeout enforcement, absent tool-invocation audit log, and `compiledPrompt` exposure in the `aic://last` resource. All changes are bounded to `mcp/src/` and `shared/src/storage/migrations/` — zero pipeline or core changes.
+
+| Component                                            | Status  | Package                               | Deps | Description                                                                                                          |
+| ---------------------------------------------------- | ------- | ------------------------------------- | ---- | -------------------------------------------------------------------------------------------------------------------- |
+| Schema hardening: path containment + char-set guards | Pending | mcp/src/schemas/ + mcp/src/handlers/  | —    | `projectRoot`/`configPath` path-traversal guard; `intent` control-char strip; `conversationId`/`modelId` allow-lists |
+| Compilation timeout enforcement                      | Pending | mcp/src/handlers/                     | —    | `Promise.race` with 30s `TimeoutError` wrapping `runner.run(request)` in compile-handler                             |
+| Tool-invocation audit log (migration + store write)  | Pending | shared/src/storage/migrations/ + mcp/ | —    | New `tool_invocation_log` migration and append-on-call write from compose root                                       |
+| `aic://last` compiledPrompt removal                  | Pending | mcp/src/server.ts                     | —    | Strip raw `compiledPrompt` from `aic://last` resource; return token count and guard status only                      |
+| `security.md` MCP Top 10 coverage table              | Pending | documentation/                        | —    | Explicit mapping of AIC vs MCP Server Top 10 risks; documents what is covered, deferred, or N/A                      |
+
+### Phase S — Cursor Hook Upgrades
 
 Cursor exposes hooks AIC was not yet using: sessionEnd, preCompact (observational only), subagentStart (gating only — no context injection), postToolUse (with `additional_context`), stop (with `followup_message`). This phase aligns existing hooks to the official schema, adds new lifecycle hooks (sessionEnd, stop quality check, afterFileEdit tracking), improves session-scoped env propagation, and updates documentation to reflect the corrected Cursor capability picture.
 
@@ -75,7 +87,7 @@ Cursor exposes hooks AIC was not yet using: sessionEnd, preCompact (observationa
 | Documentation Cursor hooks update (Task 113)          | Done    | documentation/        | —        | Correct capability tables in architecture, project-plan, gaps, future docs                 |
 | postToolUse compile confirmation (Task 114)           | Pending | .cursor/hooks/ + mcp/ | Optional | Inject `additional_context` confirmation after successful `aic_compile`                    |
 
-### Phase S — Claude Code Hook-Based Delivery
+### Phase T — Claude Code Hook-Based Delivery
 
 Highest-impact delivery item. Claude Code's hook system exposes all 7 capabilities AIC needs (per-prompt, subagent, pre-compaction) — structurally impossible in Cursor. Eliminates the fragile trigger rule + tool-call round-trip by injecting compiled context via `UserPromptSubmit` → `additionalContext`. `TRIGGER_SOURCE.HOOK` enum value already exists. See `documentation/future/claude-code-hook-integration.md` for full design.
 
@@ -86,9 +98,9 @@ Highest-impact delivery item. Claude Code's hook system exposes all 7 capabiliti
 | `PreCompaction` hook: re-compile before trim   | Pending | .claude/hooks/ | UserPromptSubmit hook | Re-compile before editor trims context           |
 | `SessionEnd` hook: session lifecycle telemetry | Pending | .claude/hooks/ | —                     | Session end telemetry                            |
 | `PostToolUse` additionalContext workaround     | Pending | .claude/hooks/ | UserPromptSubmit hook | Workaround when PostToolUse supplies context     |
-| Hook-based delivery integration tests          | Pending | mcp/src/       | All S hooks           | Tests for Claude Code hook delivery              |
+| Hook-based delivery integration tests          | Pending | mcp/src/       | All T hooks           | Tests for Claude Code hook delivery              |
 
-### Phase T — Claude Code Zero-Install
+### Phase U — Claude Code Zero-Install
 
 Editor detection and auto-install so Claude Code users get the same zero-install experience Cursor has. Currently Cursor-only (`installTriggerRule`, `installCursorHooks`). Absorbs KL-006 and Zero-Install Gaps.
 
@@ -96,24 +108,24 @@ Editor detection and auto-install so Claude Code users get the same zero-install
 | --------------------------------------------------------- | ------- | -------- | -------------------------------- | --------------------------------------------------- |
 | Editor detection (`detectEditorForInit`)                  | Pending | mcp/src/ | —                                | Detect Claude Code vs Cursor for installer dispatch |
 | `installClaudeCodeTriggerRule` (`.claude/CLAUDE.md`)      | Pending | mcp/src/ | Editor detection                 | Auto-create Claude Code trigger rule                |
-| `installClaudeCodeHooks` (`.claude/settings.local.json`)  | Pending | mcp/src/ | Editor detection, Phase S        | Auto-install Claude Code hooks                      |
+| `installClaudeCodeHooks` (`.claude/settings.local.json`)  | Pending | mcp/src/ | Editor detection, Phase T        | Auto-install Claude Code hooks                      |
 | `createMcpServer` dispatches installer by detected editor | Pending | mcp/src/ | Editor detection, trigger, hooks | One startup path per editor                         |
 | Startup self-check covers Claude Code artifacts           | Pending | mcp/src/ | createMcpServer dispatches       | Validate Claude Code artifacts on startup           |
 
-### Phase U — OSS Release Prep
+### Phase V — OSS Release Prep
 
 Final polish for public release. npm publish, changelog, benchmarks, visual demo, documentation audit. See `documentation/gaps.md` for detailed descriptions of GAP items.
 
 | Component                                           | Status  | Package | Gap    | Deps      | Description                                   |
 | --------------------------------------------------- | ------- | ------- | ------ | --------- | --------------------------------------------- |
-| npm publish pipeline (`@aic/mcp`)                   | Pending | mcp/    | —      | Phase N–T | Publish MCP package to npm                    |
+| npm publish pipeline (`@aic/mcp`)                   | Pending | mcp/    | —      | Phase N–U | Publish MCP package to npm                    |
 | CHANGELOG.md                                        | Pending | ./      | —      | —         | Version history for release                   |
 | License headers audit                               | Pending | ./      | —      | —         | Ensure license headers present                |
 | Contributing guide (final)                          | Pending | ./      | —      | —         | How to contribute                             |
 | Multi-repo benchmark suite (multi-scale datapoints) | Pending | test/   | GAP-11 | —         | Token reduction at multiple project scales    |
 | Comparative benchmarks vs. native editor context    | Pending | test/   | GAP-10 | —         | AIC vs native editor context selection        |
 | Real `aic_inspect` output in README                 | Done    | ./      | GAP-03 | —         | Real output example in README                 |
-| Visual demo (GIF/recording) in README               | Pending | ./      | GAP-09 | Phase N–T | Screen recording of AIC in editor             |
+| Visual demo (GIF/recording) in README               | Pending | ./      | GAP-09 | Phase N–U | Screen recording of AIC in editor             |
 | Present-tense audit of project plan                 | Pending | ./      | GAP-06 | —         | Fix present-tense descriptions of future work |
 
 ---
