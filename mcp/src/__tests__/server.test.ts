@@ -222,6 +222,8 @@ describe("MCP server", () => {
       .join("");
     expect(text.length).toBeGreaterThan(0);
     expect((result as { isError?: boolean }).isError).not.toBe(true);
+    const parsed = JSON.parse(text) as { conversationId: string | null };
+    expect(parsed.conversationId).toBeNull();
   });
 
   it("mcp_accepts_optional_trigger_source", async () => {

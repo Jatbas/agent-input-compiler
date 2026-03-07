@@ -114,6 +114,7 @@ export function createCompileHandler(
             text: JSON.stringify({
               compiledPrompt: result.compiledPrompt + reinforcement,
               meta: result.meta,
+              conversationId: request.conversationId ?? null,
             }),
           },
         ],
