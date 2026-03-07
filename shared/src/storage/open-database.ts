@@ -17,6 +17,8 @@ export function openDatabase(dbPath: string, clock: Clock): ExecutableDb {
   const db = new Database(dbPath) as unknown as ExecutableDb;
   if (dbPath !== ":memory:") {
     db.prepare("PRAGMA journal_mode = WAL").run();
+    // Multiple MCP server instances share the database; wait instead of failing
+    db.prepare("PRAGMA busy_timeout = 5000").run();
   }
   const migrationRunner = new SqliteMigrationRunner(clock);
   migrationRunner.run(db, [

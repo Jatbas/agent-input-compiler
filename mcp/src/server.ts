@@ -277,7 +277,9 @@ export function createMcpServer(
         return Promise.resolve({
           content: [{ type: "text" as const, text: JSON.stringify(payload) }],
         });
-      } catch {
+      } catch (err) {
+        const label = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`[aic] chat_summary unexpected error: ${label}\n`);
         throw new McpError(ErrorCode.InternalError, "Internal error");
       }
     },

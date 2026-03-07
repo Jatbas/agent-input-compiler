@@ -118,6 +118,7 @@ Final polish for public release. npm publish, changelog, benchmarks, visual demo
 
 | Component                                           | Status  | Package | Gap    | Deps      | Description                                   |
 | --------------------------------------------------- | ------- | ------- | ------ | --------- | --------------------------------------------- |
+| Check codebase for dead code                        | Pending | ./      | —      | -         | Check codebase for dead code using Knip       |
 | npm publish pipeline (`@aic/mcp`)                   | Pending | mcp/    | —      | Phase N–U | Publish MCP package to npm                    |
 | CHANGELOG.md                                        | Pending | ./      | —      | —         | Version history for release                   |
 | License headers audit                               | Pending | ./      | —      | —         | Ensure license headers present                |

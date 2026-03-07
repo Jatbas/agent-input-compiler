@@ -62,9 +62,61 @@ When in doubt, open the specific rule file listed above for the full text.
 
 ## Prompt Commands
 
-- **"show aic status"** — When the user says this (or similar), read the MCP resource `aic://status` from the `project-0-AIC-AIC` server using `FetchMcpResource`. Start the reply with one short line: **Status = project-level AIC status.** Then display the result as a formatted table: `compilationsTotal`, `compilationsToday`, `totalTokensRaw` → `totalTokensCompiled`, `totalTokensSaved`, `budgetMaxTokens`, `budgetUtilizationPct`, `cacheHitRatePct`, `avgReductionPct`, `guardByType`, `topTaskClasses`, `lastCompilation`, `installationOk`, `installationNotes`.
-- **"show aic chat summary"** — When the user says "show aic chat summary" or asks for this conversation's AIC compilation stats, call the MCP tool `aic_chat_summary` with the `conversationId` returned in your most recent `aic_compile` response. If you have not yet called `aic_compile` in this conversation (no stored conversationId), you may call `aic_chat_summary` without conversationId and the server will read from `.aic/conversation-id` as a fallback. Start the reply with one short line: **Chat = this conversation's AIC compilations.** Then display the result as a formatted table: `compilationsInConversation`, `totalTokensRaw`, `totalTokensCompiled`, `totalTokensSaved`, `cacheHitRatePct`, `avgReductionPct`, `lastCompilationInConversation` (intent and created_at), `topTaskClasses`.
-- **"show aic last"** — When the user says this (or similar), read the MCP resource `aic://last` from the `project-0-AIC-AIC` server. Start the reply with one short line: **Last = most recent compilation.** Then display: `intent`, `filesSelected`/`filesTotal`, `tokensCompiled`, `tokenReductionPct`, `created_at` (as relative time if helpful), `editorId`, guard status; if `compiledPrompt` is present, offer to show it or include a short excerpt.
+Use these rules for all three AIC prompt commands. Present data like a polished dashboard, not raw JSON.
+
+**General formatting (all commands):**
+- Use human-readable labels only — never show raw JSON keys as column headers or labels.
+- Format large numbers with commas (e.g. 8,484,717).
+- Percentages: exactly 1 decimal place and a % symbol (e.g. 78.2%).
+- Timestamps: show as relative time (e.g. "2 min ago"); add ISO in parentheses only if helpful.
+- Null or missing values: show as "—" (em dash), never "null".
+- Keep the one-line summary at the top of each command as specified below.
+
+---
+
+- **"show aic status"** — When the user says this (or similar), read the MCP resource `aic://status` from the `project-0-AIC-AIC` server using `FetchMcpResource`. Start the reply with one short line: **Status = project-level AIC status.** Then display a formatted table using these labels and formats:
+
+  | JSON key | Label | Format |
+  |----------|-------|--------|
+  | compilationsTotal | Compilations (total) | number |
+  | compilationsToday | Compilations (today) | number |
+  | totalTokensRaw → totalTokensCompiled | Tokens: raw → compiled | e.g. 8,484,717 → 15,739 |
+  | totalTokensSaved | Tokens saved | formatted with commas |
+  | budgetMaxTokens | Budget limit | formatted with commas |
+  | budgetUtilizationPct | Budget utilization | percentage, 1 decimal (e.g. 78.2%) |
+  | cacheHitRatePct | Cache hit rate | percentage, 1 decimal |
+  | avgReductionPct | Avg token reduction | percentage, 1 decimal |
+  | guardByType | Guard findings | type: count pairs, or "None" |
+  | topTaskClasses | Top task classes | taskClass (count), comma-separated |
+  | lastCompilation | Last compilation | intent, files selected/total, tokens, relative time (e.g. "2 min ago") |
+  | installationOk | Installation | "OK" or "Issues detected" |
+  | installationNotes | Notes | text, or omit row if empty |
+
+- **"show aic chat summary"** — When the user says "show aic chat summary" or asks for this conversation's AIC compilation stats, call the MCP tool `aic_chat_summary` with the `conversationId` returned in your most recent `aic_compile` response. If you have not yet called `aic_compile` in this conversation (no stored conversationId), you may call `aic_chat_summary` without conversationId and the server will read from `.aic/conversation-id` as a fallback. Start the reply with one short line: **Chat = this conversation's AIC compilations.** Then display a formatted table using these labels and formats:
+
+  | JSON key | Label | Format |
+  |----------|-------|--------|
+  | compilationsInConversation | Compilations | number |
+  | totalTokensRaw | Tokens (raw) | formatted with commas |
+  | totalTokensCompiled | Tokens (compiled) | formatted with commas |
+  | totalTokensSaved | Tokens saved | formatted with commas |
+  | cacheHitRatePct | Cache hit rate | percentage, 1 decimal |
+  | avgReductionPct | Avg token reduction | percentage, 1 decimal |
+  | lastCompilationInConversation | Last compilation | intent text + relative time (e.g. "5 min ago") |
+  | topTaskClasses | Top task classes | taskClass (count), comma-separated |
+
+- **"show aic last"** — When the user says this (or similar), read the MCP resource `aic://last` from the `project-0-AIC-AIC` server. Start the reply with one short line: **Last = most recent compilation.** Then display using these labels and formats:
+
+  | JSON key | Label | Format |
+  |----------|-------|--------|
+  | intent | Intent | text |
+  | filesSelected / filesTotal | Files | "N selected / M total" |
+  | tokensCompiled | Tokens compiled | formatted with commas |
+  | tokenReductionPct | Token reduction | percentage, 1 decimal |
+  | created_at | Compiled | relative time (e.g. "3 min ago") |
+  | editorId | Editor | text |
+  | guard status | Guard | "Passed" or "N findings (types)" |
+  | compiledPrompt | Compiled prompt | "Available (N chars) — ask to see it", or omit if not present |
 
 ## Maintenance
 

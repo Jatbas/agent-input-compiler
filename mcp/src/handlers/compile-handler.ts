@@ -127,6 +127,8 @@ export function createCompileHandler(
         const sanitized = sanitizeError(err);
         throw new McpError(ErrorCode.InternalError, sanitized.message);
       }
+      const label = err instanceof Error ? err.message : String(err);
+      process.stderr.write(`[aic] compile-handler unexpected error: ${label}\n`);
       throw new McpError(ErrorCode.InternalError, "Internal error");
     }
   };
