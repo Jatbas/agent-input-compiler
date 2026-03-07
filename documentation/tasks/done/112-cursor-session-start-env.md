@@ -1,6 +1,6 @@
 # Task 112: sessionStart env improvements (AIC_PROJECT_ROOT, AIC_CONVERSATION_ID)
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** 1.0 — OSS Release (Cursor integration)
 > **Layer:** integration (`.cursor/hooks/` CJS + `mcp/hooks/` + `mcp/src/install-cursor-hooks.ts`)
 > **Depends on:** None (can be done after or with Task 109)

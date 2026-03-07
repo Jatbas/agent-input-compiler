@@ -79,6 +79,11 @@ try {
           const parsed = JSON.parse(textContent.text);
           if (parsed.compiledPrompt) {
             const output = JSON.stringify({
+              env: {
+                AIC_PROJECT_ROOT: projectRoot,
+                AIC_CONVERSATION_ID:
+                  sessionId && typeof sessionId === "string" ? sessionId : "",
+              },
               additional_context: [
                 "## AIC Compiled Context (auto-injected at session start)",
                 "The following is the most relevant project context, compiled by AIC.",

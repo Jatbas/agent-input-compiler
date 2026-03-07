@@ -10,7 +10,7 @@ process.stdin.on("data", (chunk) => {
 process.stdin.on("end", () => {
   try {
     const input = JSON.parse(raw);
-    const conversationId = input.conversation_id;
+    const conversationId = input.conversation_id || process.env.AIC_CONVERSATION_ID;
     const toolInput = input.tool_input;
 
     const isAicCompile =
