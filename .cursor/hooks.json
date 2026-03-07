@@ -25,6 +25,12 @@
         "matcher": "MCP"
       }
     ],
+    "postToolUse": [
+      {
+        "command": "node .cursor/hooks/AIC-post-compile-context.cjs",
+        "matcher": "MCP"
+      }
+    ],
     "beforeShellExecution": [
       {
         "command": "node .cursor/hooks/AIC-block-no-verify.cjs",

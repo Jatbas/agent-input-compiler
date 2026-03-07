@@ -21,6 +21,12 @@ const DEFAULT_HOOKS = {
         matcher: "MCP",
       },
     ],
+    postToolUse: [
+      {
+        command: "node .cursor/hooks/AIC-post-compile-context.cjs",
+        matcher: "MCP",
+      },
+    ],
     afterFileEdit: [{ command: "node .cursor/hooks/AIC-after-file-edit-tracker.cjs" }],
     sessionEnd: [{ command: "node .cursor/hooks/AIC-session-end.cjs" }],
     stop: [
@@ -43,6 +49,7 @@ const AIC_SCRIPT_NAMES: readonly string[] = [
   "AIC-compile-context.cjs",
   "AIC-require-aic-compile.cjs",
   "AIC-inject-conversation-id.cjs",
+  "AIC-post-compile-context.cjs",
   "AIC-before-submit-prewarm.cjs",
   "AIC-after-file-edit-tracker.cjs",
   "AIC-session-end.cjs",
@@ -90,6 +97,7 @@ export function installCursorHooks(projectRoot: AbsolutePath): void {
       hooks?: {
         sessionStart?: readonly HookEntry[];
         preToolUse?: readonly HookEntry[];
+        postToolUse?: readonly HookEntry[];
         beforeSubmitPrompt?: readonly HookEntry[];
         afterFileEdit?: readonly HookEntry[];
         sessionEnd?: readonly HookEntry[];
@@ -103,6 +111,10 @@ export function installCursorHooks(projectRoot: AbsolutePath): void {
     const preToolUse = mergeHookArray(
       parsed.hooks?.preToolUse ?? [],
       DEFAULT_HOOKS.hooks.preToolUse,
+    );
+    const postToolUse = mergeHookArray(
+      parsed.hooks?.postToolUse ?? [],
+      DEFAULT_HOOKS.hooks.postToolUse,
     );
     const beforeSubmitPrompt = mergeHookArray(
       parsed.hooks?.beforeSubmitPrompt ?? [],
@@ -123,6 +135,7 @@ export function installCursorHooks(projectRoot: AbsolutePath): void {
         ...parsed.hooks,
         sessionStart,
         preToolUse,
+        postToolUse,
         beforeSubmitPrompt,
         afterFileEdit,
         sessionEnd,

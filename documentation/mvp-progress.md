@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 23/55 done
+**Phase 1.0:** 24/55 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -78,14 +78,14 @@ Industry-standard security hardening for the AIC MCP server, motivated by the of
 
 Cursor exposes hooks AIC was not yet using: sessionEnd, preCompact (observational only), subagentStart (gating only — no context injection), postToolUse (with `additional_context`), stop (with `followup_message`). This phase aligns existing hooks to the official schema, adds new lifecycle hooks (sessionEnd, stop quality check, afterFileEdit tracking), improves session-scoped env propagation, and updates documentation to reflect the corrected Cursor capability picture.
 
-| Component                                             | Status  | Package               | Deps     | Description                                                                                |
-| ----------------------------------------------------- | ------- | --------------------- | -------- | ------------------------------------------------------------------------------------------ |
-| preToolUse schema alignment + failClosed (Task 109)   | Done    | .cursor/hooks/ + mcp/ | —        | Align `decision`/`reason` to official `permission`/`agent_message`; add `failClosed: true` |
-| sessionEnd hook (Task 110)                            | Done    | .cursor/hooks/ + mcp/ | —        | Cleanup temp files and log session metrics on session end                                  |
-| stop quality check + afterFileEdit tracker (Task 111) | Done    | .cursor/hooks/ + mcp/ | —        | Track edited files; run lint/typecheck on stop; auto-fix via `followup_message`            |
-| sessionStart env improvements (Task 112)              | Done    | .cursor/hooks/ + mcp/ | —        | Pass `AIC_PROJECT_ROOT` and `AIC_CONVERSATION_ID` via session-scoped env                   |
-| Documentation Cursor hooks update (Task 113)          | Done    | documentation/        | —        | Correct capability tables in architecture, project-plan, gaps, future docs                 |
-| postToolUse compile confirmation (Task 114)           | Pending | .cursor/hooks/ + mcp/ | Optional | Inject `additional_context` confirmation after successful `aic_compile`                    |
+| Component                                             | Status | Package               | Deps     | Description                                                                                |
+| ----------------------------------------------------- | ------ | --------------------- | -------- | ------------------------------------------------------------------------------------------ |
+| preToolUse schema alignment + failClosed (Task 109)   | Done   | .cursor/hooks/ + mcp/ | —        | Align `decision`/`reason` to official `permission`/`agent_message`; add `failClosed: true` |
+| sessionEnd hook (Task 110)                            | Done   | .cursor/hooks/ + mcp/ | —        | Cleanup temp files and log session metrics on session end                                  |
+| stop quality check + afterFileEdit tracker (Task 111) | Done   | .cursor/hooks/ + mcp/ | —        | Track edited files; run lint/typecheck on stop; auto-fix via `followup_message`            |
+| sessionStart env improvements (Task 112)              | Done   | .cursor/hooks/ + mcp/ | —        | Pass `AIC_PROJECT_ROOT` and `AIC_CONVERSATION_ID` via session-scoped env                   |
+| Documentation Cursor hooks update (Task 113)          | Done   | documentation/        | —        | Correct capability tables in architecture, project-plan, gaps, future docs                 |
+| postToolUse compile confirmation (Task 114)           | Done   | .cursor/hooks/ + mcp/ | Optional | Inject `additional_context` confirmation after successful `aic_compile`                    |
 
 ### Phase T — Claude Code Hook-Based Delivery
 
@@ -345,10 +345,11 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2025-03-07
 
-**Components:** preToolUse schema alignment + failClosed (Task 109), sessionEnd hook (Task 110), sessionStart env improvements (Task 112), Documentation Cursor hooks update (Task 113)
+**Components:** preToolUse schema alignment + failClosed (Task 109), sessionEnd hook (Task 110), sessionStart env improvements (Task 112), Documentation Cursor hooks update (Task 113), postToolUse compile confirmation (Task 114)
 
 **Completed:**
 
+- postToolUse compile confirmation (Task 114): AIC-post-compile-context.cjs in .cursor/hooks/ and mcp/hooks/ — reads stdin (tool_name, tool_input, tool_output); when aic_compile call (tool_name MCP or aic_compile + intent/projectRoot) and tool_output has content array, returns additional_context confirmation; try/catch, exit 0. postToolUse entry with matcher "MCP" in hooks.json; DEFAULT_HOOKS.postToolUse and merge in install-cursor-hooks.ts; AIC-post-compile-context.cjs in AIC_SCRIPT_NAMES. Lint, typecheck, test pass; lint:clones 0.
 - Aligned preToolUse hooks to Cursor official schema: `permission`, `user_message`, `agent_message`, `updated_input` (no `decision`/`reason`)
 - Added `failClosed: true` to require-aic-compile in hooks.json and install-cursor-hooks.ts DEFAULT_HOOKS; extended HookEntry type with `failClosed?: boolean`
 - sessionEnd hook (Task 110): AIC-session-end.cjs in .cursor/hooks/ and mcp/hooks/ — reads stdin (session*id, reason, duration_ms), cleans aic-gate-* and aic-prompt-\_ in os.tmpdir(), optionally appends one JSON line to .aic/session-log.jsonl; hooks.json and DEFAULT_HOOKS.sessionEnd; install-cursor-hooks.ts adds AIC-session-end.cjs to AIC_SCRIPT_NAMES, sessionEnd to DEFAULT_HOOKS and merge logic. Lint, typecheck, test, lint:clones 0.

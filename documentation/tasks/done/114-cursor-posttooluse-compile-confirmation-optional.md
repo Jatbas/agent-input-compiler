@@ -1,6 +1,6 @@
 # Task 114 (Optional): postToolUse hook for aic_compile confirmation
 
-> **Status:** Pending (optional / low priority)
+> **Status:** Done
 > **Phase:** 1.0 — OSS Release (Cursor integration)
 > **Layer:** integration (`.cursor/hooks/` CJS + `mcp/hooks/` + `mcp/src/install-cursor-hooks.ts`)
 > **Depends on:** None
