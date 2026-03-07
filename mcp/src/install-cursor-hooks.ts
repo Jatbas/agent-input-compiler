@@ -91,9 +91,11 @@ function mergeStopArray(
 export function installCursorHooks(projectRoot: AbsolutePath): void {
   const cursorDir = path.join(projectRoot, ".cursor");
   const hooksPath = path.join(cursorDir, "hooks.json");
+  const jsonContent = (obj: Record<string, unknown>): string =>
+    JSON.stringify(obj, null, 2) + "\n";
   if (!fs.existsSync(hooksPath)) {
     fs.mkdirSync(cursorDir, { recursive: true });
-    fs.writeFileSync(hooksPath, JSON.stringify(DEFAULT_HOOKS, null, 2), "utf8");
+    fs.writeFileSync(hooksPath, jsonContent(DEFAULT_HOOKS), "utf8");
   } else {
     const raw = fs.readFileSync(hooksPath, "utf8");
     const parsed = JSON.parse(raw) as {
@@ -140,7 +142,7 @@ export function installCursorHooks(projectRoot: AbsolutePath): void {
         stop,
       },
     };
-    fs.writeFileSync(hooksPath, JSON.stringify(merged, null, 2), "utf8");
+    fs.writeFileSync(hooksPath, jsonContent(merged), "utf8");
   }
 
   const hooksDir = path.join(cursorDir, "hooks");

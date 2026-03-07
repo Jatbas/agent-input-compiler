@@ -1,0 +1,5 @@
+# https://editorconfig.org — ensures insert final newline so .cursor/hooks.json and other text files stay stable across editors
+root = true
+
+[*]
+insert_final_newline = true
