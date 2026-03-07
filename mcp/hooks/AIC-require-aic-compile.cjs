@@ -22,9 +22,9 @@ function readSavedPrompt(generationId) {
 }
 
 function isAicCompileMcpCall(toolName, toolInput) {
-  if (toolName !== "MCP") return false;
   try {
     const input = typeof toolInput === "string" ? JSON.parse(toolInput) : toolInput;
+    if (input && input.toolName === "aic_compile") return true;
     if (input && input.tool_name === "aic_compile") return true;
     if (input && input.name === "aic_compile") return true;
   } catch {
@@ -32,7 +32,9 @@ function isAicCompileMcpCall(toolName, toolInput) {
   }
   const inputStr =
     typeof toolInput === "string" ? toolInput : JSON.stringify(toolInput || {});
-  return inputStr.includes("aic_compile");
+  if (inputStr.includes("aic_compile")) return true;
+  if (toolName.includes("aic_compile")) return true;
+  return false;
 }
 
 let raw = "";
