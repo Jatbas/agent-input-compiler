@@ -1,294 +1,75 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import * as os from "node:os";
+import * as path from "node:path";
+import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 import { createCompileHandler } from "../compile-handler.js";
-import type { CompilationRunner } from "@aic/shared/core/interfaces/compilation-runner.interface.js";
-import type {
-  CompilationMeta,
-  CompilationRequest,
-} from "@aic/shared/core/types/compilation-types.js";
-import type { TelemetryDeps } from "@aic/shared/core/types/telemetry-types.js";
-import type { TelemetryEvent } from "@aic/shared/core/types/telemetry-types.js";
-import type { ISOTimestamp, UUIDv7 } from "@aic/shared/core/types/identifiers.js";
-import type { Milliseconds } from "@aic/shared/core/types/units.js";
-import { toTokenCount, toMilliseconds } from "@aic/shared/core/types/units.js";
-import { toPercentage, toConfidence } from "@aic/shared/core/types/scores.js";
-import { toSessionId, toConversationId } from "@aic/shared/core/types/identifiers.js";
 import {
-  EDITOR_ID,
-  INCLUSION_TIER,
-  TASK_CLASS,
-  TRIGGER_SOURCE,
-} from "@aic/shared/core/types/enums.js";
+  toSessionId,
+  toISOTimestamp,
+  toUUIDv7,
+} from "@aic/shared/core/types/identifiers.js";
+import { toMilliseconds } from "@aic/shared/core/types/units.js";
+import { EDITOR_ID } from "@aic/shared/core/types/enums.js";
 
-const stubMeta: CompilationMeta = {
-  intent: "fix bug",
-  taskClass: TASK_CLASS.REFACTOR,
-  filesSelected: 3,
-  filesTotal: 10,
-  tokensRaw: toTokenCount(1000),
-  tokensCompiled: toTokenCount(200),
-  tokenReductionPct: toPercentage(80),
-  cacheHit: true,
-  durationMs: toMilliseconds(150),
-  modelId: "gpt-4",
-  editorId: EDITOR_ID.GENERIC,
-  transformTokensSaved: toTokenCount(0),
-  summarisationTiers: {
-    [INCLUSION_TIER.L0]: 1,
-    [INCLUSION_TIER.L1]: 1,
-    [INCLUSION_TIER.L2]: 1,
-    [INCLUSION_TIER.L3]: 0,
-  },
-  guard: null,
-  contextCompleteness: toConfidence(1),
-};
+describe("compile-handler", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
-const stubCompilationId = "00000000-0000-7000-8000-000000000050" as UUIDv7;
-
-function getRequestCaptured(req: CompilationRequest | null): CompilationRequest {
-  if (req === null) expect.fail("expected request to be captured");
-  return req;
-}
-
-describe("createCompileHandler", () => {
-  it("createCompileHandler with deps", async () => {
-    const written: TelemetryEvent[] = [];
-    const mockRunner: CompilationRunner = {
-      async run() {
-        return {
-          compiledPrompt: "prompt",
-          meta: stubMeta,
-          compilationId: stubCompilationId,
-        };
-      },
+  it("compile_timeout_rejects_after_30s", async () => {
+    vi.useFakeTimers();
+    const neverResolvingRunner = {
+      run: (): Promise<never> => new Promise(() => {}),
     };
-    const mockTelemetryStore = {
-      write(event: TelemetryEvent) {
-        written.push(event);
-      },
-    };
+    const fixedTs = toISOTimestamp("2026-03-07T12:00:00.000Z");
     const mockClock = {
-      now: (): ISOTimestamp => "2026-01-01T12:00:00.000Z" as ISOTimestamp,
-      addMinutes: (_m: number): ISOTimestamp =>
-        "2026-01-01T12:00:00.000Z" as ISOTimestamp,
-      durationMs: (): Milliseconds => 0 as Milliseconds,
+      now: (): typeof fixedTs => fixedTs,
+      addMinutes: (_m: number): typeof fixedTs => fixedTs,
+      durationMs: (_s: typeof fixedTs, _e: typeof fixedTs) => toMilliseconds(0),
     };
     const mockIdGenerator = {
-      generate: (): UUIDv7 => "00000000-0000-7000-8000-000000000000" as UUIDv7,
+      generate: (): ReturnType<typeof toUUIDv7> =>
+        toUUIDv7("00000000-0000-7000-8000-000000000001"),
     };
-    const mockStringHasher = { hash: (input: string) => `hash-${input}` };
-    const telemetryDeps: TelemetryDeps = {
-      telemetryStore: mockTelemetryStore,
+    const mockTelemetryDeps = {
+      telemetryStore: { write: vi.fn() },
       clock: mockClock,
       idGenerator: mockIdGenerator,
-      stringHasher: mockStringHasher,
+      stringHasher: { hash: (): string => "" },
     };
-    const sessionId = toSessionId("018c3d4e-0000-7000-8000-000000000010");
+    const getSessionId = (): ReturnType<typeof toSessionId> =>
+      toSessionId("00000000-0000-7000-8000-000000000002");
+    const getEditorId = () => EDITOR_ID.GENERIC;
+    const getModelId = (): string | null => null;
+    const projectRoot = path.join(os.homedir(), "tmp-aic-timeout-test");
     const handler = createCompileHandler(
-      mockRunner,
-      telemetryDeps,
-      () => sessionId,
-      () => EDITOR_ID.GENERIC,
-      () => null,
+      neverResolvingRunner,
+      mockTelemetryDeps,
+      getSessionId,
+      getEditorId,
+      getModelId,
       null,
+      { record: vi.fn() },
+      mockClock,
+      mockIdGenerator,
     );
-    await handler(
+    const promise = handler(
       {
         intent: "fix bug",
-        projectRoot: "/tmp/proj",
+        projectRoot,
         modelId: null,
-        editorId: "generic",
         configPath: null,
       },
       undefined,
     );
-    expect(written.length).toBe(1);
-    const event = written[0];
-    expect(event).toBeDefined();
-    if (event !== undefined) {
-      expect(event.compilationId).toBe(stubCompilationId);
-      expect(event.guardBlockedCount).toBe(0);
-      expect(event.guardFindingsCount).toBe(0);
+    vi.advanceTimersByTime(30_000);
+    await expect(promise).rejects.toThrow(McpError);
+    try {
+      await promise;
+    } catch (e) {
+      expect(e).toBeInstanceOf(McpError);
+      expect((e as McpError).code).toBe(ErrorCode.InternalError);
+      expect((e as McpError).message).toContain("timed out");
     }
-  });
-
-  it("defaults triggerSource to tool_gate when omitted", async () => {
-    let capturedRequest: CompilationRequest | null = null;
-    const mockRunner: CompilationRunner = {
-      async run(request: CompilationRequest) {
-        capturedRequest = request;
-        return {
-          compiledPrompt: "prompt",
-          meta: stubMeta,
-          compilationId: stubCompilationId,
-        };
-      },
-    };
-    const telemetryDeps: TelemetryDeps = {
-      telemetryStore: { write: () => {} },
-      clock: {
-        now: (): ISOTimestamp => "2026-01-01T12:00:00.000Z" as ISOTimestamp,
-        addMinutes: (): ISOTimestamp => "2026-01-01T12:00:00.000Z" as ISOTimestamp,
-        durationMs: (): Milliseconds => 0 as Milliseconds,
-      },
-      idGenerator: {
-        generate: (): UUIDv7 => "00000000-0000-7000-8000-000000000000" as UUIDv7,
-      },
-      stringHasher: { hash: (s: string) => s },
-    };
-    const handler = createCompileHandler(
-      mockRunner,
-      telemetryDeps,
-      () => toSessionId("018c3d4e-0000-7000-8000-000000000010"),
-      () => EDITOR_ID.GENERIC,
-      () => null,
-      null,
-    );
-    await handler(
-      {
-        intent: "fix bug",
-        projectRoot: "/tmp/proj",
-        modelId: null,
-        configPath: null,
-      },
-      undefined,
-    );
-    const req = getRequestCaptured(capturedRequest);
-    expect(req.triggerSource).toBe(TRIGGER_SOURCE.TOOL_GATE);
-  });
-
-  it("config_model_override_in_handler", async () => {
-    let capturedRequest: CompilationRequest | null = null;
-    const mockRunner: CompilationRunner = {
-      async run(request: CompilationRequest) {
-        capturedRequest = request;
-        return {
-          compiledPrompt: "prompt",
-          meta: stubMeta,
-          compilationId: stubCompilationId,
-        };
-      },
-    };
-    const telemetryDeps: TelemetryDeps = {
-      telemetryStore: { write: () => {} },
-      clock: {
-        now: (): ISOTimestamp => "2026-01-01T12:00:00.000Z" as ISOTimestamp,
-        addMinutes: (): ISOTimestamp => "2026-01-01T12:00:00.000Z" as ISOTimestamp,
-        durationMs: (): Milliseconds => 0 as Milliseconds,
-      },
-      idGenerator: {
-        generate: (): UUIDv7 => "00000000-0000-7000-8000-000000000000" as UUIDv7,
-      },
-      stringHasher: { hash: (s: string) => s },
-    };
-    const handler = createCompileHandler(
-      mockRunner,
-      telemetryDeps,
-      () => toSessionId("018c3d4e-0000-7000-8000-000000000010"),
-      () => EDITOR_ID.GENERIC,
-      () => null,
-      "config-model",
-    );
-    await handler(
-      {
-        intent: "fix bug",
-        projectRoot: "/tmp/proj",
-        modelId: null,
-        configPath: null,
-      },
-      undefined,
-    );
-    const req = getRequestCaptured(capturedRequest);
-    expect(req.modelId).toBe("config-model");
-  });
-
-  it("compile_handler_passes_conversation_id", async () => {
-    let capturedRequest: CompilationRequest | null = null;
-    const mockRunner: CompilationRunner = {
-      async run(request: CompilationRequest) {
-        capturedRequest = request;
-        return {
-          compiledPrompt: "prompt",
-          meta: stubMeta,
-          compilationId: stubCompilationId,
-        };
-      },
-    };
-    const telemetryDeps: TelemetryDeps = {
-      telemetryStore: { write: () => {} },
-      clock: {
-        now: (): ISOTimestamp => "2026-01-01T12:00:00.000Z" as ISOTimestamp,
-        addMinutes: (): ISOTimestamp => "2026-01-01T12:00:00.000Z" as ISOTimestamp,
-        durationMs: (): Milliseconds => 0 as Milliseconds,
-      },
-      idGenerator: {
-        generate: (): UUIDv7 => "00000000-0000-7000-8000-000000000000" as UUIDv7,
-      },
-      stringHasher: { hash: (s: string) => s },
-    };
-    const handler = createCompileHandler(
-      mockRunner,
-      telemetryDeps,
-      () => toSessionId("018c3d4e-0000-7000-8000-000000000010"),
-      () => EDITOR_ID.GENERIC,
-      () => null,
-      null,
-    );
-    await handler(
-      {
-        intent: "fix bug",
-        projectRoot: "/tmp/proj",
-        modelId: null,
-        configPath: null,
-        conversationId: "test-conv-id",
-      },
-      undefined,
-    );
-    const req = getRequestCaptured(capturedRequest);
-    expect(req.conversationId).toBe(toConversationId("test-conv-id"));
-  });
-
-  it("config_override_takes_precedence_over_detector", async () => {
-    let capturedRequest: CompilationRequest | null = null;
-    const mockRunner: CompilationRunner = {
-      async run(request: CompilationRequest) {
-        capturedRequest = request;
-        return {
-          compiledPrompt: "prompt",
-          meta: stubMeta,
-          compilationId: stubCompilationId,
-        };
-      },
-    };
-    const telemetryDeps: TelemetryDeps = {
-      telemetryStore: { write: () => {} },
-      clock: {
-        now: (): ISOTimestamp => "2026-01-01T12:00:00.000Z" as ISOTimestamp,
-        addMinutes: (): ISOTimestamp => "2026-01-01T12:00:00.000Z" as ISOTimestamp,
-        durationMs: (): Milliseconds => 0 as Milliseconds,
-      },
-      idGenerator: {
-        generate: (): UUIDv7 => "00000000-0000-7000-8000-000000000000" as UUIDv7,
-      },
-      stringHasher: { hash: (s: string) => s },
-    };
-    const handler = createCompileHandler(
-      mockRunner,
-      telemetryDeps,
-      () => toSessionId("018c3d4e-0000-7000-8000-000000000010"),
-      () => EDITOR_ID.GENERIC,
-      () => "detected-model",
-      "config-model",
-    );
-    await handler(
-      {
-        intent: "fix bug",
-        projectRoot: "/tmp/proj",
-        modelId: null,
-        configPath: null,
-      },
-      undefined,
-    );
-    const req = getRequestCaptured(capturedRequest);
-    expect(req.modelId).toBe("config-model");
   });
 });

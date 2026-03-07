@@ -41,10 +41,12 @@ import {
   LoadConfigFromFile,
   applyConfigResult,
 } from "@aic/shared/config/load-config-from-file.js";
+import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CompilationRunner as CompilationRunnerImpl } from "@aic/shared/pipeline/compilation-runner.js";
 import { SqliteAgenticSessionStore } from "@aic/shared/storage/sqlite-agentic-session-store.js";
+import { SqliteToolInvocationLogStore } from "@aic/shared/storage/sqlite-tool-invocation-log-store.js";
 import { Sha256Adapter } from "@aic/shared/adapters/sha256-adapter.js";
 import { loadRulePackFromPath } from "@aic/shared/core/load-rule-pack.js";
 import { createProjectFileReader } from "@aic/shared/adapters/project-file-reader-adapter.js";
@@ -146,6 +148,7 @@ export function createMcpServer(
     additionalProviders,
     heuristicConfig,
   );
+  const toolInvocationLogStore = new SqliteToolInvocationLogStore(scope.db);
   const inspectRunner = new InspectRunner(deps, scope.clock);
   const compilationRunner = new CompilationRunnerImpl(
     deps,
@@ -201,76 +204,87 @@ export function createMcpServer(
       getEditorId,
       getModelId,
       configModelId,
+      toolInvocationLogStore,
+      scope.clock,
+      scope.idGenerator,
     ),
   );
   server.tool("aic_inspect", InspectRequestSchema, (args) =>
-    handleInspect(args, inspectRunner),
+    handleInspect(
+      args,
+      inspectRunner,
+      toolInvocationLogStore,
+      scope.clock,
+      scope.idGenerator,
+      getSessionId,
+    ),
   );
   server.tool(
     "aic_chat_summary",
     "Get per-conversation AIC compilation summary.",
     ConversationSummaryRequestSchema,
     (args) => {
-      const parsed = z.object(ConversationSummaryRequestSchema).parse(args);
-      let idRaw: string | null =
-        parsed.conversationId !== undefined &&
-        typeof parsed.conversationId === "string" &&
-        parsed.conversationId.trim().length > 0
-          ? parsed.conversationId.trim()
-          : null;
-      if (idRaw === null) {
-        const conversationIdPath = path.join(
-          scope.projectRoot,
-          ".aic",
-          "conversation-id",
+      try {
+        const parsed = z.object(ConversationSummaryRequestSchema).parse(args);
+        const paramsShape = JSON.stringify(
+          Object.fromEntries(Object.entries(parsed).map(([k, v]) => [k, typeof v])),
         );
-        try {
-          const content = fs.readFileSync(conversationIdPath, "utf8");
-          const trimmed = content.trim();
-          if (trimmed.length > 0) idRaw = trimmed;
-        } catch {
-          // File missing or unreadable — leave idRaw null
+        toolInvocationLogStore.record({
+          id: scope.idGenerator.generate(),
+          createdAt: scope.clock.now(),
+          toolName: "aic_chat_summary",
+          sessionId: getSessionId(),
+          paramsShape,
+        });
+        let idRaw: string | null =
+          parsed.conversationId !== undefined &&
+          typeof parsed.conversationId === "string" &&
+          parsed.conversationId.trim().length > 0
+            ? parsed.conversationId.trim()
+            : null;
+        if (idRaw === null) {
+          const conversationIdPath = path.join(
+            scope.projectRoot,
+            ".aic",
+            "conversation-id",
+          );
+          try {
+            const content = fs.readFileSync(conversationIdPath, "utf8");
+            const trimmed = content.trim();
+            if (trimmed.length > 0) idRaw = trimmed;
+          } catch {
+            // File missing or unreadable — leave idRaw null
+          }
         }
+        const idForPayload = idRaw ?? "";
+        const conversationId = idRaw !== null ? toConversationId(idRaw) : null;
+        const statusStore = new SqliteStatusStore(scope.db, scope.clock);
+        const summary =
+          conversationId !== null
+            ? statusStore.getConversationSummary(conversationId)
+            : null;
+        const payload = summary ?? {
+          conversationId: idForPayload,
+          compilationsInConversation: 0,
+          cacheHitRatePct: null,
+          avgReductionPct: null,
+          totalTokensRaw: 0,
+          totalTokensCompiled: 0,
+          totalTokensSaved: null,
+          lastCompilationInConversation: null,
+          topTaskClasses: [],
+        };
+        return Promise.resolve({
+          content: [{ type: "text" as const, text: JSON.stringify(payload) }],
+        });
+      } catch {
+        throw new McpError(ErrorCode.InternalError, "Internal error");
       }
-      const idForPayload = idRaw ?? "";
-      const conversationId = idRaw !== null ? toConversationId(idRaw) : null;
-      const statusStore = new SqliteStatusStore(scope.db, scope.clock);
-      const summary =
-        conversationId !== null
-          ? statusStore.getConversationSummary(conversationId)
-          : null;
-      const payload = summary ?? {
-        conversationId: idForPayload,
-        compilationsInConversation: 0,
-        cacheHitRatePct: null,
-        avgReductionPct: null,
-        totalTokensRaw: 0,
-        totalTokensCompiled: 0,
-        totalTokensSaved: null,
-        lastCompilationInConversation: null,
-        topTaskClasses: [],
-      };
-      return Promise.resolve({
-        content: [{ type: "text" as const, text: JSON.stringify(payload) }],
-      });
     },
   );
   server.resource("last", "aic://last", () => {
     const statusStore = new SqliteStatusStore(scope.db, scope.clock);
     const summary = statusStore.getSummary();
-    const lastPromptPath = path.join(
-      scope.projectRoot,
-      ".aic",
-      "last-compiled-prompt.txt",
-    );
-    let compiledPrompt: string | null = null;
-    if (fs.existsSync(lastPromptPath)) {
-      try {
-        compiledPrompt = fs.readFileSync(lastPromptPath, "utf8");
-      } catch {
-        compiledPrompt = null;
-      }
-    }
     return {
       contents: [
         {
@@ -279,7 +293,10 @@ export function createMcpServer(
           text: JSON.stringify({
             compilationCount: summary.compilationsTotal,
             lastCompilation: summary.lastCompilation,
-            compiledPrompt,
+            promptSummary: {
+              tokenCount: summary.lastCompilation?.tokensCompiled ?? null,
+              guardPassed: null,
+            },
           }),
         },
       ],

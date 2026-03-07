@@ -5,6 +5,9 @@
   "type": "module",
   "main": "src/server.ts",
   "bin": "./src/server.ts",
+  "imports": {
+    "#mcp/*": "./src/*"
+  },
   "scripts": {
     "build": "tsc -b",
     "typecheck": "tsc --noEmit"

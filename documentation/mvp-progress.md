@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 24/55 done
+**Phase 1.0:** 28/55 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -68,10 +68,10 @@ Industry-standard security hardening for the AIC MCP server, motivated by the of
 
 | Component                                            | Status  | Package                               | Deps | Description                                                                                                          |
 | ---------------------------------------------------- | ------- | ------------------------------------- | ---- | -------------------------------------------------------------------------------------------------------------------- |
-| Schema hardening: path containment + char-set guards | Pending | mcp/src/schemas/ + mcp/src/handlers/  | —    | `projectRoot`/`configPath` path-traversal guard; `intent` control-char strip; `conversationId`/`modelId` allow-lists |
-| Compilation timeout enforcement                      | Pending | mcp/src/handlers/                     | —    | `Promise.race` with 30s `TimeoutError` wrapping `runner.run(request)` in compile-handler                             |
-| Tool-invocation audit log (migration + store write)  | Pending | shared/src/storage/migrations/ + mcp/ | —    | New `tool_invocation_log` migration and append-on-call write from compose root                                       |
-| `aic://last` compiledPrompt removal                  | Pending | mcp/src/server.ts                     | —    | Strip raw `compiledPrompt` from `aic://last` resource; return token count and guard status only                      |
+| Schema hardening: path containment + char-set guards | Done    | mcp/src/schemas/ + mcp/src/handlers/  | —    | `projectRoot`/`configPath` path-traversal guard; `intent` control-char strip; `conversationId`/`modelId` allow-lists |
+| Compilation timeout enforcement                      | Done    | mcp/src/handlers/                     | —    | `Promise.race` with 30s `TimeoutError` wrapping `runner.run(request)` in compile-handler                             |
+| Tool-invocation audit log (migration + store write)  | Done    | shared/src/storage/migrations/ + mcp/ | —    | New `tool_invocation_log` migration and append-on-call write from compose root                                       |
+| `aic://last` compiledPrompt removal                  | Done    | mcp/src/server.ts                     | —    | Strip raw `compiledPrompt` from `aic://last` resource; return token count and guard status only                      |
 | `security.md` MCP Top 10 coverage table              | Pending | documentation/                        | —    | Explicit mapping of AIC vs MCP Server Top 10 risks; documents what is covered, deferred, or N/A                      |
 
 ### Phase S — Cursor Hook Upgrades
@@ -345,10 +345,11 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2025-03-07
 
-**Components:** preToolUse schema alignment + failClosed (Task 109), sessionEnd hook (Task 110), sessionStart env improvements (Task 112), Documentation Cursor hooks update (Task 113), postToolUse compile confirmation (Task 114)
+**Components:** preToolUse schema alignment + failClosed (Task 109), sessionEnd hook (Task 110), sessionStart env improvements (Task 112), Documentation Cursor hooks update (Task 113), postToolUse compile confirmation (Task 114), Schema hardening (Task 115), Compilation timeout enforcement (Task 115), Tool-invocation audit log (Task 115), aic://last compiledPrompt removal (Task 115)
 
 **Completed:**
 
+- MCP server security hardening (Task 115): validate-project-root.ts (path containment + sensitive-prefix reject); schema hardening (configPath/conversationId/modelId max + regex); compile-handler path guards, intent control-char strip, Promise.race 30s timeout, tool-invocation audit record; inspect-handler path guards + audit; aic_chat_summary try/catch InternalError + audit; migration 010 tool_invocation_log, ToolInvocationLogStore + SqliteToolInvocationLogStore; aic://last promptSummary only, no compiledPrompt/fs read; server tests use homedir tmpDir; lint, typecheck, test, lint:clones 0.
 - postToolUse compile confirmation (Task 114): AIC-post-compile-context.cjs in .cursor/hooks/ and mcp/hooks/ — reads stdin (tool_name, tool_input, tool_output); when aic_compile call (tool_name MCP or aic_compile + intent/projectRoot) and tool_output has content array, returns additional_context confirmation; try/catch, exit 0. postToolUse entry with matcher "MCP" in hooks.json; DEFAULT_HOOKS.postToolUse and merge in install-cursor-hooks.ts; AIC-post-compile-context.cjs in AIC_SCRIPT_NAMES. Lint, typecheck, test pass; lint:clones 0.
 - Aligned preToolUse hooks to Cursor official schema: `permission`, `user_message`, `agent_message`, `updated_input` (no `decision`/`reason`)
 - Added `failClosed: true` to require-aic-compile in hooks.json and install-cursor-hooks.ts DEFAULT_HOOKS; extended HookEntry type with `failClosed?: boolean`

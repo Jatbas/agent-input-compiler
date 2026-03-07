@@ -33,7 +33,7 @@ describe("MCP server", () => {
   });
 
   it("list_tools", async () => {
-    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     server = createMcpServer(toAbsolutePath(tmpDir));
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
@@ -48,7 +48,7 @@ describe("MCP server", () => {
   });
 
   it("status_resource_returns_json", async () => {
-    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     server = createMcpServer(toAbsolutePath(tmpDir));
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
@@ -73,7 +73,7 @@ describe("MCP server", () => {
   });
 
   it("status_resource_empty_db", async () => {
-    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     server = createMcpServer(toAbsolutePath(tmpDir));
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
@@ -105,7 +105,7 @@ describe("MCP server", () => {
   });
 
   it("last_resource_returns_json", async () => {
-    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     server = createMcpServer(toAbsolutePath(tmpDir));
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
@@ -136,9 +136,12 @@ describe("MCP server", () => {
         editorId: string;
         modelId: string | null;
       } | null;
+      promptSummary: { tokenCount: number | null; guardPassed: null };
     };
     expect(parsed.compilationCount).toBeGreaterThanOrEqual(1);
     expect(parsed.lastCompilation).not.toBeNull();
+    expect(parsed["promptSummary"]).toBeDefined();
+    expect(Object.prototype.hasOwnProperty.call(parsed, "compiledPrompt")).toBe(false);
     if (parsed.lastCompilation !== null) {
       expect(parsed.lastCompilation.intent).toBe("fix bug");
       expect(typeof parsed.lastCompilation.filesSelected).toBe("number");
@@ -154,8 +157,29 @@ describe("MCP server", () => {
     }
   });
 
+  it("aic_last_no_compiled_prompt", async () => {
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
+    server = createMcpServer(toAbsolutePath(tmpDir));
+    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+    await server.connect(transportServer);
+    const client = new Client({ name: "test", version: "1.0" });
+    await client.connect(transportClient);
+    const result = await client.readResource({ uri: "aic://last" });
+    const first = result.contents[0];
+    const rawText: string =
+      first && "text" in first && typeof first.text === "string" ? first.text : "{}";
+    const parsed = JSON.parse(rawText) as Record<string, unknown>;
+    expect(parsed["promptSummary"]).toBeDefined();
+    expect(
+      parsed["promptSummary"] !== null &&
+        typeof parsed["promptSummary"] === "object" &&
+        "tokenCount" in parsed["promptSummary"],
+    ).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(parsed, "compiledPrompt")).toBe(false);
+  });
+
   it("last_resource_empty_db", async () => {
-    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     server = createMcpServer(toAbsolutePath(tmpDir));
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
@@ -168,18 +192,18 @@ describe("MCP server", () => {
     const parsed = JSON.parse(rawText) as {
       compilationCount: number;
       lastCompilation: null;
+      promptSummary: { tokenCount: number | null; guardPassed: null };
     };
     expect(parsed.compilationCount).toBe(0);
     expect(parsed.lastCompilation).toBeNull();
-    expect(Object.keys(parsed).sort()).toEqual([
-      "compilationCount",
-      "compiledPrompt",
-      "lastCompilation",
-    ]);
+    expect(parsed["promptSummary"]).toBeDefined();
+    expect("tokenCount" in parsed["promptSummary"]).toBe(true);
+    expect("guardPassed" in parsed["promptSummary"]).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(parsed, "compiledPrompt")).toBe(false);
   });
 
   it("valid_args_returns_compiled_prompt", async () => {
-    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     server = createMcpServer(toAbsolutePath(tmpDir));
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
@@ -201,7 +225,7 @@ describe("MCP server", () => {
   });
 
   it("mcp_accepts_optional_trigger_source", async () => {
-    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     server = createMcpServer(toAbsolutePath(tmpDir));
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
@@ -227,7 +251,7 @@ describe("MCP server", () => {
   });
 
   it("aic_chat_summary_tool_returns_json_when_compilations_exist", async () => {
-    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     server = createMcpServer(toAbsolutePath(tmpDir));
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
@@ -260,7 +284,7 @@ describe("MCP server", () => {
   });
 
   it("aic_chat_summary_tool_returns_zero_when_no_compilations", async () => {
-    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     server = createMcpServer(toAbsolutePath(tmpDir));
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
@@ -286,7 +310,7 @@ describe("MCP server", () => {
   });
 
   it("aic_chat_summary_omitted_conversation_id_uses_file", async () => {
-    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     fs.mkdirSync(path.join(tmpDir, ".aic"), { recursive: true });
     const knownUUID = "conv-omit-file-test";
     fs.writeFileSync(path.join(tmpDir, ".aic", "conversation-id"), knownUUID, "utf8");
@@ -319,7 +343,7 @@ describe("MCP server", () => {
   });
 
   it("aic_chat_summary_omitted_conversation_id_no_file_returns_zero", async () => {
-    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     server = createMcpServer(toAbsolutePath(tmpDir));
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
@@ -345,7 +369,7 @@ describe("MCP server", () => {
   });
 
   it("invalid_args_returns_32602", async () => {
-    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     server = createMcpServer(toAbsolutePath(tmpDir));
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
@@ -357,7 +381,7 @@ describe("MCP server", () => {
   });
 
   it("aic_inspect_invalid_params", async () => {
-    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     server = createMcpServer(toAbsolutePath(tmpDir));
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
@@ -368,8 +392,24 @@ describe("MCP server", () => {
     ).rejects.toThrow();
   });
 
+  it("aic_chat_summary_catch_returns_internal_error", async () => {
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
+    server = createMcpServer(toAbsolutePath(tmpDir));
+    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+    await server.connect(transportServer);
+    const client = new Client({ name: "test", version: "1.0" });
+    await client.connect(transportClient);
+    // Invalid type triggers parse error, handler catch returns McpError InternalError
+    await expect(
+      client.callTool({
+        name: "aic_chat_summary",
+        arguments: { conversationId: 123 },
+      }),
+    ).rejects.toThrow();
+  });
+
   it("aic_inspect_returns_trace", async () => {
-    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     server = createMcpServer(toAbsolutePath(tmpDir));
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
@@ -391,7 +431,7 @@ describe("MCP server", () => {
   });
 
   it("idempotency", () => {
-    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     const projectRoot = toAbsolutePath(tmpDir);
     let scope1: ReturnType<typeof createProjectScope> | undefined;
     let scope2: ReturnType<typeof createProjectScope> | undefined;
@@ -406,7 +446,7 @@ describe("MCP server", () => {
   });
 
   it("permissions", () => {
-    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     ensureAicDir(toAbsolutePath(tmpDir));
     const aicPath = path.join(tmpDir, ".aic");
     const mode = fs.statSync(aicPath).mode & 0o777;
@@ -456,7 +496,7 @@ describe("MCP server", () => {
   });
 
   it("server_sessions_row_has_integrity", async () => {
-    tmpDir = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), "aic-mcp-"));
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     const projectRoot = toAbsolutePath(tmpDir);
     server = createMcpServer(projectRoot);
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();

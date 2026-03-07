@@ -1,6 +1,6 @@
 # Task 115: MCP Server Security Hardening
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** Phase R — MCP Server Security Hardening
 > **Layer:** mcp + shared/storage
 > **Depends on:** Schema hardening, Compilation timeout enforcement, Tool-invocation audit log, aic://last compiledPrompt removal (all in this task)
