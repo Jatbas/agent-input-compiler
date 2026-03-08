@@ -340,3 +340,75 @@ Each step still touches max 1 file.
 3. **Read every fixture file** referenced by gold data — record line numbers of functions, classes, exports, and other structural landmarks that gold annotations will reference.
 4. **Run the pipeline** against the fixture repo (via `pnpm test` on the selection-quality benchmark) and read the actual `PipelineTrace` output shape to confirm which fields are available for gold comparison.
 5. **Check baseline impact** — will the changes affect `baseline.json` token counts or `expected-selection` path lists?
+
+---
+
+## Release pipeline recipe (npm publish, CI automation)
+
+Release pipeline tasks define how one or more packages are published to npm (or another registry). They cover package metadata for publishability, build output layout, and CI automation (e.g. GitHub Actions) that runs on release triggers (e.g. tag push) and executes the publish step. No new production code in core, pipeline, adapter, or storage — only package config, workflow files, and optional documentation.
+
+**Identifying a release-pipeline task:** If the component's job is to make a package publishable, add or change a workflow that publishes on tag/release, configure `publishConfig` / `files` / entry points, or document the release process — it is a release-pipeline task. Example: "npm publish pipeline (`@aic/mcp`)" from Phase V.
+
+**Files pattern:**
+
+| Action | Path                                                                                                         |
+| ------ | ------------------------------------------------------------------------------------------------------------ |
+| Modify | `[package]/package.json` (name, version, main/types/bin, files, publishConfig, private)                      |
+| Create | `.github/workflows/[name].yml` (e.g. publish.yml) — or Modify if one exists                                  |
+| Modify | Root `package.json` (if release scripts or workspace publish config)                                         |
+| Modify | `documentation/` (release runbook, CONTRIBUTING release section) — only if the task explicitly includes docs |
+
+Do not add workflow or docs unless the exploration concludes they are in scope. Prefer a single workflow file; split only if triggers or jobs are clearly separate (e.g. CI vs publish).
+
+**Template differences — the Interface/Signature section becomes "Publish specification":**
+
+Release-pipeline tasks do not implement a core interface. Instead, the task must contain:
+
+1. **Package(s) to publish:** Exact npm package name(s) (e.g. `@aic/mcp`). If multiple (e.g. `@aic/shared` and `@aic/mcp`), state publish order (shared first if mcp depends on it).
+
+2. **Entry points:** For each package, the exact fields that define what gets run and what gets included:
+   - `main`, `types`, `bin` — must point at built output (`dist/...`), not source (`src/...`), so that `npm pack` / install produces runnable code.
+   - `exports` — if the package is consumed via subpath imports, the exports map must point at built output. State the exact exports object.
+   - `files` — whitelist array of paths included in the npm tarball (`["dist"]`). Always specify `files` explicitly so tests, source, and dev artifacts are excluded from the published package. Never use `.npmignore` — the `files` whitelist is safer and more predictable.
+   - `bin` shebang — if the package has a `bin` entry, the target file must start with `#!/usr/bin/env node`. State how the shebang is added (source file or post-build step).
+
+3. **Build:** The exact command(s) that produce publishable output (`pnpm build` or `tsc -b`). Build must run before publish in CI; the task must state where it runs (same job as publish or dependency job).
+
+4. **Trigger:** When the publish workflow runs — e.g. `workflow_dispatch` only, or `push` tags `v*`. Be explicit (tag pattern, branch, or manual).
+
+5. **Secrets / auth:** What the workflow needs to authenticate to the registry (e.g. `NPM_TOKEN`). Document where the secret is set (repo secrets, org secrets) in Architecture Notes or a dedicated step; never hardcode.
+
+**Dependent Types:** Not used. Write "Not applicable — release pipeline; no core types consumed."
+
+**Exploration checklist specifics for release-pipeline:**
+
+- **Current package.json state:** Read each package to be published. Record: `name`, `version`, `private`, `main`/`types`/`bin` (current values), presence of `files` and `publishConfig`. If `main`/`bin` point at `.ts` or `src/`, the task must switch them to `dist/` after build.
+- **Build output:** Run the build command and list the resulting directories (shared/dist, mcp/dist). Confirm that entry points (main, bin) can point at files inside those directories (dist/server.js). Record the exact file names produced.
+- **Shebang for bin entries:** If a package has a `bin` field, the target file must start with `#!/usr/bin/env node`. TypeScript's `tsc` does NOT add shebangs to compiled output. Check whether the source file already has one (tsc preserves it if present as a leading comment). If not, the task must add the shebang to the source file or add a post-build step that prepends it. Without the shebang, `npx <package>` fails on Unix systems.
+- **tsconfig.json for published packages:** Read each published package's `tsconfig.json`. Record: `declaration` (must be true for `.d.ts` generation), `declarationMap`, `sourceMap`, `outDir`. If `declaration` is false or missing, the task must enable it so consumers get type information.
+- **`exports` field mapping:** If a published package is consumed via subpath imports (consumers write `import { X } from "@scope/pkg/some/path.js"`), the `exports` field in `package.json` must map those subpaths to built output, not source. Check current `exports` values — if they point at `./src/*`, the task must change them to `./dist/*`. For packages with a single entry point (no subpath imports), `main` + `types` suffice and `exports` can match.
+- **Workspace dependency and publish order:** If the published package depends on another workspace package (`"@aic/shared": "workspace:*"`), both packages must be published. `workspace:*` is a pnpm protocol that does not resolve on the npm registry. Use `pnpm publish` (not `npm publish`) — pnpm automatically replaces `workspace:*` with the resolved version at publish time. The dependency must be published first. Record the exact publish order.
+- **Existing CI:** Read `.github/workflows/*.yml`. If a publish workflow already exists, the task Modifies it; otherwise Create. Record the exact trigger and job names.
+- **SBOM / provenance (Phase 1+):** SBOM generation, `npm publish --provenance` — include in the task only if the mvp-progress or project-plan explicitly calls for them in this component.
+- **Publish inclusion strategy:** AIC uses the `files` field in `package.json` to control what goes into the npm tarball — not `.npmignore`. The `files` field is a whitelist: only listed paths are included. This is safer than `.npmignore` (a blacklist that can accidentally ship dev artifacts). During exploration, determine the exact `files` array for each published package.
+
+**Exploration Report — non-applicable fields:** For release-pipeline tasks, the following standard Exploration Report fields do not apply. Mark each as "N/A — release pipeline; no production code":
+INTERFACES, CONSTRUCTOR, METHOD BEHAVIORS, SYNC/ASYNC, SCHEMA, OPTIONAL FIELD HAZARDS, WIRING SPECIFICATION, LIBRARY API CALLS, TRANSFORMER DETAILS.
+Fill these fields instead: EXISTING FILES, DEPENDENCIES, ESLINT CHANGES (typically "no change"), DESIGN DECISIONS (publish order, trigger, workspace dep strategy, `files` array contents), and the release-pipeline-specific items above.
+
+**Config Changes pattern:**
+
+- **package.json:** List exact edits: add/change `files`, `main`, `types`, `bin`, `publishConfig`; remove or keep `private` (and when it is flipped, e.g. only in CI or permanently). Versions are not set by the pipeline task unless the task scope includes "version bump on release" (then state the mechanism).
+- **No ESLint changes** for release-pipeline tasks unless the task adds a new script that touches source code.
+
+**Step granularity:**
+
+- Step 1: Package metadata — one step per package; update `package.json` so the package is publishable (entry points to dist, `files`, `publishConfig`).
+- Step 2: Build verification — run build, then `npm pack` (or equivalent) in the package directory; verify the tarball contains only intended paths and that `main`/`bin` resolve inside the tarball.
+- Step 3: Publish workflow — add or update the workflow file. One step per file. Trigger, jobs, and secret usage must be explicit.
+- Step 4: Documentation — include this step when the task scope covers documentation changes (release runbook, CONTRIBUTING release section). One step per doc change. Omit entirely when docs are out of scope.
+- Final step: Final verification — run `pnpm lint && pnpm typecheck && pnpm test`. Run the workflow with `--dry-run` to verify it executes without error.
+
+**Tests:** Release-pipeline tasks typically do not add new test files. Verification is via: (a) `npm pack` and inspection of the tarball, (b) CI workflow run (manual or on tag). If the task adds a small script used only by the workflow (e.g. a version-bump helper), and that script has logic worth unit-testing, add a test file and a Tests table row; otherwise the Tests table can list a single row: "Publish dry-run: workflow runs without error and tarball contents are correct."
+
+**Mechanical review (C.5) — N/A for release-pipeline:** Checks B (signature cross-check), C (dependent types), H (constructor branded types), K (library API accuracy), L (wiring accuracy) do not apply. Checks A (ambiguity), D (step count), E (config changes), F (files table — Create only for files that do not exist), G (self-contained), M (simplicity), and the verification steps apply. If the task adds no test file, J (test table ↔ step) is satisfied by the single verification row.

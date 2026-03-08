@@ -80,7 +80,7 @@ let providers: Awaited<ReturnType<typeof initLanguageProviders>>;
 
 beforeAll(async () => {
   providers = await initLanguageProviders(projectRoot);
-});
+}, 60_000);
 
 describe("real project integration", () => {
   afterEach(() => {

@@ -106,7 +106,7 @@ Editor detection and auto-install so Claude Code users get the same zero-install
 
 | Component                                                 | Status  | Package  | Deps                             | Description                                         |
 | --------------------------------------------------------- | ------- | -------- | -------------------------------- | --------------------------------------------------- |
-| Editor detection (`detectEditorForInit`)                  | Done    | mcp/src/ | —                                | Detect Claude Code vs Cursor for installer dispatch |
+| Editor detection (`detectEditorForInit`)                  | Pending | mcp/src/ | —                                | Detect Claude Code vs Cursor for installer dispatch |
 | `installClaudeCodeTriggerRule` (`.claude/CLAUDE.md`)      | Pending | mcp/src/ | Editor detection                 | Auto-create Claude Code trigger rule                |
 | `installClaudeCodeHooks` (`.claude/settings.local.json`)  | Pending | mcp/src/ | Editor detection, Phase T        | Auto-install Claude Code hooks                      |
 | `createMcpServer` dispatches installer by detected editor | Pending | mcp/src/ | Editor detection, trigger, hooks | One startup path per editor                         |
@@ -118,7 +118,7 @@ Final polish for public release. npm publish, changelog, benchmarks, visual demo
 
 | Component                                           | Status  | Package | Gap    | Deps      | Description                                |
 | --------------------------------------------------- | ------- | ------- | ------ | --------- | ------------------------------------------ |
-| Check codebase for dead code                        | Pending | ./      | —      | -         | Check codebase for dead code using Knip    |
+| Check codebase for dead code                        | Done    | ./      | —      | -         | Check codebase for dead code using Knip    |
 | npm publish pipeline (`@aic/mcp`)                   | Pending | mcp/    | —      | Phase N–U | Publish MCP package to npm                 |
 | CHANGELOG.md                                        | Pending | ./      | —      | —         | Version history for release                |
 | License headers audit                               | Pending | ./      | —      | —         | Ensure license headers present             |

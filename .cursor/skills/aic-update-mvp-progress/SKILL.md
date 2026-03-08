@@ -41,6 +41,8 @@ After completing a coding task, update the `documentation/mvp-progress.md` file 
 
 6. **Do not change** any other part of the file (phase descriptions, table structure, other daily log entries).
 
+7. **Changelog hint:** After completing the progress update, evaluate whether the completed work includes a user-facing change (new feature, bug fix, security fix, breaking change, or public API change). If yes, suggest to the user: _"This looks changelog-worthy — want me to update the changelog?"_ Do not run the changelog skill automatically — let the user decide.
+
 ## Conventions
 
 - Status values are exactly: `Not started`, `In progress`, `Done`

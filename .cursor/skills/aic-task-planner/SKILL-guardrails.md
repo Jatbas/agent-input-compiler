@@ -241,7 +241,7 @@ Common failure: writing `Server` when the actual class is `McpServer`, or writin
 
 ## Recipe fit required
 
-Every task must match one of the defined recipes: adapter, storage, pipeline, or composition root. If a component does not fit any recipe, do not improvise a task structure. Stop and tell the user. The recipes exist because each component type has different template requirements, test strategies, and verification dimensions. A task written without a recipe will violate template requirements it doesn't know about.
+Every task must match one of the defined recipes: adapter, storage, pipeline, composition root, benchmark, or release-pipeline. If a component does not fit any recipe, do not improvise a task structure. Stop and tell the user. The recipes exist because each component type has different template requirements, test strategies, and verification dimensions. A task written without a recipe will violate template requirements it doesn't know about.
 
 ## Module resolution verification
 

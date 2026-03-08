@@ -1,5 +1,5 @@
 {
-  "ignore": [".cursor/**", "test/benchmarks/**", "mcp/hooks/**"],
+  "ignore": [".cursor/**", ".claude/**", "test/benchmarks/**", "mcp/hooks/**"],
   "workspaces": {
     ".": {},
     "shared": {
