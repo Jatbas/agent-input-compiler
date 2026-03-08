@@ -122,7 +122,7 @@ Final polish for public release. npm publish, changelog, benchmarks, visual demo
 | npm publish pipeline (`@aic/mcp`)                   | Done    | mcp/    | —      | Phase N–U | Publish MCP package to npm                 |
 | CHANGELOG.md                                        | Done    | ./      | —      | —         | Version history for release                |
 | License headers audit                               | Done    | ./      | —      | —         | Ensure license headers present             |
-| Contributing guide (final)                          | Pending | ./      | —      | —         | How to contribute                          |
+| Contributing guide (final)                          | Done    | ./      | —      | —         | How to contribute                          |
 | Multi-repo benchmark suite (multi-scale datapoints) | Pending | test/   | GAP-11 | —         | Token reduction at multiple project scales |
 | Comparative benchmarks vs. native editor context    | Pending | test/   | GAP-10 | —         | AIC vs native editor context selection     |
 | Visual demo (GIF/recording) in README               | Pending | ./      | GAP-09 | Phase N–U | Screen recording of AIC in editor          |
