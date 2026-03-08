@@ -7,7 +7,6 @@
       "ignoreDependencies": [
         "commander",
         "diff",
-        "zod",
         "tree-sitter-go",
         "tree-sitter-python",
         "tree-sitter-rust",

@@ -113,7 +113,9 @@ This creates:
 
 **Step 3 — Approve MCP tools.** When Cursor first invokes `aic_compile`, you will see an approval prompt on the MCP indicator. Click **"Always allow"** for both `aic_compile` and `aic_inspect`. If these tools are denied or left unapproved, AIC cannot compile context and the model will operate without curated project context. You can review approved tools at any time in **Settings → MCP**.
 
-### Claude Code
+### Claude Code [🏗️ Coming Next Week]
+
+_Integration layers for Claude Code are actively being finalized for the Phase 1.0 release._
 
 **Step 1 — Register the MCP server.** Add to your project's `.mcp.json`:
 
@@ -125,9 +127,7 @@ This creates:
 }
 ```
 
-**Step 2 — Allow AIC tools.** Claude Code requires explicit tool permissions. When prompted during your first session, approve `aic_compile` and `aic_inspect`. Alternatively, pass `--allowedTools` when starting Claude Code, or add AIC tools to your permissions configuration so they are always permitted.
-
-If the tools are not approved, the model cannot call `aic_compile` and will operate without compiled context. AIC's trigger rule will notify you if the tool is unavailable.
+**Step 2 — Allow AIC tools.** Claude Code requires explicit tool permissions. When prompted, approve `aic_compile` and `aic_inspect`. Alternatively, pass `--allowedTools` when starting Claude Code.
 
 ### Other MCP-compatible editors
 
@@ -171,14 +171,14 @@ The core pipeline is editor-agnostic — it doesn't know or care who called it. 
 
 ## Core properties
 
-| Property              | Description                                                                                                            |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| **Local-first**       | All processing runs on your machine — no cloud, no account, no API key for AIC itself                                  |
-| **Deterministic**     | Same intent + same codebase → same compiled output, every time                                                         |
-| **Zero config**       | Works out of the box with no `aic.config.json`; optional config for customization                                      |
-| **Secure by default** | Context Guard scans every selected file for secrets, credentials, and excluded paths before anything reaches the model |
-| **Extensible**        | New languages, transformers, and scanners plug in via interfaces without touching the core pipeline                    |
-| **Model-agnostic**    | Works with any model the editor is configured to use — AIC compiles context, never calls models                        |
+| Property              | Description                                                                                                                                                            |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Local-first**       | All processing runs on your machine — no cloud, no account, no API key for AIC itself. Perfect for strict compliance environments where zero-exfiltration is required. |
+| **Deterministic**     | Same intent + same codebase → same compiled output, every time                                                                                                         |
+| **Zero config**       | Works out of the box with no `aic.config.json`; optional config for customization                                                                                      |
+| **Secure by default** | Context Guard scans every selected file for secrets, credentials, and excluded paths before anything reaches the model                                                 |
+| **Extensible**        | New languages, transformers, and scanners plug in via interfaces without touching the core pipeline                                                                    |
+| **Model-agnostic**    | Works with any model the editor is configured to use — AIC compiles context, never calls models                                                                        |
 
 ---
 
@@ -186,7 +186,7 @@ The core pipeline is editor-agnostic — it doesn't know or care who called it. 
 
 Before any file content reaches the model, AIC's Context Guard scans every selected file and blocks:
 
-- **Secrets and credentials** — AWS keys, GitHub tokens, Stripe keys, JWTs, SSH private key headers, and generic named API keys detected by regex
+- **Secrets and credentials** — AWS keys, GitHub tokens, Stripe keys, JWTs, SSH private key headers, and generic named API keys detected by regex. By blocking these locally, they never reach the AI provider's servers, eliminating a major class of supply chain risk.
 - **Excluded paths** — `.env`, `*.pem`, `*.key`, `*secret*`, `*credential*`, and similar patterns never enter context
 - **Prompt injection** — suspected instruction-override strings blocked before they can influence the model
 
@@ -208,13 +208,15 @@ Current integration gaps are editor-specific — the core pipeline handles all c
 
 ## Future Work
 
-**Claude Code integration** is the single highest-impact item — Claude Code's hook system enables per-prompt context injection, subagent context, and pre-compaction compilation, all structurally impossible in Cursor. The core pipeline requires no changes; only new hook scripts calling the same `aic_compile` tool. See the [architecture guide](documentation/architecture.md) for the full capability comparison.
+**Claude Code integration [Phase 1.0]** — Claude Code's hook system enables per-prompt context injection, subagent context, and pre-compaction compilation. The core pipeline is ready; integration hooks are currently being built to deliver this next week.
+
+**Agentic session tracking [Phase 1.0]** — session-level deduplication, conversation compression, and adaptive budget allocation for multi-step agent workflows.
 
 **Additional editor support** — as editors add hook capabilities, AIC adds thin integration layers. The [architecture guide](documentation/architecture.md#what-aic-needs-from-an-editor) serves as a checklist.
 
 **Agentic session tracking** — session-level deduplication, conversation compression, and adaptive budget allocation for multi-step agent workflows. Planned for Phase 1.
 
-**Token reduction benchmarks** — a formal, reproducible benchmark suite across multiple open-source repos is planned to validate the 98%+ reduction broadly. Tracked as Phase K in [mvp-progress.md](documentation/mvp-progress.md).
+**Benchmark expansion** — single-repo benchmark coverage is done. Remaining OSS-release work is broader validation: multi-repo datapoints and side-by-side comparisons against native editor context selection.
 
 ---
 
@@ -237,7 +239,7 @@ Current integration gaps are editor-specific — the core pipeline handles all c
 | ------------------------------- | -------------------------------------------------------------------------------------- | ------- |
 | MVP (`0.1.0`)                   | Core pipeline, transformers, Guard, telemetry, MCP server                              | Done    |
 | Quality Release (`0.2.0`)       | Cursor integration layer, multi-language imports, intent-aware discovery, benchmarks   | Done    |
-| OSS Release (`1.0.0`)           | Public repo, Claude Code integration, agentic session tracking, Specification Compiler | Planned |
+| OSS Release (`1.0.0`)           | Public repo, Claude Code integration, agentic session tracking, Specification Compiler | Current |
 | Semantic + Governance (`2.0.0`) | Vector search, policy engine, conversation compression for agents                      | Planned |
 | Enterprise Platform (`3.0.0`)   | RBAC, SSO, fleet management, dashboard                                                 | Future  |
 

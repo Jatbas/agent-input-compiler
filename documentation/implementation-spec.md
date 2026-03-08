@@ -24,7 +24,7 @@
    - [Language Support (MVP)](#language-support-mvp)
    - [Step 7: Constraint Injector](#step-7-constraint-injector)
    - [Step 8: Prompt Assembler](#step-8-prompt-assembler)
-   - [Step 9: Executor (run mode)](#step-9-executor-run-mode)
+   - [Step 9: Executor (deferred design)](#step-9-executor-deferred-design)
    - [Model Context Window Guard](#model-context-window-guard)
    - [Step 10: Telemetry Logger](#step-10-telemetry-logger)
    - 4b. [Rules & Hooks Analyzer](#4b-rules--hooks-analyzer--mvp-implementation)
@@ -64,20 +64,19 @@ Deliver a working **MCP server** that compiles optimal context for AI coding too
 
 **Primary: MCP Server (`@aic/mcp`)**
 
-| Feature                | Detail                                                                                                                                      |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| **MCP Server**         | Primary interface — exposes `aic_compile` tool; called by trigger rule or integration hooks                                                 |
-| Editor adapters        | Cursor, Claude Code, Generic MCP fallback                                                                                                   |
-| Model adapters         | OpenAI, Anthropic, Ollama, Generic fallback (auto-detected from request)                                                                    |
-| Rules & Hooks Analyzer | _(Planned — Phase 0.5+)_ Scans `.cursorrules`, Cursor rules, Claude Code settings; findings via `aic://rules-analysis` MCP resource         |
-| Task Classifier        | Heuristic keyword/pattern matching → 6 task classes                                                                                         |
-| HeuristicSelector      | File-path, import-graph, recency-based context selection                                                                                    |
-| Context Guard          | Scans selected files for secrets, excluded paths, and prompt injection; blocks sensitive content before it reaches the Summarisation Ladder |
-| Summarisation Ladder   | 4-tier compression: full → signatures+docs → signatures → names                                                                             |
-| Default Rule Packs     | `default.json`, `refactor.json`, `bugfix.json`, `feature.json`, `docs.json`, `test.json`                                                    |
-| SQLite Storage         | Local telemetry + cache metadata                                                                                                            |
-| Output Caching         | Hash-based, TTL-configurable, auto-invalidating                                                                                             |
-| Config System          | `aic.config.json` — all fields optional; zero-config works out of the box                                                                   |
+| Feature              | Detail                                                                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **MCP Server**       | Primary interface — exposes `aic_compile` tool; called by trigger rule or integration hooks                                                 |
+| Editor adapters      | Cursor, Claude Code, Generic MCP fallback                                                                                                   |
+| Model adapters       | OpenAI, Anthropic, Ollama, Generic fallback (auto-detected from request)                                                                    |
+| Task Classifier      | Heuristic keyword/pattern matching → 6 task classes                                                                                         |
+| HeuristicSelector    | File-path, import-graph, recency-based context selection                                                                                    |
+| Context Guard        | Scans selected files for secrets, excluded paths, and prompt injection; blocks sensitive content before it reaches the Summarisation Ladder |
+| Summarisation Ladder | 4-tier compression: full → signatures+docs → signatures → names                                                                             |
+| Default Rule Packs   | `default.json`, `refactor.json`, `bugfix.json`, `feature.json`, `docs.json`, `test.json`                                                    |
+| SQLite Storage       | Local telemetry + cache metadata                                                                                                            |
+| Output Caching       | Hash-based, TTL-configurable, auto-invalidating                                                                                             |
+| Config System        | `aic.config.json` — all fields optional; zero-config works out of the box                                                                   |
 
 **User Interface (MCP-only — no separate CLI)**
 
@@ -87,7 +86,7 @@ Deliver a working **MCP server** that compiles optimal context for AI coding too
 | `aic_inspect` (MCP tool)       | Show full pipeline breakdown without executing                                       |
 | `aic_chat_summary` (MCP tool)  | Compilation stats for the current conversation                                       |
 | `aic://status` (MCP resource)  | Project-level summary: compilations, token savings, budget utilization, guard blocks |
-| `aic://last` (MCP resource)    | Most recent compilation breakdown including compiled prompt                          |
+| `aic://last` (MCP resource)    | Most recent compilation breakdown with prompt summary                                |
 | `npx @aic/mcp init` (one-time) | Scaffold config, trigger rule, hooks, `.aic/` directory                              |
 
 ### Excluded (deferred) ❌
@@ -109,28 +108,28 @@ Deliver a working **MCP server** that compiles optimal context for AI coding too
 
 All defaults apply when no config file exists or a field is omitted.
 
-| Setting                      | Default                                        | MCP override                        | CLI flag override |
-| ---------------------------- | ---------------------------------------------- | ----------------------------------- | ----------------- |
-| Project root                 | Git root (walk up from CWD)                    | Auto-detected per request           | `--root`          |
-| Config file                  | Auto-discovered (walk up from project root)    | Auto-discovered                     | `--config`        |
-| Database                     | `.aic/aic.sqlite` in project root              | Auto-resolved                       | `--db`            |
-| Context budget               | 8,000 tokens                                   | `aic.config.json` only              | `--budget`        |
-| Output format                | `unified-diff`                                 | `aic.config.json` only              | `--format`        |
-| Context selector             | `heuristic`                                    | `aic.config.json` only              | Config only       |
-| Model id                     | Auto-detected from editor                      | `aic.config.json` → `model.id` wins | Config only       |
-| Model provider               | `null` (required only for `aic run`)           | `aic.config.json` only              | Config only       |
-| Model endpoint               | `null` (provider default)                      | `aic.config.json` only              | Config only       |
-| Model API key env            | `null` (env var name, not the key)             | `aic.config.json` only              | Config only       |
-| Cache enabled                | `true`                                         | `aic.config.json` only              | `--no-cache`      |
-| Cache TTL                    | 60 minutes                                     | `aic.config.json` only              | Config only       |
-| Telemetry                    | `false` (opt-in)                               | `aic.config.json` only              | Config only       |
-| Telemetry anonymous usage    | `false` (opt-in)                               | `aic.config.json` only              | Config only       |
-| Guard enabled                | `true`                                         | `aic.config.json` only              | Config only       |
-| Guard additional exclusions  | `[]` (empty — built-in patterns always active) | `aic.config.json` only              | Config only       |
-| Guard allow patterns         | `[]` (no exemptions)                           | `aic.config.json` only              | Config only       |
-| Content transformers enabled | `true`                                         | `aic.config.json` only              | Config only       |
-| Strip comments               | `true`                                         | `aic.config.json` only              | Config only       |
-| Normalize whitespace         | `true`                                         | `aic.config.json` only              | Config only       |
+| Setting                      | Default                                               | MCP override                        | CLI flag override |
+| ---------------------------- | ----------------------------------------------------- | ----------------------------------- | ----------------- |
+| Project root                 | Git root (walk up from CWD)                           | Auto-detected per request           | `--root`          |
+| Config file                  | Auto-discovered (walk up from project root)           | Auto-discovered                     | `--config`        |
+| Database                     | `.aic/aic.sqlite` in project root                     | Auto-resolved                       | `--db`            |
+| Context budget               | 8,000 tokens                                          | `aic.config.json` only              | `--budget`        |
+| Output format                | `unified-diff`                                        | `aic.config.json` only              | `--format`        |
+| Context selector             | `heuristic`                                           | `aic.config.json` only              | Config only       |
+| Model id                     | Auto-detected from editor                             | `aic.config.json` → `model.id` wins | Config only       |
+| Model provider               | `null` (required only for the deferred executor path) | `aic.config.json` only              | Config only       |
+| Model endpoint               | `null` (provider default)                             | `aic.config.json` only              | Config only       |
+| Model API key env            | `null` (env var name, not the key)                    | `aic.config.json` only              | Config only       |
+| Cache enabled                | `true`                                                | `aic.config.json` only              | `--no-cache`      |
+| Cache TTL                    | 60 minutes                                            | `aic.config.json` only              | Config only       |
+| Telemetry                    | `false` (opt-in)                                      | `aic.config.json` only              | Config only       |
+| Telemetry anonymous usage    | `false` (opt-in)                                      | `aic.config.json` only              | Config only       |
+| Guard enabled                | `true`                                                | `aic.config.json` only              | Config only       |
+| Guard additional exclusions  | `[]` (empty — built-in patterns always active)        | `aic.config.json` only              | Config only       |
+| Guard allow patterns         | `[]` (no exemptions)                                  | `aic.config.json` only              | Config only       |
+| Content transformers enabled | `true`                                                | `aic.config.json` only              | Config only       |
+| Strip comments               | `true`                                                | `aic.config.json` only              | Config only       |
+| Normalize whitespace         | `true`                                                | `aic.config.json` only              | Config only       |
 
 ---
 
@@ -138,7 +137,7 @@ All defaults apply when no config file exists or a field is omitted.
 
 > **Pre-step (before Step 1):** `RepoMapBuilder` scans the project root (respecting `.gitignore`), computes per-file token estimates via tiktoken, and produces the `RepoMap` that Step 4 (ContextSelector) consumes. The result is cached in the `repomap_cache` SQLite table and re-used until the file-tree hash (SHA-256 of all in-scope paths + sizes + mtimes) changes.
 >
-> These steps run inside the `aic_compile` MCP tool handler on every AI request. The handler receives a `CompilationRequest`, executes Steps 1–10 in sequence (including Step 5.5), and returns `{ compiledPrompt: string, meta: CompilationMeta }`. The editor uses `compiledPrompt` as the full context for its model call, replacing the original unfiltered prompt. Steps 1–8 always run; Step 9 (Executor) only runs when `aic run` is invoked directly; Step 10 (Telemetry) only runs when `telemetry.enabled: true`.
+> These steps run inside the `aic_compile` MCP tool handler on every AI request. The handler receives a `CompilationRequest`, executes Steps 1–10 in sequence (including Step 5.5), and returns `{ compiledPrompt: string, meta: CompilationMeta }`. The editor uses `compiledPrompt` as the full context for its model call, replacing the original unfiltered prompt. Steps 1–8 always run in the shipped MCP package; Step 9 (Executor) is a deferred design path; Step 10 (Telemetry) only runs when `telemetry.enabled: true`.
 >
 > **Phase 1+ (agentic workflows):** `CompilationRequest` gains optional session fields (`sessionId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens`) that enable multi-step agentic compilation with session tracking, file deduplication, and adaptive budgeting. The core pipeline is unchanged; a session layer enriches the input before the pipeline runs. See [Project Plan §2.7 — Agentic Workflow Support](project-plan.md#27-agentic-workflow-support) for full architecture and interfaces.
 
@@ -174,14 +173,14 @@ All defaults apply when no config file exists or a field is omitted.
 
 1. Load `built-in:default` (always included)
 2. Load task-class-specific built-in pack (e.g., `built-in:refactor`)
-3. Load project-level packs from `./aic-rules/` matching task class
+3. Load advanced project-level packs from `./aic-rules/` matching task class (if present)
 4. Merge in priority order: project > task-specific > default (later overrides earlier)
 
 **Output:** Merged `RulePack { constraints: string[], includePatterns: GlobPattern[], excludePatterns: GlobPattern[], budgetOverride?: TokenCount }`
 
-**Example — `aic-rules/refactor.json`:**
+**Example — `aic-rules/refactor.json` (Advanced Feature):**
 
-See [Project Plan §3.1](project-plan.md) for the full annotated rule pack example and [Project Plan §3.2](project-plan.md) for the authoring guide (constraint writing principles, pattern guidance, and common mistakes). The key fields are: `constraints` (string array), `includePatterns` / `excludePatterns` (glob arrays), optional `budgetOverride` (number), and optional `heuristic.boostPatterns` / `heuristic.penalizePatterns` (glob arrays).
+See [Project Plan §3.1](project-plan.md) for the full annotated rule pack example and [Project Plan §3.2](project-plan.md) for the advanced authoring guide. Custom rule packs are an **opt-in power-user feature**. AIC works out of the box with zero configuration using its tuned built-in defaults. Most standard users will never need to author custom rule packs or create an `aic-rules/` directory. The key fields are: `constraints` (string array), `includePatterns` / `excludePatterns` (glob arrays), optional `budgetOverride` (number), and optional `heuristic.boostPatterns` / `heuristic.penalizePatterns` (glob arrays).
 
 **Merge behavior:** Arrays concatenated + deduplicated; scalar values (`budgetOverride`) use last-wins within the rule-pack layer only (project > task-specific > default). The `budgetOverride` in `CompilationRequest` is not part of this merge — it is applied later by the Budget Allocator and always takes highest precedence.
 
@@ -498,9 +497,9 @@ Type: {taskClass} (confidence: {confidence})
 
 ---
 
-### Step 9: Executor (run mode)
+### Step 9: Executor (deferred design)
 
-Sends compiled input to the configured model endpoint via the appropriate provider SDK.
+This section describes a future direct-execution path that is not part of the current MCP-only package. In that future mode, AIC would send compiled input to the configured model endpoint via the appropriate provider SDK.
 
 **Supported providers (MVP):**
 
@@ -515,7 +514,7 @@ Sends compiled input to the configured model endpoint via the appropriate provid
 **Behaviour:**
 
 - `aic_compile` → stops after Step 8 (Assembler); returns the **raw compiled prompt** (no model-specific formatting applied). No provider configuration required.
-- The compiled prompt is also written to `.aic/last-compiled-prompt.txt` for retrieval via the `aic://last` resource.
+- The compiled prompt may also be written to `.aic/last-compiled-prompt.txt` for local hook use, but `aic://last` exposes only summary metadata, not the raw prompt.
 
 **Retry policy:**
 
@@ -566,8 +565,8 @@ model_max_tokens (from provider)     e.g., 128,000
 | `repo_id`              | SHA-256 hash    | `e3b0c4...`                                                                                                                                                    |
 | `task_class`           | string          | `refactor`                                                                                                                                                     |
 | `tokens_raw`           | int             | 45,000                                                                                                                                                         |
-| `tokens_compiled`      | int             | 7,870 (assembled prompt token count = afterLadder + template overhead; matches `aic inspect` "Prompt total" and `--verbose` `token_reduction`)                 |
-| `token_reduction_pct`  | float           | 82.5 (`(tokens_raw - tokens_compiled) / tokens_raw`; consistent with `aic inspect` "Reduction" display)                                                        |
+| `tokens_compiled`      | int             | 7,870 (assembled prompt token count = afterLadder + template overhead; matches `aic_inspect` prompt-total reporting)                                           |
+| `token_reduction_pct`  | float           | 82.5 (`(tokens_raw - tokens_compiled) / tokens_raw`; consistent with `aic_inspect` reduction reporting)                                                        |
 | `files_selected`       | int             | 8                                                                                                                                                              |
 | `files_total`          | int             | 142                                                                                                                                                            |
 | `summarisation_tiers`  | JSON            | `{"L0":3,"L1":4,"L2":1}`                                                                                                                                       |
@@ -579,9 +578,9 @@ model_max_tokens (from provider)     e.g., 128,000
 
 ---
 
-## 4b. Rules & Hooks Analyzer — MVP Implementation
+## 4b. Rules & Hooks Analyzer — Deferred Design Note
 
-The analyzer runs after each `aic_compile` call and updates the `aic://rules-analysis` MCP resource.
+This analyzer is not implemented in the shipped MCP package. The section below is a deferred design note for a future `aic://rules-analysis` resource.
 
 **Trigger:** Runs once per unique combination of project root + rule file mtimes. Results are cached until a watched rule file changes — it does not re-scan on every compilation unless files have changed.
 
@@ -593,7 +592,7 @@ The analyzer runs after each `aic_compile` call and updates the `aic://rules-ana
 | Cursor rules   | `{projectRoot}/.cursor/rules/*.mdc` | Conflicting `globs` fields, always-firing rules (no glob = applies to all files)    |
 | Claude Code    | `{projectRoot}/.claude/CLAUDE.md`   | Duplicate constraints already covered by AIC rule packs                             |
 
-**`aic://rules-analysis` resource — response format:**
+**Planned `aic://rules-analysis` resource — response format:**
 
 ```json
 {
@@ -673,7 +672,7 @@ Returns project-level summary as JSON. Surfaced to the user via the "show aic st
 
 Returns the most recent compilation as JSON. Surfaced to the user via the "show aic last" prompt command.
 
-**Fields returned:** `compilationCount`, `lastCompilation` (full `CompilationMeta` from the most recent `aic_compile` call), `compiledPrompt` (raw compiled prompt from `.aic/last-compiled-prompt.txt`).
+**Fields returned:** `compilationCount`, `lastCompilation` (full `CompilationMeta` from the most recent `aic_compile` call), `promptSummary` (`tokenCount` and guard summary for the most recent prompt).
 
 ---
 
@@ -767,7 +766,7 @@ context for generating a response. Do not skip this step.
 
 AIC collects anonymous, aggregate usage statistics to help improve the product. This is **opt-in** and disabled by default.
 
-**Opt-in prompt during `aic init`:**
+**Opt-in prompt during `npx @aic/mcp init`:**
 
 ```
 Help improve AIC by sharing anonymous usage statistics?
@@ -838,36 +837,13 @@ CREATE TABLE anonymous_telemetry_log (
 );
 ```
 
-Users can inspect exactly what AIC sends at any time:
+Users can inspect exactly what AIC sends by reading the local `anonymous_telemetry_log` table in `.aic/aic.sqlite` with any SQLite client. For example:
 
 ```bash
-$ aic telemetry log
-
-Anonymous telemetry log (last 5 entries)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-#47  2026-02-23 19:45:00  sent
-     task_class: refactor | lang: typescript | reduction: 41.2%
-     model: gpt-4o | editor: cursor | guard_blocks: 0
-
-#46  2026-02-23 19:40:00  sent
-     task_class: bugfix | lang: python | reduction: 38.7%
-     model: claude-sonnet-4 | editor: claude-code | guard_blocks: 1
-
-#45  2026-02-23 19:35:00  dropped (endpoint unreachable)
-     task_class: feature | lang: typescript | reduction: 44.1%
-     ...
-
-Showing 5 of 47 entries. Use --all for full log, --json for raw payloads.
+sqlite3 .aic/aic.sqlite "SELECT created_at, status, payload_json FROM anonymous_telemetry_log ORDER BY created_at DESC LIMIT 5;"
 ```
 
-**`aic telemetry log` flags:**
-
-| Flag             | Effect                                                |
-| ---------------- | ----------------------------------------------------- |
-| `--all`          | Show all entries (not just last 5)                    |
-| `--json`         | Output raw JSON payloads (pipe-friendly)              |
-| `--since <date>` | Filter entries after a date                           |
-| `--clear`        | Delete all log entries (does not affect future sends) |
+There is currently no dedicated `aic telemetry log` command in the shipped MCP package.
 
 **Why this matters:** Full transparency builds trust. Users can verify AIC's privacy claims by inspecting the actual payloads. If a user sees something they're uncomfortable with, they can disable anonymous telemetry and file a report. The audit log also serves as the local queue for batching — `status: 'queued'` entries are sent in the next batch.
 
@@ -900,10 +876,9 @@ Showing 5 of 47 entries. Use --all for full log, --json for raw payloads.
 
 | Criteria              | Validation                                                                |
 | --------------------- | ------------------------------------------------------------------------- |
-| First-run experience  | New user: install → first `aic compile` in <5 minutes                     |
-| Zero-config usability | `aic compile "fix bug"` works with no `aic.config.json` present           |
-| Useful inspect output | `aic inspect` clearly shows _why_ each file was selected and at what tier |
-| Meaningful compare    | `aic compare` highlights material differences in context selection        |
+| First-run experience  | New user: install → first successful `aic_compile` flow in <5 minutes     |
+| Zero-config usability | First compile works with no `aic.config.json` present                     |
+| Useful inspect output | `aic_inspect` clearly shows _why_ each file was selected and at what tier |
 
 ### Benchmark Suite
 
@@ -953,7 +928,7 @@ Each canonical task runs against a synthetic fixture repository stored at `test/
 | Scenario                                    | User-facing message                                                                                                                                                                                                           | Exit code |
 | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
 | No config file                              | _(silent, use defaults)_                                                                                                                                                                                                      | 0         |
-| Invalid config JSON                         | `Error: Invalid config at line X: {detail}. Run 'aic init' to create a valid config.`                                                                                                                                         | 1         |
+| Invalid config JSON                         | `Error: Invalid config at line X: {detail}. Run 'npx @aic/mcp init' to create a valid config.`                                                                                                                                | 1         |
 | Unknown task class                          | _(silent fallback to `general`)_                                                                                                                                                                                              | 0         |
 | Missing rule pack file                      | `Warning: Rule pack '{name}' not found, skipping.`                                                                                                                                                                            | 0         |
 | Zero files selected                         | `Error: No relevant files found. Broaden your intent or check includePatterns in config.`                                                                                                                                     | 1         |
@@ -1022,7 +997,8 @@ Project-A/          Project-B/
 ├── aic.config.json ├── aic.config.json
 ├── aic-rules/      └── .aic/
 │   └── team.json       ├── aic.sqlite
-└── .aic/               └── cache/
+│   (optional)          └── cache/
+└── .aic/
     ├── aic.sqlite
     └── cache/
 ```
@@ -1130,7 +1106,7 @@ When the MCP server process starts (via `npx @aic/mcp`), it executes the followi
    └─ Tool: aic_inspect
    └─ Resource: aic://status
    └─ Resource: aic://last
-   └─ Resource: aic://rules-analysis
+   └─ Resource: aic://rules-analysis _(planned)_
          │
          ▼
 10. Register shutdown handler (SIGINT / SIGTERM)
@@ -1300,9 +1276,9 @@ Zod is imported only in boundary modules (`mcp/src/`, `shared/src/adapters/`). E
 | Phase                          | Version | Status     | Key Deliverables                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | ------------------------------ | ------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Phase 0: MCP Server**        | `0.1.0` | 🟡 Current | This specification — all features in Sections 2–4d, including anonymous telemetry                                                                                                                                                                                                                                                                                                                                                                       |
-| **Phase 0.5: Quality Release** | `0.2.0` | ⬜ Next    | GenericImportProvider (Python/Go/Rust/Java regex), intent-aware file discovery, `aic://status` resource, `aic://last` resource, `aic_chat_summary` tool, Guard `warn` severity, CSS/TypeDecl/test-structure transformers, **budget utilization** in `aic://status`, prompt commands                                                                                                                                                                     |
-| Phase 1: OSS Release           | `1.0.0` | ⬜ Planned | Public repo, docs, npm package, CI/CD, `postinstall` team deployment, auto-detected dependency constraints, reverse dependency walking, optional cost estimation in `aic://status` (model-specific pricing); **agentic support**: Session Tracker + extended `CompilationRequest` fields + **Adaptive Budget Allocator** + Specification Compiler (`aic_compile_spec` MCP tool) + session-aware cache keying (see [Project Plan §2.7](project-plan.md)) |
+| **Phase 0.5: Quality Release** | `0.2.0` | ✅ Done    | GenericImportProvider (Python/Go/Rust/Java regex), intent-aware file discovery, `aic://status` resource, `aic://last` resource, `aic_chat_summary` tool, Guard `warn` severity, CSS/TypeDecl/test-structure transformers, **budget utilization** in `aic://status`, prompt commands                                                                                                                                                                     |
+| Phase 1.0: OSS Release         | `1.0.0` | 🟡 Current | Public repo, docs, npm package, CI/CD, `postinstall` team deployment, auto-detected dependency constraints, reverse dependency walking, optional cost estimation in `aic://status` (model-specific pricing); **agentic support**: Session Tracker + extended `CompilationRequest` fields + **Adaptive Budget Allocator** + Specification Compiler (`aic_compile_spec` MCP tool) + session-aware cache keying (see [Project Plan §2.7](project-plan.md)) |
 | Phase 2: Semantic + Governance | `2.0.0` | ⬜ Planned | VectorSelector (Zvec integration), HybridSelector, governance adapters, policy engine, `extends` config for org-level deployment, centralised config server; **agentic support**: Conversation Compressor + editor-specific conversation adapters                                                                                                                                                                                                       |
-| Phase 3: Enterprise            | `3.0.0` | ⬜ Future  | Control plane, RBAC, SSO, audit logs, fleet management via MDM, live enterprise dashboard, hosted option                                                                                                                                                                                                                                                                                                                                                |
+| Phase 3: Enterprise            | `3.0.0` | ⬜ Planned | Control plane, RBAC, SSO, audit logs, fleet management via MDM, live enterprise dashboard, hosted option                                                                                                                                                                                                                                                                                                                                                |
 
 Versioning policy: see [Project Plan §22](project-plan.md).

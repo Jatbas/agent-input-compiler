@@ -19,14 +19,14 @@ Each persona reads the documentation cold — no prior context, no conversations
 ### What they'd appreciate
 
 - **Setup is dead simple.** One JSON entry in the editor's MCP config, `npx @aic/mcp init`, done. The README communicates this clearly. A developer could be running in under 5 minutes.
-- **`aic inspect` is a standout feature.** Being able to see exactly which files were selected, why, and how they were transformed — without executing anything — is exactly the kind of transparency developers want. The worked pipeline example in the project plan (section 13.1) is excellent.
+- **`aic_inspect` is a standout feature.** Being able to see exactly which files were selected, why, and how they were transformed — without executing anything — is exactly the kind of transparency developers want. The worked pipeline example in the project plan (section 13.1) is excellent.
 - **Best practices section is useful.** Unlike most "best practices" docs, these explain _why_ with technical reasoning (attention degradation, compaction loss). Trustworthy advice.
 - **The architecture is clean.** Hexagonal approach, branded types, immutability constraints, SOLID enforcement — this is a codebase a developer would enjoy contributing to.
 
 ### What would concern or confuse them
 
-**DR-01: The `aic inspect` output in the README is synthetic.**
-The first thing a developer would try after installing is `aic inspect`. If their real output looks nothing like the polished example, trust erodes immediately.
+**DR-01: The `aic_inspect` output in the README is synthetic.**
+The first thing a developer would try after installing is using `aic_inspect`. If their real output looks nothing like the polished example, trust erodes immediately.
 _Fix:_ Replace the synthetic example with real output captured from an actual project.
 
 **DR-02: No "verify your setup" section.**
@@ -34,16 +34,12 @@ The README setup says "Done." after `npx @aic/mcp init`, but there's no way to v
 _Fix:_ Add a "Verify your setup" section with something like `aic compile "hello world" --verbose` and explain what to expect in the output.
 
 **DR-03: No example of actual compiled output.**
-The README shows the `aic inspect` breakdown but never shows an example of the actual compiled prompt — the thing the model receives. A developer would want to see what `aic compile "fix the login bug"` outputs to stdout.
+The README shows the `aic_inspect` breakdown but never shows an example of the actual compiled prompt — the thing the model receives. A developer would want to see what calling `aic_compile` with "fix the login bug" outputs to the model.
 _Fix:_ Add a brief example of the assembled prompt showing the task, context, and constraints sections the model sees.
 
 **DR-04: Token reduction claims are vague.**
 "Significant reduction" appears multiple times. The one data point (303K raw to ~8K compiled) is in `gaps.md`, not in the README. A developer wants a rough sense of savings.
 _Fix:_ Even a range like "typically 80–95% reduction" with a caveat that formal benchmarks are in progress would be better than no number at all.
-
-**DR-05: Cursor vs Claude Code comparison subtly undermines Cursor.**
-As a Cursor user (the current primary target), reading that Claude Code can do everything Cursor can't might make the developer feel they're getting the B-tier experience.
-_Fix:_ Frame the Cursor section more positively — emphasize what it provides (session-start context, tool gating, quality checks) rather than leading with what it can't do. Position Claude Code as "upcoming full integration" rather than "what Cursor lacks."
 
 **DR-06: Contributing section is too thin.**
 "For the full guide — see Project Plan" is a redirect. Most developers won't click through to a 3,000-line architecture document to learn how to contribute.
@@ -66,20 +62,20 @@ How does a team lead roll this out to a team of 10? The README describes individ
 _Fix:_ Add a "Team Setup" section to the README: "Commit `aic.config.json` to your repo. Each developer runs `npx @aic/mcp init` once. Config is shared via git — all team members get the same context selection, budget, and guard settings."
 
 **DR-08: No guidance on measuring impact.**
-A team lead needs to justify adoption to their director. "It reduces tokens" isn't enough. How do they measure whether the team's AI output quality improved? `aic status` shows compilation stats, but there's no way to track whether hallucinations decreased or code review rejections dropped.
+A team lead needs to justify adoption to their director. "It reduces tokens" isn't enough. How do they measure whether the team's AI output quality improved? The "show aic status" prompt command shows compilation stats, but there's no way to track whether hallucinations decreased or code review rejections dropped.
 _Fix:_ Add a "Measuring Impact" section. Acknowledge AIC measures compilation efficiency. Suggest complementary external metrics: code review rejection rate, model re-prompt frequency, time-to-first-useful-output.
 
-**DR-09: Cross-project visibility is absent.**
-`aic status` shows one project. A team lead managing 5 repos wants a cross-project view. ADR-005 explicitly excludes this (per-project isolation).
-_Fix:_ Acknowledge this limitation in the documentation. Suggest a workaround (run `aic status` per project). Note that a Phase 2 aggregation layer is planned.
+**DR-09: Telemetry data can't cross project boundaries.**
+"show aic status" shows stats for one project. A team lead managing 5 repos wants a cross-project view. ADR-005 explicitly excludes this (per-project isolation).
+_Fix:_ Acknowledge this limitation in the documentation. Suggest a workaround (using "show aic status" per project). Note that a Phase 2 aggregation layer is planned.
 
 **DR-10: No guidance on config precedence across team members.**
 What happens if a developer has local config that conflicts with the shared `aic.config.json`? Is there a personal config layer? A precedence order?
 _Fix:_ Clarify in the README or MVP spec that AIC uses project-level `aic.config.json` only — there is no personal config override. If personal overrides are planned, document the precedence.
 
 **DR-11: No CI/CD integration guidance.**
-Can the team lead run `aic compile` or `aic inspect` in CI to validate that context selection isn't regressing? This would be hugely valuable for teams.
-_Fix:_ Add a brief CI integration paragraph. Suggest `aic inspect` as a CI validation step, or note it's planned.
+Can the team lead use `aic_compile` or `aic_inspect` in CI to validate that context selection isn't regressing? This would be hugely valuable for teams.
+_Fix:_ Add a brief CI integration paragraph. Suggest `aic_inspect` as a CI validation step, or note it's planned.
 
 ---
 
@@ -99,7 +95,7 @@ _Fix:_ Add an "ROI Considerations" section that frames the value: token reductio
 
 **DR-13: No failure mode documentation.**
 The error handling table is good, but there's no "what if AIC silently produces bad context?" section. If the heuristic selector has a bug and starts excluding critical files, developers might not notice.
-_Fix:_ Add a "Failure Modes & Mitigations" section covering silent failures: bad file selection (verify via `aic inspect`), over-aggressive Guard (check `aic://last-compilation` findings), stale cache serving wrong results (use `--no-cache` or check `aic compare`).
+_Fix:_ Add a "Failure Modes & Mitigations" section covering silent failures: bad file selection (verify via `aic_inspect`), over-aggressive Guard (check `aic://last` findings), stale cache serving wrong results (clear cache).
 
 **DR-14: Privacy compliance story is incomplete.**
 The security documentation covers "no PII in telemetry" but doesn't address GDPR, SOC 2, or HIPAA readiness. When the director goes to Legal, they'll ask. The project plan has a "Compliance Readiness" section (section 24) but the README doesn't link to it.
@@ -120,7 +116,7 @@ _Fix:_ Acknowledge which models have been tested. State expected variance for no
 ### What they'd appreciate
 
 - **Architecture is enterprise-grade.** The layering (core to enterprise), SOLID discipline, per-project isolation, and pluggable interfaces show this was designed to scale, not just to demo.
-- **Local-first is the right default for IP protection.** No code leaves the machine unless `aic run` is explicitly invoked. This is the correct posture for enterprise adoption.
+- **Local-first is the right default for IP protection.** No code leaves the machine unless `aic_compile` is explicitly invoked by the model. This is the correct posture for enterprise adoption.
 - **Integration layer model is clever.** Making AIC editor-agnostic via MCP while supporting deep integration through per-editor hooks is a good architectural bet. If MCP becomes the standard, AIC is well-positioned.
 
 ### What would concern them
@@ -151,44 +147,14 @@ _Fix:_ Address this in the licensing section — even a statement like "The proj
 
 ---
 
-## 5. Cross-Cutting Gap: `aic-rules/` Presented as User-Facing
-
-### The issue
-
-`aic-rules/` (project-level rule packs like `refactor.json`, `bugfix.json`) is internal to AIC's pipeline machinery. Users do not create, manage, or author these files. However, the documentation presents `aic-rules/` as a first-class user customization surface in multiple locations:
-
-- **MVP spec** (section 2): Lists "Default Rule Packs" as a shipped feature. Section 4 step 2 describes loading "project-level packs from `./aic-rules/` matching task class."
-- **Project plan** (section 3.1): Contains a full annotated `aic-rules/refactor.json` example.
-- **Project plan** (section 3.2): Contains a detailed "Rule Pack Authoring Guide" with constraint-writing principles, pattern guidance, and common mistakes.
-- **Project plan** (section 5): Shows `aic-rules/` in the project directory structure as a user-visible directory.
-
-### Impact on each persona
-
-- **Developer:** Would expect to create `aic-rules/refactor.json` in their project. When they can't, they'd be confused.
-- **Team Lead:** The "shared rule packs via git" story — which is one of the strongest selling points for teams — is invalid if rule packs aren't user-authored. The team customization surface shrinks to `aic.config.json` only.
-- **Director / CTO:** No impact. These personas care about security, ROI, and architecture, not whether rule packs are user-authored or built-in.
-
-### Recommended action
-
-Two options:
-
-1. **Remove user-facing references entirely.** Describe constraints as built-in behavior that AIC manages internally. Users customize through `aic.config.json` only (budget, guard exclusions, transformer toggles). The authoring guide becomes internal developer documentation.
-
-2. **Keep it but clarify the boundary.** Rule packs exist internally. The documentation should explain that users don't need to create or manage them. Built-in packs are described as "what AIC does under the hood" rather than "what you configure." The Rule Pack Authoring Guide moves to a contributor/developer doc, not user-facing.
-
-Either way, the current presentation creates a false expectation that `aic-rules/` is a user feature. The customization story for users should center on `aic.config.json`.
-
----
-
-## 6. Summary of All Findings
+## 5. Summary of All Findings
 
 | ID    | Finding                                       | Severity | Personas      | Fix Complexity |
 | ----- | --------------------------------------------- | -------- | ------------- | -------------- |
-| DR-01 | Synthetic `aic inspect` output in README      | High     | Dev           | Low            |
+| DR-01 | Synthetic `aic_inspect` output in README      | High     | Dev           | Low            |
 | DR-02 | No "verify your setup" section                | Medium   | Dev           | Low            |
 | DR-03 | No example of actual compiled output          | Medium   | Dev           | Low            |
 | DR-04 | Token reduction claims are vague              | High     | Dev, Dir, CTO | Medium         |
-| DR-05 | Cursor framing is negative vs Claude Code     | Medium   | Dev           | Low            |
 | DR-06 | Contributing section too thin                 | Low      | Dev           | Low            |
 | DR-07 | No team deployment story                      | High     | Lead          | Low            |
 | DR-08 | No impact measurement guidance                | Medium   | Lead          | Low            |
@@ -206,7 +172,6 @@ Either way, the current presentation creates a false expectation that `aic-rules
 | DR-20 | MCP protocol dependency risk not stated       | Low      | CTO           | Low            |
 | DR-21 | No operational guidance for scaled deployment | Low      | CTO           | Medium         |
 | DR-22 | Single-maintainer risk                        | Low      | CTO           | Low            |
-| DR-23 | `aic-rules/` presented as user-facing feature | High     | Dev, Lead     | Medium         |
 
 ### Priority tiers
 
@@ -215,13 +180,11 @@ Either way, the current presentation creates a false expectation that `aic-rules
 - DR-01: Replace synthetic inspect output with real output
 - DR-04: Add quantified token reduction range
 - DR-07: Add team deployment section
-- DR-23: Clarify or remove `aic-rules/` as user-facing
 
 **Tier 2 — Fix before Phase 1 (OSS release):**
 
 - DR-02: Add "verify your setup" section
 - DR-03: Add compiled output example
-- DR-05: Reframe Cursor vs Claude Code
 - DR-12: Add ROI framework
 - DR-13: Add failure modes section
 - DR-14: Add compliance paragraph to README

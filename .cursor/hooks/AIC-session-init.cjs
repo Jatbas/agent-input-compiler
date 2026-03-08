@@ -9,6 +9,16 @@
 const fs = require("fs");
 const path = require("path");
 
+let hookInput = {};
+try {
+  const raw = fs.readFileSync(0, "utf8");
+  if (raw && raw.trim()) hookInput = JSON.parse(raw);
+} catch {
+  // Non-fatal — proceed without session_id
+}
+
+const sessionId = hookInput.session_id || "";
+
 const ROUTER_PATH = path.join(__dirname, "..", "rules", "AIC-architect.mdc");
 const SECTION_START = "## Critical reminders";
 const SECTION_END = "## "; // next h2
@@ -31,8 +41,9 @@ try {
     .join("\n");
 
   if (bullets.length > 0) {
+    const conversationLine = sessionId ? `\nAIC_CONVERSATION_ID=${sessionId}` : "";
     const output = JSON.stringify({
-      additional_context: `AIC Architectural Invariants (auto-injected):\n${bullets}`,
+      additional_context: `AIC Architectural Invariants (auto-injected):${conversationLine}\n${bullets}`,
     });
     process.stdout.write(output);
   }

@@ -12,21 +12,21 @@ AIC's core pipeline is complete — it handles every compilation scenario (sessi
 
 This means all "limitations" live in the integration layer, not in AIC's core. Adding support for a new editor means writing thin hook scripts that call the same `aic_compile` tool. SOLID principles (DIP, OCP) ensure no core changes are needed.
 
-## Critical Finding: Claude Code Hooks
+## Integration Layer Capabilities
 
-Claude Code provides the most complete hook system for AIC — it covers all capabilities in the editor checklist:
+Different editors provide varying hook capabilities. The table below outlines the supported hooks for both Cursor and Claude Code:
 
 | Capability                         | Cursor                               | Claude Code |
 | ---------------------------------- | ------------------------------------ | ----------- |
 | Session start + context injection  | Yes                                  | Yes         |
-| Per-prompt + context injection     | No                                   | **Yes**     |
+| Per-prompt + context injection     | No                                   | Yes         |
 | Pre-tool-use gating                | Yes                                  | Yes         |
-| Subagent start + context injection | No                                   | **Yes**     |
-| Session end                        | Yes (sessionEnd; AIC Task 110)       | **Yes**     |
-| Pre-compaction                     | Yes (preCompact, observational only) | **Yes**     |
+| Subagent start + context injection | No                                   | Yes         |
+| Session end                        | Yes (sessionEnd; AIC Task 110)       | Yes         |
+| Pre-compaction                     | Yes (preCompact, observational only) | Yes         |
 | Trigger rule                       | Yes                                  | Yes         |
 
-Cursor exposes sessionEnd and preCompact; AIC integrates sessionEnd (Task 110). Pre-compaction in Cursor is observational only (no context injection). Claude Code solves the two capabilities that are structurally impossible in Cursor (per-prompt context, subagent context injection). These are available today via Claude Code's hook API.
+Cursor exposes sessionEnd and preCompact; AIC integrates sessionEnd (Task 110). Pre-compaction in Cursor is observational only. Claude Code's hook system exposes additional context injection points, such as per-prompt context and subagent context injection.
 
 ---
 
@@ -51,55 +51,42 @@ Cursor exposes sessionEnd and preCompact; AIC integrates sessionEnd (Task 110). 
 
 ---
 
-### GAP-06: Project plan describes unimplemented features in present tense
-
-**Status:** Tracked — Phase U in `mvp-progress.md`
-**Impact:** Low — a project plan is expected to describe future work, but some sections read as if features exist
-
-**What we have:** Rules & Hooks Analyzer marked as "Planned." But other items like `EditorAdapterRegistry`, `ModelAdapterRegistry`, and `aic://rules-analysis` MCP resource are described in present tense without phase markers.
-
-**What we need:** Audit the project plan for features described in present tense that are not yet implemented. Add phase markers where appropriate.
-
-**Action:** Phase U: Present-tense audit of project plan.
-
----
-
 ### GAP-09: Visual demo (GIF/recording) in README
 
-**Status:** Tracked — Phase U in `mvp-progress.md`
+**Status:** Tracked — Phase V in `mvp-progress.md`
 **Impact:** High — OSS browsers expect a visual demo in the first scroll; without one, many leave immediately
 
 **What we have:** A working `aic_inspect` MCP tool and real projects to run it on.
 
 **What we need:** A screen recording showing AIC in action inside an editor — "show aic status" and "show aic last" prompt commands. Placed at the top of the README near the one-liner.
 
-**Action:** Phase U: Visual demo (GIF/recording) in README.
+**Action:** Phase V: Visual demo (GIF/recording) in README.
 
 ---
 
 ### GAP-10: Comparative benchmarks — AIC vs. native editor context
 
-**Status:** Tracked — Phase U in `mvp-progress.md`
+**Status:** Tracked — Phase V in `mvp-progress.md`
 **Impact:** High — team leads evaluating AIC need to see how it compares to Cursor's built-in context selection (@codebase, @file), not just raw-to-compiled reduction
 
 **What we have:** AIC's own token reduction numbers (98%+). Phase K benchmarks complete on single repo. No data on what editors send natively.
 
 **What we need:** Side-by-side comparison: for the same prompt on the same project, measure (a) what Cursor sends without AIC, (b) what AIC compiles. Show file selection quality, not just token count.
 
-**Action:** Phase U: Comparative benchmarks vs. native editor context.
+**Action:** Phase V: Comparative benchmarks vs. native editor context.
 
 ---
 
 ### GAP-11: Token reduction datapoints at multiple project scales
 
-**Status:** Tracked — Phase U in `mvp-progress.md`
+**Status:** Tracked — Phase V in `mvp-progress.md`
 **Impact:** Medium — a single datapoint from one project doesn't answer "will this help a project my size?"
 
 **What we have:** One real-world datapoint (this project: 420M+ raw → ~7M compiled, 98%+ reduction across 900+ compilations). Phase K single-repo benchmarks complete.
 
 **What we need:** At least three datapoints at different scales (e.g. ~50 files, ~500 files, ~5000 files) showing reduction percentages, selected file counts, and summarisation tier distribution.
 
-**Action:** Phase U: Multi-repo benchmark suite (multi-scale datapoints).
+**Action:** Phase V: Multi-repo benchmark suite (multi-scale datapoints).
 
 ---
 
@@ -137,21 +124,10 @@ Cursor exposes sessionEnd and preCompact; AIC integrates sessionEnd (Task 110). 
 
 Open gaps, ordered by Phase 1.0 priority. Claude Code items deprioritised (user does not currently use Claude Code).
 
-| Priority | Gap                                         | Phase U item                             | Effort                          | Impact                                          |
-| -------- | ------------------------------------------- | ---------------------------------------- | ------------------------------- | ----------------------------------------------- |
-| 1        | GAP-09: Visual demo in README               | Visual demo (GIF/recording) in README    | Small (terminal recording)      | High — first-impression impact for OSS browsers |
-| 2        | GAP-11: Multi-scale datapoints              | Multi-repo benchmark suite               | Medium (run on multiple repos)  | Medium — "will this work on my project?"        |
-| 3        | GAP-10: Comparative benchmarks              | Comparative benchmarks vs. native editor | Medium (analysis + methodology) | High — team adoption requires comparison data   |
-| 4        | GAP-06: Present-tense audit of project plan | Present-tense audit of project plan      | Small (docs edit)               | Low — polish                                    |
-| 5        | GAP-02: Claude Code integration layer       | Phase S + Phase T (deprioritised)        | Large (implementation)          | High — but not needed until user adopts CC      |
+| Priority | Gap                            | Current tracked item               | Effort                          | Impact                                          |
+| -------- | ------------------------------ | ---------------------------------- | ------------------------------- | ----------------------------------------------- |
+| 1        | GAP-09: Visual demo in README  | Phase V visual demo in README      | Small (terminal recording)      | High — first-impression impact for OSS browsers |
+| 2        | GAP-11: Multi-scale datapoints | Phase V multi-repo benchmark suite | Medium (run on multiple repos)  | Medium — "will this work on my project?"        |
+| 3        | GAP-10: Comparative benchmarks | Phase V native-context comparison  | Medium (analysis + methodology) | High — team adoption requires comparison data   |
 
-### Resolved
-
-| Gap    | Resolution                                                                                         |
-| ------ | -------------------------------------------------------------------------------------------------- |
-| GAP-03 | Real `aic_inspect`/status/last output in README — replaced synthetic example with captured output. |
-| GAP-01 | Phase K benchmarks complete (single repo). Multi-repo tracked in Phase U (GAP-11).                 |
-| GAP-04 | triggerSource (Phase I), conversation tracking (Phase M), telemetry docs in README/security.md.    |
-| GAP-05 | Best practices now include technical reasoning (attention degradation, compaction loss, etc.).     |
-| GAP-07 | Limitations reframed as editor capability gaps. README + project plan updated.                     |
-| GAP-08 | triggerSource implemented in Phase I — enum, CompilationRequest field, migration 005, MCP schema.  |
+| 5 | GAP-02: Claude Code integration layer | Phase T + Phase U (deprioritised) | Large (implementation) | High — but not needed until user adopts CC |

@@ -43,7 +43,7 @@ No editor has a complete AIC integration for all of these yet. But the core pipe
 | Pre-compaction                     | Hook available (observational) | Hook available |
 | Trigger rule                       | Integrated                     | Hook available |
 
-Cursor exposes sessionEnd, preCompact, subagentStart (gating only — no context injection), stop, afterFileEdit, and others (see cursor.com/docs/agent/hooks). AIC uses sessionEnd (Task 110), stop and afterFileEdit (Task 111) where implemented. Cursor has the most mature AIC integration. Claude Code's hook system covers all 7 capabilities, but the integration layer is not yet built — making it the highest-impact target for future work.
+Cursor exposes sessionEnd, preCompact, subagentStart (gating only — no context injection), stop, afterFileEdit, and others (see cursor.com/docs/agent/hooks). AIC uses sessionEnd (Task 110), stop and afterFileEdit (Task 111) where implemented. Cursor has the most mature AIC integration. Claude Code's hook system covers all 7 capabilities, and its integration layer is currently planned for future phases alongside its available hooks.
 
 ---
 

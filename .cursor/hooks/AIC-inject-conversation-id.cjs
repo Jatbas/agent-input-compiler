@@ -1,6 +1,5 @@
-// preToolUse hook — injects conversation_id into aic_compile MCP tool input so
-// compilation_log gets conversation_id for model-triggered compilations.
-// Detects aic_compile by payload (intent + projectRoot) so we cover all tool_name variants.
+// preToolUse hook — injects conversation_id into AIC MCP tool inputs so
+// compilation_log and chat_summary get the correct conversation_id per call.
 
 let raw = "";
 process.stdin.setEncoding("utf8");
@@ -13,13 +12,22 @@ process.stdin.on("end", () => {
     const conversationId = input.conversation_id || process.env.AIC_CONVERSATION_ID;
     const toolInput = input.tool_input;
 
-    const isAicCompile =
-      typeof toolInput === "object" &&
-      toolInput !== null &&
-      typeof toolInput.intent === "string" &&
-      typeof toolInput.projectRoot === "string";
+    if (!conversationId || typeof conversationId !== "string") {
+      process.stdout.write(JSON.stringify({ permission: "allow" }));
+      return;
+    }
 
-    if (!isAicCompile || !conversationId || typeof conversationId !== "string") {
+    const toolName = (input.tool_name || "").toLowerCase();
+    const isAicCompile =
+      toolName.includes("aic_compile") ||
+      (typeof toolInput === "object" &&
+        toolInput !== null &&
+        typeof toolInput.intent === "string" &&
+        typeof toolInput.projectRoot === "string");
+
+    const isAicChatSummary = toolName.includes("aic_chat_summary");
+
+    if (!isAicCompile && !isAicChatSummary) {
       process.stdout.write(JSON.stringify({ permission: "allow" }));
       return;
     }

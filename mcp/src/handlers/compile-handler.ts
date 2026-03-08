@@ -29,6 +29,13 @@ function rejectAfter(ms: number): Promise<never> {
   );
 }
 
+function resolveConversationId(argsValue: string | null | undefined): string | null {
+  if (argsValue !== null && argsValue !== undefined && argsValue !== "") {
+    return argsValue;
+  }
+  return null;
+}
+
 export function createCompileHandler(
   runner: CompilationRunner,
   telemetryDeps: TelemetryDeps,
@@ -63,6 +70,7 @@ export function createCompileHandler(
         args.editorId !== undefined ? (args.editorId as EditorId) : getEditorId();
       const resolvedModelId: string | null =
         args.modelId ?? modelIdOverride ?? getModelId(resolvedEditorId);
+      const resolvedConversationId = resolveConversationId(args.conversationId);
       const request: CompilationRequest = {
         intent,
         projectRoot,
@@ -71,10 +79,8 @@ export function createCompileHandler(
         configPath,
         sessionId: getSessionId(),
         triggerSource: args.triggerSource ?? TRIGGER_SOURCE.TOOL_GATE,
-        ...(args.conversationId !== null &&
-        args.conversationId !== undefined &&
-        args.conversationId !== ""
-          ? { conversationId: toConversationId(args.conversationId) }
+        ...(resolvedConversationId !== null
+          ? { conversationId: toConversationId(resolvedConversationId) }
           : {}),
       };
       const paramsShape = JSON.stringify(

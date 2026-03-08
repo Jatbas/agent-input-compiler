@@ -116,18 +116,16 @@ Editor detection and auto-install so Claude Code users get the same zero-install
 
 Final polish for public release. npm publish, changelog, benchmarks, visual demo, documentation audit. See `documentation/gaps.md` for detailed descriptions of GAP items.
 
-| Component                                           | Status  | Package | Gap    | Deps      | Description                                   |
-| --------------------------------------------------- | ------- | ------- | ------ | --------- | --------------------------------------------- |
-| Check codebase for dead code                        | Pending | ./      | —      | -         | Check codebase for dead code using Knip       |
-| npm publish pipeline (`@aic/mcp`)                   | Pending | mcp/    | —      | Phase N–U | Publish MCP package to npm                    |
-| CHANGELOG.md                                        | Pending | ./      | —      | —         | Version history for release                   |
-| License headers audit                               | Pending | ./      | —      | —         | Ensure license headers present                |
-| Contributing guide (final)                          | Pending | ./      | —      | —         | How to contribute                             |
-| Multi-repo benchmark suite (multi-scale datapoints) | Pending | test/   | GAP-11 | —         | Token reduction at multiple project scales    |
-| Comparative benchmarks vs. native editor context    | Pending | test/   | GAP-10 | —         | AIC vs native editor context selection        |
-| Real `aic_inspect` output in README                 | Done    | ./      | GAP-03 | —         | Real output example in README                 |
-| Visual demo (GIF/recording) in README               | Pending | ./      | GAP-09 | Phase N–U | Screen recording of AIC in editor             |
-| Present-tense audit of project plan                 | Pending | ./      | GAP-06 | —         | Fix present-tense descriptions of future work |
+| Component                                           | Status  | Package | Gap    | Deps      | Description                                |
+| --------------------------------------------------- | ------- | ------- | ------ | --------- | ------------------------------------------ |
+| Check codebase for dead code                        | Pending | ./      | —      | -         | Check codebase for dead code using Knip    |
+| npm publish pipeline (`@aic/mcp`)                   | Pending | mcp/    | —      | Phase N–U | Publish MCP package to npm                 |
+| CHANGELOG.md                                        | Pending | ./      | —      | —         | Version history for release                |
+| License headers audit                               | Pending | ./      | —      | —         | Ensure license headers present             |
+| Contributing guide (final)                          | Pending | ./      | —      | —         | How to contribute                          |
+| Multi-repo benchmark suite (multi-scale datapoints) | Pending | test/   | GAP-11 | —         | Token reduction at multiple project scales |
+| Comparative benchmarks vs. native editor context    | Pending | test/   | GAP-10 | —         | AIC vs native editor context selection     |
+| Visual demo (GIF/recording) in README               | Pending | ./      | GAP-09 | Phase N–U | Screen recording of AIC in editor          |
 
 ---
 

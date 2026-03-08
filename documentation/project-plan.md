@@ -142,14 +142,14 @@ No pipeline class touches storage, no storage class touches prompt logic, no MCP
 
 Core classes are open for extension and closed for modification. New capabilities are added by implementing an existing interface, never by editing an existing class.
 
-| Extension point                            | How to extend                                                                |
-| ------------------------------------------ | ---------------------------------------------------------------------------- |
-| New editor integration (e.g. VS Code)      | Implement `EditorAdapter` interface; register in `EditorAdapterRegistry`     |
-| New model adapter (e.g. Gemini tweaks)     | Implement `ModelAdapter` interface; register in `ModelAdapterRegistry`       |
-| New context selector (e.g. VectorSelector) | Implement `ContextSelector` interface; register in selector factory          |
-| New language support (e.g. PythonProvider) | Implement `LanguageProvider`; register in `ProviderRegistry`                 |
-| New output format                          | Implement `OutputFormatter` interface; register in formatter registry        |
-| New guard scanner (e.g. PII detector)      | Implement `GuardScanner` interface; register in `ContextGuard` scanner chain |
+| Extension point                            | How to extend                                                                                              |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| New editor integration (e.g. VS Code)      | Implement `EditorAdapter` interface; register in `EditorAdapterRegistry` _(planned abstraction, Phase 2+)_ |
+| New model adapter (e.g. Gemini tweaks)     | Implement `ModelAdapter` interface; register in `ModelAdapterRegistry` _(planned abstraction, Phase 2+)_   |
+| New context selector (e.g. VectorSelector) | Implement `ContextSelector` interface; register in selector factory                                        |
+| New language support (e.g. PythonProvider) | Implement `LanguageProvider`; register in `ProviderRegistry`                                               |
+| New output format                          | Implement `OutputFormatter` interface; register in formatter registry                                      |
+| New guard scanner (e.g. PII detector)      | Implement `GuardScanner` interface; register in `ContextGuard` scanner chain                               |
 
 No existing pipeline class is modified when any of the above are added. The core pipeline is frozen once correct; all evolution happens at the edges.
 
@@ -191,22 +191,22 @@ The MCP server handler (`mcp/server.ts`) is the only place where concrete classe
 
 ### Design Patterns — Applied in AIC
 
-| Pattern                     | Where it appears                                                    | Why                                                                                                                                         |
-| --------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Adapter**                 | `EditorAdapter` (Cursor / ClaudeCode / Generic)                     | Normalise MCP request format from any editor into AIC's internal `CompilationRequest` — add a new editor without touching the pipeline      |
-| **Adapter**                 | `ModelAdapter` (OpenAi / Anthropic / Ollama / Generic)              | Apply model-specific token counting, prompt format, and context block formatting — swap without touching the pipeline                       |
-| **Strategy**                | `ContextSelector` (Heuristic / Vector / Hybrid)                     | Swap selection algorithm without changing the pipeline                                                                                      |
-| **Strategy**                | `LanguageProvider` (TypeScript / Generic / future Python)           | Swap language-specific behaviour without changing Steps 4 and 6                                                                             |
-| **Chain of Responsibility** | Pipeline steps 1–10                                                 | Each step processes its input and passes output to the next; a step can short-circuit (e.g. cache hit exits early)                          |
-| **Chain of Responsibility** | `ContextGuard` — ordered scanner chain                              | Secret scanner, exclusion-pattern scanner, and prompt-injection scanner run in order; each can block a file independently                   |
-| **Registry**                | `ProviderRegistry`, `ModelAdapterRegistry`, `EditorAdapterRegistry` | Decouple lookup from instantiation; new adapters self-register                                                                              |
-| **Factory**                 | `ModelAdapterFactory`                                               | Resolve the correct `ModelAdapter` from detected or configured model ID; falls back to `GenericModelAdapter`                                |
-| **Facade**                  | MCP server request handler                                          | Thin wrapper that wires pipeline + adapters; no business logic at the edge                                                                  |
-| **Builder**                 | `PromptAssembler`                                                   | Constructs the final prompt step-by-step (task block → context block → constraints block → format block), each block independently testable |
-| **Observer**                | `TelemetryLogger`                                                   | Observes pipeline completion events; pipeline steps do not call the logger directly — they emit events                                      |
-| **Null Object**             | `GenericProvider`, `GenericModelAdapter`                            | Safe defaults for unsupported languages/models; return empty/estimated values instead of throwing                                           |
-| **Template Method**         | `LanguageProvider` interface                                        | Defines the algorithm skeleton (parse → extract L1 → extract L2 → extract L3); concrete providers fill in the steps                         |
-| **Decorator**               | Future: `CachingSelector` wrapping `HeuristicSelector`              | Add caching behaviour to a selector without modifying it                                                                                    |
+| Pattern                     | Where it appears                                                            | Why                                                                                                                                         |
+| --------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Adapter**                 | `EditorAdapter` (Cursor / ClaudeCode / Generic)                             | Normalise MCP request format from any editor into AIC's internal `CompilationRequest` — add a new editor without touching the pipeline      |
+| **Adapter**                 | `ModelAdapter` (OpenAi / Anthropic / Ollama / Generic)                      | Apply model-specific token counting, prompt format, and context block formatting — swap without touching the pipeline                       |
+| **Strategy**                | `ContextSelector` (Heuristic / Vector / Hybrid)                             | Swap selection algorithm without changing the pipeline                                                                                      |
+| **Strategy**                | `LanguageProvider` (TypeScript / Generic / future Python)                   | Swap language-specific behaviour without changing Steps 4 and 6                                                                             |
+| **Chain of Responsibility** | Pipeline steps 1–10                                                         | Each step processes its input and passes output to the next; a step can short-circuit (e.g. cache hit exits early)                          |
+| **Chain of Responsibility** | `ContextGuard` — ordered scanner chain                                      | Secret scanner, exclusion-pattern scanner, and prompt-injection scanner run in order; each can block a file independently                   |
+| **Registry**                | `ProviderRegistry`; future `ModelAdapterRegistry` / `EditorAdapterRegistry` | Decouple lookup from instantiation; new adapters self-register                                                                              |
+| **Factory**                 | `ModelAdapterFactory`                                                       | Resolve the correct `ModelAdapter` from detected or configured model ID; falls back to `GenericModelAdapter`                                |
+| **Facade**                  | MCP server request handler                                                  | Thin wrapper that wires pipeline + adapters; no business logic at the edge                                                                  |
+| **Builder**                 | `PromptAssembler`                                                           | Constructs the final prompt step-by-step (task block → context block → constraints block → format block), each block independently testable |
+| **Observer**                | `TelemetryLogger`                                                           | Observes pipeline completion events; pipeline steps do not call the logger directly — they emit events                                      |
+| **Null Object**             | `GenericProvider`, `GenericModelAdapter`                                    | Safe defaults for unsupported languages/models; return empty/estimated values instead of throwing                                           |
+| **Template Method**         | `LanguageProvider` interface                                                | Defines the algorithm skeleton (parse → extract L1 → extract L2 → extract L3); concrete providers fill in the steps                         |
+| **Decorator**               | Future: `CachingSelector` wrapping `HeuristicSelector`                      | Add caching behaviour to a selector without modifying it                                                                                    |
 
 ### Enforcement
 
@@ -249,7 +249,7 @@ The editor's model, endpoint, and API key are **never touched by AIC**. AIC only
 
 **Why a tool, not a proxy:** MCP's tool pattern is universally supported. A proxy would require intercepting the editor's HTTP calls, which is fragile, editor-specific, and breaks with TLS. Tools are the standard extension point; any MCP-compatible editor supports them without modification.
 
-**The trigger rule** is a text instruction installed by `aic init` into the editor's rule file (e.g. `.cursor/rules/aic.mdc` for Cursor, `.claude/CLAUDE.md` for Claude Code). It instructs the model to call `aic_compile` before generating responses. Compliance with the trigger rule depends on the model and editor — it is not a guaranteed enforcement mechanism (see [§2.2.1](#221-integration-layer--enforcement) for how editors can enforce it).
+**The trigger rule** is a text instruction installed by `npx @aic/mcp init` into the editor's rule file (e.g. `.cursor/rules/aic.mdc` for Cursor, `.claude/CLAUDE.md` for Claude Code). It instructs the model to call `aic_compile` before generating responses. Compliance with the trigger rule depends on the model and editor — it is not a guaranteed enforcement mechanism (see [§2.2.1](#221-integration-layer--enforcement) for how editors can enforce it).
 
 ### 2.2.1 Integration Layer & Enforcement
 
@@ -287,7 +287,7 @@ Cursor exposes sessionEnd, preCompact, subagentStart (gating only — no context
 
 **Key architectural insight:** Any perceived limitation in what AIC "can do" is a limitation of the editor's hook system, not of AIC's core pipeline. When an editor adds a new hook, AIC can immediately use it without core changes. This is why Claude Code — with its richer hook system — can enable per-prompt and subagent compilation that Cursor cannot.
 
-**Implementation note:** To track how compilations are triggered, the `CompilationRequest` will gain an optional `triggerSource` field (e.g., `"session_start"`, `"prompt_submit"`, `"tool_gate"`, `"subagent_start"`, `"cli"`, `"model_initiated"`). This enables telemetry to distinguish hook-initiated from model-initiated compilations without any core pipeline changes — the field is metadata, not pipeline logic.
+**Implementation note:** `CompilationRequest` includes an optional `triggerSource` field (e.g., `"session_start"`, `"prompt_submit"`, `"tool_gate"`, `"subagent_start"`, `"cli"`, `"model_initiated"`). This lets telemetry distinguish hook-initiated from model-initiated compilations without any core pipeline changes — the field is metadata, not pipeline logic.
 
 ### Setup (zero-config)
 
@@ -319,9 +319,9 @@ _Claude Code_ — add to `~/.claude/settings.json`:
 npx @aic/mcp init
 ```
 
-Detects your editor, writes the trigger rule to the correct rule file (`.cursor/rules/aic.mdc` for Cursor, `.claude/CLAUDE.md` for Claude Code), creates `aic.config.json` with defaults, installs editor hooks, and creates `.aic/` with `0700` permissions.
+Today, this creates `aic.config.json`, installs the Cursor trigger rule and hooks, and creates `.aic/` with `0700` permissions. Claude Code installer support is tracked separately in the roadmap.
 
-That's it. With the Cursor integration layer (hooks installed by `npx @aic/mcp init`), AIC compiles context at session start and enforces compilation on tool-using turns. In editors without hook support, AIC relies on the trigger rule and the model's willingness to call `aic_compile`.
+That's it for Cursor. With the Cursor integration layer (hooks installed by `npx @aic/mcp init`), AIC compiles context at session start and enforces compilation on tool-using turns. In editors without hook support, AIC relies on the trigger rule and the model's willingness to call `aic_compile`.
 
 ### Model Auto-detection
 
@@ -341,7 +341,7 @@ If neither mechanism resolves a model, `GenericModelAdapter` is used. This is sa
 
 ### MCP Server Interface
 
-AIC exposes two MCP tools and two MCP resources:
+AIC exposes three MCP tools and two MCP resources today, with one additional planned MCP resource:
 
 **Tools:**
 
@@ -349,15 +349,16 @@ AIC exposes two MCP tools and two MCP resources:
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------- |
 | `aic_compile`                   | `{ intent: string }` + optional agentic fields (Phase 1+: `sessionId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens` — see [§2.7](#27-agentic-workflow-support)) | `{ compiledPrompt: string, meta: CompilationMeta }`   | Primary — called by trigger rule or integration hooks                   |
 | `aic_inspect`                   | `{ intent: string }`                                                                                                                                                                               | `{ trace: PipelineTrace }`                            | Debug — developer calls explicitly to see pipeline breakdown            |
+| `aic_chat_summary`              | `{ conversationId?: string }`                                                                                                                                                                      | Conversation-level compilation summary                | Prompt command support for "show aic chat summary"                      |
 | `aic_compile_spec` _(Phase 1+)_ | `{ spec: SpecificationInput, budget?: TokenCount }` (see [§2.7](#27-agentic-workflow-support))                                                                                                     | `{ compiledSpec: string, meta: SpecCompilationMeta }` | Agentic — compile a structured task specification within a token budget |
 
 **Resources:**
 
-| Resource URI           | Format                       | Content                                                                       |
-| ---------------------- | ---------------------------- | ----------------------------------------------------------------------------- |
-| `aic://status`         | JSON                         | Project-level summary: compilations, token savings, budget utilization, guard |
-| `aic://last`           | JSON                         | Most recent compilation: meta, compiled prompt, compilation count             |
-| `aic://rules-analysis` | JSON (`RulesAnalysisResult`) | Latest findings from the Rules & Hooks Analyzer                               |
+| Resource URI                       | Format                       | Content                                                                       |
+| ---------------------------------- | ---------------------------- | ----------------------------------------------------------------------------- |
+| `aic://status`                     | JSON                         | Project-level summary: compilations, token savings, budget utilization, guard |
+| `aic://last`                       | JSON                         | Most recent compilation: meta, prompt summary, compilation count              |
+| `aic://rules-analysis` _(planned)_ | JSON (`RulesAnalysisResult`) | Latest findings from the Rules & Hooks Analyzer                               |
 
 ### Core MCP Types
 
@@ -366,7 +367,7 @@ These types are shared across the MCP server, editor adapters, and model adapter
 All types below use branded types and string literal unions from `shared/src/core/types/` (ADR-010). See that module for definitions of `AbsolutePath`, `FilePath`, `TokenCount`, `Milliseconds`, `Percentage`, `ISOTimestamp`, `SessionId`, `StepIndex`, `TaskClass`, `EditorId`, `InclusionTier`, etc.
 
 ```typescript
-/** The normalised request AIC receives from any editor, after EditorAdapter parsing. */
+/** The normalised request AIC will receive from any editor, after EditorAdapter parsing. */
 interface CompilationRequest {
   intent: string;
   projectRoot: AbsolutePath;
@@ -408,7 +409,7 @@ interface McpClientInfo {
   version: SemanticVersion;
 }
 
-/** One finding from the Rules & Hooks Analyzer. */
+/** One planned finding from the Rules & Hooks Analyzer. */
 interface RulesFinding {
   severity: RulesFindingSeverity;
   source: FilePath;
@@ -417,7 +418,7 @@ interface RulesFinding {
   suggestion: string | null;
 }
 
-/** Full payload of the aic://rules-analysis resource. */
+/** Full payload of the planned `aic://rules-analysis` resource. */
 interface RulesAnalysisResult {
   analyzedAt: ISOTimestamp;
   findings: RulesFinding[];
@@ -471,9 +472,9 @@ interface PipelineTrace {
 }
 ```
 
-### EditorAdapter Interface
+### EditorAdapter Interface (Planned)
 
-Each editor's MCP client info format differs slightly. `EditorAdapter` normalises it and handles model detection for that editor:
+Each editor's MCP client info format differs slightly. A planned `EditorAdapter` interface (Phase 2+) will normalise it and handle model detection for that editor:
 
 ```typescript
 interface EditorAdapter {
@@ -501,7 +502,7 @@ Different models have different characteristics that affect compilation quality:
 - Prompt format preferences (XML tags for Claude, markdown for GPT models)
 - Known behaviours (e.g. some models degrade on very long system prompts)
 
-### ModelAdapter Interface
+### ModelAdapter Interface (Planned)
 
 ```typescript
 interface ModelAdapter {
@@ -517,7 +518,9 @@ interface ModelAdapter {
 }
 ```
 
-MVP ships with `OpenAiAdapter`, `AnthropicAdapter`, `OllamaAdapter`, and `GenericModelAdapter` (fallback using `cl100k_base`). When model is unknown or undetected, `GenericModelAdapter` is used — results are good, not perfect.
+_Note: In MVP MCP-only mode, the executor step is deferred. The following adapters are planned for Phase 2+ direct-execution workflows:_
+
+AIC plans to ship with `OpenAiAdapter`, `AnthropicAdapter`, `OllamaAdapter`, and `GenericModelAdapter` (fallback using `cl100k_base`). When the model is unknown or undetected, `GenericModelAdapter` will be used — results will be good, not perfect.
 
 **Core principle:** Model-specific tweaks are optional improvements, not requirements. AIC produces correct output for any model using `GenericModelAdapter`. Adapters only exist to increase token savings further.
 
@@ -977,7 +980,7 @@ These are fundamental constraints of the current editor extension model, not AIC
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Compiled Input**       | The final prompt package AIC produces — includes selected context, constraints, and task metadata, ready for an AI agent to consume                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | **Task Class**           | A category assigned to the user's intent (e.g., `refactor`, `bugfix`, `feature`, `docs`, `test`). Determines which rule packs and budget profiles apply                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| **Rule Pack**            | A named, composable set of instructions and constraints for a specific task class. Ships as JSON files in `./aic-rules/` or is embedded as defaults. Example: `refactor.json` includes "preserve public API", "add deprecation notices"                                                                                                                                                                                                                                                                                                                                                          |
+| **Rule Pack**            | A named, composable set of instructions and constraints for a specific task class. Ships as JSON files in `./aic-rules/` (advanced) or is embedded as defaults. Example: `refactor.json` includes "preserve public API", "add deprecation notices"                                                                                                                                                                                                                                                                                                                                               |
 | **Context Budget**       | The maximum token allowance for context included in the compiled input. Derived from the model's context window via formula (`maxContextWindow × windowRatio`, clamped between 4,000 floor and 16,000 ceiling). Falls back to 8,000 tokens when the model is unknown. Configurable per-project, per-task-class, and via `contextBudget.windowRatio`. Phase 1 auto-tunes based on compilation history                                                                                                                                                                                             |
 | **Summarisation Ladder** | A tiered compression strategy applied when selected context exceeds the budget. Levels: `full` → `signatures+docs` → `signatures-only` → `names-only`. Files are sorted by relevance score ascending (least relevant compressed first). **Tie-breaking:** when two files share the same relevance score, the file with more `estimatedTokens` is compressed first (compressing a larger file yields more budget savings). If tokens also tie, alphabetical path order (ascending) is used as a final deterministic tiebreaker. Each level is tried in order until the context fits within budget |
 | **Constraint**           | A rule injected into the compiled prompt to steer agent behavior. Examples: "output unified diff only", "do not modify files outside src/", "use TypeScript strict mode". Sourced from rule packs + user config                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -998,7 +1001,7 @@ These are fundamental constraints of the current editor extension model, not AIC
 
 A rule pack is a JSON file that configures constraints and context selection for a task class. Here is a complete example:
 
-**`aic-rules/refactor.json`:**
+**Example — `aic-rules/refactor.json` (Advanced Feature):**
 
 ```json
 {
@@ -1056,9 +1059,11 @@ interface RulePack {
 
 ---
 
-## 3.2 Rule Pack Authoring Guide
+## 3.2 Advanced Rule Pack Authoring Guide
 
-Rule packs are the primary customization surface for AIC. A well-written rule pack measurably improves context selection and model output quality. A poorly written one wastes tokens on noise or starves the model of needed context.
+_Note: AIC follows a **zero-install philosophy**. The built-in rule packs already cover normal use cases perfectly. Custom rule packs are an advanced, opt-in feature meant for enterprise-level or hyper-specific domain constraints. Most users will never need to author custom rule packs._
+
+Rule packs are the primary advanced customization surface for AIC. A well-written rule pack measurably improves context selection and model output quality. A poorly written one wastes tokens on noise or starves the model of needed context.
 
 ### Constraint writing principles
 
@@ -1426,7 +1431,7 @@ Each project is fully independent — no global state:
 ```
 my-project/
 ├── aic.config.json          # project-level configuration
-├── aic-rules/               # custom rule packs (optional)
+├── aic-rules/               # custom rule packs (optional, advanced)
 │   ├── refactor.json
 │   └── bugfix.json
 └── .aic/                    # auto-created, gitignored
@@ -1515,7 +1520,7 @@ packages/
         │   │   └── executor.ts
         │   ├── step10-telemetry/
         │   │   └── telemetry-logger.ts
-        │   └── inspect-runner.ts         # InspectRunner — used by both aic_inspect (MCP) and aic inspect (CLI)
+        │   └── inspect-runner.ts         # InspectRunner — used by `aic_inspect`
         │
         ├── providers/                    # LanguageProvider implementations (§8.1)
         │   ├── interfaces/
@@ -1628,9 +1633,9 @@ One file per class; no barrel re-exports at the pipeline step level to keep depe
 }
 ```
 
-> **Model-agnostic by design.** The `model` block is only required for `aic run`. `aic compile` produces a plain-text prompt that works with any model — paste it into ChatGPT, Claude.ai, or any chat interface, pipe it to an Ollama CLI call, or send it via any API. No API key needed for `aic compile`.
+> **Model-agnostic by design.** The `model` block is only required for the optional future executor path described in this plan. `aic_compile` produces a plain-text prompt that works with any model — paste it into ChatGPT, Claude.ai, or any chat interface, pipe it to an Ollama CLI call, or send it via any API. No API key is needed for `aic_compile`.
 >
-> If you want to use `aic run` without a cloud API key, configure **Ollama** (free, runs locally, no key required):
+> If the future executor path is added without a cloud API key, **Ollama** is the intended local option (free, runs locally, no key required):
 >
 > ```json
 > "model": { "provider": "ollama", "endpoint": "http://localhost:11434", "model": "llama3", "apiKeyEnv": null }
@@ -1700,7 +1705,7 @@ This creates `aic.config.json`, installs the trigger rule, installs editor hooks
 | Resource       | Description                                                                                  |
 | -------------- | -------------------------------------------------------------------------------------------- |
 | `aic://status` | Project-level summary: compilations, token savings, budget utilization, guard blocks, config |
-| `aic://last`   | Most recent compilation: intent, task class, tokens, files, guard findings, compiled prompt  |
+| `aic://last`   | Most recent compilation: intent, task class, tokens, files, guard findings, prompt summary   |
 
 ### Prompt Commands
 
@@ -2325,7 +2330,7 @@ MVP uses a synchronous in-process implementation (`SyncEventBus`). The interface
 | **Guard blocks some files**                               | Silent — blocked files removed; pipeline continues with remaining files; findings recorded in `CompilationMeta.guard`                                                                          |
 | **Context exceeds budget after all summarisation levels** | Include what fits at `names-only` level; warn user of heavy truncation                                                                                                                         |
 | **Compiled prompt exceeds model context window**          | Exit with error: reduce budget or use larger-context model                                                                                                                                     |
-| **Model endpoint unreachable** (`aic run`)                | Exit with error + suggest checking config and API key                                                                                                                                          |
+| **Model endpoint unreachable** (future executor path)     | Exit with error + suggest checking config and API key                                                                                                                                          |
 | **Model returns error**                                   | Surface model error message; log to telemetry                                                                                                                                                  |
 | **SQLite write failure**                                  | Warning only (telemetry is non-critical); continue execution                                                                                                                                   |
 | **Corrupt cache entry**                                   | Delete entry, recompute, warn user                                                                                                                                                             |
@@ -2369,16 +2374,16 @@ The MCP server is AIC's primary interface. Its error modes differ from CLI error
 
 ### Data Leakage Prevention
 
-| Risk                               | Mitigation                                                                                                                                                                              |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Telemetry leaks source code**    | Telemetry stores only metrics (token counts, durations, task class) — never file contents or prompt text                                                                                |
-| **Cache contains sensitive code**  | Cache is stored in `.aic/cache/` (gitignored); never uploaded; user controls TTL and can purge with `--no-cache`                                                                        |
-| **`repo_id` reveals project path** | `repo_id` is SHA-256 hash of absolute path — irreversible, cannot be used to identify the project                                                                                       |
-| **Model endpoint receives code**   | Only during `aic run`; `aic compile` never contacts any external service. Even during `aic run`, Context Guard (Step 5) blocks secrets and credentials from reaching the model endpoint |
+| Risk                               | Mitigation                                                                                                                                                                   |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Telemetry leaks source code**    | Telemetry stores only metrics (token counts, durations, task class) — never file contents or prompt text                                                                     |
+| **Cache contains sensitive code**  | Cache is stored in `.aic/cache/` (gitignored); never uploaded; user controls TTL and can purge with `--no-cache`                                                             |
+| **`repo_id` reveals project path** | `repo_id` is SHA-256 hash of absolute path — irreversible, cannot be used to identify the project                                                                            |
+| **Model endpoint receives code**   | Not in the current MCP-only package. In the future executor path, Context Guard (Step 5) would still block secrets and credentials before content reaches the model endpoint |
 
 ### `.aic/` Directory Security
 
-- Add `.aic/` to `.gitignore` automatically on `aic init`
+- Add `.aic/` to `.gitignore` automatically on `npx @aic/mcp init`
 - Permissions: created with `0700` (owner-only read/write/execute)
 - No symlinks followed inside `.aic/` to prevent symlink attacks
 
@@ -2621,13 +2626,13 @@ On every server startup, AIC verifies its own installation is healthy so it can 
 
 **Checks performed:**
 
-| Check        | What it verifies                        | Outcome if missing                                         |
-| ------------ | --------------------------------------- | ---------------------------------------------------------- |
-| Trigger rule | `AIC.mdc` (Cursor) or equivalent exists | `aic status` shows "trigger rule not found — run aic init" |
-| Session hook | `hooks.json` contains AIC compile entry | `aic status` shows "session hook not configured"           |
-| Hook script  | `AIC-compile-context.cjs` exists        | `aic status` shows "hook script missing"                   |
+| Check        | What it verifies                        | Outcome if missing                                                                      |
+| ------------ | --------------------------------------- | --------------------------------------------------------------------------------------- |
+| Trigger rule | `AIC.mdc` (Cursor) or equivalent exists | "show aic status" prompt command shows "trigger rule not found — run npx @aic/mcp init" |
+| Session hook | `hooks.json` contains AIC compile entry | "show aic status" prompt command shows "session hook not configured"                    |
+| Hook script  | `AIC-compile-context.cjs` exists        | "show aic status" prompt command shows "hook script missing"                            |
 
-Results are stored in the `server_sessions` row (`installation_ok` boolean, `installation_notes` text). `aic status` surfaces them as actionable suggestions ("AIC is running but the trigger rule is missing — context won't be compiled per-prompt").
+Results are stored in the `server_sessions` row (`installation_ok` boolean, `installation_notes` text). The `aic://status` resource surfaces them as actionable suggestions ("AIC is running but the trigger rule is missing — context won't be compiled per-prompt").
 
 **Design principles:**
 
@@ -2637,7 +2642,7 @@ Results are stored in the `server_sessions` row (`installation_ok` boolean, `ins
 
 **Value by audience:**
 
-- **Individual developers:** Diagnose server crashes, verify AIC is running, and spot misconfiguration via `aic status`. When something goes wrong, the developer can check whether AIC was running and correctly installed at the time.
+- **Individual developers:** Diagnose server crashes, verify AIC is running, and spot misconfiguration via the "show aic status" prompt command. When something goes wrong, the developer can check whether AIC was running and correctly installed at the time.
 - **Enterprise (Phase 2–3):** Fleet-wide operational dashboards: crash frequency, version drift, installation health per team. The `server_sessions` table is the local data source that enterprise sync layers ([§23](#23-enterprise-deployment-tiers)) query — no architectural change needed to scale from solo developer to fleet. Enterprise-deployed hooks via MDM (`/Library/Application Support/Cursor/hooks.json`) provide tamper-resistant installation at the system level.
 
 ---
@@ -2805,7 +2810,7 @@ Editor            MCP Server     Selector        CtxGuard       Transformer     
 | **commander**            | CLI argument parsing                                             | Most popular, well-maintained, supports subcommands and flags cleanly      |
 | **glob** / **fast-glob** | File pattern matching for include/exclude                        | Used by ContextSelector and config discovery                               |
 | **ignore**               | `.gitignore` parsing                                             | Accurate gitignore semantics for RepoMap file scanning                     |
-| **diff**                 | Unified diff generation for `aic compare`                        | Standard diff output format                                                |
+| **diff**                 | Unified diff generation for prompt/output diff views             | Standard diff output format                                                |
 | **zod**                  | Runtime input validation at MCP/CLI/config boundaries            | TypeScript-first, 13KB, zero deps, MIT. Boundary-only (ADR-009)            |
 
 ### Dev Dependencies
@@ -2891,7 +2896,7 @@ Workflow: Opens editor → AIC compiles context via MCP → model receives targe
 
 > "I want my team to use the same constraints and context rules so our AI-assisted code changes are consistent."
 
-Workflow: Commits `aic.config.json` + `aic-rules/` to repo → team shares rule packs
+Workflow: Commits `aic.config.json` (and optional rule packs) to repo → team shares configuration
 
 ### Persona 3: Enterprise Admin (Phase 3)
 
@@ -2915,7 +2920,7 @@ Workflow: Planning agent calls `aic_compile_spec` with the exploration report an
 
 | Table                     | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `compilation_log`         | One row per compilation: `id` (TEXT PK, UUIDv7), `intent` (TEXT), `task_class` (TEXT), `files_selected` (INT), `files_total` (INT), `tokens_compiled` (INT), `cache_hit` (BOOL), `duration_ms` (INT), `created_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`). Written on every successful compilation regardless of telemetry setting. Powers `aic status`. See [ADR-007](#adr-007) and [ADR-008](#adr-008)                                                                                                                                                                                                       |
+| `compilation_log`         | One row per compilation: `id` (TEXT PK, UUIDv7), `intent` (TEXT), `task_class` (TEXT), `files_selected` (INT), `files_total` (INT), `tokens_compiled` (INT), `cache_hit` (BOOL), `duration_ms` (INT), `created_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`). Written on every successful compilation regardless of telemetry setting. Powers the `aic://status` resource. See [ADR-007](#adr-007) and [ADR-008](#adr-008)                                                                                                                                                                                        |
 | `telemetry_events`        | `id` (TEXT PK, UUIDv7), task class, token counts (raw + compiled), duration, cache hit/miss, repo_id, model, summarisation tiers, guard counts, `created_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`). Written only when `telemetry.enabled: true`. Superset of `compilation_log` with additional metrics                                                                                                                                                                                                                                                                                                        |
 | `cache_metadata`          | Cache key (TEXT PK), file path, `created_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`), `expires_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`), file_tree_hash                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `config_history`          | Config snapshots: columns `config_hash` (TEXT PK, SHA-256 of content — intentionally content-addressed, not UUIDv7), `config_json` (TEXT, full JSON snapshot), `created_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`)                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -2985,7 +2990,7 @@ If a newer DB schema version is detected than the running AIC binary knows about
 When `version` in `aic.config.json` is older than the current AIC version:
 
 - AIC reads the config using the old schema and silently upgrades in memory
-- The on-disk file is **never auto-modified** — the user must run `aic init --upgrade` to write the new format
+- The on-disk file is **never auto-modified** — the user must run `npx @aic/mcp init --upgrade` to write the new format
 - Unknown fields in a newer config are ignored (forward compatibility)
 
 #### Example: v1 → v2 migration
@@ -3018,7 +3023,7 @@ if (raw.version === 1) {
 }
 ```
 
-**After `aic init --upgrade` (written to disk):**
+**After `npx @aic/mcp init --upgrade` (written to disk):**
 
 ```json
 {
@@ -3032,7 +3037,7 @@ if (raw.version === 1) {
 }
 ```
 
-The on-disk file is only rewritten when the user explicitly runs `aic init --upgrade`. Until then, in-memory migration keeps the tool working with no user action required.
+The on-disk file is only rewritten when the user explicitly runs `npx @aic/mcp init --upgrade`. Until then, in-memory migration keeps the tool working with no user action required.
 
 ---
 
@@ -3187,7 +3192,7 @@ Shared config and rule packs committed to the repository. Automatic setup via `p
 ```
 project-root/
 ├── aic.config.json          ← team-wide settings, committed
-├── aic-rules/               ← shared rule packs, committed
+├── aic-rules/               ← shared rule packs (advanced), committed
 └── .aic/                    ← local data, gitignored
 ```
 

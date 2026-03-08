@@ -95,7 +95,7 @@ We consider security research conducted in good faith to be authorized. We will 
 | ------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | Third-party model providers     | OpenAI, Anthropic, and Ollama APIs are outside AIC's control. Report issues to those providers directly. |
 | Editor plugins / extensions     | Cursor, Claude Code, and other editors have their own security policies                                  |
-| User-authored rule packs        | Custom JSON files in `aic-rules/` are authored and controlled by the project owner                       |
+| User-authored rule packs        | Custom JSON files in `aic-rules/` (advanced) are authored and controlled by the project owner            |
 | User-configured model endpoints | Custom endpoints set via `model.endpoint` in config are the user's responsibility                        |
 
 ---
@@ -128,8 +128,9 @@ AIC is a **local-first** tool. All compilation processing runs on the developer'
               │  External (crosses trust boundary)        │
               │                                           │
               │ ┌─────────────────┐  ┌──────────────────┐ │
-              │ │ Model endpoint  │  │telemetry.aic.dev │ │
-              │ │ (aic run only)  │  │ (opt-in only)    │ │
+│ │ Model endpoint  │  │telemetry.aic.dev │ │
+│ │ (future executor│  │ (opt-in only)    │ │
+│ │  path only)     │  │                   │ │
               │ │ Guarded content │  │ no code/paths/PII│ │
               │ └─────────────────┘  └──────────────────┘ │
               │                                           │
@@ -218,14 +219,14 @@ Full regex patterns: [Project Plan §8.4](project-plan.md).
 
 ## Data Handling
 
-| Data type           |             Stored locally?              |                        Sent externally?                         |
-| ------------------- | :--------------------------------------: | :-------------------------------------------------------------: |
-| Source code         |     Cache only (`.aic/`, gitignored)     | Never (except to model during `aic run`, after Guard filtering) |
-| Prompts / intents   |     `compilation_log` table (SQLite)     |                              Never                              |
-| File paths          |     `compilation_log` table (SQLite)     |                              Never                              |
-| API keys            |               Never stored               |         Passed to model provider during `aic run` only          |
-| Guard findings      |     `guard_findings` table (SQLite)      |                              Never                              |
-| Anonymous telemetry | `anonymous_telemetry_log` table (SQLite) |       Opt-in only. No code, paths, or prompts. See below.       |
+| Data type           |             Stored locally?              |                  Sent externally?                   |
+| ------------------- | :--------------------------------------: | :-------------------------------------------------: |
+| Source code         |     Cache only (`.aic/`, gitignored)     |        Never in the current MCP-only package        |
+| Prompts / intents   |     `compilation_log` table (SQLite)     |                        Never                        |
+| File paths          |     `compilation_log` table (SQLite)     |                        Never                        |
+| API keys            |               Never stored               |      Not used by the current MCP-only package       |
+| Guard findings      |     `guard_findings` table (SQLite)      |                        Never                        |
+| Anonymous telemetry | `anonymous_telemetry_log` table (SQLite) | Opt-in only. No code, paths, or prompts. See below. |
 
 ---
 
@@ -247,7 +248,7 @@ For the full threat/mitigation analysis, see [Project Plan §12 — Data Leakage
 
 The `.aic/` directory stores AIC's local database, cache, and metadata. It is treated as sensitive:
 
-- **Auto-gitignored:** `aic init` adds `.aic/` to `.gitignore` automatically. The directory is never committed to version control.
+- **Auto-gitignored:** `npx @aic/mcp init` adds `.aic/` to `.gitignore` automatically. The directory is never committed to version control.
 - **Permissions:** Created with `0700` (owner-only read/write/execute). No group or world access.
 - **No symlink traversal:** AIC does not follow symlinks inside `.aic/` to prevent symlink attacks that could redirect reads/writes outside the intended directory.
 
@@ -255,7 +256,7 @@ The `.aic/` directory stores AIC's local database, cache, and metadata. It is tr
 
 ## Anonymous Telemetry
 
-AIC can optionally send anonymous usage statistics to help improve the product. This is **disabled by default** and requires explicit opt-in during `aic init`.
+AIC can optionally send anonymous usage statistics to help improve the product. This is **disabled by default** and requires explicit opt-in during `npx @aic/mcp init`.
 
 **What is sent:** AIC version, OS, Node version, task class (enum), primary language (enum), token reduction percentage, file counts, Guard block counts, cache hit rate, duration, model family (enum), editor (enum), heuristic signal averages.
 
@@ -273,12 +274,10 @@ AIC can optionally send anonymous usage statistics to help improve the product. 
 | No IP logging         | Telemetry endpoint does not log client IPs                         |
 | HTTPS only            | All payloads sent over TLS                                         |
 
-**Full transparency:** Every payload is stored locally in SQLite before sending. Inspect exactly what AIC sends at any time:
+**Full transparency:** Every payload is stored locally in SQLite before sending. Inspect the local `anonymous_telemetry_log` table in `.aic/aic.sqlite` with any SQLite client. For example:
 
 ```bash
-aic telemetry log          # summary of recent payloads
-aic telemetry log --json   # raw JSON payloads (pipe-friendly)
-aic telemetry log --clear  # delete all records
+sqlite3 .aic/aic.sqlite "SELECT created_at, status, payload_json FROM anonymous_telemetry_log ORDER BY created_at DESC LIMIT 5;"
 ```
 
 **Batching:** Payloads are queued locally and sent in a single HTTPS request at most once per 5 minutes. The endpoint stores received payloads in a cloud database. After a payload is successfully sent, the local row is removed so the queue does not grow unbounded. If the endpoint is unreachable, payloads are silently dropped (not retried, not stored on the server).
@@ -391,27 +390,27 @@ AIC's architecture is designed to be **technically compliant** with GDPR, SOC 2,
 
 ### Design Principles
 
-| Principle              | How AIC achieves it                                                                           |
-| ---------------------- | --------------------------------------------------------------------------------------------- |
-| **Privacy by default** | No data collection without explicit opt-in. No PII in any storage.                            |
-| **Data minimisation**  | Telemetry collects only typed aggregates — no code, paths, or prompts                         |
-| **User control**       | Opt-in/out at any time. `aic telemetry log` shows exactly what was sent. `--clear` erases it. |
-| **Local-first**        | All processing on user's machine. No cloud dependency for core functionality.                 |
-| **Transparency**       | Every telemetry payload logged locally before sending. Audit trail always available.          |
-| **Security by design** | Context Guard, API key isolation, `.aic/` permissions, no symlink traversal                   |
+| Principle              | How AIC achieves it                                                                                                             |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| **Privacy by default** | No data collection without explicit opt-in. No PII in any storage.                                                              |
+| **Data minimisation**  | Telemetry collects only typed aggregates — no code, paths, or prompts                                                           |
+| **User control**       | Opt-in/out at any time. Local telemetry rows can be inspected in `.aic/aic.sqlite`, and disabling telemetry stops future sends. |
+| **Local-first**        | All processing on user's machine. No cloud dependency for core functionality.                                                   |
+| **Transparency**       | Every telemetry payload logged locally before sending. Audit trail always available.                                            |
+| **Security by design** | Context Guard, API key isolation, `.aic/` permissions, no symlink traversal                                                     |
 
 ### GDPR Readiness
 
-| Requirement               |   Status   | Implementation                                                   |
-| ------------------------- | :--------: | ---------------------------------------------------------------- |
-| Lawful basis (consent)    |     ✅     | Opt-in prompt during `aic init`. Default: disabled.              |
-| Data minimisation         |     ✅     | Fixed enum fields only. No free-text. No PII.                    |
-| Right to access           |     ✅     | `aic telemetry log --json` exports all sent data                 |
-| Right to erasure          |     ✅     | `aic telemetry log --clear` + `telemetry.anonymousUsage: false`  |
-| Right to withdraw consent |     ✅     | Set config to `false` at any time. Immediate effect.             |
-| Purpose limitation        |     ✅     | "Product improvement" stated in opt-in prompt and privacy policy |
-| Data retention limit      | ⚠️ Phase 1 | Server-side: auto-delete after 90 days                           |
-| Privacy policy            | ⚠️ Phase 1 | Publish at `https://docs.aic.dev/privacy`                        |
+| Requirement               |   Status   | Implementation                                                                        |
+| ------------------------- | :--------: | ------------------------------------------------------------------------------------- |
+| Lawful basis (consent)    |     ✅     | Opt-in prompt during `npx @aic/mcp init`. Default: disabled.                          |
+| Data minimisation         |     ✅     | Fixed enum fields only. No free-text. No PII.                                         |
+| Right to access           |     ✅     | Inspect or export `anonymous_telemetry_log.payload_json` from `.aic/aic.sqlite`       |
+| Right to erasure          |     ✅     | Delete local `anonymous_telemetry_log` rows and set `telemetry.anonymousUsage: false` |
+| Right to withdraw consent |     ✅     | Set config to `false` at any time. Immediate effect.                                  |
+| Purpose limitation        |     ✅     | "Product improvement" stated in opt-in prompt and privacy policy                      |
+| Data retention limit      | ⚠️ Phase 1 | Server-side: auto-delete after 90 days                                                |
+| Privacy policy            | ⚠️ Phase 1 | Publish at `https://docs.aic.dev/privacy`                                             |
 
 ### SOC 2 Readiness
 
@@ -427,7 +426,7 @@ AIC's architecture is designed to be **technically compliant** with GDPR, SOC 2,
 | **Availability**    | Works offline, local-first                              |   ✅ MVP   |
 |                     | SQLite = single file backup                             |   ✅ MVP   |
 | **Confidentiality** | Context Guard data classification                       |   ✅ MVP   |
-|                     | No code leaves machine (except `aic run`)               |   ✅ MVP   |
+|                     | No code leaves machine in the current MCP-only package  |   ✅ MVP   |
 |                     | Third-party data sharing: opt-in, anonymous, verifiable |   ✅ MVP   |
 
 ### Compliance Roadmap

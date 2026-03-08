@@ -143,7 +143,7 @@ The hook spawns a new Node process per user message. Key concerns:
 
 - **PostToolUse additionalContext bug (anthropics/claude-code#24788):** `additionalContext` does not work for MCP tool calls in PostToolUse hooks. Does NOT affect the `UserPromptSubmit` approach, but limits future PostToolUse-based augmentation.
 - **Hooks API stability:** The hooks system is actively evolving. Hook configuration schema could change.
-- **Cursor hook limits:** Cursor does not support per-prompt context injection or subagent context injection; it exposes subagentStart for gating only and preCompact as observational only. This feature (UserPromptSubmit + additionalContext) only benefits Claude Code users for automatic per-prompt delivery.
+- **Editor Integration Differences:** Different editors expose different hook lifecycles. For example, the `UserPromptSubmit` + `additionalContext` automatic per-prompt delivery pattern is specific to Claude Code's capabilities, whereas other editors rely on different lifecycle events.
 
 ## Implementation steps
 
