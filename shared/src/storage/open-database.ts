@@ -2,19 +2,19 @@
 // Copyright (c) 2025 AIC Contributors
 
 import Database from "better-sqlite3";
-import { SqliteMigrationRunner } from "#storage/sqlite-migration-runner.js";
-import { migration as migration001 } from "#storage/migrations/001-initial-schema.js";
-import { migration as migration002 } from "#storage/migrations/002-server-sessions.js";
-import { migration as migration003 } from "#storage/migrations/003-server-sessions-integrity.js";
-import { migration as migration004 } from "#storage/migrations/004-normalize-telemetry.js";
-import { migration as migration005 } from "#storage/migrations/005-trigger-source.js";
-import { migration as migration006 } from "#storage/migrations/006-cache-datetime-format.js";
-import { migration as migration007 } from "#storage/migrations/007-conversation-id.js";
-import { migration as migration008 } from "#storage/migrations/008-session-state.js";
-import { migration as migration009 } from "#storage/migrations/009-file-transform-cache.js";
-import { migration as migration010 } from "#storage/migrations/010-tool-invocation-log.js";
-import type { Clock } from "#core/interfaces/clock.interface.js";
-import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
+import { SqliteMigrationRunner } from "@jatbas/aic-shared/storage/sqlite-migration-runner.js";
+import { migration as migration001 } from "@jatbas/aic-shared/storage/migrations/001-initial-schema.js";
+import { migration as migration002 } from "@jatbas/aic-shared/storage/migrations/002-server-sessions.js";
+import { migration as migration003 } from "@jatbas/aic-shared/storage/migrations/003-server-sessions-integrity.js";
+import { migration as migration004 } from "@jatbas/aic-shared/storage/migrations/004-normalize-telemetry.js";
+import { migration as migration005 } from "@jatbas/aic-shared/storage/migrations/005-trigger-source.js";
+import { migration as migration006 } from "@jatbas/aic-shared/storage/migrations/006-cache-datetime-format.js";
+import { migration as migration007 } from "@jatbas/aic-shared/storage/migrations/007-conversation-id.js";
+import { migration as migration008 } from "@jatbas/aic-shared/storage/migrations/008-session-state.js";
+import { migration as migration009 } from "@jatbas/aic-shared/storage/migrations/009-file-transform-cache.js";
+import { migration as migration010 } from "@jatbas/aic-shared/storage/migrations/010-tool-invocation-log.js";
+import type { Clock } from "@jatbas/aic-shared/core/interfaces/clock.interface.js";
+import type { ExecutableDb } from "@jatbas/aic-shared/core/interfaces/executable-db.interface.js";
 
 export function openDatabase(dbPath: string, clock: Clock): ExecutableDb {
   const db = new Database(dbPath) as unknown as ExecutableDb;

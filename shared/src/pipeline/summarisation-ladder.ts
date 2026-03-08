@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { SummarisationLadder as ISummarisationLadder } from "#core/interfaces/summarisation-ladder.interface.js";
-import type { LanguageProvider } from "#core/interfaces/language-provider.interface.js";
-import type { FileContentReader } from "#core/interfaces/file-content-reader.interface.js";
-import type { SelectedFile } from "#core/types/selected-file.js";
-import type { TokenCount } from "#core/types/units.js";
-import type { InclusionTier } from "#core/types/enums.js";
-import type { CodeChunk } from "#core/types/code-chunk.js";
-import { INCLUSION_TIER } from "#core/types/enums.js";
+import type { SummarisationLadder as ISummarisationLadder } from "@jatbas/aic-shared/core/interfaces/summarisation-ladder.interface.js";
+import type { LanguageProvider } from "@jatbas/aic-shared/core/interfaces/language-provider.interface.js";
+import type { FileContentReader } from "@jatbas/aic-shared/core/interfaces/file-content-reader.interface.js";
+import type { SelectedFile } from "@jatbas/aic-shared/core/types/selected-file.js";
+import type { TokenCount } from "@jatbas/aic-shared/core/types/units.js";
+import type { InclusionTier } from "@jatbas/aic-shared/core/types/enums.js";
+import type { CodeChunk } from "@jatbas/aic-shared/core/types/code-chunk.js";
+import { INCLUSION_TIER } from "@jatbas/aic-shared/core/types/enums.js";
 import { getProvider } from "./get-provider.js";
 
 type TierTextFn = (

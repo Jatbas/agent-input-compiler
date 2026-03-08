@@ -13,7 +13,7 @@ import {
 import { join } from "node:path";
 import { tmpdir, platform } from "node:os";
 import { describe, it, expect, afterEach } from "vitest";
-import { toAbsolutePath } from "#core/types/paths.js";
+import { toAbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
 import {
   AIC_IGNORE_ENTRIES,
   ensureAicDir,

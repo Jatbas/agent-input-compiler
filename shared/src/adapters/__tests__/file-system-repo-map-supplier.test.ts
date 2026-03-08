@@ -5,11 +5,11 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, it, expect, afterEach } from "vitest";
-import type { GlobProvider } from "#core/interfaces/glob-provider.interface.js";
-import type { IgnoreProvider } from "#core/interfaces/ignore-provider.interface.js";
-import { toAbsolutePath, toRelativePath } from "#core/types/paths.js";
-import { toBytes, toTokenCount } from "#core/types/units.js";
-import { toISOTimestamp } from "#core/types/identifiers.js";
+import type { GlobProvider } from "@jatbas/aic-shared/core/interfaces/glob-provider.interface.js";
+import type { IgnoreProvider } from "@jatbas/aic-shared/core/interfaces/ignore-provider.interface.js";
+import { toAbsolutePath, toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { toBytes, toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
+import { toISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
 import { FileSystemRepoMapSupplier } from "../file-system-repo-map-supplier.js";
 
 const MOCK_LAST_MODIFIED = toISOTimestamp("2020-01-01T00:00:00.000Z");

@@ -1,6 +1,6 @@
 {
   "name": "@jatbas/aic-shared",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -13,12 +13,6 @@
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
-  },
-  "imports": {
-    "#core/*": "./src/core/*",
-    "#adapters/*": "./src/adapters/*",
-    "#storage/*": "./src/storage/*",
-    "#pipeline/*": "./src/pipeline/*"
   },
   "scripts": {
     "build": "tsc -b",

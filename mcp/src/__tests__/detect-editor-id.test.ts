@@ -3,7 +3,7 @@
 
 import { describe, it, expect } from "vitest";
 import { detectEditorId } from "../detect-editor-id.js";
-import { EDITOR_ID } from "@aic/shared/core/types/enums.js";
+import { EDITOR_ID } from "@jatbas/aic-shared/core/types/enums.js";
 
 describe("detectEditorId", () => {
   it("returns cursor for Cursor client name", () => {

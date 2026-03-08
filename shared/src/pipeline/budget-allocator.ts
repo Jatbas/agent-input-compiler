@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { BudgetAllocator as IBudgetAllocator } from "#core/interfaces/budget-allocator.interface.js";
-import type { BudgetConfig } from "#core/interfaces/budget-config.interface.js";
-import type { RulePack } from "#core/types/rule-pack.js";
-import type { TaskClass } from "#core/types/enums.js";
-import type { TokenCount } from "#core/types/units.js";
-import type { SessionBudgetContext } from "#core/types/session-budget-context.js";
-import { toTokenCount } from "#core/types/units.js";
+import type { BudgetAllocator as IBudgetAllocator } from "@jatbas/aic-shared/core/interfaces/budget-allocator.interface.js";
+import type { BudgetConfig } from "@jatbas/aic-shared/core/interfaces/budget-config.interface.js";
+import type { RulePack } from "@jatbas/aic-shared/core/types/rule-pack.js";
+import type { TaskClass } from "@jatbas/aic-shared/core/types/enums.js";
+import type { TokenCount } from "@jatbas/aic-shared/core/types/units.js";
+import type { SessionBudgetContext } from "@jatbas/aic-shared/core/types/session-budget-context.js";
+import { toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
 
 const CONTEXT_WINDOW_DEFAULT = 128_000;
 const RESERVED_RESPONSE_DEFAULT = 4_000;

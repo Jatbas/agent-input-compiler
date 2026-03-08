@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { ConfigStore } from "#core/interfaces/config-store.interface.js";
-import type { Clock } from "#core/interfaces/clock.interface.js";
-import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
+import type { ConfigStore } from "@jatbas/aic-shared/core/interfaces/config-store.interface.js";
+import type { Clock } from "@jatbas/aic-shared/core/interfaces/clock.interface.js";
+import type { ExecutableDb } from "@jatbas/aic-shared/core/interfaces/executable-db.interface.js";
 
 export class SqliteConfigStore implements ConfigStore {
   constructor(

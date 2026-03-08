@@ -5,19 +5,19 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { AbsolutePath } from "@aic/shared/core/types/paths.js";
-import type { RulePack } from "@aic/shared/core/types/rule-pack.js";
-import type { RulePackProvider } from "@aic/shared/core/interfaces/rule-pack-provider.interface.js";
-import type { BudgetConfig } from "@aic/shared/core/interfaces/budget-config.interface.js";
-import type { LanguageProvider } from "@aic/shared/core/interfaces/language-provider.interface.js";
-import { toAbsolutePath } from "@aic/shared/core/types/paths.js";
-import { toTokenCount } from "@aic/shared/core/types/units.js";
+import type { AbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
+import type { RulePack } from "@jatbas/aic-shared/core/types/rule-pack.js";
+import type { RulePackProvider } from "@jatbas/aic-shared/core/interfaces/rule-pack-provider.interface.js";
+import type { BudgetConfig } from "@jatbas/aic-shared/core/interfaces/budget-config.interface.js";
+import type { LanguageProvider } from "@jatbas/aic-shared/core/interfaces/language-provider.interface.js";
+import { toAbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
 import {
   type TaskClass,
   type EditorId,
   EDITOR_ID,
-} from "@aic/shared/core/types/enums.js";
-import { InspectRunner } from "@aic/shared/pipeline/inspect-runner.js";
+} from "@jatbas/aic-shared/core/types/enums.js";
+import { InspectRunner } from "@jatbas/aic-shared/pipeline/inspect-runner.js";
 import { CompilationRequestSchema } from "./schemas/compilation-request.js";
 import { ConversationSummaryRequestSchema } from "./schemas/conversation-summary-request.js";
 import { InspectRequestSchema } from "./schemas/inspect-request.schema.js";
@@ -25,18 +25,21 @@ import { createCompileHandler } from "./handlers/compile-handler.js";
 import { SessionContext } from "./handlers/session-context-cache.js";
 import { handleInspect } from "./handlers/inspect-handler.js";
 import { recordToolInvocation } from "./record-tool-invocation.js";
-import { closeDatabase } from "@aic/shared/storage/open-database.js";
-import { ConfigError } from "@aic/shared/core/errors/config-error.js";
-import { createProjectScope } from "@aic/shared/storage/create-project-scope.js";
-import { SqliteStatusStore } from "@aic/shared/storage/sqlite-status-store.js";
-import type { CacheStore } from "@aic/shared/core/interfaces/cache-store.interface.js";
-import type { SessionTracker } from "@aic/shared/core/interfaces/session-tracker.interface.js";
-import type { Clock } from "@aic/shared/core/interfaces/clock.interface.js";
-import type { SessionId } from "@aic/shared/core/types/identifiers.js";
-import { toConversationId, toSessionId } from "@aic/shared/core/types/identifiers.js";
+import { closeDatabase } from "@jatbas/aic-shared/storage/open-database.js";
+import { ConfigError } from "@jatbas/aic-shared/core/errors/config-error.js";
+import { createProjectScope } from "@jatbas/aic-shared/storage/create-project-scope.js";
+import { SqliteStatusStore } from "@jatbas/aic-shared/storage/sqlite-status-store.js";
+import type { CacheStore } from "@jatbas/aic-shared/core/interfaces/cache-store.interface.js";
+import type { SessionTracker } from "@jatbas/aic-shared/core/interfaces/session-tracker.interface.js";
+import type { Clock } from "@jatbas/aic-shared/core/interfaces/clock.interface.js";
+import type { SessionId } from "@jatbas/aic-shared/core/types/identifiers.js";
+import {
+  toConversationId,
+  toSessionId,
+} from "@jatbas/aic-shared/core/types/identifiers.js";
 import { z } from "zod";
-import { STOP_REASON } from "@aic/shared/core/types/enums.js";
-import { createFullPipelineDeps } from "@aic/shared/bootstrap/create-pipeline-deps.js";
+import { STOP_REASON } from "@jatbas/aic-shared/core/types/enums.js";
+import { createFullPipelineDeps } from "@jatbas/aic-shared/bootstrap/create-pipeline-deps.js";
 import { installCursorHooks } from "./install-cursor-hooks.js";
 import { installTriggerRule } from "./install-trigger-rule.js";
 import { ensureProjectInit, runInit, CONFIG_FILENAME } from "./init-project.js";
@@ -44,23 +47,23 @@ import { runStartupSelfCheck } from "./startup-self-check.js";
 import {
   LoadConfigFromFile,
   applyConfigResult,
-} from "@aic/shared/config/load-config-from-file.js";
+} from "@jatbas/aic-shared/config/load-config-from-file.js";
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { CompilationRunner as CompilationRunnerImpl } from "@aic/shared/pipeline/compilation-runner.js";
-import { SqliteAgenticSessionStore } from "@aic/shared/storage/sqlite-agentic-session-store.js";
-import { SqliteToolInvocationLogStore } from "@aic/shared/storage/sqlite-tool-invocation-log-store.js";
-import { Sha256Adapter } from "@aic/shared/adapters/sha256-adapter.js";
-import { loadRulePackFromPath } from "@aic/shared/core/load-rule-pack.js";
-import { createProjectFileReader } from "@aic/shared/adapters/project-file-reader-adapter.js";
-import { createCachingFileContentReader } from "@aic/shared/adapters/caching-file-content-reader.js";
+import { CompilationRunner as CompilationRunnerImpl } from "@jatbas/aic-shared/pipeline/compilation-runner.js";
+import { SqliteAgenticSessionStore } from "@jatbas/aic-shared/storage/sqlite-agentic-session-store.js";
+import { SqliteToolInvocationLogStore } from "@jatbas/aic-shared/storage/sqlite-tool-invocation-log-store.js";
+import { Sha256Adapter } from "@jatbas/aic-shared/adapters/sha256-adapter.js";
+import { loadRulePackFromPath } from "@jatbas/aic-shared/core/load-rule-pack.js";
+import { createProjectFileReader } from "@jatbas/aic-shared/adapters/project-file-reader-adapter.js";
+import { createCachingFileContentReader } from "@jatbas/aic-shared/adapters/caching-file-content-reader.js";
 import { detectEditorId } from "./detect-editor-id.js";
 import { getUpdateInfo } from "./latest-version-check.js";
-import { initLanguageProviders } from "@aic/shared/adapters/init-language-providers.js";
-import { EditorModelConfigReaderAdapter } from "@aic/shared/adapters/editor-model-config-reader.js";
-import { ModelDetectorDispatch } from "@aic/shared/adapters/model-detector-dispatch.js";
-import type { ModelEnvHints } from "@aic/shared/core/types/model-env-hints.js";
+import { initLanguageProviders } from "@jatbas/aic-shared/adapters/init-language-providers.js";
+import { EditorModelConfigReaderAdapter } from "@jatbas/aic-shared/adapters/editor-model-config-reader.js";
+import { ModelDetectorDispatch } from "@jatbas/aic-shared/adapters/model-detector-dispatch.js";
+import type { ModelEnvHints } from "@jatbas/aic-shared/core/types/model-env-hints.js";
 
 function defaultRulePack(): RulePack {
   return {

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { IgnoreProvider } from "#core/interfaces/ignore-provider.interface.js";
-import type { AbsolutePath, RelativePath } from "#core/types/paths.js";
+import type { IgnoreProvider } from "@jatbas/aic-shared/core/interfaces/ignore-provider.interface.js";
+import type { AbsolutePath, RelativePath } from "@jatbas/aic-shared/core/types/paths.js";
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import ignore from "ignore";

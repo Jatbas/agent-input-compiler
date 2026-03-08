@@ -3,8 +3,11 @@
 
 import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
-import { toSessionId, toISOTimestamp } from "#core/types/identifiers.js";
-import { STOP_REASON } from "#core/types/enums.js";
+import {
+  toSessionId,
+  toISOTimestamp,
+} from "@jatbas/aic-shared/core/types/identifiers.js";
+import { STOP_REASON } from "@jatbas/aic-shared/core/types/enums.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
 import { migration as migration002 } from "../migrations/002-server-sessions.js";
 import { migration as migration003 } from "../migrations/003-server-sessions-integrity.js";

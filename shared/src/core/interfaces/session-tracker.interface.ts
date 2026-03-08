@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { SessionId, ISOTimestamp } from "#core/types/identifiers.js";
-import type { StopReason } from "#core/types/enums.js";
+import type {
+  SessionId,
+  ISOTimestamp,
+} from "@jatbas/aic-shared/core/types/identifiers.js";
+import type { StopReason } from "@jatbas/aic-shared/core/types/enums.js";
 
 export interface SessionTracker {
   startSession(

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { CompilationRequest } from "#core/types/compilation-types.js";
-import type { CompilationMeta } from "#core/types/compilation-types.js";
-import type { UUIDv7 } from "#core/types/identifiers.js";
+import type { CompilationRequest } from "@jatbas/aic-shared/core/types/compilation-types.js";
+import type { CompilationMeta } from "@jatbas/aic-shared/core/types/compilation-types.js";
+import type { UUIDv7 } from "@jatbas/aic-shared/core/types/identifiers.js";
 
 export interface CompilationRunner {
   run(request: CompilationRequest): Promise<{

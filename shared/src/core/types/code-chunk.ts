@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { RelativePath } from "#core/types/paths.js";
-import type { TokenCount, LineNumber } from "#core/types/units.js";
-import type { SymbolType } from "#core/types/enums.js";
+import type { RelativePath } from "@jatbas/aic-shared/core/types/paths.js";
+import type { TokenCount, LineNumber } from "@jatbas/aic-shared/core/types/units.js";
+import type { SymbolType } from "@jatbas/aic-shared/core/types/enums.js";
 
 export interface CodeChunk {
   readonly filePath: RelativePath;

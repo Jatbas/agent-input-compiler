@@ -6,8 +6,8 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, it, expect, afterEach } from "vitest";
 import { FastGlobAdapter } from "../fast-glob-adapter.js";
-import { toAbsolutePath, toRelativePath } from "#core/types/paths.js";
-import { toBytes } from "#core/types/units.js";
+import { toAbsolutePath, toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { toBytes } from "@jatbas/aic-shared/core/types/units.js";
 
 describe("FastGlobAdapter", () => {
   let tmpDir: string;

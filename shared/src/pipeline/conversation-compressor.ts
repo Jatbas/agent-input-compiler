@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { ConversationCompressor } from "#core/interfaces/conversation-compressor.interface.js";
-import type { SessionStep } from "#core/types/session-dedup-types.js";
+import type { ConversationCompressor } from "@jatbas/aic-shared/core/interfaces/conversation-compressor.interface.js";
+import type { SessionStep } from "@jatbas/aic-shared/core/types/session-dedup-types.js";
 
 export class ConversationCompressorImpl implements ConversationCompressor {
   constructor() {}

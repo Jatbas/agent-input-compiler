@@ -3,7 +3,7 @@
 
 import * as path from "node:path";
 import * as fs from "node:fs";
-import type { AbsolutePath } from "@aic/shared/core/types/paths.js";
+import type { AbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
 
 const TRIGGER_RULE_TEMPLATE = `---
 description: MANDATORY — call aic_compile on EVERY message

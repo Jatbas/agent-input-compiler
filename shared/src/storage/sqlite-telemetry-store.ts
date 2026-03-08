@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
-import type { TelemetryStore } from "#core/interfaces/telemetry-store.interface.js";
-import type { TelemetryEvent } from "#core/types/telemetry-types.js";
+import type { ExecutableDb } from "@jatbas/aic-shared/core/interfaces/executable-db.interface.js";
+import type { TelemetryStore } from "@jatbas/aic-shared/core/interfaces/telemetry-store.interface.js";
+import type { TelemetryEvent } from "@jatbas/aic-shared/core/types/telemetry-types.js";
 
 export class SqliteTelemetryStore implements TelemetryStore {
   constructor(private readonly db: ExecutableDb) {}

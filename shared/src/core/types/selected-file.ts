@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { RelativePath } from "#core/types/paths.js";
-import type { TokenCount, StepIndex } from "#core/types/units.js";
-import type { RelevanceScore } from "#core/types/scores.js";
-import type { InclusionTier } from "#core/types/enums.js";
+import type { RelativePath } from "@jatbas/aic-shared/core/types/paths.js";
+import type { TokenCount, StepIndex } from "@jatbas/aic-shared/core/types/units.js";
+import type { RelevanceScore } from "@jatbas/aic-shared/core/types/scores.js";
+import type { InclusionTier } from "@jatbas/aic-shared/core/types/enums.js";
 
 export interface SelectedFile {
   readonly path: RelativePath;

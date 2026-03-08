@@ -3,11 +3,11 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { AbsolutePath } from "@aic/shared/core/types/paths.js";
-import type { Clock } from "@aic/shared/core/interfaces/clock.interface.js";
-import type { Milliseconds } from "@aic/shared/core/types/units.js";
-import { toMilliseconds } from "@aic/shared/core/types/units.js";
-import { toISOTimestamp } from "@aic/shared/core/types/identifiers.js";
+import type { AbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
+import type { Clock } from "@jatbas/aic-shared/core/interfaces/clock.interface.js";
+import type { Milliseconds } from "@jatbas/aic-shared/core/types/units.js";
+import { toMilliseconds } from "@jatbas/aic-shared/core/types/units.js";
+import { toISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
 
 const CACHE_FILENAME = "version-check-cache.json";
 const MESSAGE_FILENAME = "update-available.txt";

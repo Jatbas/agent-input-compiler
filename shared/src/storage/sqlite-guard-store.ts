@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { GuardStore } from "#core/interfaces/guard-store.interface.js";
-import type { Clock } from "#core/interfaces/clock.interface.js";
-import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
-import type { IdGenerator } from "#core/interfaces/id-generator.interface.js";
-import type { GuardFinding } from "#core/types/guard-types.js";
-import type { UUIDv7 } from "#core/types/identifiers.js";
-import { toLineNumber } from "#core/types/units.js";
-import { toRelativePath } from "#core/types/paths.js";
+import type { GuardStore } from "@jatbas/aic-shared/core/interfaces/guard-store.interface.js";
+import type { Clock } from "@jatbas/aic-shared/core/interfaces/clock.interface.js";
+import type { ExecutableDb } from "@jatbas/aic-shared/core/interfaces/executable-db.interface.js";
+import type { IdGenerator } from "@jatbas/aic-shared/core/interfaces/id-generator.interface.js";
+import type { GuardFinding } from "@jatbas/aic-shared/core/types/guard-types.js";
+import type { UUIDv7 } from "@jatbas/aic-shared/core/types/identifiers.js";
+import { toLineNumber } from "@jatbas/aic-shared/core/types/units.js";
+import { toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
 
 export class SqliteGuardStore implements GuardStore {
   constructor(

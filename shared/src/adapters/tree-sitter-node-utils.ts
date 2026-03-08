@@ -2,14 +2,14 @@
 // Copyright (c) 2025 AIC Contributors
 
 import { type Node, type Parser, type Tree } from "web-tree-sitter";
-import type { CodeChunk } from "#core/types/code-chunk.js";
-import type { ExportedSymbol } from "#core/types/exported-symbol.js";
-import type { ImportRef } from "#core/types/import-ref.js";
-import { SYMBOL_TYPE } from "#core/types/enums.js";
-import type { SymbolKind, SymbolType } from "#core/types/enums.js";
-import type { RelativePath } from "#core/types/paths.js";
-import { toRelativePath } from "#core/types/paths.js";
-import { toLineNumber, toTokenCount } from "#core/types/units.js";
+import type { CodeChunk } from "@jatbas/aic-shared/core/types/code-chunk.js";
+import type { ExportedSymbol } from "@jatbas/aic-shared/core/types/exported-symbol.js";
+import type { ImportRef } from "@jatbas/aic-shared/core/types/import-ref.js";
+import { SYMBOL_TYPE } from "@jatbas/aic-shared/core/types/enums.js";
+import type { SymbolKind, SymbolType } from "@jatbas/aic-shared/core/types/enums.js";
+import type { RelativePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { toLineNumber, toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
 
 export type { Node } from "web-tree-sitter";
 

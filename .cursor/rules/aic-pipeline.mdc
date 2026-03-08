@@ -13,9 +13,9 @@ alwaysApply: false
 Every pipeline step follows this exact pattern:
 
 ```typescript
-import type { SomeDependency } from "@aic/shared/core/interfaces/some-dependency.interface";
-import type { StepInput } from "@aic/shared/core/types/step-input";
-import type { StepResult } from "@aic/shared/core/types/step-result";
+import type { SomeDependency } from "@jatbas/aic-shared/core/interfaces/some-dependency.interface";
+import type { StepInput } from "@jatbas/aic-shared/core/types/step-input";
+import type { StepResult } from "@jatbas/aic-shared/core/types/step-result";
 
 export class StepName {
   constructor(

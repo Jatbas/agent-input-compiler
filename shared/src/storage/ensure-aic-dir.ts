@@ -3,8 +3,8 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { AbsolutePath } from "#core/types/paths.js";
-import { toAbsolutePath } from "#core/types/paths.js";
+import type { AbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { toAbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
 
 // AIC-only paths; same list used for .gitignore, .prettierignore, .eslintignore.
 export const AIC_IGNORE_ENTRIES: readonly string[] = [

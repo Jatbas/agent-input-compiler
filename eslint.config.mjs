@@ -482,11 +482,11 @@ export default tseslint.config(
                 "Core/pipeline must not import storage. Depend on store interfaces only.",
             },
             {
-              group: ["@aic/cli", "@aic/cli/*", "**/cli/**"],
+              group: ["@jatbas/aic-cli", "@jatbas/aic-cli/*", "**/cli/**"],
               message: "Core/pipeline must not import CLI code.",
             },
             {
-              group: ["@aic/mcp", "@aic/mcp/*", "**/mcp/**"],
+              group: ["@jatbas/aic-mcp", "@jatbas/aic-mcp/*", "**/mcp/**"],
               message: "Core/pipeline must not import MCP code.",
             },
           ],
@@ -589,11 +589,11 @@ export default tseslint.config(
               message: "Storage must not import adapters.",
             },
             {
-              group: ["@aic/cli", "@aic/cli/*", "**/cli/**"],
+              group: ["@jatbas/aic-cli", "@jatbas/aic-cli/*", "**/cli/**"],
               message: "Storage must not import CLI code.",
             },
             {
-              group: ["@aic/mcp", "@aic/mcp/*", "**/mcp/**"],
+              group: ["@jatbas/aic-mcp", "@jatbas/aic-mcp/*", "**/mcp/**"],
               message: "Storage must not import MCP code.",
             },
           ],
@@ -653,11 +653,11 @@ export default tseslint.config(
           patterns: [
             BAN_RELATIVE_PARENT,
             {
-              group: ["@aic/cli", "@aic/cli/*", "**/cli/**"],
+              group: ["@jatbas/aic-cli", "@jatbas/aic-cli/*", "**/cli/**"],
               message: "Storage must not import CLI code.",
             },
             {
-              group: ["@aic/mcp", "@aic/mcp/*", "**/mcp/**"],
+              group: ["@jatbas/aic-mcp", "@jatbas/aic-mcp/*", "**/mcp/**"],
               message: "Storage must not import MCP code.",
             },
             {
@@ -723,11 +723,11 @@ export default tseslint.config(
           patterns: [
             BAN_RELATIVE_PARENT,
             {
-              group: ["@aic/cli", "@aic/cli/*", "**/cli/**"],
+              group: ["@jatbas/aic-cli", "@jatbas/aic-cli/*", "**/cli/**"],
               message: "Storage must not import CLI code.",
             },
             {
-              group: ["@aic/mcp", "@aic/mcp/*", "**/mcp/**"],
+              group: ["@jatbas/aic-mcp", "@jatbas/aic-mcp/*", "**/mcp/**"],
               message: "Storage must not import MCP code.",
             },
             {
@@ -784,11 +784,11 @@ export default tseslint.config(
           patterns: [
             BAN_RELATIVE_PARENT,
             {
-              group: ["@aic/cli", "@aic/cli/*", "**/cli/**"],
+              group: ["@jatbas/aic-cli", "@jatbas/aic-cli/*", "**/cli/**"],
               message: "Config must not import CLI code.",
             },
             {
-              group: ["@aic/mcp", "@aic/mcp/*", "**/mcp/**"],
+              group: ["@jatbas/aic-mcp", "@jatbas/aic-mcp/*", "**/mcp/**"],
               message: "Config must not import MCP code.",
             },
             {
@@ -872,11 +872,11 @@ export default tseslint.config(
               message: "Storage must not import adapters.",
             },
             {
-              group: ["@aic/cli", "@aic/cli/*", "**/cli/**"],
+              group: ["@jatbas/aic-cli", "@jatbas/aic-cli/*", "**/cli/**"],
               message: "Storage must not import CLI code.",
             },
             {
-              group: ["@aic/mcp", "@aic/mcp/*", "**/mcp/**"],
+              group: ["@jatbas/aic-mcp", "@jatbas/aic-mcp/*", "**/mcp/**"],
               message: "Storage must not import MCP code.",
             },
           ],
@@ -959,11 +959,11 @@ export default tseslint.config(
               message: "Storage must not import adapters.",
             },
             {
-              group: ["@aic/cli", "@aic/cli/*", "**/cli/**"],
+              group: ["@jatbas/aic-cli", "@jatbas/aic-cli/*", "**/cli/**"],
               message: "Storage must not import CLI code.",
             },
             {
-              group: ["@aic/mcp", "@aic/mcp/*", "**/mcp/**"],
+              group: ["@jatbas/aic-mcp", "@jatbas/aic-mcp/*", "**/mcp/**"],
               message: "Storage must not import MCP code.",
             },
           ],
@@ -981,7 +981,7 @@ export default tseslint.config(
   },
 
   // ─── MCP boundary ─────────────────────────────────────────────────
-  // MCP imports adapters from @aic/shared — never external libs directly.
+  // MCP imports adapters from @jatbas/aic-shared — never external libs directly.
   // Exception: zod (MCP handlers are a validation boundary per ADR-009).
   {
     files: ["mcp/src/**/*.ts"],
@@ -993,23 +993,22 @@ export default tseslint.config(
             {
               name: "tiktoken",
               message:
-                "Import the Tokenizer adapter from @aic/shared, not tiktoken directly.",
+                "Import the Tokenizer adapter from @jatbas/aic-shared, not tiktoken directly.",
             },
             {
               name: "fast-glob",
               message:
-                "Import the GlobProvider adapter from @aic/shared, not fast-glob directly.",
+                "Import the GlobProvider adapter from @jatbas/aic-shared, not fast-glob directly.",
             },
             {
               name: "ignore",
               message:
-                "Import the IgnoreProvider adapter from @aic/shared, not ignore directly.",
+                "Import the IgnoreProvider adapter from @jatbas/aic-shared, not ignore directly.",
             },
           ],
           patterns: [
-            BAN_RELATIVE_PARENT,
             {
-              group: ["@aic/cli", "@aic/cli/*", "**/cli/**"],
+              group: ["@jatbas/aic-cli", "@jatbas/aic-cli/*", "**/cli/**"],
               message: "MCP must not import CLI code.",
             },
           ],
@@ -1038,11 +1037,11 @@ export default tseslint.config(
           patterns: [
             BAN_RELATIVE_PARENT,
             {
-              group: ["@aic/cli", "@aic/cli/*", "**/cli/**"],
+              group: ["@jatbas/aic-cli", "@jatbas/aic-cli/*", "**/cli/**"],
               message: "Adapters must not import CLI code.",
             },
             {
-              group: ["@aic/mcp", "@aic/mcp/*", "**/mcp/**"],
+              group: ["@jatbas/aic-mcp", "@jatbas/aic-mcp/*", "**/mcp/**"],
               message: "Adapters must not import MCP code.",
             },
             {
@@ -1085,11 +1084,11 @@ export default tseslint.config(
           patterns: [
             BAN_RELATIVE_PARENT,
             {
-              group: ["@aic/cli", "@aic/cli/*", "**/cli/**"],
+              group: ["@jatbas/aic-cli", "@jatbas/aic-cli/*", "**/cli/**"],
               message: "Adapters must not import CLI code.",
             },
             {
-              group: ["@aic/mcp", "@aic/mcp/*", "**/mcp/**"],
+              group: ["@jatbas/aic-mcp", "@jatbas/aic-mcp/*", "**/mcp/**"],
               message: "Adapters must not import MCP code.",
             },
             {
@@ -1138,11 +1137,11 @@ export default tseslint.config(
           patterns: [
             BAN_RELATIVE_PARENT,
             {
-              group: ["@aic/cli", "@aic/cli/*", "**/cli/**"],
+              group: ["@jatbas/aic-cli", "@jatbas/aic-cli/*", "**/cli/**"],
               message: "Adapters must not import CLI code.",
             },
             {
-              group: ["@aic/mcp", "@aic/mcp/*", "**/mcp/**"],
+              group: ["@jatbas/aic-mcp", "@jatbas/aic-mcp/*", "**/mcp/**"],
               message: "Adapters must not import MCP code.",
             },
             {
@@ -1196,11 +1195,11 @@ export default tseslint.config(
           patterns: [
             BAN_RELATIVE_PARENT,
             {
-              group: ["@aic/cli", "@aic/cli/*", "**/cli/**"],
+              group: ["@jatbas/aic-cli", "@jatbas/aic-cli/*", "**/cli/**"],
               message: "Adapters must not import CLI code.",
             },
             {
-              group: ["@aic/mcp", "@aic/mcp/*", "**/mcp/**"],
+              group: ["@jatbas/aic-mcp", "@jatbas/aic-mcp/*", "**/mcp/**"],
               message: "Adapters must not import MCP code.",
             },
             {
@@ -1299,11 +1298,11 @@ export default tseslint.config(
           patterns: [
             BAN_RELATIVE_PARENT,
             {
-              group: ["@aic/cli", "@aic/cli/*", "**/cli/**"],
+              group: ["@jatbas/aic-cli", "@jatbas/aic-cli/*", "**/cli/**"],
               message: "Adapters must not import CLI code.",
             },
             {
-              group: ["@aic/mcp", "@aic/mcp/*", "**/mcp/**"],
+              group: ["@jatbas/aic-mcp", "@jatbas/aic-mcp/*", "**/mcp/**"],
               message: "Adapters must not import MCP code.",
             },
             {

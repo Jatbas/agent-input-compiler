@@ -3,8 +3,8 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { FileContentReader } from "#core/interfaces/file-content-reader.interface.js";
-import type { AbsolutePath, RelativePath } from "#core/types/paths.js";
+import type { FileContentReader } from "@jatbas/aic-shared/core/interfaces/file-content-reader.interface.js";
+import type { AbsolutePath, RelativePath } from "@jatbas/aic-shared/core/types/paths.js";
 
 // Wraps fs.readFileSync with mtime-based caching so repeated reads
 // of the same unchanged file (within or across compilations) hit memory.

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { RulePackResolver as IRulePackResolver } from "#core/interfaces/rule-pack-resolver.interface.js";
-import type { RulePackProvider } from "#core/interfaces/rule-pack-provider.interface.js";
-import type { TaskClassification } from "#core/types/task-classification.js";
-import type { RulePack } from "#core/types/rule-pack.js";
-import type { AbsolutePath } from "#core/types/paths.js";
+import type { RulePackResolver as IRulePackResolver } from "@jatbas/aic-shared/core/interfaces/rule-pack-resolver.interface.js";
+import type { RulePackProvider } from "@jatbas/aic-shared/core/interfaces/rule-pack-provider.interface.js";
+import type { TaskClassification } from "@jatbas/aic-shared/core/types/task-classification.js";
+import type { RulePack } from "@jatbas/aic-shared/core/types/rule-pack.js";
+import type { AbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
 
 function dedupe<T>(arr: readonly T[]): T[] {
   const seen = new Set<T>();

@@ -1,6 +1,6 @@
 # Task 120: Fix package resolution for zero-install publishing
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** 0.5 — Quality Release
 > **Layer:** cross-cutting (shared, mcp, root config)
 > **Depends on:** None

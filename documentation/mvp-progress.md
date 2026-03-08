@@ -124,7 +124,7 @@ Final polish for public release. npm publish, changelog, benchmarks, visual demo
 | License headers audit                                                | Done    | ./                         | —      | —           | Ensure license headers present                                             |
 | Contributing guide (final)                                           | Done    | ./                         | —      | —           | How to contribute                                                          |
 | AIC-only ignore entries (.gitignore, .prettierignore, .eslintignore) | Done    | shared/src/storage/ + mcp/ | —      | —           | Add only AIC paths so user config untouched; format/lint skip AIC files    |
-| Update notification (version check) (Task 119)                       | Done    | mcp/                       | —      | npm publish | Notify when newer AIC version available; 24h cache; status + session start |
+| Update notification (version check)                                  | Done    | mcp/                       | —      | npm publish | Notify when newer AIC version available; 24h cache; status + session start |
 | Multi-repo benchmark suite (multi-scale datapoints)                  | Pending | test/                      | GAP-11 | —           | Token reduction at multiple project scales                                 |
 | Comparative benchmarks vs. native editor context                     | Pending | test/                      | GAP-10 | —           | AIC vs native editor context selection                                     |
 | Visual demo (GIF/recording) in README                                | Pending | ./                         | GAP-09 | Phase N–U   | Screen recording of AIC in editor                                          |
@@ -342,7 +342,12 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ## Daily Log
 
-## Daily Log
+### 2026-03-09
+
+**Components:** Package resolution for zero-install (Task 120)
+**Completed:**
+
+- Fix package resolution for zero-install (Task 120): Replaced #core/#adapters/#storage/#pipeline in shared with @jatbas/aic-shared/_; @aic/shared in mcp with @jatbas/aic-shared; #mcp/_ in handlers with relative imports; removed imports from shared/package.json and mcp/package.json; mcp files includes hooks; root build script pnpm -r run build; tsconfig.base.json and eslint.config.mjs use @jatbas/aic-shared and @jatbas/aic-mcp; .cursor/rules updated; ESLint MCP block allows relative imports in mcp/src. Lint, typecheck, test, knip, lint:clones pass; dist has shebang and correct imports; npm pack --dry-run includes hooks.
 
 ### 2026-03-08
 

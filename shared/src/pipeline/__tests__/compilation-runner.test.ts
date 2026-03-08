@@ -4,36 +4,43 @@
 import * as path from "node:path";
 import * as fs from "node:fs";
 import { describe, it, expect } from "vitest";
-import { toAbsolutePath } from "#core/types/paths.js";
-import { toRelativePath } from "#core/types/paths.js";
-import { toTokenCount, toMilliseconds } from "#core/types/units.js";
-import { toBytes } from "#core/types/units.js";
-import { toISOTimestamp } from "#core/types/identifiers.js";
-import type { CompilationRequest } from "#core/types/compilation-types.js";
-import type { CachedCompilation } from "#core/types/compilation-types.js";
-import type { RepoMap, FileEntry } from "#core/types/repo-map.js";
-import type { RulePack } from "#core/types/rule-pack.js";
-import type { FileContentReader } from "#core/interfaces/file-content-reader.interface.js";
-import type { RepoMapSupplier } from "#core/interfaces/repo-map-supplier.interface.js";
-import type { Clock } from "#core/interfaces/clock.interface.js";
-import type { CacheStore } from "#core/interfaces/cache-store.interface.js";
-import type { ConfigStore } from "#core/interfaces/config-store.interface.js";
-import type { StringHasher } from "#core/interfaces/string-hasher.interface.js";
-import type { GuardStore } from "#core/interfaces/guard-store.interface.js";
-import type { CompilationLogStore } from "#core/interfaces/compilation-log-store.interface.js";
-import type { IdGenerator } from "#core/interfaces/id-generator.interface.js";
-import type { RulePackProvider } from "#core/interfaces/rule-pack-provider.interface.js";
-import type { BudgetConfig } from "#core/interfaces/budget-config.interface.js";
-import type { TaskClass } from "#core/types/enums.js";
-import type { CompilationLogEntry } from "#core/types/compilation-log-entry.js";
-import type { GuardFinding } from "#core/types/guard-types.js";
-import type { UUIDv7 } from "#core/types/identifiers.js";
-import { EDITOR_ID, TRIGGER_SOURCE } from "#core/types/enums.js";
-import { toUUIDv7, toConversationId, toSessionId } from "#core/types/identifiers.js";
-import { toStepIndex } from "#core/types/units.js";
-import { INCLUSION_TIER } from "#core/types/enums.js";
-import type { AgenticSessionState } from "#core/interfaces/agentic-session-state.interface.js";
-import type { PreviousFile, SessionStep } from "#core/types/session-dedup-types.js";
+import { toAbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { toTokenCount, toMilliseconds } from "@jatbas/aic-shared/core/types/units.js";
+import { toBytes } from "@jatbas/aic-shared/core/types/units.js";
+import { toISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
+import type { CompilationRequest } from "@jatbas/aic-shared/core/types/compilation-types.js";
+import type { CachedCompilation } from "@jatbas/aic-shared/core/types/compilation-types.js";
+import type { RepoMap, FileEntry } from "@jatbas/aic-shared/core/types/repo-map.js";
+import type { RulePack } from "@jatbas/aic-shared/core/types/rule-pack.js";
+import type { FileContentReader } from "@jatbas/aic-shared/core/interfaces/file-content-reader.interface.js";
+import type { RepoMapSupplier } from "@jatbas/aic-shared/core/interfaces/repo-map-supplier.interface.js";
+import type { Clock } from "@jatbas/aic-shared/core/interfaces/clock.interface.js";
+import type { CacheStore } from "@jatbas/aic-shared/core/interfaces/cache-store.interface.js";
+import type { ConfigStore } from "@jatbas/aic-shared/core/interfaces/config-store.interface.js";
+import type { StringHasher } from "@jatbas/aic-shared/core/interfaces/string-hasher.interface.js";
+import type { GuardStore } from "@jatbas/aic-shared/core/interfaces/guard-store.interface.js";
+import type { CompilationLogStore } from "@jatbas/aic-shared/core/interfaces/compilation-log-store.interface.js";
+import type { IdGenerator } from "@jatbas/aic-shared/core/interfaces/id-generator.interface.js";
+import type { RulePackProvider } from "@jatbas/aic-shared/core/interfaces/rule-pack-provider.interface.js";
+import type { BudgetConfig } from "@jatbas/aic-shared/core/interfaces/budget-config.interface.js";
+import type { TaskClass } from "@jatbas/aic-shared/core/types/enums.js";
+import type { CompilationLogEntry } from "@jatbas/aic-shared/core/types/compilation-log-entry.js";
+import type { GuardFinding } from "@jatbas/aic-shared/core/types/guard-types.js";
+import type { UUIDv7 } from "@jatbas/aic-shared/core/types/identifiers.js";
+import { EDITOR_ID, TRIGGER_SOURCE } from "@jatbas/aic-shared/core/types/enums.js";
+import {
+  toUUIDv7,
+  toConversationId,
+  toSessionId,
+} from "@jatbas/aic-shared/core/types/identifiers.js";
+import { toStepIndex } from "@jatbas/aic-shared/core/types/units.js";
+import { INCLUSION_TIER } from "@jatbas/aic-shared/core/types/enums.js";
+import type { AgenticSessionState } from "@jatbas/aic-shared/core/interfaces/agentic-session-state.interface.js";
+import type {
+  PreviousFile,
+  SessionStep,
+} from "@jatbas/aic-shared/core/types/session-dedup-types.js";
 import { CompilationRunner } from "../compilation-runner.js";
 import { IntentClassifier } from "../intent-classifier.js";
 import { RulePackResolver } from "../rule-pack-resolver.js";
@@ -55,9 +62,9 @@ import { IntentAwareFileDiscoverer } from "../intent-aware-file-discoverer.js";
 import { SpecFileDiscoverer } from "../spec-file-discoverer.js";
 import { ConversationCompressorImpl } from "../conversation-compressor.js";
 import { StructuralMapBuilder } from "../structural-map-builder.js";
-import { TiktokenAdapter } from "#adapters/tiktoken-adapter.js";
-import { TypeScriptProvider } from "#adapters/typescript-provider.js";
-import { GenericProvider } from "#adapters/generic-provider.js";
+import { TiktokenAdapter } from "@jatbas/aic-shared/adapters/tiktoken-adapter.js";
+import { TypeScriptProvider } from "@jatbas/aic-shared/adapters/typescript-provider.js";
+import { GenericProvider } from "@jatbas/aic-shared/adapters/generic-provider.js";
 
 const FIXED_TS = "2026-01-01T00:00:00.000Z";
 

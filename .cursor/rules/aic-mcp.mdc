@@ -14,7 +14,7 @@ The MCP handler (`mcp/src/server.ts`) is a **composition root** and **thin facad
 
 ```typescript
 // mcp/src/server.ts — composition root
-import { IntentClassifier } from "@aic/shared/pipeline/step1-classify/intent-classifier";
+import { IntentClassifier } from "@jatbas/aic-shared/pipeline/step1-classify/intent-classifier";
 import { CompilationRequestSchema } from "./schemas/compilation-request.schema";
 // ... other pipeline imports
 
@@ -98,5 +98,5 @@ See `AIC-errors.mdc §Error response sanitization` for the full rules.
 
 Files in `mcp/src/`:
 
-- **May** import from `@aic/shared` (pipeline, core, adapters, storage)
+- **May** import from `@jatbas/aic-shared` (pipeline, core, adapters, storage)
 - **Must not** import Node.js APIs except in the composition root (for process lifecycle)

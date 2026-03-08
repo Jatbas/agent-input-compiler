@@ -6,8 +6,8 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { ensureProjectInit, runInit } from "../init-project.js";
-import { toAbsolutePath } from "@aic/shared/core/types/paths.js";
-import { ConfigError } from "@aic/shared/core/errors/config-error.js";
+import { toAbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { ConfigError } from "@jatbas/aic-shared/core/errors/config-error.js";
 
 describe("runInit", () => {
   let tmpDir: string;

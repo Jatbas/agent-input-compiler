@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { ContentTransformer } from "#core/interfaces/content-transformer.interface.js";
-import type { FileExtension, RelativePath } from "#core/types/paths.js";
-import type { InclusionTier } from "#core/types/enums.js";
+import type { ContentTransformer } from "@jatbas/aic-shared/core/interfaces/content-transformer.interface.js";
+import type { FileExtension, RelativePath } from "@jatbas/aic-shared/core/types/paths.js";
+import type { InclusionTier } from "@jatbas/aic-shared/core/types/enums.js";
 
 const MAX_DOCSTRING_LENGTH = 200;
 const PY_DOUBLE_TRIPLE_RE = /"""[\s\S]*?"""/g;

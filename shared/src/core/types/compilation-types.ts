@@ -1,18 +1,30 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { AbsolutePath, FilePath, RelativePath } from "#core/types/paths.js";
-import type { TokenCount, Milliseconds, StepIndex } from "#core/types/units.js";
-import type { Percentage, Confidence } from "#core/types/scores.js";
-import type { SessionId, ConversationId, ISOTimestamp } from "#core/types/identifiers.js";
+import type {
+  AbsolutePath,
+  FilePath,
+  RelativePath,
+} from "@jatbas/aic-shared/core/types/paths.js";
+import type {
+  TokenCount,
+  Milliseconds,
+  StepIndex,
+} from "@jatbas/aic-shared/core/types/units.js";
+import type { Percentage, Confidence } from "@jatbas/aic-shared/core/types/scores.js";
+import type {
+  SessionId,
+  ConversationId,
+  ISOTimestamp,
+} from "@jatbas/aic-shared/core/types/identifiers.js";
 import type {
   TaskClass,
   EditorId,
   InclusionTier,
   ToolOutputType,
   TriggerSource,
-} from "#core/types/enums.js";
-import type { GuardResult } from "#core/types/guard-types.js";
+} from "@jatbas/aic-shared/core/types/enums.js";
+import type { GuardResult } from "@jatbas/aic-shared/core/types/guard-types.js";
 
 export interface ToolOutput {
   readonly type: ToolOutputType;

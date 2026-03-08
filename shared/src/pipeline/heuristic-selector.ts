@@ -1,25 +1,25 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { ContextSelector } from "#core/interfaces/context-selector.interface.js";
-import type { ImportProximityScorer } from "#core/interfaces/import-proximity-scorer.interface.js";
-import type { LanguageProvider } from "#core/interfaces/language-provider.interface.js";
-import type { TaskClassification } from "#core/types/task-classification.js";
-import type { RepoMap } from "#core/types/repo-map.js";
-import type { RulePack } from "#core/types/rule-pack.js";
-import type { TokenCount } from "#core/types/units.js";
-import type { ContextResult } from "#core/types/selected-file.js";
-import type { FileEntry } from "#core/types/repo-map.js";
-import type { SelectedFile } from "#core/types/selected-file.js";
+import type { ContextSelector } from "@jatbas/aic-shared/core/interfaces/context-selector.interface.js";
+import type { ImportProximityScorer } from "@jatbas/aic-shared/core/interfaces/import-proximity-scorer.interface.js";
+import type { LanguageProvider } from "@jatbas/aic-shared/core/interfaces/language-provider.interface.js";
+import type { TaskClassification } from "@jatbas/aic-shared/core/types/task-classification.js";
+import type { RepoMap } from "@jatbas/aic-shared/core/types/repo-map.js";
+import type { RulePack } from "@jatbas/aic-shared/core/types/rule-pack.js";
+import type { TokenCount } from "@jatbas/aic-shared/core/types/units.js";
+import type { ContextResult } from "@jatbas/aic-shared/core/types/selected-file.js";
+import type { FileEntry } from "@jatbas/aic-shared/core/types/repo-map.js";
+import type { SelectedFile } from "@jatbas/aic-shared/core/types/selected-file.js";
 import type {
   HeuristicSelectorConfig,
   ScoringWeights,
-} from "#core/interfaces/heuristic-selector-config.interface.js";
-import type { RelativePath } from "#core/types/paths.js";
-import { INCLUSION_TIER, TASK_CLASS } from "#core/types/enums.js";
-import type { TaskClass } from "#core/types/enums.js";
-import { toRelevanceScore } from "#core/types/scores.js";
-import { toTokenCount } from "#core/types/units.js";
+} from "@jatbas/aic-shared/core/interfaces/heuristic-selector-config.interface.js";
+import type { RelativePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { INCLUSION_TIER, TASK_CLASS } from "@jatbas/aic-shared/core/types/enums.js";
+import type { TaskClass } from "@jatbas/aic-shared/core/types/enums.js";
+import { toRelevanceScore } from "@jatbas/aic-shared/core/types/scores.js";
+import { toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
 import { matchesGlob } from "./glob-match.js";
 import { minMaxNorm } from "./min-max-norm.js";
 import { pathRelevance } from "./path-relevance.js";

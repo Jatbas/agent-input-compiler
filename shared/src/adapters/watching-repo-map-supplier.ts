@@ -3,15 +3,15 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { RepoMapSupplier } from "#core/interfaces/repo-map-supplier.interface.js";
-import type { Closeable } from "#core/interfaces/closeable.interface.js";
-import type { IgnoreProvider } from "#core/interfaces/ignore-provider.interface.js";
-import type { AbsolutePath } from "#core/types/paths.js";
-import type { RepoMap, FileEntry } from "#core/types/repo-map.js";
-import { toRelativePath } from "#core/types/paths.js";
-import { toBytes } from "#core/types/units.js";
-import { toTokenCount } from "#core/types/units.js";
-import { toISOTimestamp } from "#core/types/identifiers.js";
+import type { RepoMapSupplier } from "@jatbas/aic-shared/core/interfaces/repo-map-supplier.interface.js";
+import type { Closeable } from "@jatbas/aic-shared/core/interfaces/closeable.interface.js";
+import type { IgnoreProvider } from "@jatbas/aic-shared/core/interfaces/ignore-provider.interface.js";
+import type { AbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
+import type { RepoMap, FileEntry } from "@jatbas/aic-shared/core/types/repo-map.js";
+import { toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { toBytes } from "@jatbas/aic-shared/core/types/units.js";
+import { toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
+import { toISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
 import { buildFileEntry } from "./file-entry-utils.js";
 
 type WatchFn = (

@@ -2,7 +2,7 @@
 // Copyright (c) 2025 AIC Contributors
 
 import { createHash } from "node:crypto";
-import type { StringHasher } from "#core/interfaces/string-hasher.interface.js";
+import type { StringHasher } from "@jatbas/aic-shared/core/interfaces/string-hasher.interface.js";
 
 export class Sha256Adapter implements StringHasher {
   hash(input: string): string {

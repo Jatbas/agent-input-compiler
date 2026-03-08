@@ -5,13 +5,16 @@ import { describe, it, beforeAll, afterEach, expect, vi } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import { toSessionId, toISOTimestamp } from "@aic/shared/core/types/identifiers.js";
+import {
+  toSessionId,
+  toISOTimestamp,
+} from "@jatbas/aic-shared/core/types/identifiers.js";
 import { createMcpServer, registerShutdownHandler } from "../server.js";
-import { toMilliseconds } from "@aic/shared/core/types/units.js";
-import { STOP_REASON } from "@aic/shared/core/types/enums.js";
-import { createProjectScope } from "@aic/shared/storage/create-project-scope.js";
-import { ensureAicDir } from "@aic/shared/storage/ensure-aic-dir.js";
-import { toAbsolutePath } from "@aic/shared/core/types/paths.js";
+import { toMilliseconds } from "@jatbas/aic-shared/core/types/units.js";
+import { STOP_REASON } from "@jatbas/aic-shared/core/types/enums.js";
+import { createProjectScope } from "@jatbas/aic-shared/storage/create-project-scope.js";
+import { ensureAicDir } from "@jatbas/aic-shared/storage/ensure-aic-dir.js";
+import { toAbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 
@@ -109,7 +112,7 @@ describe("MCP server", () => {
   });
 
   it("status_resource_includes_updateAvailable", async () => {
-    const registryJson = JSON.stringify({ "dist-tags": { latest: "0.2.2" } });
+    const registryJson = JSON.stringify({ "dist-tags": { latest: "99.0.0" } });
     const originalFetch = globalThis.fetch;
     globalThis.fetch = vi.fn().mockResolvedValue({
       arrayBuffer: () => Promise.resolve(new TextEncoder().encode(registryJson)),
@@ -127,7 +130,7 @@ describe("MCP server", () => {
       const rawText: string =
         first && "text" in first && typeof first.text === "string" ? first.text : "{}";
       const parsed = JSON.parse(rawText) as Record<string, unknown>;
-      expect(parsed["updateAvailable"]).toBe("0.2.2");
+      expect(parsed["updateAvailable"]).toBe("99.0.0");
     } finally {
       globalThis.fetch = originalFetch;
     }

@@ -3,15 +3,15 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { AbsolutePath } from "@aic/shared/core/types/paths.js";
+import type { AbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
 import {
   ensureAicDir,
   ensureEslintignore,
   ensurePrettierignore,
-} from "@aic/shared/storage/ensure-aic-dir.js";
+} from "@jatbas/aic-shared/storage/ensure-aic-dir.js";
 import { installTriggerRule } from "./install-trigger-rule.js";
 import { installCursorHooks } from "./install-cursor-hooks.js";
-import { ConfigError } from "@aic/shared/core/errors/config-error.js";
+import { ConfigError } from "@jatbas/aic-shared/core/errors/config-error.js";
 
 const DEFAULT_CONFIG = {
   contextBudget: { maxTokens: 8000 },

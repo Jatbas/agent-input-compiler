@@ -6,10 +6,10 @@ export {
   defineTreeSitterProvider,
   resolveTreeSitterWasm,
 } from "./tree-sitter-provider-factory.js";
-export { toFileExtension } from "#core/types/paths.js";
-export type { FileExtension } from "#core/types/paths.js";
-export type { ImportRef } from "#core/types/import-ref.js";
-export type { CodeChunk } from "#core/types/code-chunk.js";
-export type { ExportedSymbol } from "#core/types/exported-symbol.js";
-export { SYMBOL_KIND, SYMBOL_TYPE } from "#core/types/enums.js";
-export type { SymbolKind, SymbolType } from "#core/types/enums.js";
+export { toFileExtension } from "@jatbas/aic-shared/core/types/paths.js";
+export type { FileExtension } from "@jatbas/aic-shared/core/types/paths.js";
+export type { ImportRef } from "@jatbas/aic-shared/core/types/import-ref.js";
+export type { CodeChunk } from "@jatbas/aic-shared/core/types/code-chunk.js";
+export type { ExportedSymbol } from "@jatbas/aic-shared/core/types/exported-symbol.js";
+export { SYMBOL_KIND, SYMBOL_TYPE } from "@jatbas/aic-shared/core/types/enums.js";
+export type { SymbolKind, SymbolType } from "@jatbas/aic-shared/core/types/enums.js";

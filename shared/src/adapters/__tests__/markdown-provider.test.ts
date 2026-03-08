@@ -3,8 +3,8 @@
 
 import { describe, it, expect } from "vitest";
 import { MarkdownProvider } from "../markdown-provider.js";
-import { toRelativePath } from "#core/types/paths.js";
-import { SYMBOL_KIND } from "#core/types/enums.js";
+import { toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { SYMBOL_KIND } from "@jatbas/aic-shared/core/types/enums.js";
 
 describe("MarkdownProvider", () => {
   const provider = new MarkdownProvider();

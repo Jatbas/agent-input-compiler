@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { GuardScanner } from "#core/interfaces/guard-scanner.interface.js";
-import type { SelectedFile } from "#core/types/selected-file.js";
-import type { GuardFinding } from "#core/types/guard-types.js";
+import type { GuardScanner } from "@jatbas/aic-shared/core/interfaces/guard-scanner.interface.js";
+import type { SelectedFile } from "@jatbas/aic-shared/core/types/selected-file.js";
+import type { GuardFinding } from "@jatbas/aic-shared/core/types/guard-types.js";
 import { runInstructionPatternScan } from "./instruction-patterns.js";
 
 const MARKDOWN_EXTENSIONS: readonly string[] = [".md", ".mdc", ".mdx"];

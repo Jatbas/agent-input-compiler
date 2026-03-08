@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { AbsolutePath } from "#core/types/paths.js";
-import type { FilePath } from "#core/types/paths.js";
+import type { AbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
+import type { FilePath } from "@jatbas/aic-shared/core/types/paths.js";
 
 export interface StatusRequest {
   readonly projectRoot: AbsolutePath;

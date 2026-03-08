@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { AbsolutePath, FilePath } from "#core/types/paths.js";
-import type { TokenCount } from "#core/types/units.js";
-import type { Percentage } from "#core/types/scores.js";
-import type { ISOTimestamp } from "#core/types/identifiers.js";
-import type { TaskClassification } from "#core/types/task-classification.js";
-import type { SelectedFile } from "#core/types/selected-file.js";
-import type { GuardResult } from "#core/types/guard-types.js";
-import type { TransformMetadata } from "#core/types/transform-types.js";
-import type { InclusionTier } from "#core/types/enums.js";
+import type { AbsolutePath, FilePath } from "@jatbas/aic-shared/core/types/paths.js";
+import type { TokenCount } from "@jatbas/aic-shared/core/types/units.js";
+import type { Percentage } from "@jatbas/aic-shared/core/types/scores.js";
+import type { ISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
+import type { TaskClassification } from "@jatbas/aic-shared/core/types/task-classification.js";
+import type { SelectedFile } from "@jatbas/aic-shared/core/types/selected-file.js";
+import type { GuardResult } from "@jatbas/aic-shared/core/types/guard-types.js";
+import type { TransformMetadata } from "@jatbas/aic-shared/core/types/transform-types.js";
+import type { InclusionTier } from "@jatbas/aic-shared/core/types/enums.js";
 
 export interface InspectRequest {
   readonly intent: string;

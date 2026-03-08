@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { ModelDetector } from "#core/interfaces/model-detector.interface.js";
-import type { ModelEnvHints } from "#core/types/model-env-hints.js";
-import type { EditorId } from "#core/types/enums.js";
-import { EDITOR_ID } from "#core/types/enums.js";
+import type { ModelDetector } from "@jatbas/aic-shared/core/interfaces/model-detector.interface.js";
+import type { ModelEnvHints } from "@jatbas/aic-shared/core/types/model-env-hints.js";
+import type { EditorId } from "@jatbas/aic-shared/core/types/enums.js";
+import { EDITOR_ID } from "@jatbas/aic-shared/core/types/enums.js";
 
 type DetectFn = (hints: ModelEnvHints) => string | null;
 

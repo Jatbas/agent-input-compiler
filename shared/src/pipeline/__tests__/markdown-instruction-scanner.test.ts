@@ -3,11 +3,15 @@
 
 import { describe, it, expect } from "vitest";
 import { MarkdownInstructionScanner } from "../markdown-instruction-scanner.js";
-import { toRelativePath } from "#core/types/paths.js";
-import { toTokenCount } from "#core/types/units.js";
-import { toRelevanceScore } from "#core/types/scores.js";
-import { GUARD_SEVERITY, GUARD_FINDING_TYPE, INCLUSION_TIER } from "#core/types/enums.js";
-import type { SelectedFile } from "#core/types/selected-file.js";
+import { toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
+import { toRelevanceScore } from "@jatbas/aic-shared/core/types/scores.js";
+import {
+  GUARD_SEVERITY,
+  GUARD_FINDING_TYPE,
+  INCLUSION_TIER,
+} from "@jatbas/aic-shared/core/types/enums.js";
+import type { SelectedFile } from "@jatbas/aic-shared/core/types/selected-file.js";
 
 function makeFile(path: string): SelectedFile {
   return {

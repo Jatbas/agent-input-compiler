@@ -3,9 +3,9 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
-import type { EditorModelConfigReader } from "#core/interfaces/editor-model-config-reader.interface.js";
-import type { EditorId } from "#core/types/enums.js";
-import { EDITOR_ID } from "#core/types/enums.js";
+import type { EditorModelConfigReader } from "@jatbas/aic-shared/core/interfaces/editor-model-config-reader.interface.js";
+import type { EditorId } from "@jatbas/aic-shared/core/types/enums.js";
+import { EDITOR_ID } from "@jatbas/aic-shared/core/types/enums.js";
 
 function readModelFromPath(filePath: string): string | null {
   if (!fs.existsSync(filePath)) return null;

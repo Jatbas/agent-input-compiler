@@ -3,10 +3,10 @@
 
 import { describe, it, expect } from "vitest";
 import { ConversationCompressorImpl } from "../conversation-compressor.js";
-import type { SessionStep } from "#core/types/session-dedup-types.js";
-import { toStepIndex, toTokenCount } from "#core/types/units.js";
-import { toRelativePath } from "#core/types/paths.js";
-import { toISOTimestamp } from "#core/types/identifiers.js";
+import type { SessionStep } from "@jatbas/aic-shared/core/types/session-dedup-types.js";
+import { toStepIndex, toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
+import { toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { toISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
 
 function makeStep(overrides: Partial<SessionStep> = {}): SessionStep {
   return {

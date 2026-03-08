@@ -2,14 +2,18 @@
 // Copyright (c) 2025 AIC Contributors
 
 import { describe, it, expect } from "vitest";
-import { toAbsolutePath, toRelativePath, toGlobPattern } from "#core/types/paths.js";
-import { toTokenCount, toBytes } from "#core/types/units.js";
-import { toISOTimestamp } from "#core/types/identifiers.js";
-import { toConfidence } from "#core/types/scores.js";
-import type { RepoMap, FileEntry } from "#core/types/repo-map.js";
-import type { TaskClassification } from "#core/types/task-classification.js";
-import type { RulePack } from "#core/types/rule-pack.js";
-import { TASK_CLASS } from "#core/types/enums.js";
+import {
+  toAbsolutePath,
+  toRelativePath,
+  toGlobPattern,
+} from "@jatbas/aic-shared/core/types/paths.js";
+import { toTokenCount, toBytes } from "@jatbas/aic-shared/core/types/units.js";
+import { toISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
+import { toConfidence } from "@jatbas/aic-shared/core/types/scores.js";
+import type { RepoMap, FileEntry } from "@jatbas/aic-shared/core/types/repo-map.js";
+import type { TaskClassification } from "@jatbas/aic-shared/core/types/task-classification.js";
+import type { RulePack } from "@jatbas/aic-shared/core/types/rule-pack.js";
+import { TASK_CLASS } from "@jatbas/aic-shared/core/types/enums.js";
 import { IntentAwareFileDiscoverer } from "../intent-aware-file-discoverer.js";
 
 const ROOT = toAbsolutePath("/repo");

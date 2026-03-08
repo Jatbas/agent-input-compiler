@@ -1,17 +1,20 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { InspectRunner as IInspectRunner } from "#core/interfaces/inspect-runner.interface.js";
-import type { Clock } from "#core/interfaces/clock.interface.js";
-import type { PipelineStepsDeps } from "#core/run-pipeline-steps.js";
-import type { InspectRequest, PipelineTrace } from "#core/types/inspect-types.js";
-import { toPercentage } from "#core/types/scores.js";
+import type { InspectRunner as IInspectRunner } from "@jatbas/aic-shared/core/interfaces/inspect-runner.interface.js";
+import type { Clock } from "@jatbas/aic-shared/core/interfaces/clock.interface.js";
+import type { PipelineStepsDeps } from "@jatbas/aic-shared/core/run-pipeline-steps.js";
+import type {
+  InspectRequest,
+  PipelineTrace,
+} from "@jatbas/aic-shared/core/types/inspect-types.js";
+import { toPercentage } from "@jatbas/aic-shared/core/types/scores.js";
 import {
   sumFileTokens,
   sumTransformTokens,
   buildSummarisationTiers,
-} from "#core/token-summary.js";
-import { runPipelineSteps } from "#core/run-pipeline-steps.js";
+} from "@jatbas/aic-shared/core/token-summary.js";
+import { runPipelineSteps } from "@jatbas/aic-shared/core/run-pipeline-steps.js";
 
 export class InspectRunner implements IInspectRunner {
   constructor(

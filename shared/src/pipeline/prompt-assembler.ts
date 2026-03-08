@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { PromptAssembler as IPromptAssembler } from "#core/interfaces/prompt-assembler.interface.js";
-import type { FileContentReader } from "#core/interfaces/file-content-reader.interface.js";
-import type { TaskClassification } from "#core/types/task-classification.js";
-import type { SelectedFile } from "#core/types/selected-file.js";
-import type { OutputFormat } from "#core/types/enums.js";
-import { OUTPUT_FORMAT } from "#core/types/enums.js";
+import type { PromptAssembler as IPromptAssembler } from "@jatbas/aic-shared/core/interfaces/prompt-assembler.interface.js";
+import type { FileContentReader } from "@jatbas/aic-shared/core/interfaces/file-content-reader.interface.js";
+import type { TaskClassification } from "@jatbas/aic-shared/core/types/task-classification.js";
+import type { SelectedFile } from "@jatbas/aic-shared/core/types/selected-file.js";
+import type { OutputFormat } from "@jatbas/aic-shared/core/types/enums.js";
+import { OUTPUT_FORMAT } from "@jatbas/aic-shared/core/types/enums.js";
 
 const FORMAT_DESCRIPTIONS: Readonly<Record<OutputFormat, string>> = {
   [OUTPUT_FORMAT.UNIFIED_DIFF]:

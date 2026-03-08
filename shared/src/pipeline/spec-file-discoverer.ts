@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { SpecFileDiscoverer as ISpecFileDiscoverer } from "#core/interfaces/spec-file-discoverer.interface.js";
-import type { RepoMap } from "#core/types/repo-map.js";
-import type { FileEntry } from "#core/types/repo-map.js";
-import type { TaskClassification } from "#core/types/task-classification.js";
-import type { RulePack } from "#core/types/rule-pack.js";
-import type { ContextResult } from "#core/types/selected-file.js";
-import type { SelectedFile } from "#core/types/selected-file.js";
-import { INCLUSION_TIER } from "#core/types/enums.js";
-import { toRelevanceScore } from "#core/types/scores.js";
-import { toTokenCount } from "#core/types/units.js";
+import type { SpecFileDiscoverer as ISpecFileDiscoverer } from "@jatbas/aic-shared/core/interfaces/spec-file-discoverer.interface.js";
+import type { RepoMap } from "@jatbas/aic-shared/core/types/repo-map.js";
+import type { FileEntry } from "@jatbas/aic-shared/core/types/repo-map.js";
+import type { TaskClassification } from "@jatbas/aic-shared/core/types/task-classification.js";
+import type { RulePack } from "@jatbas/aic-shared/core/types/rule-pack.js";
+import type { ContextResult } from "@jatbas/aic-shared/core/types/selected-file.js";
+import type { SelectedFile } from "@jatbas/aic-shared/core/types/selected-file.js";
+import { INCLUSION_TIER } from "@jatbas/aic-shared/core/types/enums.js";
+import { toRelevanceScore } from "@jatbas/aic-shared/core/types/scores.js";
+import { toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
 import { matchesGlob } from "./glob-match.js";
 import { minMaxNorm } from "./min-max-norm.js";
 import { pathRelevance } from "./path-relevance.js";

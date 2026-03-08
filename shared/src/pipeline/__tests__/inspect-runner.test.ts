@@ -5,33 +5,40 @@ import { describe, it, expect } from "vitest";
 import { InspectRunner } from "../inspect-runner.js";
 import { ConversationCompressorImpl } from "../conversation-compressor.js";
 import { StructuralMapBuilder } from "../structural-map-builder.js";
-import type { IntentClassifier } from "#core/interfaces/intent-classifier.interface.js";
-import type { RulePackResolver } from "#core/interfaces/rule-pack-resolver.interface.js";
-import type { BudgetAllocator } from "#core/interfaces/budget-allocator.interface.js";
-import type { ContextSelector } from "#core/interfaces/context-selector.interface.js";
-import type { ContextGuard } from "#core/interfaces/context-guard.interface.js";
-import type { ContentTransformerPipeline } from "#core/interfaces/content-transformer-pipeline.interface.js";
-import type { SummarisationLadder } from "#core/interfaces/summarisation-ladder.interface.js";
-import type { LineLevelPruner } from "#core/interfaces/line-level-pruner.interface.js";
-import type { PromptAssembler } from "#core/interfaces/prompt-assembler.interface.js";
-import type { RepoMapSupplier } from "#core/interfaces/repo-map-supplier.interface.js";
-import type { IntentAwareFileDiscoverer } from "#core/interfaces/intent-aware-file-discoverer.interface.js";
-import type { SpecFileDiscoverer } from "#core/interfaces/spec-file-discoverer.interface.js";
-import type { ConversationCompressor } from "#core/interfaces/conversation-compressor.interface.js";
-import type { Clock } from "#core/interfaces/clock.interface.js";
-import type { TokenCounter } from "#core/interfaces/token-counter.interface.js";
-import type { InspectRequest } from "#core/types/inspect-types.js";
-import type { TaskClassification } from "#core/types/task-classification.js";
-import type { RulePack } from "#core/types/rule-pack.js";
-import type { RepoMap } from "#core/types/repo-map.js";
-import type { ContextResult, SelectedFile } from "#core/types/selected-file.js";
-import type { GuardResult } from "#core/types/guard-types.js";
-import type { TransformResult } from "#core/types/transform-types.js";
-import type { ISOTimestamp } from "#core/types/identifiers.js";
-import { toAbsolutePath, toFilePath, toRelativePath } from "#core/types/paths.js";
-import { toTokenCount } from "#core/types/units.js";
-import { toConfidence, toRelevanceScore } from "#core/types/scores.js";
-import { TASK_CLASS, INCLUSION_TIER } from "#core/types/enums.js";
+import type { IntentClassifier } from "@jatbas/aic-shared/core/interfaces/intent-classifier.interface.js";
+import type { RulePackResolver } from "@jatbas/aic-shared/core/interfaces/rule-pack-resolver.interface.js";
+import type { BudgetAllocator } from "@jatbas/aic-shared/core/interfaces/budget-allocator.interface.js";
+import type { ContextSelector } from "@jatbas/aic-shared/core/interfaces/context-selector.interface.js";
+import type { ContextGuard } from "@jatbas/aic-shared/core/interfaces/context-guard.interface.js";
+import type { ContentTransformerPipeline } from "@jatbas/aic-shared/core/interfaces/content-transformer-pipeline.interface.js";
+import type { SummarisationLadder } from "@jatbas/aic-shared/core/interfaces/summarisation-ladder.interface.js";
+import type { LineLevelPruner } from "@jatbas/aic-shared/core/interfaces/line-level-pruner.interface.js";
+import type { PromptAssembler } from "@jatbas/aic-shared/core/interfaces/prompt-assembler.interface.js";
+import type { RepoMapSupplier } from "@jatbas/aic-shared/core/interfaces/repo-map-supplier.interface.js";
+import type { IntentAwareFileDiscoverer } from "@jatbas/aic-shared/core/interfaces/intent-aware-file-discoverer.interface.js";
+import type { SpecFileDiscoverer } from "@jatbas/aic-shared/core/interfaces/spec-file-discoverer.interface.js";
+import type { ConversationCompressor } from "@jatbas/aic-shared/core/interfaces/conversation-compressor.interface.js";
+import type { Clock } from "@jatbas/aic-shared/core/interfaces/clock.interface.js";
+import type { TokenCounter } from "@jatbas/aic-shared/core/interfaces/token-counter.interface.js";
+import type { InspectRequest } from "@jatbas/aic-shared/core/types/inspect-types.js";
+import type { TaskClassification } from "@jatbas/aic-shared/core/types/task-classification.js";
+import type { RulePack } from "@jatbas/aic-shared/core/types/rule-pack.js";
+import type { RepoMap } from "@jatbas/aic-shared/core/types/repo-map.js";
+import type {
+  ContextResult,
+  SelectedFile,
+} from "@jatbas/aic-shared/core/types/selected-file.js";
+import type { GuardResult } from "@jatbas/aic-shared/core/types/guard-types.js";
+import type { TransformResult } from "@jatbas/aic-shared/core/types/transform-types.js";
+import type { ISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
+import {
+  toAbsolutePath,
+  toFilePath,
+  toRelativePath,
+} from "@jatbas/aic-shared/core/types/paths.js";
+import { toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
+import { toConfidence, toRelevanceScore } from "@jatbas/aic-shared/core/types/scores.js";
+import { TASK_CLASS, INCLUSION_TIER } from "@jatbas/aic-shared/core/types/enums.js";
 
 const projectRoot = toAbsolutePath("/tmp/proj");
 const dbPath = toFilePath("/tmp/proj/.aic/aic.sqlite");

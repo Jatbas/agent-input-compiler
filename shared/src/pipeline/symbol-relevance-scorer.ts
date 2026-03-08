@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { ImportProximityScorer } from "#core/interfaces/import-proximity-scorer.interface.js";
-import type { FileContentReader } from "#core/interfaces/file-content-reader.interface.js";
-import type { LanguageProvider } from "#core/interfaces/language-provider.interface.js";
-import type { FileEntry, RepoMap } from "#core/types/repo-map.js";
-import type { TaskClassification } from "#core/types/task-classification.js";
-import type { RelativePath } from "#core/types/paths.js";
+import type { ImportProximityScorer } from "@jatbas/aic-shared/core/interfaces/import-proximity-scorer.interface.js";
+import type { FileContentReader } from "@jatbas/aic-shared/core/interfaces/file-content-reader.interface.js";
+import type { LanguageProvider } from "@jatbas/aic-shared/core/interfaces/language-provider.interface.js";
+import type { FileEntry, RepoMap } from "@jatbas/aic-shared/core/types/repo-map.js";
+import type { TaskClassification } from "@jatbas/aic-shared/core/types/task-classification.js";
+import type { RelativePath } from "@jatbas/aic-shared/core/types/paths.js";
 import { getProvider } from "./get-provider.js";
 
 function scoreForFile(

@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { SelectedFile } from "#core/types/selected-file.js";
-import type { GuardFinding } from "#core/types/guard-types.js";
-import type { GuardSeverity, GuardFindingType } from "#core/types/enums.js";
-import type { ScanPattern } from "#core/interfaces/scan-pattern.interface.js";
-import { toLineNumber } from "#core/types/units.js";
+import type { SelectedFile } from "@jatbas/aic-shared/core/types/selected-file.js";
+import type { GuardFinding } from "@jatbas/aic-shared/core/types/guard-types.js";
+import type {
+  GuardSeverity,
+  GuardFindingType,
+} from "@jatbas/aic-shared/core/types/enums.js";
+import type { ScanPattern } from "@jatbas/aic-shared/core/interfaces/scan-pattern.interface.js";
+import { toLineNumber } from "@jatbas/aic-shared/core/types/units.js";
 
 function lineNumberAt(content: string, index: number): number {
   return content.slice(0, index).split("\n").length;

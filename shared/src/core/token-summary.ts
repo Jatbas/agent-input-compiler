@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { SelectedFile } from "#core/types/selected-file.js";
-import type { TokenCount } from "#core/types/units.js";
-import type { InclusionTier } from "#core/types/enums.js";
-import { toTokenCount } from "#core/types/units.js";
-import { INCLUSION_TIER } from "#core/types/enums.js";
+import type { SelectedFile } from "@jatbas/aic-shared/core/types/selected-file.js";
+import type { TokenCount } from "@jatbas/aic-shared/core/types/units.js";
+import type { InclusionTier } from "@jatbas/aic-shared/core/types/enums.js";
+import { toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
+import { INCLUSION_TIER } from "@jatbas/aic-shared/core/types/enums.js";
 
 export function sumFileTokens(files: readonly SelectedFile[]): TokenCount {
   const n = files.reduce((acc, f) => acc + f.estimatedTokens, 0);

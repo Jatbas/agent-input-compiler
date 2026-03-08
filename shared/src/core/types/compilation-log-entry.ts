@@ -6,10 +6,14 @@ import type {
   ISOTimestamp,
   SessionId,
   ConversationId,
-} from "#core/types/identifiers.js";
-import type { TokenCount, Milliseconds } from "#core/types/units.js";
-import type { Percentage } from "#core/types/scores.js";
-import type { TaskClass, EditorId, TriggerSource } from "#core/types/enums.js";
+} from "@jatbas/aic-shared/core/types/identifiers.js";
+import type { TokenCount, Milliseconds } from "@jatbas/aic-shared/core/types/units.js";
+import type { Percentage } from "@jatbas/aic-shared/core/types/scores.js";
+import type {
+  TaskClass,
+  EditorId,
+  TriggerSource,
+} from "@jatbas/aic-shared/core/types/enums.js";
 
 export interface CompilationLogEntry {
   readonly id: UUIDv7;

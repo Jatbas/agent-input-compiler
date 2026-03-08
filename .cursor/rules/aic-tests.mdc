@@ -30,7 +30,7 @@ Each pipeline step gets isolated unit tests:
 
 ```typescript
 import { IntentClassifier } from "../intent-classifier";
-import type { Clock } from "@aic/shared/core/interfaces/clock.interface";
+import type { Clock } from "@jatbas/aic-shared/core/interfaces/clock.interface";
 
 describe("IntentClassifier", () => {
   const mockClock: Clock = { now: () => 1700000000000 };

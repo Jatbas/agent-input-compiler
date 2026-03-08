@@ -1,36 +1,39 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { AbsolutePath } from "#core/types/paths.js";
-import type { IntentClassifier } from "#core/interfaces/intent-classifier.interface.js";
-import type { RulePackResolver } from "#core/interfaces/rule-pack-resolver.interface.js";
-import type { BudgetAllocator } from "#core/interfaces/budget-allocator.interface.js";
-import type { ContextSelector } from "#core/interfaces/context-selector.interface.js";
-import type { ContextGuard } from "#core/interfaces/context-guard.interface.js";
-import type { ContentTransformerPipeline } from "#core/interfaces/content-transformer-pipeline.interface.js";
-import type { SummarisationLadder } from "#core/interfaces/summarisation-ladder.interface.js";
-import type { LineLevelPruner } from "#core/interfaces/line-level-pruner.interface.js";
-import type { PromptAssembler } from "#core/interfaces/prompt-assembler.interface.js";
-import type { StructuralMapBuilder } from "#core/interfaces/structural-map-builder.interface.js";
-import type { RepoMapSupplier } from "#core/interfaces/repo-map-supplier.interface.js";
-import type { SpecFileDiscoverer } from "#core/interfaces/spec-file-discoverer.interface.js";
-import type { IntentAwareFileDiscoverer } from "#core/interfaces/intent-aware-file-discoverer.interface.js";
-import type { TokenCounter } from "#core/interfaces/token-counter.interface.js";
-import type { AgenticSessionState } from "#core/interfaces/agentic-session-state.interface.js";
-import type { ConversationCompressor } from "#core/interfaces/conversation-compressor.interface.js";
-import type { PreviousFile } from "#core/types/session-dedup-types.js";
-import type { TaskClassification } from "#core/types/task-classification.js";
-import type { RulePack } from "#core/types/rule-pack.js";
-import type { RepoMap } from "#core/types/repo-map.js";
-import type { ContextResult } from "#core/types/selected-file.js";
-import type { GuardResult } from "#core/types/guard-types.js";
-import type { TransformResult } from "#core/types/transform-types.js";
-import type { SelectedFile } from "#core/types/selected-file.js";
-import type { TokenCount, StepIndex } from "#core/types/units.js";
-import type { SessionId, ISOTimestamp } from "#core/types/identifiers.js";
-import type { SessionBudgetContext } from "#core/types/session-budget-context.js";
-import { toTokenCount } from "#core/types/units.js";
-import { OUTPUT_FORMAT } from "#core/types/enums.js";
+import type { AbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
+import type { IntentClassifier } from "@jatbas/aic-shared/core/interfaces/intent-classifier.interface.js";
+import type { RulePackResolver } from "@jatbas/aic-shared/core/interfaces/rule-pack-resolver.interface.js";
+import type { BudgetAllocator } from "@jatbas/aic-shared/core/interfaces/budget-allocator.interface.js";
+import type { ContextSelector } from "@jatbas/aic-shared/core/interfaces/context-selector.interface.js";
+import type { ContextGuard } from "@jatbas/aic-shared/core/interfaces/context-guard.interface.js";
+import type { ContentTransformerPipeline } from "@jatbas/aic-shared/core/interfaces/content-transformer-pipeline.interface.js";
+import type { SummarisationLadder } from "@jatbas/aic-shared/core/interfaces/summarisation-ladder.interface.js";
+import type { LineLevelPruner } from "@jatbas/aic-shared/core/interfaces/line-level-pruner.interface.js";
+import type { PromptAssembler } from "@jatbas/aic-shared/core/interfaces/prompt-assembler.interface.js";
+import type { StructuralMapBuilder } from "@jatbas/aic-shared/core/interfaces/structural-map-builder.interface.js";
+import type { RepoMapSupplier } from "@jatbas/aic-shared/core/interfaces/repo-map-supplier.interface.js";
+import type { SpecFileDiscoverer } from "@jatbas/aic-shared/core/interfaces/spec-file-discoverer.interface.js";
+import type { IntentAwareFileDiscoverer } from "@jatbas/aic-shared/core/interfaces/intent-aware-file-discoverer.interface.js";
+import type { TokenCounter } from "@jatbas/aic-shared/core/interfaces/token-counter.interface.js";
+import type { AgenticSessionState } from "@jatbas/aic-shared/core/interfaces/agentic-session-state.interface.js";
+import type { ConversationCompressor } from "@jatbas/aic-shared/core/interfaces/conversation-compressor.interface.js";
+import type { PreviousFile } from "@jatbas/aic-shared/core/types/session-dedup-types.js";
+import type { TaskClassification } from "@jatbas/aic-shared/core/types/task-classification.js";
+import type { RulePack } from "@jatbas/aic-shared/core/types/rule-pack.js";
+import type { RepoMap } from "@jatbas/aic-shared/core/types/repo-map.js";
+import type { ContextResult } from "@jatbas/aic-shared/core/types/selected-file.js";
+import type { GuardResult } from "@jatbas/aic-shared/core/types/guard-types.js";
+import type { TransformResult } from "@jatbas/aic-shared/core/types/transform-types.js";
+import type { SelectedFile } from "@jatbas/aic-shared/core/types/selected-file.js";
+import type { TokenCount, StepIndex } from "@jatbas/aic-shared/core/types/units.js";
+import type {
+  SessionId,
+  ISOTimestamp,
+} from "@jatbas/aic-shared/core/types/identifiers.js";
+import type { SessionBudgetContext } from "@jatbas/aic-shared/core/types/session-budget-context.js";
+import { toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
+import { OUTPUT_FORMAT } from "@jatbas/aic-shared/core/types/enums.js";
 
 export interface PipelineStepsDeps {
   readonly intentClassifier: IntentClassifier;

@@ -3,14 +3,14 @@
 
 import { describe, it, expect } from "vitest";
 import { LineLevelPruner } from "../line-level-pruner.js";
-import type { TokenCounter } from "#core/interfaces/token-counter.interface.js";
-import type { FileContentReader } from "#core/interfaces/file-content-reader.interface.js";
-import type { SelectedFile } from "#core/types/selected-file.js";
-import type { RelativePath } from "#core/types/paths.js";
-import { toRelativePath } from "#core/types/paths.js";
-import { toTokenCount } from "#core/types/units.js";
-import { toRelevanceScore } from "#core/types/scores.js";
-import { INCLUSION_TIER } from "#core/types/enums.js";
+import type { TokenCounter } from "@jatbas/aic-shared/core/interfaces/token-counter.interface.js";
+import type { FileContentReader } from "@jatbas/aic-shared/core/interfaces/file-content-reader.interface.js";
+import type { SelectedFile } from "@jatbas/aic-shared/core/types/selected-file.js";
+import type { RelativePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
+import { toRelevanceScore } from "@jatbas/aic-shared/core/types/scores.js";
+import { INCLUSION_TIER } from "@jatbas/aic-shared/core/types/enums.js";
 
 function makeFile(
   path: string,

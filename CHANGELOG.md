@@ -7,6 +7,8 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-03-09
+
 ### Added
 
 - Specification-aware context compilation: project rules, ADRs, and design docs included and compressed alongside code
@@ -22,6 +24,11 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Cursor hook upgrades: sessionEnd, stop quality check, afterFileEdit tracking, sessionStart env propagation, preToolUse schema alignment, postToolUse compile confirmation
 - License header audit and optional prepend script for release
 - AIC-only ignore entries so user .gitignore and formatter config stay untouched
+- Update notification on startup and in status when a newer AIC version is available
+
+### Fixed
+
+- Resolve all zero-install packaging gaps: import specifiers now match published npm package names, hook scripts included in published tarball, shebang present for npx execution
 
 ### Security
 

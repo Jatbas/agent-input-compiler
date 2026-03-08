@@ -2,12 +2,12 @@
 // Copyright (c) 2025 AIC Contributors
 
 import * as path from "node:path";
-import type { RepoMapSupplier } from "#core/interfaces/repo-map-supplier.interface.js";
-import type { GlobProvider } from "#core/interfaces/glob-provider.interface.js";
-import type { IgnoreProvider } from "#core/interfaces/ignore-provider.interface.js";
-import type { AbsolutePath } from "#core/types/paths.js";
-import type { RepoMap, FileEntry } from "#core/types/repo-map.js";
-import { toTokenCount } from "#core/types/units.js";
+import type { RepoMapSupplier } from "@jatbas/aic-shared/core/interfaces/repo-map-supplier.interface.js";
+import type { GlobProvider } from "@jatbas/aic-shared/core/interfaces/glob-provider.interface.js";
+import type { IgnoreProvider } from "@jatbas/aic-shared/core/interfaces/ignore-provider.interface.js";
+import type { AbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
+import type { RepoMap, FileEntry } from "@jatbas/aic-shared/core/types/repo-map.js";
+import { toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
 import { isBinaryExtension, languageFromExtension } from "./file-entry-utils.js";
 
 const DEFAULT_NEGATIVE_PATTERNS: readonly string[] = [

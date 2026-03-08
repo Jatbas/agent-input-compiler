@@ -3,14 +3,14 @@
 
 import { describe, it, expect } from "vitest";
 import { SummarisationLadder } from "../summarisation-ladder.js";
-import type { FileContentReader } from "#core/interfaces/file-content-reader.interface.js";
-import type { LanguageProvider } from "#core/interfaces/language-provider.interface.js";
-import type { CodeChunk } from "#core/types/code-chunk.js";
-import type { SelectedFile } from "#core/types/selected-file.js";
-import { toRelativePath, toFileExtension } from "#core/types/paths.js";
-import { toTokenCount, toLineNumber } from "#core/types/units.js";
-import { toRelevanceScore } from "#core/types/scores.js";
-import { INCLUSION_TIER, SYMBOL_TYPE } from "#core/types/enums.js";
+import type { FileContentReader } from "@jatbas/aic-shared/core/interfaces/file-content-reader.interface.js";
+import type { LanguageProvider } from "@jatbas/aic-shared/core/interfaces/language-provider.interface.js";
+import type { CodeChunk } from "@jatbas/aic-shared/core/types/code-chunk.js";
+import type { SelectedFile } from "@jatbas/aic-shared/core/types/selected-file.js";
+import { toRelativePath, toFileExtension } from "@jatbas/aic-shared/core/types/paths.js";
+import { toTokenCount, toLineNumber } from "@jatbas/aic-shared/core/types/units.js";
+import { toRelevanceScore } from "@jatbas/aic-shared/core/types/scores.js";
+import { INCLUSION_TIER, SYMBOL_TYPE } from "@jatbas/aic-shared/core/types/enums.js";
 
 function makeFile(
   path: string,

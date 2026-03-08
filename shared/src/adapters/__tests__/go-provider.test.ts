@@ -3,9 +3,9 @@
 
 import { describe, it, expect, beforeAll } from "vitest";
 import { Parser } from "web-tree-sitter";
-import type { LanguageProvider } from "#core/interfaces/language-provider.interface.js";
-import { toRelativePath } from "#core/types/paths.js";
-import { SYMBOL_KIND, SYMBOL_TYPE } from "#core/types/enums.js";
+import type { LanguageProvider } from "@jatbas/aic-shared/core/interfaces/language-provider.interface.js";
+import { toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { SYMBOL_KIND, SYMBOL_TYPE } from "@jatbas/aic-shared/core/types/enums.js";
 import { GoProvider } from "../go-provider.js";
 
 describe("GoProvider", () => {

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { ToolInvocationLogStore } from "@aic/shared/core/interfaces/tool-invocation-log-store.interface.js";
-import type { Clock } from "@aic/shared/core/interfaces/clock.interface.js";
-import type { IdGenerator } from "@aic/shared/core/interfaces/id-generator.interface.js";
-import type { SessionId } from "@aic/shared/core/types/identifiers.js";
+import type { ToolInvocationLogStore } from "@jatbas/aic-shared/core/interfaces/tool-invocation-log-store.interface.js";
+import type { Clock } from "@jatbas/aic-shared/core/interfaces/clock.interface.js";
+import type { IdGenerator } from "@jatbas/aic-shared/core/interfaces/id-generator.interface.js";
+import type { SessionId } from "@jatbas/aic-shared/core/types/identifiers.js";
 
 export function recordToolInvocation(
   store: ToolInvocationLogStore,

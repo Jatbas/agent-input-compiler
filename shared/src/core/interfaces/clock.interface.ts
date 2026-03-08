@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { ISOTimestamp } from "#core/types/identifiers.js";
-import type { Milliseconds } from "#core/types/units.js";
+import type { ISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
+import type { Milliseconds } from "@jatbas/aic-shared/core/types/units.js";
 
 export interface Clock {
   now(): ISOTimestamp;

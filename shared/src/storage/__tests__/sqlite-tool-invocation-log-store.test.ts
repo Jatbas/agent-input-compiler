@@ -3,8 +3,12 @@
 
 import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
-import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
-import { toUUIDv7, toISOTimestamp, toSessionId } from "#core/types/identifiers.js";
+import type { ExecutableDb } from "@jatbas/aic-shared/core/interfaces/executable-db.interface.js";
+import {
+  toUUIDv7,
+  toISOTimestamp,
+  toSessionId,
+} from "@jatbas/aic-shared/core/types/identifiers.js";
 import { migration as migration010 } from "../migrations/010-tool-invocation-log.js";
 import { SqliteToolInvocationLogStore } from "../sqlite-tool-invocation-log-store.js";
 

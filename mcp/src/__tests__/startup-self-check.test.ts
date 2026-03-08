@@ -6,7 +6,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { runStartupSelfCheck } from "../startup-self-check.js";
-import { toAbsolutePath } from "@aic/shared/core/types/paths.js";
+import { toAbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
 
 describe("runStartupSelfCheck", () => {
   let tmpDir: string;

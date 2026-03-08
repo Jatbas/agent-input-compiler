@@ -3,8 +3,8 @@
 
 import { describe, it, expect } from "vitest";
 import { CssVariableSummarizer } from "../css-variable-summarizer.js";
-import { toRelativePath } from "#core/types/paths.js";
-import { INCLUSION_TIER } from "#core/types/enums.js";
+import { toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { INCLUSION_TIER } from "@jatbas/aic-shared/core/types/enums.js";
 
 const pathCss = toRelativePath("src/styles.css");
 const pathScss = toRelativePath("src/styles.scss");

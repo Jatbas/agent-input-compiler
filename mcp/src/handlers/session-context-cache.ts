@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { EditorId } from "@aic/shared/core/types/enums.js";
-import { EDITOR_ID } from "@aic/shared/core/types/enums.js";
-import type { SessionId } from "@aic/shared/core/types/identifiers.js";
+import type { EditorId } from "@jatbas/aic-shared/core/types/enums.js";
+import { EDITOR_ID } from "@jatbas/aic-shared/core/types/enums.js";
+import type { SessionId } from "@jatbas/aic-shared/core/types/identifiers.js";
 
 // Single place for session and editor resolution before we persist.
 // Editor: detect from client; if generic, use last known (cursor/claude-code). Session: server's primary only.

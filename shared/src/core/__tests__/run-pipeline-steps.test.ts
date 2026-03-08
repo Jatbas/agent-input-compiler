@@ -6,20 +6,23 @@ import { runPipelineSteps } from "../run-pipeline-steps.js";
 import type {
   PipelineStepsDeps,
   PipelineStepsRequest,
-} from "#core/run-pipeline-steps.js";
-import type { TaskClassification } from "#core/types/task-classification.js";
-import type { RulePack } from "#core/types/rule-pack.js";
-import type { RepoMap } from "#core/types/repo-map.js";
-import type { ContextResult } from "#core/types/selected-file.js";
-import type { GuardResult } from "#core/types/guard-types.js";
-import type { TransformResult } from "#core/types/transform-types.js";
-import type { AgenticSessionState } from "#core/interfaces/agentic-session-state.interface.js";
-import type { SessionStep } from "#core/types/session-dedup-types.js";
-import { toAbsolutePath } from "#core/types/paths.js";
-import { toTokenCount, toStepIndex } from "#core/types/units.js";
-import { toSessionId, toISOTimestamp } from "#core/types/identifiers.js";
-import { TASK_CLASS } from "#core/types/enums.js";
-import { toConfidence } from "#core/types/scores.js";
+} from "@jatbas/aic-shared/core/run-pipeline-steps.js";
+import type { TaskClassification } from "@jatbas/aic-shared/core/types/task-classification.js";
+import type { RulePack } from "@jatbas/aic-shared/core/types/rule-pack.js";
+import type { RepoMap } from "@jatbas/aic-shared/core/types/repo-map.js";
+import type { ContextResult } from "@jatbas/aic-shared/core/types/selected-file.js";
+import type { GuardResult } from "@jatbas/aic-shared/core/types/guard-types.js";
+import type { TransformResult } from "@jatbas/aic-shared/core/types/transform-types.js";
+import type { AgenticSessionState } from "@jatbas/aic-shared/core/interfaces/agentic-session-state.interface.js";
+import type { SessionStep } from "@jatbas/aic-shared/core/types/session-dedup-types.js";
+import { toAbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { toTokenCount, toStepIndex } from "@jatbas/aic-shared/core/types/units.js";
+import {
+  toSessionId,
+  toISOTimestamp,
+} from "@jatbas/aic-shared/core/types/identifiers.js";
+import { TASK_CLASS } from "@jatbas/aic-shared/core/types/enums.js";
+import { toConfidence } from "@jatbas/aic-shared/core/types/scores.js";
 
 const PROJECT_ROOT = toAbsolutePath("/tmp/proj");
 

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
-import type { MigrationRunner as IMigrationRunner } from "#core/interfaces/migration-runner.interface.js";
-import type { Migration } from "#core/interfaces/migration.interface.js";
-import type { Clock } from "#core/interfaces/clock.interface.js";
+import type { ExecutableDb } from "@jatbas/aic-shared/core/interfaces/executable-db.interface.js";
+import type { MigrationRunner as IMigrationRunner } from "@jatbas/aic-shared/core/interfaces/migration-runner.interface.js";
+import type { Migration } from "@jatbas/aic-shared/core/interfaces/migration.interface.js";
+import type { Clock } from "@jatbas/aic-shared/core/interfaces/clock.interface.js";
 
 const SCHEMA_MIGRATIONS_BOOTSTRAP = `
   CREATE TABLE IF NOT EXISTS schema_migrations (

@@ -1,7 +1,7 @@
 # Agent Input Compiler (AIC)
 
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
-![Status](https://img.shields.io/badge/status-0.2.0-brightgreen)
+![Status](https://img.shields.io/badge/status-0.3.0-brightgreen)
 ![Local-first](https://img.shields.io/badge/local--first-yes-brightgreen)
 ![Telemetry](https://img.shields.io/badge/telemetry-opt--in-lightgrey)
 ![MCP Compatible](https://img.shields.io/badge/MCP-compatible-purple)
@@ -89,29 +89,31 @@ Last = most recent compilation.
 
 ### Cursor
 
-**1. Install the MCP server** — one click (recommended):
+**1. Click to install** — one click, no dependencies:
 
 [**Install AIC for Cursor**](cursor://anysphere.cursor-deeplink/mcp/install?name=aic&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqYXRiYXMvYWljLW1jcCJdfQ==)
 
-Cursor will prompt to add the server; confirm and you're done. Or add manually in `~/.cursor/mcp.json`:
+Cursor will prompt to add the server; confirm and you're done.
 
-```json
-{
-  "mcpServers": {
-    "aic": { "command": "npx", "args": ["-y", "@jatbas/aic-mcp"] }
-  }
-}
-```
+> **Important:** This installs AIC for the current workspace. When you open a different folder as a new workspace, click the link again from that workspace.
+>
+> **Prefer a single global install?** Add to `~/.cursor/mcp.json` once and skip the link entirely:
+>
+> ```json
+> {
+>   "mcpServers": {
+>     "aic": { "command": "npx", "args": ["-y", "@jatbas/aic-mcp"] }
+>   }
+> }
+> ```
 
-**2. Open any project** — AIC auto-initializes (config, hooks, `.aic/`, ignore entries) when the server starts. No need to run `npx @jatbas/aic-mcp init` unless you want to upgrade.
-
-**3. Approve the tools** when Cursor prompts you:
+**2. Approve the tools** when Cursor prompts you:
 
 - `aic_compile`
 - `aic_inspect`
 - `aic_chat_summary`
 
-If these are not approved, AIC cannot compile context and the editor will fall back to its normal behavior.
+**3. Start prompting** — AIC auto-initializes each project the first time it compiles (config, hooks, `.aic/`, ignore entries). Each project gets its own local database, cache, and configuration. Nothing else to install or configure.
 
 ### Claude Code
 

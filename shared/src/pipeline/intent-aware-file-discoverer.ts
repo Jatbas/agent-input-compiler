@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { IntentAwareFileDiscoverer as IIntentAwareFileDiscoverer } from "#core/interfaces/intent-aware-file-discoverer.interface.js";
-import type { RepoMap } from "#core/types/repo-map.js";
-import type { TaskClassification } from "#core/types/task-classification.js";
-import type { RulePack } from "#core/types/rule-pack.js";
-import type { TokenCount } from "#core/types/units.js";
-import { toTokenCount } from "#core/types/units.js";
+import type { IntentAwareFileDiscoverer as IIntentAwareFileDiscoverer } from "@jatbas/aic-shared/core/interfaces/intent-aware-file-discoverer.interface.js";
+import type { RepoMap } from "@jatbas/aic-shared/core/types/repo-map.js";
+import type { TaskClassification } from "@jatbas/aic-shared/core/types/task-classification.js";
+import type { RulePack } from "@jatbas/aic-shared/core/types/rule-pack.js";
+import type { TokenCount } from "@jatbas/aic-shared/core/types/units.js";
+import { toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
 import { matchesGlob } from "./glob-match.js";
 
 function excluded(path: string, excludePatterns: readonly string[]): boolean {

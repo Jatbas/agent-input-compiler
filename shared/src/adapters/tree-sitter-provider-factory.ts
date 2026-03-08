@@ -3,11 +3,11 @@
 
 import { createRequire } from "node:module";
 import { Parser, Language, type Node } from "web-tree-sitter";
-import type { LanguageProvider } from "#core/interfaces/language-provider.interface.js";
-import type { FileExtension, RelativePath } from "#core/types/paths.js";
-import type { ImportRef } from "#core/types/import-ref.js";
-import type { CodeChunk } from "#core/types/code-chunk.js";
-import type { ExportedSymbol } from "#core/types/exported-symbol.js";
+import type { LanguageProvider } from "@jatbas/aic-shared/core/interfaces/language-provider.interface.js";
+import type { FileExtension, RelativePath } from "@jatbas/aic-shared/core/types/paths.js";
+import type { ImportRef } from "@jatbas/aic-shared/core/types/import-ref.js";
+import type { CodeChunk } from "@jatbas/aic-shared/core/types/code-chunk.js";
+import type { ExportedSymbol } from "@jatbas/aic-shared/core/types/exported-symbol.js";
 import { parseWithTreeSitter } from "./tree-sitter-node-utils.js";
 
 export function resolveTreeSitterWasm(packageName: string): string {

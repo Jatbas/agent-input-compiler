@@ -3,16 +3,20 @@
 
 import { describe, it, expect } from "vitest";
 import { ImportGraphProximityScorer } from "../import-graph-proximity-scorer.js";
-import type { FileContentReader } from "#core/interfaces/file-content-reader.interface.js";
-import type { LanguageProvider } from "#core/interfaces/language-provider.interface.js";
-import type { RepoMap } from "#core/types/repo-map.js";
-import type { TaskClassification } from "#core/types/task-classification.js";
-import type { ImportRef } from "#core/types/import-ref.js";
-import { toRelativePath, toAbsolutePath, toFileExtension } from "#core/types/paths.js";
-import { toTokenCount, toBytes } from "#core/types/units.js";
-import { toISOTimestamp } from "#core/types/identifiers.js";
-import { toConfidence } from "#core/types/scores.js";
-import { TASK_CLASS } from "#core/types/enums.js";
+import type { FileContentReader } from "@jatbas/aic-shared/core/interfaces/file-content-reader.interface.js";
+import type { LanguageProvider } from "@jatbas/aic-shared/core/interfaces/language-provider.interface.js";
+import type { RepoMap } from "@jatbas/aic-shared/core/types/repo-map.js";
+import type { TaskClassification } from "@jatbas/aic-shared/core/types/task-classification.js";
+import type { ImportRef } from "@jatbas/aic-shared/core/types/import-ref.js";
+import {
+  toRelativePath,
+  toAbsolutePath,
+  toFileExtension,
+} from "@jatbas/aic-shared/core/types/paths.js";
+import { toTokenCount, toBytes } from "@jatbas/aic-shared/core/types/units.js";
+import { toISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
+import { toConfidence } from "@jatbas/aic-shared/core/types/scores.js";
+import { TASK_CLASS } from "@jatbas/aic-shared/core/types/enums.js";
 
 function makeEntry(path: string, tokens = 100): RepoMap["files"][number] {
   return {

@@ -2,13 +2,13 @@
 // Copyright (c) 2025 AIC Contributors
 
 import { describe, it, expect, vi } from "vitest";
-import type { RepoMapSupplier } from "#core/interfaces/repo-map-supplier.interface.js";
-import type { IgnoreProvider } from "#core/interfaces/ignore-provider.interface.js";
-import { AicError } from "#core/errors/aic-error.js";
-import type { RepoMap } from "#core/types/repo-map.js";
-import { toAbsolutePath, toRelativePath } from "#core/types/paths.js";
-import { toBytes, toTokenCount } from "#core/types/units.js";
-import { toISOTimestamp } from "#core/types/identifiers.js";
+import type { RepoMapSupplier } from "@jatbas/aic-shared/core/interfaces/repo-map-supplier.interface.js";
+import type { IgnoreProvider } from "@jatbas/aic-shared/core/interfaces/ignore-provider.interface.js";
+import { AicError } from "@jatbas/aic-shared/core/errors/aic-error.js";
+import type { RepoMap } from "@jatbas/aic-shared/core/types/repo-map.js";
+import { toAbsolutePath, toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { toBytes, toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
+import { toISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
 import { WatchingRepoMapSupplier } from "../watching-repo-map-supplier.js";
 
 const MOCK_LAST_MODIFIED = toISOTimestamp("2020-01-01T00:00:00.000Z");

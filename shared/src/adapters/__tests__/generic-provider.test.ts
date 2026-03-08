@@ -3,8 +3,8 @@
 
 import { describe, it, expect } from "vitest";
 import { GenericProvider } from "../generic-provider.js";
-import { toRelativePath } from "#core/types/paths.js";
-import { SYMBOL_KIND, SYMBOL_TYPE } from "#core/types/enums.js";
+import { toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { SYMBOL_KIND, SYMBOL_TYPE } from "@jatbas/aic-shared/core/types/enums.js";
 
 describe("GenericProvider", () => {
   const provider = new GenericProvider();

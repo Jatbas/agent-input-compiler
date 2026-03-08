@@ -2,9 +2,9 @@
 // Copyright (c) 2025 AIC Contributors
 
 import { describe, it, expect } from "vitest";
-import type { LanguageProvider } from "#core/interfaces/language-provider.interface.js";
-import { toRelativePath } from "#core/types/paths.js";
-import { SYMBOL_KIND, SYMBOL_TYPE } from "#core/types/enums.js";
+import type { LanguageProvider } from "@jatbas/aic-shared/core/interfaces/language-provider.interface.js";
+import { toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { SYMBOL_KIND, SYMBOL_TYPE } from "@jatbas/aic-shared/core/types/enums.js";
 import { KotlinProvider } from "../kotlin-provider.js";
 
 describe("KotlinProvider", () => {

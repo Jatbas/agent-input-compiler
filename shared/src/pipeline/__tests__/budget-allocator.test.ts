@@ -3,10 +3,10 @@
 
 import { describe, it, expect } from "vitest";
 import { BudgetAllocator } from "../budget-allocator.js";
-import type { BudgetConfig } from "#core/interfaces/budget-config.interface.js";
-import type { RulePack } from "#core/types/rule-pack.js";
-import { TASK_CLASS } from "#core/types/enums.js";
-import { toTokenCount } from "#core/types/units.js";
+import type { BudgetConfig } from "@jatbas/aic-shared/core/interfaces/budget-config.interface.js";
+import type { RulePack } from "@jatbas/aic-shared/core/types/rule-pack.js";
+import { TASK_CLASS } from "@jatbas/aic-shared/core/types/enums.js";
+import { toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
 
 function makeConfig(
   maxTokens: number,
