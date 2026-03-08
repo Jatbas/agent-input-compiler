@@ -1,6 +1,6 @@
 # Task 117: npm publish pipeline (@aic/mcp)
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** V — OSS Release Prep
 > **Layer:** release automation
 > **Depends on:** Phase N–U (MCP and pipeline complete)

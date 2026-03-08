@@ -1,19 +1,26 @@
 {
-  "name": "@aic/mcp",
+  "name": "@jatbas/aic-mcp",
   "version": "0.2.0",
-  "private": true,
   "type": "module",
-  "main": "src/server.ts",
-  "bin": "./src/server.ts",
+  "main": "dist/server.js",
+  "types": "dist/server.d.ts",
+  "bin": "dist/server.js",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "imports": {
     "#mcp/*": "./src/*"
   },
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b && node scripts/prepend-shebang.cjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@aic/shared": "workspace:*",
+    "@jatbas/aic-shared": "workspace:*",
     "@modelcontextprotocol/sdk": "1.12.1",
     "zod": "3.25.7"
   }

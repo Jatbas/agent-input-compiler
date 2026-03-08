@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 29/55 done
+**Phase 1.0:** 30/55 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -119,8 +119,8 @@ Final polish for public release. npm publish, changelog, benchmarks, visual demo
 | Component                                           | Status  | Package | Gap    | Deps      | Description                                |
 | --------------------------------------------------- | ------- | ------- | ------ | --------- | ------------------------------------------ |
 | Check codebase for dead code                        | Done    | ./      | —      | -         | Check codebase for dead code using Knip    |
-| npm publish pipeline (`@aic/mcp`)                   | Pending | mcp/    | —      | Phase N–U | Publish MCP package to npm                 |
-| CHANGELOG.md                                        | Pending | ./      | —      | —         | Version history for release                |
+| npm publish pipeline (`@aic/mcp`)                   | Done    | mcp/    | —      | Phase N–U | Publish MCP package to npm                 |
+| CHANGELOG.md                                        | Done    | ./      | —      | —         | Version history for release                |
 | License headers audit                               | Pending | ./      | —      | —         | Ensure license headers present             |
 | Contributing guide (final)                          | Pending | ./      | —      | —         | How to contribute                          |
 | Multi-repo benchmark suite (multi-scale datapoints) | Pending | test/   | GAP-11 | —         | Token reduction at multiple project scales |
@@ -348,6 +348,13 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 **Completed:**
 
 - Adaptive budget from session history wire derivation (Task 116): run-pipeline-steps derives sessionContext from agenticSessionState.getSteps(sessionId) when request.conversationTokens is undefined and session is present (sum of step.tokensCompiled via reduce, toTokenCount(sum)); explicit conversationTokens still wins; deriveSessionContext helper; four unit tests (session_context_derived_from_steps_when_conversationTokens_absent, session_context_unchanged_when_conversationTokens_provided, session_context_undefined_when_no_session, session_context_zero_when_first_in_session). Lint, typecheck, test, knip/lint:clones pre-existing only.
+
+### 2025-03-08
+
+**Components:** npm publish pipeline (Task 117)
+**Completed:**
+
+- npm publish pipeline (@aic/mcp): shared/package.json and mcp/package.json publishable (dist entry points, files, publishConfig, no private); mcp/scripts/prepend-shebang.cjs for bin shebang; .github/workflows/publish.yml (push tags v\*, workflow_dispatch, install, build, publish shared then mcp with NPM_TOKEN); knip.json entry/ignore so toolchain passes.
 
 ### 2025-03-07
 

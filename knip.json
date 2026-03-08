@@ -1,9 +1,21 @@
 {
-  "ignore": [".cursor/**", ".claude/**", "test/benchmarks/**", "mcp/hooks/**"],
+  "ignore": [
+    ".cursor/**",
+    ".claude/**",
+    "test/benchmarks/**",
+    "mcp/hooks/**",
+    "mcp/scripts/**",
+    "shared/src/core/errors/budget-exceeded-error.ts",
+    "shared/src/core/errors/guard-blocked-all-error.ts",
+    "shared/src/core/errors/index.ts",
+    "shared/src/core/errors/model-error.ts",
+    "shared/src/core/errors/no-files-selected-error.ts",
+    "shared/src/core/interfaces/status-runner.interface.ts"
+  ],
   "workspaces": {
     ".": {},
     "shared": {
-      "entry": ["src/storage/migrations/*.ts"],
+      "entry": ["src/index.ts", "src/storage/migrations/*.ts"],
       "ignoreDependencies": [
         "commander",
         "diff",
@@ -15,5 +27,9 @@
     },
     "mcp": {}
   },
-  "ignoreExportsUsedInFile": true
+  "ignoreExportsUsedInFile": true,
+  "ignoreIssues": {
+    "mcp/src/server.ts": ["exports"],
+    "shared/src/core/types/status-types.ts": ["types"]
+  }
 }
