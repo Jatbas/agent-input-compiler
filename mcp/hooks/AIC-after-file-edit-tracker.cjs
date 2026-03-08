@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 // afterFileEdit hook — records edited file paths to a temp file keyed by conversation/session
 // so the stop hook can run lint/typecheck on those files. Cumulative list: read existing,
 // merge new paths from input, dedupe, overwrite temp file.

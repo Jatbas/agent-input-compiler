@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { ModelDetector } from "#core/interfaces/model-detector.interface.js";
 import type { ModelEnvHints } from "#core/types/model-env-hints.js";
 import type { EditorId } from "#core/types/enums.js";

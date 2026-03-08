@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { AbsolutePath, FilePath, RelativePath } from "#core/types/paths.js";
 import type { TokenCount, Milliseconds, StepIndex } from "#core/types/units.js";
 import type { Percentage, Confidence } from "#core/types/scores.js";

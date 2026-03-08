@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import { describe, it, expect, beforeAll } from "vitest";
 import { Parser } from "web-tree-sitter";
 import type { LanguageProvider } from "#core/interfaces/language-provider.interface.js";

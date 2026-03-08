@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { FileExtension, RelativePath } from "#core/types/paths.js";
 import type { ImportRef } from "#core/types/import-ref.js";
 import type { CodeChunk } from "#core/types/code-chunk.js";

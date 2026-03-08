@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 // postToolUse hook — when aic_compile succeeded, inject additional_context so the model sees a short confirmation.
 // Input: tool_name, tool_input, tool_output, tool_use_id, duration. Output: updated_mcp_tool_output, additional_context.
 

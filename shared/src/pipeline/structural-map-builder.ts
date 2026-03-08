@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { StructuralMapBuilder as IStructuralMapBuilder } from "#core/interfaces/structural-map-builder.interface.js";
 import type { RepoMap } from "#core/types/repo-map.js";
 

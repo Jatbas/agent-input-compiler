@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 // Claude Code hook — SubagentStart
 // Compiles intent-specific context for each subagent and injects it as
 // additionalContext. This capability is impossible in Cursor — subagents

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 // Claude Code hook — SessionEnd
 // Logs session end event to .aic/prompt-log.jsonl for telemetry.
 // This capability is not available in Cursor.

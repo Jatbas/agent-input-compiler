@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 // Claude Code hook — UserPromptSubmit
 // THE key differentiator from Cursor: compiles intent-specific context on every
 // prompt using the user's actual message as the intent. The compiled result is

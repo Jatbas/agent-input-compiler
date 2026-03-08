@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { SelectedFile } from "#core/types/selected-file.js";
 import type { RelativePath } from "#core/types/paths.js";
 import type { TokenCount } from "#core/types/units.js";

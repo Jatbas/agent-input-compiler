@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import { describe, it, expect, vi } from "vitest";
 import type { RepoMapSupplier } from "#core/interfaces/repo-map-supplier.interface.js";
 import type { IgnoreProvider } from "#core/interfaces/ignore-provider.interface.js";

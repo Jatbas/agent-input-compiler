@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import { describe, it, expect } from "vitest";
 import { ContextGuard } from "../context-guard.js";
 import { ExclusionScanner } from "../exclusion-scanner.js";

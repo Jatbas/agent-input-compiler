@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 // Claude Code hook — SessionStart
 // Fires on: startup, resume, clear, compact
 // Compiles AIC context and injects it as additionalContext so the model

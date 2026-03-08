@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import { SYMBOL_KIND, SYMBOL_TYPE } from "./language-provider-common.js";
 import {
   createRegexLanguageProviderClass,

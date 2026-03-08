@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { CompilationRequest } from "#core/types/compilation-types.js";
 import type { CompilationMeta } from "#core/types/compilation-types.js";
 import type { UUIDv7 } from "#core/types/identifiers.js";

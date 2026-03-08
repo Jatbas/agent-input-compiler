@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import { createHash } from "node:crypto";
 import type { StringHasher } from "#core/interfaces/string-hasher.interface.js";
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import Database from "better-sqlite3";
 import { SqliteMigrationRunner } from "#storage/sqlite-migration-runner.js";
 import { migration as migration001 } from "#storage/migrations/001-initial-schema.js";

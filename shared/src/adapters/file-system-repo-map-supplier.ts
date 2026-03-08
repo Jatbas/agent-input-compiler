@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import * as path from "node:path";
 import type { RepoMapSupplier } from "#core/interfaces/repo-map-supplier.interface.js";
 import type { GlobProvider } from "#core/interfaces/glob-provider.interface.js";

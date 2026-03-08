@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { ImportProximityScorer } from "#core/interfaces/import-proximity-scorer.interface.js";
 import type { FileContentReader } from "#core/interfaces/file-content-reader.interface.js";
 import type { LanguageProvider } from "#core/interfaces/language-provider.interface.js";

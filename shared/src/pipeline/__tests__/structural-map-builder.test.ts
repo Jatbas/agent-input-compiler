@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import { describe, it, expect } from "vitest";
 import { StructuralMapBuilder } from "../structural-map-builder.js";
 import type { RepoMap } from "#core/types/repo-map.js";

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 // stop hook — runs eslint and tsc on edited files from afterFileEdit temp file;
 // if either fails, returns followup_message so Cursor auto-submits a fix request.
 const fs = require("fs");

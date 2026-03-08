@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import * as path from "node:path";
 import type { FileEntry } from "#core/types/repo-map.js";
 import type { Bytes } from "#core/types/units.js";

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 // Re-exports used by tree-sitter language providers (go, rust, etc.) to avoid clone detection.
 export {
   defineTreeSitterProvider,

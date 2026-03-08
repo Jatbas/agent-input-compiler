@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { ContentTransformer } from "#core/interfaces/content-transformer.interface.js";
 import type { FileExtension, RelativePath } from "#core/types/paths.js";
 import { toFileExtension } from "#core/types/paths.js";

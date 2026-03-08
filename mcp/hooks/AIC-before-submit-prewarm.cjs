@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 // beforeSubmitPrompt hook — logs the user's prompt with conversation context,
 // and saves it so the preToolUse gate can include the exact intent in the deny
 // reason. Zero token cost: returns { continue: true } immediately.

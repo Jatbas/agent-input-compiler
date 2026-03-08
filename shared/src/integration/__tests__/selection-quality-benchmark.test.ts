@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import { describe, it, expect, beforeAll, afterEach } from "vitest";
 import * as path from "node:path";
 import * as fs from "node:fs";

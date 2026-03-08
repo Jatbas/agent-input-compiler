@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 30/55 done
+**Phase 1.0:** 31/55 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -121,7 +121,7 @@ Final polish for public release. npm publish, changelog, benchmarks, visual demo
 | Check codebase for dead code                        | Done    | ./      | —      | -         | Check codebase for dead code using Knip    |
 | npm publish pipeline (`@aic/mcp`)                   | Done    | mcp/    | —      | Phase N–U | Publish MCP package to npm                 |
 | CHANGELOG.md                                        | Done    | ./      | —      | —         | Version history for release                |
-| License headers audit                               | Pending | ./      | —      | —         | Ensure license headers present             |
+| License headers audit                               | Done    | ./      | —      | —         | Ensure license headers present             |
 | Contributing guide (final)                          | Pending | ./      | —      | —         | How to contribute                          |
 | Multi-repo benchmark suite (multi-scale datapoints) | Pending | test/   | GAP-11 | —         | Token reduction at multiple project scales |
 | Comparative benchmarks vs. native editor context    | Pending | test/   | GAP-10 | —         | AIC vs native editor context selection     |
@@ -351,10 +351,11 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2025-03-08
 
-**Components:** npm publish pipeline (Task 117)
+**Components:** npm publish pipeline (Task 117), License headers audit (Task 118)
 **Completed:**
 
 - npm publish pipeline (@aic/mcp): shared/package.json and mcp/package.json publishable (dist entry points, files, publishConfig, no private); mcp/scripts/prepend-shebang.cjs for bin shebang; .github/workflows/publish.yml (push tags v\*, workflow_dispatch, install, build, publish shared then mcp with NPM_TOKEN); knip.json entry/ignore so toolchain passes.
+- License headers audit (Task 118): scripts/add-license-headers.cjs and scripts/check-license-headers.cjs (Node fs/path only); Apache-2.0 + Copyright 2025 AIC Contributors on shared/src, mcp/src, .cursor, .claude, mcp/hooks, mcp/scripts, commitlint.config.cjs; package.json check:headers script; knip.json scripts/\*\* and pre-existing file/dep ignores so toolchain passes.
 
 ### 2025-03-07
 

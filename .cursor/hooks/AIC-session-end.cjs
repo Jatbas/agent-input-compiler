@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 // sessionEnd hook — cleanup AIC temp files and optionally append session metrics.
 // Fire-and-forget: no stdout; must exit 0 always. Cursor docs: sessionEnd input only.
 const fs = require("fs");

@@ -1,5 +1,6 @@
 {
   "ignore": [
+    "scripts/**",
     ".cursor/**",
     ".claude/**",
     "test/benchmarks/**",
@@ -10,7 +11,10 @@
     "shared/src/core/errors/index.ts",
     "shared/src/core/errors/model-error.ts",
     "shared/src/core/errors/no-files-selected-error.ts",
-    "shared/src/core/interfaces/status-runner.interface.ts"
+    "shared/src/core/interfaces/status-runner.interface.ts",
+    "shared/src/core/errors/timeout-error.ts",
+    "shared/src/core/write-compilation-telemetry.ts",
+    "shared/src/testing/stub-compilation-meta.ts"
   ],
   "workspaces": {
     ".": {},
@@ -25,7 +29,9 @@
         "tree-sitter-java"
       ]
     },
-    "mcp": {}
+    "mcp": {
+      "ignoreDependencies": ["@jatbas/aic-shared"]
+    }
   },
   "ignoreExportsUsedInFile": true,
   "ignoreIssues": {

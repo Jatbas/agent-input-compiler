@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { SpecFileDiscoverer as ISpecFileDiscoverer } from "#core/interfaces/spec-file-discoverer.interface.js";
 import type { RepoMap } from "#core/types/repo-map.js";
 import type { FileEntry } from "#core/types/repo-map.js";

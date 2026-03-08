@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import { describe, it, expect } from "vitest";
 import { CommandInjectionScanner } from "#pipeline/command-injection-scanner.js";
 import { GUARD_FINDING_TYPE } from "#core/types/enums.js";

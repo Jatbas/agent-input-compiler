@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { PromptAssembler as IPromptAssembler } from "#core/interfaces/prompt-assembler.interface.js";
 import type { FileContentReader } from "#core/interfaces/file-content-reader.interface.js";
 import type { TaskClassification } from "#core/types/task-classification.js";

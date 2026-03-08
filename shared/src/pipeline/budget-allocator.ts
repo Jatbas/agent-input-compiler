@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { BudgetAllocator as IBudgetAllocator } from "#core/interfaces/budget-allocator.interface.js";
 import type { BudgetConfig } from "#core/interfaces/budget-config.interface.js";
 import type { RulePack } from "#core/types/rule-pack.js";

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { SessionId, ISOTimestamp } from "#core/types/identifiers.js";
 import type { PreviousFile } from "#core/types/session-dedup-types.js";
 import type { SessionStep } from "#core/types/session-dedup-types.js";

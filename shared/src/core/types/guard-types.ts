@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { GuardSeverity, GuardFindingType } from "#core/types/enums.js";
 import type { RelativePath } from "#core/types/paths.js";
 import type { LineNumber } from "#core/types/units.js";

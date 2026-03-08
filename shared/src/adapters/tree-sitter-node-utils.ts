@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import { type Node, type Parser, type Tree } from "web-tree-sitter";
 import type { CodeChunk } from "#core/types/code-chunk.js";
 import type { ExportedSymbol } from "#core/types/exported-symbol.js";

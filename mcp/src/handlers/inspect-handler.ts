@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import * as path from "node:path";
 import type { InspectRunner } from "@aic/shared/core/interfaces/inspect-runner.interface.js";
 import type { ToolInvocationLogStore } from "@aic/shared/core/interfaces/tool-invocation-log-store.interface.js";

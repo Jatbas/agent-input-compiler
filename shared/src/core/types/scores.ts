@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import { type Brand } from "./brand.js";
 
 // Percentage as a decimal in the range [0, 1]. 0.825 = 82.5%.

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 // preToolUse hook — blocks all tools until aic_compile has been called for this generation.
 // Reads the exact user prompt saved by before-submit-prewarm.cjs and includes it
 // in the deny message so the model copies it verbatim → cache hit from pre-warm.

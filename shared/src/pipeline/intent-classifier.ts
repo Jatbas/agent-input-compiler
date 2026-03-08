@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { IntentClassifier as IIntentClassifier } from "#core/interfaces/intent-classifier.interface.js";
 import type { TaskClassification } from "#core/types/task-classification.js";
 import type { TaskClass } from "#core/types/enums.js";

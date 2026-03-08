@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import { describe, it, expect } from "vitest";
 import { SpecFileDiscoverer } from "../spec-file-discoverer.js";
 import { toAbsolutePath, toRelativePath, toGlobPattern } from "#core/types/paths.js";

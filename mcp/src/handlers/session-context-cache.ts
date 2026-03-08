@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { EditorId } from "@aic/shared/core/types/enums.js";
 import { EDITOR_ID } from "@aic/shared/core/types/enums.js";
 import type { SessionId } from "@aic/shared/core/types/identifiers.js";

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 // Pure glob matching for pipeline use — no I/O, no external deps.
 export function matchesGlob(path: string, pattern: string): boolean {
   if (pattern.includes("**")) {

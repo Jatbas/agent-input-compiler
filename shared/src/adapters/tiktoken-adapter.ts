@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import { encoding_for_model } from "tiktoken";
 import type { TokenCounter } from "#core/interfaces/token-counter.interface.js";
 import type { TokenCount } from "#core/types/units.js";

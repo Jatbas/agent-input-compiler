@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 // preToolUse hook — injects conversation_id into AIC MCP tool inputs so
 // compilation_log and chat_summary get the correct conversation_id per call.
 

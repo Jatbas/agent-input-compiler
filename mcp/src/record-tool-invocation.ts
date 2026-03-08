@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { ToolInvocationLogStore } from "@aic/shared/core/interfaces/tool-invocation-log-store.interface.js";
 import type { Clock } from "@aic/shared/core/interfaces/clock.interface.js";
 import type { IdGenerator } from "@aic/shared/core/interfaces/id-generator.interface.js";

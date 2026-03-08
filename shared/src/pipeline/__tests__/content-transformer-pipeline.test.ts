@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import { describe, it, expect } from "vitest";
 import { ContentTransformerPipeline } from "../content-transformer-pipeline.js";
 import { WhitespaceNormalizer } from "../whitespace-normalizer.js";

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import { describe, it, expect } from "vitest";
 import { LineLevelPruner } from "../line-level-pruner.js";
 import type { TokenCounter } from "#core/interfaces/token-counter.interface.js";

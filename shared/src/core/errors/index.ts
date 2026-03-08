@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 export { AicError } from "./aic-error.js";
 export { ConfigError } from "./config-error.js";
 export { GuardBlockedAllError } from "./guard-blocked-all-error.js";

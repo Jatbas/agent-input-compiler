@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 // Temporary stub — remove when real CompilationRunner is wired.
 import type { CompilationMeta } from "#core/types/compilation-types.js";
 import { toTokenCount, toMilliseconds } from "#core/types/units.js";

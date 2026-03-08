@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { ContentTransformerPipeline as IContentTransformerPipeline } from "#core/interfaces/content-transformer-pipeline.interface.js";
 import type { ContentTransformer } from "#core/interfaces/content-transformer.interface.js";
 import type { FileContentReader } from "#core/interfaces/file-content-reader.interface.js";

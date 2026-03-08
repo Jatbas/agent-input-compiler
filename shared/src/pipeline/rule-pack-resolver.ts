@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { RulePackResolver as IRulePackResolver } from "#core/interfaces/rule-pack-resolver.interface.js";
 import type { RulePackProvider } from "#core/interfaces/rule-pack-provider.interface.js";
 import type { TaskClassification } from "#core/types/task-classification.js";

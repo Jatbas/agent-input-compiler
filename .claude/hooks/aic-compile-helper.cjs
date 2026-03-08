@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 // Shared helper — calls aic_compile via MCP stdio and returns the compiled prompt.
 // Used by SessionStart, UserPromptSubmit, SubagentStart, and PreCompact hooks.
 const { execSync } = require("child_process");

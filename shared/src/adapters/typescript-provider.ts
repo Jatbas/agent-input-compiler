@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import * as ts from "typescript";
 import type { LanguageProvider } from "#core/interfaces/language-provider.interface.js";
 import type { FileExtension, RelativePath } from "#core/types/paths.js";

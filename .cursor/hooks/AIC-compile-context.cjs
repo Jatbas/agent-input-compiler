@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 // Cursor hook — sessionStart
 // Calls aic_compile via the MCP server's stdio JSON-RPC protocol and injects
 // the compiled project context into the conversation's system prompt via

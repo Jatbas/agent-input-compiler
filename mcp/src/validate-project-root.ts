@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import * as os from "node:os";
 import * as path from "node:path";
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";

@@ -1,6 +1,6 @@
 # Task 118: License headers audit
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** 1.0 (OSS Release) — Phase V
 > **Layer:** repo-wide (custom repo polish)
 > **Depends on:** —

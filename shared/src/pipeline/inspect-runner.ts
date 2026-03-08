@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { InspectRunner as IInspectRunner } from "#core/interfaces/inspect-runner.interface.js";
 import type { Clock } from "#core/interfaces/clock.interface.js";
 import type { PipelineStepsDeps } from "#core/run-pipeline-steps.js";

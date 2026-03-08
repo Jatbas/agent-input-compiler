@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { AbsolutePath } from "#core/types/paths.js";
 import type { IntentClassifier } from "#core/interfaces/intent-classifier.interface.js";
 import type { RulePackResolver } from "#core/interfaces/rule-pack-resolver.interface.js";

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 // Re-exports for regex/simple language providers to avoid clone detection.
 export {
   EMPTY_RELATIVE_PATH,

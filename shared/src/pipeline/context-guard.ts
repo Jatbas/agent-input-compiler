@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { ContextGuard as IContextGuard } from "#core/interfaces/context-guard.interface.js";
 import type { GuardScanner } from "#core/interfaces/guard-scanner.interface.js";
 import type { FileContentReader } from "#core/interfaces/file-content-reader.interface.js";

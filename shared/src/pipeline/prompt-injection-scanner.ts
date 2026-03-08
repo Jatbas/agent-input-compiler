@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { GuardScanner } from "#core/interfaces/guard-scanner.interface.js";
 import type { SelectedFile } from "#core/types/selected-file.js";
 import type { GuardFinding } from "#core/types/guard-types.js";

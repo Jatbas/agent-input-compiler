@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
 import type { MigrationRunner as IMigrationRunner } from "#core/interfaces/migration-runner.interface.js";
 import type { Migration } from "#core/interfaces/migration.interface.js";

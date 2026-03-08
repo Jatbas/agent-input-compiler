@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import type { CompilationLogEntry } from "#core/types/compilation-log-entry.js";

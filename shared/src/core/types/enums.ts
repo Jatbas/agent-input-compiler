@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 // String literal unions and as const objects for AIC enumerations (not TS enum).
 export const TASK_CLASS = {
   REFACTOR: "refactor",

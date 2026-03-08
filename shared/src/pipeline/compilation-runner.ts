@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { CompilationRunner as ICompilationRunner } from "#core/interfaces/compilation-runner.interface.js";
 import type {
   CompilationRequest,

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { Migration } from "#core/interfaces/migration.interface.js";
 
 // Normalize cache_metadata timestamps to SQLite datetime format (YYYY-MM-DD HH:MM:SS)

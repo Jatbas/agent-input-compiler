@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import { type Brand } from "./brand.js";
 
 // ISO 8601 UTC with ms precision, format YYYY-MM-DDTHH:mm:ss.sssZ (ADR-008).

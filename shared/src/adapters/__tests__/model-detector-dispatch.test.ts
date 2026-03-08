@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import { describe, it, expect } from "vitest";
 import { ModelDetectorDispatch } from "../model-detector-dispatch.js";
 import { EDITOR_ID } from "#core/types/enums.js";

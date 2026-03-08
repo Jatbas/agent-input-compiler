@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { ToolInvocationLogEntry } from "#core/types/tool-invocation-log-entry.js";
 
 export interface ToolInvocationLogStore {

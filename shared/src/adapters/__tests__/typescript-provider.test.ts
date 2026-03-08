@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import { describe, it, expect } from "vitest";
 import { TypeScriptProvider } from "../typescript-provider.js";
 import { toRelativePath } from "#core/types/paths.js";

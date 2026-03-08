@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import { createRequire } from "node:module";
 import { Parser, Language, type Node } from "web-tree-sitter";
 import type { LanguageProvider } from "#core/interfaces/language-provider.interface.js";

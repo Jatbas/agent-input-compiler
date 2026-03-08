@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import { describe, it, expect } from "vitest";
 import { toTokenCount, toAbsolutePath, toISOTimestamp, toPercentage } from "../index.js";
 import type { TokenCount, AbsolutePath, ISOTimestamp, Percentage } from "../index.js";

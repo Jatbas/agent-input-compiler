@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import type { ExecutableDb } from "#core/interfaces/executable-db.interface.js";
 import type { SessionTracker } from "#core/interfaces/session-tracker.interface.js";
 import type { SessionId, ISOTimestamp } from "#core/types/identifiers.js";

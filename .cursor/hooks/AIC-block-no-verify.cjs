@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 // beforeShellExecution hook — blocks git commands that use --no-verify or -n (skip hooks).
 // Prevents agents from bypassing pre-commit formatting and lint checks.
 // Strip quoted strings so --no-verify inside a commit message is not treated as a flag.

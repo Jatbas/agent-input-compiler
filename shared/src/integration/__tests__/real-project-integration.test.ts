@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
 import { describe, it, expect, beforeAll, afterEach } from "vitest";
 import { toAbsolutePath } from "#core/types/paths.js";
 import { EDITOR_ID, TRIGGER_SOURCE } from "#core/types/enums.js";
