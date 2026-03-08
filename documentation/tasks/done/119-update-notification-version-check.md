@@ -1,6 +1,6 @@
 # Task 119: Update notification (version check)
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** 1.0 — OSS Release
 > **Layer:** mcp
 > **Depends on:** npm publish pipeline (so package is on registry)

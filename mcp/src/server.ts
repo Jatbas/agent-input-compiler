@@ -56,6 +56,7 @@ import { loadRulePackFromPath } from "@aic/shared/core/load-rule-pack.js";
 import { createProjectFileReader } from "@aic/shared/adapters/project-file-reader-adapter.js";
 import { createCachingFileContentReader } from "@aic/shared/adapters/caching-file-content-reader.js";
 import { detectEditorId } from "./detect-editor-id.js";
+import { getUpdateInfo } from "./latest-version-check.js";
 import { initLanguageProviders } from "@aic/shared/adapters/init-language-providers.js";
 import { EditorModelConfigReaderAdapter } from "@aic/shared/adapters/editor-model-config-reader.js";
 import { ModelDetectorDispatch } from "@aic/shared/adapters/model-detector-dispatch.js";
@@ -114,11 +115,26 @@ export function createDefaultBudgetConfig(): BudgetConfig {
   };
 }
 
+function readPackageVersion(): { packageName: string; packageVersion: string } {
+  try {
+    const dir = path.dirname(fileURLToPath(import.meta.url));
+    const pkgPath = path.join(dir, "..", "package.json");
+    const raw = fs.readFileSync(pkgPath, "utf8");
+    const pkg = JSON.parse(raw) as { name?: string; version?: string };
+    const packageName = typeof pkg.name === "string" ? pkg.name : "@aic/mcp";
+    const packageVersion = typeof pkg.version === "string" ? pkg.version : "0.0.0";
+    return { packageName, packageVersion };
+  } catch {
+    return { packageName: "@aic/mcp", packageVersion: "0.0.0" };
+  }
+}
+
 export function createMcpServer(
   projectRoot: AbsolutePath,
   additionalProviders?: readonly LanguageProvider[],
 ): McpServer {
   const scope = createProjectScope(projectRoot);
+  const { packageName, packageVersion } = readPackageVersion();
   const purgeImmediateId = setImmediate(() => scope.cacheStore.purgeExpired());
   const configPath = path.join(projectRoot, CONFIG_FILENAME);
   if (!fs.existsSync(configPath)) {
@@ -133,12 +149,22 @@ export function createMcpServer(
     sessionId,
     startedAt,
     process.pid,
-    "0.2.0",
+    packageVersion,
     installationOk,
     installationNotes,
   );
   scope.sessionTracker.backfillCrashedSessions(startedAt);
   registerShutdownHandler(scope.sessionTracker, sessionId, scope.clock, scope.cacheStore);
+  const updateInfoRef: {
+    current: { updateAvailable: string | null; currentVersion: string };
+  } = { current: { updateAvailable: null, currentVersion: packageVersion } };
+  setImmediate(() => {
+    getUpdateInfo(projectRoot, packageName, packageVersion, scope.clock)
+      .then((info) => {
+        updateInfoRef.current = info;
+      })
+      .catch(() => {});
+  });
   const sha256Adapter = new Sha256Adapter();
   const configLoader = new LoadConfigFromFile();
   const configResult = configLoader.load(projectRoot, null);
@@ -169,7 +195,7 @@ export function createMcpServer(
     scope.idGenerator,
     new SqliteAgenticSessionStore(scope.db),
   );
-  const server = new McpServer({ name: "aic", version: "0.1.0" });
+  const server = new McpServer({ name: "aic", version: packageVersion });
   const editorConfigReader = new EditorModelConfigReaderAdapter(
     process.env["HOME"] ?? os.homedir(),
   );
@@ -327,6 +353,7 @@ export function createMcpServer(
             ...summary,
             budgetMaxTokens,
             budgetUtilizationPct,
+            updateAvailable: updateInfoRef.current.updateAvailable,
           }),
         },
       ],

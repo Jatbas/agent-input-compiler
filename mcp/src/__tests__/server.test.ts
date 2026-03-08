@@ -101,9 +101,35 @@ describe("MCP server", () => {
       "totalTokensCompiled",
       "budgetMaxTokens",
       "budgetUtilizationPct",
+      "updateAvailable",
     ];
     for (const key of expectedKeys) {
       expect(Object.prototype.hasOwnProperty.call(parsed, key)).toBe(true);
+    }
+  });
+
+  it("status_resource_includes_updateAvailable", async () => {
+    const registryJson = JSON.stringify({ "dist-tags": { latest: "0.2.2" } });
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      arrayBuffer: () => Promise.resolve(new TextEncoder().encode(registryJson)),
+    });
+    try {
+      tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
+      server = createMcpServer(toAbsolutePath(tmpDir));
+      const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+      await server.connect(transportServer);
+      const client = new Client({ name: "test", version: "1.0" });
+      await client.connect(transportClient);
+      await new Promise<void>((r) => setTimeout(r, 150));
+      const result = await client.readResource({ uri: "aic://status" });
+      const first = result.contents[0];
+      const rawText: string =
+        first && "text" in first && typeof first.text === "string" ? first.text : "{}";
+      const parsed = JSON.parse(rawText) as Record<string, unknown>;
+      expect(parsed["updateAvailable"]).toBe("0.2.2");
+    } finally {
+      globalThis.fetch = originalFetch;
     }
   });
 

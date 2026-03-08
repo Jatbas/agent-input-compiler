@@ -45,8 +45,20 @@ try {
 
   if (bullets.length > 0) {
     const conversationLine = sessionId ? `\nAIC_CONVERSATION_ID=${sessionId}` : "";
+    const projectRoot =
+      process.env.CURSOR_PROJECT_DIR || process.env.AIC_PROJECT_ROOT || process.cwd();
+    const updatePath = path.join(projectRoot, ".aic", "update-available.txt");
+    let updateSuffix = "";
+    try {
+      if (fs.existsSync(updatePath)) {
+        const content = fs.readFileSync(updatePath, "utf8").trim();
+        if (content.length > 0) updateSuffix = `\n${content}`;
+      }
+    } catch {
+      // Non-fatal — ignore file read errors
+    }
     const output = JSON.stringify({
-      additional_context: `AIC Architectural Invariants (auto-injected):${conversationLine}\n${bullets}`,
+      additional_context: `AIC Architectural Invariants (auto-injected):${conversationLine}\n${bullets}${updateSuffix}`,
     });
     process.stdout.write(output);
   }

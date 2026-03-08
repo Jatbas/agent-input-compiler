@@ -228,6 +228,17 @@ Full regex patterns: [Project Plan §8.4](project-plan.md).
 | Guard findings      |     `guard_findings` table (SQLite)      |                        Never                        |
 | Anonymous telemetry | `anonymous_telemetry_log` table (SQLite) | Opt-in only. No code, paths, or prompts. See below. |
 
+### Update check (version notification)
+
+- **Data source:** GET `https://registry.npmjs.org/<package>` (fixed URL).
+- **Validate and bound:** Timeout 2s, max response body 1MB, version string must match semver regex and max 32 chars; invalid data yields no update.
+- **No code/prompt injection:** Only fixed-format message with validated version; install link from our code only.
+- **Writes only under `.aic/`:** `version-check-cache.json`, `update-available.txt`; no user/registry input in paths.
+- **No SSRF:** Fixed registry URL.
+- **Cache:** Validate version strings when reading cache before use.
+- **HTTPS only,** default TLS verification.
+- **No sensitive data sent to registry.**
+
 ---
 
 ## Data Leakage Prevention
