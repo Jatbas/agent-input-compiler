@@ -10,7 +10,7 @@ const DEFAULT_CONFIG = {
   contextBudget: { maxTokens: 8000 },
 } as const;
 
-const CONFIG_FILENAME = "aic.config.json";
+export const CONFIG_FILENAME = "aic.config.json";
 
 // Idempotent, silent init for use from compile handler when project has no config.
 export function ensureProjectInit(projectRoot: AbsolutePath): void {
