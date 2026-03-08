@@ -89,23 +89,21 @@ Last = most recent compilation.
 
 ### Cursor
 
-**1. Register the MCP server** in `~/.cursor/mcp.json`:
+**1. Install the MCP server** — one click (recommended):
+
+[**Install AIC for Cursor**](cursor://anysphere.cursor-deeplink/mcp/install?name=aic&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqYXRiYXMvYWljLW1jcCJdfQ==)
+
+Cursor will prompt to add the server; confirm and you're done. Or add manually in `~/.cursor/mcp.json`:
 
 ```json
 {
   "mcpServers": {
-    "aic": { "command": "npx", "args": ["@aic/mcp"] }
+    "aic": { "command": "npx", "args": ["-y", "@jatbas/aic-mcp"] }
   }
 }
 ```
 
-**2. Initialize AIC** in your project root:
-
-```bash
-npx @aic/mcp init
-```
-
-This installs the integration files AIC needs for Cursor and creates the local `.aic/` directory.
+**2. Open any project** — AIC auto-initializes (config, hooks, `.aic/`, ignore entries) when the server starts. No need to run `npx @jatbas/aic-mcp init` unless you want to upgrade.
 
 **3. Approve the tools** when Cursor prompts you:
 

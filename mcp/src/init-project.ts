@@ -4,7 +4,11 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { AbsolutePath } from "@aic/shared/core/types/paths.js";
-import { ensureAicDir } from "@aic/shared/storage/ensure-aic-dir.js";
+import {
+  ensureAicDir,
+  ensureEslintignore,
+  ensurePrettierignore,
+} from "@aic/shared/storage/ensure-aic-dir.js";
 import { installTriggerRule } from "./install-trigger-rule.js";
 import { installCursorHooks } from "./install-cursor-hooks.js";
 import { ConfigError } from "@aic/shared/core/errors/config-error.js";
@@ -23,6 +27,8 @@ export function ensureProjectInit(projectRoot: AbsolutePath): void {
   }
   ensureAicDir(projectRoot);
   fs.writeFileSync(configPath, JSON.stringify(DEFAULT_CONFIG, null, 2), "utf8");
+  ensurePrettierignore(projectRoot);
+  ensureEslintignore(projectRoot);
   installTriggerRule(projectRoot);
   installCursorHooks(projectRoot);
 }

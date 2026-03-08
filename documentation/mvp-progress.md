@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 31/55 done
+**Phase 1.0:** 32/55 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -116,16 +116,17 @@ Editor detection and auto-install so Claude Code users get the same zero-install
 
 Final polish for public release. npm publish, changelog, benchmarks, visual demo, documentation audit. See `documentation/gaps.md` for detailed descriptions of GAP items.
 
-| Component                                           | Status  | Package | Gap    | Deps      | Description                                |
-| --------------------------------------------------- | ------- | ------- | ------ | --------- | ------------------------------------------ |
-| Check codebase for dead code                        | Done    | ./      | —      | -         | Check codebase for dead code using Knip    |
-| npm publish pipeline (`@aic/mcp`)                   | Done    | mcp/    | —      | Phase N–U | Publish MCP package to npm                 |
-| CHANGELOG.md                                        | Done    | ./      | —      | —         | Version history for release                |
-| License headers audit                               | Done    | ./      | —      | —         | Ensure license headers present             |
-| Contributing guide (final)                          | Done    | ./      | —      | —         | How to contribute                          |
-| Multi-repo benchmark suite (multi-scale datapoints) | Pending | test/   | GAP-11 | —         | Token reduction at multiple project scales |
-| Comparative benchmarks vs. native editor context    | Pending | test/   | GAP-10 | —         | AIC vs native editor context selection     |
-| Visual demo (GIF/recording) in README               | Pending | ./      | GAP-09 | Phase N–U | Screen recording of AIC in editor          |
+| Component                                                            | Status  | Package                    | Gap    | Deps      | Description                                                             |
+| -------------------------------------------------------------------- | ------- | -------------------------- | ------ | --------- | ----------------------------------------------------------------------- |
+| Check codebase for dead code                                         | Done    | ./                         | —      | -         | Check codebase for dead code using Knip                                 |
+| npm publish pipeline (`@aic/mcp`)                                    | Done    | mcp/                       | —      | Phase N–U | Publish MCP package to npm                                              |
+| CHANGELOG.md                                                         | Done    | ./                         | —      | —         | Version history for release                                             |
+| License headers audit                                                | Done    | ./                         | —      | —         | Ensure license headers present                                          |
+| Contributing guide (final)                                           | Done    | ./                         | —      | —         | How to contribute                                                       |
+| AIC-only ignore entries (.gitignore, .prettierignore, .eslintignore) | Done    | shared/src/storage/ + mcp/ | —      | —         | Add only AIC paths so user config untouched; format/lint skip AIC files |
+| Multi-repo benchmark suite (multi-scale datapoints)                  | Pending | test/                      | GAP-11 | —         | Token reduction at multiple project scales                              |
+| Comparative benchmarks vs. native editor context                     | Pending | test/                      | GAP-10 | —         | AIC vs native editor context selection                                  |
+| Visual demo (GIF/recording) in README                                | Pending | ./                         | GAP-09 | Phase N–U | Screen recording of AIC in editor                                       |
 
 ---
 

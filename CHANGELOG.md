@@ -20,6 +20,8 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Block- and line-level benchmark annotations and per-task-class precision/recall metrics
 - MCP server security hardening: path containment, input validation, compilation timeout, tool-invocation audit log
 - Cursor hook upgrades: sessionEnd, stop quality check, afterFileEdit tracking, sessionStart env propagation, preToolUse schema alignment, postToolUse compile confirmation
+- License header audit and optional prepend script for release
+- AIC-only ignore entries so user .gitignore and formatter config stay untouched
 
 ### Security
 
