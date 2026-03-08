@@ -37,13 +37,47 @@ Do **not** run after every small internal task — that is the mvp-progress skil
 
 5. **Never modify released sections** (`[x.y.z] - date`) unless the user explicitly asks to reword them.
 
+5b. **No placeholder or future released versions.** Never add or leave a section like `## [x.y.z] - YYYY-MM-DD` where the date is a placeholder (e.g. `YYYY-MM-DD`) or where the version does not match the current version in `shared/package.json`. Released sections must only exist for versions that have actually been cut (with a real date). Work that is not yet released belongs under `[Unreleased]` only. If you find an existing released section with a placeholder date or a version ahead of the package, move its content into `[Unreleased]` and remove that section.
+
+6. **Suggest a release if warranted.** After writing `[Unreleased]`, evaluate whether a new release makes sense:
+
+   a. **Read** `shared/package.json` to get the current published version (e.g. `0.2.1`).
+
+   b. **Classify** the unreleased entries by semver impact:
+   - `Added` or `Security` entries → **minor** bump candidate
+   - `Changed`, `Fixed`, `Deprecated`, `Removed` entries only → **patch** bump candidate
+   - Any entry explicitly described as a breaking change → **major** bump candidate
+
+   c. **Compute the suggested version** by applying the highest-impact bump to the current version.
+
+   d. **Skip the suggestion** (say nothing) if:
+   - `[Unreleased]` is empty or has no new entries compared to what was already there before this run
+   - The current version already matches a released section in `CHANGELOG.md` with today's date (a release was already cut today)
+
+   e. **Ask the user:**
+
+   > The `[Unreleased]` section has N entries (categories: X, Y). Based on semver, the next version would be **A.B.C**.
+   >
+   > Want me to cut release A.B.C? (yes / different version / not now)
+
+   f. **Never auto-release.** Always wait for the user's explicit answer before proceeding.
+
 ### Release cut (promote `[Unreleased]` to a version)
 
-When the user says "cut release x.y.z" or similar:
+When the user approves a release suggestion above, or says "cut release x.y.z" directly:
 
 1. **Rename** `[Unreleased]` to `[x.y.z] - YYYY-MM-DD` using today's date.
 2. **Create a fresh empty `[Unreleased]`** section above the new version entry.
 3. **Update comparison links** at the bottom of the file if they exist.
+4. **Bump versions** in `shared/package.json` and `mcp/package.json` to `x.y.z`.
+5. **Report next steps** to the user: "Changelog and versions updated to x.y.z. To publish: commit, push to main, then `git tag vx.y.z && git push origin vx.y.z`. After the tag is pushed, say **create the release** and I'll create the GitHub Release with the changelog as notes."
+6. **Create GitHub Release when the user asks.** After the user has pushed the tag and says "create the release" (or similar):
+
+   a. **Extract** the `[x.y.z]` section from `CHANGELOG.md`: from the line `## [x.y.z] - YYYY-MM-DD` through the last line before the next `## ` heading. This is the release notes body.
+
+   b. **Run** `gh release create vx.y.z --notes "<extracted content>"` (use a temp file or heredoc for the notes to avoid shell escaping issues). The tag must already exist on the remote.
+
+   c. If `gh` is not installed, not authenticated, or the command fails: output the extracted notes in a markdown block and tell the user to create the release manually on GitHub (Releases → Create a new release → choose tag vx.y.z → paste the notes).
 
 ## Format
 

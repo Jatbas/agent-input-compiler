@@ -33,6 +33,9 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Ensure npm for Trusted Publishing
+        run: npm install -g npm@latest
+
       - name: Publish @jatbas/aic-shared
         run: npm publish --no-git-checks
         working-directory: shared
