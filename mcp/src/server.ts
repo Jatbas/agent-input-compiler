@@ -21,6 +21,7 @@ import { InspectRequestSchema } from "./schemas/inspect-request.schema.js";
 import { createCompileHandler } from "./handlers/compile-handler.js";
 import { SessionContext } from "./handlers/session-context-cache.js";
 import { handleInspect } from "./handlers/inspect-handler.js";
+import { recordToolInvocation } from "./record-tool-invocation.js";
 import { closeDatabase } from "@aic/shared/storage/open-database.js";
 import { ConfigError } from "@aic/shared/core/errors/config-error.js";
 import { createProjectScope } from "@aic/shared/storage/create-project-scope.js";
@@ -226,16 +227,14 @@ export function createMcpServer(
     (args) => {
       try {
         const parsed = z.object(ConversationSummaryRequestSchema).parse(args);
-        const paramsShape = JSON.stringify(
-          Object.fromEntries(Object.entries(parsed).map(([k, v]) => [k, typeof v])),
+        recordToolInvocation(
+          toolInvocationLogStore,
+          scope.clock,
+          scope.idGenerator,
+          getSessionId,
+          "aic_chat_summary",
+          parsed,
         );
-        toolInvocationLogStore.record({
-          id: scope.idGenerator.generate(),
-          createdAt: scope.clock.now(),
-          toolName: "aic_chat_summary",
-          sessionId: getSessionId(),
-          paramsShape,
-        });
         let idRaw: string | null =
           parsed.conversationId !== undefined &&
           typeof parsed.conversationId === "string" &&

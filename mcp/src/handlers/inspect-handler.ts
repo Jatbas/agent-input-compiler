@@ -7,6 +7,7 @@ import type { SessionId } from "@aic/shared/core/types/identifiers.js";
 import { AicError } from "@aic/shared/core/errors/aic-error.js";
 import { sanitizeError } from "@aic/shared/core/errors/sanitize-error.js";
 import { toFilePath } from "@aic/shared/core/types/paths.js";
+import { recordToolInvocation } from "#mcp/record-tool-invocation.js";
 import { validateProjectRoot, validateConfigPath } from "#mcp/validate-project-root.js";
 
 export type InspectToolResult = {
@@ -32,16 +33,14 @@ export async function handleInspect(
     args.configPath !== undefined && args.configPath !== null
       ? validateConfigPath(args.configPath, projectRoot)
       : null;
-  const paramsShape = JSON.stringify(
-    Object.fromEntries(Object.entries(args).map(([k, v]) => [k, typeof v])),
+  recordToolInvocation(
+    toolInvocationLogStore,
+    clock,
+    idGenerator,
+    getSessionId,
+    "aic_inspect",
+    args,
   );
-  toolInvocationLogStore.record({
-    id: idGenerator.generate(),
-    createdAt: clock.now(),
-    toolName: "aic_inspect",
-    sessionId: getSessionId(),
-    paramsShape,
-  });
   const dbPath = toFilePath(path.join(projectRoot, ".aic", "aic.sqlite"));
 
   const request = {

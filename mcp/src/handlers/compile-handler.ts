@@ -21,6 +21,7 @@ import { type SessionId, toConversationId } from "@aic/shared/core/types/identif
 import type { CompilationRequest } from "@aic/shared/core/types/compilation-types.js";
 import type { TelemetryDeps } from "@aic/shared/core/types/telemetry-types.js";
 import { writeCompilationTelemetry } from "@aic/shared/core/write-compilation-telemetry.js";
+import { recordToolInvocation } from "#mcp/record-tool-invocation.js";
 import { ensureProjectInit } from "#mcp/init-project.js";
 import { validateProjectRoot, validateConfigPath } from "#mcp/validate-project-root.js";
 
@@ -85,16 +86,14 @@ export function createCompileHandler(
           ? { conversationId: toConversationId(resolvedConversationId) }
           : {}),
       };
-      const paramsShape = JSON.stringify(
-        Object.fromEntries(Object.entries(args).map(([k, v]) => [k, typeof v])),
+      recordToolInvocation(
+        toolInvocationLogStore,
+        clock,
+        idGenerator,
+        getSessionId,
+        "aic_compile",
+        args,
       );
-      toolInvocationLogStore.record({
-        id: idGenerator.generate(),
-        createdAt: clock.now(),
-        toolName: "aic_compile",
-        sessionId: getSessionId(),
-        paramsShape,
-      });
       const result = await Promise.race([runner.run(request), rejectAfter(30_000)]);
       writeCompilationTelemetry(
         result.meta,
