@@ -10,18 +10,29 @@ const DEFAULT_CONFIG = {
   contextBudget: { maxTokens: 8000 },
 } as const;
 
-export function runInit(projectRoot: AbsolutePath): void {
+const CONFIG_FILENAME = "aic.config.json";
+
+// Idempotent, silent init for use from compile handler when project has no config.
+export function ensureProjectInit(projectRoot: AbsolutePath): void {
+  const configPath = path.join(projectRoot, CONFIG_FILENAME);
+  if (fs.existsSync(configPath)) {
+    return;
+  }
   ensureAicDir(projectRoot);
-  const configPath = path.join(projectRoot, "aic.config.json");
+  fs.writeFileSync(configPath, JSON.stringify(DEFAULT_CONFIG, null, 2), "utf8");
+  installTriggerRule(projectRoot);
+  installCursorHooks(projectRoot);
+}
+
+export function runInit(projectRoot: AbsolutePath): void {
+  const configPath = path.join(projectRoot, CONFIG_FILENAME);
   if (fs.existsSync(configPath)) {
     process.stderr.write(
       "Config already exists. Edit aic.config.json directly to change settings.\n",
     );
     throw new ConfigError("Config already exists.");
   }
-  fs.writeFileSync(configPath, JSON.stringify(DEFAULT_CONFIG, null, 2), "utf8");
-  installTriggerRule(projectRoot);
-  installCursorHooks(projectRoot);
+  ensureProjectInit(projectRoot);
   process.stdout.write(
     "Created aic.config.json. Edit to customise, or run a compile to use defaults.\n",
   );

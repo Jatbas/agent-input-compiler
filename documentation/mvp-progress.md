@@ -106,7 +106,7 @@ Editor detection and auto-install so Claude Code users get the same zero-install
 
 | Component                                                 | Status  | Package  | Deps                             | Description                                         |
 | --------------------------------------------------------- | ------- | -------- | -------------------------------- | --------------------------------------------------- |
-| Editor detection (`detectEditorForInit`)                  | Pending | mcp/src/ | —                                | Detect Claude Code vs Cursor for installer dispatch |
+| Editor detection (`detectEditorForInit`)                  | Done    | mcp/src/ | —                                | Detect Claude Code vs Cursor for installer dispatch |
 | `installClaudeCodeTriggerRule` (`.claude/CLAUDE.md`)      | Pending | mcp/src/ | Editor detection                 | Auto-create Claude Code trigger rule                |
 | `installClaudeCodeHooks` (`.claude/settings.local.json`)  | Pending | mcp/src/ | Editor detection, Phase T        | Auto-install Claude Code hooks                      |
 | `createMcpServer` dispatches installer by detected editor | Pending | mcp/src/ | Editor detection, trigger, hooks | One startup path per editor                         |

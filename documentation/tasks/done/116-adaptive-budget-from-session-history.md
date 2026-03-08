@@ -14,6 +14,8 @@ When `conversationTokens` is not provided on the request, derive it from the cur
 - Task 090 added `SessionBudgetContext` and `allocate(rulePack, taskClass, sessionContext?)`; run-pipeline-steps already passes `request.conversationTokens` when defined. This task adds the derivation path when it is undefined.
 - Project Plan §2.7: session-aware budget uses prior token usage to cap allocation. We use AIC-recorded steps only (no client-supplied conversation length).
 - No new interface or pipeline class — single orchestration change in `runPipelineSteps`. Explicit `request.conversationTokens` continues to override when present.
+- The derived value sums AIC's compiled-output tokens per step — a conservative proxy for true conversation length (excludes user/assistant messages AIC cannot observe). This is the best signal available without client-supplied values.
+- `getSteps(sessionId)` will be called twice when session is present: once here for budget derivation, once later for conversation compression (line 192). Both are single-row PK lookups in SQLite (sub-millisecond). Acceptable for now; a future task can cache the result in a local const to eliminate the duplicate query.
 
 ## Files
 
@@ -70,8 +72,9 @@ Create `shared/src/core/__tests__/run-pipeline-steps.test.ts`. Test the orchestr
 - **session_context_derived_from_steps_when_conversationTokens_absent:** Build minimal `deps` with a mock `budgetAllocator` (spy on `allocate`) and mock `agenticSessionState` whose `getSteps(sessionId)` returns a non-empty array of steps with known `tokensCompiled` values. Call `runPipelineSteps(deps, request)` with `request.sessionId` set, `request.conversationTokens` undefined. Assert `allocate` was called with third argument `sessionContext` such that `sessionContext.conversationTokens` equals `toTokenCount(sum of step.tokensCompiled)`.
 - **session_context_unchanged_when_conversationTokens_provided:** Same deps/request shape but set `request.conversationTokens` to a known `TokenCount`. Assert `allocate` was called with `sessionContext.conversationTokens` equal to that value (regression: explicit value wins).
 - **session_context_undefined_when_no_session:** Call with `request.sessionId` undefined (or `deps.agenticSessionState` null/undefined) and `request.conversationTokens` undefined. Assert `allocate` was called with third argument `undefined` (or no sessionContext).
+- **session_context_zero_when_first_in_session:** Set `request.sessionId` and `deps.agenticSessionState`, but `getSteps(sessionId)` returns an empty array (no prior steps). Assert `allocate` was called with `sessionContext.conversationTokens` equal to `toTokenCount(0)`. This confirms the first compilation in a session activates the cap path with zero prior usage (budget is effectively uncapped: `128000 - 4000 - 0 - 500 = 123500`).
 
-Use the same pattern as existing pipeline tests: full deps object with mocks; no real pipeline steps. You may need to stub other deps (intentClassifier, rulePackResolver, repoMapSupplier, etc.) so `runPipelineSteps` runs up to the allocate call. If the function is async and runs past allocate, assert on the first allocate call only or structure the mocks so the pipeline completes without throwing.
+Use the same pattern as existing pipeline tests: full deps object with mocks; no real pipeline steps. Stub all `PipelineStepsDeps` so `runPipelineSteps` can complete (it is async and continues after `allocate`): e.g. `repoMapSupplier.getRepoMap` resolves to a minimal `RepoMap`, `contextSelector.selectContext` returns a minimal `ContextResult`, `contextGuard.scan` returns a minimal result, and downstream steps return minimal valid values so the pipeline resolves without throwing. Then assert on the `allocate` spy’s third argument (`sessionContext`).
 
 **Verify:** `pnpm test -- run-pipeline-steps` passes.
 
@@ -82,16 +85,17 @@ Expected: all pass, zero warnings, no new knip findings.
 
 ## Tests
 
-| Test case                                                         | Description                                                                                                                     |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| session_context_derived_from_steps_when_conversationTokens_absent | When conversationTokens is undefined and sessionId + agenticSessionState present, allocate receives sum of step.tokensCompiled. |
-| session_context_unchanged_when_conversationTokens_provided        | When conversationTokens is set on request, allocate receives that value.                                                        |
-| session_context_undefined_when_no_session                         | When no sessionId or agenticSessionState and no conversationTokens, allocate receives undefined.                                |
+| Test case                                                         | Description                                                                                                                           |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| session_context_derived_from_steps_when_conversationTokens_absent | When conversationTokens is undefined and sessionId + agenticSessionState present, allocate receives sum of step.tokensCompiled.       |
+| session_context_unchanged_when_conversationTokens_provided        | When conversationTokens is set on request, allocate receives that value.                                                              |
+| session_context_undefined_when_no_session                         | When no sessionId or agenticSessionState and no conversationTokens, allocate receives undefined.                                      |
+| session_context_zero_when_first_in_session                        | When session present but getSteps returns empty array, allocate receives `toTokenCount(0)` (first compilation, effectively uncapped). |
 
 ## Acceptance Criteria
 
 - [ ] run-pipeline-steps.ts derives sessionContext from getSteps when conversationTokens is undefined and session is present
-- [ ] run-pipeline-steps.test.ts created with three test cases above
+- [ ] run-pipeline-steps.test.ts created with four test cases above
 - [ ] All test cases pass
 - [ ] `pnpm lint` — zero errors, zero warnings
 - [ ] `pnpm typecheck` — clean

@@ -21,6 +21,7 @@ import { type SessionId, toConversationId } from "@aic/shared/core/types/identif
 import type { CompilationRequest } from "@aic/shared/core/types/compilation-types.js";
 import type { TelemetryDeps } from "@aic/shared/core/types/telemetry-types.js";
 import { writeCompilationTelemetry } from "@aic/shared/core/write-compilation-telemetry.js";
+import { ensureProjectInit } from "#mcp/init-project.js";
 import { validateProjectRoot, validateConfigPath } from "#mcp/validate-project-root.js";
 
 function rejectAfter(ms: number): Promise<never> {
@@ -61,6 +62,7 @@ export function createCompileHandler(
   return async (args, _extra): Promise<CallToolResult> => {
     try {
       const projectRoot = validateProjectRoot(args.projectRoot);
+      ensureProjectInit(projectRoot);
       const configPath =
         args.configPath !== null
           ? validateConfigPath(args.configPath, projectRoot)

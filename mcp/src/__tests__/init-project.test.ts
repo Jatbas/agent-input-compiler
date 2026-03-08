@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import { runInit } from "../init-project.js";
+import { ensureProjectInit, runInit } from "../init-project.js";
 import { toAbsolutePath } from "@aic/shared/core/types/paths.js";
 import { ConfigError } from "@aic/shared/core/errors/config-error.js";
 
@@ -39,5 +39,42 @@ describe("runInit", () => {
     fs.writeFileSync(path.join(tmpDir, "aic.config.json"), "{}", "utf8");
     const projectRoot = toAbsolutePath(tmpDir);
     expect(() => runInit(projectRoot)).toThrow(ConfigError);
+  });
+});
+
+describe("ensureProjectInit", () => {
+  let tmpDir: string;
+
+  afterEach(() => {
+    if (tmpDir !== undefined && fs.existsSync(tmpDir)) {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("creates_config_and_artifacts_when_config_missing", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-ensure-init-"));
+    const projectRoot = toAbsolutePath(tmpDir);
+    ensureProjectInit(projectRoot);
+    expect(fs.existsSync(path.join(tmpDir, ".aic"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, "aic.config.json"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, ".cursor", "rules", "AIC.mdc"))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, ".cursor", "hooks.json"))).toBe(true);
+  });
+
+  it("no_op_when_config_exists", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-ensure-init-"));
+    fs.writeFileSync(
+      path.join(tmpDir, "aic.config.json"),
+      JSON.stringify({ contextBudget: { maxTokens: 4000 } }),
+      "utf8",
+    );
+    const projectRoot = toAbsolutePath(tmpDir);
+    ensureProjectInit(projectRoot);
+    const config = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, "aic.config.json"), "utf8"),
+    ) as {
+      contextBudget: { maxTokens: number };
+    };
+    expect(config.contextBudget.maxTokens).toBe(4000);
   });
 });

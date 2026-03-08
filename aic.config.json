@@ -1,0 +1,5 @@
+{
+  "contextBudget": {
+    "maxTokens": 8000
+  }
+}

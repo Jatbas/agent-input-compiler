@@ -192,4 +192,38 @@ describe("compile-handler", () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  it("auto_init_creates_config_and_aic_dir_when_project_has_no_config", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-auto-init-"));
+    try {
+      expect(fs.existsSync(path.join(tmpDir, "aic.config.json"))).toBe(false);
+      const {
+        mockClock,
+        mockIdGenerator,
+        mockTelemetryDeps,
+        getSessionId,
+        getEditorId,
+        getModelId,
+      } = makeDeps();
+      const handler = createCompileHandler(
+        makeSuccessRunner("compiled"),
+        mockTelemetryDeps,
+        getSessionId,
+        getEditorId,
+        getModelId,
+        null,
+        { record: vi.fn() },
+        mockClock,
+        mockIdGenerator,
+      );
+      await handler(
+        { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },
+        undefined,
+      );
+      expect(fs.existsSync(path.join(tmpDir, "aic.config.json"))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, ".aic"))).toBe(true);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
 });
