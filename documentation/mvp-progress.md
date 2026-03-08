@@ -342,6 +342,13 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ## Daily Log
 
+### 2026-03-08
+
+**Components:** Adaptive budget from session history (wire derivation, Task 116)
+**Completed:**
+
+- Adaptive budget from session history wire derivation (Task 116): run-pipeline-steps derives sessionContext from agenticSessionState.getSteps(sessionId) when request.conversationTokens is undefined and session is present (sum of step.tokensCompiled via reduce, toTokenCount(sum)); explicit conversationTokens still wins; deriveSessionContext helper; four unit tests (session_context_derived_from_steps_when_conversationTokens_absent, session_context_unchanged_when_conversationTokens_provided, session_context_undefined_when_no_session, session_context_zero_when_first_in_session). Lint, typecheck, test, knip/lint:clones pre-existing only.
+
 ### 2025-03-07
 
 **Components:** preToolUse schema alignment + failClosed (Task 109), sessionEnd hook (Task 110), sessionStart env improvements (Task 112), Documentation Cursor hooks update (Task 113), postToolUse compile confirmation (Task 114), Schema hardening (Task 115), Compilation timeout enforcement (Task 115), Tool-invocation audit log (Task 115), aic://last compiledPrompt removal (Task 115), security.md MCP Top 10 coverage table (Task 115)

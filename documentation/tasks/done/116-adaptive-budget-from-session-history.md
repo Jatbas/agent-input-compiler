@@ -1,6 +1,6 @@
 # Task 116: Adaptive budget from session history (wire derivation)
 
-> **Status:** Pending
+> **Status:** Done
 > **Phase:** O — Agentic Session Tracking (completion)
 > **Layer:** core
 > **Depends on:** Adaptive budget allocation (session history), Session tracking storage (migration)

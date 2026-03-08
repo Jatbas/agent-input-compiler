@@ -5,23 +5,45 @@
 ![Local-first](https://img.shields.io/badge/local--first-yes-brightgreen)
 ![Telemetry](https://img.shields.io/badge/telemetry-opt--in-lightgrey)
 ![MCP Compatible](https://img.shields.io/badge/MCP-compatible-purple)
-![AI-Assisted Engineering](https://img.shields.io/badge/AI--assisted-engineering-blueviolet)
 
-> Deterministic context compiler for AI coding tools. Local-first MCP server that selects relevant files and compresses context before it reaches the model.
+> Deterministic context compiler for AI coding tools.
+> AIC is a local-first MCP server that selects relevant files, removes noise, and returns a smaller context package before it reaches the model.
+
+AIC does **not** replace your editor. It runs alongside MCP-compatible editors and improves the context they send to the model.
 
 ---
 
-## Why use it
+## Why developers use AIC
 
-Modern AI models have massive context windows, leading to a dangerous developer habit: dumping large amounts of code into the prompt. This triggers **"Lost in the Middle" syndrome** — the model gets overwhelmed by noise, hallucinates APIs, forgets instructions, and produces subtly broken code.
+AI coding tools often pull in too much irrelevant context. That wastes tokens, weakens instruction-following, and increases hallucinations.
 
-AIC fixes this by acting as a deterministic context compiler. It filters the noise _before_ the model runs, ensuring the AI sees a curated, relevant subset of your codebase.
+AIC adds a compilation step before the model runs:
 
-Every token you save is capacity you reclaim. A leaner context means the model reasons over signal, not noise — producing more accurate code with fewer iterations. If you're on a metered plan, it also means more requests from the same budget. AIC makes the context window work harder so you can ship faster.
+- classifies the task
+- selects the most relevant files
+- blocks sensitive or irrelevant content
+- compresses the result to fit a token budget
+- returns a bounded context package the model can reason over
+
+The result is a smaller, more relevant, and more inspectable input.
+
+### What it helps with
+
+| Problem                               | What AIC does                                                                   |
+| ------------------------------------- | ------------------------------------------------------------------------------- |
+| Too much irrelevant context           | Selects and compresses only the files that matter                               |
+| Inconsistent context quality          | Produces deterministic compiled context for the same task and codebase          |
+| Wasted tokens                         | Strips noise and progressively compresses content to stay within budget         |
+| Secret exposure risk                  | Blocks secrets, excluded paths, and suspicious prompt injection strings locally |
+| No visibility into what the model saw | Lets you inspect the latest compilation from inside the editor                  |
+
+### Real captured output
+
+The example below is **real captured output from AIC's own development usage**. It is useful as a concrete datapoint, not as a universal benchmark for every repository.
 
 > `show aic status`
 
-```
+```text
 Status = project-level AIC status.
 
 | Field                          | Value                                         |
@@ -44,7 +66,7 @@ Status = project-level AIC status.
 
 > `show aic last`
 
-```
+```text
 Last = most recent compilation.
 
 | Field            | Value                                                  |
@@ -57,39 +79,17 @@ Last = most recent compilation.
 | Editor           | cursor                                                 |
 ```
 
-### Problems that AIC solves
-
-| Problem                                | How AIC helps                                                                                                                                     |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **"Lost in the Middle" hallucination** | Scores every file by relevance and compresses them, so the model focuses on the right code                                                        |
-| **Inconsistent outputs**               | Same intent + same codebase = same compiled context, every time                                                                                   |
-| **Wasted tokens**                      | Strips comments, compacts JSON, and progressively summarises files to cut token usage by 98%                                                      |
-| **Leaked credentials**                 | **Context Guard** blocks secrets, API keys, and `.env` files before they reach the model                                                          |
-| **No visibility into context**         | "show aic last" displays which files were selected, how they were compressed, and what was blocked — full pipeline transparency inside the editor |
-
 ---
 
-## Measured Impact
-
-In real-world use during development with Cursor, AIC consistently reduces context sent to the model by over **98%** — compiling over 500M raw tokens (the full project scan across all compilations) down to ~7M. Every token saved is context window capacity recovered: the model focuses on relevant code instead of noise, produces fewer hallucinations, and you iterate faster.
-
----
-
-## Setup
-
-### Quick check
-
-```bash
-npx @aic/mcp --help
-```
+## Quick start
 
 ### Prerequisites
 
-- **Node.js >= 18** — required for `npx`
+- **Node.js 18+**
 
-### Cursor (recommended — full integration)
+### Cursor
 
-**Step 1 — Register the MCP server.** Add to `~/.cursor/mcp.json`:
+**1. Register the MCP server** in `~/.cursor/mcp.json`:
 
 ```json
 {
@@ -99,168 +99,124 @@ npx @aic/mcp --help
 }
 ```
 
-**Step 2 — Install hooks and trigger rule.** Run in your project root:
+**2. Initialize AIC** in your project root:
 
-```
+```bash
 npx @aic/mcp init
 ```
 
-This creates:
+This installs the integration files AIC needs for Cursor and creates the local `.aic/` directory.
 
-- `.cursor/rules/aic.mdc` — trigger rule that instructs the model to call `aic_compile`
-- `.cursor/hooks/AIC-*.cjs` — integration hooks for session context, tool gating, and quality checks
-- `.aic/` directory (0700 permissions) — local storage for cache and telemetry
+**3. Approve the tools** when Cursor prompts you:
 
-**Step 3 — Approve MCP tools.** When Cursor first invokes `aic_compile`, you will see an approval prompt on the MCP indicator. Click **"Always allow"** for both `aic_compile` and `aic_inspect`. If these tools are denied or left unapproved, AIC cannot compile context and the model will operate without curated project context. You can review approved tools at any time in **Settings → MCP**.
+- `aic_compile`
+- `aic_inspect`
+- `aic_chat_summary`
 
-### Claude Code [🏗️ Coming Next Week]
+If these are not approved, AIC cannot compile context and the editor will fall back to its normal behavior.
 
-_Integration layers for Claude Code are actively being finalized for the Phase 1.0 release._
+### Claude Code
 
-**Step 1 — Register the MCP server.** Add to your project's `.mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "aic": { "command": "npx", "args": ["@aic/mcp"] }
-  }
-}
-```
-
-**Step 2 — Allow AIC tools.** Claude Code requires explicit tool permissions. When prompted, approve `aic_compile` and `aic_inspect`. Alternatively, pass `--allowedTools` when starting Claude Code.
+Claude Code integration is planned. The core pipeline is already editor-agnostic; the remaining work is the editor-specific integration layer.
 
 ### Other MCP-compatible editors
 
-AIC's MCP tool works with any editor that supports MCP. Add the server to your editor's MCP config. The model can call `aic_compile` when instructed to by rules or when it chooses to.
-
-Note: without an integration layer (hooks), AIC relies on the model voluntarily calling the tool. The trigger rule improves this, but enforcement varies by editor. See the [architecture guide](documentation/architecture.md) for details on editor hook coverage.
+AIC can run anywhere MCP is supported, but the quality of integration depends on the hooks the editor exposes. Without an integration layer, the model may need to call AIC voluntarily.
 
 ---
 
-## Prompt commands
+## Verify your setup
 
 Ask the model in your editor:
 
+```text
+show aic status
+show aic last
+show aic chat summary
 ```
-show aic status        # "Is it working?" — health check + lifetime stats
-show aic last          # "What just happened?" — what AIC sent to the model last time
-show aic chat summary  # this conversation's compilation stats
+
+What to look for:
+
+- **Installation: OK** in `show aic status`
+- a recent compilation in `show aic last`
+- selected file count, compiled tokens, and reduction figures that make sense for the task
+- guard events when sensitive or excluded content is blocked
+
+If there is no recent compilation, AIC may be installed but not invoked correctly by the current editor workflow.
+
+---
+
+## Team setup
+
+For team use, the practical split is simple:
+
+- each developer installs the MCP server locally
+- project-level integration files are committed to the repo when appropriate
+- `.aic/` remains local and should not be committed
+- rules, budgets, and integration behavior should be standardized at the repo level, not per developer
+
+AIC is useful for individuals, but it becomes more valuable when teams want more consistent context quality across the same codebase.
+
+---
+
+## How AIC fits into the workflow
+
+1. Your editor or model calls `aic_compile`
+2. AIC classifies the task, selects relevant files, applies guardrails, and compresses content
+3. AIC returns a bounded context package
+4. The editor continues the normal model workflow using that compiled context
+
+AIC compiles context. It does not call models, replace the editor, or act as a separate coding environment.
+
+---
+
+## Security
+
+AIC is local-first.
+
+Before file content reaches the model, AIC can block:
+
+- common secrets and credentials
+- excluded paths such as `.env`, keys, and similar sensitive files
+- suspicious prompt-injection strings in selected content
+
+Telemetry is local by default. AIC stores compilation metadata locally and does not need an AIC account or API key.
+
+---
+
+## Commands
+
+```text
+show aic status        # project-level status and lifetime stats
+show aic last          # most recent compilation
+show aic chat summary  # current conversation summary
 ```
-
----
-
-## How it works
-
-AIC's core pipeline processes context through a multi-step pipeline:
-
-1. **Classify** intent into a task class (refactor, bugfix, feature, docs, test, general)
-2. **Resolve** applicable rule packs for constraints and patterns
-3. **Allocate** token budget based on model context window
-4. **Select** relevant files via heuristic scoring (path relevance, imports, recency, size)
-5. **Guard** — scan selected files for secrets, excluded paths, and prompt injection; block before content reaches the model
-
-- 5.5. **Transform** — compress file content (comment stripping, JSON compaction, lock file skipping)
-
-6. **Compress** through a 4-tier summarisation ladder (full content → signatures+docs → signatures only → names only)
-7. **Inject** constraints from rule packs
-8. **Assemble** the final compiled prompt
-
-The core pipeline is editor-agnostic — it doesn't know or care who called it. Editor-specific integration layers (hooks) ensure the pipeline runs at the right time. See the [architecture guide](documentation/architecture.md) for the full two-layer design, editor hook capabilities, and integration status.
-
----
-
-## Core properties
-
-| Property              | Description                                                                                                                                                            |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Local-first**       | All processing runs on your machine — no cloud, no account, no API key for AIC itself. Perfect for strict compliance environments where zero-exfiltration is required. |
-| **Deterministic**     | Same intent + same codebase → same compiled output, every time                                                                                                         |
-| **Zero config**       | Works out of the box with no `aic.config.json`; optional config for customization                                                                                      |
-| **Secure by default** | Context Guard scans every selected file for secrets, credentials, and excluded paths before anything reaches the model                                                 |
-| **Extensible**        | New languages, transformers, and scanners plug in via interfaces without touching the core pipeline                                                                    |
-| **Model-agnostic**    | Works with any model the editor is configured to use — AIC compiles context, never calls models                                                                        |
-
----
-
-## Context Guard
-
-Before any file content reaches the model, AIC's Context Guard scans every selected file and blocks:
-
-- **Secrets and credentials** — AWS keys, GitHub tokens, Stripe keys, JWTs, SSH private key headers, and generic named API keys detected by regex. By blocking these locally, they never reach the AI provider's servers, eliminating a major class of supply chain risk.
-- **Excluded paths** — `.env`, `*.pem`, `*.key`, `*secret*`, `*credential*`, and similar patterns never enter context
-- **Prompt injection** — suspected instruction-override strings blocked before they can influence the model
-
-Blocked files are removed from the compiled context. Findings are attached to compilation metadata and logged locally. The pipeline always continues — Guard filters, it never crashes.
-
----
-
-## Telemetry
-
-AIC records compilation telemetry locally in `.aic/aic.sqlite` — token counts, file selection, duration, cache hits. Never file paths, file content, prompts, or PII. Local-only by default; anonymous aggregate reporting is opt-in.
-
----
-
-## Limitations
-
-Current integration gaps are editor-specific — the core pipeline handles all compilation scenarios identically. Cursor supports session-start compilation and tool gating but not per-prompt or subagent context injection. Claude Code supports all hook capabilities but its integration layer is not yet built. See the [architecture guide](documentation/architecture.md#editor-specific-integration-gaps) for the full breakdown.
-
----
-
-## Future Work
-
-**Claude Code integration [Phase 1.0]** — Claude Code's hook system enables per-prompt context injection, subagent context, and pre-compaction compilation. The core pipeline is ready; integration hooks are currently being built to deliver this next week.
-
-**Agentic session tracking [Phase 1.0]** — session-level deduplication, conversation compression, and adaptive budget allocation for multi-step agent workflows.
-
-**Additional editor support** — as editors add hook capabilities, AIC adds thin integration layers. The [architecture guide](documentation/architecture.md#what-aic-needs-from-an-editor) serves as a checklist.
-
-**Agentic session tracking** — session-level deduplication, conversation compression, and adaptive budget allocation for multi-step agent workflows. Planned for Phase 1.
-
-**Benchmark expansion** — single-repo benchmark coverage is done. Remaining OSS-release work is broader validation: multi-repo datapoints and side-by-side comparisons against native editor context selection.
 
 ---
 
 ## Documentation
 
-| Document                                                         | Description                                                    |
-| ---------------------------------------------------------------- | -------------------------------------------------------------- |
-| [`architecture.md`](documentation/architecture.md)               | Two-layer design, editor hook capabilities, integration status |
-| [`best-practices.md`](documentation/best-practices.md)           | Best practices for AI-assisted coding with AIC                 |
-| [`project-plan.md`](documentation/project-plan.md)               | Architecture, design principles, interfaces, ADRs, roadmap     |
-| [`implementation-spec.md`](documentation/implementation-spec.md) | Implementation details, pipeline spec, success criteria        |
-| [`security.md`](documentation/security.md)                       | Security model, vulnerability reporting, compliance readiness  |
-| [`mvp-progress.md`](documentation/mvp-progress.md)               | Current progress, daily log                                    |
+Use the README for orientation. Use the docs below for implementation detail.
 
----
-
-## Roadmap
-
-| Phase                           | Focus                                                                                  | Status  |
-| ------------------------------- | -------------------------------------------------------------------------------------- | ------- |
-| MVP (`0.1.0`)                   | Core pipeline, transformers, Guard, telemetry, MCP server                              | Done    |
-| Quality Release (`0.2.0`)       | Cursor integration layer, multi-language imports, intent-aware discovery, benchmarks   | Done    |
-| OSS Release (`1.0.0`)           | Public repo, Claude Code integration, agentic session tracking, Specification Compiler | Current |
-| Semantic + Governance (`2.0.0`) | Vector search, policy engine, conversation compression for agents                      | Planned |
-| Enterprise Platform (`3.0.0`)   | RBAC, SSO, fleet management, dashboard                                                 | Future  |
+| Document                                                         | Description                                               |
+| ---------------------------------------------------------------- | --------------------------------------------------------- |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md)                             | Development setup, run from source, contribution process  |
+| [`architecture.md`](documentation/architecture.md)               | Core pipeline, integration layer, editor capability model |
+| [`best-practices.md`](documentation/best-practices.md)           | Practical usage guidance                                  |
+| [`security.md`](documentation/security.md)                       | Security model and hardening details                      |
+| [`implementation-spec.md`](documentation/implementation-spec.md) | Detailed pipeline and implementation behavior             |
+| [`mvp-progress.md`](documentation/mvp-progress.md)               | Current progress and OSS release work                     |
 
 ---
 
 ## Contributing
 
-Contributions are welcome — whether it's a bug fix, a new `LanguageProvider`, an additional `ContentTransformer`, or improving documentation.
+Contributions are welcome. This is a structured codebase with a defined architecture; small, focused changes are more likely to be reviewed and merged quickly than broad refactors.
 
-**Quick start:**
-
-1. Fork and clone the repo
-2. `pnpm install`
-3. `pnpm test` to verify the suite passes
-4. Create a branch: `git checkout -b feat/your-feature`
-5. Open a PR
-
-For the full guide — code style, commit format, and PR checklist — see [Licensing & Contribution](documentation/project-plan.md#21-licensing--contribution-phase-1-prep) in the Project Plan.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, local MCP testing, RFC requirements, and the PR checklist.
 
 ---
 
 ## License
 
-Apache 2.0
+Licensed under the [Apache License, Version 2.0](LICENSE).

@@ -64,13 +64,15 @@ The process has **two passes** plus a presentation step. Each pass produces a co
 
 The planner operates in a dedicated worktree based on `main` so that task files and exploration reports reflect the current merged state. This enables **parallel operation**: the planner works in its own worktree, executors work in theirs, and the main workspace stays on `main`, untouched.
 
-1. From the main workspace root, ensure main is up to date:
+1. **Optionally update main.** From the main workspace root:
 
    ```
    git pull --ff-only
    ```
 
-   If this fails (not on main, or diverged), tell the user: "Cannot fast-forward main. Please resolve manually before planning." Do not proceed.
+   If this fails:
+   - Run `git status --porcelain`. If **non-empty** (dirty working tree), **skip the pull**: tell the user "Working tree has uncommitted changes; creating planning worktree from current main (main may not be up to date with origin)." Then proceed to step 2. This avoids stash and works safely when multiple executors are running — conflicts are typically documentation-only.
+   - If the working tree is **clean**, the failure is due to branch state (not on main, or diverged). Tell the user: "Cannot fast-forward main. Resolve manually (e.g. checkout main, pull or rebase) before planning." Do not proceed.
 
 2. Generate a unique worktree name using the Unix epoch:
 

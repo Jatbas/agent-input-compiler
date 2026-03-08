@@ -25,6 +25,7 @@ import type { TransformResult } from "#core/types/transform-types.js";
 import type { SelectedFile } from "#core/types/selected-file.js";
 import type { TokenCount, StepIndex } from "#core/types/units.js";
 import type { SessionId, ISOTimestamp } from "#core/types/identifiers.js";
+import type { SessionBudgetContext } from "#core/types/session-budget-context.js";
 import { toTokenCount } from "#core/types/units.js";
 import { OUTPUT_FORMAT } from "#core/types/enums.js";
 
@@ -97,6 +98,21 @@ function buildSpecRepoMap(repoMap: RepoMap): RepoMap {
   };
 }
 
+function deriveSessionContext(
+  request: PipelineStepsRequest,
+  deps: PipelineStepsDeps,
+): SessionBudgetContext | undefined {
+  if (request.conversationTokens !== undefined) {
+    return { conversationTokens: request.conversationTokens };
+  }
+  if (request.sessionId !== undefined && deps.agenticSessionState) {
+    const steps = deps.agenticSessionState.getSteps(request.sessionId);
+    const sum = steps.reduce((acc, step) => acc + Number(step.tokensCompiled), 0);
+    return { conversationTokens: toTokenCount(sum) };
+  }
+  return undefined;
+}
+
 export async function runPipelineSteps(
   deps: PipelineStepsDeps,
   request: PipelineStepsRequest,
@@ -104,10 +120,7 @@ export async function runPipelineSteps(
 ): Promise<PipelineStepsResult> {
   const task = deps.intentClassifier.classify(request.intent);
   const rulePack = deps.rulePackResolver.resolve(task, request.projectRoot);
-  const sessionContext =
-    request.conversationTokens !== undefined
-      ? { conversationTokens: request.conversationTokens }
-      : undefined;
+  const sessionContext = deriveSessionContext(request, deps);
   const budget = deps.budgetAllocator.allocate(rulePack, task.taskClass, sessionContext);
   const repoMap =
     repoMapOverride ?? (await deps.repoMapSupplier.getRepoMap(request.projectRoot));
