@@ -7,6 +7,20 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-03-09
+
+### Fixed
+
+- Install button on GitHub now works (GitHub strips custom protocol links; use HTTPS redirect page via GitHub Pages)
+- Published npm package no longer contains unresolved `workspace:*` dependency
+- CI publish workflow now uses `pnpm pack` to resolve workspace dependencies before publishing
+
+## [0.4.1] - 2026-03-09
+
+### Fixed
+
+- (Yanked — published with unresolved `workspace:*` dependency due to CI using `npm publish` instead of `pnpm pack`)
+
 ## [0.4.0] - 2026-03-09
 
 ### Added

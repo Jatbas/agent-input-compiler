@@ -70,14 +70,31 @@ When the user approves a release suggestion above, or says "cut release x.y.z" d
 2. **Create a fresh empty `[Unreleased]`** section above the new version entry.
 3. **Update comparison links** at the bottom of the file if they exist.
 4. **Bump versions** in `shared/package.json` and `mcp/package.json` to `x.y.z`.
-5. **Report next steps** to the user: "Changelog and versions updated to x.y.z. To publish: commit, push to main, then `git tag vx.y.z && git push origin vx.y.z`. After the tag is pushed, say **create the release** and I'll create the GitHub Release with the changelog as notes."
-6. **Create GitHub Release when the user asks.** After the user has pushed the tag and says "create the release" (or similar):
+5. **Commit:** `git add CHANGELOG.md shared/package.json mcp/package.json && git commit -m "chore(release): x.y.z"`.
+6. **Tag:** `git tag vx.y.z`.
+7. **Push:** `git push && git push origin vx.y.z`.
+8. **Build both packages** from the repo root: `pnpm --filter @jatbas/aic-shared run build && pnpm --filter @jatbas/aic-mcp run build`. If either build fails, stop and report the error.
+9. **Publish to npm** (order matters — shared first because mcp depends on it):
 
-   a. **Extract** the `[x.y.z]` section from `CHANGELOG.md`: from the line `## [x.y.z] - YYYY-MM-DD` through the last line before the next `## ` heading. This is the release notes body.
+   a. `pnpm --filter @jatbas/aic-shared publish --no-git-checks --access public`
 
-   b. **Run** `gh release create vx.y.z --notes "<extracted content>"` (use a temp file or heredoc for the notes to avoid shell escaping issues). The tag must already exist on the remote.
+   b. `pnpm --filter @jatbas/aic-mcp publish --no-git-checks --access public`
 
-   c. If `gh` is not installed, not authenticated, or the command fails: output the extracted notes in a markdown block and tell the user to create the release manually on GitHub (Releases → Create a new release → choose tag vx.y.z → paste the notes).
+   c. **Why `pnpm publish`:** pnpm automatically replaces `workspace:*` dependencies with the real version number in the published tarball. Using `npm publish` would publish the raw `workspace:*` string, breaking installs. Never use `npm publish` for this monorepo.
+
+   d. If publish fails (e.g., version already exists, auth error), stop and report the error. Do not proceed to GitHub Release with a broken npm package.
+
+10. **Verify npm publish:** Run `npm view @jatbas/aic-mcp@x.y.z dependencies --json` and confirm `@jatbas/aic-shared` shows a real version number (not `workspace:*`). If it still shows `workspace:*`, the publish was incorrect — stop and report.
+
+11. **Create GitHub Release:**
+
+    a. **Extract** the `[x.y.z]` section from `CHANGELOG.md`: from the line `## [x.y.z] - YYYY-MM-DD` through the last line before the next `## ` heading. This is the release notes body.
+
+    b. **Run** `gh release create vx.y.z --notes "<extracted content>"` (use a temp file or heredoc for the notes to avoid shell escaping issues). The tag must already exist on the remote.
+
+    c. If `gh` is not installed, not authenticated, or the command fails: output the extracted notes in a markdown block and tell the user to create the release manually on GitHub (Releases → Create a new release → choose tag vx.y.z → paste the notes).
+
+12. **Report summary** to the user: version, npm package links, GitHub Release URL, and any issues encountered.
 
 ## Format
 
