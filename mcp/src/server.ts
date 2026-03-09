@@ -59,6 +59,7 @@ import { loadRulePackFromPath } from "@jatbas/aic-shared/core/load-rule-pack.js"
 import { createProjectFileReader } from "@jatbas/aic-shared/adapters/project-file-reader-adapter.js";
 import { createCachingFileContentReader } from "@jatbas/aic-shared/adapters/caching-file-content-reader.js";
 import { detectEditorId } from "./detect-editor-id.js";
+import { detectInstallScope, INSTALL_SCOPE } from "./detect-install-scope.js";
 import { getUpdateInfo } from "./latest-version-check.js";
 import { initLanguageProviders } from "@jatbas/aic-shared/adapters/init-language-providers.js";
 import { EditorModelConfigReaderAdapter } from "@jatbas/aic-shared/adapters/editor-model-config-reader.js";
@@ -146,6 +147,13 @@ export function createMcpServer(
   installTriggerRule(projectRoot);
   installCursorHooks(projectRoot);
   const { installationOk, installationNotes } = runStartupSelfCheck(projectRoot);
+  const installScope = detectInstallScope(os.homedir(), projectRoot);
+  const installScopeWarnings: readonly string[] =
+    installScope === INSTALL_SCOPE.BOTH
+      ? [
+          "AIC is registered in both the global MCP config and the workspace MCP config. Your editor will run two AIC instances, causing duplicate tools and potential database conflicts. Remove the duplicate 'aic' entry from the workspace config (.cursor/mcp.json in this project directory) to fix this.",
+        ]
+      : [];
   const sessionId = toSessionId(scope.idGenerator.generate());
   const startedAt = scope.clock.now();
   scope.sessionTracker.startSession(
@@ -244,6 +252,7 @@ export function createMcpServer(
       toolInvocationLogStore,
       scope.clock,
       scope.idGenerator,
+      installScopeWarnings,
     ),
   );
   server.tool("aic_inspect", InspectRequestSchema, (args) =>
@@ -357,6 +366,7 @@ export function createMcpServer(
             budgetMaxTokens,
             budgetUtilizationPct,
             updateAvailable: updateInfoRef.current.updateAvailable,
+            installScope,
           }),
         },
       ],

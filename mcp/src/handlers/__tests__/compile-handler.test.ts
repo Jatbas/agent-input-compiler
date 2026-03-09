@@ -57,6 +57,7 @@ describe("compile-handler", () => {
       { record: vi.fn() },
       mockClock,
       mockIdGenerator,
+      [],
     );
     const promise = handler(
       {
@@ -141,6 +142,7 @@ describe("compile-handler", () => {
         { record: vi.fn() },
         mockClock,
         mockIdGenerator,
+        [],
       );
       const result = await handler(
         {
@@ -182,6 +184,7 @@ describe("compile-handler", () => {
         { record: vi.fn() },
         mockClock,
         mockIdGenerator,
+        [],
       );
       const result = await handler(
         { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },
@@ -218,6 +221,7 @@ describe("compile-handler", () => {
         { record: vi.fn() },
         mockClock,
         mockIdGenerator,
+        [],
       );
       await handler(
         { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },

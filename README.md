@@ -62,6 +62,7 @@ Status = project-level AIC status.
 |                                | 7,692 tokens (98.8%), cursor                  |
 | Installation                   | OK                                            |
 | Installation notes             | (none)                                        |
+| Install scope                  | Global                                        |
 ```
 
 > `show aic last`
@@ -91,7 +92,13 @@ Last = most recent compilation.
 
 **1. Click to install** — one click, no dependencies:
 
-[**Install AIC for Cursor**](cursor://anysphere.cursor-deeplink/mcp/install?name=aic&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqYXRiYXMvYWljLW1jcCJdfQ==)
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=aic&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqYXRiYXMvYWljLW1jcCJdfQ==)
+
+If the button above does not work, paste this URL into your browser:
+
+```text
+cursor://anysphere.cursor-deeplink/mcp/install?name=aic&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqYXRiYXMvYWljLW1jcCJdfQ==
+```
 
 Cursor will prompt to add the server; confirm and you're done.
 
@@ -107,13 +114,7 @@ Cursor will prompt to add the server; confirm and you're done.
 > }
 > ```
 
-**2. Approve the tools** when Cursor prompts you:
-
-- `aic_compile`
-- `aic_inspect`
-- `aic_chat_summary`
-
-**3. Start prompting** — AIC auto-initializes each project the first time it compiles (config, hooks, `.aic/`, ignore entries). Each project gets its own local database, cache, and configuration. Nothing else to install or configure.
+**2. Start prompting** — approve the tools when prompted and start coding. AIC auto-initializes each project the first time it compiles (config, hooks, `.aic/`, ignore entries). Each project gets its own local database, cache, and configuration. Nothing else to install or configure.
 
 ### Claude Code
 
@@ -121,7 +122,13 @@ Claude Code integration is planned. The core pipeline is already editor-agnostic
 
 ### Other MCP-compatible editors
 
-AIC can run anywhere MCP is supported, but the quality of integration depends on the hooks the editor exposes. Without an integration layer, the model may need to call AIC voluntarily.
+AIC can run in any editor that supports MCP, but the quality of the integration depends on the hooks and lifecycle events the editor exposes. Without a dedicated integration layer, the model may need to call AIC tools voluntarily rather than being guided automatically.
+
+Want AIC in your editor? You can:
+
+- **Contribute** — build the integration layer and open a pull request
+- **Request** — [open an issue](https://github.com/Jatbas/agent-input-compiler/issues) describing your editor and use case
+- **Reach out** — email jatbas@gmail.com
 
 ---
 

@@ -105,6 +105,7 @@ describe("MCP server", () => {
       "budgetMaxTokens",
       "budgetUtilizationPct",
       "updateAvailable",
+      "installScope",
     ];
     for (const key of expectedKeys) {
       expect(Object.prototype.hasOwnProperty.call(parsed, key)).toBe(true);

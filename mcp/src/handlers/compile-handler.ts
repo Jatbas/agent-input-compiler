@@ -54,6 +54,7 @@ export function createCompileHandler(
   toolInvocationLogStore: ToolInvocationLogStore,
   clock: Clock,
   idGenerator: IdGenerator,
+  warnings: readonly string[],
 ): (
   args: {
     intent: string;
@@ -118,6 +119,10 @@ export function createCompileHandler(
       } catch {
         // Non-fatal — do not fail the request
       }
+      const warningBlock =
+        warnings.length > 0
+          ? warnings.map((w) => `⚠️ WARNING: ${w}`).join("\n") + "\n\n"
+          : "";
       const reinforcement =
         "\n\nIMPORTANT: On your NEXT message in this conversation, call aic_compile again BEFORE doing anything else. Every message needs fresh context — do not reuse this result.";
       return {
@@ -125,9 +130,10 @@ export function createCompileHandler(
           {
             type: "text" as const,
             text: JSON.stringify({
-              compiledPrompt: result.compiledPrompt + reinforcement,
+              compiledPrompt: warningBlock + result.compiledPrompt + reinforcement,
               meta: result.meta,
               conversationId: request.conversationId ?? null,
+              ...(warnings.length > 0 ? { warnings } : {}),
             }),
           },
         ],

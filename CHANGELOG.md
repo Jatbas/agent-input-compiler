@@ -7,6 +7,21 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-03-09
+
+### Added
+
+- Install scope detection: `show aic status` reports whether AIC is installed globally, per-workspace, or both
+- Proactive duplicate-install warning prepended to compilation response when AIC is registered in both global and workspace config
+
+### Changed
+
+- Simplified quick-start: one-click Cursor deep-link as primary install, global config as alternative
+
+### Fixed
+
+- Install scope detection now matches the MCP server key case-insensitively (e.g. `"AIC"` and `"aic"` both detected)
+
 ## [0.3.0] - 2026-03-09
 
 ### Added
