@@ -5,26 +5,26 @@ import type {
   AbsolutePath,
   FilePath,
   RelativePath,
-} from "@jatbas/aic-shared/core/types/paths.js";
+} from "@jatbas/aic-core/core/types/paths.js";
 import type {
   TokenCount,
   Milliseconds,
   StepIndex,
-} from "@jatbas/aic-shared/core/types/units.js";
-import type { Percentage, Confidence } from "@jatbas/aic-shared/core/types/scores.js";
+} from "@jatbas/aic-core/core/types/units.js";
+import type { Percentage, Confidence } from "@jatbas/aic-core/core/types/scores.js";
 import type {
   SessionId,
   ConversationId,
   ISOTimestamp,
-} from "@jatbas/aic-shared/core/types/identifiers.js";
+} from "@jatbas/aic-core/core/types/identifiers.js";
 import type {
   TaskClass,
   EditorId,
   InclusionTier,
   ToolOutputType,
   TriggerSource,
-} from "@jatbas/aic-shared/core/types/enums.js";
-import type { GuardResult } from "@jatbas/aic-shared/core/types/guard-types.js";
+} from "@jatbas/aic-core/core/types/enums.js";
+import type { GuardResult } from "@jatbas/aic-core/core/types/guard-types.js";
 
 export interface ToolOutput {
   readonly type: ToolOutputType;

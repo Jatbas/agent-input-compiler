@@ -4,9 +4,9 @@
 import * as os from "node:os";
 import * as path from "node:path";
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
-import type { AbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
-import type { FilePath } from "@jatbas/aic-shared/core/types/paths.js";
-import { toAbsolutePath, toFilePath } from "@jatbas/aic-shared/core/types/paths.js";
+import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import type { FilePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toAbsolutePath, toFilePath } from "@jatbas/aic-core/core/types/paths.js";
 
 const SENSITIVE_PREFIXES_UNIX = ["/etc", "/usr", "/bin", "/sbin"] as const;
 const WINDOWS_SENSITIVE = path.normalize("C:\\Windows");

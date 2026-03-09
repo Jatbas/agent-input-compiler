@@ -2,10 +2,10 @@
 // Copyright (c) 2025 AIC Contributors
 
 import { randomFillSync } from "node:crypto";
-import type { Clock } from "@jatbas/aic-shared/core/interfaces/clock.interface.js";
-import type { IdGenerator } from "@jatbas/aic-shared/core/interfaces/id-generator.interface.js";
-import { AicError } from "@jatbas/aic-shared/core/errors/aic-error.js";
-import { toUUIDv7 } from "@jatbas/aic-shared/core/types/identifiers.js";
+import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
+import type { IdGenerator } from "@jatbas/aic-core/core/interfaces/id-generator.interface.js";
+import { AicError } from "@jatbas/aic-core/core/errors/aic-error.js";
+import { toUUIDv7 } from "@jatbas/aic-core/core/types/identifiers.js";
 
 const UUID_BYTES = 16;
 const VERSION_7 = 0x70;

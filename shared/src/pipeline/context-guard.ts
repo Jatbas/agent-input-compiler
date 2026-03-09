@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { ContextGuard as IContextGuard } from "@jatbas/aic-shared/core/interfaces/context-guard.interface.js";
-import type { GuardScanner } from "@jatbas/aic-shared/core/interfaces/guard-scanner.interface.js";
-import type { FileContentReader } from "@jatbas/aic-shared/core/interfaces/file-content-reader.interface.js";
-import type { SelectedFile } from "@jatbas/aic-shared/core/types/selected-file.js";
+import type { ContextGuard as IContextGuard } from "@jatbas/aic-core/core/interfaces/context-guard.interface.js";
+import type { GuardScanner } from "@jatbas/aic-core/core/interfaces/guard-scanner.interface.js";
+import type { FileContentReader } from "@jatbas/aic-core/core/interfaces/file-content-reader.interface.js";
+import type { SelectedFile } from "@jatbas/aic-core/core/types/selected-file.js";
 import type {
   GuardResult,
   GuardFinding,
-} from "@jatbas/aic-shared/core/types/guard-types.js";
-import type { GlobPattern } from "@jatbas/aic-shared/core/types/paths.js";
-import { GUARD_SEVERITY } from "@jatbas/aic-shared/core/types/enums.js";
+} from "@jatbas/aic-core/core/types/guard-types.js";
+import type { GlobPattern } from "@jatbas/aic-core/core/types/paths.js";
+import { GUARD_SEVERITY } from "@jatbas/aic-core/core/types/enums.js";
 import { matchesGlob } from "./glob-match.js";
 
 function pathAllowed(path: string, allowPatterns: readonly GlobPattern[]): boolean {

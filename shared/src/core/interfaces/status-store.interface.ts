@@ -4,8 +4,8 @@
 import type {
   ConversationSummary,
   StatusAggregates,
-} from "@jatbas/aic-shared/core/types/status-types.js";
-import type { ConversationId } from "@jatbas/aic-shared/core/types/identifiers.js";
+} from "@jatbas/aic-core/core/types/status-types.js";
+import type { ConversationId } from "@jatbas/aic-core/core/types/identifiers.js";
 
 export interface StatusStore {
   getSummary(): StatusAggregates;

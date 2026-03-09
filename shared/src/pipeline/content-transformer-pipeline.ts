@@ -1,17 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { ContentTransformerPipeline as IContentTransformerPipeline } from "@jatbas/aic-shared/core/interfaces/content-transformer-pipeline.interface.js";
-import type { ContentTransformer } from "@jatbas/aic-shared/core/interfaces/content-transformer.interface.js";
-import type { FileContentReader } from "@jatbas/aic-shared/core/interfaces/file-content-reader.interface.js";
-import type { SelectedFile } from "@jatbas/aic-shared/core/types/selected-file.js";
+import type { ContentTransformerPipeline as IContentTransformerPipeline } from "@jatbas/aic-core/core/interfaces/content-transformer-pipeline.interface.js";
+import type { ContentTransformer } from "@jatbas/aic-core/core/interfaces/content-transformer.interface.js";
+import type { FileContentReader } from "@jatbas/aic-core/core/interfaces/file-content-reader.interface.js";
+import type { SelectedFile } from "@jatbas/aic-core/core/types/selected-file.js";
 import type {
   TransformContext,
   TransformResult,
   TransformMetadata,
-} from "@jatbas/aic-shared/core/types/transform-types.js";
-import type { TokenCount } from "@jatbas/aic-shared/core/types/units.js";
-import type { FileExtension } from "@jatbas/aic-shared/core/types/paths.js";
+} from "@jatbas/aic-core/core/types/transform-types.js";
+import type { TokenCount } from "@jatbas/aic-core/core/types/units.js";
+import type { FileExtension } from "@jatbas/aic-core/core/types/paths.js";
 
 function getExtension(path: string): string {
   if (path.endsWith(".d.ts")) return ".d.ts";

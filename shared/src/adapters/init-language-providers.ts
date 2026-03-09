@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { LanguageProvider } from "@jatbas/aic-shared/core/interfaces/language-provider.interface.js";
-import { toAbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
+import type { LanguageProvider } from "@jatbas/aic-core/core/interfaces/language-provider.interface.js";
+import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import { FastGlobAdapter } from "./fast-glob-adapter.js";
 import { initTreeSitter } from "./tree-sitter-init.js";
 import { PythonProvider } from "./python-provider.js";

@@ -8,25 +8,25 @@ import {
   ErrorCode,
   type CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
-import type { CompilationRunner } from "@jatbas/aic-shared/core/interfaces/compilation-runner.interface.js";
-import type { ToolInvocationLogStore } from "@jatbas/aic-shared/core/interfaces/tool-invocation-log-store.interface.js";
-import type { Clock } from "@jatbas/aic-shared/core/interfaces/clock.interface.js";
-import type { IdGenerator } from "@jatbas/aic-shared/core/interfaces/id-generator.interface.js";
-import { AicError } from "@jatbas/aic-shared/core/errors/aic-error.js";
-import { TimeoutError } from "@jatbas/aic-shared/core/errors/timeout-error.js";
-import { sanitizeError } from "@jatbas/aic-shared/core/errors/sanitize-error.js";
+import type { CompilationRunner } from "@jatbas/aic-core/core/interfaces/compilation-runner.interface.js";
+import type { ToolInvocationLogStore } from "@jatbas/aic-core/core/interfaces/tool-invocation-log-store.interface.js";
+import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
+import type { IdGenerator } from "@jatbas/aic-core/core/interfaces/id-generator.interface.js";
+import { AicError } from "@jatbas/aic-core/core/errors/aic-error.js";
+import { TimeoutError } from "@jatbas/aic-core/core/errors/timeout-error.js";
+import { sanitizeError } from "@jatbas/aic-core/core/errors/sanitize-error.js";
 import {
   type EditorId,
   type TriggerSource,
   TRIGGER_SOURCE,
-} from "@jatbas/aic-shared/core/types/enums.js";
+} from "@jatbas/aic-core/core/types/enums.js";
 import {
   type SessionId,
   toConversationId,
-} from "@jatbas/aic-shared/core/types/identifiers.js";
-import type { CompilationRequest } from "@jatbas/aic-shared/core/types/compilation-types.js";
-import type { TelemetryDeps } from "@jatbas/aic-shared/core/types/telemetry-types.js";
-import { writeCompilationTelemetry } from "@jatbas/aic-shared/core/write-compilation-telemetry.js";
+} from "@jatbas/aic-core/core/types/identifiers.js";
+import type { CompilationRequest } from "@jatbas/aic-core/core/types/compilation-types.js";
+import type { TelemetryDeps } from "@jatbas/aic-core/core/types/telemetry-types.js";
+import { writeCompilationTelemetry } from "@jatbas/aic-core/core/write-compilation-telemetry.js";
 import { recordToolInvocation } from "../record-tool-invocation.js";
 import { ensureProjectInit } from "../init-project.js";
 import { validateProjectRoot, validateConfigPath } from "../validate-project-root.js";

@@ -7,34 +7,20 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.4.2] - 2026-03-09
-
-### Fixed
-
-- Install button on GitHub now works (GitHub strips custom protocol links; use HTTPS redirect page via GitHub Pages)
-- Published npm package no longer contains unresolved `workspace:*` dependency
-- CI publish workflow now uses `pnpm pack` to resolve workspace dependencies before publishing
-
-## [0.4.1] - 2026-03-09
-
-### Fixed
-
-- (Yanked — published with unresolved `workspace:*` dependency due to CI using `npm publish` instead of `pnpm pack`)
-
-## [0.4.0] - 2026-03-09
+## [0.5.0] - 2026-03-09
 
 ### Added
 
 - Install scope detection: `show aic status` reports whether AIC is installed globally, per-workspace, or both
-- Proactive duplicate-install warning prepended to compilation response when AIC is registered in both global and workspace config
-
-### Changed
-
-- Simplified quick-start: one-click Cursor deep-link as primary install, global config as alternative
+- Proactive duplicate-install warning when AIC is registered in both global and workspace config
+- One-click Cursor deep-link install via GitHub Pages redirect
 
 ### Fixed
 
-- Install scope detection now matches the MCP server key case-insensitively (e.g. `"AIC"` and `"aic"` both detected)
+- MCP server now starts correctly when invoked via symlink (e.g. npx), resolving "Client closed" failures on fresh installs
+- Published npm package no longer contains unresolved `workspace:*` dependency
+- CI publish workflow uses `pnpm pack` to resolve workspace dependencies before publishing
+- Install scope detection matches the MCP server key case-insensitively
 
 ## [0.3.0] - 2026-03-09
 

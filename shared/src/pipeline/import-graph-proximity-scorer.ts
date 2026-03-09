@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { ImportProximityScorer } from "@jatbas/aic-shared/core/interfaces/import-proximity-scorer.interface.js";
-import type { FileContentReader } from "@jatbas/aic-shared/core/interfaces/file-content-reader.interface.js";
-import type { LanguageProvider } from "@jatbas/aic-shared/core/interfaces/language-provider.interface.js";
-import type { RepoMap } from "@jatbas/aic-shared/core/types/repo-map.js";
-import type { TaskClassification } from "@jatbas/aic-shared/core/types/task-classification.js";
-import type { RelativePath } from "@jatbas/aic-shared/core/types/paths.js";
-import type { FileEntry } from "@jatbas/aic-shared/core/types/repo-map.js";
-import { resolveImportSpec } from "@jatbas/aic-shared/core/types/paths.js";
+import type { ImportProximityScorer } from "@jatbas/aic-core/core/interfaces/import-proximity-scorer.interface.js";
+import type { FileContentReader } from "@jatbas/aic-core/core/interfaces/file-content-reader.interface.js";
+import type { LanguageProvider } from "@jatbas/aic-core/core/interfaces/language-provider.interface.js";
+import type { RepoMap } from "@jatbas/aic-core/core/types/repo-map.js";
+import type { TaskClassification } from "@jatbas/aic-core/core/types/task-classification.js";
+import type { RelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import type { FileEntry } from "@jatbas/aic-core/core/types/repo-map.js";
+import { resolveImportSpec } from "@jatbas/aic-core/core/types/paths.js";
 import { getProvider } from "./get-provider.js";
 import { pathRelevance } from "./path-relevance.js";
 

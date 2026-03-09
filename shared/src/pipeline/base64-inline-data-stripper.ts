@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { ContentTransformer } from "@jatbas/aic-shared/core/interfaces/content-transformer.interface.js";
-import type { FileExtension, RelativePath } from "@jatbas/aic-shared/core/types/paths.js";
-import type { InclusionTier } from "@jatbas/aic-shared/core/types/enums.js";
+import type { ContentTransformer } from "@jatbas/aic-core/core/interfaces/content-transformer.interface.js";
+import type { FileExtension, RelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import type { InclusionTier } from "@jatbas/aic-core/core/types/enums.js";
 
 const DATA_URL_BASE64_RE = /data:[^;]+;base64,[A-Za-z0-9+/=]+/g;
 const PLACEHOLDER = "[base64 inline data stripped]";

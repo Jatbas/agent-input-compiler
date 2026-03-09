@@ -5,7 +5,7 @@ import type {
   UUIDv7,
   ISOTimestamp,
   SessionId,
-} from "@jatbas/aic-shared/core/types/identifiers.js";
+} from "@jatbas/aic-core/core/types/identifiers.js";
 
 export interface ToolInvocationLogEntry {
   readonly id: UUIDv7;

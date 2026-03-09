@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { GlobProvider } from "@jatbas/aic-shared/core/interfaces/glob-provider.interface.js";
-import type { AbsolutePath, RelativePath } from "@jatbas/aic-shared/core/types/paths.js";
-import { toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
-import type { PathWithStat } from "@jatbas/aic-shared/core/types/path-with-stat.js";
-import { toBytes } from "@jatbas/aic-shared/core/types/units.js";
-import { toISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
+import type { GlobProvider } from "@jatbas/aic-core/core/interfaces/glob-provider.interface.js";
+import type { AbsolutePath, RelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import type { PathWithStat } from "@jatbas/aic-core/core/types/path-with-stat.js";
+import { toBytes } from "@jatbas/aic-core/core/types/units.js";
+import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
 import fg from "fast-glob";
 import path from "node:path";
 

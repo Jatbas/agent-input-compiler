@@ -1,14 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { ExecutableDb } from "@jatbas/aic-shared/core/interfaces/executable-db.interface.js";
-import type { SessionTracker } from "@jatbas/aic-shared/core/interfaces/session-tracker.interface.js";
-import type {
-  SessionId,
-  ISOTimestamp,
-} from "@jatbas/aic-shared/core/types/identifiers.js";
-import type { StopReason } from "@jatbas/aic-shared/core/types/enums.js";
-import { STOP_REASON } from "@jatbas/aic-shared/core/types/enums.js";
+import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
+import type { SessionTracker } from "@jatbas/aic-core/core/interfaces/session-tracker.interface.js";
+import type { SessionId, ISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import type { StopReason } from "@jatbas/aic-core/core/types/enums.js";
+import { STOP_REASON } from "@jatbas/aic-core/core/types/enums.js";
 
 export class SqliteSessionStore implements SessionTracker {
   constructor(private readonly db: ExecutableDb) {}

@@ -3,8 +3,8 @@
 
 import { describe, it, expect } from "vitest";
 import { HtmlToMarkdownTransformer } from "../html-to-markdown-transformer.js";
-import { toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
-import { INCLUSION_TIER } from "@jatbas/aic-shared/core/types/enums.js";
+import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import { INCLUSION_TIER } from "@jatbas/aic-core/core/types/enums.js";
 
 const pathHtml = toRelativePath("src/page.html");
 const pathHtm = toRelativePath("src/page.htm");

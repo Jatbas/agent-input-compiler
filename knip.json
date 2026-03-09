@@ -30,7 +30,7 @@
       ]
     },
     "mcp": {
-      "ignoreDependencies": ["@jatbas/aic-shared"]
+      "ignoreDependencies": ["@jatbas/aic-core"]
     }
   },
   "ignoreExportsUsedInFile": true,

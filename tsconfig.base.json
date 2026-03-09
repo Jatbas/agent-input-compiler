@@ -18,8 +18,8 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "paths": {
-      "@jatbas/aic-shared/*": ["./shared/src/*"],
-      "@jatbas/aic-mcp/*": ["./mcp/src/*"]
+      "@jatbas/aic-core/*": ["./shared/src/*"],
+      "@jatbas/aic/*": ["./mcp/src/*"]
     }
   }
 }

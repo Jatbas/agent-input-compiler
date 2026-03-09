@@ -6,14 +6,14 @@ import {
   toAbsolutePath,
   toRelativePath,
   toGlobPattern,
-} from "@jatbas/aic-shared/core/types/paths.js";
-import { toTokenCount, toBytes } from "@jatbas/aic-shared/core/types/units.js";
-import { toISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
-import { toConfidence } from "@jatbas/aic-shared/core/types/scores.js";
-import type { RepoMap, FileEntry } from "@jatbas/aic-shared/core/types/repo-map.js";
-import type { TaskClassification } from "@jatbas/aic-shared/core/types/task-classification.js";
-import type { RulePack } from "@jatbas/aic-shared/core/types/rule-pack.js";
-import { TASK_CLASS } from "@jatbas/aic-shared/core/types/enums.js";
+} from "@jatbas/aic-core/core/types/paths.js";
+import { toTokenCount, toBytes } from "@jatbas/aic-core/core/types/units.js";
+import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import { toConfidence } from "@jatbas/aic-core/core/types/scores.js";
+import type { RepoMap, FileEntry } from "@jatbas/aic-core/core/types/repo-map.js";
+import type { TaskClassification } from "@jatbas/aic-core/core/types/task-classification.js";
+import type { RulePack } from "@jatbas/aic-core/core/types/rule-pack.js";
+import { TASK_CLASS } from "@jatbas/aic-core/core/types/enums.js";
 import { IntentAwareFileDiscoverer } from "../intent-aware-file-discoverer.js";
 
 const ROOT = toAbsolutePath("/repo");

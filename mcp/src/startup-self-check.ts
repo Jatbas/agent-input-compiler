@@ -3,7 +3,7 @@
 
 import * as path from "node:path";
 import * as fs from "node:fs";
-import type { AbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
+import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 
 // Cursor reads hooks from .cursor/hooks.json (project root), not .cursor/hooks/hooks.json.
 type HooksParsed = {

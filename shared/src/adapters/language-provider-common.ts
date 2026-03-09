@@ -6,11 +6,11 @@ export {
   EMPTY_RELATIVE_PATH,
   toFileExtension,
   toRelativePath,
-} from "@jatbas/aic-shared/core/types/paths.js";
-export type { FileExtension, RelativePath } from "@jatbas/aic-shared/core/types/paths.js";
-export type { ImportRef } from "@jatbas/aic-shared/core/types/import-ref.js";
-export type { CodeChunk } from "@jatbas/aic-shared/core/types/code-chunk.js";
-export type { ExportedSymbol } from "@jatbas/aic-shared/core/types/exported-symbol.js";
-export { toLineNumber, toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
-export { SYMBOL_KIND, SYMBOL_TYPE } from "@jatbas/aic-shared/core/types/enums.js";
-export type { SymbolKind, SymbolType } from "@jatbas/aic-shared/core/types/enums.js";
+} from "@jatbas/aic-core/core/types/paths.js";
+export type { FileExtension, RelativePath } from "@jatbas/aic-core/core/types/paths.js";
+export type { ImportRef } from "@jatbas/aic-core/core/types/import-ref.js";
+export type { CodeChunk } from "@jatbas/aic-core/core/types/code-chunk.js";
+export type { ExportedSymbol } from "@jatbas/aic-core/core/types/exported-symbol.js";
+export { toLineNumber, toTokenCount } from "@jatbas/aic-core/core/types/units.js";
+export { SYMBOL_KIND, SYMBOL_TYPE } from "@jatbas/aic-core/core/types/enums.js";
+export type { SymbolKind, SymbolType } from "@jatbas/aic-core/core/types/enums.js";

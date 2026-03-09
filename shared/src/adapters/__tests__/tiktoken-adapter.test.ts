@@ -2,9 +2,9 @@
 // Copyright (c) 2025 AIC Contributors
 
 import { describe, it, expect, vi } from "vitest";
-import { AicError } from "@jatbas/aic-shared/core/errors/aic-error.js";
+import { AicError } from "@jatbas/aic-core/core/errors/aic-error.js";
 import { TiktokenAdapter } from "../tiktoken-adapter.js";
-import { toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
+import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 
 describe("TiktokenAdapter", () => {
   it("countTokens returns a TokenCount", () => {

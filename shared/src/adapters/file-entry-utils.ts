@@ -2,11 +2,11 @@
 // Copyright (c) 2025 AIC Contributors
 
 import * as path from "node:path";
-import type { FileEntry } from "@jatbas/aic-shared/core/types/repo-map.js";
-import type { Bytes } from "@jatbas/aic-shared/core/types/units.js";
-import type { ISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
-import type { RelativePath } from "@jatbas/aic-shared/core/types/paths.js";
-import { toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
+import type { FileEntry } from "@jatbas/aic-core/core/types/repo-map.js";
+import type { Bytes } from "@jatbas/aic-core/core/types/units.js";
+import type { ISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import type { RelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 
 export const BINARY_EXTENSIONS: ReadonlySet<string> = new Set([
   ".png",

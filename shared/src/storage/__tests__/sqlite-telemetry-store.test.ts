@@ -3,13 +3,13 @@
 
 import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
-import type { TelemetryEvent } from "@jatbas/aic-shared/core/types/telemetry-types.js";
+import type { TelemetryEvent } from "@jatbas/aic-core/core/types/telemetry-types.js";
 import {
   toUUIDv7,
   toISOTimestamp,
   toRepoId,
-} from "@jatbas/aic-shared/core/types/identifiers.js";
-import { INCLUSION_TIER } from "@jatbas/aic-shared/core/types/enums.js";
+} from "@jatbas/aic-core/core/types/identifiers.js";
+import { INCLUSION_TIER } from "@jatbas/aic-core/core/types/enums.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
 import { migration as migration002 } from "../migrations/002-server-sessions.js";
 import { migration as migration003 } from "../migrations/003-server-sessions-integrity.js";

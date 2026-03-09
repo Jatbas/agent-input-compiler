@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { GuardScanner } from "@jatbas/aic-shared/core/interfaces/guard-scanner.interface.js";
-import type { SelectedFile } from "@jatbas/aic-shared/core/types/selected-file.js";
-import type { GuardFinding } from "@jatbas/aic-shared/core/types/guard-types.js";
-import { GUARD_SEVERITY } from "@jatbas/aic-shared/core/types/enums.js";
-import { GUARD_FINDING_TYPE } from "@jatbas/aic-shared/core/types/enums.js";
+import type { GuardScanner } from "@jatbas/aic-core/core/interfaces/guard-scanner.interface.js";
+import type { SelectedFile } from "@jatbas/aic-core/core/types/selected-file.js";
+import type { GuardFinding } from "@jatbas/aic-core/core/types/guard-types.js";
+import { GUARD_SEVERITY } from "@jatbas/aic-core/core/types/enums.js";
+import { GUARD_FINDING_TYPE } from "@jatbas/aic-core/core/types/enums.js";
 
 const NEVER_INCLUDE_PATTERNS: readonly string[] = [
   ".env",

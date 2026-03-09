@@ -3,20 +3,20 @@
 
 import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
-import type { CompilationLogEntry } from "@jatbas/aic-shared/core/types/compilation-log-entry.js";
+import type { CompilationLogEntry } from "@jatbas/aic-core/core/types/compilation-log-entry.js";
 import {
   toUUIDv7,
   toISOTimestamp,
   toSessionId,
   toConversationId,
-} from "@jatbas/aic-shared/core/types/identifiers.js";
-import { toTokenCount, toMilliseconds } from "@jatbas/aic-shared/core/types/units.js";
-import { toPercentage } from "@jatbas/aic-shared/core/types/scores.js";
+} from "@jatbas/aic-core/core/types/identifiers.js";
+import { toTokenCount, toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
+import { toPercentage } from "@jatbas/aic-core/core/types/scores.js";
 import {
   EDITOR_ID,
   TASK_CLASS,
   TRIGGER_SOURCE,
-} from "@jatbas/aic-shared/core/types/enums.js";
+} from "@jatbas/aic-core/core/types/enums.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
 import { migration as migration002 } from "../migrations/002-server-sessions.js";
 import { migration as migration003 } from "../migrations/003-server-sessions-integrity.js";

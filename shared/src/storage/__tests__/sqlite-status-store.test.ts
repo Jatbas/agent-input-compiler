@@ -3,13 +3,13 @@
 
 import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
-import type { ExecutableDb } from "@jatbas/aic-shared/core/interfaces/executable-db.interface.js";
-import type { Clock } from "@jatbas/aic-shared/core/interfaces/clock.interface.js";
+import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
+import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import {
   toISOTimestamp,
   toConversationId,
-} from "@jatbas/aic-shared/core/types/identifiers.js";
-import { toMilliseconds } from "@jatbas/aic-shared/core/types/units.js";
+} from "@jatbas/aic-core/core/types/identifiers.js";
+import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
 import { migration as migration002 } from "../migrations/002-server-sessions.js";
 import { migration as migration003 } from "../migrations/003-server-sessions-integrity.js";

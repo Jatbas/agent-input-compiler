@@ -6,11 +6,11 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
-import { toAbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
-import { toISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
-import { toTokenCount, toMilliseconds } from "@jatbas/aic-shared/core/types/units.js";
-import type { CachedCompilation } from "@jatbas/aic-shared/core/types/compilation-types.js";
-import type { Clock } from "@jatbas/aic-shared/core/interfaces/clock.interface.js";
+import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import { toTokenCount, toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
+import type { CachedCompilation } from "@jatbas/aic-core/core/types/compilation-types.js";
+import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
 
 const stubClock: Clock = {

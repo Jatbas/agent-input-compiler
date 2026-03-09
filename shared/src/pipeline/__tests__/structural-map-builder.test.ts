@@ -3,11 +3,11 @@
 
 import { describe, it, expect } from "vitest";
 import { StructuralMapBuilder } from "../structural-map-builder.js";
-import type { RepoMap } from "@jatbas/aic-shared/core/types/repo-map.js";
-import { toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
-import { toAbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
-import { toTokenCount, toBytes } from "@jatbas/aic-shared/core/types/units.js";
-import { toISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
+import type { RepoMap } from "@jatbas/aic-core/core/types/repo-map.js";
+import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toTokenCount, toBytes } from "@jatbas/aic-core/core/types/units.js";
+import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
 
 function makeFileEntry(path: string): RepoMap["files"][number] {
   return {

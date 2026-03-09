@@ -10,10 +10,10 @@ import {
   compareVersions,
   getUpdateInfo,
 } from "../latest-version-check.js";
-import { toAbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
-import { toISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
-import { toMilliseconds } from "@jatbas/aic-shared/core/types/units.js";
-import type { Clock } from "@jatbas/aic-shared/core/interfaces/clock.interface.js";
+import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
+import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 
 function createMockClock(now: string, durationMsResult: number): Clock {
   return {

@@ -6,7 +6,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { installTriggerRule } from "../install-trigger-rule.js";
-import { toAbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 
 describe("installTriggerRule", () => {
   let tmpDir: string;

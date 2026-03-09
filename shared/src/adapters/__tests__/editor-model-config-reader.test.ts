@@ -6,7 +6,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { EditorModelConfigReaderAdapter } from "../editor-model-config-reader.js";
-import { EDITOR_ID } from "@jatbas/aic-shared/core/types/enums.js";
+import { EDITOR_ID } from "@jatbas/aic-core/core/types/enums.js";
 
 describe("EditorModelConfigReaderAdapter", () => {
   let tempDir: string;

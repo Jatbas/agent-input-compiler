@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { LanguageProvider } from "@jatbas/aic-shared/core/interfaces/language-provider.interface.js";
+import type { LanguageProvider } from "@jatbas/aic-core/core/interfaces/language-provider.interface.js";
 import type {
   CodeChunk,
   ExportedSymbol,
@@ -9,7 +9,7 @@ import type {
   ImportRef,
   RelativePath,
 } from "./language-provider-common.js";
-import type { SymbolKind, SymbolType } from "@jatbas/aic-shared/core/types/enums.js";
+import type { SymbolKind, SymbolType } from "@jatbas/aic-core/core/types/enums.js";
 import {
   EMPTY_RELATIVE_PATH,
   toFileExtension,

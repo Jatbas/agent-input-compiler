@@ -348,7 +348,7 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 **Components:** Package resolution for zero-install (Task 120)
 **Completed:**
 
-- Fix package resolution for zero-install (Task 120): Replaced #core/#adapters/#storage/#pipeline in shared with @jatbas/aic-shared/_; @aic/shared in mcp with @jatbas/aic-shared; #mcp/_ in handlers with relative imports; removed imports from shared/package.json and mcp/package.json; mcp files includes hooks; root build script pnpm -r run build; tsconfig.base.json and eslint.config.mjs use @jatbas/aic-shared and @jatbas/aic-mcp; .cursor/rules updated; ESLint MCP block allows relative imports in mcp/src. Lint, typecheck, test, knip, lint:clones pass; dist has shebang and correct imports; npm pack --dry-run includes hooks.
+- Fix package resolution for zero-install (Task 120): Replaced #core/#adapters/#storage/#pipeline in shared with @jatbas/aic-core/_; @aic/shared in mcp with @jatbas/aic-core; #mcp/_ in handlers with relative imports; removed imports from shared/package.json and mcp/package.json; mcp files includes hooks; root build script pnpm -r run build; tsconfig.base.json and eslint.config.mjs use @jatbas/aic-core and @jatbas/aic; .cursor/rules updated; ESLint MCP block allows relative imports in mcp/src. Lint, typecheck, test, knip, lint:clones pass; dist has shebang and correct imports; npm pack --dry-run includes hooks.
 
 ### 2026-03-08
 

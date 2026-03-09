@@ -1,45 +1,45 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { CompilationRunner as ICompilationRunner } from "@jatbas/aic-shared/core/interfaces/compilation-runner.interface.js";
+import type { CompilationRunner as ICompilationRunner } from "@jatbas/aic-core/core/interfaces/compilation-runner.interface.js";
 import type {
   CompilationRequest,
   CompilationMeta,
   CachedCompilation,
-} from "@jatbas/aic-shared/core/types/compilation-types.js";
-import type { TaskClass, TriggerSource } from "@jatbas/aic-shared/core/types/enums.js";
-import type { Clock } from "@jatbas/aic-shared/core/interfaces/clock.interface.js";
-import type { CacheStore } from "@jatbas/aic-shared/core/interfaces/cache-store.interface.js";
-import type { ConfigStore } from "@jatbas/aic-shared/core/interfaces/config-store.interface.js";
-import type { StringHasher } from "@jatbas/aic-shared/core/interfaces/string-hasher.interface.js";
-import type { GuardStore } from "@jatbas/aic-shared/core/interfaces/guard-store.interface.js";
-import type { CompilationLogStore } from "@jatbas/aic-shared/core/interfaces/compilation-log-store.interface.js";
-import type { IdGenerator } from "@jatbas/aic-shared/core/interfaces/id-generator.interface.js";
-import type { AgenticSessionState } from "@jatbas/aic-shared/core/interfaces/agentic-session-state.interface.js";
+} from "@jatbas/aic-core/core/types/compilation-types.js";
+import type { TaskClass, TriggerSource } from "@jatbas/aic-core/core/types/enums.js";
+import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
+import type { CacheStore } from "@jatbas/aic-core/core/interfaces/cache-store.interface.js";
+import type { ConfigStore } from "@jatbas/aic-core/core/interfaces/config-store.interface.js";
+import type { StringHasher } from "@jatbas/aic-core/core/interfaces/string-hasher.interface.js";
+import type { GuardStore } from "@jatbas/aic-core/core/interfaces/guard-store.interface.js";
+import type { CompilationLogStore } from "@jatbas/aic-core/core/interfaces/compilation-log-store.interface.js";
+import type { IdGenerator } from "@jatbas/aic-core/core/interfaces/id-generator.interface.js";
+import type { AgenticSessionState } from "@jatbas/aic-core/core/interfaces/agentic-session-state.interface.js";
 import type {
   PipelineStepsDeps,
   PipelineStepsResult,
-} from "@jatbas/aic-shared/core/run-pipeline-steps.js";
-import type { RepoMap, FileEntry } from "@jatbas/aic-shared/core/types/repo-map.js";
-import type { Milliseconds, StepIndex } from "@jatbas/aic-shared/core/types/units.js";
-import type { CompilationLogEntry } from "@jatbas/aic-shared/core/types/compilation-log-entry.js";
-import type { GuardFinding } from "@jatbas/aic-shared/core/types/guard-types.js";
+} from "@jatbas/aic-core/core/run-pipeline-steps.js";
+import type { RepoMap, FileEntry } from "@jatbas/aic-core/core/types/repo-map.js";
+import type { Milliseconds, StepIndex } from "@jatbas/aic-core/core/types/units.js";
+import type { CompilationLogEntry } from "@jatbas/aic-core/core/types/compilation-log-entry.js";
+import type { GuardFinding } from "@jatbas/aic-core/core/types/guard-types.js";
 import type {
   UUIDv7,
   SessionId,
   ConversationId,
-} from "@jatbas/aic-shared/core/types/identifiers.js";
-import type { ISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
-import type { InclusionTier } from "@jatbas/aic-shared/core/types/enums.js";
-import { toTokenCount, toStepIndex } from "@jatbas/aic-shared/core/types/units.js";
-import { toMilliseconds } from "@jatbas/aic-shared/core/types/units.js";
-import { toPercentage, toConfidence } from "@jatbas/aic-shared/core/types/scores.js";
-import { runPipelineSteps } from "@jatbas/aic-shared/core/run-pipeline-steps.js";
+} from "@jatbas/aic-core/core/types/identifiers.js";
+import type { ISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import type { InclusionTier } from "@jatbas/aic-core/core/types/enums.js";
+import { toTokenCount, toStepIndex } from "@jatbas/aic-core/core/types/units.js";
+import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
+import { toPercentage, toConfidence } from "@jatbas/aic-core/core/types/scores.js";
+import { runPipelineSteps } from "@jatbas/aic-core/core/run-pipeline-steps.js";
 import {
   sumFileTokens,
   sumTransformTokens,
   buildSummarisationTiers,
-} from "@jatbas/aic-shared/core/token-summary.js";
+} from "@jatbas/aic-core/core/token-summary.js";
 
 function serializeRepoMap(repoMap: RepoMap): string {
   const sorted = [...repoMap.files].toSorted((a, b) => a.path.localeCompare(b.path));

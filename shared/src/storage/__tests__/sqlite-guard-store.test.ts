@@ -3,18 +3,15 @@
 
 import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
-import { AicError } from "@jatbas/aic-shared/core/errors/aic-error.js";
-import type { GuardFinding } from "@jatbas/aic-shared/core/types/guard-types.js";
-import type { UUIDv7 } from "@jatbas/aic-shared/core/types/identifiers.js";
-import { toUUIDv7, toISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
-import { toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
-import { toLineNumber } from "@jatbas/aic-shared/core/types/units.js";
-import { toMilliseconds } from "@jatbas/aic-shared/core/types/units.js";
-import type { Clock } from "@jatbas/aic-shared/core/interfaces/clock.interface.js";
-import {
-  GUARD_SEVERITY,
-  GUARD_FINDING_TYPE,
-} from "@jatbas/aic-shared/core/types/enums.js";
+import { AicError } from "@jatbas/aic-core/core/errors/aic-error.js";
+import type { GuardFinding } from "@jatbas/aic-core/core/types/guard-types.js";
+import type { UUIDv7 } from "@jatbas/aic-core/core/types/identifiers.js";
+import { toUUIDv7, toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toLineNumber } from "@jatbas/aic-core/core/types/units.js";
+import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
+import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
+import { GUARD_SEVERITY, GUARD_FINDING_TYPE } from "@jatbas/aic-core/core/types/enums.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
 import { SqliteGuardStore } from "../sqlite-guard-store.js";
 

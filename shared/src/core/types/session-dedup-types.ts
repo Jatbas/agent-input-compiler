@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { RelativePath } from "@jatbas/aic-shared/core/types/paths.js";
-import type { TokenCount, StepIndex } from "@jatbas/aic-shared/core/types/units.js";
-import type { InclusionTier } from "@jatbas/aic-shared/core/types/enums.js";
-import type { ISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
-import type { ToolOutput } from "@jatbas/aic-shared/core/types/compilation-types.js";
+import type { RelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import type { TokenCount, StepIndex } from "@jatbas/aic-core/core/types/units.js";
+import type { InclusionTier } from "@jatbas/aic-core/core/types/enums.js";
+import type { ISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import type { ToolOutput } from "@jatbas/aic-core/core/types/compilation-types.js";
 
 export interface PreviousFile {
   readonly path: RelativePath;

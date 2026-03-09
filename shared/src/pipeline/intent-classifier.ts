@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { IntentClassifier as IIntentClassifier } from "@jatbas/aic-shared/core/interfaces/intent-classifier.interface.js";
-import type { TaskClassification } from "@jatbas/aic-shared/core/types/task-classification.js";
-import type { TaskClass } from "@jatbas/aic-shared/core/types/enums.js";
-import { TASK_CLASS } from "@jatbas/aic-shared/core/types/enums.js";
-import { toConfidence } from "@jatbas/aic-shared/core/types/scores.js";
+import type { IntentClassifier as IIntentClassifier } from "@jatbas/aic-core/core/interfaces/intent-classifier.interface.js";
+import type { TaskClassification } from "@jatbas/aic-core/core/types/task-classification.js";
+import type { TaskClass } from "@jatbas/aic-core/core/types/enums.js";
+import { TASK_CLASS } from "@jatbas/aic-core/core/types/enums.js";
+import { toConfidence } from "@jatbas/aic-core/core/types/scores.js";
 
 const STOPWORDS: ReadonlySet<string> = new Set([
   "the",

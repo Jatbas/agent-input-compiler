@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { SelectedFile } from "@jatbas/aic-shared/core/types/selected-file.js";
-import type { RelativePath } from "@jatbas/aic-shared/core/types/paths.js";
-import type { TokenCount } from "@jatbas/aic-shared/core/types/units.js";
+import type { SelectedFile } from "@jatbas/aic-core/core/types/selected-file.js";
+import type { RelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import type { TokenCount } from "@jatbas/aic-core/core/types/units.js";
 
 export interface TransformContext {
   readonly directTargetPaths: readonly RelativePath[];

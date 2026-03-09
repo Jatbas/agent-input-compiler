@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { LineLevelPruner as ILineLevelPruner } from "@jatbas/aic-shared/core/interfaces/line-level-pruner.interface.js";
-import type { TokenCounter } from "@jatbas/aic-shared/core/interfaces/token-counter.interface.js";
-import type { FileContentReader } from "@jatbas/aic-shared/core/interfaces/file-content-reader.interface.js";
-import type { SelectedFile } from "@jatbas/aic-shared/core/types/selected-file.js";
-import { INCLUSION_TIER } from "@jatbas/aic-shared/core/types/enums.js";
+import type { LineLevelPruner as ILineLevelPruner } from "@jatbas/aic-core/core/interfaces/line-level-pruner.interface.js";
+import type { TokenCounter } from "@jatbas/aic-core/core/interfaces/token-counter.interface.js";
+import type { FileContentReader } from "@jatbas/aic-core/core/interfaces/file-content-reader.interface.js";
+import type { SelectedFile } from "@jatbas/aic-core/core/types/selected-file.js";
+import { INCLUSION_TIER } from "@jatbas/aic-core/core/types/enums.js";
 
 const SYNTAX_ONLY_LINE = /^\s*[\s{}\[\]();,]*\s*$/;
 const STRUCTURAL_LINE = /^\s*(return|break|continue|else|case|default|throw)\b/;

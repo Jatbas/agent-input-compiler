@@ -4,9 +4,9 @@
 import type {
   GuardSeverity,
   GuardFindingType,
-} from "@jatbas/aic-shared/core/types/enums.js";
-import type { RelativePath } from "@jatbas/aic-shared/core/types/paths.js";
-import type { LineNumber } from "@jatbas/aic-shared/core/types/units.js";
+} from "@jatbas/aic-core/core/types/enums.js";
+import type { RelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import type { LineNumber } from "@jatbas/aic-core/core/types/units.js";
 
 export interface GuardFinding {
   readonly severity: GuardSeverity;

@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { ExecutableDb } from "@jatbas/aic-shared/core/interfaces/executable-db.interface.js";
-import type { AgenticSessionState } from "@jatbas/aic-shared/core/interfaces/agentic-session-state.interface.js";
-import type { SessionId } from "@jatbas/aic-shared/core/types/identifiers.js";
-import type { PreviousFile } from "@jatbas/aic-shared/core/types/session-dedup-types.js";
-import type { SessionStep } from "@jatbas/aic-shared/core/types/session-dedup-types.js";
-import type { InclusionTier } from "@jatbas/aic-shared/core/types/enums.js";
-import type { ToolOutput } from "@jatbas/aic-shared/core/types/compilation-types.js";
-import type { ISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
-import { toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
-import { toStepIndex, toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
-import { toISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
-import { StorageError } from "@jatbas/aic-shared/core/errors/storage-error.js";
-import { INCLUSION_TIER } from "@jatbas/aic-shared/core/types/enums.js";
+import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
+import type { AgenticSessionState } from "@jatbas/aic-core/core/interfaces/agentic-session-state.interface.js";
+import type { SessionId } from "@jatbas/aic-core/core/types/identifiers.js";
+import type { PreviousFile } from "@jatbas/aic-core/core/types/session-dedup-types.js";
+import type { SessionStep } from "@jatbas/aic-core/core/types/session-dedup-types.js";
+import type { InclusionTier } from "@jatbas/aic-core/core/types/enums.js";
+import type { ToolOutput } from "@jatbas/aic-core/core/types/compilation-types.js";
+import type { ISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toStepIndex, toTokenCount } from "@jatbas/aic-core/core/types/units.js";
+import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import { StorageError } from "@jatbas/aic-core/core/errors/storage-error.js";
+import { INCLUSION_TIER } from "@jatbas/aic-core/core/types/enums.js";
 
 interface SerializedStep {
   readonly stepIndex: number;

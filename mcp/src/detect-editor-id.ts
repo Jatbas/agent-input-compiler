@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import { EDITOR_ID } from "@jatbas/aic-shared/core/types/enums.js";
-import type { EditorId } from "@jatbas/aic-shared/core/types/enums.js";
+import { EDITOR_ID } from "@jatbas/aic-core/core/types/enums.js";
+import type { EditorId } from "@jatbas/aic-core/core/types/enums.js";
 
 // Ordered most-specific first; first match wins
 const EDITOR_PATTERNS: readonly { readonly substring: string; readonly id: EditorId }[] =

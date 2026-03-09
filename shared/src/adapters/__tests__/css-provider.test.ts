@@ -2,9 +2,9 @@
 // Copyright (c) 2025 AIC Contributors
 
 import { describe, it, expect } from "vitest";
-import type { LanguageProvider } from "@jatbas/aic-shared/core/interfaces/language-provider.interface.js";
-import { toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
-import { SYMBOL_TYPE } from "@jatbas/aic-shared/core/types/enums.js";
+import type { LanguageProvider } from "@jatbas/aic-core/core/interfaces/language-provider.interface.js";
+import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import { SYMBOL_TYPE } from "@jatbas/aic-core/core/types/enums.js";
 import { CssProvider } from "../css-provider.js";
 
 describe("CssProvider", () => {

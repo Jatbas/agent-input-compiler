@@ -3,13 +3,13 @@
 
 import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
-import type { ExecutableDb } from "@jatbas/aic-shared/core/interfaces/executable-db.interface.js";
-import type { Clock } from "@jatbas/aic-shared/core/interfaces/clock.interface.js";
-import { toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
-import { toTokenCount, toMilliseconds } from "@jatbas/aic-shared/core/types/units.js";
-import { toISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
-import { INCLUSION_TIER } from "@jatbas/aic-shared/core/types/enums.js";
-import type { CachedFileTransform } from "@jatbas/aic-shared/core/types/file-transform-types.js";
+import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
+import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
+import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toTokenCount, toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
+import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import { INCLUSION_TIER } from "@jatbas/aic-core/core/types/enums.js";
+import type { CachedFileTransform } from "@jatbas/aic-core/core/types/file-transform-types.js";
 import { migration as migration009 } from "../migrations/009-file-transform-cache.js";
 import { SqliteFileTransformStore } from "../sqlite-file-transform-store.js";
 

@@ -5,10 +5,10 @@ import { describe, it, expect, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import { toAbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
-import { toFilePath } from "@jatbas/aic-shared/core/types/paths.js";
-import { toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
-import { ConfigError } from "@jatbas/aic-shared/core/errors/config-error.js";
+import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toFilePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
+import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
 import { LoadConfigFromFile } from "../load-config-from-file.js";
 
 describe("LoadConfigFromFile", () => {

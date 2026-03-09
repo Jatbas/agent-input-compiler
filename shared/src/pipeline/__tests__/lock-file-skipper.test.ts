@@ -3,8 +3,8 @@
 
 import { describe, it, expect } from "vitest";
 import { LockFileSkipper } from "../lock-file-skipper.js";
-import { toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
-import { INCLUSION_TIER } from "@jatbas/aic-shared/core/types/enums.js";
+import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import { INCLUSION_TIER } from "@jatbas/aic-core/core/types/enums.js";
 
 describe("LockFileSkipper", () => {
   it("lock_file_returns_placeholder", () => {

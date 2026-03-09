@@ -2,9 +2,9 @@
 // Copyright (c) 2025 AIC Contributors
 
 import { encoding_for_model } from "tiktoken";
-import type { TokenCounter } from "@jatbas/aic-shared/core/interfaces/token-counter.interface.js";
-import type { TokenCount } from "@jatbas/aic-shared/core/types/units.js";
-import { toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
+import type { TokenCounter } from "@jatbas/aic-core/core/interfaces/token-counter.interface.js";
+import type { TokenCount } from "@jatbas/aic-core/core/types/units.js";
+import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 
 export class TiktokenAdapter implements TokenCounter {
   constructor() {}

@@ -3,11 +3,11 @@
 
 import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
-import { AicError } from "@jatbas/aic-shared/core/errors/aic-error.js";
-import { toISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
-import type { ISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
-import { toMilliseconds } from "@jatbas/aic-shared/core/types/units.js";
-import type { Clock } from "@jatbas/aic-shared/core/interfaces/clock.interface.js";
+import { AicError } from "@jatbas/aic-core/core/errors/aic-error.js";
+import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import type { ISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
+import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
 import { SqliteConfigStore } from "../sqlite-config-store.js";
 

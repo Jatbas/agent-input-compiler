@@ -3,7 +3,7 @@
 
 import { describe, it, expect } from "vitest";
 import { ModelDetectorDispatch } from "../model-detector-dispatch.js";
-import { EDITOR_ID } from "@jatbas/aic-shared/core/types/enums.js";
+import { EDITOR_ID } from "@jatbas/aic-core/core/types/enums.js";
 
 describe("ModelDetectorDispatch", () => {
   it("returns anthropicModel for claude-code editor", () => {

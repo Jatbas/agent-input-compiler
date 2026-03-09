@@ -6,13 +6,13 @@ import { ContextGuard } from "../context-guard.js";
 import { ExclusionScanner } from "../exclusion-scanner.js";
 import { SecretScanner } from "../secret-scanner.js";
 import { PromptInjectionScanner } from "../prompt-injection-scanner.js";
-import type { FileContentReader } from "@jatbas/aic-shared/core/interfaces/file-content-reader.interface.js";
-import type { SelectedFile } from "@jatbas/aic-shared/core/types/selected-file.js";
-import { toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
-import { toGlobPattern } from "@jatbas/aic-shared/core/types/paths.js";
-import { toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
-import { toRelevanceScore } from "@jatbas/aic-shared/core/types/scores.js";
-import { GUARD_SEVERITY, INCLUSION_TIER } from "@jatbas/aic-shared/core/types/enums.js";
+import type { FileContentReader } from "@jatbas/aic-core/core/interfaces/file-content-reader.interface.js";
+import type { SelectedFile } from "@jatbas/aic-core/core/types/selected-file.js";
+import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toGlobPattern } from "@jatbas/aic-core/core/types/paths.js";
+import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
+import { toRelevanceScore } from "@jatbas/aic-core/core/types/scores.js";
+import { GUARD_SEVERITY, INCLUSION_TIER } from "@jatbas/aic-core/core/types/enums.js";
 
 function makeFile(path: string, _content: string): SelectedFile {
   return {

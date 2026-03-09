@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { CompilationMeta } from "@jatbas/aic-shared/core/types/compilation-types.js";
-import type { TelemetryEvent } from "@jatbas/aic-shared/core/types/telemetry-types.js";
+import type { CompilationMeta } from "@jatbas/aic-core/core/types/compilation-types.js";
+import type { TelemetryEvent } from "@jatbas/aic-core/core/types/telemetry-types.js";
 import type {
   UUIDv7,
   ISOTimestamp,
   RepoId,
-} from "@jatbas/aic-shared/core/types/identifiers.js";
+} from "@jatbas/aic-core/core/types/identifiers.js";
 
 export function buildTelemetryEvent(
   meta: CompilationMeta,

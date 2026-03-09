@@ -2,14 +2,14 @@
 // Copyright (c) 2025 AIC Contributors
 
 import * as path from "node:path";
-import type { InspectRunner } from "@jatbas/aic-shared/core/interfaces/inspect-runner.interface.js";
-import type { ToolInvocationLogStore } from "@jatbas/aic-shared/core/interfaces/tool-invocation-log-store.interface.js";
-import type { Clock } from "@jatbas/aic-shared/core/interfaces/clock.interface.js";
-import type { IdGenerator } from "@jatbas/aic-shared/core/interfaces/id-generator.interface.js";
-import type { SessionId } from "@jatbas/aic-shared/core/types/identifiers.js";
-import { AicError } from "@jatbas/aic-shared/core/errors/aic-error.js";
-import { sanitizeError } from "@jatbas/aic-shared/core/errors/sanitize-error.js";
-import { toFilePath } from "@jatbas/aic-shared/core/types/paths.js";
+import type { InspectRunner } from "@jatbas/aic-core/core/interfaces/inspect-runner.interface.js";
+import type { ToolInvocationLogStore } from "@jatbas/aic-core/core/interfaces/tool-invocation-log-store.interface.js";
+import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
+import type { IdGenerator } from "@jatbas/aic-core/core/interfaces/id-generator.interface.js";
+import type { SessionId } from "@jatbas/aic-core/core/types/identifiers.js";
+import { AicError } from "@jatbas/aic-core/core/errors/aic-error.js";
+import { sanitizeError } from "@jatbas/aic-core/core/errors/sanitize-error.js";
+import { toFilePath } from "@jatbas/aic-core/core/types/paths.js";
 import { recordToolInvocation } from "../record-tool-invocation.js";
 import { validateProjectRoot, validateConfigPath } from "../validate-project-root.js";
 

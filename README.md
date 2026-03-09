@@ -97,7 +97,7 @@ Last = most recent compilation.
 If the button does nothing, enable **GitHub Pages** for this repo (Settings → Pages → Source: Deploy from branch → Branch: main, / (root)), then try again. Or copy this URL into your browser:
 
 ```text
-cursor://anysphere.cursor-deeplink/mcp/install?name=aic&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqYXRiYXMvYWljLW1jcCJdfQ==
+cursor://anysphere.cursor-deeplink/mcp/install?name=aic&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqYXRiYXMvYWljIl19
 ```
 
 Cursor will prompt to add the server; confirm and you're done.
@@ -109,7 +109,7 @@ Cursor will prompt to add the server; confirm and you're done.
 > ```json
 > {
 >   "mcpServers": {
->     "aic": { "command": "npx", "args": ["-y", "@jatbas/aic-mcp"] }
+>     "aic": { "command": "npx", "args": ["-y", "@jatbas/aic"] }
 >   }
 > }
 > ```

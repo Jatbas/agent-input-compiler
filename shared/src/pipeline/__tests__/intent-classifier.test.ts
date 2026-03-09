@@ -3,7 +3,7 @@
 
 import { describe, it, expect } from "vitest";
 import { IntentClassifier } from "../intent-classifier.js";
-import { TASK_CLASS } from "@jatbas/aic-shared/core/types/enums.js";
+import { TASK_CLASS } from "@jatbas/aic-core/core/types/enums.js";
 
 describe("IntentClassifier", () => {
   const classifier = new IntentClassifier();

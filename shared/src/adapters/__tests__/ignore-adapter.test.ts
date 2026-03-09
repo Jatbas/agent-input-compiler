@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, it, expect, afterEach } from "vitest";
 import { IgnoreAdapter } from "../ignore-adapter.js";
-import { toAbsolutePath, toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { toAbsolutePath, toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
 
 describe("IgnoreAdapter", () => {
   let tmpDir: string;

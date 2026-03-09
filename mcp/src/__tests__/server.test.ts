@@ -5,16 +5,13 @@ import { describe, it, beforeAll, afterEach, expect, vi } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import {
-  toSessionId,
-  toISOTimestamp,
-} from "@jatbas/aic-shared/core/types/identifiers.js";
+import { toSessionId, toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
 import { createMcpServer, registerShutdownHandler } from "../server.js";
-import { toMilliseconds } from "@jatbas/aic-shared/core/types/units.js";
-import { STOP_REASON } from "@jatbas/aic-shared/core/types/enums.js";
-import { createProjectScope } from "@jatbas/aic-shared/storage/create-project-scope.js";
-import { ensureAicDir } from "@jatbas/aic-shared/storage/ensure-aic-dir.js";
-import { toAbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
+import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
+import { STOP_REASON } from "@jatbas/aic-core/core/types/enums.js";
+import { createProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
+import { ensureAicDir } from "@jatbas/aic-core/storage/ensure-aic-dir.js";
+import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 

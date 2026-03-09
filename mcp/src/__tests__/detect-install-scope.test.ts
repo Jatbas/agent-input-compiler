@@ -8,7 +8,7 @@ import * as os from "node:os";
 import { detectInstallScope, INSTALL_SCOPE } from "../detect-install-scope.js";
 
 const AIC_CONFIG = JSON.stringify({
-  mcpServers: { aic: { command: "npx", args: ["-y", "@jatbas/aic-mcp"] } },
+  mcpServers: { aic: { command: "npx", args: ["-y", "@jatbas/aic"] } },
 });
 
 function setupGlobalConfig(homeDir: string): void {

@@ -5,19 +5,19 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { AbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
-import type { RulePack } from "@jatbas/aic-shared/core/types/rule-pack.js";
-import type { RulePackProvider } from "@jatbas/aic-shared/core/interfaces/rule-pack-provider.interface.js";
-import type { BudgetConfig } from "@jatbas/aic-shared/core/interfaces/budget-config.interface.js";
-import type { LanguageProvider } from "@jatbas/aic-shared/core/interfaces/language-provider.interface.js";
-import { toAbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
-import { toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
+import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import type { RulePack } from "@jatbas/aic-core/core/types/rule-pack.js";
+import type { RulePackProvider } from "@jatbas/aic-core/core/interfaces/rule-pack-provider.interface.js";
+import type { BudgetConfig } from "@jatbas/aic-core/core/interfaces/budget-config.interface.js";
+import type { LanguageProvider } from "@jatbas/aic-core/core/interfaces/language-provider.interface.js";
+import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 import {
   type TaskClass,
   type EditorId,
   EDITOR_ID,
-} from "@jatbas/aic-shared/core/types/enums.js";
-import { InspectRunner } from "@jatbas/aic-shared/pipeline/inspect-runner.js";
+} from "@jatbas/aic-core/core/types/enums.js";
+import { InspectRunner } from "@jatbas/aic-core/pipeline/inspect-runner.js";
 import { CompilationRequestSchema } from "./schemas/compilation-request.js";
 import { ConversationSummaryRequestSchema } from "./schemas/conversation-summary-request.js";
 import { InspectRequestSchema } from "./schemas/inspect-request.schema.js";
@@ -25,21 +25,21 @@ import { createCompileHandler } from "./handlers/compile-handler.js";
 import { SessionContext } from "./handlers/session-context-cache.js";
 import { handleInspect } from "./handlers/inspect-handler.js";
 import { recordToolInvocation } from "./record-tool-invocation.js";
-import { closeDatabase } from "@jatbas/aic-shared/storage/open-database.js";
-import { ConfigError } from "@jatbas/aic-shared/core/errors/config-error.js";
-import { createProjectScope } from "@jatbas/aic-shared/storage/create-project-scope.js";
-import { SqliteStatusStore } from "@jatbas/aic-shared/storage/sqlite-status-store.js";
-import type { CacheStore } from "@jatbas/aic-shared/core/interfaces/cache-store.interface.js";
-import type { SessionTracker } from "@jatbas/aic-shared/core/interfaces/session-tracker.interface.js";
-import type { Clock } from "@jatbas/aic-shared/core/interfaces/clock.interface.js";
-import type { SessionId } from "@jatbas/aic-shared/core/types/identifiers.js";
+import { closeDatabase } from "@jatbas/aic-core/storage/open-database.js";
+import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
+import { createProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
+import { SqliteStatusStore } from "@jatbas/aic-core/storage/sqlite-status-store.js";
+import type { CacheStore } from "@jatbas/aic-core/core/interfaces/cache-store.interface.js";
+import type { SessionTracker } from "@jatbas/aic-core/core/interfaces/session-tracker.interface.js";
+import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
+import type { SessionId } from "@jatbas/aic-core/core/types/identifiers.js";
 import {
   toConversationId,
   toSessionId,
-} from "@jatbas/aic-shared/core/types/identifiers.js";
+} from "@jatbas/aic-core/core/types/identifiers.js";
 import { z } from "zod";
-import { STOP_REASON } from "@jatbas/aic-shared/core/types/enums.js";
-import { createFullPipelineDeps } from "@jatbas/aic-shared/bootstrap/create-pipeline-deps.js";
+import { STOP_REASON } from "@jatbas/aic-core/core/types/enums.js";
+import { createFullPipelineDeps } from "@jatbas/aic-core/bootstrap/create-pipeline-deps.js";
 import { installCursorHooks } from "./install-cursor-hooks.js";
 import { installTriggerRule } from "./install-trigger-rule.js";
 import { ensureProjectInit, runInit, CONFIG_FILENAME } from "./init-project.js";
@@ -47,24 +47,24 @@ import { runStartupSelfCheck } from "./startup-self-check.js";
 import {
   LoadConfigFromFile,
   applyConfigResult,
-} from "@jatbas/aic-shared/config/load-config-from-file.js";
+} from "@jatbas/aic-core/config/load-config-from-file.js";
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { CompilationRunner as CompilationRunnerImpl } from "@jatbas/aic-shared/pipeline/compilation-runner.js";
-import { SqliteAgenticSessionStore } from "@jatbas/aic-shared/storage/sqlite-agentic-session-store.js";
-import { SqliteToolInvocationLogStore } from "@jatbas/aic-shared/storage/sqlite-tool-invocation-log-store.js";
-import { Sha256Adapter } from "@jatbas/aic-shared/adapters/sha256-adapter.js";
-import { loadRulePackFromPath } from "@jatbas/aic-shared/core/load-rule-pack.js";
-import { createProjectFileReader } from "@jatbas/aic-shared/adapters/project-file-reader-adapter.js";
-import { createCachingFileContentReader } from "@jatbas/aic-shared/adapters/caching-file-content-reader.js";
+import { CompilationRunner as CompilationRunnerImpl } from "@jatbas/aic-core/pipeline/compilation-runner.js";
+import { SqliteAgenticSessionStore } from "@jatbas/aic-core/storage/sqlite-agentic-session-store.js";
+import { SqliteToolInvocationLogStore } from "@jatbas/aic-core/storage/sqlite-tool-invocation-log-store.js";
+import { Sha256Adapter } from "@jatbas/aic-core/adapters/sha256-adapter.js";
+import { loadRulePackFromPath } from "@jatbas/aic-core/core/load-rule-pack.js";
+import { createProjectFileReader } from "@jatbas/aic-core/adapters/project-file-reader-adapter.js";
+import { createCachingFileContentReader } from "@jatbas/aic-core/adapters/caching-file-content-reader.js";
 import { detectEditorId } from "./detect-editor-id.js";
 import { detectInstallScope, INSTALL_SCOPE } from "./detect-install-scope.js";
 import { getUpdateInfo } from "./latest-version-check.js";
-import { initLanguageProviders } from "@jatbas/aic-shared/adapters/init-language-providers.js";
-import { EditorModelConfigReaderAdapter } from "@jatbas/aic-shared/adapters/editor-model-config-reader.js";
-import { ModelDetectorDispatch } from "@jatbas/aic-shared/adapters/model-detector-dispatch.js";
-import type { ModelEnvHints } from "@jatbas/aic-shared/core/types/model-env-hints.js";
+import { initLanguageProviders } from "@jatbas/aic-core/adapters/init-language-providers.js";
+import { EditorModelConfigReaderAdapter } from "@jatbas/aic-core/adapters/editor-model-config-reader.js";
+import { ModelDetectorDispatch } from "@jatbas/aic-core/adapters/model-detector-dispatch.js";
+import type { ModelEnvHints } from "@jatbas/aic-core/core/types/model-env-hints.js";
 
 function defaultRulePack(): RulePack {
   return {
@@ -391,7 +391,8 @@ export async function main(): Promise<void> {
 
 const isEntry =
   process.argv[1] !== undefined &&
-  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+  fs.realpathSync(path.resolve(process.argv[1])) ===
+    path.resolve(fileURLToPath(import.meta.url));
 
 if (isEntry && process.argv[2] === "init") {
   try {

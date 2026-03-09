@@ -36,13 +36,13 @@ jobs:
       - name: Ensure npm for Trusted Publishing
         run: npm install -g npm@latest
 
-      - name: Pack and publish @jatbas/aic-shared
+      - name: Pack and publish @jatbas/aic-core
         run: |
           pnpm pack
           npm publish *.tgz --access public
         working-directory: shared
 
-      - name: Pack and publish @jatbas/aic-mcp
+      - name: Pack and publish @jatbas/aic
         run: |
           pnpm pack
           npm publish *.tgz --access public

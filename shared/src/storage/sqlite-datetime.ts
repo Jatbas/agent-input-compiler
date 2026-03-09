@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { ISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
-import { toISOTimestamp } from "@jatbas/aic-shared/core/types/identifiers.js";
+import type { ISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
 
 const SQLITE_DATETIME_LEN = 19;
 

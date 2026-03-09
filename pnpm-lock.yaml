@@ -68,7 +68,7 @@ importers:
 
   mcp:
     dependencies:
-      '@jatbas/aic-shared':
+      '@jatbas/aic-core':
         specifier: workspace:*
         version: link:../shared
       '@modelcontextprotocol/sdk':

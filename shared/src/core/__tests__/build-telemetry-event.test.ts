@@ -3,25 +3,22 @@
 
 import { describe, it, expect } from "vitest";
 import { buildTelemetryEvent } from "../build-telemetry-event.js";
-import type { CompilationMeta } from "@jatbas/aic-shared/core/types/compilation-types.js";
-import type { GuardResult } from "@jatbas/aic-shared/core/types/guard-types.js";
+import type { CompilationMeta } from "@jatbas/aic-core/core/types/compilation-types.js";
+import type { GuardResult } from "@jatbas/aic-core/core/types/guard-types.js";
 import {
   toUUIDv7,
   toISOTimestamp,
   toRepoId,
-} from "@jatbas/aic-shared/core/types/identifiers.js";
-import { toTokenCount, toMilliseconds } from "@jatbas/aic-shared/core/types/units.js";
-import { toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
+} from "@jatbas/aic-core/core/types/identifiers.js";
+import { toTokenCount, toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
+import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import {
   EDITOR_ID,
   INCLUSION_TIER,
   TASK_CLASS,
-} from "@jatbas/aic-shared/core/types/enums.js";
-import { toPercentage, toConfidence } from "@jatbas/aic-shared/core/types/scores.js";
-import {
-  GUARD_FINDING_TYPE,
-  GUARD_SEVERITY,
-} from "@jatbas/aic-shared/core/types/enums.js";
+} from "@jatbas/aic-core/core/types/enums.js";
+import { toPercentage, toConfidence } from "@jatbas/aic-core/core/types/scores.js";
+import { GUARD_FINDING_TYPE, GUARD_SEVERITY } from "@jatbas/aic-core/core/types/enums.js";
 
 function metaOverrides(overrides: Partial<CompilationMeta>): CompilationMeta {
   return {

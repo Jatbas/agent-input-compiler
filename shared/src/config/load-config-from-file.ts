@@ -4,20 +4,20 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { z } from "zod";
-import { ConfigError } from "@jatbas/aic-shared/core/errors/config-error.js";
-import type { AbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
-import type { FilePath } from "@jatbas/aic-shared/core/types/paths.js";
-import type { ResolvedConfig } from "@jatbas/aic-shared/core/types/resolved-config.js";
-import { defaultResolvedConfig } from "@jatbas/aic-shared/core/types/resolved-config.js";
-import type { TokenCount } from "@jatbas/aic-shared/core/types/units.js";
-import { toTokenCount } from "@jatbas/aic-shared/core/types/units.js";
-import { TASK_CLASS, type TaskClass } from "@jatbas/aic-shared/core/types/enums.js";
-import type { BudgetConfig } from "@jatbas/aic-shared/core/interfaces/budget-config.interface.js";
-import type { ConfigLoader } from "@jatbas/aic-shared/core/interfaces/config-loader.interface.js";
-import type { ConfigStore } from "@jatbas/aic-shared/core/interfaces/config-store.interface.js";
-import type { HeuristicSelectorConfig } from "@jatbas/aic-shared/core/interfaces/heuristic-selector-config.interface.js";
-import type { LoadConfigResult } from "@jatbas/aic-shared/core/interfaces/load-config-result.interface.js";
-import type { StringHasher } from "@jatbas/aic-shared/core/interfaces/string-hasher.interface.js";
+import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
+import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import type { FilePath } from "@jatbas/aic-core/core/types/paths.js";
+import type { ResolvedConfig } from "@jatbas/aic-core/core/types/resolved-config.js";
+import { defaultResolvedConfig } from "@jatbas/aic-core/core/types/resolved-config.js";
+import type { TokenCount } from "@jatbas/aic-core/core/types/units.js";
+import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
+import { TASK_CLASS, type TaskClass } from "@jatbas/aic-core/core/types/enums.js";
+import type { BudgetConfig } from "@jatbas/aic-core/core/interfaces/budget-config.interface.js";
+import type { ConfigLoader } from "@jatbas/aic-core/core/interfaces/config-loader.interface.js";
+import type { ConfigStore } from "@jatbas/aic-core/core/interfaces/config-store.interface.js";
+import type { HeuristicSelectorConfig } from "@jatbas/aic-core/core/interfaces/heuristic-selector-config.interface.js";
+import type { LoadConfigResult } from "@jatbas/aic-core/core/interfaces/load-config-result.interface.js";
+import type { StringHasher } from "@jatbas/aic-core/core/interfaces/string-hasher.interface.js";
 
 const AicConfigSchema = z
   .object({

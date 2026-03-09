@@ -4,23 +4,23 @@
 import { describe, it, expect, beforeAll, afterEach } from "vitest";
 import * as path from "node:path";
 import * as fs from "node:fs";
-import { toAbsolutePath } from "@jatbas/aic-shared/core/types/paths.js";
-import { EDITOR_ID, TRIGGER_SOURCE } from "@jatbas/aic-shared/core/types/enums.js";
-import type { TaskClass } from "@jatbas/aic-shared/core/types/enums.js";
-import type { RulePackProvider } from "@jatbas/aic-shared/core/interfaces/rule-pack-provider.interface.js";
-import type { RulePack } from "@jatbas/aic-shared/core/types/rule-pack.js";
-import type { ProjectScope } from "@jatbas/aic-shared/storage/create-project-scope.js";
-import { closeDatabase } from "@jatbas/aic-shared/storage/open-database.js";
-import { createProjectScope } from "@jatbas/aic-shared/storage/create-project-scope.js";
-import { createCachingFileContentReader } from "@jatbas/aic-shared/adapters/caching-file-content-reader.js";
+import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import { EDITOR_ID, TRIGGER_SOURCE } from "@jatbas/aic-core/core/types/enums.js";
+import type { TaskClass } from "@jatbas/aic-core/core/types/enums.js";
+import type { RulePackProvider } from "@jatbas/aic-core/core/interfaces/rule-pack-provider.interface.js";
+import type { RulePack } from "@jatbas/aic-core/core/types/rule-pack.js";
+import type { ProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
+import { closeDatabase } from "@jatbas/aic-core/storage/open-database.js";
+import { createProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
+import { createCachingFileContentReader } from "@jatbas/aic-core/adapters/caching-file-content-reader.js";
 import { createFullPipelineDeps } from "../../bootstrap/create-pipeline-deps.js";
-import { CompilationRunner } from "@jatbas/aic-shared/pipeline/compilation-runner.js";
-import { initLanguageProviders } from "@jatbas/aic-shared/adapters/init-language-providers.js";
+import { CompilationRunner } from "@jatbas/aic-core/pipeline/compilation-runner.js";
+import { initLanguageProviders } from "@jatbas/aic-core/adapters/init-language-providers.js";
 import { LoadConfigFromFile } from "../../config/load-config-from-file.js";
 import { applyConfigResult } from "../../config/load-config-from-file.js";
-import { loadRulePackFromPath } from "@jatbas/aic-shared/core/load-rule-pack.js";
-import { createProjectFileReader } from "@jatbas/aic-shared/adapters/project-file-reader-adapter.js";
-import { Sha256Adapter } from "@jatbas/aic-shared/adapters/sha256-adapter.js";
+import { loadRulePackFromPath } from "@jatbas/aic-core/core/load-rule-pack.js";
+import { createProjectFileReader } from "@jatbas/aic-core/adapters/project-file-reader-adapter.js";
+import { Sha256Adapter } from "@jatbas/aic-core/adapters/sha256-adapter.js";
 
 const fixtureRoot = toAbsolutePath(
   path.join(process.cwd(), "test", "benchmarks", "repos", "1"),

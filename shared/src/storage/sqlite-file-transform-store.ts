@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { FileTransformStore } from "@jatbas/aic-shared/core/interfaces/file-transform-store.interface.js";
-import type { CachedFileTransform } from "@jatbas/aic-shared/core/types/file-transform-types.js";
-import type { ExecutableDb } from "@jatbas/aic-shared/core/interfaces/executable-db.interface.js";
-import type { Clock } from "@jatbas/aic-shared/core/interfaces/clock.interface.js";
-import type { RelativePath } from "@jatbas/aic-shared/core/types/paths.js";
-import { toRelativePath } from "@jatbas/aic-shared/core/types/paths.js";
-import { toTokenCount, type TokenCount } from "@jatbas/aic-shared/core/types/units.js";
-import { INCLUSION_TIER } from "@jatbas/aic-shared/core/types/enums.js";
-import type { InclusionTier } from "@jatbas/aic-shared/core/types/enums.js";
+import type { FileTransformStore } from "@jatbas/aic-core/core/interfaces/file-transform-store.interface.js";
+import type { CachedFileTransform } from "@jatbas/aic-core/core/types/file-transform-types.js";
+import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
+import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
+import type { RelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toTokenCount, type TokenCount } from "@jatbas/aic-core/core/types/units.js";
+import { INCLUSION_TIER } from "@jatbas/aic-core/core/types/enums.js";
+import type { InclusionTier } from "@jatbas/aic-core/core/types/enums.js";
 import {
   isoToSqliteDatetime,
   sqliteDatetimeToIso,
-} from "@jatbas/aic-shared/storage/sqlite-datetime.js";
+} from "@jatbas/aic-core/storage/sqlite-datetime.js";
 
 interface TierOutputsRow {
   readonly content: string;

@@ -2,14 +2,14 @@
 // Copyright (c) 2025 AIC Contributors
 
 // Temporary stub — remove when real CompilationRunner is wired.
-import type { CompilationMeta } from "@jatbas/aic-shared/core/types/compilation-types.js";
-import { toTokenCount, toMilliseconds } from "@jatbas/aic-shared/core/types/units.js";
-import { toPercentage, toConfidence } from "@jatbas/aic-shared/core/types/scores.js";
+import type { CompilationMeta } from "@jatbas/aic-core/core/types/compilation-types.js";
+import { toTokenCount, toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
+import { toPercentage, toConfidence } from "@jatbas/aic-core/core/types/scores.js";
 import {
   TASK_CLASS,
   EDITOR_ID,
   INCLUSION_TIER,
-} from "@jatbas/aic-shared/core/types/enums.js";
+} from "@jatbas/aic-core/core/types/enums.js";
 
 export const STUB_COMPILATION_META: CompilationMeta = {
   intent: "",

@@ -11,10 +11,10 @@ import {
   toSessionId,
   toISOTimestamp,
   toUUIDv7,
-} from "@jatbas/aic-shared/core/types/identifiers.js";
-import { toMilliseconds } from "@jatbas/aic-shared/core/types/units.js";
-import { EDITOR_ID } from "@jatbas/aic-shared/core/types/enums.js";
-import { STUB_COMPILATION_META } from "@jatbas/aic-shared/testing/stub-compilation-meta.js";
+} from "@jatbas/aic-core/core/types/identifiers.js";
+import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
+import { EDITOR_ID } from "@jatbas/aic-core/core/types/enums.js";
+import { STUB_COMPILATION_META } from "@jatbas/aic-core/testing/stub-compilation-meta.js";
 
 describe("compile-handler", () => {
   afterEach(() => {
