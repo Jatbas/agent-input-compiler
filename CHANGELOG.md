@@ -7,6 +7,12 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-03-09
+
+### Fixed
+
+- MCP server no longer crashes with EPERM when started from the home directory on macOS (e.g. `.Trash` protected by SIP)
+
 ## [0.5.0] - 2026-03-09
 
 ### Added

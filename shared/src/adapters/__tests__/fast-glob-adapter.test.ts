@@ -58,13 +58,14 @@ describe("FastGlobAdapter", () => {
     expect(first).toEqual(second);
   });
 
-  it("find non-existent cwd propagates error", async () => {
+  it("find non-existent cwd returns empty", async () => {
     tmpDir = mkdtempSync(join(tmpdir(), "aic-glob-test-"));
     const filePath = join(tmpDir, "a.ts");
     writeFileSync(filePath, "");
     const adapter = new FastGlobAdapter();
     const cwd = toAbsolutePath(filePath);
-    await expect(adapter.find(["**/*.ts"], cwd)).rejects.toThrow();
+    const result = await adapter.find(["**/*.ts"], cwd);
+    expect(result).toEqual([]);
   });
 
   it("findWithStats_returns_path_size_mtime", async () => {

@@ -21,7 +21,7 @@ export class FastGlobAdapter implements GlobProvider {
       return [];
     }
     const cwdStr = cwd;
-    const raw = await fg([...patterns], { cwd: cwdStr });
+    const raw = await fg([...patterns], { cwd: cwdStr, suppressErrors: true });
     const relative = raw.map((p) => {
       const abs = path.isAbsolute(p) ? p : path.resolve(cwdStr, p);
       return toRelativePath(path.relative(cwdStr, abs));
@@ -37,7 +37,11 @@ export class FastGlobAdapter implements GlobProvider {
       return [];
     }
     const cwdStr = cwd;
-    const raw = await fg([...patterns], { cwd: cwdStr, stats: true });
+    const raw = await fg([...patterns], {
+      cwd: cwdStr,
+      stats: true,
+      suppressErrors: true,
+    });
     const withStats = raw.filter(
       (entry): entry is typeof entry & { stats: NonNullable<typeof entry.stats> } =>
         entry.stats !== undefined,

@@ -21,7 +21,14 @@ import { DartProvider } from "./dart-provider.js";
 async function projectHasExtension(projectRoot: string, ext: string): Promise<boolean> {
   const glob = new FastGlobAdapter();
   const paths = await glob.find(
-    [`**/*${ext}`, `!node_modules/**`, `!.git/**`, `!.aic/**`],
+    [
+      `**/*${ext}`,
+      `!node_modules/**`,
+      `!.git/**`,
+      `!.aic/**`,
+      `!.Trash/**`,
+      `!Library/**`,
+    ],
     toAbsolutePath(projectRoot),
   );
   return paths.length > 0;
