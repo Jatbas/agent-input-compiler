@@ -61,7 +61,6 @@ import { createCachingFileContentReader } from "@jatbas/aic-core/adapters/cachin
 import { detectEditorId } from "./detect-editor-id.js";
 import { detectInstallScope, INSTALL_SCOPE } from "./detect-install-scope.js";
 import { getUpdateInfo } from "./latest-version-check.js";
-import { initLanguageProviders } from "@jatbas/aic-core/adapters/init-language-providers.js";
 import { EditorModelConfigReaderAdapter } from "@jatbas/aic-core/adapters/editor-model-config-reader.js";
 import { ModelDetectorDispatch } from "@jatbas/aic-core/adapters/model-detector-dispatch.js";
 import type { ModelEnvHints } from "@jatbas/aic-core/core/types/model-env-hints.js";
@@ -383,8 +382,7 @@ export function createMcpServer(
 
 export async function main(): Promise<void> {
   const projectRoot = toAbsolutePath(process.cwd());
-  const providers = await initLanguageProviders(projectRoot);
-  const server = createMcpServer(projectRoot, providers);
+  const server = createMcpServer(projectRoot);
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

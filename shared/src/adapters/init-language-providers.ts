@@ -28,6 +28,11 @@ async function projectHasExtension(projectRoot: string, ext: string): Promise<bo
       `!.aic/**`,
       `!.Trash/**`,
       `!Library/**`,
+      `!$Recycle.Bin/**`,
+      `!AppData/**`,
+      `!.local/**`,
+      `!.cache/**`,
+      `!snap/**`,
     ],
     toAbsolutePath(projectRoot),
   );

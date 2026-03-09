@@ -7,6 +7,13 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-03-09
+
+### Fixed
+
+- MCP server no longer times out on startup when launched from the home directory by deferring language provider scanning from server boot
+- Language provider glob exclusions now cover Windows (`$Recycle.Bin`, `AppData`) and Linux (`.local`, `.cache`, `snap`) system directories
+
 ## [0.5.1] - 2026-03-09
 
 ### Fixed
