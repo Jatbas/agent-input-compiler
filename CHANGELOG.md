@@ -7,6 +7,12 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-03-10
+
+### Fixed
+
+- Project files (`.cursor/hooks/`, `.cursor/rules/AIC.mdc`, `aic.config.json`) are now created in the correct project directory on first `aic_compile` call, instead of in the server's working directory
+
 ## [0.5.2] - 2026-03-09
 
 ### Fixed

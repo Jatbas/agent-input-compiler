@@ -40,9 +40,7 @@ import {
 import { z } from "zod";
 import { STOP_REASON } from "@jatbas/aic-core/core/types/enums.js";
 import { createFullPipelineDeps } from "@jatbas/aic-core/bootstrap/create-pipeline-deps.js";
-import { installCursorHooks } from "./install-cursor-hooks.js";
-import { installTriggerRule } from "./install-trigger-rule.js";
-import { ensureProjectInit, runInit, CONFIG_FILENAME } from "./init-project.js";
+import { runInit } from "./init-project.js";
 import { runStartupSelfCheck } from "./startup-self-check.js";
 import {
   LoadConfigFromFile,
@@ -139,12 +137,6 @@ export function createMcpServer(
   const scope = createProjectScope(projectRoot);
   const { packageName, packageVersion } = readPackageVersion();
   const purgeImmediateId = setImmediate(() => scope.cacheStore.purgeExpired());
-  const configPath = path.join(projectRoot, CONFIG_FILENAME);
-  if (!fs.existsSync(configPath)) {
-    ensureProjectInit(projectRoot);
-  }
-  installTriggerRule(projectRoot);
-  installCursorHooks(projectRoot);
   const { installationOk, installationNotes } = runStartupSelfCheck(projectRoot);
   const installScope = detectInstallScope(os.homedir(), projectRoot);
   const installScopeWarnings: readonly string[] =

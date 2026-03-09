@@ -29,6 +29,8 @@ import type { TelemetryDeps } from "@jatbas/aic-core/core/types/telemetry-types.
 import { writeCompilationTelemetry } from "@jatbas/aic-core/core/write-compilation-telemetry.js";
 import { recordToolInvocation } from "../record-tool-invocation.js";
 import { ensureProjectInit } from "../init-project.js";
+import { installCursorHooks } from "../install-cursor-hooks.js";
+import { installTriggerRule } from "../install-trigger-rule.js";
 import { validateProjectRoot, validateConfigPath } from "../validate-project-root.js";
 
 function rejectAfter(ms: number): Promise<never> {
@@ -71,6 +73,8 @@ export function createCompileHandler(
     try {
       const projectRoot = validateProjectRoot(args.projectRoot);
       ensureProjectInit(projectRoot);
+      installTriggerRule(projectRoot);
+      installCursorHooks(projectRoot);
       const configPath =
         args.configPath !== null
           ? validateConfigPath(args.configPath, projectRoot)
