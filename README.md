@@ -90,11 +90,11 @@ Last = most recent compilation.
 
 ### Cursor
 
-**1. Click to install** — one click, no dependencies:
+**1. Install the MCP server** — click the button (opens an HTTPS page that redirects to Cursor; GitHub blocks `cursor://` links directly):
 
-[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](cursor://anysphere.cursor-deeplink/mcp/install?name=aic&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqYXRiYXMvYWljLW1jcCJdfQ==)
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://github.com/Jatbas/agent-input-compiler/install/cursor-install.html)
 
-If the button does not open Cursor, paste this URL into your browser:
+If the button does nothing, enable **GitHub Pages** for this repo (Settings → Pages → Source: Deploy from branch → Branch: main, / (root)), then try again. Or copy this URL into your browser:
 
 ```text
 cursor://anysphere.cursor-deeplink/mcp/install?name=aic&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqYXRiYXMvYWljLW1jcCJdfQ==
