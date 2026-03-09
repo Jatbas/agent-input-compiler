@@ -7,6 +7,17 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-03-10
+
+### Changed
+
+- `failClosed` switched from `true` to `false` on the `preToolUse` enforcement hook to prevent deadlock when hook scripts are accidentally corrupted
+- `installCursorHooks` now restores `hooks.json` from defaults when the file contains invalid JSON, ensuring self-healing on next `aic_compile`
+
+### Added
+
+- Phase W (Global Server & Per-Project Isolation) tasks documented in `mvp-progress.md` and `implementation-spec.md` with full schema SQL, store changes, migration strategy, and dependency ordering
+
 ## [0.5.4] - 2026-03-10
 
 ### Fixed

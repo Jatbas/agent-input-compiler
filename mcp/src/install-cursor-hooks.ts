@@ -17,7 +17,7 @@ const DEFAULT_HOOKS = {
     preToolUse: [
       {
         command: "node .cursor/hooks/AIC-require-aic-compile.cjs",
-        failClosed: true,
+        failClosed: false,
       },
       {
         command: "node .cursor/hooks/AIC-inject-conversation-id.cjs",
@@ -94,8 +94,7 @@ export function installCursorHooks(projectRoot: AbsolutePath): void {
     fs.mkdirSync(cursorDir, { recursive: true });
     fs.writeFileSync(hooksPath, jsonContent(DEFAULT_HOOKS), "utf8");
   } else {
-    const raw = fs.readFileSync(hooksPath, "utf8");
-    const parsed = JSON.parse(raw) as {
+    type ParsedHooks = {
       version?: number;
       hooks?: {
         sessionStart?: readonly HookEntry[];
@@ -107,6 +106,15 @@ export function installCursorHooks(projectRoot: AbsolutePath): void {
         stop?: readonly StopHookEntry[];
       };
     };
+    let parsed: ParsedHooks;
+    try {
+      const raw = fs.readFileSync(hooksPath, "utf8");
+      parsed = JSON.parse(raw) as ParsedHooks;
+    } catch {
+      // hooks.json is corrupt — rewrite from defaults to restore integrity
+      fs.writeFileSync(hooksPath, jsonContent(DEFAULT_HOOKS), "utf8");
+      parsed = { version: DEFAULT_HOOKS.version, hooks: { ...DEFAULT_HOOKS.hooks } };
+    }
     const sessionStart = mergeHookArray(
       parsed.hooks?.sessionStart ?? [],
       DEFAULT_HOOKS.hooks.sessionStart,

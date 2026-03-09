@@ -18,7 +18,7 @@
     "preToolUse": [
       {
         "command": "node .cursor/hooks/AIC-require-aic-compile.cjs",
-        "failClosed": true
+        "failClosed": false
       },
       {
         "command": "node .cursor/hooks/AIC-inject-conversation-id.cjs",
