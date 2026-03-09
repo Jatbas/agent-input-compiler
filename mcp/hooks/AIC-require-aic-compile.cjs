@@ -8,6 +8,13 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
+// Skip enforcement inside the AIC source repo (development mode).
+const projectRoot = path.resolve(__dirname, "..", "..");
+if (fs.existsSync(path.join(projectRoot, "mcp", "hooks"))) {
+  process.stdout.write(JSON.stringify({ permission: "allow" }));
+  process.exit(0);
+}
+
 function getStateFile(generationId) {
   return path.join(os.tmpdir(), `aic-gate-${generationId}`);
 }

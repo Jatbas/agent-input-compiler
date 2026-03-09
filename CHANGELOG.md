@@ -7,6 +7,12 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-03-10
+
+### Fixed
+
+- `AIC-require-aic-compile` hook auto-detects the AIC source repo and skips enforcement, eliminating the chicken-and-egg blocking during development
+
 ## [0.5.3] - 2026-03-10
 
 ### Fixed
