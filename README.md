@@ -92,9 +92,9 @@ Last = most recent compilation.
 
 **1. Click to install** — one click, no dependencies:
 
-[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/install-mcp?name=aic&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqYXRiYXMvYWljLW1jcCJdfQ==)
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](cursor://anysphere.cursor-deeplink/mcp/install?name=aic&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqYXRiYXMvYWljLW1jcCJdfQ==)
 
-If the button above does not work, paste this URL into your browser:
+If the button does not open Cursor, paste this URL into your browser:
 
 ```text
 cursor://anysphere.cursor-deeplink/mcp/install?name=aic&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqYXRiYXMvYWljLW1jcCJdfQ==
