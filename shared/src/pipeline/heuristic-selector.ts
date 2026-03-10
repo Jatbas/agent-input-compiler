@@ -197,7 +197,10 @@ export class HeuristicSelector implements ContextSelector {
         rulePack,
       ),
     }));
-    const sorted = scored.toSorted((a, b) => b.score - a.score);
+    // Secondary sort by path so tie-breaking is deterministic (glob order is not).
+    const sorted = scored.toSorted(
+      (a, b) => b.score - a.score || a.entry.path.localeCompare(b.entry.path),
+    );
     const { files, totalTokens: totalTokensNum } = fitToBudget(
       sorted,
       budget,
