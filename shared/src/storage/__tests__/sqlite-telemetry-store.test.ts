@@ -4,7 +4,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import type { TelemetryEvent } from "@jatbas/aic-core/core/types/telemetry-types.js";
-import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import {
   toUUIDv7,
   toISOTimestamp,
@@ -89,7 +88,7 @@ describe("SqliteTelemetryStore", () => {
     migration009.up(db);
     migration010.up(db);
     migration011.up(db);
-    store = new SqliteTelemetryStore(toAbsolutePath("/test/project"), db);
+    store = new SqliteTelemetryStore(db);
     insertCompilationLog(db, COMPILATION_ID);
   }
 
@@ -99,7 +98,7 @@ describe("SqliteTelemetryStore", () => {
     store.write(event);
     const rows = db
       .prepare(
-        "SELECT id, compilation_id, repo_id, guard_findings, guard_blocks, transform_savings, tiers_json, created_at, project_root FROM telemetry_events WHERE id = ?",
+        "SELECT id, compilation_id, repo_id, guard_findings, guard_blocks, transform_savings, tiers_json, created_at FROM telemetry_events WHERE id = ?",
       )
       .all(event.id) as readonly {
       id: string;
@@ -110,14 +109,12 @@ describe("SqliteTelemetryStore", () => {
       transform_savings: number;
       tiers_json: string;
       created_at: string;
-      project_root: string;
     }[];
     expect(rows).toHaveLength(1);
     const row = rows[0];
     expect(row).toBeDefined();
     if (row === undefined) return;
     expect(row.id).toBe(event.id);
-    expect(row.project_root).toBe("/test/project");
   });
 
   it("write persists row", () => {

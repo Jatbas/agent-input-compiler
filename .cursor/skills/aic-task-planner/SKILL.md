@@ -160,7 +160,13 @@ Complete every item. Each produces evidence for the report. Items are organized 
 **Batch A — fire in one parallel round** (no data dependencies; interface paths and library names come from the mvp-spec pre-read in §1):
 
 1. **Read every interface the component implements** — copy the full interface verbatim.
-2. **Read the target database schema** — if the component touches a table, read the migration file. Record exact columns.
+2. **Read the target database schema + normalization analysis** — if the component touches a table, read the migration file. Record exact columns. Then verify normalization to at least 3NF:
+   - **1NF:** Every column holds a single atomic value — no comma-separated lists, no JSON arrays serialized into TEXT columns for queryable data. If a column stores multiple values, it must be a separate junction/association table.
+   - **2NF:** Every non-key column depends on the entire primary key. If a table has a composite PK, no column may depend on only part of it — split into a separate table with its own PK.
+   - **3NF:** No transitive dependencies — a non-key column must not depend on another non-key column. If column B determines column C, extract B→C into a lookup/reference table and store only B as a foreign key.
+   - **Lookup tables:** Repeated string values (statuses, categories, types, severity levels) that appear in multiple rows should be extracted into a reference table with an integer or short-text PK, referenced by FK. This reduces storage and enforces consistency.
+   - **No redundant columns:** A column whose value can be derived from other columns in the same row (or via a JOIN) should not exist — compute it at query time or in a VIEW.
+     Record all normalization findings in the NORMALIZATION ANALYSIS field of the Exploration Report. If a violation is found in an existing schema, flag it as a prerequisite fix (new migration) or document the justified exception.
 3. **Check existing files** — for every file the recipe pattern would create, check if it already EXISTS (Glob). Record each.
 4. **Verify every external library API by reading installed `.d.ts` files** — locate under `node_modules/`, read them, record exact class names, constructor signatures, method signatures, and import paths. If not installed, search the web. This applies to ALL layers.
 5. **Check recipe fit** — determine which recipe applies (adapter, storage, pipeline, composition root, benchmark, release-pipeline) using the pre-read `SKILL-recipes.md`. If no recipe fits → **BLOCKER**.
@@ -257,6 +263,15 @@ DEPENDENT TYPES (classified by tier — see SKILL-guardrails.md):
 SCHEMA (if storage, paste from migration):
   Source: [migration file path]
 [exact CREATE TABLE]
+
+NORMALIZATION ANALYSIS (mandatory when task creates or modifies a migration):
+- 1NF: [PASS — all columns atomic | VIOLATION — column X stores multiple values → fix: create junction table Y]
+- 2NF: [PASS — no partial dependencies | VIOLATION — column X depends only on part of composite PK → fix: extract to table Y]
+- 3NF: [PASS — no transitive dependencies | VIOLATION — column X determines column Y → fix: extract X→Y into lookup table Z]
+- Lookup candidates: [column X in table Y has N distinct repeated string values → extract to reference table Z with FK | None — all repeated-value columns already use FKs or are genuinely variable]
+- Redundant columns: [column X is derivable from columns A, B via expression → remove and compute at query time | None]
+- Justified exceptions: [column X is denormalized because (read performance, SQLite lack of computed columns, etc.) | None]
+  Source: [migration file path or "new migration proposed"]
 
 OPTIONAL FIELD HAZARDS (mandatory — list every optional field the implementation accesses):
 - [TypeName].[fieldName] (`?:` [FieldType]) — accessed in [method/step] — handle with `?.` and default [value]
@@ -565,6 +580,14 @@ R. **TRANSFORMER SAFETY TESTS (conditional — pipeline transformer recipe only)
 
 S. **CODE BLOCK API EXTRACTION (mandatory — all task types):** Extract every unique method call (`.methodName(` pattern) and constructor call (`new ClassName(` pattern) from ALL TypeScript code blocks in the task file (Interface/Signature, Steps, inline code). For each, Grep the corresponding source file (interface, type definition, or `.d.ts`) for the exact name. Report each name with its source file and Grep match count. Any name with 0 matches in its source file = fail. This check catches training-data contamination — where the planner writes API calls that exist in the underlying library (e.g. `better-sqlite3`'s `.get()`) but not in the project's interface wrapper (e.g. `ExecutableDb` which only has `.run()` and `.all()`).
 
+T. **DATABASE NORMALIZATION (conditional — tasks that create or modify a migration):** Verify the NORMALIZATION ANALYSIS section in the exploration report is present and complete. For each SQL statement (CREATE TABLE, ALTER TABLE) in the task file's Steps section, check:
+**(T1) 1NF — atomic columns:** Grep for TEXT columns that store comma-separated lists, JSON arrays of queryable data, or multiple values. Pattern indicators: column comments mentioning "list", "array", "comma-separated", or INSERT statements that concatenate values with `||` or `','`. Any multi-value column without a junction table = fail.
+**(T2) 2NF — no partial dependencies:** If any table has a composite PRIMARY KEY, verify every non-key column depends on the full composite key. If a column depends on only one part of the composite key, it belongs in a separate table = fail.
+**(T3) 3NF — no transitive dependencies:** For each table, check if any non-key column determines another non-key column. Classic indicators: `status_text` alongside `status_code`, `category_name` alongside `category_id`, any `_name` or `_label` column that could be a lookup. Transitive dependency without extraction to a lookup table = fail unless the exploration report's NORMALIZATION ANALYSIS documents a justified exception.
+**(T4) Lookup tables for repeated strings:** Grep for columns typed TEXT that hold a bounded set of repeated values (statuses, severities, categories, types). If a column has a known finite domain (e.g. `'error' | 'warning' | 'info'`) used across many rows and no reference table exists = flag (warn, not hard fail — the exploration report may justify inline storage for very small domains like 2–3 values).
+**(T5) No redundant/derivable columns:** Check if any column's value can be computed from other columns in the same table or via a JOIN. Stored computed values without justification = fail.
+If the task does not create or modify a migration, this check passes automatically.
+
 **Step 2: Score the rubric.** Score each dimension 0 (fail) or 1 (pass):
 
 1. Interface accuracy (check B)
@@ -586,6 +609,7 @@ S. **CODE BLOCK API EXTRACTION (mandatory — all task types):** Extract every u
 17. Transformer benchmark step — conditional (check Q)
 18. Transformer safety tests — conditional (check R)
 19. Code block API accuracy (check S)
+20. Database normalization — conditional (check T)
 
 ### C.5b Independent verification agent
 
@@ -600,6 +624,7 @@ After the self-check (C.5 Steps 1–2) passes with all applicable checks at 100%
 3. **Instructions — four checks:**
    - **API calls:** Read the task file. For every TypeScript code block, extract every `.methodName(` call and every `new ClassName(` call. For each, Grep the corresponding interface or `.d.ts` file for that name. Report: `[name] — [source file] — FOUND / NOT FOUND`.
    - **SQL columns:** For every SQL statement in the task file, read the migration file. Verify every column name in the SQL appears in the `CREATE TABLE`. Report: `[column] in [table] — FOUND / NOT FOUND`.
+   - **SQL normalization (if task creates/modifies a migration):** For each CREATE TABLE, check: (a) no column stores comma-separated or multi-value data (1NF), (b) no partial key dependencies in composite PKs (2NF), (c) no non-key column that determines another non-key column without a lookup table (3NF), (d) repeated string-domain columns have a reference table or documented justification. Report: `[table] — [NF level] PASS / VIOLATION ([detail])`.
    - **File paths:** For every "Modify" row in the Files table, Glob for the path. Report: `[path] — EXISTS / DOES NOT EXIST`.
    - **Signature match:** For each method in the class code block, read the interface source file. Verify parameter names, types, and return types match exactly. Report: `[method] — MATCH / MISMATCH ([detail])`.
 

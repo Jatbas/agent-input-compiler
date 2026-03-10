@@ -184,13 +184,15 @@ export class SqliteStatusStore implements StatusStore {
         : null;
 
     const telemetryCountRow = this.db
-      .prepare("SELECT COUNT(*) as c FROM telemetry_events WHERE project_root = ?")
+      .prepare(
+        "SELECT COUNT(*) as c FROM telemetry_events te JOIN compilation_log cl ON te.compilation_id = cl.id WHERE cl.project_root = ?",
+      )
       .all(this.projectRoot) as { c: number }[];
     const telemetryDisabled = (telemetryCountRow[0]?.c ?? 0) === 0;
 
     const guardRows = this.db
       .prepare(
-        "SELECT type, COUNT(*) as cnt FROM guard_findings WHERE project_root = ? GROUP BY type",
+        "SELECT gf.type, COUNT(*) as cnt FROM guard_findings gf JOIN compilation_log cl ON gf.compilation_id = cl.id WHERE cl.project_root = ? GROUP BY gf.type",
       )
       .all(this.projectRoot) as { type: string; cnt: number }[];
     const guardByType = guardRows.reduce<Record<string, number>>(

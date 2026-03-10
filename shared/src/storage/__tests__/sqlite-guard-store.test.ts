@@ -7,7 +7,7 @@ import { AicError } from "@jatbas/aic-core/core/errors/aic-error.js";
 import type { GuardFinding } from "@jatbas/aic-core/core/types/guard-types.js";
 import type { UUIDv7 } from "@jatbas/aic-core/core/types/identifiers.js";
 import { toUUIDv7, toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
-import { toAbsolutePath, toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toLineNumber } from "@jatbas/aic-core/core/types/units.js";
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
@@ -88,7 +88,7 @@ describe("SqliteGuardStore", () => {
     migration009.up(db);
     migration010.up(db);
     migration011.up(db);
-    return new SqliteGuardStore(toAbsolutePath("/test/project"), db, idGen, clock);
+    return new SqliteGuardStore(db, idGen, clock);
   }
 
   function ensureCompilationExists(compilationId: string): void {

@@ -90,19 +90,9 @@ function insertTelemetryEvent(
   db.prepare(
     `INSERT INTO telemetry_events (
       id, compilation_id, repo_id,
-      guard_findings, guard_blocks, transform_savings, tiers_json, created_at, project_root
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    id,
-    compilationId,
-    "repo-hash",
-    0,
-    0,
-    0,
-    "{}",
-    "2026-02-26T12:00:00.000Z",
-    TEST_PROJECT_ROOT,
-  );
+      guard_findings, guard_blocks, transform_savings, tiers_json, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(id, compilationId, "repo-hash", 0, 0, 0, "{}", "2026-02-26T12:00:00.000Z");
 }
 
 describe("SqliteStatusStore", () => {
@@ -237,8 +227,8 @@ describe("SqliteStatusStore", () => {
     setup();
     insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000003");
     db.prepare(
-      `INSERT INTO guard_findings (id, compilation_id, type, severity, file, line, message, pattern, created_at, project_root)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO guard_findings (id, compilation_id, type, severity, file, line, message, pattern, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       "018c3d4e-0000-7000-8000-000000000004",
       "018c3d4e-0000-7000-8000-000000000003",
@@ -249,11 +239,10 @@ describe("SqliteStatusStore", () => {
       "secret",
       null,
       "2026-02-26T12:00:00.000Z",
-      TEST_PROJECT_ROOT,
     );
     db.prepare(
-      `INSERT INTO guard_findings (id, compilation_id, type, severity, file, line, message, pattern, created_at, project_root)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO guard_findings (id, compilation_id, type, severity, file, line, message, pattern, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       "018c3d4e-0000-7000-8000-000000000005",
       "018c3d4e-0000-7000-8000-000000000003",
@@ -264,11 +253,10 @@ describe("SqliteStatusStore", () => {
       "secret",
       null,
       "2026-02-26T12:00:00.000Z",
-      TEST_PROJECT_ROOT,
     );
     db.prepare(
-      `INSERT INTO guard_findings (id, compilation_id, type, severity, file, line, message, pattern, created_at, project_root)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO guard_findings (id, compilation_id, type, severity, file, line, message, pattern, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       "018c3d4e-0000-7000-8000-000000000006",
       "018c3d4e-0000-7000-8000-000000000003",
@@ -279,7 +267,6 @@ describe("SqliteStatusStore", () => {
       "excluded",
       null,
       "2026-02-26T12:00:00.000Z",
-      TEST_PROJECT_ROOT,
     );
     const summary = store.getSummary();
     expect(summary.guardByType).toEqual({ secret: 2, "excluded-file": 1 });

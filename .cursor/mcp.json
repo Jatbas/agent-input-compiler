@@ -1,8 +1,11 @@
 {
   "mcpServers": {
     "AIC": {
-      "command": "npx",
-      "args": ["tsx", "mcp/src/server.ts"],
+      "command": "sh",
+      "args": [
+        "-c",
+        "cd /Users/jatbas/Desktop/AIC && pnpm --filter @jatbas/aic-core build >&2 && npx tsx mcp/src/server.ts"
+      ],
       "env": {}
     }
   }

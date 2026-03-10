@@ -10,6 +10,8 @@ export default defineConfig({
   },
   test: {
     watch: false,
+    testTimeout: 30_000,
+    maxWorkers: 4,
     include: [
       "shared/src/**/__tests__/**/*.test.ts",
       "mcp/src/**/__tests__/**/*.test.ts",

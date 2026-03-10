@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { GuardStore } from "@jatbas/aic-core/core/interfaces/guard-store.interface.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
@@ -13,7 +12,6 @@ import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
 
 export class SqliteGuardStore implements GuardStore {
   constructor(
-    private readonly projectRoot: AbsolutePath,
     private readonly db: ExecutableDb,
     private readonly idGenerator: IdGenerator,
     private readonly clock: Clock,
@@ -24,8 +22,8 @@ export class SqliteGuardStore implements GuardStore {
       .prepare("DELETE FROM guard_findings WHERE compilation_id = ?")
       .run(compilationId);
     const insert = this.db.prepare(
-      `INSERT INTO guard_findings (id, compilation_id, type, severity, file, line, message, pattern, created_at, project_root)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO guard_findings (id, compilation_id, type, severity, file, line, message, pattern, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     const created_at = this.clock.now();
     for (const f of findings) {
@@ -39,7 +37,6 @@ export class SqliteGuardStore implements GuardStore {
         f.message,
         f.pattern ?? null,
         created_at,
-        this.projectRoot,
       );
     }
   }

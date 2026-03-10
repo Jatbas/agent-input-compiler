@@ -11,12 +11,10 @@ export const migration: Migration = {
     const projectRootDef = "TEXT NOT NULL DEFAULT ''";
     safeAddColumn(db, "compilation_log", "project_root", projectRootDef);
     safeAddColumn(db, "cache_metadata", "project_root", projectRootDef);
-    safeAddColumn(db, "guard_findings", "project_root", projectRootDef);
     safeAddColumn(db, "tool_invocation_log", "project_root", projectRootDef);
     safeAddColumn(db, "session_state", "project_root", projectRootDef);
     safeAddColumn(db, "file_transform_cache", "project_root", projectRootDef);
     safeAddColumn(db, "config_history", "project_root", projectRootDef);
-    safeAddColumn(db, "telemetry_events", "project_root", projectRootDef);
 
     db.exec(
       "CREATE INDEX IF NOT EXISTS idx_compilation_log_project_root ON compilation_log(project_root)",
@@ -35,9 +33,6 @@ export const migration: Migration = {
     );
     db.exec(
       "CREATE INDEX IF NOT EXISTS idx_config_history_project_root ON config_history(project_root)",
-    );
-    db.exec(
-      "CREATE INDEX IF NOT EXISTS idx_telemetry_events_project_root ON telemetry_events(project_root)",
     );
 
     db.exec(`
@@ -61,6 +56,5 @@ export const migration: Migration = {
     db.exec("DROP INDEX IF EXISTS idx_session_state_project_root");
     db.exec("DROP INDEX IF EXISTS idx_file_transform_cache_project_root");
     db.exec("DROP INDEX IF EXISTS idx_config_history_project_root");
-    db.exec("DROP INDEX IF EXISTS idx_telemetry_events_project_root");
   },
 };

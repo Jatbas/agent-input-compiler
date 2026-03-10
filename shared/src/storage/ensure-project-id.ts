@@ -19,8 +19,6 @@ const PER_PROJECT_TABLES: readonly string[] = [
   "session_state",
   "file_transform_cache",
   "config_history",
-  "telemetry_events",
-  "guard_findings",
 ];
 
 interface ProjectRow {
