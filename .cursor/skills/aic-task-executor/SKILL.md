@@ -75,7 +75,7 @@ Run with `working_directory` set to the worktree. Output must match the branch y
 
 **Store the worktree absolute path** and **branch name**. You will need both throughout execution — all file operations and shell commands target the worktree.
 
-**If a task file exists,** update its status to `In Progress` — edit the worktree copy (at `<worktree>/documentation/tasks/NNN-name.md`).
+**If a task file exists,** update its status to `In Progress` — edit the **main workspace** copy (at `documentation/tasks/NNN-name.md`, NOT in the worktree). Task files live in `documentation/tasks/` which is gitignored — they are never committed or present in worktrees. All task file operations (status update, move to `done/`) happen on the main workspace filesystem only.
 
 ### 2. Internalize the task
 
@@ -107,8 +107,8 @@ For non-composition-root tasks, all types are Tier 0 (verbatim) — this distinc
 **Build the touched-files list.** Extract every file path from the task's **Files table** (both "Create" and "Modify" rows). Then add the standard files that every task modifies:
 
 - `documentation/mvp-progress.md` (progress update in §5b)
-- `documentation/tasks/NNN-name.md` (deletion — task file moves to `done/` in §5c)
-- `documentation/tasks/done/NNN-name.md` (task file after move+archive in §5c)
+
+Note: task files (`documentation/tasks/`) are gitignored and never committed. The move to `done/` and status update happen on the main workspace filesystem only — they are NOT part of the commit allowlist.
 
 If any step mentions auto-ratcheting benchmark files (e.g. `test/benchmarks/baseline.json`), add those too. If Config Changes lists modifications to `shared/package.json` or `eslint.config.mjs`, add those.
 
@@ -280,12 +280,12 @@ Use the `aic-update-mvp-progress` skill to update `documentation/mvp-progress.md
 
 Run these sequentially in one flow — no user gate between them:
 
-1. **Move the task file first** (before editing status — editing the old path after moving creates a ghost file):
+1. **Archive the task file on the main workspace filesystem.** Task files are gitignored — this is a filesystem-only operation, not a git operation. Run from the **main workspace root** (not the worktree):
    ```
    mkdir -p documentation/tasks/done && mv documentation/tasks/NNN-name.md documentation/tasks/done/
    ```
-2. **Edit the status at the NEW path** (`documentation/tasks/done/NNN-name.md`): change `> **Status:** In Progress` to `> **Status:** Done`. Do NOT edit the old path — the file no longer exists there.
-3. **Verify the move** — confirm the old path is gone and the new path has the correct status:
+2. **Edit the status at the NEW path** on the main workspace (`documentation/tasks/done/NNN-name.md`): change `> **Status:** In Progress` to `> **Status:** Done`. Do NOT edit the old path — the file no longer exists there.
+3. **Verify the move** on the main workspace — confirm the old path is gone and the new path has the correct status:
    ```
    test ! -f documentation/tasks/NNN-name.md && head -3 documentation/tasks/done/NNN-name.md
    ```
@@ -305,6 +305,8 @@ Run these sequentially in one flow — no user gate between them:
    ```
    git add path/to/file1.ts path/to/file2.ts ... && git commit -m "feat(<scope>): <what was built>"
    ```
+
+   Do NOT stage any `documentation/tasks/` paths — they are gitignored and not part of the commit.
 
    Before committing, run `git status --porcelain` and compare against the touched-files list. If any file in `git status` is NOT on the list, investigate:
    - If it is a legitimate side-effect of the task (e.g. auto-formatted by lint-staged, auto-ratcheted benchmark), add it to the list and stage it.
@@ -451,7 +453,7 @@ Before declaring Blocked, check whether the failure is in your code or in the ta
 **Step 2 — Block and report:**
 
 1. **Stop immediately** — do not guess or improvise.
-2. Append a `## Blocked` section to the task file with:
+2. Append a `## Blocked` section to the task file (main workspace copy) with:
    - What you tried (specific code or command)
    - What went wrong (exact error message)
    - Whether the issue is in your code or the task file's spec
@@ -460,7 +462,7 @@ Before declaring Blocked, check whether the failure is in your code or in the ta
    ```
    git add <touched files> && git commit -m "wip(task-NNN): blocked — <short reason>"
    ```
-4. Change the task file status to `Blocked` (in the worktree copy).
+4. Change the task file status to `Blocked` (in the **main workspace** copy — task files are gitignored and not in worktrees).
 5. Report to the user: include the worktree path and branch name so they know where the partial work lives. The user can resume later by re-entering the worktree, or discard it with `git worktree remove <worktree-dir> && git branch -D <branch>`.
 6. **Wait for guidance**. Do not continue.
 
