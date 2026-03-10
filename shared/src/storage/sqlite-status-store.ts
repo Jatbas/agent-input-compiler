@@ -38,7 +38,7 @@ function mapLastCompilationRow(row: LastCompilationRow): {
     filesSelected: row.files_selected,
     filesTotal: row.files_total,
     tokensCompiled: row.tokens_compiled,
-    tokenReductionPct: row.token_reduction_pct,
+    tokenReductionPct: Number(row.token_reduction_pct),
     created_at: row.created_at,
     editorId: row.editor_id,
     modelId: row.model_id,
@@ -112,7 +112,9 @@ export class SqliteStatusStore implements StatusStore {
 
     const lastRows = this.db
       .prepare(
-        `SELECT intent, files_selected, files_total, tokens_compiled, token_reduction_pct, created_at, editor_id, model_id
+        `SELECT intent, files_selected, files_total, tokens_compiled,
+         COALESCE(CAST((tokens_raw - tokens_compiled) AS REAL) * 100.0 / NULLIF(tokens_raw, 0), 0) AS token_reduction_pct,
+         created_at, editor_id, model_id
          FROM compilation_log WHERE conversation_id = ? AND (trigger_source IS NULL OR trigger_source != ?) AND project_root = ?
          ORDER BY created_at DESC LIMIT 1`,
       )
@@ -212,7 +214,7 @@ export class SqliteStatusStore implements StatusStore {
 
     const lastRows = this.db
       .prepare(
-        "SELECT intent, files_selected, files_total, tokens_compiled, token_reduction_pct, created_at, editor_id, model_id FROM compilation_log WHERE (trigger_source IS NULL OR trigger_source != ?) AND project_root = ? ORDER BY created_at DESC LIMIT 1",
+        "SELECT intent, files_selected, files_total, tokens_compiled,\n       COALESCE(CAST((tokens_raw - tokens_compiled) AS REAL) * 100.0 / NULLIF(tokens_raw, 0), 0) AS token_reduction_pct,\n       created_at, editor_id, model_id\nFROM compilation_log WHERE (trigger_source IS NULL OR trigger_source != ?) AND project_root = ? ORDER BY created_at DESC LIMIT 1",
       )
       .all(TRIGGER_SOURCE.INTERNAL_TEST, this.projectRoot) as LastCompilationRow[];
     const lastRow = lastRows[0];

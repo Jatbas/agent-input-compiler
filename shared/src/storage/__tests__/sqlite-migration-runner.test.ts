@@ -22,6 +22,7 @@ import { migration as migration008 } from "../migrations/008-session-state.js";
 import { migration as migration009 } from "../migrations/009-file-transform-cache.js";
 import { migration as migration010 } from "../migrations/010-tool-invocation-log.js";
 import { migration as migration011 } from "../migrations/011-global-project-root.js";
+import { migration as migration012 } from "../migrations/012-normalize-schema.js";
 
 const clock: Clock = {
   now(): ReturnType<typeof toISOTimestamp> {
@@ -233,5 +234,27 @@ describe("SqliteMigrationRunner", () => {
     readDb.close();
     expect(projectsTable).toHaveLength(1);
     expect(projectsTable[0]?.name).toBe("projects");
+  });
+
+  it("migration_012_drops_token_reduction_pct", () => {
+    const db = new Database(":memory:");
+    migration001.up(db);
+    migration002.up(db);
+    migration003.up(db);
+    migration004.up(db);
+    migration005.up(db);
+    migration006.up(db);
+    migration007.up(db);
+    migration008.up(db);
+    migration009.up(db);
+    migration010.up(db);
+    migration011.up(db);
+    migration012.up(db);
+    const cols = db.prepare("PRAGMA table_info(compilation_log)").all() as readonly {
+      name: string;
+    }[];
+    const names = cols.map((c) => c.name);
+    expect(names).not.toContain("token_reduction_pct");
+    db.close();
   });
 });

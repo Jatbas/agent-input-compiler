@@ -352,6 +352,14 @@ export function createMcpServer(
       startupScope.clock,
     );
     const summary = statusStore.getSummary();
+    const last = summary.lastCompilation;
+    const lastPayload =
+      last === null
+        ? null
+        : {
+            ...last,
+            tokenReductionPct: Number(last.tokenReductionPct),
+          };
     return {
       contents: [
         {
@@ -359,9 +367,9 @@ export function createMcpServer(
           mimeType: "application/json",
           text: JSON.stringify({
             compilationCount: summary.compilationsTotal,
-            lastCompilation: summary.lastCompilation,
+            lastCompilation: lastPayload,
             promptSummary: {
-              tokenCount: summary.lastCompilation?.tokensCompiled ?? null,
+              tokenCount: last?.tokensCompiled ?? null,
               guardPassed: null,
             },
           }),

@@ -28,6 +28,7 @@ import { migration as migration008 } from "../migrations/008-session-state.js";
 import { migration as migration009 } from "../migrations/009-file-transform-cache.js";
 import { migration as migration010 } from "../migrations/010-tool-invocation-log.js";
 import { migration as migration011 } from "../migrations/011-global-project-root.js";
+import { migration as migration012 } from "../migrations/012-normalize-schema.js";
 import { SqliteCompilationLogStore } from "../sqlite-compilation-log-store.js";
 
 describe("SqliteCompilationLogStore", () => {
@@ -49,6 +50,7 @@ describe("SqliteCompilationLogStore", () => {
     migration009.up(db);
     migration010.up(db);
     migration011.up(db);
+    migration012.up(db);
     return new SqliteCompilationLogStore(toAbsolutePath("/test/project"), db);
   }
 
@@ -113,7 +115,6 @@ describe("SqliteCompilationLogStore", () => {
       files_total: number;
       tokens_raw: number;
       tokens_compiled: number;
-      token_reduction_pct: number;
       cache_hit: number;
       duration_ms: number;
       editor_id: string;

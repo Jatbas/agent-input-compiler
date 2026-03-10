@@ -21,6 +21,7 @@ import { migration as migration008 } from "../migrations/008-session-state.js";
 import { migration as migration009 } from "../migrations/009-file-transform-cache.js";
 import { migration as migration010 } from "../migrations/010-tool-invocation-log.js";
 import { migration as migration011 } from "../migrations/011-global-project-root.js";
+import { migration as migration012 } from "../migrations/012-normalize-schema.js";
 import { SqliteStatusStore } from "../sqlite-status-store.js";
 
 const stubClock: Clock = {
@@ -43,7 +44,6 @@ function insertCompilationLog(
     files_total: 1,
     tokens_raw: 100,
     tokens_compiled: 50,
-    token_reduction_pct: 50,
     cache_hit: 0,
     duration_ms: 100,
     editor_id: "generic",
@@ -60,8 +60,8 @@ function insertCompilationLog(
   db.prepare(
     `INSERT INTO compilation_log (
       id, intent, task_class, files_selected, files_total, tokens_raw, tokens_compiled,
-      token_reduction_pct, cache_hit, duration_ms, editor_id, model_id, created_at, conversation_id, trigger_source, project_root
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      cache_hit, duration_ms, editor_id, model_id, created_at, conversation_id, trigger_source, project_root
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     defaults.intent,
@@ -70,7 +70,6 @@ function insertCompilationLog(
     defaults.files_total,
     defaults.tokens_raw,
     defaults.tokens_compiled,
-    defaults.token_reduction_pct,
     defaults.cache_hit,
     defaults.duration_ms,
     defaults.editor_id,
@@ -115,6 +114,7 @@ describe("SqliteStatusStore", () => {
     migration009.up(db);
     migration010.up(db);
     migration011.up(db);
+    migration012.up(db);
     store = new SqliteStatusStore(
       toAbsolutePath(TEST_PROJECT_ROOT),
       db as unknown as ExecutableDb,

@@ -16,9 +16,9 @@ export class SqliteCompilationLogStore implements CompilationLogStore {
     const stmt = this.db.prepare(
       `INSERT INTO compilation_log (
         id, intent, task_class, files_selected, files_total,
-        tokens_raw, tokens_compiled, token_reduction_pct, cache_hit,
+        tokens_raw, tokens_compiled, cache_hit,
         duration_ms, editor_id, model_id, session_id, config_hash, created_at, trigger_source, conversation_id, project_root
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     stmt.run(
       entry.id,
@@ -28,7 +28,6 @@ export class SqliteCompilationLogStore implements CompilationLogStore {
       entry.filesTotal,
       entry.tokensRaw,
       entry.tokensCompiled,
-      entry.tokenReductionPct,
       entry.cacheHit ? 1 : 0,
       entry.durationMs,
       entry.editorId,

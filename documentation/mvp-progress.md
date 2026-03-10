@@ -376,9 +376,10 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2025-03-11
 
-**Components:** W05 Store SQL project_root queries (Task 127), W07 Wire ScopeRegistry into server (Task 128)
+**Components:** W05 Store SQL project_root queries (Task 127), W07 Wire ScopeRegistry into server (Task 128), Schema normalization migration 012 (Task 129)
 **Completed:**
 
+- Schema normalization migration 012 (Task 129): Migration 012-normalize-schema drops derived column token_reduction_pct from compilation_log (3NF fix). SqliteCompilationLogStore.record() no longer writes it; SqliteStatusStore getSummary/getConversationSummary compute it inline via CAST((tokens_raw - tokens_compiled) AS REAL) \* 100.0 / NULLIF(tokens_raw, 0) with COALESCE(..., 0). All storage tests run migration012; migration-runner test migration_012_drops_token_reduction_pct. aic://last resource coerces tokenReductionPct to number for JSON.
 - W07 Wire ScopeRegistry into server (Task 128): createMcpServer uses ScopeRegistry; startupScope = registry.getOrCreate(projectRoot); getRunner(scope) caches CompilationRunnerImpl per normalised projectRoot (config load and createFullPipelineDeps on first use). createCompileHandler(getScope, getRunner, sha256Adapter, getSessionId, getEditorId, getModelId, modelIdOverride, installScopeWarnings); handler derives scope, runner, telemetryDeps, toolInvocationLogStore from getScope(projectRoot) and getRunner(scope). aic://status and aic://last use startupScope. close() calls registry.close(). Server and compile-handler tests updated to new handler signature.
 - W05 Store SQL project_root queries (Task 127): Added project_root to all SQL in 9 per-project stores. Every INSERT includes project_root bound to this.projectRoot; every SELECT/UPDATE/DELETE on per-project tables uses WHERE/AND project_root = ?. SqliteStatusStore scopes compilation_log, telemetry_events, guard_findings by project_root; server_sessions unchanged. All store tests run migration chain 001..011 and include isolation tests where applicable. No OR project_root = '' fallback.
 

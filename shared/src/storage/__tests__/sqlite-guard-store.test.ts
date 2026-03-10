@@ -23,6 +23,7 @@ import { migration as migration008 } from "../migrations/008-session-state.js";
 import { migration as migration009 } from "../migrations/009-file-transform-cache.js";
 import { migration as migration010 } from "../migrations/010-tool-invocation-log.js";
 import { migration as migration011 } from "../migrations/011-global-project-root.js";
+import { migration as migration012 } from "../migrations/012-normalize-schema.js";
 import { SqliteGuardStore } from "../sqlite-guard-store.js";
 
 function mockIdGenerator(ids: readonly string[]): { generate(): UUIDv7 } {
@@ -88,6 +89,7 @@ describe("SqliteGuardStore", () => {
     migration009.up(db);
     migration010.up(db);
     migration011.up(db);
+    migration012.up(db);
     return new SqliteGuardStore(db, idGen, clock);
   }
 
@@ -95,8 +97,8 @@ describe("SqliteGuardStore", () => {
     db.prepare(
       `INSERT OR IGNORE INTO compilation_log (
         id, intent, task_class, files_selected, files_total, tokens_raw, tokens_compiled,
-        token_reduction_pct, cache_hit, duration_ms, editor_id, model_id, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        cache_hit, duration_ms, editor_id, model_id, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       compilationId,
       "intent",
@@ -104,7 +106,6 @@ describe("SqliteGuardStore", () => {
       1,
       1,
       100,
-      50,
       50,
       0,
       100,
