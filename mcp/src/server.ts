@@ -27,6 +27,8 @@ import { handleInspect } from "./handlers/inspect-handler.js";
 import { recordToolInvocation } from "./record-tool-invocation.js";
 import { closeDatabase } from "@jatbas/aic-core/storage/open-database.js";
 import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
+import { prunePromptLog } from "@jatbas/aic-core/maintenance/prune-prompt-log.js";
+import { pruneSessionLog } from "@jatbas/aic-core/maintenance/prune-session-log.js";
 import { createProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
 import { SqliteStatusStore } from "@jatbas/aic-core/storage/sqlite-status-store.js";
 import type { CacheStore } from "@jatbas/aic-core/core/interfaces/cache-store.interface.js";
@@ -136,7 +138,11 @@ export function createMcpServer(
 ): McpServer {
   const scope = createProjectScope(projectRoot);
   const { packageName, packageVersion } = readPackageVersion();
-  const purgeImmediateId = setImmediate(() => scope.cacheStore.purgeExpired());
+  const purgeImmediateId = setImmediate(() => {
+    scope.cacheStore.purgeExpired();
+    pruneSessionLog(scope.projectRoot, scope.clock);
+    prunePromptLog(scope.projectRoot, scope.clock);
+  });
   const { installationOk, installationNotes } = runStartupSelfCheck(projectRoot);
   const installScope = detectInstallScope(os.homedir(), projectRoot);
   const installScopeWarnings: readonly string[] =

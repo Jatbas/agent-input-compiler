@@ -91,16 +91,9 @@ The planner operates in a dedicated worktree based on `main` so that task files 
 
    Run with `working_directory` set to the worktree absolute path.
 
-4. **All planning work (§1 through §6 or §7) happens in the worktree.** Set `working_directory` to the worktree for all Shell commands. Use worktree-prefixed absolute paths for Read, Write, StrReplace, Grep, and Glob. When the process refers to `documentation/tasks/NNN-name.md`, the actual path is `<worktree>/documentation/tasks/NNN-name.md`.
+4. **All planning work (§1 through §6 or §7) happens in the worktree.** Set `working_directory` to the worktree for all Shell commands. Use worktree-prefixed absolute paths for Read, Write, StrReplace, Grep, and Glob. During planning, task files use `$EPOCH` as a temporary identifier (e.g. `documentation/tasks/1741209600-component-name.md`). The final sequential number (NNN) is assigned at merge time in §6.
 
-5. After the task file is saved and verified (end of §6 or §7), commit in the worktree, merge to main, and clean up:
-   - Commit in the worktree (run with `working_directory` set to the worktree):
-     `git add documentation/tasks/NNN-name.md && git commit -m "docs(tasks): plan task NNN — <component name>"`
-   - From the **main workspace root**, merge:
-     `git merge --squash plan/$EPOCH && git commit -m "docs(tasks): plan task NNN — <component name>"`
-   - Clean up:
-     `git worktree remove .git-worktrees/plan-$EPOCH && git branch -D plan/$EPOCH`
-   - If the merge has conflicts (rare for documentation-only changes), resolve them: read each conflicted file, fix conflict markers, stage, and commit. If unresolvable, tell the user.
+5. After the task file is saved and verified (end of §6 or §7), assign the final task number, commit, merge, and clean up. See §6 for the full procedure (§7 follows the same merge steps).
 
 ---
 
@@ -195,7 +188,7 @@ Complete every item. Each produces evidence for the report. Items are organized 
 
 ### A.2 Produce the Exploration Report
 
-**Write the report to a file**, not to the chat. Save to `documentation/tasks/.exploration-NNN.md` (where NNN matches the upcoming task number — check existing files in `documentation/tasks/` for the next number). This avoids slow chat streaming for a 200–300 line document and gives the user a better review surface (editor search, folding, scrolling).
+**Write the report to a file**, not to the chat. Save to `documentation/tasks/.exploration-$EPOCH.md` (using the epoch value from §0 — this avoids number collisions when multiple planners run in parallel). This avoids slow chat streaming for a 200–300 line document and gives the user a better review surface (editor search, folding, scrolling).
 
 Every field must be filled. Every field with pasted code must include a `Source:` line citing the exact file path read. If you cannot cite a source, write **"NOT VERIFIED — BLOCKER"**.
 
@@ -357,7 +350,7 @@ Before presenting to the user, verify the Exploration Report yourself using obje
 4. **Grep for existing files** — for each file in EXISTING FILES, use Glob to confirm EXISTS/DOES NOT EXIST claims.
 5. **Cross-check library .d.ts** — re-read each cited `node_modules/` path, Grep for the class/method name, confirm signatures match.
 
-For every discrepancy found, fix the exploration file (use targeted edits on `documentation/tasks/.exploration-NNN.md`) before proceeding. Do NOT present unchecked claims to the user.
+For every discrepancy found, fix the exploration file (use targeted edits on `documentation/tasks/.exploration-$EPOCH.md`) before proceeding. Do NOT present unchecked claims to the user.
 
 ### A.4 Resolve design decisions
 
@@ -414,9 +407,9 @@ Record any simplifications made. If simplification changes the STEP PLAN or FILE
 
 ### A.5 User checkpoint
 
-The full Exploration Report is in `documentation/tasks/.exploration-NNN.md` (written in A.2). **Present a decisions-focused summary in chat**, not the full report. The summary must include every design decision so the user can approve the plan without opening the file for routine components. Say:
+The full Exploration Report is in `documentation/tasks/.exploration-$EPOCH.md` (written in A.2). **Present a decisions-focused summary in chat**, not the full report. The summary must include every design decision so the user can approve the plan without opening the file for routine components. Say:
 
-> **Pass 1 complete.** Full report: `documentation/tasks/.exploration-NNN.md`
+> **Pass 1 complete.** Full report: `documentation/tasks/.exploration-$EPOCH.md`
 >
 > **Component:** [name] | **Layer:** [layer] | **Recipe:** [recipe]
 >
@@ -448,7 +441,7 @@ The full Exploration Report is in `documentation/tasks/.exploration-NNN.md` (wri
 
 `SKILL-recipes.md` and `SKILL-guardrails.md` were pre-read during §1 and are already in context. Review the recipe matching the RECIPE field in the Exploration Report, and review all guardrails before writing. Do not re-read these files unless the context window has been truncated.
 
-The Exploration Report is on disk at `documentation/tasks/.exploration-NNN.md`. If context has been truncated and you need to re-read report sections, use Read with offset/limit to target specific sections rather than re-reading the entire file.
+The Exploration Report is on disk at `documentation/tasks/.exploration-$EPOCH.md`. If context has been truncated and you need to re-read report sections, use Read with offset/limit to target specific sections rather than re-reading the entire file.
 
 ### C.2 Mapping table
 
@@ -488,9 +481,9 @@ Violating any of these causes the mechanical review (C.5) to reject and force a 
 
 ### C.4 Save the task file
 
-Save to: `documentation/tasks/NNN-kebab-case-name.md`
+Save to: `documentation/tasks/$EPOCH-kebab-case-name.md`
 
-NNN = zero-padded sequence number. Check existing files in `documentation/tasks/` for the next number.
+Use the epoch value from §0 as a temporary identifier. The final sequential number (NNN) is assigned at merge time in §6. Use `$EPOCH` in the `# Task` heading as well (e.g. `# Task 1741209600: Component Name`).
 
 Use the task file template below.
 
@@ -498,7 +491,7 @@ Use the task file template below.
 
 ### C.5 Mechanical review
 
-Immediately after saving the task file, run every check below yourself using Grep and Read. Tool output is objective evidence — no second agent needed to interpret "0 matches = pass".
+Immediately after saving the task file, run every check below yourself using Grep and Read. Tool output is objective evidence — "0 matches = pass". After the self-check, an independent review agent (C.5b) provides a second pair of eyes to catch confirmation bias.
 
 **Step 1: Re-read ground truth + run mechanical checks A–N in one parallel batch.** Fire all of these in a single round of tool calls:
 
@@ -551,7 +544,7 @@ I. **VERIFY INSTRUCTIONS:** Read each step's "Verify:" line. Confirm the referen
 
 J. **TEST TABLE ↔ STEP CROSS-CHECK:** Grep each Tests table row name in the step instructions. Grep each test name from steps in the Tests table. Mismatches = fail.
 
-K. **LIBRARY API ACCURACY:** Re-read the `.d.ts` files. Cross-check class names, import paths, constructor signatures, method calls against ground truth. If no `.d.ts` was read for a library = fail.
+K. **LIBRARY API ACCURACY:** Re-read the `.d.ts` files and interface files. For every method call in the task file's code blocks (any `.methodName(` pattern), Grep the corresponding interface or `.d.ts` file for that exact method name — report the match count. 0 matches for any method = fail (training-data hallucination). Also cross-check class names, import paths, and constructor signatures against ground truth. If no `.d.ts` or interface file was re-read for a library/interface the task uses = fail.
 
 L. **WIRING ACCURACY (composition roots only):** Re-read each concrete class source file. Every `new ClassName(...)` call in the task must match actual constructor signature.
 
@@ -569,6 +562,8 @@ P. **SIBLING PATTERN REUSE AND SHARED CODE PREDICTION (mandatory):** Three sub-c
 Q. **TRANSFORMER BENCHMARK STEP (conditional — pipeline transformer recipe only):** Grep the Steps section for "Benchmark verification" or "token-reduction-benchmark". If the task adds a `ContentTransformer` and wires it in `create-pipeline-deps.ts`, a benchmark verification step must exist that: (1) runs the token reduction benchmark, (2) notes from test output whether the baseline was auto-ratcheted or unchanged (the test auto-updates `baseline.json` when tokens decrease — no manual editing). If the task uses the pipeline transformer recipe but has no benchmark step = fail. If the task does not add a transformer, this check passes automatically.
 
 R. **TRANSFORMER SAFETY TESTS (conditional — pipeline transformer recipe only):** Grep the Tests table and step instructions for test names matching `safety_` pattern. If the task adds a `ContentTransformer` with `fileExtensions = []` (non-format-specific), at least one safety test per sensitive file type (Python, YAML, JSX) must exist. If the task adds a format-specific transformer, at least one safety test per listed extension must exist. If no transformer is added, this check passes automatically.
+
+S. **CODE BLOCK API EXTRACTION (mandatory — all task types):** Extract every unique method call (`.methodName(` pattern) and constructor call (`new ClassName(` pattern) from ALL TypeScript code blocks in the task file (Interface/Signature, Steps, inline code). For each, Grep the corresponding source file (interface, type definition, or `.d.ts`) for the exact name. Report each name with its source file and Grep match count. Any name with 0 matches in its source file = fail. This check catches training-data contamination — where the planner writes API calls that exist in the underlying library (e.g. `better-sqlite3`'s `.get()`) but not in the project's interface wrapper (e.g. `ExecutableDb` which only has `.run()` and `.all()`).
 
 **Step 2: Score the rubric.** Score each dimension 0 (fail) or 1 (pass):
 
@@ -590,6 +585,31 @@ R. **TRANSFORMER SAFETY TESTS (conditional — pipeline transformer recipe only)
 16. Sibling pattern reuse — conditional (check P)
 17. Transformer benchmark step — conditional (check Q)
 18. Transformer safety tests — conditional (check R)
+19. Code block API accuracy (check S)
+
+### C.5b Independent verification agent
+
+After the self-check (C.5 Steps 1–2) passes with all applicable checks at 100%, spawn an independent review agent to eliminate confirmation bias. The planner checking its own work is structurally weaker than a fresh agent with zero prior assumptions — the planner "knows" what it meant to write and tends to confirm rather than challenge. A fresh agent literally reads the interface, sees which methods exist, and flags any that don't.
+
+**Spawn a `generalPurpose` subagent** with a prompt built from these components (fill in the bracketed values from the current task):
+
+1. **Role:** "You are an independent task-file reviewer. You have NO prior context about what the planner intended. Your only job is to find factual errors by cross-checking the task file against actual source files."
+
+2. **Inputs:** Provide the task file path and every source file path the task references (interfaces, types, migrations, `.d.ts` files, modified files). List these explicitly — the subagent must read them fresh.
+
+3. **Instructions — four checks:**
+   - **API calls:** Read the task file. For every TypeScript code block, extract every `.methodName(` call and every `new ClassName(` call. For each, Grep the corresponding interface or `.d.ts` file for that name. Report: `[name] — [source file] — FOUND / NOT FOUND`.
+   - **SQL columns:** For every SQL statement in the task file, read the migration file. Verify every column name in the SQL appears in the `CREATE TABLE`. Report: `[column] in [table] — FOUND / NOT FOUND`.
+   - **File paths:** For every "Modify" row in the Files table, Glob for the path. Report: `[path] — EXISTS / DOES NOT EXIST`.
+   - **Signature match:** For each method in the class code block, read the interface source file. Verify parameter names, types, and return types match exactly. Report: `[method] — MATCH / MISMATCH ([detail])`.
+
+4. **Output format:** Return a structured list of findings: each finding has type (api/sql/path/signature), name, source file, and status (FOUND/NOT_FOUND or MATCH/MISMATCH). End with a summary: "PASS — all N findings confirmed" or "FAIL — M of N findings have errors" with the specific errors listed.
+
+**If the subagent returns FAIL:** For each NOT_FOUND or MISMATCH finding, determine the root cause (wrong method name, training-data hallucination, outdated interface, typo). Fix the task file, re-run the specific C.5 check that corresponds to the finding, and re-spawn the subagent to confirm the fix. Do NOT proceed to C.6 until the independent review passes.
+
+**If the subagent returns PASS:** Proceed to C.6.
+
+**Cost justification:** One subagent spawn per task (~30s, minimal tokens). Compared to the cost of an executor implementing code based on a wrong API call, discovering it fails, blocking, replanning, and re-executing — the review agent pays for itself on the first error it catches.
 
 ### C.6 Score and act
 
@@ -603,12 +623,44 @@ R. **TRANSFORMER SAFETY TESTS (conditional — pipeline transformer recipe only)
 
 ---
 
-## §6. Offer execution
+## §6. Finalize, merge, and offer execution
 
 After verification passes:
 
-1. **Delete the exploration file:** Remove `documentation/tasks/.exploration-NNN.md`. The task file is self-contained — the exploration file has served its purpose.
-2. **Announce:** "Task saved to `documentation/tasks/NNN-name.md`. Score: N/M (X%). Use the @aic-task-executor skill to execute it."
+1. **Assign the final task number.** From the **main workspace root**, scan `documentation/tasks/` for the highest existing task number:
+
+   ```
+   ls documentation/tasks/ | grep -oP '^\d+' | sort -n | tail -1
+   ```
+
+   Add 1 and zero-pad to 3 digits (e.g. `127`). This is the final NNN. If no numbered files exist, start at `001`.
+
+2. **Rename and update in the worktree** (run with `working_directory` set to the worktree):
+   - Rename the task file: `mv documentation/tasks/$EPOCH-name.md documentation/tasks/NNN-name.md`
+   - Update the `# Task` heading inside the file: replace `# Task $EPOCH:` with `# Task NNN:`
+   - Delete the exploration file: `rm -f documentation/tasks/.exploration-$EPOCH.md`
+
+3. **Commit in the worktree** (run with `working_directory` set to the worktree):
+
+   ```
+   git add documentation/tasks/ && git commit -m "docs(tasks): plan task NNN — <component name>"
+   ```
+
+4. **Merge to main.** From the **main workspace root**:
+
+   ```
+   git merge --squash plan/$EPOCH && git commit -m "docs(tasks): plan task NNN — <component name>"
+   ```
+
+   If the merge has conflicts (rare for documentation-only changes), resolve them: read each conflicted file, fix conflict markers, stage, and commit. If unresolvable, tell the user.
+
+5. **Clean up:**
+
+   ```
+   git worktree remove .git-worktrees/plan-$EPOCH && git branch -D plan/$EPOCH
+   ```
+
+6. **Announce:** "Task saved to `documentation/tasks/NNN-name.md`. Score: N/M (X%). Use the @aic-task-executor skill to execute it."
 
 ---
 
@@ -640,7 +692,14 @@ When rewriting:
 - Re-run the full rubric after fixes. Iterate until 100% (all applicable checks pass).
 - Mark checks N/A only when the check's precondition is structurally unmet (see C.6 rule 4).
 
-After rewriting: **"Task NNN rewritten. Score: N/M (X%). [Summary of changes]."**
+After rewriting, commit in the worktree, merge to main, and clean up (same as §6 steps 3–5, but skip the renaming — rewritten tasks keep their existing NNN):
+
+- Commit in the worktree: `git add documentation/tasks/ && git commit -m "docs(tasks): rewrite task NNN — <component name>"`
+- From the main workspace root: `git merge --squash plan/$EPOCH && git commit -m "docs(tasks): rewrite task NNN — <component name>"`
+- Clean up: `git worktree remove .git-worktrees/plan-$EPOCH && git branch -D plan/$EPOCH`
+- If conflicts, resolve or tell the user.
+
+Then announce: **"Task NNN rewritten. Score: N/M (X%). [Summary of changes]."**
 
 ---
 
