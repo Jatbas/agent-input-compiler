@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeAll } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -17,6 +17,21 @@ import { EDITOR_ID } from "@jatbas/aic-core/core/types/enums.js";
 import { STUB_COMPILATION_META } from "@jatbas/aic-core/testing/stub-compilation-meta.js";
 
 describe("compile-handler", () => {
+  beforeAll(() => {
+    const home = os.homedir();
+    const prefixes = [
+      "aic-compile-test-",
+      "aic-compile-auto-init-",
+      "tmp-aic-timeout-test",
+    ];
+    const entries = fs.readdirSync(home);
+    for (const entry of entries) {
+      if (prefixes.some((p) => entry.startsWith(p))) {
+        fs.rmSync(path.join(home, entry), { recursive: true, force: true });
+      }
+    }
+  });
+
   afterEach(() => {
     vi.useRealTimers();
   });

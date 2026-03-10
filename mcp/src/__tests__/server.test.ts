@@ -23,6 +23,14 @@ describe("MCP server", () => {
 
   beforeAll(() => {
     process.setMaxListeners(32);
+    // Remove stale temp dirs from previous killed test runs
+    const home = os.homedir();
+    const entries = fs.readdirSync(home);
+    for (const entry of entries) {
+      if (entry.startsWith("aic-mcp-")) {
+        fs.rmSync(path.join(home, entry), { recursive: true, force: true });
+      }
+    }
   });
 
   afterEach(() => {
