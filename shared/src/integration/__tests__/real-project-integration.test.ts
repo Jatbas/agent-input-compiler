@@ -9,6 +9,7 @@ import type { RulePackProvider } from "@jatbas/aic-core/core/interfaces/rule-pac
 import type { RulePack } from "@jatbas/aic-core/core/types/rule-pack.js";
 import type { ProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
 import { closeDatabase } from "@jatbas/aic-core/storage/open-database.js";
+import { NodePathAdapter } from "@jatbas/aic-core/adapters/node-path-adapter.js";
 import { createProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
 import { createCachingFileContentReader } from "@jatbas/aic-core/adapters/caching-file-content-reader.js";
 import { createFullPipelineDeps } from "../../bootstrap/create-pipeline-deps.js";
@@ -48,7 +49,7 @@ function createRulePackProvider(): RulePackProvider {
 let lastScope: ProjectScope | undefined;
 
 function createRunner(): CompilationRunner {
-  lastScope = createProjectScope(projectRoot);
+  lastScope = createProjectScope(projectRoot, new NodePathAdapter());
   const scope = lastScope;
   const sha256Adapter = new Sha256Adapter();
   const configResult = new LoadConfigFromFile().load(projectRoot, null);

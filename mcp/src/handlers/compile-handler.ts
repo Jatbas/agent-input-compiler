@@ -12,6 +12,8 @@ import type { CompilationRunner } from "@jatbas/aic-core/core/interfaces/compila
 import type { ToolInvocationLogStore } from "@jatbas/aic-core/core/interfaces/tool-invocation-log-store.interface.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import type { IdGenerator } from "@jatbas/aic-core/core/interfaces/id-generator.interface.js";
+import type { ProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
+import { reconcileProjectId } from "@jatbas/aic-core/storage/ensure-project-id.js";
 import { AicError } from "@jatbas/aic-core/core/errors/aic-error.js";
 import { TimeoutError } from "@jatbas/aic-core/core/errors/timeout-error.js";
 import { sanitizeError } from "@jatbas/aic-core/core/errors/sanitize-error.js";
@@ -24,6 +26,7 @@ import {
   type SessionId,
   toConversationId,
 } from "@jatbas/aic-core/core/types/identifiers.js";
+import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { CompilationRequest } from "@jatbas/aic-core/core/types/compilation-types.js";
 import type { TelemetryDeps } from "@jatbas/aic-core/core/types/telemetry-types.js";
 import { writeCompilationTelemetry } from "@jatbas/aic-core/core/write-compilation-telemetry.js";
@@ -49,6 +52,7 @@ function resolveConversationId(argsValue: string | null | undefined): string | n
 export function createCompileHandler(
   runner: CompilationRunner,
   telemetryDeps: TelemetryDeps,
+  getScope: (projectRoot: AbsolutePath) => ProjectScope,
   getSessionId: () => SessionId,
   getEditorId: () => EditorId,
   getModelId: (editorId: EditorId) => string | null,
@@ -72,7 +76,15 @@ export function createCompileHandler(
   return async (args, _extra): Promise<CallToolResult> => {
     try {
       const projectRoot = validateProjectRoot(args.projectRoot);
-      ensureProjectInit(projectRoot);
+      const scope = getScope(projectRoot);
+      ensureProjectInit(projectRoot, scope.clock, scope.idGenerator);
+      reconcileProjectId(
+        projectRoot,
+        scope.db,
+        scope.clock,
+        scope.idGenerator,
+        scope.normaliser,
+      );
       installTriggerRule(projectRoot);
       installCursorHooks(projectRoot);
       const configPath =

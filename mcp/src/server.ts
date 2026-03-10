@@ -29,6 +29,7 @@ import { closeDatabase } from "@jatbas/aic-core/storage/open-database.js";
 import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
 import { prunePromptLog } from "@jatbas/aic-core/maintenance/prune-prompt-log.js";
 import { pruneSessionLog } from "@jatbas/aic-core/maintenance/prune-session-log.js";
+import { NodePathAdapter } from "@jatbas/aic-core/adapters/node-path-adapter.js";
 import { createProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
 import { SqliteStatusStore } from "@jatbas/aic-core/storage/sqlite-status-store.js";
 import type { CacheStore } from "@jatbas/aic-core/core/interfaces/cache-store.interface.js";
@@ -136,7 +137,8 @@ export function createMcpServer(
   projectRoot: AbsolutePath,
   additionalProviders?: readonly LanguageProvider[],
 ): McpServer {
-  const scope = createProjectScope(projectRoot);
+  const normaliser = new NodePathAdapter();
+  const scope = createProjectScope(projectRoot, normaliser);
   const { packageName, packageVersion } = readPackageVersion();
   const purgeImmediateId = setImmediate(() => {
     scope.cacheStore.purgeExpired();
@@ -242,6 +244,7 @@ export function createMcpServer(
         idGenerator: scope.idGenerator,
         stringHasher: sha256Adapter,
       },
+      (_projectRoot: AbsolutePath) => scope,
       getSessionId,
       getEditorId,
       getModelId,

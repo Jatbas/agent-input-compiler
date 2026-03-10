@@ -7,6 +7,7 @@ import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import type { IdGenerator } from "@jatbas/aic-core/core/interfaces/id-generator.interface.js";
+import type { ProjectRootNormaliser } from "@jatbas/aic-core/core/interfaces/project-root-normaliser.interface.js";
 import type { CacheStore } from "@jatbas/aic-core/core/interfaces/cache-store.interface.js";
 import type { TelemetryStore } from "@jatbas/aic-core/core/interfaces/telemetry-store.interface.js";
 import type { ConfigStore } from "@jatbas/aic-core/core/interfaces/config-store.interface.js";
@@ -16,6 +17,7 @@ import type { SessionTracker } from "@jatbas/aic-core/core/interfaces/session-tr
 import type { FileTransformStore } from "@jatbas/aic-core/core/interfaces/file-transform-store.interface.js";
 import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import { ensureAicDir } from "@jatbas/aic-core/storage/ensure-aic-dir.js";
+import { reconcileProjectId } from "@jatbas/aic-core/storage/ensure-project-id.js";
 import { openDatabase } from "@jatbas/aic-core/storage/open-database.js";
 import { SqliteCacheStore } from "@jatbas/aic-core/storage/sqlite-cache-store.js";
 import { SqliteSessionStore } from "@jatbas/aic-core/storage/sqlite-session-store.js";
@@ -31,6 +33,7 @@ export interface ProjectScope {
   readonly db: ExecutableDb;
   readonly clock: Clock;
   readonly idGenerator: IdGenerator;
+  readonly normaliser: ProjectRootNormaliser;
   readonly cacheStore: CacheStore;
   readonly telemetryStore: TelemetryStore;
   readonly configStore: ConfigStore;
@@ -41,7 +44,10 @@ export interface ProjectScope {
   readonly projectRoot: AbsolutePath;
 }
 
-export function createProjectScope(projectRoot: AbsolutePath): ProjectScope {
+export function createProjectScope(
+  projectRoot: AbsolutePath,
+  normaliser: ProjectRootNormaliser,
+): ProjectScope {
   const aicDir = ensureAicDir(projectRoot);
   const dbPath = path.join(aicDir, "aic.sqlite");
   const clock = new SystemClock();
@@ -57,10 +63,12 @@ export function createProjectScope(projectRoot: AbsolutePath): ProjectScope {
   const compilationLogStore = new SqliteCompilationLogStore(db);
   const sessionTracker = new SqliteSessionStore(db);
   const fileTransformStore = new SqliteFileTransformStore(db, clock);
+  reconcileProjectId(projectRoot, db, clock, idGenerator, normaliser);
   return {
     db,
     clock,
     idGenerator,
+    normaliser,
     cacheStore,
     telemetryStore,
     configStore,

@@ -9,6 +9,7 @@ import { toSessionId, toISOTimestamp } from "@jatbas/aic-core/core/types/identif
 import { createMcpServer, registerShutdownHandler } from "../server.js";
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
 import { STOP_REASON } from "@jatbas/aic-core/core/types/enums.js";
+import { NodePathAdapter } from "@jatbas/aic-core/adapters/node-path-adapter.js";
 import { createProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
 import { ensureAicDir } from "@jatbas/aic-core/storage/ensure-aic-dir.js";
 import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
@@ -474,11 +475,12 @@ describe("MCP server", () => {
     const projectRoot = toAbsolutePath(tmpDir);
     let scope1: ReturnType<typeof createProjectScope> | undefined;
     let scope2: ReturnType<typeof createProjectScope> | undefined;
+    const normaliser = new NodePathAdapter();
     expect(() => {
-      scope1 = createProjectScope(projectRoot);
+      scope1 = createProjectScope(projectRoot, normaliser);
     }).not.toThrow();
     expect(() => {
-      scope2 = createProjectScope(projectRoot);
+      scope2 = createProjectScope(projectRoot, normaliser);
     }).not.toThrow();
     if (scope1?.db) (scope1.db as unknown as { close(): void }).close();
     if (scope2?.db) (scope2.db as unknown as { close(): void }).close();
@@ -542,7 +544,7 @@ describe("MCP server", () => {
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
     await client.connect(transportClient);
-    const scope = createProjectScope(projectRoot);
+    const scope = createProjectScope(projectRoot, new NodePathAdapter());
     const rows = scope.db
       .prepare(
         "SELECT session_id, installation_ok, installation_notes FROM server_sessions ORDER BY started_at DESC LIMIT 1",
