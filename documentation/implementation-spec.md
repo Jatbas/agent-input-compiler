@@ -1273,7 +1273,7 @@ Zod is imported only in boundary modules (`mcp/src/`, `shared/src/adapters/`). E
 
 ### Phase W — Global Server & Per-Project Isolation
 
-Single global MCP server registered in `~/.cursor/mcp.json`. One server process handles all projects in the workspace. Each `aic_compile` call specifies its `projectRoot`; the server creates or reuses a `ProjectScope` per project. The database is global at `~/.aic/aic.sqlite` with a `project_root` column on tables that need per-project filtering. Per-project files (`aic.config.json`, `.cursor/rules/AIC.mdc`, `.cursor/hooks/`) remain in each project directory. A stable project ID in `.aic/project-id` survives folder renames.
+Single global MCP server registered in `~/.cursor/mcp.json`. One server process handles all workspace folders. Each `aic_compile` call specifies its `projectRoot`; the server creates or reuses a `ProjectScope` per project. The database is global at `~/.aic/aic.sqlite` with a `project_root` column on tables that need per-project filtering. Per-project files (`aic.config.json`, `.cursor/rules/AIC.mdc`, `.cursor/hooks/`) remain in each project directory. A stable project ID in `.aic/project-id` survives folder renames. The implementation is split into 14 tasks (W01–W14) with explicit dependencies; see `mvp-progress.md` §Phase W for the task table and dependency order.
 
 **Current architecture (before Phase W):**
 
@@ -1286,59 +1286,59 @@ Single global MCP server registered in `~/.cursor/mcp.json`. One server process 
 **Target architecture (after Phase W):**
 
 - `main()` opens one global database at `~/.aic/aic.sqlite`.
-- `createMcpServer` receives the global `ExecutableDb` instead of a single `ProjectScope`.
-- A `ScopeRegistry` (or `Map<AbsolutePath, ProjectScope>`) lazily creates scopes per `projectRoot`. Each scope shares the global DB but tracks its own `projectRoot`.
+- `createMcpServer` receives the global `ExecutableDb` and creates a `ScopeRegistry`.
+- The `ScopeRegistry` (backed by `Map<AbsolutePath, ProjectScope>`) lazily creates scopes per `projectRoot`. Each scope shares the global DB but tracks its own `projectRoot`.
 - Handlers call `scopeRegistry.getOrCreate(projectRoot)` to get the right scope.
 - Resources accept an optional `projectRoot` argument (or default to the most-recently-compiled project).
 - Per-project `.aic/` directories still hold `aic.config.json`, `project-id`, and `cache/`.
 
-**W1. Cross-platform path normalisation:**
+**W01. Cross-platform path normalisation:**
 
-Path comparison is critical for multi-project isolation. A project registered as `/Users/jatbas/Desktop/MyApp` must match when accessed as `/Users/jatbas/Desktop/MyApp/` (trailing slash) or with different separators on Windows. Create a `normaliseProjectRoot` function in `shared/src/core/types/paths.ts`:
+Path comparison is critical for multi-project isolation. A project registered as `/Users/jatbas/Desktop/MyApp` must match when accessed as `/Users/jatbas/Desktop/MyApp/` (trailing slash) or with different separators on Windows.
+
+File: `shared/src/core/types/paths.ts`
 
 ```typescript
-// Normalise for comparison: resolve, strip trailing sep, on Windows lowercase drive letter.
-// Returns AbsolutePath. Used as DB column value and Map key.
 function normaliseProjectRoot(raw: string): AbsolutePath;
 ```
 
 Rules:
 
 - `path.resolve()` to get absolute
-- Strip trailing path separator
+- Strip trailing path separator (if not the root `/` or `C:\`)
 - On Windows: lowercase the drive letter (`C:\foo` → `c:\foo`)
 - Do not resolve symlinks (use logical path, not physical)
 - macOS/Linux: case-sensitive as-is (do not lowercase)
 
 All code that stores or compares `project_root` values must go through this function.
 
-**W2. Global database schema migration (011):**
+Tests: trailing slash stripping, Windows drive letter lowercasing, already-normalised input, root path not stripped, POSIX no-op.
 
-Two separate steps:
+**W02. Schema migration 011 (columns only):**
 
-**Step A — Generic schema migration** (`shared/src/storage/migrations/011-global-project-root.ts`): Adds `project_root TEXT NOT NULL DEFAULT ''` to tables that need per-project filtering. The `DEFAULT ''` allows the migration to run on existing rows without error — no data is deleted or modified. This is a pure schema change.
+File: `shared/src/storage/migrations/011-global-project-root.ts`
 
-**Step B — Data backfill** (in `mcp/src/server.ts` startup, after migration runs): Queries for rows where `project_root = ''` and updates them to the current `projectRoot` value. This runs once per existing database and preserves all historical compilation history, cache entries, telemetry events, and session data.
+Schema-only DDL. No runtime backfill code anywhere in the codebase. The `DEFAULT ''` allows the migration to run on existing rows without error — no data is deleted or modified. Existing stores ignore the new column (they don't reference it in any query until W05).
 
 Tables that gain `project_root`:
 
-| Table                  | Reason                                                       | Index                                   |
-| ---------------------- | ------------------------------------------------------------ | --------------------------------------- |
-| `compilation_log`      | `show aic last` and `show aic status` filter by project      | `idx_compilation_log_project_root`      |
-| `cache_metadata`       | Cache isolation per project                                  | `idx_cache_metadata_project_root`       |
-| `guard_findings`       | Already FK to `compilation_log`, but direct filter is faster | — (query via compilation_log join)      |
-| `tool_invocation_log`  | Per-project audit                                            | `idx_tool_invocation_log_project_root`  |
-| `session_state`        | Sessions are per-project                                     | `idx_session_state_project_root`        |
-| `file_transform_cache` | File transforms are per-project                              | `idx_file_transform_cache_project_root` |
-| `config_history`       | Configs are per-project                                      | `idx_config_history_project_root`       |
-| `telemetry_events`     | Already has `repo_id`, add `project_root` for consistency    | `idx_telemetry_events_project_root`     |
+| Table                  | Reason                                                    | Index                                                                               |
+| ---------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `compilation_log`      | `show aic last` and `show aic status` filter by project   | `idx_compilation_log_project_root`                                                  |
+| `cache_metadata`       | Cache isolation per project                               | `idx_cache_metadata_project_root`                                                   |
+| `guard_findings`       | Direct filter faster than FK join to compilation_log      | — (no index; queried via compilation_id join or direct filter on small result sets) |
+| `tool_invocation_log`  | Per-project audit                                         | `idx_tool_invocation_log_project_root`                                              |
+| `session_state`        | Agentic sessions are per-project                          | `idx_session_state_project_root`                                                    |
+| `file_transform_cache` | File transforms are per-project                           | `idx_file_transform_cache_project_root`                                             |
+| `config_history`       | Configs are per-project                                   | `idx_config_history_project_root`                                                   |
+| `telemetry_events`     | Already has `repo_id`, add `project_root` for consistency | `idx_telemetry_events_project_root`                                                 |
 
-Tables unchanged: `schema_migrations` (infrastructure), `server_sessions` (server-level), `anonymous_telemetry_log` (global queue), `repomap_cache` (already keyed by `project_root`).
+Tables unchanged: `schema_migrations` (infrastructure), `server_sessions` (server-level, used by `SqliteSessionStore`), `anonymous_telemetry_log` (global queue), `repomap_cache` (already keyed by `project_root`).
 
 ```sql
--- Migration 011: Add project_root to multi-project tables
 ALTER TABLE compilation_log ADD COLUMN project_root TEXT NOT NULL DEFAULT '';
 ALTER TABLE cache_metadata ADD COLUMN project_root TEXT NOT NULL DEFAULT '';
+ALTER TABLE guard_findings ADD COLUMN project_root TEXT NOT NULL DEFAULT '';
 ALTER TABLE tool_invocation_log ADD COLUMN project_root TEXT NOT NULL DEFAULT '';
 ALTER TABLE session_state ADD COLUMN project_root TEXT NOT NULL DEFAULT '';
 ALTER TABLE file_transform_cache ADD COLUMN project_root TEXT NOT NULL DEFAULT '';
@@ -1352,20 +1352,21 @@ CREATE INDEX idx_session_state_project_root ON session_state(project_root);
 CREATE INDEX idx_file_transform_cache_project_root ON file_transform_cache(project_root);
 CREATE INDEX idx_config_history_project_root ON config_history(project_root);
 CREATE INDEX idx_telemetry_events_project_root ON telemetry_events(project_root);
+
+CREATE TABLE IF NOT EXISTS projects (
+  project_id   TEXT PRIMARY KEY,
+  project_root TEXT NOT NULL UNIQUE,
+  created_at   TEXT NOT NULL,
+  last_seen_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX idx_projects_root ON projects(project_root);
 ```
 
-Database location changes from `{projectRoot}/.aic/aic.sqlite` to `~/.aic/aic.sqlite`. The `ensureAicDir` function gains a new overload or the database path is determined separately in the composition root.
+Register this migration in `shared/src/storage/open-database.ts` in the migrations array.
 
-**Data preservation (mandatory):** The existing database contains all historical data and must not be lost. On first startup after upgrade:
+Database stays at `{projectRoot}/.aic/aic.sqlite` — it does NOT move yet (that happens in W08).
 
-1. If `~/.aic/aic.sqlite` does not exist but `{projectRoot}/.aic/aic.sqlite` does: **copy** (not move) the existing file to `~/.aic/aic.sqlite`. The original stays as a backup.
-2. Run migration 011 (Step A) — this adds the columns with `DEFAULT ''`, leaving existing rows intact.
-3. Run backfill (Step B) — `UPDATE compilation_log SET project_root = ? WHERE project_root = ''` (and same for all 7 tables). The bound parameter is the normalised `projectRoot`.
-4. Insert a row into the `projects` table for this project.
-
-If `~/.aic/aic.sqlite` already exists (second project connecting to the same global DB), only step 3–4 run for the new project's data.
-
-**W3. Stable project ID:**
+**W03. Stable project ID:**
 
 Each project gets a persistent UUID stored at `{projectRoot}/.aic/project-id` (plain text, UUIDv7). Generated on first `ensureProjectInit`. This ID is the stable key — `project_root` in the database is the current path.
 
@@ -1376,42 +1377,71 @@ Each project gets a persistent UUID stored at `{projectRoot}/.aic/project-id` (p
 On every `aic_compile` call:
 
 1. Read `{projectRoot}/.aic/project-id`
-2. If missing: generate via `IdGenerator`, write it, insert `(project_id, project_root)` into a new `projects` table
-3. If present: look up in the `projects` table
-   - If found with matching `project_root`: proceed
-   - If found with different `project_root`: the project was renamed — update `project_root` in the `projects` table AND update all rows in `compilation_log`, `cache_metadata`, etc. that have the old path
+2. If missing: generate via `IdGenerator`, write it, insert `(project_id, normalised_project_root, clock.now(), clock.now())` into the `projects` table
+3. If present: look up in the `projects` table by `project_id`
+   - If found with matching `project_root`: update `last_seen_at`, proceed
+   - If found with different `project_root`: the project was renamed — update `project_root` in the `projects` table AND update all rows in the 8 per-project tables that have the old path: `UPDATE compilation_log SET project_root = ? WHERE project_root = ?` (and same for `cache_metadata`, `guard_findings`, `tool_invocation_log`, `session_state`, `file_transform_cache`, `config_history`, `telemetry_events`)
+   - If not found in DB (UUID exists in file but not in DB): new installation connecting to an existing project-id file — insert row into `projects`
 
-New table:
+All paths go through `normaliseProjectRoot` for cross-platform consistency.
 
-```sql
-CREATE TABLE IF NOT EXISTS projects (
-  project_id   TEXT PRIMARY KEY,
-  project_root TEXT NOT NULL UNIQUE,
-  created_at   TEXT NOT NULL,
-  last_seen_at TEXT NOT NULL
-);
-CREATE UNIQUE INDEX idx_projects_root ON projects(project_root);
+**W04. Store constructor projectRoot param:**
+
+Mechanical change. Every store constructor gains `projectRoot: AbsolutePath` as a new parameter, stored as `private readonly projectRoot: AbsolutePath`. No SQL changes — stores accept the value but do not use it in queries yet.
+
+Stores affected (9 total):
+
+| Store class                    | File                                                     | Current constructor params                                 |
+| ------------------------------ | -------------------------------------------------------- | ---------------------------------------------------------- |
+| `SqliteCacheStore`             | `shared/src/storage/sqlite-cache-store.ts`               | `db: ExecutableDb, cacheDir: AbsolutePath, clock: Clock`   |
+| `SqliteTelemetryStore`         | `shared/src/storage/sqlite-telemetry-store.ts`           | `db: ExecutableDb`                                         |
+| `SqliteConfigStore`            | `shared/src/storage/sqlite-config-store.ts`              | `db: ExecutableDb, clock: Clock`                           |
+| `SqliteGuardStore`             | `shared/src/storage/sqlite-guard-store.ts`               | `db: ExecutableDb, idGenerator: IdGenerator, clock: Clock` |
+| `SqliteCompilationLogStore`    | `shared/src/storage/sqlite-compilation-log-store.ts`     | `db: ExecutableDb`                                         |
+| `SqliteFileTransformStore`     | `shared/src/storage/sqlite-file-transform-store.ts`      | `db: ExecutableDb, clock: Clock`                           |
+| `SqliteAgenticSessionStore`    | `shared/src/storage/sqlite-agentic-session-store.ts`     | `db: ExecutableDb`                                         |
+| `SqliteToolInvocationLogStore` | `shared/src/storage/sqlite-tool-invocation-log-store.ts` | `db: ExecutableDb`                                         |
+| `SqliteStatusStore`            | `shared/src/storage/sqlite-status-store.ts`              | `db: ExecutableDb, clock: Clock`                           |
+
+**NOT affected:** `SqliteSessionStore` (`shared/src/storage/sqlite-session-store.ts`) — it operates on the `server_sessions` table which is server-level data, not per-project.
+
+Changes:
+
+- `createProjectScope` in `shared/src/storage/create-project-scope.ts`: pass `projectRoot` (already available as a function parameter) to each store constructor
+- 3 stores created directly in `mcp/src/server.ts`: `SqliteToolInvocationLogStore` (line ~186), `SqliteAgenticSessionStore` (line ~198), `SqliteStatusStore` (inline in resource handlers) — pass `scope.projectRoot`
+- All test files for the 9 stores: update constructors to pass a test `projectRoot` value (e.g. `toAbsolutePath("/test/project")`)
+
+**W05. Store SQL project_root queries:**
+
+Add `project_root` to all SQL queries in the 9 stores listed in W04. All INSERT statements include the `this.projectRoot` value. All SELECT/UPDATE/DELETE statements add `WHERE project_root = ?` (bound to `this.projectRoot`). Clean queries — no `OR project_root = ''` fallback.
+
+Order (least to most critical, one commit per store + its tests):
+
+1. `SqliteToolInvocationLogStore` — INSERT adds `project_root` column and value. No SELECT changes (audit-only, no reads).
+2. `SqliteConfigStore` — INSERT adds `project_root`. SELECT (`SELECT config_hash FROM config_history ...`) adds `WHERE project_root = ?`.
+3. `SqliteGuardStore` — INSERT adds `project_root`. SELECT/DELETE already filter by `compilation_id` (FK), so add `project_root` to INSERT only.
+4. `SqliteAgenticSessionStore` — INSERT adds `project_root`. SELECT (`WHERE session_id = ?`) adds `AND project_root = ?`. UPDATE adds `AND project_root = ?`.
+5. `SqliteFileTransformStore` — INSERT adds `project_root`. SELECT/DELETE queries add `AND project_root = ?`.
+6. `SqliteTelemetryStore` — INSERT adds `project_root`. No SELECT changes (write-only from this store).
+7. `SqliteCompilationLogStore` — INSERT adds `project_root`. SELECT adds `WHERE project_root = ?`.
+8. `SqliteCacheStore` — INSERT adds `project_root`. SELECT/DELETE queries add `AND project_root = ?`.
+9. `SqliteStatusStore` — read-only aggregation queries. Add `WHERE project_root = ?` for queries on `compilation_log`, `telemetry_events`. Queries on `server_sessions` remain unscoped (server-level). Queries on `guard_findings` that join via `compilation_id` do not need explicit `project_root` filtering.
+
+Example for `SqliteCompilationLogStore`:
+
+```typescript
+// Before:
+db.prepare("SELECT * FROM compilation_log ORDER BY created_at DESC LIMIT 1").get();
+
+// After:
+db.prepare(
+  "SELECT * FROM compilation_log WHERE project_root = ? ORDER BY created_at DESC LIMIT 1",
+).get(this.projectRoot);
 ```
 
-**W4. Lazy project scope (ScopeRegistry):**
+**W06. ScopeRegistry class:**
 
-Replace the single `createProjectScope(projectRoot)` call in `createMcpServer` with a registry pattern.
-
-Current flow (`mcp/src/server.ts`):
-
-```
-main() → projectRoot = cwd → createMcpServer(projectRoot) → createProjectScope(projectRoot)
-         → single scope → all handlers share it
-```
-
-New flow:
-
-```
-main() → globalDb = openDatabase("~/.aic/aic.sqlite") → createMcpServer(globalDb)
-         → ScopeRegistry(globalDb) → each handler calls registry.getOrCreate(projectRoot)
-```
-
-`ScopeRegistry` interface (in `shared/src/storage/`):
+File: `shared/src/storage/scope-registry.ts`
 
 ```typescript
 interface ScopeRegistry {
@@ -1422,37 +1452,83 @@ interface ScopeRegistry {
 
 Implementation:
 
-- Maintains `Map<AbsolutePath, ProjectScope>` (key is normalised path)
-- `getOrCreate`: if cached, return; else create stores for that `projectRoot` using the shared global `db`, and cache
-- `close`: iterates and releases resources
-- Each `ProjectScope` uses the same `ExecutableDb` instance — stores pass `projectRoot` as a filter parameter to all queries
+- Maintains `Map<string, ProjectScope>` keyed by normalised path (via `normaliseProjectRoot`)
+- `getOrCreate`: if cached, return; else call `createProjectScope(projectRoot)` and cache
+- `close`: iterates and releases resources (close each scope's DB connections)
+- Not wired into `server.ts` yet — this is a standalone class with tests
 
-**Store changes:** Every store constructor gains a `projectRoot: AbsolutePath` parameter. All SQL queries that touch tables with `project_root` add `WHERE project_root = ?` (bound parameter). Example for `SqliteCompilationLogStore`:
+Tests: same path returns same instance, different paths return different instances, normalisation (trailing slash, case variants), close releases all scopes.
 
-```typescript
-// Before:
-db.prepare("SELECT * FROM compilation_log ORDER BY created_at DESC LIMIT 1").get();
+**W07. Wire ScopeRegistry into server:**
 
-// After:
-db.prepare(
-  "SELECT * FROM compilation_log WHERE project_root = ? ORDER BY created_at DESC LIMIT 1",
-).get(projectRoot);
+Replace the single `createProjectScope(projectRoot)` call in `createMcpServer` with a `ScopeRegistry`.
+
+Current flow:
+
+```
+main() → projectRoot = cwd → createMcpServer(projectRoot) → createProjectScope(projectRoot)
+         → single scope → all handlers share it
 ```
 
-Stores affected: `SqliteCacheStore`, `SqliteTelemetryStore`, `SqliteConfigStore`, `SqliteGuardStore`, `SqliteCompilationLogStore`, `SqliteSessionStore`, `SqliteFileTransformStore`, `SqliteStatusStore`, `SqliteAgenticSessionStore`, `SqliteToolInvocationLogStore`.
+New flow:
 
-**Compile handler changes** (`mcp/src/handlers/compile-handler.ts`):
-
-```typescript
-// Before: handler receives pre-wired compilationRunner, stores from startup scope
-// After: handler receives scopeRegistry, creates compilationRunner per-request (or caches)
-const scope = scopeRegistry.getOrCreate(projectRoot);
-// Use scope.cacheStore, scope.compilationLogStore, etc.
+```
+main() → projectRoot = cwd → createMcpServer(projectRoot)
+         → ScopeRegistry() → startup scope = registry.getOrCreate(projectRoot)
+         → compile handler calls registry.getOrCreate(args.projectRoot) per request
 ```
 
-The `CompilationRunner` and `createFullPipelineDeps` must also be per-project (they hold `projectRoot`-dependent state like language providers).
+Changes to `mcp/src/server.ts`:
 
-**W5. Per-folder disable:**
+- `createMcpServer` creates a `ScopeRegistry` and gets the startup scope via `registry.getOrCreate(projectRoot)`
+- Compile handler receives `scopeRegistry` and calls `scopeRegistry.getOrCreate(args.projectRoot)` per request
+- Resources (`aic://status`, `aic://last`) use the startup scope for now (W12 scopes them properly later)
+- `CompilationRunner` and `createFullPipelineDeps` are per-scope (created inside `createProjectScope`)
+- Shutdown handler calls `registry.close()` instead of closing a single DB
+
+DB is still per-project at this point. The `ScopeRegistry` creates separate scopes each with their own DB.
+
+**W08. Move DB to ~/.aic/:**
+
+Move database location from `{projectRoot}/.aic/aic.sqlite` to `~/.aic/aic.sqlite`. No backfill code — the dev project was manually backfilled before W05, and end users start fresh with 0.6.0.
+
+Changes to `main()`:
+
+- Ensure `~/.aic/` exists with `0700` perms (via `ensureAicDir` or equivalent on the home directory)
+- If `~/.aic/aic.sqlite` does not exist but `{cwd}/.aic/aic.sqlite` does: **copy** (not move) the existing file to `~/.aic/aic.sqlite`
+- Open global DB at `~/.aic/aic.sqlite`
+- Pass the global `ExecutableDb` to `createMcpServer`
+
+Changes to `createProjectScope`:
+
+- Receives the global `db` instance as a parameter instead of calling `openDatabase` internally
+- Stops constructing `SystemClock` and calling `openDatabase` — these move to `main()`
+- Still creates stores, `IdGenerator`, and the per-project `cacheDir`
+
+Per-project `.aic/` directories still hold `project-id`, `cache/`, `aic.config.json`.
+
+**W09. Install link goes global:**
+
+Update `install/cursor-install.html`: the Cursor deeplink creates an entry in the global MCP config (`~/.cursor/mcp.json`) instead of the workspace config (`.cursor/mcp.json`).
+
+Update `README.md` install instructions to reflect global installation.
+
+Existing workspace entries in other projects keep working (server handles both scopes). AIC dev project keeps its workspace entry (`tsx mcp/src/server.ts`).
+
+**W10. Duplicate prevention (warn, not hard stop):**
+
+At server startup, `createMcpServer` detects if AIC is registered in both global and workspace configs via the existing `detectInstallScope` function.
+
+Behaviour:
+
+- If `"both"`: log a warning to stderr explaining the duplicate. Do NOT hard stop — allow coexistence when commands differ (required for AIC dev workspace running `tsx` alongside global `npx`).
+- If `"global"`: proceed normally.
+- If `"workspace"`: proceed normally.
+- Emit the warning in `aic://status` resource as well.
+
+**Note for AIC development:** The dev workspace uses `"workspace"` scope (running `tsx mcp/src/server.ts` locally). If a global production server is also running (via `npx`), `detectInstallScope` returns `"both"` but the commands differ (`tsx ...` vs `npx ...`), so the warning is informational only.
+
+**W11. Per-folder disable:**
 
 Add an `"enabled"` key to `aic.config.json`:
 
@@ -1471,23 +1547,9 @@ Default: `true` (omitted means enabled). When `enabled` is `false`:
 
 Config schema validation in `mcp/src/schemas/` adds the `enabled` field. The `LoadConfigFromFile` function in `shared/src/config/` already reads `aic.config.json` — add the field to the config type.
 
-**W6. Strict duplicate prevention:**
+**W12. AIC commands scoped by project:**
 
-At server startup, `createMcpServer` must detect if AIC is registered in both global (`~/.cursor/mcp.json`) and workspace (`{cwd}/.cursor/mcp.json`) configs. The existing `detectInstallScope` function in `mcp/src/detect-install-scope.ts` already detects this.
-
-Behaviour:
-
-- If `detectInstallScope` returns `"both"`: log a warning to stderr and refuse to start. The message explains that AIC must be registered in only one location.
-- If `"global"`: proceed (this is the intended production mode after Phase W).
-- If `"workspace"`: proceed (backwards-compatible for development or users who prefer workspace-scoped).
-
-The current code already detects `"both"` and emits warnings in `aic://status`. Phase W upgrades this to a hard stop.
-
-**Note for AIC development:** The dev workspace at `/Users/jatbas/Desktop/AIC` uses `"workspace"` scope (running `tsx mcp/src/server.ts` locally). The hook bypass from 0.5.4 already handles this. No special handling needed.
-
-**W7. AIC commands scoped by project:**
-
-Resources and tools must accept a `projectRoot` to scope their queries.
+Resources and tools must scope their queries by project.
 
 | Command                   | Current behaviour           | Phase W behaviour                                                                                                                                |
 | ------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -1498,9 +1560,11 @@ Resources and tools must accept a `projectRoot` to scope their queries.
 
 The `aic://status` resource has no parameters (MCP resources are parameterless). To scope it, the server tracks the last-used `projectRoot` per conversation (already have `conversationId`). The resource reads the most recent compilation's `projectRoot` from the DB.
 
-The new `show aic projects` command is a new MCP tool `aic_projects` that lists all projects.
+The new `show aic projects` command is a new MCP tool `aic_projects` that lists all projects. `SqliteStatusStore` gains project-scoped query methods alongside its existing global methods.
 
-**W8. Documentation update for global server architecture:**
+Update `.cursor/rules/AIC-architect.mdc` prompt command formatting rules to include `show aic projects`.
+
+**W13. Documentation update for global server architecture:**
 
 Phase W changes a core architectural assumption. The following documentation files contain statements that contradict the global DB model and must be updated:
 
@@ -1514,7 +1578,7 @@ Phase W changes a core architectural assumption. The following documentation fil
 | `documentation-review.md`         | DR-09 (~line 69)                 | Cross-project view not possible                                                                                | Update: cross-project view now available via `aic_projects` tool and global `show aic status`                                                                                                                    |
 | `.cursor/rules/AIC-architect.mdc` | Database / storage rules         | References per-project DB assumptions                                                                          | Update storage rules to reference global DB path and `project_root` column requirement                                                                                                                           |
 
-This task depends on W4 (lazy scope) being complete so all code references are accurate. The task executor should grep for "no global database", "hermetically isolated", "no shared state", "{projectRoot}/.aic/aic.sqlite", and "per-project isolation" across all documentation to catch any additional references.
+This task depends on W07 (ScopeRegistry wired into server) being complete so all code references are accurate. The task executor should grep for "no global database", "hermetically isolated", "no shared state", "{projectRoot}/.aic/aic.sqlite", and "per-project isolation" across all documentation to catch any additional references.
 
 ---
 
