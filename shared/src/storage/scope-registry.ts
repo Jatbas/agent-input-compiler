@@ -16,7 +16,7 @@ export class ScopeRegistry {
     const key = this.normaliser.normalise(projectRoot);
     const existing = this.scopes.get(key);
     if (existing !== undefined) return existing;
-    const scope = createProjectScope(projectRoot);
+    const scope = createProjectScope(projectRoot, this.normaliser);
     this.scopes.set(key, scope);
     return scope;
   }
