@@ -112,10 +112,12 @@ describe("MCP server", () => {
       "budgetUtilizationPct",
       "updateAvailable",
       "installScope",
+      "installScopeWarnings",
     ];
     for (const key of expectedKeys) {
       expect(Object.prototype.hasOwnProperty.call(parsed, key)).toBe(true);
     }
+    expect(Array.isArray(parsed["installScopeWarnings"])).toBe(true);
   });
 
   it("status_resource_includes_updateAvailable", async () => {

@@ -153,6 +153,11 @@ export function createMcpServer(
           "AIC is registered in both the global MCP config and the workspace MCP config. Your editor will run two AIC instances, causing duplicate tools and potential database conflicts. Remove the duplicate 'aic' entry from the workspace config (.cursor/mcp.json in this project directory) to fix this.",
         ]
       : [];
+  if (installScope === INSTALL_SCOPE.BOTH) {
+    for (const message of installScopeWarnings) {
+      process.stderr.write(`[aic] ${message}\n`);
+    }
+  }
   const sessionId = toSessionId(scope.idGenerator.generate());
   const startedAt = scope.clock.now();
   scope.sessionTracker.startSession(
@@ -360,6 +365,7 @@ export function createMcpServer(
             budgetUtilizationPct,
             updateAvailable: updateInfoRef.current.updateAvailable,
             installScope,
+            installScopeWarnings,
           }),
         },
       ],
