@@ -354,7 +354,7 @@ User-facing polish. Comes last because it doesn't improve the core algorithm.
 | Conversation tracking: summary + prompt cmd              | Done   | shared + mcp  | Per-conversation aggregates; "show aic chat summary"                |
 | Budget utilization in `aic://status`                     | Done   | mcp/src/      | % of token budget used by last compilation                          |
 | `aic_chat_summary` tool (was `aic_conversation_summary`) | Done   | mcp/src/      | MCP tool: per-conversation stats by conversationId                  |
-| Conversation ID fallback (our own when editor omits)     | Done   | .cursor + mcp | sessionStart writes .aic/conversation-id; preToolUse/file fallback  |
+| Conversation ID fallback (our own when editor omits)     | Done   | .cursor + mcp | preToolUse hook injects conversationId per-chat                     |
 
 ### Phase M 0.5 — MCP-only (Drop CLI)
 
@@ -381,6 +381,7 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 - W01 Cross-platform path normalisation: ProjectRootNormaliser interface in core/interfaces; NodePathAdapter in adapters (path.resolve, strip trailing sep except root, lowercase Windows drive); ESLint block so only node-path-adapter.ts may import node:path; unit tests (trailing_slash_stripped, windows_drive_lowercased, already_normalised_unchanged, root_path_not_stripped, posix_no_op). No callers yet (pure addition per impl-spec §W1.
 - W02 Schema migration 011 (Task 122): Migration 011-global-project-root adds project_root column (TEXT NOT NULL DEFAULT '') to 8 tables via safeAddColumn; 7 indexes; projects table + idx_projects_root. Registered in open-database.ts; test migration_011_applies_and_adds_project_root_columns.
+- Removed .aic/conversation-id file fallback: sessionStart hook no longer writes the file; aic_chat_summary handler no longer reads it as fallback (idRaw stays null when conversationId omitted); server test renamed to aic_chat_summary_omitted_conversation_id_ignores_file and asserts zero-compilation payload; file deleted from disk. The preToolUse hook (AIC-inject-conversation-id.cjs) and AIC_CONVERSATION_ID env var remain as the correct per-chat mechanism. Docs and aic-architect.mdc updated.
 
 ### 2026-03-09
 

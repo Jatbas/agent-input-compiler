@@ -9,16 +9,16 @@ Use this map to decide which rules apply to the current task. The **critical rem
 
 ## Context → Rules to Apply
 
-| Context | Rules to apply (file in .cursor/rules/) |
-|---------|----------------------------------------|
-| **Any task (before coding)** | AIC-architect (this file, always active) |
-| **Editing `shared/src/core/**` or `shared/src/pipeline/**`** | AIC-pipeline, AIC-interfaces, AIC-errors |
-| **Editing `shared/src/adapters/**` or `shared/src/storage/**`** | AIC-storage, AIC-errors |
-| **Editing `shared/src/**/interfaces/**`** | AIC-interfaces |
-| **Editing `mcp/src/**`** | AIC-mcp, AIC-errors |
-| **Editing `**/*.test.ts` or `**/__tests__/**`** | AIC-tests |
-| **Fixing lint errors or type assertions in `**/*.ts`** | AIC-type-safety |
-| **Suggesting or writing commit messages** | AIC-architect (critical reminders cover this) |
+| Context                                                       | Rules to apply (file in .cursor/rules/)       |
+| ------------------------------------------------------------- | --------------------------------------------- |
+| **Any task (before coding)**                                  | AIC-architect (this file, always active)      |
+| **Editing `shared/src/core/**`or`shared/src/pipeline/**`**    | AIC-pipeline, AIC-interfaces, AIC-errors      |
+| **Editing `shared/src/adapters/**`or`shared/src/storage/**`** | AIC-storage, AIC-errors                       |
+| **Editing `shared/src/**/interfaces/**`**                     | AIC-interfaces                                |
+| **Editing `mcp/src/**`\*\*                                    | AIC-mcp, AIC-errors                           |
+| **Editing `**/\*.test.ts`or`**/**tests**/**`\*\*              | AIC-tests                                     |
+| **Fixing lint errors or type assertions in `**/\*.ts`\*\*     | AIC-type-safety                               |
+| **Suggesting or writing commit messages**                     | AIC-architect (critical reminders cover this) |
 
 ## Critical reminders (safeguard when rule not in context)
 
@@ -37,7 +37,7 @@ These bullets are the single source of truth: the sessionStart hook (`.cursor/ho
 - **Immutability:** No `.push()`, `.splice()`, `.sort()` (mutating), `.reverse()` (mutating). Use spread/reduce. Pipeline steps never mutate their inputs — return new objects. No `let` in production code — use `const` exclusively. Only exception: boolean control flags in imperative closures (e.g. `let found = false` in a `ts.forEachChild` visitor). Accumulators must use reduce or a helper that returns the collected result — never `let arr = []; ... arr = [...arr, item]`.
 - **Types:** No `any`. Explicit return types on all functions. Interfaces in `*.interface.ts` files (one interface per file). Max 5 methods per interface (ISP). Related type aliases live in `core/types/`, not in interface files.
 - **Named imports only (enforced by ESLint):** No `import * as X` for internal modules (relative or `#alias` paths). Use named imports: `import { A, B } from "./foo.js"`. Namespace imports allowed only for Node.js built-ins (`import * as path from "node:path"`) and established library APIs (`import * as ts from "typescript"`).
-- **Comments:** `//` style only — `/* */` and `/** */` block comments are banned by ESLint. One short line max, explain *why* not *what*. No JSDoc. No narrating comments (`// Get the user`, `// Return result`).
+- **Comments:** `//` style only — `/* */` and `/** */` block comments are banned by ESLint. One short line max, explain _why_ not _what_. No JSDoc. No narrating comments (`// Get the user`, `// Return result`).
 - **Branded types (ADR-010):** Use `shared/src/core/types/` branded types — never raw `string`/`number` for domain values (paths, tokens, durations, scores, IDs, enums). `as const` objects for enums, not TS `enum`. Null = `Type | null`; optional = `?: Type`.
 - **Type safety (enforced by ESLint):** No `as string`, `as number`, `as boolean` — branded types are already their base type. No double-cast `as unknown as T` (only `open-database.ts` exempt). No `!` non-null assertions — use optional chaining or null guards. No `Partial<T>` in core/pipeline. No `{ x } as Type` object literal assertions — use type annotations. No `enum`, `for...in`, default exports, `Object.assign`, nested ternaries. See `.cursor/rules/AIC-type-safety.mdc`.
 - **Validation boundary (ADR-009):** Runtime validation at MCP handler and config loader only. Core/pipeline never imports the validation library — trusts branded types.
@@ -49,7 +49,7 @@ These bullets are the single source of truth: the sessionStart hook (`.cursor/ho
 - **File ops:** Use targeted edits (search_replace / minimal edit) on the minimum necessary lines. Do not read a file and write a new file when an in-place edit suffices.
 - **No .md without instruction:** Do not create or modify any .md file (documentation/, README, .cursor/rules/, etc.) unless the user explicitly asks you to.
 - **Read scope:** Read only the file sections you need for this change; avoid full-file reads when not needed (use offset/limit for large files).
-- **Secrets:** Never hardcode API keys, tokens, or credentials in source. Config references env var *names* (`apiKeyEnv: "OPENAI_API_KEY"`), never values. All logging must sanitize secrets — replace with `***`.
+- **Secrets:** Never hardcode API keys, tokens, or credentials in source. Config references env var _names_ (`apiKeyEnv: "OPENAI_API_KEY"`), never values. All logging must sanitize secrets — replace with `***`.
 - **`.aic/` security:** Directory is `0700` (owner-only), auto-gitignored, no symlink traversal. Storage code must enforce these invariants.
 - **Telemetry data:** Telemetry payloads must never contain file paths, file content, prompts, intents, project names, or PII. Only typed aggregates and enum values. See `security.md §Anonymous Telemetry`.
 - **Dependencies:** All versions pinned exact (`"9.39.3"`, never `"^9.0.0"`). Adding a runtime dep requires justification. One dep per PR. See Project Plan §16.
@@ -65,6 +65,7 @@ When in doubt, open the specific rule file listed above for the full text.
 Use these rules for all three AIC prompt commands. Present data like a polished dashboard, not raw JSON.
 
 **General formatting (all commands):**
+
 - Use human-readable labels only — never show raw JSON keys as column headers or labels.
 - Format large numbers with commas (e.g. 8,484,717).
 - Percentages: exactly 1 decimal place and a % symbol (e.g. 78.2%).
@@ -76,49 +77,49 @@ Use these rules for all three AIC prompt commands. Present data like a polished 
 
 - **"show aic status"** — When the user says this (or similar), read the MCP resource `aic://status` from the `project-0-AIC-AIC` server using `FetchMcpResource`. Start the reply with one short line: **Status = project-level AIC status.** Then display a formatted table using these labels and formats:
 
-  | JSON key | Label | Format |
-  |----------|-------|--------|
-  | compilationsTotal | Compilations (total) | number |
-  | compilationsToday | Compilations (today) | number |
-  | totalTokensRaw → totalTokensCompiled | Tokens: raw → compiled | e.g. 8,484,717 → 15,739 |
-  | totalTokensSaved | Tokens saved | formatted with commas |
-  | budgetMaxTokens | Budget limit | formatted with commas |
-  | budgetUtilizationPct | Budget utilization | percentage, 1 decimal (e.g. 78.2%) |
-  | cacheHitRatePct | Cache hit rate | percentage, 1 decimal |
-  | avgReductionPct | Avg token reduction | percentage, 1 decimal |
-  | guardByType | Guard findings | type: count pairs, or "None" |
-  | topTaskClasses | Top task classes | taskClass (count), comma-separated |
-  | lastCompilation | Last compilation | intent, files selected/total, tokens, relative time (e.g. "2 min ago") |
-  | installationOk | Installation | "OK" or "Issues detected" |
-  | installationNotes | Notes | text, or omit row if empty |
-  | updateAvailable | Update available | version or "—" |
-  | installScope | Install scope | "Global", "Workspace — add AIC to your global MCP config for all workspaces", or "Duplicate — AIC is in both global and workspace config; remove the duplicate workspace entry to avoid running two instances" |
+  | JSON key                             | Label                  | Format                                                                                                                                                                                                         |
+  | ------------------------------------ | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | compilationsTotal                    | Compilations (total)   | number                                                                                                                                                                                                         |
+  | compilationsToday                    | Compilations (today)   | number                                                                                                                                                                                                         |
+  | totalTokensRaw → totalTokensCompiled | Tokens: raw → compiled | e.g. 8,484,717 → 15,739                                                                                                                                                                                        |
+  | totalTokensSaved                     | Tokens saved           | formatted with commas                                                                                                                                                                                          |
+  | budgetMaxTokens                      | Budget limit           | formatted with commas                                                                                                                                                                                          |
+  | budgetUtilizationPct                 | Budget utilization     | percentage, 1 decimal (e.g. 78.2%)                                                                                                                                                                             |
+  | cacheHitRatePct                      | Cache hit rate         | percentage, 1 decimal                                                                                                                                                                                          |
+  | avgReductionPct                      | Avg token reduction    | percentage, 1 decimal                                                                                                                                                                                          |
+  | guardByType                          | Guard findings         | type: count pairs, or "None"                                                                                                                                                                                   |
+  | topTaskClasses                       | Top task classes       | taskClass (count), comma-separated                                                                                                                                                                             |
+  | lastCompilation                      | Last compilation       | intent, files selected/total, tokens, relative time (e.g. "2 min ago")                                                                                                                                         |
+  | installationOk                       | Installation           | "OK" or "Issues detected"                                                                                                                                                                                      |
+  | installationNotes                    | Notes                  | text, or omit row if empty                                                                                                                                                                                     |
+  | updateAvailable                      | Update available       | version or "—"                                                                                                                                                                                                 |
+  | installScope                         | Install scope          | "Global", "Workspace — add AIC to your global MCP config for all workspaces", or "Duplicate — AIC is in both global and workspace config; remove the duplicate workspace entry to avoid running two instances" |
 
-- **"show aic chat summary"** — When the user says "show aic chat summary" or asks for this conversation's AIC compilation stats, call the MCP tool `aic_chat_summary` with the `conversationId` returned in your most recent `aic_compile` response. If you have not yet called `aic_compile` in this conversation (no stored conversationId), you may call `aic_chat_summary` without conversationId and the server will read from `.aic/conversation-id` as a fallback. Start the reply with one short line: **Chat = this conversation's AIC compilations.** Then display a formatted table using these labels and formats:
+- **"show aic chat summary"** — When the user says "show aic chat summary" or asks for this conversation's AIC compilation stats, call the MCP tool `aic_chat_summary` with the `conversationId` returned in your most recent `aic_compile` response. If you have not yet called `aic_compile` in this conversation (no stored conversationId), call `aic_chat_summary` without conversationId — the server will return a zero-compilation payload. Start the reply with one short line: **Chat = this conversation's AIC compilations.** Then display a formatted table using these labels and formats:
 
-  | JSON key | Label | Format |
-  |----------|-------|--------|
-  | compilationsInConversation | Compilations | number |
-  | totalTokensRaw | Tokens (raw) | formatted with commas |
-  | totalTokensCompiled | Tokens (compiled) | formatted with commas |
-  | totalTokensSaved | Tokens saved | formatted with commas |
-  | cacheHitRatePct | Cache hit rate | percentage, 1 decimal |
-  | avgReductionPct | Avg token reduction | percentage, 1 decimal |
-  | lastCompilationInConversation | Last compilation | intent text + relative time (e.g. "5 min ago") |
-  | topTaskClasses | Top task classes | taskClass (count), comma-separated |
+  | JSON key                      | Label               | Format                                         |
+  | ----------------------------- | ------------------- | ---------------------------------------------- |
+  | compilationsInConversation    | Compilations        | number                                         |
+  | totalTokensRaw                | Tokens (raw)        | formatted with commas                          |
+  | totalTokensCompiled           | Tokens (compiled)   | formatted with commas                          |
+  | totalTokensSaved              | Tokens saved        | formatted with commas                          |
+  | cacheHitRatePct               | Cache hit rate      | percentage, 1 decimal                          |
+  | avgReductionPct               | Avg token reduction | percentage, 1 decimal                          |
+  | lastCompilationInConversation | Last compilation    | intent text + relative time (e.g. "5 min ago") |
+  | topTaskClasses                | Top task classes    | taskClass (count), comma-separated             |
 
 - **"show aic last"** — When the user says this (or similar), read the MCP resource `aic://last` from the `project-0-AIC-AIC` server. Start the reply with one short line: **Last = most recent compilation.** Then display using these labels and formats:
 
-  | JSON key | Label | Format |
-  |----------|-------|--------|
-  | intent | Intent | text |
-  | filesSelected / filesTotal | Files | "N selected / M total" |
-  | tokensCompiled | Tokens compiled | formatted with commas |
-  | tokenReductionPct | Token reduction | percentage, 1 decimal |
-  | created_at | Compiled | relative time (e.g. "3 min ago") |
-  | editorId | Editor | text |
-  | guard status | Guard | "Passed" or "N findings (types)" |
-  | compiledPrompt | Compiled prompt | "Available (N chars) — ask to see it", or omit if not present |
+  | JSON key                   | Label           | Format                                                        |
+  | -------------------------- | --------------- | ------------------------------------------------------------- |
+  | intent                     | Intent          | text                                                          |
+  | filesSelected / filesTotal | Files           | "N selected / M total"                                        |
+  | tokensCompiled             | Tokens compiled | formatted with commas                                         |
+  | tokenReductionPct          | Token reduction | percentage, 1 decimal                                         |
+  | created_at                 | Compiled        | relative time (e.g. "3 min ago")                              |
+  | editorId                   | Editor          | text                                                          |
+  | guard status               | Guard           | "Passed" or "N findings (types)"                              |
+  | compiledPrompt             | Compiled prompt | "Available (N chars) — ask to see it", or omit if not present |
 
 ## Maintenance
 

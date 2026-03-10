@@ -1281,7 +1281,7 @@ Single global MCP server registered in `~/.cursor/mcp.json`. One server process 
 - Database lives at `{projectRoot}/.aic/aic.sqlite` — one DB per project directory.
 - All handlers, resources, and the `CompilationRunner` share the single startup scope.
 - `aic://status` and `aic://last` resources read from the startup scope's DB with no project filter.
-- `aic_chat_summary` reads `.aic/conversation-id` relative to the startup scope's `projectRoot`.
+- `aic_chat_summary` requires `conversationId` from the caller.
 
 **Target architecture (after Phase W):**
 
