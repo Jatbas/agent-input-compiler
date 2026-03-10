@@ -24,17 +24,6 @@ try {
 
 const sessionId = hookInput.session_id || null;
 
-// Persist conversation ID so aic_chat_summary can read it as fallback
-if (sessionId && typeof sessionId === "string" && sessionId.length > 0) {
-  const aicDir = path.join(projectRoot, ".aic");
-  try {
-    fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
-    fs.writeFileSync(path.join(aicDir, "conversation-id"), sessionId, "utf8");
-  } catch {
-    // Non-fatal — never block session creation
-  }
-}
-
 const compileArgs = {
   intent: INTENT,
   projectRoot: projectRoot,

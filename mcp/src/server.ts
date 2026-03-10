@@ -271,26 +271,12 @@ export function createMcpServer(
           "aic_chat_summary",
           parsed,
         );
-        let idRaw: string | null =
+        const idRaw: string | null =
           parsed.conversationId !== undefined &&
           typeof parsed.conversationId === "string" &&
           parsed.conversationId.trim().length > 0
             ? parsed.conversationId.trim()
             : null;
-        if (idRaw === null) {
-          const conversationIdPath = path.join(
-            scope.projectRoot,
-            ".aic",
-            "conversation-id",
-          );
-          try {
-            const content = fs.readFileSync(conversationIdPath, "utf8");
-            const trimmed = content.trim();
-            if (trimmed.length > 0) idRaw = trimmed;
-          } catch {
-            // File missing or unreadable — leave idRaw null
-          }
-        }
         const idForPayload = idRaw ?? "";
         const conversationId = idRaw !== null ? toConversationId(idRaw) : null;
         const statusStore = new SqliteStatusStore(scope.db, scope.clock);

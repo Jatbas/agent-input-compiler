@@ -349,24 +349,19 @@ describe("MCP server", () => {
     expect(parsed.lastCompilationInConversation).toBeNull();
   });
 
-  it("aic_chat_summary_omitted_conversation_id_uses_file", async () => {
+  it("aic_chat_summary_omitted_conversation_id_ignores_file", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     fs.mkdirSync(path.join(tmpDir, ".aic"), { recursive: true });
-    const knownUUID = "conv-omit-file-test";
-    fs.writeFileSync(path.join(tmpDir, ".aic", "conversation-id"), knownUUID, "utf8");
+    fs.writeFileSync(
+      path.join(tmpDir, ".aic", "conversation-id"),
+      "conv-omit-file-test",
+      "utf8",
+    );
     server = createMcpServer(toAbsolutePath(tmpDir));
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
     await client.connect(transportClient);
-    await client.callTool({
-      name: "aic_compile",
-      arguments: {
-        intent: "fix bug",
-        projectRoot: tmpDir,
-        conversationId: knownUUID,
-      },
-    });
     const result = await client.callTool({
       name: "aic_chat_summary",
       arguments: {},
@@ -378,8 +373,12 @@ describe("MCP server", () => {
       .filter((c): c is { type: "text"; text: string } => c.type === "text")
       .map((c) => c.text)
       .join("");
-    const parsed = JSON.parse(text) as { compilationsInConversation: number };
-    expect(parsed.compilationsInConversation).toBeGreaterThanOrEqual(1);
+    const parsed = JSON.parse(text) as {
+      compilationsInConversation: number;
+      conversationId: string;
+    };
+    expect(parsed.compilationsInConversation).toBe(0);
+    expect(parsed.conversationId).toBe("");
   });
 
   it("aic_chat_summary_omitted_conversation_id_no_file_returns_zero", async () => {
