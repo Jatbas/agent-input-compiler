@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
+import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
 import type { CompilationLogStore } from "@jatbas/aic-core/core/interfaces/compilation-log-store.interface.js";
 import type { CompilationLogEntry } from "@jatbas/aic-core/core/types/compilation-log-entry.js";
 
 export class SqliteCompilationLogStore implements CompilationLogStore {
-  constructor(private readonly db: ExecutableDb) {}
+  constructor(
+    private readonly projectRoot: AbsolutePath,
+    private readonly db: ExecutableDb,
+  ) {}
 
   record(entry: CompilationLogEntry): void {
     const stmt = this.db.prepare(

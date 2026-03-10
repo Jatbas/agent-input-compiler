@@ -7,7 +7,7 @@ import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-d
 import type { SessionStep } from "@jatbas/aic-core/core/types/session-dedup-types.js";
 import type { ToolOutput } from "@jatbas/aic-core/core/types/compilation-types.js";
 import { toSessionId, toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
-import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toAbsolutePath, toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toStepIndex, toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 import { INCLUSION_TIER } from "@jatbas/aic-core/core/types/enums.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
@@ -51,7 +51,7 @@ describe("SqliteAgenticSessionStore", () => {
     migration006.up(execDb);
     migration007.up(execDb);
     migration008.up(execDb);
-    return new SqliteAgenticSessionStore(execDb);
+    return new SqliteAgenticSessionStore(toAbsolutePath("/test/project"), execDb);
   }
 
   it("recordStep_then_getSteps_returns_step", () => {

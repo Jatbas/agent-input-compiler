@@ -47,7 +47,12 @@ describe("SqliteCacheStore", () => {
     tmpDir = mkdtempSync(join(tmpdir(), "aic-cache-store-"));
     db = new Database(":memory:");
     migration001.up(db);
-    store = new SqliteCacheStore(db, toAbsolutePath(tmpDir), stubClock);
+    store = new SqliteCacheStore(
+      toAbsolutePath("/test/project"),
+      db,
+      toAbsolutePath(tmpDir),
+      stubClock,
+    );
   }
 
   it("set then get returns same CachedCompilation", () => {

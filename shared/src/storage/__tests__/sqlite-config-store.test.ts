@@ -8,6 +8,7 @@ import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
 import type { ISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
+import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
 import { SqliteConfigStore } from "../sqlite-config-store.js";
 
@@ -43,7 +44,7 @@ describe("SqliteConfigStore", () => {
   function setup(clock: Clock): SqliteConfigStore {
     db = new Database(":memory:");
     migration001.up(db);
-    return new SqliteConfigStore(db, clock);
+    return new SqliteConfigStore(toAbsolutePath("/test/project"), db, clock);
   }
 
   it("getLatestHash empty returns null", () => {

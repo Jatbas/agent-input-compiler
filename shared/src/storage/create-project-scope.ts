@@ -56,13 +56,13 @@ export function createProjectScope(
   const cacheDirPath = path.join(aicDir, "cache");
   fs.mkdirSync(cacheDirPath, { recursive: true });
   const cacheDir = toAbsolutePath(cacheDirPath);
-  const cacheStore = new SqliteCacheStore(db, cacheDir, clock);
-  const telemetryStore = new SqliteTelemetryStore(db);
-  const configStore = new SqliteConfigStore(db, clock);
-  const guardStore = new SqliteGuardStore(db, idGenerator, clock);
-  const compilationLogStore = new SqliteCompilationLogStore(db);
+  const cacheStore = new SqliteCacheStore(projectRoot, db, cacheDir, clock);
+  const telemetryStore = new SqliteTelemetryStore(projectRoot, db);
+  const configStore = new SqliteConfigStore(projectRoot, db, clock);
+  const guardStore = new SqliteGuardStore(projectRoot, db, idGenerator, clock);
+  const compilationLogStore = new SqliteCompilationLogStore(projectRoot, db);
   const sessionTracker = new SqliteSessionStore(db);
-  const fileTransformStore = new SqliteFileTransformStore(db, clock);
+  const fileTransformStore = new SqliteFileTransformStore(projectRoot, db, clock);
   reconcileProjectId(projectRoot, db, clock, idGenerator, normaliser);
   return {
     db,

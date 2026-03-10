@@ -22,6 +22,7 @@ import { migration as migration002 } from "../migrations/002-server-sessions.js"
 import { migration as migration003 } from "../migrations/003-server-sessions-integrity.js";
 import { migration as migration004 } from "../migrations/004-normalize-telemetry.js";
 import { migration as migration005 } from "../migrations/005-trigger-source.js";
+import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import { migration as migration007 } from "../migrations/007-conversation-id.js";
 import { SqliteCompilationLogStore } from "../sqlite-compilation-log-store.js";
 
@@ -40,7 +41,7 @@ describe("SqliteCompilationLogStore", () => {
     migration004.up(db);
     migration005.up(db);
     migration007.up(db);
-    return new SqliteCompilationLogStore(db);
+    return new SqliteCompilationLogStore(toAbsolutePath("/test/project"), db);
   }
 
   it("SqliteCompilationLogStore record inserts row", () => {

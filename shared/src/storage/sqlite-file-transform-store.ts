@@ -5,7 +5,7 @@ import type { FileTransformStore } from "@jatbas/aic-core/core/interfaces/file-t
 import type { CachedFileTransform } from "@jatbas/aic-core/core/types/file-transform-types.js";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
-import type { RelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import type { AbsolutePath, RelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toTokenCount, type TokenCount } from "@jatbas/aic-core/core/types/units.js";
 import { INCLUSION_TIER } from "@jatbas/aic-core/core/types/enums.js";
@@ -85,6 +85,7 @@ type FileTransformRow = {
 
 export class SqliteFileTransformStore implements FileTransformStore {
   constructor(
+    private readonly projectRoot: AbsolutePath,
     private readonly db: ExecutableDb,
     private readonly clock: Clock,
   ) {}

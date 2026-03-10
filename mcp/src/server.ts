@@ -192,7 +192,10 @@ export function createMcpServer(
     additionalProviders,
     heuristicConfig,
   );
-  const toolInvocationLogStore = new SqliteToolInvocationLogStore(scope.db);
+  const toolInvocationLogStore = new SqliteToolInvocationLogStore(
+    scope.projectRoot,
+    scope.db,
+  );
   const inspectRunner = new InspectRunner(deps, scope.clock);
   const compilationRunner = new CompilationRunnerImpl(
     deps,
@@ -203,7 +206,7 @@ export function createMcpServer(
     scope.guardStore,
     scope.compilationLogStore,
     scope.idGenerator,
-    new SqliteAgenticSessionStore(scope.db),
+    new SqliteAgenticSessionStore(scope.projectRoot, scope.db),
   );
   const server = new McpServer({ name: "aic", version: packageVersion });
   const editorConfigReader = new EditorModelConfigReaderAdapter(
@@ -288,7 +291,11 @@ export function createMcpServer(
             : null;
         const idForPayload = idRaw ?? "";
         const conversationId = idRaw !== null ? toConversationId(idRaw) : null;
-        const statusStore = new SqliteStatusStore(scope.db, scope.clock);
+        const statusStore = new SqliteStatusStore(
+          scope.projectRoot,
+          scope.db,
+          scope.clock,
+        );
         const summary =
           conversationId !== null
             ? statusStore.getConversationSummary(conversationId)
@@ -315,7 +322,7 @@ export function createMcpServer(
     },
   );
   server.resource("last", "aic://last", () => {
-    const statusStore = new SqliteStatusStore(scope.db, scope.clock);
+    const statusStore = new SqliteStatusStore(scope.projectRoot, scope.db, scope.clock);
     const summary = statusStore.getSummary();
     return {
       contents: [
@@ -335,7 +342,7 @@ export function createMcpServer(
     };
   });
   server.resource("status", "aic://status", () => {
-    const statusStore = new SqliteStatusStore(scope.db, scope.clock);
+    const statusStore = new SqliteStatusStore(scope.projectRoot, scope.db, scope.clock);
     const summary = statusStore.getSummary();
     const budgetMaxTokens = budgetConfig.getMaxTokens();
     const budgetUtilizationPct =

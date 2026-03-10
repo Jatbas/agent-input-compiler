@@ -4,6 +4,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import type { TelemetryEvent } from "@jatbas/aic-core/core/types/telemetry-types.js";
+import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import {
   toUUIDv7,
   toISOTimestamp,
@@ -74,7 +75,7 @@ describe("SqliteTelemetryStore", () => {
     migration002.up(db);
     migration003.up(db);
     migration004.up(db);
-    store = new SqliteTelemetryStore(db);
+    store = new SqliteTelemetryStore(toAbsolutePath("/test/project"), db);
     insertCompilationLog(db, COMPILATION_ID);
   }
 

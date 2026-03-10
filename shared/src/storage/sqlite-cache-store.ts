@@ -48,6 +48,7 @@ function parseBlobPayload(raw: string): BlobPayload | null {
 
 export class SqliteCacheStore implements CacheStore {
   constructor(
+    private readonly projectRoot: AbsolutePath,
     private readonly db: ExecutableDb,
     private readonly cacheDir: AbsolutePath,
     private readonly clock: Clock,

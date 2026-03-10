@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
+import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { ConfigStore } from "@jatbas/aic-core/core/interfaces/config-store.interface.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
 
 export class SqliteConfigStore implements ConfigStore {
   constructor(
+    private readonly projectRoot: AbsolutePath,
     private readonly db: ExecutableDb,
     private readonly clock: Clock,
   ) {}

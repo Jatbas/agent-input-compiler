@@ -4,6 +4,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
+import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import {
   toUUIDv7,
   toISOTimestamp,
@@ -23,7 +24,10 @@ describe("SqliteToolInvocationLogStore", () => {
     db = new Database(":memory:");
     const execDb = db as unknown as ExecutableDb;
     migration010.up(execDb);
-    const store = new SqliteToolInvocationLogStore(execDb);
+    const store = new SqliteToolInvocationLogStore(
+      toAbsolutePath("/test/project"),
+      execDb,
+    );
     const entry = {
       id: toUUIDv7("00000000-0000-7000-8000-000000000001"),
       createdAt: toISOTimestamp("2026-03-07T12:00:00.000Z"),

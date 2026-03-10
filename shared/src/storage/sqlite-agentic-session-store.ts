@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
+import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
 import type { AgenticSessionState } from "@jatbas/aic-core/core/interfaces/agentic-session-state.interface.js";
 import type { SessionId } from "@jatbas/aic-core/core/types/identifiers.js";
@@ -83,7 +84,10 @@ function deserializeStep(raw: SerializedStep): SessionStep {
 }
 
 export class SqliteAgenticSessionStore implements AgenticSessionState {
-  constructor(private readonly db: ExecutableDb) {}
+  constructor(
+    private readonly projectRoot: AbsolutePath,
+    private readonly db: ExecutableDb,
+  ) {}
 
   getSteps(sessionId: SessionId): readonly SessionStep[] {
     const rows = this.db

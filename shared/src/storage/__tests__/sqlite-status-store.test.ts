@@ -5,6 +5,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
+import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import {
   toISOTimestamp,
   toConversationId,
@@ -101,7 +102,11 @@ describe("SqliteStatusStore", () => {
     migration004.up(db);
     migration005.up(db);
     migration007.up(db);
-    store = new SqliteStatusStore(db as unknown as ExecutableDb, stubClock);
+    store = new SqliteStatusStore(
+      toAbsolutePath("/test/project"),
+      db as unknown as ExecutableDb,
+      stubClock,
+    );
   }
 
   it("sqlite_status_store_empty", () => {

@@ -5,7 +5,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
-import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toAbsolutePath, toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toTokenCount, toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
 import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
 import { INCLUSION_TIER } from "@jatbas/aic-core/core/types/enums.js";
@@ -58,7 +58,11 @@ describe("SqliteFileTransformStore", () => {
   function setup(clock: Clock): void {
     db = new Database(":memory:");
     migration009.up(db as unknown as ExecutableDb);
-    store = new SqliteFileTransformStore(db as unknown as ExecutableDb, clock);
+    store = new SqliteFileTransformStore(
+      toAbsolutePath("/test/project"),
+      db as unknown as ExecutableDb,
+      clock,
+    );
   }
 
   it("get_empty_returns_null", () => {

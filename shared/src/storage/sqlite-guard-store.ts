@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
+import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { GuardStore } from "@jatbas/aic-core/core/interfaces/guard-store.interface.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
@@ -12,6 +13,7 @@ import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
 
 export class SqliteGuardStore implements GuardStore {
   constructor(
+    private readonly projectRoot: AbsolutePath,
     private readonly db: ExecutableDb,
     private readonly idGenerator: IdGenerator,
     private readonly clock: Clock,

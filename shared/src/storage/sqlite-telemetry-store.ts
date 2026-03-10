@@ -1,12 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
+import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
 import type { TelemetryStore } from "@jatbas/aic-core/core/interfaces/telemetry-store.interface.js";
 import type { TelemetryEvent } from "@jatbas/aic-core/core/types/telemetry-types.js";
 
 export class SqliteTelemetryStore implements TelemetryStore {
-  constructor(private readonly db: ExecutableDb) {}
+  constructor(
+    private readonly projectRoot: AbsolutePath,
+    private readonly db: ExecutableDb,
+  ) {}
 
   write(event: TelemetryEvent): void {
     const stmt = this.db.prepare(
