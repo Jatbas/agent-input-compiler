@@ -15,6 +15,13 @@ import { migration as migration001 } from "../migrations/001-initial-schema.js";
 import { migration as migration002 } from "../migrations/002-server-sessions.js";
 import { migration as migration003 } from "../migrations/003-server-sessions-integrity.js";
 import { migration as migration004 } from "../migrations/004-normalize-telemetry.js";
+import { migration as migration005 } from "../migrations/005-trigger-source.js";
+import { migration as migration006 } from "../migrations/006-cache-datetime-format.js";
+import { migration as migration007 } from "../migrations/007-conversation-id.js";
+import { migration as migration008 } from "../migrations/008-session-state.js";
+import { migration as migration009 } from "../migrations/009-file-transform-cache.js";
+import { migration as migration010 } from "../migrations/010-tool-invocation-log.js";
+import { migration as migration011 } from "../migrations/011-global-project-root.js";
 
 const clock: Clock = {
   now(): ReturnType<typeof toISOTimestamp> {
@@ -183,5 +190,48 @@ describe("SqliteMigrationRunner", () => {
     readDb.close();
     expect(migrationRows).toHaveLength(4);
     expect(migrationRows.some((r) => r.id === "004-normalize-telemetry")).toBe(true);
+  });
+
+  it("migration_011_applies_and_adds_project_root_columns", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "aic-migration-test-"));
+    const dbPath = join(tmpDir, "aic.sqlite");
+    const db = new Database(dbPath);
+    const runner = new SqliteMigrationRunner(clock);
+    runner.run(db, [
+      migration001,
+      migration002,
+      migration003,
+      migration004,
+      migration005,
+      migration006,
+      migration007,
+      migration008,
+      migration009,
+      migration010,
+      migration011,
+    ]);
+    db.close();
+
+    const readDb = new Database(dbPath);
+    const migrationRows = readDb.prepare("SELECT id FROM schema_migrations").all() as {
+      id: string;
+    }[];
+    expect(migrationRows.some((r) => r.id === "011-global-project-root")).toBe(true);
+
+    const compilationCols = readDb
+      .prepare("PRAGMA table_info(compilation_log)")
+      .all() as {
+      name: string;
+    }[];
+    expect(compilationCols.some((c) => c.name === "project_root")).toBe(true);
+
+    const projectsTable = readDb
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'projects'",
+      )
+      .all() as { name: string }[];
+    readDb.close();
+    expect(projectsTable).toHaveLength(1);
+    expect(projectsTable[0]?.name).toBe("projects");
   });
 });
