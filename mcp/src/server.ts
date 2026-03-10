@@ -25,16 +25,17 @@ import { createCompileHandler } from "./handlers/compile-handler.js";
 import { SessionContext } from "./handlers/session-context-cache.js";
 import { handleInspect } from "./handlers/inspect-handler.js";
 import { recordToolInvocation } from "./record-tool-invocation.js";
-import { closeDatabase } from "@jatbas/aic-core/storage/open-database.js";
 import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
 import { prunePromptLog } from "@jatbas/aic-core/maintenance/prune-prompt-log.js";
 import { pruneSessionLog } from "@jatbas/aic-core/maintenance/prune-session-log.js";
 import { NodePathAdapter } from "@jatbas/aic-core/adapters/node-path-adapter.js";
-import { createProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
+import { ScopeRegistry } from "@jatbas/aic-core/storage/scope-registry.js";
 import { SqliteStatusStore } from "@jatbas/aic-core/storage/sqlite-status-store.js";
 import type { CacheStore } from "@jatbas/aic-core/core/interfaces/cache-store.interface.js";
+import type { CompilationRunner } from "@jatbas/aic-core/core/interfaces/compilation-runner.interface.js";
 import type { SessionTracker } from "@jatbas/aic-core/core/interfaces/session-tracker.interface.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
+import type { ProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
 import type { SessionId } from "@jatbas/aic-core/core/types/identifiers.js";
 import {
   toConversationId,
@@ -138,12 +139,13 @@ export function createMcpServer(
   additionalProviders?: readonly LanguageProvider[],
 ): McpServer {
   const normaliser = new NodePathAdapter();
-  const scope = createProjectScope(projectRoot, normaliser);
+  const registry = new ScopeRegistry(normaliser);
+  const startupScope = registry.getOrCreate(projectRoot);
   const { packageName, packageVersion } = readPackageVersion();
   const purgeImmediateId = setImmediate(() => {
-    scope.cacheStore.purgeExpired();
-    pruneSessionLog(scope.projectRoot, scope.clock);
-    prunePromptLog(scope.projectRoot, scope.clock);
+    startupScope.cacheStore.purgeExpired();
+    pruneSessionLog(startupScope.projectRoot, startupScope.clock);
+    prunePromptLog(startupScope.projectRoot, startupScope.clock);
   });
   const { installationOk, installationNotes } = runStartupSelfCheck(projectRoot);
   const installScope = detectInstallScope(os.homedir(), projectRoot);
@@ -158,9 +160,9 @@ export function createMcpServer(
       process.stderr.write(`[aic] ${message}\n`);
     }
   }
-  const sessionId = toSessionId(scope.idGenerator.generate());
-  const startedAt = scope.clock.now();
-  scope.sessionTracker.startSession(
+  const sessionId = toSessionId(startupScope.idGenerator.generate());
+  const startedAt = startupScope.clock.now();
+  startupScope.sessionTracker.startSession(
     sessionId,
     startedAt,
     process.pid,
@@ -168,13 +170,18 @@ export function createMcpServer(
     installationOk,
     installationNotes,
   );
-  scope.sessionTracker.backfillCrashedSessions(startedAt);
-  registerShutdownHandler(scope.sessionTracker, sessionId, scope.clock, scope.cacheStore);
+  startupScope.sessionTracker.backfillCrashedSessions(startedAt);
+  registerShutdownHandler(
+    startupScope.sessionTracker,
+    sessionId,
+    startupScope.clock,
+    startupScope.cacheStore,
+  );
   const updateInfoRef: {
     current: { updateAvailable: string | null; currentVersion: string };
   } = { current: { updateAvailable: null, currentVersion: packageVersion } };
   setImmediate(() => {
-    getUpdateInfo(projectRoot, packageName, packageVersion, scope.clock)
+    getUpdateInfo(projectRoot, packageName, packageVersion, startupScope.clock)
       .then((info) => {
         updateInfoRef.current = info;
       })
@@ -187,7 +194,7 @@ export function createMcpServer(
     budgetConfig,
     heuristicConfig,
     modelId: configModelId,
-  } = applyConfigResult(configResult, scope.configStore, sha256Adapter);
+  } = applyConfigResult(configResult, startupScope.configStore, sha256Adapter);
   const fileContentReader = createCachingFileContentReader(projectRoot);
   const rulePackProvider = createRulePackProvider(projectRoot);
   const deps = createFullPipelineDeps(
@@ -198,21 +205,41 @@ export function createMcpServer(
     heuristicConfig,
   );
   const toolInvocationLogStore = new SqliteToolInvocationLogStore(
-    scope.projectRoot,
-    scope.db,
+    startupScope.projectRoot,
+    startupScope.db,
   );
-  const inspectRunner = new InspectRunner(deps, scope.clock);
-  const compilationRunner = new CompilationRunnerImpl(
-    deps,
-    scope.clock,
-    scope.cacheStore,
-    scope.configStore,
-    sha256Adapter,
-    scope.guardStore,
-    scope.compilationLogStore,
-    scope.idGenerator,
-    new SqliteAgenticSessionStore(scope.projectRoot, scope.db),
-  );
+  const inspectRunner = new InspectRunner(deps, startupScope.clock);
+  const runnerCache = new Map<string, CompilationRunner>();
+  const getRunner = (scope: ProjectScope): CompilationRunner => {
+    const key = normaliser.normalise(scope.projectRoot);
+    const cached = runnerCache.get(key);
+    if (cached !== undefined) return cached;
+    const scopeConfigResult = configLoader.load(scope.projectRoot, null);
+    const { budgetConfig: scopeBudgetConfig, heuristicConfig: scopeHeuristicConfig } =
+      applyConfigResult(scopeConfigResult, scope.configStore, sha256Adapter);
+    const scopeFileContentReader = createCachingFileContentReader(scope.projectRoot);
+    const scopeRulePackProvider = createRulePackProvider(scope.projectRoot);
+    const scopeDeps = createFullPipelineDeps(
+      scopeFileContentReader,
+      scopeRulePackProvider,
+      scopeBudgetConfig,
+      additionalProviders,
+      scopeHeuristicConfig,
+    );
+    const runner = new CompilationRunnerImpl(
+      scopeDeps,
+      scope.clock,
+      scope.cacheStore,
+      scope.configStore,
+      sha256Adapter,
+      scope.guardStore,
+      scope.compilationLogStore,
+      scope.idGenerator,
+      new SqliteAgenticSessionStore(scope.projectRoot, scope.db),
+    );
+    runnerCache.set(key, runner);
+    return runner;
+  };
   const server = new McpServer({ name: "aic", version: packageVersion });
   const editorConfigReader = new EditorModelConfigReaderAdapter(
     process.env["HOME"] ?? os.homedir(),
@@ -245,21 +272,13 @@ export function createMcpServer(
     "Compile intent-specific project context. MUST be called as your FIRST action on EVERY message — including follow-ups in the same chat. Each message has a different intent that needs fresh context. Never skip.",
     CompilationRequestSchema,
     createCompileHandler(
-      compilationRunner,
-      {
-        telemetryStore: scope.telemetryStore,
-        clock: scope.clock,
-        idGenerator: scope.idGenerator,
-        stringHasher: sha256Adapter,
-      },
-      (_projectRoot: AbsolutePath) => scope,
+      (projectRootArg: AbsolutePath) => registry.getOrCreate(projectRootArg),
+      getRunner,
+      sha256Adapter,
       getSessionId,
       getEditorId,
       getModelId,
       configModelId,
-      toolInvocationLogStore,
-      scope.clock,
-      scope.idGenerator,
       installScopeWarnings,
     ),
   );
@@ -268,8 +287,8 @@ export function createMcpServer(
       args,
       inspectRunner,
       toolInvocationLogStore,
-      scope.clock,
-      scope.idGenerator,
+      startupScope.clock,
+      startupScope.idGenerator,
       getSessionId,
     ),
   );
@@ -282,8 +301,8 @@ export function createMcpServer(
         const parsed = z.object(ConversationSummaryRequestSchema).parse(args);
         recordToolInvocation(
           toolInvocationLogStore,
-          scope.clock,
-          scope.idGenerator,
+          startupScope.clock,
+          startupScope.idGenerator,
           getSessionId,
           "aic_chat_summary",
           parsed,
@@ -297,9 +316,9 @@ export function createMcpServer(
         const idForPayload = idRaw ?? "";
         const conversationId = idRaw !== null ? toConversationId(idRaw) : null;
         const statusStore = new SqliteStatusStore(
-          scope.projectRoot,
-          scope.db,
-          scope.clock,
+          startupScope.projectRoot,
+          startupScope.db,
+          startupScope.clock,
         );
         const summary =
           conversationId !== null
@@ -327,7 +346,11 @@ export function createMcpServer(
     },
   );
   server.resource("last", "aic://last", () => {
-    const statusStore = new SqliteStatusStore(scope.projectRoot, scope.db, scope.clock);
+    const statusStore = new SqliteStatusStore(
+      startupScope.projectRoot,
+      startupScope.db,
+      startupScope.clock,
+    );
     const summary = statusStore.getSummary();
     return {
       contents: [
@@ -347,7 +370,11 @@ export function createMcpServer(
     };
   });
   server.resource("status", "aic://status", () => {
-    const statusStore = new SqliteStatusStore(scope.projectRoot, scope.db, scope.clock);
+    const statusStore = new SqliteStatusStore(
+      startupScope.projectRoot,
+      startupScope.db,
+      startupScope.clock,
+    );
     const summary = statusStore.getSummary();
     const budgetMaxTokens = budgetConfig.getMaxTokens();
     const budgetUtilizationPct =
@@ -374,7 +401,7 @@ export function createMcpServer(
   const out = server as McpServer & { close(): Promise<void> };
   out.close = (): Promise<void> => {
     clearImmediate(purgeImmediateId);
-    closeDatabase(scope.db);
+    registry.close();
     return Promise.resolve();
   };
   return out;

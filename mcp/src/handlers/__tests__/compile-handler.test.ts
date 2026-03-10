@@ -13,7 +13,7 @@ import {
   toUUIDv7,
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
-import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import { type AbsolutePath, toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import { EDITOR_ID } from "@jatbas/aic-core/core/types/enums.js";
 import { NodePathAdapter } from "@jatbas/aic-core/adapters/node-path-adapter.js";
 import { STUB_COMPILATION_META } from "@jatbas/aic-core/testing/stub-compilation-meta.js";
@@ -23,6 +23,7 @@ import type { ProjectScope } from "@jatbas/aic-core/storage/create-project-scope
 function mockScopeForHandler(
   clock: Clock,
   idGenerator: { generate: () => ReturnType<typeof toUUIDv7> },
+  projectRoot: AbsolutePath = toAbsolutePath("/tmp/mock"),
 ): ProjectScope {
   const db = {
     exec: (): void => {},
@@ -36,7 +37,15 @@ function mockScopeForHandler(
     clock,
     idGenerator,
     normaliser: new NodePathAdapter(),
-  } as unknown as ProjectScope;
+    projectRoot,
+    cacheStore: {} as ProjectScope["cacheStore"],
+    telemetryStore: { write: vi.fn() } as ProjectScope["telemetryStore"],
+    configStore: {} as ProjectScope["configStore"],
+    guardStore: {} as ProjectScope["guardStore"],
+    compilationLogStore: {} as ProjectScope["compilationLogStore"],
+    sessionTracker: {} as ProjectScope["sessionTracker"],
+    fileTransformStore: {} as ProjectScope["fileTransformStore"],
+  };
 }
 
 describe("compile-handler", () => {
@@ -74,12 +83,6 @@ describe("compile-handler", () => {
       generate: (): ReturnType<typeof toUUIDv7> =>
         toUUIDv7("00000000-0000-7000-8000-000000000001"),
     };
-    const mockTelemetryDeps = {
-      telemetryStore: { write: vi.fn() },
-      clock: mockClock,
-      idGenerator: mockIdGenerator,
-      stringHasher: { hash: (): string => "" },
-    };
     const getSessionId = (): ReturnType<typeof toSessionId> =>
       toSessionId("00000000-0000-7000-8000-000000000002");
     const getEditorId = () => EDITOR_ID.GENERIC;
@@ -87,16 +90,13 @@ describe("compile-handler", () => {
     const projectRoot = path.join(os.homedir(), "tmp-aic-timeout-test");
     const scope = mockScopeForHandler(mockClock, mockIdGenerator);
     const handler = createCompileHandler(
-      neverResolvingRunner,
-      mockTelemetryDeps,
-      () => scope,
+      (_projectRoot: AbsolutePath) => scope,
+      (_scope: ProjectScope) => neverResolvingRunner,
+      { hash: (): string => "" },
       getSessionId,
       getEditorId,
       getModelId,
       null,
-      { record: vi.fn() },
-      mockClock,
-      mockIdGenerator,
       [],
     );
     const promise = handler(
@@ -141,12 +141,6 @@ describe("compile-handler", () => {
       generate: (): ReturnType<typeof toUUIDv7> =>
         toUUIDv7("00000000-0000-7000-8000-000000000001"),
     };
-    const mockTelemetryDeps = {
-      telemetryStore: { write: vi.fn() },
-      clock: mockClock,
-      idGenerator: mockIdGenerator,
-      stringHasher: { hash: (): string => "" },
-    };
     const scope = mockScopeForHandler(mockClock, mockIdGenerator);
     const getScope = (_projectRoot: AbsolutePath) => scope;
     const getSessionId = (): ReturnType<typeof toSessionId> =>
@@ -156,7 +150,6 @@ describe("compile-handler", () => {
     return {
       mockClock,
       mockIdGenerator,
-      mockTelemetryDeps,
       getScope,
       getSessionId,
       getEditorId,
@@ -167,26 +160,15 @@ describe("compile-handler", () => {
   it("response_includes_conversation_id_when_provided", async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
     try {
-      const {
-        mockTelemetryDeps,
-        getScope,
-        getSessionId,
-        getEditorId,
-        getModelId,
-        mockClock,
-        mockIdGenerator,
-      } = makeDeps();
+      const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
       const handler = createCompileHandler(
-        makeSuccessRunner("compiled"),
-        mockTelemetryDeps,
         getScope,
+        (_scope: ProjectScope) => makeSuccessRunner("compiled"),
+        { hash: (): string => "" },
         getSessionId,
         getEditorId,
         getModelId,
         null,
-        { record: vi.fn() },
-        mockClock,
-        mockIdGenerator,
         [],
       );
       const result = await handler(
@@ -211,26 +193,15 @@ describe("compile-handler", () => {
   it("response_includes_conversation_id_null_when_omitted", async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
     try {
-      const {
-        mockTelemetryDeps,
-        getScope,
-        getSessionId,
-        getEditorId,
-        getModelId,
-        mockClock,
-        mockIdGenerator,
-      } = makeDeps();
+      const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
       const handler = createCompileHandler(
-        makeSuccessRunner("compiled"),
-        mockTelemetryDeps,
         getScope,
+        (_scope: ProjectScope) => makeSuccessRunner("compiled"),
+        { hash: (): string => "" },
         getSessionId,
         getEditorId,
         getModelId,
         null,
-        { record: vi.fn() },
-        mockClock,
-        mockIdGenerator,
         [],
       );
       const result = await handler(
@@ -250,26 +221,15 @@ describe("compile-handler", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-auto-init-"));
     try {
       expect(fs.existsSync(path.join(tmpDir, "aic.config.json"))).toBe(false);
-      const {
-        mockTelemetryDeps,
-        getScope,
-        getSessionId,
-        getEditorId,
-        getModelId,
-        mockClock,
-        mockIdGenerator,
-      } = makeDeps();
+      const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
       const handler = createCompileHandler(
-        makeSuccessRunner("compiled"),
-        mockTelemetryDeps,
         getScope,
+        (_scope: ProjectScope) => makeSuccessRunner("compiled"),
+        { hash: (): string => "" },
         getSessionId,
         getEditorId,
         getModelId,
         null,
-        { record: vi.fn() },
-        mockClock,
-        mockIdGenerator,
         [],
       );
       await handler(

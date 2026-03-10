@@ -9,10 +9,9 @@ import {
   type CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import type { CompilationRunner } from "@jatbas/aic-core/core/interfaces/compilation-runner.interface.js";
-import type { ToolInvocationLogStore } from "@jatbas/aic-core/core/interfaces/tool-invocation-log-store.interface.js";
-import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
-import type { IdGenerator } from "@jatbas/aic-core/core/interfaces/id-generator.interface.js";
+import type { StringHasher } from "@jatbas/aic-core/core/interfaces/string-hasher.interface.js";
 import type { ProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
+import { SqliteToolInvocationLogStore } from "@jatbas/aic-core/storage/sqlite-tool-invocation-log-store.js";
 import { reconcileProjectId } from "@jatbas/aic-core/storage/ensure-project-id.js";
 import { AicError } from "@jatbas/aic-core/core/errors/aic-error.js";
 import { TimeoutError } from "@jatbas/aic-core/core/errors/timeout-error.js";
@@ -28,7 +27,6 @@ import {
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { CompilationRequest } from "@jatbas/aic-core/core/types/compilation-types.js";
-import type { TelemetryDeps } from "@jatbas/aic-core/core/types/telemetry-types.js";
 import { writeCompilationTelemetry } from "@jatbas/aic-core/core/write-compilation-telemetry.js";
 import { recordToolInvocation } from "../record-tool-invocation.js";
 import { ensureProjectInit } from "../init-project.js";
@@ -50,17 +48,14 @@ function resolveConversationId(argsValue: string | null | undefined): string | n
 }
 
 export function createCompileHandler(
-  runner: CompilationRunner,
-  telemetryDeps: TelemetryDeps,
   getScope: (projectRoot: AbsolutePath) => ProjectScope,
+  getRunner: (scope: ProjectScope) => CompilationRunner,
+  sha256Adapter: StringHasher,
   getSessionId: () => SessionId,
   getEditorId: () => EditorId,
   getModelId: (editorId: EditorId) => string | null,
   modelIdOverride: string | null,
-  toolInvocationLogStore: ToolInvocationLogStore,
-  clock: Clock,
-  idGenerator: IdGenerator,
-  warnings: readonly string[],
+  installScopeWarnings: readonly string[],
 ): (
   args: {
     intent: string;
@@ -77,6 +72,17 @@ export function createCompileHandler(
     try {
       const projectRoot = validateProjectRoot(args.projectRoot);
       const scope = getScope(projectRoot);
+      const runner = getRunner(scope);
+      const telemetryDeps = {
+        telemetryStore: scope.telemetryStore,
+        clock: scope.clock,
+        idGenerator: scope.idGenerator,
+        stringHasher: sha256Adapter,
+      };
+      const toolInvocationLogStore = new SqliteToolInvocationLogStore(
+        scope.projectRoot,
+        scope.db,
+      );
       ensureProjectInit(projectRoot, scope.clock, scope.idGenerator);
       reconcileProjectId(
         projectRoot,
@@ -111,8 +117,8 @@ export function createCompileHandler(
       };
       recordToolInvocation(
         toolInvocationLogStore,
-        clock,
-        idGenerator,
+        scope.clock,
+        scope.idGenerator,
         getSessionId,
         "aic_compile",
         args,
@@ -136,8 +142,8 @@ export function createCompileHandler(
         // Non-fatal — do not fail the request
       }
       const warningBlock =
-        warnings.length > 0
-          ? warnings.map((w) => `⚠️ WARNING: ${w}`).join("\n") + "\n\n"
+        installScopeWarnings.length > 0
+          ? installScopeWarnings.map((w) => `⚠️ WARNING: ${w}`).join("\n") + "\n\n"
           : "";
       const reinforcement =
         "\n\nIMPORTANT: On your NEXT message in this conversation, call aic_compile again BEFORE doing anything else. Every message needs fresh context — do not reuse this result.";
@@ -149,7 +155,9 @@ export function createCompileHandler(
               compiledPrompt: warningBlock + result.compiledPrompt + reinforcement,
               meta: result.meta,
               conversationId: request.conversationId ?? null,
-              ...(warnings.length > 0 ? { warnings } : {}),
+              ...(installScopeWarnings.length > 0
+                ? { warnings: installScopeWarnings }
+                : {}),
             }),
           },
         ],
