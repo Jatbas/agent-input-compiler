@@ -58,9 +58,9 @@ export class SqliteCacheStore implements CacheStore {
     const nowSql = isoToSqliteDatetime(this.clock.now());
     const rows = this.db
       .prepare(
-        "SELECT cache_key, file_path, file_tree_hash, created_at, expires_at FROM cache_metadata WHERE cache_key = ? AND expires_at > ?",
+        "SELECT cache_key, file_path, file_tree_hash, created_at, expires_at FROM cache_metadata WHERE cache_key = ? AND expires_at > ? AND project_root = ?",
       )
-      .all(key, nowSql) as readonly {
+      .all(key, nowSql, this.projectRoot) as readonly {
       cache_key: string;
       file_path: string;
       file_tree_hash: string;
@@ -89,9 +89,13 @@ export class SqliteCacheStore implements CacheStore {
 
   private deleteRowAndBlobForKey(key: string): void {
     const rows = this.db
-      .prepare("SELECT file_path FROM cache_metadata WHERE cache_key = ?")
-      .all(key) as readonly { file_path: string }[];
-    this.db.prepare("DELETE FROM cache_metadata WHERE cache_key = ?").run(key);
+      .prepare(
+        "SELECT file_path FROM cache_metadata WHERE cache_key = ? AND project_root = ?",
+      )
+      .all(key, this.projectRoot) as readonly { file_path: string }[];
+    this.db
+      .prepare("DELETE FROM cache_metadata WHERE cache_key = ? AND project_root = ?")
+      .run(key, this.projectRoot);
     const row = rows[0];
     if (row !== undefined) {
       try {
@@ -119,9 +123,16 @@ export class SqliteCacheStore implements CacheStore {
     const expiresSql = isoToSqliteDatetime(entry.expiresAt);
     this.db
       .prepare(
-        "INSERT OR REPLACE INTO cache_metadata (cache_key, file_path, file_tree_hash, created_at, expires_at) VALUES (?, ?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO cache_metadata (cache_key, file_path, file_tree_hash, created_at, expires_at, project_root) VALUES (?, ?, ?, ?, ?, ?)",
       )
-      .run(entry.key, filePath, entry.fileTreeHash, createdSql, expiresSql);
+      .run(
+        entry.key,
+        filePath,
+        entry.fileTreeHash,
+        createdSql,
+        expiresSql,
+        this.projectRoot,
+      );
   }
 
   invalidate(key: string): void {
@@ -130,8 +141,8 @@ export class SqliteCacheStore implements CacheStore {
 
   invalidateAll(): void {
     const rows = this.db
-      .prepare("SELECT file_path FROM cache_metadata")
-      .all() as readonly { file_path: string }[];
+      .prepare("SELECT file_path FROM cache_metadata WHERE project_root = ?")
+      .all(this.projectRoot) as readonly { file_path: string }[];
     for (const row of rows) {
       try {
         fs.unlinkSync(row.file_path);
@@ -139,14 +150,18 @@ export class SqliteCacheStore implements CacheStore {
         // Ignore missing files
       }
     }
-    this.db.prepare("DELETE FROM cache_metadata").run();
+    this.db
+      .prepare("DELETE FROM cache_metadata WHERE project_root = ?")
+      .run(this.projectRoot);
   }
 
   purgeExpired(): void {
     const nowSql = isoToSqliteDatetime(this.clock.now());
     const rows = this.db
-      .prepare("SELECT file_path FROM cache_metadata WHERE expires_at <= ?")
-      .all(nowSql) as readonly { file_path: string }[];
+      .prepare(
+        "SELECT file_path FROM cache_metadata WHERE expires_at <= ? AND project_root = ?",
+      )
+      .all(nowSql, this.projectRoot) as readonly { file_path: string }[];
     for (const row of rows) {
       try {
         fs.unlinkSync(row.file_path);
@@ -154,12 +169,14 @@ export class SqliteCacheStore implements CacheStore {
         // Blob may already be missing
       }
     }
-    this.db.prepare("DELETE FROM cache_metadata WHERE expires_at <= ?").run(nowSql);
+    this.db
+      .prepare("DELETE FROM cache_metadata WHERE expires_at <= ? AND project_root = ?")
+      .run(nowSql, this.projectRoot);
     const validPaths = new Set(
       (
-        this.db.prepare("SELECT file_path FROM cache_metadata").all() as readonly {
-          file_path: string;
-        }[]
+        this.db
+          .prepare("SELECT file_path FROM cache_metadata WHERE project_root = ?")
+          .all(this.projectRoot) as readonly { file_path: string }[]
       ).map((r) => r.file_path),
     );
     const names = fs.readdirSync(this.cacheDir);

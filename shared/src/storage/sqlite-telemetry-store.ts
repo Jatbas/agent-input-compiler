@@ -16,8 +16,8 @@ export class SqliteTelemetryStore implements TelemetryStore {
     const stmt = this.db.prepare(
       `INSERT INTO telemetry_events (
         id, compilation_id, repo_id,
-        guard_findings, guard_blocks, transform_savings, tiers_json, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        guard_findings, guard_blocks, transform_savings, tiers_json, created_at, project_root
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     stmt.run(
       event.id,
@@ -28,6 +28,7 @@ export class SqliteTelemetryStore implements TelemetryStore {
       event.transformSavings,
       JSON.stringify(event.summarisationTiers),
       event.timestamp,
+      this.projectRoot,
     );
   }
 }

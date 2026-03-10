@@ -94,9 +94,14 @@ export class SqliteFileTransformStore implements FileTransformStore {
     const nowSql = isoToSqliteDatetime(this.clock.now());
     const rows = this.db
       .prepare(
-        "SELECT file_path, content_hash, transformed_content, tier_outputs_json, created_at, expires_at FROM file_transform_cache WHERE file_path = ? AND content_hash = ? AND expires_at > ?",
+        "SELECT file_path, content_hash, transformed_content, tier_outputs_json, created_at, expires_at FROM file_transform_cache WHERE file_path = ? AND content_hash = ? AND expires_at > ? AND project_root = ?",
       )
-      .all(filePath, contentHash, nowSql) as readonly FileTransformRow[];
+      .all(
+        filePath,
+        contentHash,
+        nowSql,
+        this.projectRoot,
+      ) as readonly FileTransformRow[];
     const row = rows[0];
     if (row === undefined) return null;
     return {
@@ -115,7 +120,7 @@ export class SqliteFileTransformStore implements FileTransformStore {
     const expiresSql = isoToSqliteDatetime(entry.expiresAt);
     this.db
       .prepare(
-        "INSERT OR REPLACE INTO file_transform_cache (file_path, content_hash, transformed_content, tier_outputs_json, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO file_transform_cache (file_path, content_hash, transformed_content, tier_outputs_json, created_at, expires_at, project_root) VALUES (?, ?, ?, ?, ?, ?, ?)",
       )
       .run(
         entry.filePath,
@@ -124,15 +129,24 @@ export class SqliteFileTransformStore implements FileTransformStore {
         tierOutputsJson,
         createdSql,
         expiresSql,
+        this.projectRoot,
       );
   }
 
   invalidate(filePath: RelativePath): void {
-    this.db.prepare("DELETE FROM file_transform_cache WHERE file_path = ?").run(filePath);
+    this.db
+      .prepare(
+        "DELETE FROM file_transform_cache WHERE file_path = ? AND project_root = ?",
+      )
+      .run(filePath, this.projectRoot);
   }
 
   purgeExpired(): void {
     const nowSql = isoToSqliteDatetime(this.clock.now());
-    this.db.prepare("DELETE FROM file_transform_cache WHERE expires_at <= ?").run(nowSql);
+    this.db
+      .prepare(
+        "DELETE FROM file_transform_cache WHERE expires_at <= ? AND project_root = ?",
+      )
+      .run(nowSql, this.projectRoot);
   }
 }

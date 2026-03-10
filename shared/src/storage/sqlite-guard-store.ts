@@ -24,8 +24,8 @@ export class SqliteGuardStore implements GuardStore {
       .prepare("DELETE FROM guard_findings WHERE compilation_id = ?")
       .run(compilationId);
     const insert = this.db.prepare(
-      `INSERT INTO guard_findings (id, compilation_id, type, severity, file, line, message, pattern, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO guard_findings (id, compilation_id, type, severity, file, line, message, pattern, created_at, project_root)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     const created_at = this.clock.now();
     for (const f of findings) {
@@ -39,6 +39,7 @@ export class SqliteGuardStore implements GuardStore {
         f.message,
         f.pattern ?? null,
         created_at,
+        this.projectRoot,
       );
     }
   }

@@ -15,8 +15,10 @@ export class SqliteConfigStore implements ConfigStore {
 
   getLatestHash(): string | null {
     const rows = this.db
-      .prepare("SELECT config_hash FROM config_history ORDER BY created_at DESC LIMIT 1")
-      .all() as readonly { config_hash: string }[];
+      .prepare(
+        "SELECT config_hash FROM config_history WHERE project_root = ? ORDER BY created_at DESC LIMIT 1",
+      )
+      .all(this.projectRoot) as readonly { config_hash: string }[];
     const row = rows[0];
     return row === undefined ? null : row.config_hash;
   }
@@ -25,8 +27,8 @@ export class SqliteConfigStore implements ConfigStore {
     const createdAt = this.clock.now();
     this.db
       .prepare(
-        "INSERT OR REPLACE INTO config_history (config_hash, config_json, created_at) VALUES (?, ?, ?)",
+        "INSERT OR REPLACE INTO config_history (config_hash, config_json, created_at, project_root) VALUES (?, ?, ?, ?)",
       )
-      .run(configHash, configJson, createdAt);
+      .run(configHash, configJson, createdAt, this.projectRoot);
   }
 }

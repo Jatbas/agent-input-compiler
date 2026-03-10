@@ -18,6 +18,9 @@ import { migration as migration005 } from "../migrations/005-trigger-source.js";
 import { migration as migration006 } from "../migrations/006-cache-datetime-format.js";
 import { migration as migration007 } from "../migrations/007-conversation-id.js";
 import { migration as migration008 } from "../migrations/008-session-state.js";
+import { migration as migration009 } from "../migrations/009-file-transform-cache.js";
+import { migration as migration010 } from "../migrations/010-tool-invocation-log.js";
+import { migration as migration011 } from "../migrations/011-global-project-root.js";
 import { SqliteAgenticSessionStore } from "../sqlite-agentic-session-store.js";
 
 function makeStep(overrides: Partial<SessionStep>): SessionStep {
@@ -40,7 +43,7 @@ describe("SqliteAgenticSessionStore", () => {
     if (db) db.close();
   });
 
-  function setup(): SqliteAgenticSessionStore {
+  function setup(projectRoot = "/test/project"): SqliteAgenticSessionStore {
     db = new Database(":memory:");
     const execDb = db as unknown as ExecutableDb;
     migration001.up(execDb);
@@ -51,7 +54,10 @@ describe("SqliteAgenticSessionStore", () => {
     migration006.up(execDb);
     migration007.up(execDb);
     migration008.up(execDb);
-    return new SqliteAgenticSessionStore(toAbsolutePath("/test/project"), execDb);
+    migration009.up(execDb);
+    migration010.up(execDb);
+    migration011.up(execDb);
+    return new SqliteAgenticSessionStore(toAbsolutePath(projectRoot), execDb);
   }
 
   it("recordStep_then_getSteps_returns_step", () => {
@@ -185,5 +191,41 @@ describe("SqliteAgenticSessionStore", () => {
     const parsed = JSON.parse(row0.steps_json) as unknown[];
     expect(Array.isArray(parsed)).toBe(true);
     expect(parsed.length).toBe(1);
+  });
+
+  it("sqlite_agentic_session_store_steps_and_record", () => {
+    db = new Database(":memory:");
+    const execDb = db as unknown as ExecutableDb;
+    migration001.up(execDb);
+    migration002.up(execDb);
+    migration003.up(execDb);
+    migration004.up(execDb);
+    migration005.up(execDb);
+    migration006.up(execDb);
+    migration007.up(execDb);
+    migration008.up(execDb);
+    migration009.up(execDb);
+    migration010.up(execDb);
+    migration011.up(execDb);
+    const storeA = new SqliteAgenticSessionStore(toAbsolutePath("/proj/a"), execDb);
+    const storeB = new SqliteAgenticSessionStore(toAbsolutePath("/proj/b"), execDb);
+    const sessionA = toSessionId("session-a");
+    const sessionB = toSessionId("session-b");
+    storeA.recordStep(
+      sessionA,
+      makeStep({ stepIndex: toStepIndex(0), stepIntent: "from-a" }),
+    );
+    storeB.recordStep(
+      sessionB,
+      makeStep({ stepIndex: toStepIndex(0), stepIntent: "from-b" }),
+    );
+    const stepsA = storeA.getSteps(sessionA);
+    const stepsB = storeB.getSteps(sessionB);
+    expect(stepsA).toHaveLength(1);
+    expect(stepsB).toHaveLength(1);
+    expect(stepsA[0]?.stepIntent).toBe("from-a");
+    expect(stepsB[0]?.stepIntent).toBe("from-b");
+    expect(storeA.getSteps(sessionB)).toHaveLength(0);
+    expect(storeB.getSteps(sessionA)).toHaveLength(0);
   });
 });

@@ -91,8 +91,10 @@ export class SqliteAgenticSessionStore implements AgenticSessionState {
 
   getSteps(sessionId: SessionId): readonly SessionStep[] {
     const rows = this.db
-      .prepare("SELECT steps_json FROM session_state WHERE session_id = ?")
-      .all(sessionId) as { steps_json: string }[];
+      .prepare(
+        "SELECT steps_json FROM session_state WHERE session_id = ? AND project_root = ?",
+      )
+      .all(sessionId, this.projectRoot) as { steps_json: string }[];
     const first = rows[0];
     if (!first) return [];
     const raw = JSON.parse(first.steps_json) as SerializedStep[];
@@ -102,14 +104,16 @@ export class SqliteAgenticSessionStore implements AgenticSessionState {
 
   recordStep(sessionId: SessionId, step: SessionStep): void {
     const existing = this.db
-      .prepare("SELECT steps_json, created_at FROM session_state WHERE session_id = ?")
-      .all(sessionId) as { steps_json: string; created_at: string }[];
+      .prepare(
+        "SELECT steps_json, created_at FROM session_state WHERE session_id = ? AND project_root = ?",
+      )
+      .all(sessionId, this.projectRoot) as { steps_json: string; created_at: string }[];
     const serialized = serializeStep(step);
     const existingRow = existing[0];
     if (!existingRow) {
       this.db
         .prepare(
-          "INSERT INTO session_state (session_id, task_intent, steps_json, created_at, last_activity_at) VALUES (?, ?, ?, ?, ?)",
+          "INSERT INTO session_state (session_id, task_intent, steps_json, created_at, last_activity_at, project_root) VALUES (?, ?, ?, ?, ?, ?)",
         )
         .run(
           sessionId,
@@ -117,15 +121,16 @@ export class SqliteAgenticSessionStore implements AgenticSessionState {
           JSON.stringify([serialized]),
           step.completedAt,
           step.completedAt,
+          this.projectRoot,
         );
     } else {
       const steps = JSON.parse(existingRow.steps_json) as SerializedStep[];
       const appended = [...steps, serialized];
       this.db
         .prepare(
-          "UPDATE session_state SET steps_json = ?, last_activity_at = ? WHERE session_id = ?",
+          "UPDATE session_state SET steps_json = ?, last_activity_at = ? WHERE session_id = ? AND project_root = ?",
         )
-        .run(JSON.stringify(appended), step.completedAt, sessionId);
+        .run(JSON.stringify(appended), step.completedAt, sessionId, this.projectRoot);
     }
   }
 

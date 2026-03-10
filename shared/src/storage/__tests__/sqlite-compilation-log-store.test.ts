@@ -24,6 +24,10 @@ import { migration as migration004 } from "../migrations/004-normalize-telemetry
 import { migration as migration005 } from "../migrations/005-trigger-source.js";
 import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import { migration as migration007 } from "../migrations/007-conversation-id.js";
+import { migration as migration008 } from "../migrations/008-session-state.js";
+import { migration as migration009 } from "../migrations/009-file-transform-cache.js";
+import { migration as migration010 } from "../migrations/010-tool-invocation-log.js";
+import { migration as migration011 } from "../migrations/011-global-project-root.js";
 import { SqliteCompilationLogStore } from "../sqlite-compilation-log-store.js";
 
 describe("SqliteCompilationLogStore", () => {
@@ -41,8 +45,41 @@ describe("SqliteCompilationLogStore", () => {
     migration004.up(db);
     migration005.up(db);
     migration007.up(db);
+    migration008.up(db);
+    migration009.up(db);
+    migration010.up(db);
+    migration011.up(db);
     return new SqliteCompilationLogStore(toAbsolutePath("/test/project"), db);
   }
+
+  it("sqlite_compilation_log_store_record", () => {
+    const store = setup();
+    const entry: CompilationLogEntry = {
+      id: toUUIDv7("00000000-0000-7000-8000-000000000099"),
+      intent: "summarise the user's message",
+      taskClass: TASK_CLASS.REFACTOR,
+      filesSelected: 5,
+      filesTotal: 100,
+      tokensRaw: toTokenCount(10000),
+      tokensCompiled: toTokenCount(2000),
+      tokenReductionPct: toPercentage(80),
+      cacheHit: false,
+      durationMs: toMilliseconds(150),
+      editorId: EDITOR_ID.GENERIC,
+      modelId: "gpt-4",
+      sessionId: null,
+      configHash: null,
+      createdAt: toISOTimestamp("2026-02-27T12:00:00.000Z"),
+      conversationId: null,
+      triggerSource: TRIGGER_SOURCE.INTERNAL_TEST,
+    };
+    store.record(entry);
+    const row = db
+      .prepare("SELECT id, intent, project_root FROM compilation_log WHERE id = ?")
+      .get(entry.id) as { id: string; intent: string; project_root: string };
+    expect(row).toBeDefined();
+    expect(row.project_root).toBe("/test/project");
+  });
 
   it("SqliteCompilationLogStore record inserts row", () => {
     const store = setup();

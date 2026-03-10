@@ -15,8 +15,15 @@ export class SqliteToolInvocationLogStore implements ToolInvocationLogStore {
   record(entry: ToolInvocationLogEntry): void {
     this.db
       .prepare(
-        "INSERT INTO tool_invocation_log (id, created_at, tool_name, session_id, params_shape) VALUES (?, ?, ?, ?, ?)",
+        "INSERT INTO tool_invocation_log (id, created_at, tool_name, session_id, params_shape, project_root) VALUES (?, ?, ?, ?, ?, ?)",
       )
-      .run(entry.id, entry.createdAt, entry.toolName, entry.sessionId, entry.paramsShape);
+      .run(
+        entry.id,
+        entry.createdAt,
+        entry.toolName,
+        entry.sessionId,
+        entry.paramsShape,
+        this.projectRoot,
+      );
   }
 }

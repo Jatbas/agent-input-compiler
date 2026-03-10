@@ -17,6 +17,10 @@ import { migration as migration003 } from "../migrations/003-server-sessions-int
 import { migration as migration004 } from "../migrations/004-normalize-telemetry.js";
 import { migration as migration005 } from "../migrations/005-trigger-source.js";
 import { migration as migration007 } from "../migrations/007-conversation-id.js";
+import { migration as migration008 } from "../migrations/008-session-state.js";
+import { migration as migration009 } from "../migrations/009-file-transform-cache.js";
+import { migration as migration010 } from "../migrations/010-tool-invocation-log.js";
+import { migration as migration011 } from "../migrations/011-global-project-root.js";
 import { SqliteStatusStore } from "../sqlite-status-store.js";
 
 const stubClock: Clock = {
@@ -24,6 +28,8 @@ const stubClock: Clock = {
   addMinutes: () => toISOTimestamp("2025-06-15T12:00:00.000Z"),
   durationMs: () => toMilliseconds(0),
 };
+
+const TEST_PROJECT_ROOT = "/test/project";
 
 function insertCompilationLog(
   db: Database.Database,
@@ -45,15 +51,17 @@ function insertCompilationLog(
     created_at: "2026-02-26T12:00:00.000Z",
     conversation_id: null as string | null,
     trigger_source: null as string | null,
+    project_root: TEST_PROJECT_ROOT,
     ...overrides,
   };
   const conversationId = defaults.conversation_id ?? null;
   const triggerSource = defaults.trigger_source ?? null;
+  const projectRoot = defaults.project_root as string;
   db.prepare(
     `INSERT INTO compilation_log (
       id, intent, task_class, files_selected, files_total, tokens_raw, tokens_compiled,
-      token_reduction_pct, cache_hit, duration_ms, editor_id, model_id, created_at, conversation_id, trigger_source
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      token_reduction_pct, cache_hit, duration_ms, editor_id, model_id, created_at, conversation_id, trigger_source, project_root
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     defaults.intent,
@@ -70,6 +78,7 @@ function insertCompilationLog(
     defaults.created_at,
     conversationId,
     triggerSource,
+    projectRoot,
   );
 }
 
@@ -81,9 +90,19 @@ function insertTelemetryEvent(
   db.prepare(
     `INSERT INTO telemetry_events (
       id, compilation_id, repo_id,
-      guard_findings, guard_blocks, transform_savings, tiers_json, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(id, compilationId, "repo-hash", 0, 0, 0, "{}", "2026-02-26T12:00:00.000Z");
+      guard_findings, guard_blocks, transform_savings, tiers_json, created_at, project_root
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    compilationId,
+    "repo-hash",
+    0,
+    0,
+    0,
+    "{}",
+    "2026-02-26T12:00:00.000Z",
+    TEST_PROJECT_ROOT,
+  );
 }
 
 describe("SqliteStatusStore", () => {
@@ -102,8 +121,12 @@ describe("SqliteStatusStore", () => {
     migration004.up(db);
     migration005.up(db);
     migration007.up(db);
+    migration008.up(db);
+    migration009.up(db);
+    migration010.up(db);
+    migration011.up(db);
     store = new SqliteStatusStore(
-      toAbsolutePath("/test/project"),
+      toAbsolutePath(TEST_PROJECT_ROOT),
       db as unknown as ExecutableDb,
       stubClock,
     );
@@ -214,8 +237,8 @@ describe("SqliteStatusStore", () => {
     setup();
     insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000003");
     db.prepare(
-      `INSERT INTO guard_findings (id, compilation_id, type, severity, file, line, message, pattern, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO guard_findings (id, compilation_id, type, severity, file, line, message, pattern, created_at, project_root)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       "018c3d4e-0000-7000-8000-000000000004",
       "018c3d4e-0000-7000-8000-000000000003",
@@ -226,10 +249,11 @@ describe("SqliteStatusStore", () => {
       "secret",
       null,
       "2026-02-26T12:00:00.000Z",
+      TEST_PROJECT_ROOT,
     );
     db.prepare(
-      `INSERT INTO guard_findings (id, compilation_id, type, severity, file, line, message, pattern, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO guard_findings (id, compilation_id, type, severity, file, line, message, pattern, created_at, project_root)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       "018c3d4e-0000-7000-8000-000000000005",
       "018c3d4e-0000-7000-8000-000000000003",
@@ -240,10 +264,11 @@ describe("SqliteStatusStore", () => {
       "secret",
       null,
       "2026-02-26T12:00:00.000Z",
+      TEST_PROJECT_ROOT,
     );
     db.prepare(
-      `INSERT INTO guard_findings (id, compilation_id, type, severity, file, line, message, pattern, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO guard_findings (id, compilation_id, type, severity, file, line, message, pattern, created_at, project_root)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       "018c3d4e-0000-7000-8000-000000000006",
       "018c3d4e-0000-7000-8000-000000000003",
@@ -254,6 +279,7 @@ describe("SqliteStatusStore", () => {
       "excluded",
       null,
       "2026-02-26T12:00:00.000Z",
+      TEST_PROJECT_ROOT,
     );
     const summary = store.getSummary();
     expect(summary.guardByType).toEqual({ secret: 2, "excluded-file": 1 });
@@ -432,5 +458,28 @@ describe("SqliteStatusStore", () => {
     if (result.lastCompilationInConversation !== null) {
       expect(result.lastCompilationInConversation.intent).toBe("user compilation");
     }
+  });
+
+  it("sqlite_status_store_summary_and_conversation", () => {
+    setup();
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000080", {
+      intent: "proj test",
+      tokens_raw: 1000,
+      tokens_compiled: 400,
+      token_reduction_pct: 60,
+    });
+    const summary = store.getSummary();
+    expect(summary.compilationsTotal).toBe(1);
+    expect(summary.totalTokensRaw).toBe(1000);
+    expect(summary.totalTokensCompiled).toBe(400);
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000081", {
+      project_root: "/other/project",
+      intent: "other project",
+      tokens_raw: 9999,
+      tokens_compiled: 9999,
+    });
+    const summaryAfter = store.getSummary();
+    expect(summaryAfter.compilationsTotal).toBe(1);
+    expect(summaryAfter.totalTokensRaw).toBe(1000);
   });
 });

@@ -12,6 +12,16 @@ import { toTokenCount, toMilliseconds } from "@jatbas/aic-core/core/types/units.
 import type { CachedCompilation } from "@jatbas/aic-core/core/types/compilation-types.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
+import { migration as migration002 } from "../migrations/002-server-sessions.js";
+import { migration as migration003 } from "../migrations/003-server-sessions-integrity.js";
+import { migration as migration004 } from "../migrations/004-normalize-telemetry.js";
+import { migration as migration005 } from "../migrations/005-trigger-source.js";
+import { migration as migration006 } from "../migrations/006-cache-datetime-format.js";
+import { migration as migration007 } from "../migrations/007-conversation-id.js";
+import { migration as migration008 } from "../migrations/008-session-state.js";
+import { migration as migration009 } from "../migrations/009-file-transform-cache.js";
+import { migration as migration010 } from "../migrations/010-tool-invocation-log.js";
+import { migration as migration011 } from "../migrations/011-global-project-root.js";
 
 const stubClock: Clock = {
   now: () => toISOTimestamp("2025-06-15T12:00:00.000Z"),
@@ -47,6 +57,16 @@ describe("SqliteCacheStore", () => {
     tmpDir = mkdtempSync(join(tmpdir(), "aic-cache-store-"));
     db = new Database(":memory:");
     migration001.up(db);
+    migration002.up(db);
+    migration003.up(db);
+    migration004.up(db);
+    migration005.up(db);
+    migration006.up(db);
+    migration007.up(db);
+    migration008.up(db);
+    migration009.up(db);
+    migration010.up(db);
+    migration011.up(db);
     store = new SqliteCacheStore(
       toAbsolutePath("/test/project"),
       db,
@@ -193,6 +213,43 @@ describe("SqliteCacheStore", () => {
     }[];
     expect(remaining).toHaveLength(1);
     expect(remaining[0]?.cache_key).toBe("valid-same-day");
+  });
+
+  it("sqlite_cache_store_get_set_invalidate", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "aic-cache-store-"));
+    db = new Database(":memory:");
+    migration001.up(db);
+    migration002.up(db);
+    migration003.up(db);
+    migration004.up(db);
+    migration005.up(db);
+    migration006.up(db);
+    migration007.up(db);
+    migration008.up(db);
+    migration009.up(db);
+    migration010.up(db);
+    migration011.up(db);
+    const storeA = new SqliteCacheStore(
+      toAbsolutePath("/proj/a"),
+      db,
+      toAbsolutePath(tmpDir),
+      stubClock,
+    );
+    const storeB = new SqliteCacheStore(
+      toAbsolutePath("/proj/b"),
+      db,
+      toAbsolutePath(tmpDir),
+      stubClock,
+    );
+    storeA.set(makeEntry({ key: "k-a" }));
+    storeB.set(makeEntry({ key: "k-b" }));
+    expect(storeA.get("k-a")).not.toBeNull();
+    expect(storeA.get("k-b")).toBeNull();
+    expect(storeB.get("k-b")).not.toBeNull();
+    expect(storeB.get("k-a")).toBeNull();
+    storeA.invalidate("k-a");
+    expect(storeA.get("k-a")).toBeNull();
+    expect(storeB.get("k-b")).not.toBeNull();
   });
 
   it("get on expired key lazy-deletes row and blob", () => {

@@ -10,7 +10,17 @@ import { toTokenCount, toMilliseconds } from "@jatbas/aic-core/core/types/units.
 import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
 import { INCLUSION_TIER } from "@jatbas/aic-core/core/types/enums.js";
 import type { CachedFileTransform } from "@jatbas/aic-core/core/types/file-transform-types.js";
+import { migration as migration001 } from "../migrations/001-initial-schema.js";
+import { migration as migration002 } from "../migrations/002-server-sessions.js";
+import { migration as migration003 } from "../migrations/003-server-sessions-integrity.js";
+import { migration as migration004 } from "../migrations/004-normalize-telemetry.js";
+import { migration as migration005 } from "../migrations/005-trigger-source.js";
+import { migration as migration006 } from "../migrations/006-cache-datetime-format.js";
+import { migration as migration007 } from "../migrations/007-conversation-id.js";
+import { migration as migration008 } from "../migrations/008-session-state.js";
 import { migration as migration009 } from "../migrations/009-file-transform-cache.js";
+import { migration as migration010 } from "../migrations/010-tool-invocation-log.js";
+import { migration as migration011 } from "../migrations/011-global-project-root.js";
 import { SqliteFileTransformStore } from "../sqlite-file-transform-store.js";
 
 function makeClock(nowIso: string): Clock {
@@ -55,14 +65,21 @@ describe("SqliteFileTransformStore", () => {
     if (db) db.close();
   });
 
-  function setup(clock: Clock): void {
+  function setup(clock: Clock, projectRoot = "/test/project"): void {
     db = new Database(":memory:");
-    migration009.up(db as unknown as ExecutableDb);
-    store = new SqliteFileTransformStore(
-      toAbsolutePath("/test/project"),
-      db as unknown as ExecutableDb,
-      clock,
-    );
+    const execDb = db as unknown as ExecutableDb;
+    migration001.up(execDb);
+    migration002.up(execDb);
+    migration003.up(execDb);
+    migration004.up(execDb);
+    migration005.up(execDb);
+    migration006.up(execDb);
+    migration007.up(execDb);
+    migration008.up(execDb);
+    migration009.up(execDb);
+    migration010.up(execDb);
+    migration011.up(execDb);
+    store = new SqliteFileTransformStore(toAbsolutePath(projectRoot), execDb, clock);
   }
 
   it("get_empty_returns_null", () => {
@@ -151,5 +168,34 @@ describe("SqliteFileTransformStore", () => {
     setup(makeClock("2025-06-01T12:00:00.000Z"));
     store.purgeExpired();
     expect(store.get(toRelativePath("nonexistent.ts"), "hash")).toBeNull();
+  });
+
+  it("sqlite_file_transform_store_get_set_invalidate", () => {
+    db = new Database(":memory:");
+    const execDb = db as unknown as ExecutableDb;
+    migration001.up(execDb);
+    migration002.up(execDb);
+    migration003.up(execDb);
+    migration004.up(execDb);
+    migration005.up(execDb);
+    migration006.up(execDb);
+    migration007.up(execDb);
+    migration008.up(execDb);
+    migration009.up(execDb);
+    migration010.up(execDb);
+    migration011.up(execDb);
+    const clock = makeClock("2025-06-01T12:00:00.000Z");
+    const storeA = new SqliteFileTransformStore(toAbsolutePath("/proj/a"), execDb, clock);
+    const storeB = new SqliteFileTransformStore(toAbsolutePath("/proj/b"), execDb, clock);
+    const path = toRelativePath("same/path.ts");
+    storeA.set(makeEntry({ filePath: path, contentHash: "h-a" }));
+    storeB.set(makeEntry({ filePath: path, contentHash: "h-b" }));
+    expect(storeA.get(path, "h-a")).not.toBeNull();
+    expect(storeA.get(path, "h-b")).toBeNull();
+    expect(storeB.get(path, "h-b")).not.toBeNull();
+    expect(storeB.get(path, "h-a")).toBeNull();
+    storeA.invalidate(path);
+    expect(storeA.get(path, "h-a")).toBeNull();
+    expect(storeB.get(path, "h-b")).not.toBeNull();
   });
 });

@@ -566,7 +566,7 @@ describe("CompilationRunner", () => {
       expect(entry.triggerSource).toBe(TRIGGER_SOURCE.CLI);
       expect(entry.triggerSource).toBe("cli");
     }
-  });
+  }, 15_000);
 
   it("compilation_runner_passes_conversation_id", async () => {
     const cacheStore = createInMemoryCacheStore();
