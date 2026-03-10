@@ -1059,6 +1059,52 @@ export default tseslint.config(
     },
   },
 
+  // ─── Adapters: only node-path-adapter.ts may import node:path ───────
+  {
+    files: ["shared/src/adapters/**/*.ts"],
+    ignores: ["shared/src/adapters/node-path-adapter.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "better-sqlite3",
+              message: "SQL lives in storage/ only. Adapters don't use SQLite.",
+            },
+            {
+              name: "zod",
+              message: "Zod validates at boundaries only (MCP/CLI/config). See ADR-009.",
+            },
+            {
+              name: "node:path",
+              message: "Only node-path-adapter.ts may import node:path.",
+            },
+          ],
+          patterns: [
+            BAN_RELATIVE_PARENT,
+            {
+              group: ["@jatbas/aic-cli", "@jatbas/aic-cli/*", "**/cli/**"],
+              message: "Adapters must not import CLI code.",
+            },
+            {
+              group: ["@jatbas/aic", "@jatbas/aic/*", "**/mcp/**"],
+              message: "Adapters must not import MCP code.",
+            },
+            {
+              group: ["**/storage/**"],
+              message: "Adapters must not import storage code.",
+            },
+            {
+              group: ["**/pipeline/**"],
+              message: "Adapters must not import pipeline code.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+
   // ─── Adapters: only tiktoken-adapter.ts may import tiktoken ─────────
   {
     files: ["shared/src/adapters/**/*.ts"],
