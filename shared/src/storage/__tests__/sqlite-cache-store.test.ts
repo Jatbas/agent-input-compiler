@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
-import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import { toISOTimestamp, toProjectId } from "@jatbas/aic-core/core/types/identifiers.js";
 import { toTokenCount, toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
 import type { CachedCompilation } from "@jatbas/aic-core/core/types/compilation-types.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
@@ -22,6 +22,10 @@ import { migration as migration008 } from "../migrations/008-session-state.js";
 import { migration as migration009 } from "../migrations/009-file-transform-cache.js";
 import { migration as migration010 } from "../migrations/010-tool-invocation-log.js";
 import { migration as migration011 } from "../migrations/011-global-project-root.js";
+import { migration as migration013 } from "../migrations/013-project-id-fk.js";
+import { migration as migration014 } from "../migrations/014-drop-project-root-columns.js";
+
+const TEST_PROJECT_ID = toProjectId("018f0000-0000-7000-8000-000000000001");
 
 const stubClock: Clock = {
   now: () => toISOTimestamp("2025-06-15T12:00:00.000Z"),
@@ -67,12 +71,17 @@ describe("SqliteCacheStore", () => {
     migration009.up(db);
     migration010.up(db);
     migration011.up(db);
-    store = new SqliteCacheStore(
-      toAbsolutePath("/test/project"),
-      db,
-      toAbsolutePath(tmpDir),
-      stubClock,
+    migration013.up(db);
+    migration014.up(db);
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(
+      TEST_PROJECT_ID,
+      "/test/project",
+      "2026-01-01T00:00:00.000Z",
+      "2026-01-01T00:00:00.000Z",
     );
+    store = new SqliteCacheStore(TEST_PROJECT_ID, db, toAbsolutePath(tmpDir), stubClock);
   }
 
   it("set then get returns same CachedCompilation", () => {
@@ -229,14 +238,24 @@ describe("SqliteCacheStore", () => {
     migration009.up(db);
     migration010.up(db);
     migration011.up(db);
+    migration013.up(db);
+    migration014.up(db);
+    const projectIdA = toProjectId("018f0000-0000-7000-8000-000000000010");
+    const projectIdB = toProjectId("018f0000-0000-7000-8000-000000000011");
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(projectIdA, "/proj/a", "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z");
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(projectIdB, "/proj/b", "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z");
     const storeA = new SqliteCacheStore(
-      toAbsolutePath("/proj/a"),
+      projectIdA,
       db,
       toAbsolutePath(tmpDir),
       stubClock,
     );
     const storeB = new SqliteCacheStore(
-      toAbsolutePath("/proj/b"),
+      projectIdB,
       db,
       toAbsolutePath(tmpDir),
       stubClock,

@@ -9,6 +9,7 @@ import {
   toISOTimestamp,
   toSessionId,
   toConversationId,
+  toProjectId,
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import { toTokenCount, toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
 import { toPercentage } from "@jatbas/aic-core/core/types/scores.js";
@@ -22,14 +23,17 @@ import { migration as migration002 } from "../migrations/002-server-sessions.js"
 import { migration as migration003 } from "../migrations/003-server-sessions-integrity.js";
 import { migration as migration004 } from "../migrations/004-normalize-telemetry.js";
 import { migration as migration005 } from "../migrations/005-trigger-source.js";
-import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import { migration as migration007 } from "../migrations/007-conversation-id.js";
 import { migration as migration008 } from "../migrations/008-session-state.js";
 import { migration as migration009 } from "../migrations/009-file-transform-cache.js";
 import { migration as migration010 } from "../migrations/010-tool-invocation-log.js";
 import { migration as migration011 } from "../migrations/011-global-project-root.js";
 import { migration as migration012 } from "../migrations/012-normalize-schema.js";
+import { migration as migration013 } from "../migrations/013-project-id-fk.js";
+import { migration as migration014 } from "../migrations/014-drop-project-root-columns.js";
 import { SqliteCompilationLogStore } from "../sqlite-compilation-log-store.js";
+
+const TEST_PROJECT_ID = toProjectId("018f0000-0000-7000-8000-000000000001");
 
 describe("SqliteCompilationLogStore", () => {
   let db: Database.Database;
@@ -51,7 +55,17 @@ describe("SqliteCompilationLogStore", () => {
     migration010.up(db);
     migration011.up(db);
     migration012.up(db);
-    return new SqliteCompilationLogStore(toAbsolutePath("/test/project"), db);
+    migration013.up(db);
+    migration014.up(db);
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(
+      TEST_PROJECT_ID,
+      "/test/project",
+      "2026-01-01T00:00:00.000Z",
+      "2026-01-01T00:00:00.000Z",
+    );
+    return new SqliteCompilationLogStore(TEST_PROJECT_ID, db);
   }
 
   it("sqlite_compilation_log_store_record", () => {
@@ -77,10 +91,10 @@ describe("SqliteCompilationLogStore", () => {
     };
     store.record(entry);
     const row = db
-      .prepare("SELECT id, intent, project_root FROM compilation_log WHERE id = ?")
-      .get(entry.id) as { id: string; intent: string; project_root: string };
+      .prepare("SELECT id, intent, project_id FROM compilation_log WHERE id = ?")
+      .get(entry.id) as { id: string; intent: string; project_id: string };
     expect(row).toBeDefined();
-    expect(row.project_root).toBe("/test/project");
+    expect(row.project_id).toBe(TEST_PROJECT_ID);
   });
 
   it("SqliteCompilationLogStore record inserts row", () => {

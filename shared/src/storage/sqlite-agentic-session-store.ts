@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import type { ProjectId } from "@jatbas/aic-core/core/types/identifiers.js";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
 import type { AgenticSessionState } from "@jatbas/aic-core/core/interfaces/agentic-session-state.interface.js";
 import type { SessionId } from "@jatbas/aic-core/core/types/identifiers.js";
@@ -85,16 +85,16 @@ function deserializeStep(raw: SerializedStep): SessionStep {
 
 export class SqliteAgenticSessionStore implements AgenticSessionState {
   constructor(
-    private readonly projectRoot: AbsolutePath,
+    private readonly projectId: ProjectId,
     private readonly db: ExecutableDb,
   ) {}
 
   getSteps(sessionId: SessionId): readonly SessionStep[] {
     const rows = this.db
       .prepare(
-        "SELECT steps_json FROM session_state WHERE session_id = ? AND project_root = ?",
+        "SELECT steps_json FROM session_state WHERE session_id = ? AND project_id = ?",
       )
-      .all(sessionId, this.projectRoot) as { steps_json: string }[];
+      .all(sessionId, this.projectId) as { steps_json: string }[];
     const first = rows[0];
     if (!first) return [];
     const raw = JSON.parse(first.steps_json) as SerializedStep[];
@@ -105,15 +105,15 @@ export class SqliteAgenticSessionStore implements AgenticSessionState {
   recordStep(sessionId: SessionId, step: SessionStep): void {
     const existing = this.db
       .prepare(
-        "SELECT steps_json, created_at FROM session_state WHERE session_id = ? AND project_root = ?",
+        "SELECT steps_json, created_at FROM session_state WHERE session_id = ? AND project_id = ?",
       )
-      .all(sessionId, this.projectRoot) as { steps_json: string; created_at: string }[];
+      .all(sessionId, this.projectId) as { steps_json: string; created_at: string }[];
     const serialized = serializeStep(step);
     const existingRow = existing[0];
     if (!existingRow) {
       this.db
         .prepare(
-          "INSERT INTO session_state (session_id, task_intent, steps_json, created_at, last_activity_at, project_root) VALUES (?, ?, ?, ?, ?, ?)",
+          "INSERT INTO session_state (session_id, task_intent, steps_json, created_at, last_activity_at, project_id) VALUES (?, ?, ?, ?, ?, ?)",
         )
         .run(
           sessionId,
@@ -121,16 +121,16 @@ export class SqliteAgenticSessionStore implements AgenticSessionState {
           JSON.stringify([serialized]),
           step.completedAt,
           step.completedAt,
-          this.projectRoot,
+          this.projectId,
         );
     } else {
       const steps = JSON.parse(existingRow.steps_json) as SerializedStep[];
       const appended = [...steps, serialized];
       this.db
         .prepare(
-          "UPDATE session_state SET steps_json = ?, last_activity_at = ? WHERE session_id = ? AND project_root = ?",
+          "UPDATE session_state SET steps_json = ?, last_activity_at = ? WHERE session_id = ? AND project_id = ?",
         )
-        .run(JSON.stringify(appended), step.completedAt, sessionId, this.projectRoot);
+        .run(JSON.stringify(appended), step.completedAt, sessionId, this.projectId);
     }
   }
 

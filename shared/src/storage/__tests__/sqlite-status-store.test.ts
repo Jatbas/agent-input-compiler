@@ -5,10 +5,10 @@ import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
-import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import {
   toISOTimestamp,
   toConversationId,
+  toProjectId,
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
@@ -22,6 +22,8 @@ import { migration as migration009 } from "../migrations/009-file-transform-cach
 import { migration as migration010 } from "../migrations/010-tool-invocation-log.js";
 import { migration as migration011 } from "../migrations/011-global-project-root.js";
 import { migration as migration012 } from "../migrations/012-normalize-schema.js";
+import { migration as migration013 } from "../migrations/013-project-id-fk.js";
+import { migration as migration014 } from "../migrations/014-drop-project-root-columns.js";
 import { SqliteStatusStore } from "../sqlite-status-store.js";
 
 const stubClock: Clock = {
@@ -30,7 +32,8 @@ const stubClock: Clock = {
   durationMs: () => toMilliseconds(0),
 };
 
-const TEST_PROJECT_ROOT = "/test/project";
+const TEST_PROJECT_ID = toProjectId("018f0000-0000-7000-8000-000000000001");
+const OTHER_PROJECT_ID = toProjectId("018f0000-0000-7000-8000-000000000002");
 
 function insertCompilationLog(
   db: Database.Database,
@@ -51,16 +54,16 @@ function insertCompilationLog(
     created_at: "2026-02-26T12:00:00.000Z",
     conversation_id: null as string | null,
     trigger_source: null as string | null,
-    project_root: TEST_PROJECT_ROOT,
+    project_id: TEST_PROJECT_ID as string,
     ...overrides,
   };
   const conversationId = defaults.conversation_id ?? null;
   const triggerSource = defaults.trigger_source ?? null;
-  const projectRoot = defaults.project_root as string;
+  const projectId = defaults.project_id as string;
   db.prepare(
     `INSERT INTO compilation_log (
       id, intent, task_class, files_selected, files_total, tokens_raw, tokens_compiled,
-      cache_hit, duration_ms, editor_id, model_id, created_at, conversation_id, trigger_source, project_root
+      cache_hit, duration_ms, editor_id, model_id, created_at, conversation_id, trigger_source, project_id
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
@@ -77,7 +80,7 @@ function insertCompilationLog(
     defaults.created_at,
     conversationId,
     triggerSource,
-    projectRoot,
+    projectId,
   );
 }
 
@@ -115,8 +118,26 @@ describe("SqliteStatusStore", () => {
     migration010.up(db);
     migration011.up(db);
     migration012.up(db);
+    migration013.up(db);
+    migration014.up(db);
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(
+      TEST_PROJECT_ID,
+      "/test/project",
+      "2026-01-01T00:00:00.000Z",
+      "2026-01-01T00:00:00.000Z",
+    );
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(
+      OTHER_PROJECT_ID,
+      "/other/project",
+      "2026-01-01T00:00:00.000Z",
+      "2026-01-01T00:00:00.000Z",
+    );
     store = new SqliteStatusStore(
-      toAbsolutePath(TEST_PROJECT_ROOT),
+      TEST_PROJECT_ID,
       db as unknown as ExecutableDb,
       stubClock,
     );
@@ -460,7 +481,7 @@ describe("SqliteStatusStore", () => {
     expect(summary.totalTokensRaw).toBe(1000);
     expect(summary.totalTokensCompiled).toBe(400);
     insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000081", {
-      project_root: "/other/project",
+      project_id: OTHER_PROJECT_ID,
       intent: "other project",
       tokens_raw: 9999,
       tokens_compiled: 9999,

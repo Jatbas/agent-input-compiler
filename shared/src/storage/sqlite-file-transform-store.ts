@@ -5,7 +5,8 @@ import type { FileTransformStore } from "@jatbas/aic-core/core/interfaces/file-t
 import type { CachedFileTransform } from "@jatbas/aic-core/core/types/file-transform-types.js";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
-import type { AbsolutePath, RelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import type { ProjectId } from "@jatbas/aic-core/core/types/identifiers.js";
+import type { RelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toTokenCount, type TokenCount } from "@jatbas/aic-core/core/types/units.js";
 import { INCLUSION_TIER } from "@jatbas/aic-core/core/types/enums.js";
@@ -85,7 +86,7 @@ type FileTransformRow = {
 
 export class SqliteFileTransformStore implements FileTransformStore {
   constructor(
-    private readonly projectRoot: AbsolutePath,
+    private readonly projectId: ProjectId,
     private readonly db: ExecutableDb,
     private readonly clock: Clock,
   ) {}
@@ -94,14 +95,9 @@ export class SqliteFileTransformStore implements FileTransformStore {
     const nowSql = isoToSqliteDatetime(this.clock.now());
     const rows = this.db
       .prepare(
-        "SELECT file_path, content_hash, transformed_content, tier_outputs_json, created_at, expires_at FROM file_transform_cache WHERE file_path = ? AND content_hash = ? AND expires_at > ? AND project_root = ?",
+        "SELECT file_path, content_hash, transformed_content, tier_outputs_json, created_at, expires_at FROM file_transform_cache WHERE file_path = ? AND content_hash = ? AND expires_at > ? AND project_id = ?",
       )
-      .all(
-        filePath,
-        contentHash,
-        nowSql,
-        this.projectRoot,
-      ) as readonly FileTransformRow[];
+      .all(filePath, contentHash, nowSql, this.projectId) as readonly FileTransformRow[];
     const row = rows[0];
     if (row === undefined) return null;
     return {
@@ -120,7 +116,7 @@ export class SqliteFileTransformStore implements FileTransformStore {
     const expiresSql = isoToSqliteDatetime(entry.expiresAt);
     this.db
       .prepare(
-        "INSERT OR REPLACE INTO file_transform_cache (file_path, content_hash, transformed_content, tier_outputs_json, created_at, expires_at, project_root) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO file_transform_cache (file_path, content_hash, transformed_content, tier_outputs_json, created_at, expires_at, project_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
       )
       .run(
         entry.filePath,
@@ -129,24 +125,22 @@ export class SqliteFileTransformStore implements FileTransformStore {
         tierOutputsJson,
         createdSql,
         expiresSql,
-        this.projectRoot,
+        this.projectId,
       );
   }
 
   invalidate(filePath: RelativePath): void {
     this.db
-      .prepare(
-        "DELETE FROM file_transform_cache WHERE file_path = ? AND project_root = ?",
-      )
-      .run(filePath, this.projectRoot);
+      .prepare("DELETE FROM file_transform_cache WHERE file_path = ? AND project_id = ?")
+      .run(filePath, this.projectId);
   }
 
   purgeExpired(): void {
     const nowSql = isoToSqliteDatetime(this.clock.now());
     this.db
       .prepare(
-        "DELETE FROM file_transform_cache WHERE expires_at <= ? AND project_root = ?",
+        "DELETE FROM file_transform_cache WHERE expires_at <= ? AND project_id = ?",
       )
-      .run(nowSql, this.projectRoot);
+      .run(nowSql, this.projectId);
   }
 }

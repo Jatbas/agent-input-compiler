@@ -210,7 +210,7 @@ export function createMcpServer(
     heuristicConfig,
   );
   const toolInvocationLogStore = new SqliteToolInvocationLogStore(
-    startupScope.projectRoot,
+    startupScope.projectId,
     startupScope.db,
   );
   const inspectRunner = new InspectRunner(deps, startupScope.clock);
@@ -240,7 +240,7 @@ export function createMcpServer(
       scope.guardStore,
       scope.compilationLogStore,
       scope.idGenerator,
-      new SqliteAgenticSessionStore(scope.projectRoot, scope.db),
+      new SqliteAgenticSessionStore(scope.projectId, scope.db),
     );
     runnerCache.set(key, runner);
     return runner;
@@ -321,7 +321,7 @@ export function createMcpServer(
         const idForPayload = idRaw ?? "";
         const conversationId = idRaw !== null ? toConversationId(idRaw) : null;
         const statusStore = new SqliteStatusStore(
-          startupScope.projectRoot,
+          startupScope.projectId,
           startupScope.db,
           startupScope.clock,
         );
@@ -352,7 +352,7 @@ export function createMcpServer(
   );
   server.resource("last", "aic://last", () => {
     const statusStore = new SqliteStatusStore(
-      startupScope.projectRoot,
+      startupScope.projectId,
       startupScope.db,
       startupScope.clock,
     );
@@ -384,7 +384,7 @@ export function createMcpServer(
   });
   server.resource("status", "aic://status", () => {
     const statusStore = new SqliteStatusStore(
-      startupScope.projectRoot,
+      startupScope.projectId,
       startupScope.db,
       startupScope.clock,
     );

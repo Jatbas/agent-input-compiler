@@ -26,6 +26,7 @@ import { migration as migration010 } from "../migrations/010-tool-invocation-log
 import { migration as migration011 } from "../migrations/011-global-project-root.js";
 import { migration as migration012 } from "../migrations/012-normalize-schema.js";
 import { migration as migration013 } from "../migrations/013-project-id-fk.js";
+import { migration as migration014 } from "../migrations/014-drop-project-root-columns.js";
 import { reconcileProjectId, PROJECT_ID_FILENAME } from "../ensure-project-id.js";
 import { NodePathAdapter } from "@jatbas/aic-core/adapters/node-path-adapter.js";
 
@@ -72,6 +73,7 @@ describe("ensure-project-id", () => {
       migration011,
       migration012,
       migration013,
+      migration014,
     ]);
     return db as unknown as ExecutableDb;
   }
@@ -192,7 +194,7 @@ describe("ensure-project-id", () => {
       .run(uuid, oldNormalised, "2026-03-10T10:00:00.000Z", "2026-03-10T10:00:00.000Z");
     (dbInstance as unknown as Database.Database)
       .prepare(
-        "INSERT INTO compilation_log (id, intent, task_class, files_selected, files_total, tokens_raw, tokens_compiled, cache_hit, duration_ms, editor_id, model_id, created_at, project_root) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO compilation_log (id, intent, task_class, files_selected, files_total, tokens_raw, tokens_compiled, cache_hit, duration_ms, editor_id, model_id, created_at, project_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       )
       .run(
         "018f0000-0000-7000-8000-000000000099",
@@ -207,7 +209,7 @@ describe("ensure-project-id", () => {
         "generic",
         null,
         "2026-03-10T10:00:00.000Z",
-        oldNormalised,
+        uuid,
       );
     const idGenerator = mockIdGenerator(uuid);
     const returned = reconcileProjectId(

@@ -5,9 +5,9 @@ import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
-import { toAbsolutePath, toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toTokenCount, toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
-import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import { toISOTimestamp, toProjectId } from "@jatbas/aic-core/core/types/identifiers.js";
 import { INCLUSION_TIER } from "@jatbas/aic-core/core/types/enums.js";
 import type { CachedFileTransform } from "@jatbas/aic-core/core/types/file-transform-types.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
@@ -21,7 +21,11 @@ import { migration as migration008 } from "../migrations/008-session-state.js";
 import { migration as migration009 } from "../migrations/009-file-transform-cache.js";
 import { migration as migration010 } from "../migrations/010-tool-invocation-log.js";
 import { migration as migration011 } from "../migrations/011-global-project-root.js";
+import { migration as migration013 } from "../migrations/013-project-id-fk.js";
+import { migration as migration014 } from "../migrations/014-drop-project-root-columns.js";
 import { SqliteFileTransformStore } from "../sqlite-file-transform-store.js";
+
+const TEST_PROJECT_ID = toProjectId("018f0000-0000-7000-8000-000000000001");
 
 function makeClock(nowIso: string): Clock {
   return {
@@ -79,7 +83,17 @@ describe("SqliteFileTransformStore", () => {
     migration009.up(execDb);
     migration010.up(execDb);
     migration011.up(execDb);
-    store = new SqliteFileTransformStore(toAbsolutePath(projectRoot), execDb, clock);
+    migration013.up(execDb);
+    migration014.up(execDb);
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(
+      TEST_PROJECT_ID,
+      projectRoot,
+      "2026-01-01T00:00:00.000Z",
+      "2026-01-01T00:00:00.000Z",
+    );
+    store = new SqliteFileTransformStore(TEST_PROJECT_ID, execDb, clock);
   }
 
   it("get_empty_returns_null", () => {
@@ -184,9 +198,19 @@ describe("SqliteFileTransformStore", () => {
     migration009.up(execDb);
     migration010.up(execDb);
     migration011.up(execDb);
+    migration013.up(execDb);
+    migration014.up(execDb);
+    const projectIdA = toProjectId("018f0000-0000-7000-8000-000000000010");
+    const projectIdB = toProjectId("018f0000-0000-7000-8000-000000000011");
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(projectIdA, "/proj/a", "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z");
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(projectIdB, "/proj/b", "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z");
     const clock = makeClock("2025-06-01T12:00:00.000Z");
-    const storeA = new SqliteFileTransformStore(toAbsolutePath("/proj/a"), execDb, clock);
-    const storeB = new SqliteFileTransformStore(toAbsolutePath("/proj/b"), execDb, clock);
+    const storeA = new SqliteFileTransformStore(projectIdA, execDb, clock);
+    const storeB = new SqliteFileTransformStore(projectIdB, execDb, clock);
     const path = toRelativePath("same/path.ts");
     storeA.set(makeEntry({ filePath: path, contentHash: "h-a" }));
     storeB.set(makeEntry({ filePath: path, contentHash: "h-b" }));

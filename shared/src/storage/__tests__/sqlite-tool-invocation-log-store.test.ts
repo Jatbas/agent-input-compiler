@@ -4,11 +4,11 @@
 import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
-import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import {
   toUUIDv7,
   toISOTimestamp,
   toSessionId,
+  toProjectId,
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import { migration as migration001 } from "../migrations/001-initial-schema.js";
 import { migration as migration002 } from "../migrations/002-server-sessions.js";
@@ -21,7 +21,11 @@ import { migration as migration008 } from "../migrations/008-session-state.js";
 import { migration as migration009 } from "../migrations/009-file-transform-cache.js";
 import { migration as migration010 } from "../migrations/010-tool-invocation-log.js";
 import { migration as migration011 } from "../migrations/011-global-project-root.js";
+import { migration as migration013 } from "../migrations/013-project-id-fk.js";
+import { migration as migration014 } from "../migrations/014-drop-project-root-columns.js";
 import { SqliteToolInvocationLogStore } from "../sqlite-tool-invocation-log-store.js";
+
+const TEST_PROJECT_ID = toProjectId("018f0000-0000-7000-8000-000000000001");
 
 describe("SqliteToolInvocationLogStore", () => {
   let db: Database.Database;
@@ -44,10 +48,17 @@ describe("SqliteToolInvocationLogStore", () => {
     migration009.up(execDb);
     migration010.up(execDb);
     migration011.up(execDb);
-    const store = new SqliteToolInvocationLogStore(
-      toAbsolutePath("/test/project"),
-      execDb,
+    migration013.up(execDb);
+    migration014.up(execDb);
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(
+      TEST_PROJECT_ID,
+      "/test/project",
+      "2026-01-01T00:00:00.000Z",
+      "2026-01-01T00:00:00.000Z",
     );
+    const store = new SqliteToolInvocationLogStore(TEST_PROJECT_ID, execDb);
     const entry = {
       id: toUUIDv7("00000000-0000-7000-8000-000000000001"),
       createdAt: toISOTimestamp("2026-03-07T12:00:00.000Z"),
@@ -64,7 +75,7 @@ describe("SqliteToolInvocationLogStore", () => {
       tool_name: string;
       session_id: string;
       params_shape: string;
-      project_root: string;
+      project_id: string;
     }[];
     expect(rows).toHaveLength(1);
     const row = rows[0];
@@ -74,6 +85,6 @@ describe("SqliteToolInvocationLogStore", () => {
     expect(row.tool_name).toBe(entry.toolName);
     expect(row.session_id).toBe(entry.sessionId);
     expect(row.params_shape).toBe(entry.paramsShape);
-    expect(row.project_root).toBe("/test/project");
+    expect(row.project_id).toBe(TEST_PROJECT_ID);
   });
 });

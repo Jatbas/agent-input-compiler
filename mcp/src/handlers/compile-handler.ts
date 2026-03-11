@@ -80,7 +80,7 @@ export function createCompileHandler(
         stringHasher: sha256Adapter,
       };
       const toolInvocationLogStore = new SqliteToolInvocationLogStore(
-        scope.projectRoot,
+        scope.projectId,
         scope.db,
       );
       ensureProjectInit(projectRoot, scope.clock, scope.idGenerator);

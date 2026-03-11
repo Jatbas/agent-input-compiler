@@ -4,6 +4,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import type { ProjectId } from "@jatbas/aic-core/core/types/identifiers.js";
 import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 import type { CacheStore } from "@jatbas/aic-core/core/interfaces/cache-store.interface.js";
 import type { CachedCompilation } from "@jatbas/aic-core/core/types/compilation-types.js";
@@ -48,7 +49,7 @@ function parseBlobPayload(raw: string): BlobPayload | null {
 
 export class SqliteCacheStore implements CacheStore {
   constructor(
-    private readonly projectRoot: AbsolutePath,
+    private readonly projectId: ProjectId,
     private readonly db: ExecutableDb,
     private readonly cacheDir: AbsolutePath,
     private readonly clock: Clock,
@@ -58,9 +59,9 @@ export class SqliteCacheStore implements CacheStore {
     const nowSql = isoToSqliteDatetime(this.clock.now());
     const rows = this.db
       .prepare(
-        "SELECT cache_key, file_path, file_tree_hash, created_at, expires_at FROM cache_metadata WHERE cache_key = ? AND expires_at > ? AND project_root = ?",
+        "SELECT cache_key, file_path, file_tree_hash, created_at, expires_at FROM cache_metadata WHERE cache_key = ? AND expires_at > ? AND project_id = ?",
       )
-      .all(key, nowSql, this.projectRoot) as readonly {
+      .all(key, nowSql, this.projectId) as readonly {
       cache_key: string;
       file_path: string;
       file_tree_hash: string;
@@ -90,12 +91,12 @@ export class SqliteCacheStore implements CacheStore {
   private deleteRowAndBlobForKey(key: string): void {
     const rows = this.db
       .prepare(
-        "SELECT file_path FROM cache_metadata WHERE cache_key = ? AND project_root = ?",
+        "SELECT file_path FROM cache_metadata WHERE cache_key = ? AND project_id = ?",
       )
-      .all(key, this.projectRoot) as readonly { file_path: string }[];
+      .all(key, this.projectId) as readonly { file_path: string }[];
     this.db
-      .prepare("DELETE FROM cache_metadata WHERE cache_key = ? AND project_root = ?")
-      .run(key, this.projectRoot);
+      .prepare("DELETE FROM cache_metadata WHERE cache_key = ? AND project_id = ?")
+      .run(key, this.projectId);
     const row = rows[0];
     if (row !== undefined) {
       try {
@@ -123,7 +124,7 @@ export class SqliteCacheStore implements CacheStore {
     const expiresSql = isoToSqliteDatetime(entry.expiresAt);
     this.db
       .prepare(
-        "INSERT OR REPLACE INTO cache_metadata (cache_key, file_path, file_tree_hash, created_at, expires_at, project_root) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT OR REPLACE INTO cache_metadata (cache_key, file_path, file_tree_hash, created_at, expires_at, project_id) VALUES (?, ?, ?, ?, ?, ?)",
       )
       .run(
         entry.key,
@@ -131,7 +132,7 @@ export class SqliteCacheStore implements CacheStore {
         entry.fileTreeHash,
         createdSql,
         expiresSql,
-        this.projectRoot,
+        this.projectId,
       );
   }
 
@@ -141,8 +142,8 @@ export class SqliteCacheStore implements CacheStore {
 
   invalidateAll(): void {
     const rows = this.db
-      .prepare("SELECT file_path FROM cache_metadata WHERE project_root = ?")
-      .all(this.projectRoot) as readonly { file_path: string }[];
+      .prepare("SELECT file_path FROM cache_metadata WHERE project_id = ?")
+      .all(this.projectId) as readonly { file_path: string }[];
     for (const row of rows) {
       try {
         fs.unlinkSync(row.file_path);
@@ -151,17 +152,17 @@ export class SqliteCacheStore implements CacheStore {
       }
     }
     this.db
-      .prepare("DELETE FROM cache_metadata WHERE project_root = ?")
-      .run(this.projectRoot);
+      .prepare("DELETE FROM cache_metadata WHERE project_id = ?")
+      .run(this.projectId);
   }
 
   purgeExpired(): void {
     const nowSql = isoToSqliteDatetime(this.clock.now());
     const rows = this.db
       .prepare(
-        "SELECT file_path FROM cache_metadata WHERE expires_at <= ? AND project_root = ?",
+        "SELECT file_path FROM cache_metadata WHERE expires_at <= ? AND project_id = ?",
       )
-      .all(nowSql, this.projectRoot) as readonly { file_path: string }[];
+      .all(nowSql, this.projectId) as readonly { file_path: string }[];
     for (const row of rows) {
       try {
         fs.unlinkSync(row.file_path);
@@ -170,13 +171,13 @@ export class SqliteCacheStore implements CacheStore {
       }
     }
     this.db
-      .prepare("DELETE FROM cache_metadata WHERE expires_at <= ? AND project_root = ?")
-      .run(nowSql, this.projectRoot);
+      .prepare("DELETE FROM cache_metadata WHERE expires_at <= ? AND project_id = ?")
+      .run(nowSql, this.projectId);
     const validPaths = new Set(
       (
         this.db
-          .prepare("SELECT file_path FROM cache_metadata WHERE project_root = ?")
-          .all(this.projectRoot) as readonly { file_path: string }[]
+          .prepare("SELECT file_path FROM cache_metadata WHERE project_id = ?")
+          .all(this.projectId) as readonly { file_path: string }[]
       ).map((r) => r.file_path),
     );
     const names = fs.readdirSync(this.cacheDir);
