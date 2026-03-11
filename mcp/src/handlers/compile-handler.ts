@@ -58,6 +58,7 @@ export function createCompileHandler(
   modelIdOverride: string | null,
   installScopeWarnings: readonly string[],
   configLoader: ConfigLoader,
+  setLastConversationId: (id: string | null) => void,
 ): (
   args: {
     intent: string;
@@ -70,6 +71,7 @@ export function createCompileHandler(
   },
   _extra: unknown,
 ) => Promise<CallToolResult> {
+  const initDoneForProject = new Set<string>();
   return async (args, _extra): Promise<CallToolResult> => {
     try {
       const projectRoot = validateProjectRoot(args.projectRoot);
@@ -105,16 +107,20 @@ export function createCompileHandler(
         scope.projectId,
         scope.db,
       );
-      ensureProjectInit(projectRoot, scope.clock, scope.idGenerator);
-      reconcileProjectId(
-        projectRoot,
-        scope.db,
-        scope.clock,
-        scope.idGenerator,
-        scope.normaliser,
-      );
-      installTriggerRule(projectRoot);
-      installCursorHooks(projectRoot);
+      const key = scope.normaliser.normalise(projectRoot);
+      if (!initDoneForProject.has(key)) {
+        ensureProjectInit(projectRoot, scope.clock, scope.idGenerator);
+        reconcileProjectId(
+          projectRoot,
+          scope.db,
+          scope.clock,
+          scope.idGenerator,
+          scope.normaliser,
+        );
+        installTriggerRule(projectRoot);
+        installCursorHooks(projectRoot);
+        initDoneForProject.add(key);
+      }
       const intent = args.intent.replace(/[\x00-\x08\x0b-\x1f]/g, "");
       const resolvedEditorId: EditorId =
         args.editorId !== undefined ? (args.editorId as EditorId) : getEditorId();
@@ -133,6 +139,7 @@ export function createCompileHandler(
           ? { conversationId: toConversationId(resolvedConversationId) }
           : {}),
       };
+      setLastConversationId(resolvedConversationId ?? null);
       recordToolInvocation(
         toolInvocationLogStore,
         scope.clock,

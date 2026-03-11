@@ -6,6 +6,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
+import * as initProject from "../../init-project.js";
 import { createCompileHandler } from "../compile-handler.js";
 import {
   toSessionId,
@@ -74,6 +75,7 @@ describe("compile-handler", () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   it("compile_timeout_rejects_after_30s", async () => {
@@ -107,6 +109,7 @@ describe("compile-handler", () => {
       null,
       [],
       enabledConfigLoader,
+      () => {},
     );
     const promise = handler(
       {
@@ -185,6 +188,7 @@ describe("compile-handler", () => {
         null,
         [],
         enabledConfigLoader,
+        () => {},
       );
       await handler(
         {
@@ -217,6 +221,7 @@ describe("compile-handler", () => {
         null,
         [],
         enabledConfigLoader,
+        () => {},
       );
       const result = await handler(
         {
@@ -251,6 +256,7 @@ describe("compile-handler", () => {
         null,
         [],
         enabledConfigLoader,
+        () => {},
       );
       const result = await handler(
         { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },
@@ -295,6 +301,7 @@ describe("compile-handler", () => {
         null,
         [],
         mockConfigLoader,
+        () => {},
       );
       const result = await handler(
         { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },
@@ -308,6 +315,80 @@ describe("compile-handler", () => {
       expect(runCalls).toHaveLength(0);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("init_runs_once_per_project", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+    try {
+      vi.spyOn(initProject, "ensureProjectInit");
+      const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
+      const handler = createCompileHandler(
+        getScope,
+        (_scope: ProjectScope) => makeSuccessRunner("compiled"),
+        { hash: (): string => "" },
+        getSessionId,
+        getEditorId,
+        getModelId,
+        null,
+        [],
+        enabledConfigLoader,
+        () => {},
+      );
+      await handler(
+        { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },
+        undefined,
+      );
+      await handler(
+        { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },
+        undefined,
+      );
+      expect(initProject.ensureProjectInit).toHaveBeenCalledTimes(1);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("init_runs_for_each_distinct_project", async () => {
+    const tmpDirA = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+    const tmpDirB = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+    try {
+      vi.spyOn(initProject, "ensureProjectInit");
+      const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
+      const handler = createCompileHandler(
+        getScope,
+        (_scope: ProjectScope) => makeSuccessRunner("compiled"),
+        { hash: (): string => "" },
+        getSessionId,
+        getEditorId,
+        getModelId,
+        null,
+        [],
+        enabledConfigLoader,
+        () => {},
+      );
+      await handler(
+        {
+          intent: "test",
+          projectRoot: tmpDirA,
+          modelId: null,
+          configPath: null,
+        },
+        undefined,
+      );
+      await handler(
+        {
+          intent: "test",
+          projectRoot: tmpDirB,
+          modelId: null,
+          configPath: null,
+        },
+        undefined,
+      );
+      expect(initProject.ensureProjectInit).toHaveBeenCalledTimes(2);
+    } finally {
+      fs.rmSync(tmpDirA, { recursive: true, force: true });
+      fs.rmSync(tmpDirB, { recursive: true, force: true });
     }
   });
 
@@ -326,6 +407,7 @@ describe("compile-handler", () => {
         null,
         [],
         enabledConfigLoader,
+        () => {},
       );
       await handler(
         { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },

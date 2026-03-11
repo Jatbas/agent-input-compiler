@@ -272,6 +272,10 @@ export function createMcpServer(
   const getSessionId = (): SessionId => sessionContext.getSessionId();
   const getModelId = (editorId: EditorId): string | null =>
     modelDetector.detect(editorId);
+  const lastConversationIdRef: { current: string | null } = { current: null };
+  const setLastConversationId = (id: string | null): void => {
+    lastConversationIdRef.current = id;
+  };
   server.tool(
     "aic_compile",
     "Compile intent-specific project context. MUST be called as your FIRST action on EVERY message — including follow-ups in the same chat. Each message has a different intent that needs fresh context. Never skip.",
@@ -286,6 +290,7 @@ export function createMcpServer(
       configModelId,
       installScopeWarnings,
       configLoader,
+      setLastConversationId,
     ),
   );
   server.tool("aic_inspect", InspectRequestSchema, (args) =>
@@ -297,6 +302,23 @@ export function createMcpServer(
       startupScope.idGenerator,
       getSessionId,
     ),
+  );
+  const aicProjectsParams: z.ZodRawShape = {};
+  server.tool(
+    "aic_projects",
+    "List all known AIC projects (project ID, path, last seen, compilation count).",
+    aicProjectsParams,
+    () => {
+      const statusStore = new SqliteStatusStore(
+        startupScope.projectId,
+        startupScope.db,
+        startupScope.clock,
+      );
+      const list = statusStore.listProjects();
+      return Promise.resolve({
+        content: [{ type: "text" as const, text: JSON.stringify(list) }],
+      });
+    },
   );
   server.tool(
     "aic_chat_summary",
@@ -326,12 +348,25 @@ export function createMcpServer(
           startupScope.db,
           startupScope.clock,
         );
-        const summary =
-          conversationId !== null
-            ? statusStore.getConversationSummary(conversationId)
-            : null;
+        let summary: Awaited<ReturnType<SqliteStatusStore["getConversationSummary"]>> =
+          null;
+        let projectRootStr = "";
+        if (conversationId !== null) {
+          const projectId = statusStore.getProjectIdForConversation(conversationId);
+          if (projectId !== null) {
+            const root = statusStore.getProjectRoot(projectId);
+            projectRootStr = root ?? "";
+            const projectStore = new SqliteStatusStore(
+              projectId,
+              startupScope.db,
+              startupScope.clock,
+            );
+            summary = projectStore.getConversationSummary(conversationId);
+          }
+        }
         const payload = summary ?? {
           conversationId: idForPayload,
+          projectRoot: projectRootStr,
           compilationsInConversation: 0,
           cacheHitRatePct: null,
           avgReductionPct: null,
@@ -357,7 +392,25 @@ export function createMcpServer(
       startupScope.db,
       startupScope.clock,
     );
-    const summary = statusStore.getSummary();
+    const lastConvId = lastConversationIdRef.current;
+    let summary: ReturnType<SqliteStatusStore["getSummary"]>;
+    if (lastConvId === null) {
+      summary = statusStore.getSummary();
+    } else {
+      const projectId = statusStore.getProjectIdForConversation(
+        toConversationId(lastConvId),
+      );
+      if (projectId === null) {
+        summary = statusStore.getSummary();
+      } else {
+        const scopedStore = new SqliteStatusStore(
+          projectId,
+          startupScope.db,
+          startupScope.clock,
+        );
+        summary = scopedStore.getSummary();
+      }
+    }
     const last = summary.lastCompilation;
     const lastPayload =
       last === null
@@ -390,7 +443,7 @@ export function createMcpServer(
       startupScope.db,
       startupScope.clock,
     );
-    const summary = statusStore.getSummary();
+    const summary = statusStore.getGlobalSummary();
     const budgetMaxTokens = budgetConfig.getMaxTokens();
     const budgetUtilizationPct =
       summary.lastCompilation !== null

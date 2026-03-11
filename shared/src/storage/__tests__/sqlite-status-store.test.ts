@@ -444,6 +444,148 @@ describe("SqliteStatusStore", () => {
     }
   });
 
+  it("getGlobalSummary_empty_db", () => {
+    db = new Database(":memory:");
+    migration.up(db);
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(
+      TEST_PROJECT_ID,
+      "/test/project",
+      "2026-01-01T00:00:00.000Z",
+      "2026-01-01T00:00:00.000Z",
+    );
+    store = new SqliteStatusStore(
+      TEST_PROJECT_ID,
+      db as unknown as ExecutableDb,
+      stubClock,
+    );
+    const summary = store.getGlobalSummary();
+    expect(summary.compilationsTotal).toBe(0);
+    expect(summary.compilationsToday).toBe(0);
+    expect(summary.cacheHitRatePct).toBeNull();
+    expect(summary.avgReductionPct).toBeNull();
+    expect(summary.totalTokensRaw).toBe(0);
+    expect(summary.totalTokensCompiled).toBe(0);
+    expect(summary.projectsBreakdown).toBeUndefined();
+  });
+
+  it("getGlobalSummary_multiple_projects", () => {
+    setup();
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000090", {
+      intent: "proj1",
+      tokens_raw: 100,
+      tokens_compiled: 50,
+      created_at: "2026-02-26T10:00:00.000Z",
+    });
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000091", {
+      project_id: OTHER_PROJECT_ID,
+      intent: "proj2",
+      tokens_raw: 200,
+      tokens_compiled: 80,
+      created_at: "2026-02-26T10:01:00.000Z",
+    });
+    const summary = store.getGlobalSummary();
+    expect(summary.compilationsTotal).toBe(2);
+    expect(summary.totalTokensRaw).toBe(300);
+    expect(summary.totalTokensCompiled).toBe(130);
+    expect(summary.projectsBreakdown).toBeDefined();
+    expect(summary.projectsBreakdown).toHaveLength(2);
+  });
+
+  it("getProjectIdForConversation_missing", () => {
+    setup();
+    const result = store.getProjectIdForConversation(
+      toConversationId("conv-nonexistent"),
+    );
+    expect(result).toBeNull();
+  });
+
+  it("getProjectIdForConversation_returns_most_recent_project", () => {
+    setup();
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000092", {
+      conversation_id: "conv-multi",
+      project_id: TEST_PROJECT_ID,
+      created_at: "2026-02-26T09:00:00.000Z",
+    });
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000093", {
+      conversation_id: "conv-multi",
+      project_id: OTHER_PROJECT_ID,
+      created_at: "2026-02-26T10:00:00.000Z",
+    });
+    const result = store.getProjectIdForConversation(toConversationId("conv-multi"));
+    expect(result).toBe(OTHER_PROJECT_ID);
+  });
+
+  it("getLastCompilationForProject", () => {
+    setup();
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000094", {
+      intent: "last for A",
+      project_id: TEST_PROJECT_ID,
+      created_at: "2026-02-26T11:00:00.000Z",
+    });
+    const last = store.getLastCompilationForProject(TEST_PROJECT_ID);
+    expect(last).not.toBeNull();
+    if (last !== null) {
+      expect(last.intent).toBe("last for A");
+    }
+    const otherLast = store.getLastCompilationForProject(OTHER_PROJECT_ID);
+    expect(otherLast).toBeNull();
+  });
+
+  it("getProjectRoot", () => {
+    setup();
+    const root = store.getProjectRoot(TEST_PROJECT_ID);
+    expect(root).toBe("/test/project");
+    const unknown = store.getProjectRoot(
+      toProjectId("018f0000-0000-7000-8000-000000000099"),
+    );
+    expect(unknown).toBeNull();
+  });
+
+  it("listProjects", () => {
+    db = new Database(":memory:");
+    migration.up(db);
+    store = new SqliteStatusStore(
+      TEST_PROJECT_ID,
+      db as unknown as ExecutableDb,
+      stubClock,
+    );
+    const empty = store.listProjects();
+    expect(empty).toHaveLength(0);
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(
+      TEST_PROJECT_ID,
+      "/test/project",
+      "2026-01-01T00:00:00.000Z",
+      "2026-01-01T00:00:00.000Z",
+    );
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(
+      OTHER_PROJECT_ID,
+      "/other/project",
+      "2026-01-01T00:00:00.000Z",
+      "2026-01-01T00:00:00.000Z",
+    );
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000095", {
+      project_id: TEST_PROJECT_ID,
+    });
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000096", {
+      project_id: OTHER_PROJECT_ID,
+    });
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000097", {
+      project_id: OTHER_PROJECT_ID,
+    });
+    const list = store.listProjects();
+    expect(list).toHaveLength(2);
+    const testProj = list.find((p) => p.projectId === TEST_PROJECT_ID);
+    const otherProj = list.find((p) => p.projectId === OTHER_PROJECT_ID);
+    expect(testProj?.compilationCount).toBe(1);
+    expect(otherProj?.compilationCount).toBe(2);
+  });
+
   it("sqlite_status_store_summary_and_conversation", () => {
     setup();
     insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000080", {

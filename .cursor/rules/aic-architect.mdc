@@ -99,6 +99,7 @@ Use these rules for all three AIC prompt commands. Present data like a polished 
 
   | JSON key                      | Label               | Format                                         |
   | ----------------------------- | ------------------- | ---------------------------------------------- |
+  | projectRoot                   | Project path        | text                                           |
   | compilationsInConversation    | Compilations        | number                                         |
   | totalTokensRaw                | Tokens (raw)        | formatted with commas                          |
   | totalTokensCompiled           | Tokens (compiled)   | formatted with commas                          |
@@ -120,6 +121,8 @@ Use these rules for all three AIC prompt commands. Present data like a polished 
   | editorId                   | Editor          | text                                                          |
   | guard status               | Guard           | "Passed" or "N findings (types)"                              |
   | compiledPrompt             | Compiled prompt | "Available (N chars) — ask to see it", or omit if not present |
+
+- **"show aic projects"** — When the user says this (or similar), call the MCP tool `aic_projects` (no arguments). Start the reply with one short line: **Projects = known AIC projects.** Display a formatted table with columns: Project ID, Path, Last seen, Compilation count. Use same general formatting rules (human-readable labels, commas for numbers, relative time for last seen, — for null).
 
 ## Maintenance
 

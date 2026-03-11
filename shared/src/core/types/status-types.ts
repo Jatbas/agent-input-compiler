@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
+import type { ProjectId } from "@jatbas/aic-core/core/types/identifiers.js";
 import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { FilePath } from "@jatbas/aic-core/core/types/paths.js";
 
@@ -38,8 +39,22 @@ export interface StatusAggregates {
   readonly installationNotes: string | null;
 }
 
+export type LastCompilationSnapshot = NonNullable<StatusAggregates["lastCompilation"]>;
+
+export interface ProjectListItem {
+  readonly projectId: ProjectId;
+  readonly projectRoot: AbsolutePath;
+  readonly lastSeenAt: string;
+  readonly compilationCount: number;
+}
+
+export interface GlobalStatusAggregates extends StatusAggregates {
+  readonly projectsBreakdown?: readonly ProjectListItem[];
+}
+
 export interface ConversationSummary {
   readonly conversationId: string;
+  readonly projectRoot: string;
   readonly compilationsInConversation: number;
   readonly cacheHitRatePct: number | null;
   readonly avgReductionPct: number | null;

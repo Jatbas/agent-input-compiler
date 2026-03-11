@@ -61,6 +61,7 @@ describe("MCP server", () => {
     expect(names).toContain("aic_compile");
     expect(names).toContain("aic_inspect");
     expect(names).toContain("aic_chat_summary");
+    expect(names).toContain("aic_projects");
   });
 
   it("status_resource_returns_json", async () => {
@@ -250,6 +251,141 @@ describe("MCP server", () => {
         "tokenCount" in parsed["promptSummary"],
     ).toBe(true);
     expect(Object.prototype.hasOwnProperty.call(parsed, "compiledPrompt")).toBe(false);
+  });
+
+  it("status_resource_global_with_breakdown", async () => {
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
+    const tmpDir2 = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
+    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+    await server.connect(transportServer);
+    const client = new Client({ name: "test", version: "1.0" });
+    await client.connect(transportClient);
+    await client.callTool({
+      name: "aic_compile",
+      arguments: { intent: "first project", projectRoot: tmpDir },
+    });
+    await client.callTool({
+      name: "aic_compile",
+      arguments: { intent: "second project", projectRoot: tmpDir2 },
+    });
+    const result = await client.readResource({ uri: "aic://status" });
+    const first = result.contents[0];
+    const rawText: string =
+      first && "text" in first && typeof first.text === "string" ? first.text : "{}";
+    const parsed = JSON.parse(rawText) as { projectsBreakdown?: unknown[] };
+    expect(parsed.projectsBreakdown).toBeDefined();
+    expect(Array.isArray(parsed.projectsBreakdown)).toBe(true);
+    expect(parsed.projectsBreakdown).toHaveLength(2);
+    if (tmpDir2 !== undefined && fs.existsSync(tmpDir2)) {
+      fs.rmSync(tmpDir2, { recursive: true, force: true });
+    }
+  });
+
+  it("last_resource_scoped_by_conversation", async () => {
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
+    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+    await server.connect(transportServer);
+    const client = new Client({ name: "test", version: "1.0" });
+    await client.connect(transportClient);
+    await client.callTool({
+      name: "aic_compile",
+      arguments: {
+        intent: "scoped intent",
+        projectRoot: tmpDir,
+        conversationId: "conv-scoped-last",
+      },
+    });
+    const result = await client.readResource({ uri: "aic://last" });
+    const first = result.contents[0];
+    const rawText: string =
+      first && "text" in first && typeof first.text === "string" ? first.text : "{}";
+    const parsed = JSON.parse(rawText) as {
+      lastCompilation: { intent: string } | null;
+    };
+    expect(parsed.lastCompilation).not.toBeNull();
+    if (parsed.lastCompilation !== null) {
+      expect(parsed.lastCompilation.intent).toBe("scoped intent");
+    }
+  });
+
+  it("aic_chat_summary_includes_projectRoot", async () => {
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
+    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+    await server.connect(transportServer);
+    const client = new Client({ name: "test", version: "1.0" });
+    await client.connect(transportClient);
+    const compileResult = await client.callTool({
+      name: "aic_compile",
+      arguments: {
+        intent: "chat summary test",
+        projectRoot: tmpDir,
+        conversationId: "conv-project-root",
+      },
+    });
+    const compileContent = (compileResult as { content?: { text?: string }[] }).content;
+    const compileText = Array.isArray(compileContent)
+      ? compileContent.map((c) => c?.text ?? "").join("")
+      : "";
+    const compileParsed = JSON.parse(compileText || "{}") as {
+      conversationId: string | null;
+    };
+    const convId = compileParsed.conversationId ?? "conv-project-root";
+    const summaryResult = await client.callTool({
+      name: "aic_chat_summary",
+      arguments: { conversationId: convId },
+    });
+    const summaryContent = (summaryResult as { content?: { text?: string }[] }).content;
+    const summaryText = Array.isArray(summaryContent)
+      ? summaryContent.map((c) => c?.text ?? "").join("")
+      : "";
+    const summaryParsed = JSON.parse(summaryText || "{}") as {
+      projectRoot?: string;
+    };
+    expect(Object.prototype.hasOwnProperty.call(summaryParsed, "projectRoot")).toBe(true);
+    expect(typeof summaryParsed.projectRoot).toBe("string");
+    expect(summaryParsed.projectRoot).toBe(tmpDir);
+  });
+
+  it("aic_projects_returns_list", async () => {
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
+    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+    await server.connect(transportServer);
+    const client = new Client({ name: "test", version: "1.0" });
+    await client.connect(transportClient);
+    await client.callTool({
+      name: "aic_compile",
+      arguments: { intent: "ensure project", projectRoot: tmpDir },
+    });
+    const result = await client.callTool({
+      name: "aic_projects",
+      arguments: {},
+    });
+    const content = (result as { content?: { text?: string }[] }).content;
+    const text = Array.isArray(content) ? content.map((c) => c?.text ?? "").join("") : "";
+    const list = JSON.parse(text || "[]") as unknown[];
+    expect(Array.isArray(list)).toBe(true);
+    expect(list.length).toBeGreaterThanOrEqual(1);
+    const first = list[0] as {
+      projectId?: string;
+      projectRoot?: string;
+      compilationCount?: number;
+    };
+    expect(first).toBeDefined();
+    expect(typeof first?.projectId).toBe("string");
+    expect(typeof first?.projectRoot).toBe("string");
+    expect(typeof first?.compilationCount).toBe("number");
   });
 
   it("last_resource_empty_db", async () => {
