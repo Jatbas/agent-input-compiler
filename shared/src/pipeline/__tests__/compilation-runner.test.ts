@@ -350,6 +350,61 @@ describe("CompilationRunner", () => {
     expect(second.compiledPrompt).toBe(first.compiledPrompt);
   }, 30_000);
 
+  it("cache_hit_same_repo_map_reference", async () => {
+    const sharedRepoMap = buildFixtureRepoMap(fixtureRoot);
+    const sameRefSupplier: RepoMapSupplier = {
+      getRepoMap() {
+        return Promise.resolve(sharedRepoMap);
+      },
+    };
+    let hashCallCount = 0;
+    const stringHasher: StringHasher = {
+      hash(_input: string) {
+        hashCallCount += 1;
+        return "fixed-hash";
+      },
+    };
+    const cacheStore = createInMemoryCacheStore();
+    const configStore: ConfigStore = {
+      getLatestHash: () => null,
+      writeSnapshot() {},
+    };
+    const { guardStore, compilationLogStore } = createGuardAndLogMocks();
+    const deps = {
+      intentClassifier,
+      rulePackResolver,
+      budgetAllocator,
+      contextSelector: heuristicSelector,
+      contextGuard,
+      contentTransformerPipeline,
+      summarisationLadder,
+      lineLevelPruner: new LineLevelPruner(tiktokenAdapter, fileContentReader),
+      promptAssembler,
+      intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
+      repoMapSupplier: sameRefSupplier,
+      tokenCounter: tiktokenAdapter,
+      specFileDiscoverer: new SpecFileDiscoverer(),
+      conversationCompressor: new ConversationCompressorImpl(),
+      structuralMapBuilder: new StructuralMapBuilder(),
+    };
+    const runner = new CompilationRunner(
+      deps,
+      mockClock,
+      cacheStore,
+      configStore,
+      stringHasher,
+      guardStore,
+      compilationLogStore,
+      mockIdGenerator,
+      null,
+    );
+    const request = makeRequest(fixtureRoot);
+    await runner.run(request);
+    await runner.run(request);
+    // First run: hash(serialized repo map) + hash(cache key). Second run: hash(cache key) only (repo map hash from WeakMap cache).
+    expect(hashCallCount).toBe(3);
+  }, 30_000);
+
   it("repo_map_supplier_throws_run_rejects", async () => {
     const rejectingRepoMapSupplier: RepoMapSupplier = {
       getRepoMap() {

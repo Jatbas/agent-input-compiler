@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 44/67 done
+**Phase 1.0:** 45/67 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -183,10 +183,10 @@ Remove synchronous filesystem operations from the compile request path. Currentl
 
 Reduce per-request heap allocations and redundant computation in the compilation hot path. Fewer short-lived objects mean less GC pressure; cached intermediate results avoid repeated work.
 
-| Component                                                 | Status  | Package              | Deps | Description                                                                                                                                                                                                                                                                                                                                                                                                       |
-| --------------------------------------------------------- | ------- | -------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P06: Replace object spread in `recordSessionStepIfNeeded` | Done    | shared/src/pipeline/ | —    | `compilation-runner.ts` line 218–219 uses `{ ...acc, [f.path]: f.tier }` inside a `reduce`, creating a new object on every iteration. Replace with `Object.fromEntries(r.prunedFiles.map(f => [f.path, f.tier]))` or mutable accumulation. For a 50-file compilation, this eliminates 49 intermediate object allocations.                                                                                         |
-| P07: Cache `serializeRepoMap` hash per repo map instance  | Pending | shared/src/pipeline/ | —    | `serializeRepoMap()` in `compilation-runner.ts` creates a sorted copy of `repoMap.files` and serializes it on every `CompilationRunner.run()` call (line 307). Since `WatchingRepoMapSupplier` returns the same `RepoMap` reference until invalidated, cache the hash alongside the repo map reference using a `WeakMap<RepoMap, string>`. Eliminates array sort + string construction on cache-hit compilations. |
+| Component                                                 | Status | Package              | Deps | Description                                                                                                                                                                                                                                                                                                                                                                                                       |
+| --------------------------------------------------------- | ------ | -------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P06: Replace object spread in `recordSessionStepIfNeeded` | Done   | shared/src/pipeline/ | —    | `compilation-runner.ts` line 218–219 uses `{ ...acc, [f.path]: f.tier }` inside a `reduce`, creating a new object on every iteration. Replace with `Object.fromEntries(r.prunedFiles.map(f => [f.path, f.tier]))` or mutable accumulation. For a 50-file compilation, this eliminates 49 intermediate object allocations.                                                                                         |
+| P07: Cache `serializeRepoMap` hash per repo map instance  | Done   | shared/src/pipeline/ | —    | `serializeRepoMap()` in `compilation-runner.ts` creates a sorted copy of `repoMap.files` and serializes it on every `CompilationRunner.run()` call (line 307). Since `WatchingRepoMapSupplier` returns the same `RepoMap` reference until invalidated, cache the hash alongside the repo map reference using a `WeakMap<RepoMap, string>`. Eliminates array sort + string construction on cache-hit compilations. |
 
 ### Phase Z — Memory Bounds
 
@@ -633,11 +633,12 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2026-03-12
 
-**Components:** P06 object spread replacement, real-project integration test flakiness fix
+**Components:** P06 object spread replacement, P07 repo map hash cache, real-project integration test flakiness fix
 **Completed:**
 
 - P06 (perf): Replace reduce-with-spread in `recordSessionStepIfNeeded` with `Object.fromEntries(r.prunedFiles.map(...))` — eliminates N−1 intermediate object allocations per compilation
 - Fix `real_project_second_run_cache_hit` flakiness: `WatchingRepoMapSupplier` fs.watch events fired between two `runner.run()` calls (triggered by DB writes), mutating `lastModified` in the cached repo map and busting the cache key; replaced with `FileSystemRepoMapSupplier` (no watcher) in the integration test
+- P07 (perf): Cache file-tree hash per `RepoMap` instance in `CompilationRunner` via `WeakMap<RepoMap, string>`; repeat compilations with same repo map reference skip `serializeRepoMap` + `stringHasher.hash`; test `cache_hit_same_repo_map_reference` asserts hash invoked once for two runs
 
 ### 2026-03-11
 

@@ -287,6 +287,8 @@ function runFreshPath(
 }
 
 export class CompilationRunner implements ICompilationRunner {
+  private readonly repoMapHashCache = new WeakMap<RepoMap, string>();
+
   constructor(
     private readonly deps: PipelineStepsDeps,
     private readonly clock: Clock,
@@ -303,7 +305,14 @@ export class CompilationRunner implements ICompilationRunner {
     request: CompilationRequest,
   ): Promise<{ compiledPrompt: string; meta: CompilationMeta; compilationId: UUIDv7 }> {
     const repoMap = await this.deps.repoMapSupplier.getRepoMap(request.projectRoot);
-    const fileTreeHash = this.stringHasher.hash(serializeRepoMap(repoMap));
+    const fileTreeHash = ((): string => {
+      const cached = this.repoMapHashCache.get(repoMap);
+      if (cached !== undefined) return cached;
+      const serialized = serializeRepoMap(repoMap);
+      const hash = this.stringHasher.hash(serialized);
+      this.repoMapHashCache.set(repoMap, hash);
+      return hash;
+    })();
     const configHash = this.configStore.getLatestHash() ?? "";
     const configHashOrNull = configHash === "" ? null : configHash;
     const sessionId = request.sessionId ?? null;
