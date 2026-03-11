@@ -64,19 +64,19 @@ Deliver a working **MCP server** that compiles optimal context for AI coding too
 
 **Primary: MCP Server (`@aic/mcp`)**
 
-| Feature              | Detail                                                                                                                                      |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| **MCP Server**       | Primary interface — exposes `aic_compile` tool; called by trigger rule or integration hooks                                                 |
-| Editor adapters      | Cursor, Claude Code, Generic MCP fallback                                                                                                   |
-| Model adapters       | OpenAI, Anthropic, Ollama, Generic fallback (auto-detected from request)                                                                    |
-| Task Classifier      | Heuristic keyword/pattern matching → 6 task classes                                                                                         |
-| HeuristicSelector    | File-path, import-graph, recency-based context selection                                                                                    |
-| Context Guard        | Scans selected files for secrets, excluded paths, and prompt injection; blocks sensitive content before it reaches the Summarisation Ladder |
-| Summarisation Ladder | 4-tier compression: full → signatures+docs → signatures → names                                                                             |
-| Default Rule Packs   | `default.json`, `refactor.json`, `bugfix.json`, `feature.json`, `docs.json`, `test.json`                                                    |
-| SQLite Storage       | Local telemetry + cache metadata                                                                                                            |
-| Output Caching       | Hash-based, TTL-configurable, auto-invalidating                                                                                             |
-| Config System        | `aic.config.json` — all fields optional; zero-config works out of the box                                                                   |
+| Feature              | Detail                                                                                                                       |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **MCP Server**       | Primary interface — exposes `aic_compile` tool; called by trigger rule or integration hooks                                  |
+| Editor adapters      | Cursor, Claude Code, Generic MCP fallback                                                                                    |
+| Model adapters       | OpenAI, Anthropic, Ollama, Generic fallback (auto-detected from request)                                                     |
+| Task Classifier      | Heuristic keyword/pattern matching → 6 task classes                                                                          |
+| HeuristicSelector    | File-path, import-graph, recency-based context selection                                                                     |
+| Context Guard        | Scans selected files for secrets, excluded paths, and prompt injection; excludes sensitive content from the compiled context |
+| Summarisation Ladder | 4-tier compression: full → signatures+docs → signatures → names                                                              |
+| Default Rule Packs   | `default.json`, `refactor.json`, `bugfix.json`, `feature.json`, `docs.json`, `test.json`                                     |
+| SQLite Storage       | Local telemetry + cache metadata                                                                                             |
+| Output Caching       | Hash-based, TTL-configurable, auto-invalidating                                                                              |
+| Config System        | `aic.config.json` — all fields optional; zero-config works out of the box                                                    |
 
 **User Interface (MCP-only — no separate CLI)**
 
@@ -236,7 +236,9 @@ Full scoring detail with normalisation methods: [Project Plan §8](project-plan.
 
 **Input:** `ContextResult` from Step 4
 
-**Purpose:** Scans every selected file before it reaches the Summarisation Ladder. Prevents secrets, excluded paths, and prompt injection patterns from entering the compiled prompt.
+**Purpose:** Scans every selected file before it reaches the Summarisation Ladder. Excludes secrets, excluded paths, and prompt injection patterns from the compiled context.
+
+> **Scope:** Context Guard controls what AIC includes in the compiled prompt. It does not prevent models from reading excluded files directly through editor-provided tools (`read_file`, `Shell`). Direct file access is governed by the editor's permission model (e.g. `.cursorignore`).
 
 **Checks run in order (MVP):**
 
@@ -253,12 +255,12 @@ Full scoring detail with normalisation methods: [Project Plan §8](project-plan.
 
 **Prompt injection patterns (MVP):** 6 regex patterns covering instruction override, persona hijack, fake system prompt headers, constraint override, and model-specific special token injection (OpenAI chat markup, Llama/Mistral instruction tokens). See [Project Plan §8.4](project-plan.md) for the full pattern table and false-positive mitigation guidance.
 
-**Behaviour on blocking:**
+**Behaviour on exclusion:**
 
-- Blocked files are removed from the file list before it is passed to the Summarisation Ladder
+- Excluded files are removed from the file list before it is passed to the Summarisation Ladder
 - The pipeline never fails due to Guard findings — it filters and continues
 - `GuardResult` is attached to `CompilationMeta.guard`; the editor can surface a warning to the developer
-- If all selected files are blocked, the pipeline returns an empty context with a `guard.passed: false` indicator
+- If all selected files are excluded, the pipeline returns an empty context with a `guard.passed: false` indicator
 
 **Guard allow patterns (false-positive escape hatch):**
 
@@ -952,7 +954,7 @@ These topics are specified in full in the [Project Plan](project-plan.md). Below
 
 ### Security (see [Project Plan §12](project-plan.md))
 
-- **Context Guard** scans every selected file before it reaches the model — secrets, credentials, excluded paths, and prompt injection patterns are blocked at Step 5
+- **Context Guard** scans every selected file and excludes secrets, credentials, excluded paths, and prompt injection patterns from the compiled context at Step 5 (note: this does not prevent the model from reading files directly through editor tools)
 - Guard findings are logged in `CompilationMeta.guard` and visible via `aic_inspect`; the pipeline never silently includes sensitive content
 - API keys referenced by env var name only — never stored, logged, or cached
 - `aic_compile` never contacts external services — safe to run on sensitive codebases

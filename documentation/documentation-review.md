@@ -52,7 +52,7 @@ _Fix:_ Include the key requirements inline (SOLID compliance, commit format, tes
 ### What they'd appreciate
 
 - **Shared config via git.** `aic.config.json` committed to the repo means every team member gets the same budget, guard exclusions, and transformer settings. This is the "consistency" problem team leads are trying to solve.
-- **Context Guard.** Secrets blocked before reaching the model gives confidence for compliance conversations with security.
+- **Context Guard.** Secrets excluded from compiled context gives confidence for compliance conversations with security.
 - **Deterministic behavior.** Same input = same output means the team lead can reproduce what team members see, debug their issues, and trust the tool in code review.
 
 ### What would concern them

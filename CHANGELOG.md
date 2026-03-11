@@ -7,6 +7,26 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-03-12
+
+### Added
+
+- Global MCP server with per-project isolation — single `~/.aic/aic.sqlite` database, stable project IDs that survive folder renames, data scoped via foreign keys
+- `aic_projects` tool to list all known projects with compilation stats
+- Per-project disable via `"enabled": false` in `aic.config.json`
+- Project-scoped `aic://status` and `aic://last` resources with per-project breakdown
+- Duplicate-install warning when AIC is registered in both global and workspace configs
+
+### Changed
+
+- Database moved from per-project `.aic/aic.sqlite` to global `~/.aic/aic.sqlite`
+- Install deep-link now registers globally in `~/.cursor/mcp.json` instead of per-workspace
+- Schema migrations consolidated into a single initial migration for faster fresh installs
+- Faster repeat compilations via cached file-tree hash when repo map is unchanged
+- Hot-path compile I/O reduced: async prompt log writes, init/install guarded behind per-project once-flags
+- Lower memory footprint: LRU-bounded file-content cache, bounded runner cache with watcher cleanup
+- Fewer per-request object allocations via cached repo-map hash
+
 ## [0.5.5] - 2026-03-10
 
 ### Changed
