@@ -110,12 +110,13 @@ export const migration: Migration = {
       );
 
       CREATE TABLE IF NOT EXISTS session_state (
-        session_id       TEXT PRIMARY KEY,
+        session_id       TEXT NOT NULL,
         task_intent      TEXT,
         steps_json       TEXT NOT NULL DEFAULT '[]',
         created_at       TEXT NOT NULL,
         last_activity_at TEXT NOT NULL,
-        project_id       TEXT REFERENCES projects(project_id)
+        project_id       TEXT REFERENCES projects(project_id),
+        PRIMARY KEY (session_id, project_id)
       );
 
       CREATE TABLE IF NOT EXISTS file_transform_cache (

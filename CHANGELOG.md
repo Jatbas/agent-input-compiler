@@ -7,6 +7,20 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-03-12
+
+### Fixed
+
+- When AIC is in both global and workspace MCP configs, AIC no longer modifies the workspace config (Cursor was disconnecting the server when the file changed). A clear warning is shown instead with step-by-step instructions to remove the duplicate manually and reload
+- Duplicate-install warning now explains that reloading Cursor is enough and no reinstall or Cursor link is needed
+
+## [0.6.1] - 2026-03-12
+
+### Fixed
+
+- When AIC is registered in both global and workspace MCP configs, the duplicate workspace entry is now removed automatically; a warning is shown in the output console and in the chat asking the user to reload Cursor
+- Multi-project compilations in a single session no longer fail with a session database constraint error
+
 ## [0.6.0] - 2026-03-12
 
 ### Added

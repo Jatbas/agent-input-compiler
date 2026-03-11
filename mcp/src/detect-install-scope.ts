@@ -16,17 +16,25 @@ type CursorMcpConfig = {
   readonly mcpServers?: Readonly<Record<string, unknown>>;
 };
 
-function hasAicEntry(configPath: string): boolean {
-  if (!fs.existsSync(configPath)) return false;
+function readMcpConfig(
+  configPath: string,
+): { parsed: CursorMcpConfig; servers: Readonly<Record<string, unknown>> } | null {
+  if (!fs.existsSync(configPath)) return null;
   try {
     const raw = fs.readFileSync(configPath, "utf8");
     const parsed = JSON.parse(raw) as CursorMcpConfig;
     const servers = parsed.mcpServers;
-    if (servers === undefined) return false;
-    return Object.keys(servers).some((k) => k.toLowerCase() === "aic");
+    if (servers === undefined) return null;
+    return { parsed, servers };
   } catch {
-    return false;
+    return null;
   }
+}
+
+function hasAicEntry(configPath: string): boolean {
+  const config = readMcpConfig(configPath);
+  if (config === null) return false;
+  return Object.keys(config.servers).some((k) => k.toLowerCase() === "aic");
 }
 
 export function detectInstallScope(homeDir: string, projectRoot: string): InstallScope {
@@ -41,21 +49,18 @@ export function detectInstallScope(homeDir: string, projectRoot: string): Instal
 
 export function removeWorkspaceAicEntry(projectRoot: string): boolean {
   const configPath = path.join(projectRoot, ".cursor", "mcp.json");
-  if (!fs.existsSync(configPath)) return false;
+  const config = readMcpConfig(configPath);
+  if (config === null) return false;
+  const aicKey = Object.keys(config.servers).find((k) => k.toLowerCase() === "aic");
+  if (aicKey === undefined) return false;
   try {
-    const raw = fs.readFileSync(configPath, "utf8");
-    const parsed = JSON.parse(raw) as CursorMcpConfig;
-    const servers = parsed.mcpServers;
-    if (servers === undefined) return false;
-    const aicKey = Object.keys(servers).find((k) => k.toLowerCase() === "aic");
-    if (aicKey === undefined) return false;
     const rest: Record<string, unknown> = {};
-    for (const key of Object.keys(servers)) {
+    for (const key of Object.keys(config.servers)) {
       if (key.toLowerCase() !== "aic") {
-        rest[key] = servers[key];
+        rest[key] = config.servers[key];
       }
     }
-    const updated = { ...parsed, mcpServers: rest };
+    const updated = { ...config.parsed, mcpServers: rest };
     fs.writeFileSync(configPath, JSON.stringify(updated, null, 2) + "\n", "utf8");
     return true;
   } catch {
