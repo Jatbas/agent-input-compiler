@@ -23,6 +23,7 @@ import { migration as migration009 } from "../migrations/009-file-transform-cach
 import { migration as migration010 } from "../migrations/010-tool-invocation-log.js";
 import { migration as migration011 } from "../migrations/011-global-project-root.js";
 import { migration as migration012 } from "../migrations/012-normalize-schema.js";
+import { migration as migration013 } from "../migrations/013-project-id-fk.js";
 
 const clock: Clock = {
   now(): ReturnType<typeof toISOTimestamp> {
@@ -255,6 +256,39 @@ describe("SqliteMigrationRunner", () => {
     }[];
     const names = cols.map((c) => c.name);
     expect(names).not.toContain("token_reduction_pct");
+    db.close();
+  });
+
+  it("migration_013_adds_project_id_columns", () => {
+    const db = new Database(":memory:");
+    migration001.up(db);
+    migration002.up(db);
+    migration003.up(db);
+    migration004.up(db);
+    migration005.up(db);
+    migration006.up(db);
+    migration007.up(db);
+    migration008.up(db);
+    migration009.up(db);
+    migration010.up(db);
+    migration011.up(db);
+    migration012.up(db);
+    migration013.up(db);
+    const tablesToCheck = [
+      "compilation_log",
+      "cache_metadata",
+      "tool_invocation_log",
+      "session_state",
+      "file_transform_cache",
+      "config_history",
+    ];
+    for (const table of tablesToCheck) {
+      const cols = db.prepare(`PRAGMA table_info(${table})`).all() as readonly {
+        name: string;
+      }[];
+      const names = cols.map((c) => c.name);
+      expect(names).toContain("project_id");
+    }
     db.close();
   });
 });

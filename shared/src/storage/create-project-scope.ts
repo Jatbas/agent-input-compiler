@@ -4,6 +4,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import type { ProjectId } from "@jatbas/aic-core/core/types/identifiers.js";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import type { IdGenerator } from "@jatbas/aic-core/core/interfaces/id-generator.interface.js";
@@ -40,6 +41,7 @@ export interface ProjectScope {
   readonly sessionTracker: SessionTracker;
   readonly fileTransformStore: FileTransformStore;
   readonly projectRoot: AbsolutePath;
+  readonly projectId: ProjectId;
 }
 
 export function createProjectScope(
@@ -60,7 +62,7 @@ export function createProjectScope(
   const compilationLogStore = new SqliteCompilationLogStore(projectRoot, db);
   const sessionTracker = new SqliteSessionStore(db);
   const fileTransformStore = new SqliteFileTransformStore(projectRoot, db, clock);
-  reconcileProjectId(projectRoot, db, clock, idGenerator, normaliser);
+  const projectId = reconcileProjectId(projectRoot, db, clock, idGenerator, normaliser);
   return {
     db,
     clock,
@@ -74,5 +76,6 @@ export function createProjectScope(
     sessionTracker,
     fileTransformStore,
     projectRoot,
+    projectId,
   };
 }

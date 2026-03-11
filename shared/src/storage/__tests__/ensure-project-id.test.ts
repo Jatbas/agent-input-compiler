@@ -7,7 +7,7 @@ import * as path from "node:path";
 import * as os from "node:os";
 import Database from "better-sqlite3";
 import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
-import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import { toISOTimestamp, toProjectId } from "@jatbas/aic-core/core/types/identifiers.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import type { IdGenerator } from "@jatbas/aic-core/core/interfaces/id-generator.interface.js";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
@@ -25,6 +25,7 @@ import { migration as migration009 } from "../migrations/009-file-transform-cach
 import { migration as migration010 } from "../migrations/010-tool-invocation-log.js";
 import { migration as migration011 } from "../migrations/011-global-project-root.js";
 import { migration as migration012 } from "../migrations/012-normalize-schema.js";
+import { migration as migration013 } from "../migrations/013-project-id-fk.js";
 import { reconcileProjectId, PROJECT_ID_FILENAME } from "../ensure-project-id.js";
 import { NodePathAdapter } from "@jatbas/aic-core/adapters/node-path-adapter.js";
 
@@ -70,6 +71,7 @@ describe("ensure-project-id", () => {
       migration010,
       migration011,
       migration012,
+      migration013,
     ]);
     return db as unknown as ExecutableDb;
   }
@@ -79,7 +81,7 @@ describe("ensure-project-id", () => {
     return tmpDir;
   }
 
-  it("reconcileProjectId_file_missing", () => {
+  it("reconcileProjectId_file_missing_returns_id", () => {
     const projectRoot = toAbsolutePath(mkProjectRoot());
     const clock = mockClock("2026-03-10T12:00:00.000Z");
     const dbInstance = setupDb(clock);
@@ -88,7 +90,14 @@ describe("ensure-project-id", () => {
     expect(fs.existsSync(path.join(projectRoot, ".aic", PROJECT_ID_FILENAME))).toBe(
       false,
     );
-    reconcileProjectId(projectRoot, dbInstance, clock, idGenerator, normaliser);
+    const returned = reconcileProjectId(
+      projectRoot,
+      dbInstance,
+      clock,
+      idGenerator,
+      normaliser,
+    );
+    expect(returned).toBe(toProjectId("018f0000-0000-7000-8000-000000000001"));
     const filePath = path.join(projectRoot, ".aic", PROJECT_ID_FILENAME);
     expect(fs.existsSync(filePath)).toBe(true);
     const uuid = fs.readFileSync(filePath, "utf8").trim();
@@ -101,7 +110,7 @@ describe("ensure-project-id", () => {
     expect(rows[0]?.project_root).toBe(normaliser.normalise(projectRoot));
   });
 
-  it("reconcileProjectId_file_present_insert", () => {
+  it("reconcileProjectId_file_present_insert_returns_id", () => {
     const projectRoot = toAbsolutePath(mkProjectRoot());
     fs.mkdirSync(path.join(projectRoot, ".aic"), { recursive: true, mode: 0o700 });
     const uuid = "018f0000-0000-7000-8000-000000000002";
@@ -110,7 +119,14 @@ describe("ensure-project-id", () => {
     const dbInstance = setupDb(clock);
     const idGenerator = mockIdGenerator(uuid);
     const normaliser = new NodePathAdapter();
-    reconcileProjectId(projectRoot, dbInstance, clock, idGenerator, normaliser);
+    const returned = reconcileProjectId(
+      projectRoot,
+      dbInstance,
+      clock,
+      idGenerator,
+      normaliser,
+    );
+    expect(returned).toBe(toProjectId(uuid));
     const rows = (dbInstance as unknown as Database.Database)
       .prepare("SELECT project_id, project_root, last_seen_at FROM projects")
       .all() as readonly {
@@ -129,7 +145,7 @@ describe("ensure-project-id", () => {
     expect(rows2[0]?.last_seen_at).toBe("2026-03-10T13:00:00.000Z");
   });
 
-  it("reconcileProjectId_match_update_last_seen", () => {
+  it("reconcileProjectId_match_update_last_seen_returns_id", () => {
     const projectRoot = toAbsolutePath(mkProjectRoot());
     fs.mkdirSync(path.join(projectRoot, ".aic"), { recursive: true, mode: 0o700 });
     const uuid = "018f0000-0000-7000-8000-000000000003";
@@ -144,14 +160,21 @@ describe("ensure-project-id", () => {
       )
       .run(uuid, normalisedRoot, "2026-03-10T11:00:00.000Z", "2026-03-10T11:00:00.000Z");
     const idGenerator = mockIdGenerator(uuid);
-    reconcileProjectId(projectRoot, dbInstance, clock, idGenerator, normaliser);
+    const returned = reconcileProjectId(
+      projectRoot,
+      dbInstance,
+      clock,
+      idGenerator,
+      normaliser,
+    );
+    expect(returned).toBe(toProjectId(uuid));
     const rows = (dbInstance as unknown as Database.Database)
       .prepare("SELECT last_seen_at FROM projects WHERE project_id = ?")
       .all(uuid) as readonly { last_seen_at: string }[];
     expect(rows[0]?.last_seen_at).toBe("2026-03-10T14:00:00.000Z");
   });
 
-  it("reconcileProjectId_rename_update_all_tables", () => {
+  it("reconcileProjectId_rename_updates_projects_only", () => {
     const oldPath = toAbsolutePath(mkProjectRoot());
     const newPath = toAbsolutePath(mkProjectRoot());
     fs.mkdirSync(path.join(newPath, ".aic"), { recursive: true, mode: 0o700 });
@@ -187,22 +210,21 @@ describe("ensure-project-id", () => {
         oldNormalised,
       );
     const idGenerator = mockIdGenerator(uuid);
-    reconcileProjectId(newPath, dbInstance, clock, idGenerator, normaliser);
+    const returned = reconcileProjectId(
+      newPath,
+      dbInstance,
+      clock,
+      idGenerator,
+      normaliser,
+    );
+    expect(returned).toBe(toProjectId(uuid));
     const projectRows = (dbInstance as unknown as Database.Database)
       .prepare("SELECT project_root FROM projects WHERE project_id = ?")
       .all(uuid) as readonly { project_root: string }[];
     expect(projectRows[0]?.project_root).toBe(newNormalised);
-    const logRows = (dbInstance as unknown as Database.Database)
-      .prepare("SELECT project_root FROM compilation_log WHERE project_root = ?")
-      .all(newNormalised) as readonly { project_root: string }[];
-    expect(logRows).toHaveLength(1);
-    const oldLogRows = (dbInstance as unknown as Database.Database)
-      .prepare("SELECT project_root FROM compilation_log WHERE project_root = ?")
-      .all(oldNormalised) as readonly unknown[];
-    expect(oldLogRows).toHaveLength(0);
   });
 
-  it("reconcileProjectId_uuid_not_in_db_insert", () => {
+  it("reconcileProjectId_uuid_not_in_db_insert_returns_id", () => {
     const projectRoot = toAbsolutePath(mkProjectRoot());
     fs.mkdirSync(path.join(projectRoot, ".aic"), { recursive: true, mode: 0o700 });
     const uuid = "018f0000-0000-7000-8000-000000000005";
@@ -211,7 +233,14 @@ describe("ensure-project-id", () => {
     const dbInstance = setupDb(clock);
     const idGenerator = mockIdGenerator(uuid);
     const normaliser = new NodePathAdapter();
-    reconcileProjectId(projectRoot, dbInstance, clock, idGenerator, normaliser);
+    const returned = reconcileProjectId(
+      projectRoot,
+      dbInstance,
+      clock,
+      idGenerator,
+      normaliser,
+    );
+    expect(returned).toBe(toProjectId(uuid));
     const rows = (dbInstance as unknown as Database.Database)
       .prepare("SELECT project_id, project_root FROM projects")
       .all() as readonly { project_id: string; project_root: string }[];

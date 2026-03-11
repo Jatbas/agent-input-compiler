@@ -11,6 +11,7 @@ import {
   toSessionId,
   toISOTimestamp,
   toUUIDv7,
+  toProjectId,
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
 import { type AbsolutePath, toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
@@ -38,6 +39,7 @@ function mockScopeForHandler(
     idGenerator,
     normaliser: new NodePathAdapter(),
     projectRoot,
+    projectId: toProjectId("018f0000-0000-7000-8000-000000000001"),
     cacheStore: {} as ProjectScope["cacheStore"],
     telemetryStore: { write: vi.fn() } as ProjectScope["telemetryStore"],
     configStore: {} as ProjectScope["configStore"],

@@ -21,6 +21,9 @@ export type RepoId = Brand<string, "RepoId">;
 // Semantic version string (e.g. 1.2.3).
 export type SemanticVersion = Brand<string, "SemanticVersion">;
 
+// Stable UUIDv7 primary key for a project; survives folder renames (ADR-007).
+export type ProjectId = Brand<string, "ProjectId">;
+
 export function toISOTimestamp(value: string): ISOTimestamp {
   return value as ISOTimestamp;
 }
@@ -43,4 +46,8 @@ export function toRepoId(value: string): RepoId {
 
 export function toSemanticVersion(value: string): SemanticVersion {
   return value as SemanticVersion;
+}
+
+export function toProjectId(value: string): ProjectId {
+  return value as ProjectId;
 }
