@@ -730,6 +730,86 @@ describe("MCP server", () => {
     process.off("SIGTERM", handler);
   });
 
+  it("shutdown_handler_closes_runner_cache_entries", () => {
+    const mockClose = vi.fn();
+    const cache = new Map<
+      string,
+      { runner: unknown; closeable: { close: () => void } }
+    >();
+    cache.set("/fake/path", {
+      runner: {},
+      closeable: { close: mockClose },
+    });
+    const mockSessionTracker = {
+      startSession: vi.fn(),
+      stopSession: vi.fn(),
+      backfillCrashedSessions: vi.fn(),
+    };
+    const mockCacheStore = {
+      get: vi.fn(),
+      set: vi.fn(),
+      invalidate: vi.fn(),
+      invalidateAll: vi.fn(),
+      purgeExpired: vi.fn(),
+    };
+    const fixedTs = toISOTimestamp("2026-02-28T12:00:00.000Z");
+    const mockClock = {
+      now: (): typeof fixedTs => fixedTs,
+      addMinutes: (_m: number): typeof fixedTs => fixedTs,
+      durationMs: (_s: typeof fixedTs, _e: typeof fixedTs) => toMilliseconds(0),
+    };
+    const sessionId = toSessionId("019504a0-0000-7000-8000-000000000000");
+    const handler = registerShutdownHandler(
+      mockSessionTracker,
+      sessionId,
+      mockClock,
+      mockCacheStore,
+      cache as Parameters<typeof registerShutdownHandler>[4],
+    );
+    vi.spyOn(process, "exit").mockImplementation((() => {}) as (
+      code?: string | number | null,
+    ) => never);
+    handler();
+    expect(mockClose).toHaveBeenCalledTimes(1);
+    process.off("SIGINT", handler);
+    process.off("SIGTERM", handler);
+  });
+
+  it("getRunner_evicts_oldest_and_closes_when_at_capacity", async () => {
+    const { WatchingRepoMapSupplier } =
+      await import("@jatbas/aic-core/adapters/watching-repo-map-supplier.js");
+    const closeSpy = vi.spyOn(WatchingRepoMapSupplier.prototype, "close");
+    const tmpDirs: string[] = [];
+    for (let i = 0; i < 11; i++) {
+      tmpDirs.push(fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-")));
+    }
+    try {
+      const firstDir = tmpDirs[0];
+      if (firstDir === undefined) expect.fail("tmpDirs[0]");
+      const clock = new SystemClock();
+      const db = openDatabase(":memory:", clock);
+      server = createMcpServer(toAbsolutePath(firstDir), db, clock);
+      const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+      await server.connect(transportServer);
+      const client = new Client({ name: "test", version: "1.0" });
+      await client.connect(transportClient);
+      for (let i = 0; i < 11; i++) {
+        const root = tmpDirs[i];
+        if (root === undefined) expect.fail("tmpDirs[i]");
+        await client.callTool({
+          name: "aic_compile",
+          arguments: { intent: "eviction test", projectRoot: root },
+        });
+      }
+      expect(closeSpy).toHaveBeenCalled();
+    } finally {
+      closeSpy.mockRestore();
+      for (const dir of tmpDirs) {
+        if (fs.existsSync(dir)) fs.rmSync(dir, { recursive: true, force: true });
+      }
+    }
+  });
+
   it("server_sessions_row_has_integrity", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     const projectRoot = toAbsolutePath(tmpDir);

@@ -46,7 +46,15 @@ import {
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import { z } from "zod";
 import { STOP_REASON } from "@jatbas/aic-core/core/types/enums.js";
-import { createFullPipelineDeps } from "@jatbas/aic-core/bootstrap/create-pipeline-deps.js";
+import {
+  createFullPipelineDeps,
+  createPipelineDeps,
+} from "@jatbas/aic-core/bootstrap/create-pipeline-deps.js";
+import type { Closeable } from "@jatbas/aic-core/core/interfaces/closeable.interface.js";
+import { FileSystemRepoMapSupplier } from "@jatbas/aic-core/adapters/file-system-repo-map-supplier.js";
+import { WatchingRepoMapSupplier } from "@jatbas/aic-core/adapters/watching-repo-map-supplier.js";
+import { FastGlobAdapter } from "@jatbas/aic-core/adapters/fast-glob-adapter.js";
+import { IgnoreAdapter } from "@jatbas/aic-core/adapters/ignore-adapter.js";
 import { runInit } from "./init-project.js";
 import { runStartupSelfCheck } from "./startup-self-check.js";
 import {
@@ -94,12 +102,18 @@ export function registerShutdownHandler(
   sessionId: SessionId,
   clock: Clock,
   cacheStore: CacheStore,
+  runnerCache?: Map<string, { runner: CompilationRunner; closeable: Closeable }>,
 ): () => void {
   let exited = false;
   const handler = (): void => {
     if (exited) return;
     exited = true;
     try {
+      if (runnerCache !== undefined) {
+        for (const entry of runnerCache.values()) {
+          entry.closeable.close();
+        }
+      }
       cacheStore.purgeExpired();
       sessionTracker.stopSession(sessionId, clock.now(), STOP_REASON.GRACEFUL);
     } catch {
@@ -176,11 +190,16 @@ export function createMcpServer(
     installationNotes,
   );
   startupScope.sessionTracker.backfillCrashedSessions(startedAt);
+  const runnerCache = new Map<
+    string,
+    { runner: CompilationRunner; closeable: WatchingRepoMapSupplier }
+  >();
   registerShutdownHandler(
     startupScope.sessionTracker,
     sessionId,
     startupScope.clock,
     startupScope.cacheStore,
+    runnerCache,
   );
   const updateInfoRef: {
     current: { updateAvailable: string | null; currentVersion: string };
@@ -214,23 +233,26 @@ export function createMcpServer(
     startupScope.db,
   );
   const inspectRunner = new InspectRunner(deps, startupScope.clock);
-  const runnerCache = new Map<string, CompilationRunner>();
   const getRunner = (scope: ProjectScope): CompilationRunner => {
     const key = normaliser.normalise(scope.projectRoot);
     const cached = runnerCache.get(key);
-    if (cached !== undefined) return cached;
+    if (cached !== undefined) return cached.runner;
     const scopeConfigResult = configLoader.load(scope.projectRoot, null);
     const { budgetConfig: scopeBudgetConfig, heuristicConfig: scopeHeuristicConfig } =
       applyConfigResult(scopeConfigResult, scope.configStore, sha256Adapter);
     const scopeFileContentReader = createCachingFileContentReader(scope.projectRoot);
     const scopeRulePackProvider = createRulePackProvider(scope.projectRoot);
-    const scopeDeps = createFullPipelineDeps(
+    const partial = createPipelineDeps(
       scopeFileContentReader,
       scopeRulePackProvider,
       scopeBudgetConfig,
       additionalProviders,
       scopeHeuristicConfig,
     );
+    const ignoreAdapter = new IgnoreAdapter();
+    const inner = new FileSystemRepoMapSupplier(new FastGlobAdapter(), ignoreAdapter);
+    const repoMapSupplier = new WatchingRepoMapSupplier(inner, ignoreAdapter);
+    const scopeDeps = { ...partial, repoMapSupplier };
     const runner = new CompilationRunnerImpl(
       scopeDeps,
       scope.clock,
@@ -242,7 +264,15 @@ export function createMcpServer(
       scope.idGenerator,
       new SqliteAgenticSessionStore(scope.projectId, scope.db),
     );
-    runnerCache.set(key, runner);
+    if (runnerCache.size >= 10) {
+      const firstKey = runnerCache.keys().next().value;
+      if (firstKey !== undefined) {
+        const evicted = runnerCache.get(firstKey);
+        runnerCache.delete(firstKey);
+        evicted?.closeable.close();
+      }
+    }
+    runnerCache.set(key, { runner, closeable: repoMapSupplier });
     return runner;
   };
   const server = new McpServer({ name: "aic", version: packageVersion });
