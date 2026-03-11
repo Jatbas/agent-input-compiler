@@ -13,8 +13,11 @@ import { NodePathAdapter } from "@jatbas/aic-core/adapters/node-path-adapter.js"
 import { SystemClock } from "@jatbas/aic-core/adapters/system-clock.js";
 import { createProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
 import { createCachingFileContentReader } from "@jatbas/aic-core/adapters/caching-file-content-reader.js";
-import { createFullPipelineDeps } from "../../bootstrap/create-pipeline-deps.js";
+import { createPipelineDeps } from "../../bootstrap/create-pipeline-deps.js";
 import { CompilationRunner } from "@jatbas/aic-core/pipeline/compilation-runner.js";
+import { FileSystemRepoMapSupplier } from "@jatbas/aic-core/adapters/file-system-repo-map-supplier.js";
+import { FastGlobAdapter } from "@jatbas/aic-core/adapters/fast-glob-adapter.js";
+import { IgnoreAdapter } from "@jatbas/aic-core/adapters/ignore-adapter.js";
 import { initLanguageProviders } from "@jatbas/aic-core/adapters/init-language-providers.js";
 import { LoadConfigFromFile } from "../../config/load-config-from-file.js";
 import { applyConfigResult } from "../../config/load-config-from-file.js";
@@ -63,15 +66,19 @@ function createRunner(): CompilationRunner {
   );
   const fileContentReader = createCachingFileContentReader(projectRoot);
   const rulePackProvider = createRulePackProvider();
-  const deps = createFullPipelineDeps(
+  const deps = createPipelineDeps(
     fileContentReader,
     rulePackProvider,
     budgetConfig,
     providers,
     heuristicConfig,
   );
+  const repoMapSupplier = new FileSystemRepoMapSupplier(
+    new FastGlobAdapter(),
+    new IgnoreAdapter(),
+  );
   return new CompilationRunner(
-    deps,
+    { ...deps, repoMapSupplier },
     scope.clock,
     scope.cacheStore,
     scope.configStore,

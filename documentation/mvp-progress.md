@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 43/67 done
+**Phase 1.0:** 44/67 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -631,7 +631,188 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 - Richer intent keyword extraction (task 038): expanded KEYWORDS in intent-classifier.ts (REFACTOR: migrate, extract, inline, rename, dedupe, consolidate, split, merge; BUGFIX: debug, trace, wrong, fail, exception, patch, resolve; FEATURE: extend, support, enable, wire, integrate; DOCS: changelog, docstring, api doc; TEST: stub, unittest, integration test, e2e, fixture); five new test cases; integration snapshots updated for confidence/token values
 - Compilation perf: lazy scan — FileSystemRepoMapSupplier no longer reads file contents or tokenizes during scan (uses bytes/4 estimate); removed fileContentReader and tokenCounter from constructor; createCachingFileContentReader adapter with mtime-based cache eliminates repeated readFileSync for same file across pipeline steps; wired in MCP server.ts and CLI main.ts; tests updated (4 tests, 214 total pass)
 
-### 2026-02-27
+### 2026-03-12
+
+**Components:** P06 object spread replacement, real-project integration test flakiness fix
+**Completed:**
+
+- P06 (perf): Replace reduce-with-spread in `recordSessionStepIfNeeded` with `Object.fromEntries(r.prunedFiles.map(...))` — eliminates N−1 intermediate object allocations per compilation
+- Fix `real_project_second_run_cache_hit` flakiness: `WatchingRepoMapSupplier` fs.watch events fired between two `runner.run()` calls (triggered by DB writes), mutating `lastModified` in the cached repo map and busting the cache key; replaced with `FileSystemRepoMapSupplier` (no watcher) in the integration test
+
+### 2026-03-11
+
+**Components:** P01 async prompt log, P02 once-flags guard, W11 per-folder disable, W12 commands scoped by project, W15/W16/W17 project_id FK + consolidated schema
+**Completed:**
+
+- P01: Replace `fs.writeFileSync` with `fs.promises.writeFile` for prompt log write in compile handler — non-blocking, zero risk (already wrapped in try/catch)
+- P02: Guard `ensureProjectInit`, `reconcileProjectId`, `installTriggerRule`, `installCursorHooks` behind per-`projectRoot` `Set<string>` — runs once per server lifetime per project, eliminating ~20 sync I/O calls per compilation after the first
+- W11: `"enabled": boolean` in `aic.config.json` (default true); compile handler returns early with user message when false; `show aic status` shows "Disabled"
+- W12: `aic://status` aggregates globally with per-project breakdown; `aic://last` filters by the most recent compile's projectRoot in the conversation; `aic_projects` MCP tool lists all known projects; `aic_chat_summary` adds projectRoot; `SqliteStatusStore` gains project-scoped query methods
+- W15: `ProjectId` branded type + `toProjectId`; migration 013 adds `project_id TEXT REFERENCES projects(project_id)` + index to 6 per-project tables + backfills from `projects`; `reconcileProjectId` returns `ProjectId`; `ProjectScope` exposes `projectId`
+- W16: Replace `projectRoot: AbsolutePath` with `projectId: ProjectId` in 7 per-project stores; all `WHERE project_root = ?` → `WHERE project_id = ?`; new rows omit `project_root` from INSERT
+- W17: Replace 14 incremental migration files with single `001-initial-schema.ts` expressing the final W16 schema; `open-database.ts` registers only the merged migration; deleted migration files 002–014; all store tests updated; new installations run one migration
+
+### 2026-03-10
+
+**Components:** W01–W07 global server / per-project isolation (path normalisation, schema migration 011, stable project ID, store projectRoot param, store SQL scoping, ScopeRegistry, wire ScopeRegistry), W10 duplicate prevention, maintenance log pruning
+**Completed:**
+
+- W01: `normaliseProjectRoot(raw): AbsolutePath` in `shared/src/core/types/paths.ts`; strips trailing separator, lowercases Windows drive letter; `NodePathAdapter` wraps `path.resolve`; unit tests
+- W02: Migration 011 — `project_root TEXT NOT NULL DEFAULT ''` + index on 8 tables; `projects` table (`project_id`, `project_root`, `created_at`, `last_seen_at`)
+- W03: Generate UUIDv7 in `{projectRoot}/.aic/project-id` on first `ensureProjectInit`; reconcile on each compile (rename detection: update `project_root` in `projects` and all 8 tables when folder renamed)
+- W04: All 9 per-project store constructors gain `projectRoot: AbsolutePath`; `createProjectScope` passes it; MCP server passes it for the 3 stores created directly
+- W05: All SQL in 9 stores gains `project_root` predicate; all INSERTs include `projectRoot`; all SELECT/UPDATE/DELETE add `WHERE project_root = ?`
+- W06: `ScopeRegistry` — `Map<string, ProjectScope>` keyed by normalised path; `getOrCreate` checks map, calls `createProjectScope` on miss; `close` releases all scopes
+- W07: `createMcpServer` creates `ScopeRegistry`; startup scope via `registry.getOrCreate(projectRoot)`; compile handler calls `registry.getOrCreate(args.projectRoot)` per request; shutdown calls `registry.close()`
+- W10: Detect `"both"` (AIC in global + workspace configs); allow coexistence when commands differ (dev `tsx` + global `npx`); emit stderr warning and surface in `aic://status`
+- Maintenance: `pruneSessionLog` and `prunePromptLog` — delete entries older than 1 day from `.aic/` session/prompt logs; run from `sessionEnd` hook
+- Fix: remove `.aic/conversation-id` file fallback (superseded by `AIC_CONVERSATION_ID` env); deterministic tie-break in `HeuristicSelector` (stable sort for files with equal score)
+
+### 2026-03-09
+
+**Components:** Releases 0.3.0–0.5.1, install page, detect install scope, update notification, .prettierignore/.eslintignore on init, package renames, fix EPERM on protected dirs
+**Completed:**
+
+- Detect install scope: `detectInstallScope` reads global `~/.cursor/mcp.json` and workspace `.cursor/mcp.json`; returns `"workspace"`, `"global"`, `"both"`, or `"none"`; warn on stderr + in `aic://status` when `"both"`
+- Update notification: version check against npm registry (24h cache); surface in `aic://status` (`updateAvailable`) and session start log
+- Install page: `install/cursor-install.html` — Cursor deeplink with repo link and redirect; README updated to lead with global MCP config
+- `ensureProjectInit` writes `.prettierignore` and `.eslintignore` with `.aic/` entry on init
+- Package rename: `@aic/mcp` → `@jatbas/aic`, `@aic/shared` → `@jatbas/aic-core`
+- Releases: 0.3.0, 0.4.0, 0.4.1, 0.4.2, 0.5.0, 0.5.1
+- Fix: suppress EPERM on protected directories during glob scan; resolve symlink in `isEntry` check for npx startup; case-insensitive key matching in install scope detection
+- `fix(mcp): defer language provider scan and project init from server startup` — moves expensive startup work to first `aic_compile` call
+
+### 2026-03-08
+
+**Components:** npm publish pipeline, CHANGELOG, license headers, auto-init on startup/first compile, adaptive budget (task 116), CONTRIBUTING guide, docs audit
+**Completed:**
+
+- npm publish pipeline (task 117): `.github/workflows/publish.yml` using GitHub OIDC Trusted Publishing; separate publish steps for `@jatbas/aic-core` and `@jatbas/aic`; version check and tag guard
+- CHANGELOG.md bootstrapped; `aic-update-changelog` skill
+- License headers audit (task 118): Apache-2.0 SPDX headers on all `.ts` source files; `scripts/check-license-headers.js` enforced in CI
+- Auto-init: `ensureProjectInit` runs on server startup (when config missing) and on first `aic_compile` call; writes `aic.config.json` with defaults
+- Adaptive budget (task 116): `deriveSessionBudget` uses accumulated session step tokens to compute remaining budget when `conversationTokens` is omitted; tested
+- CONTRIBUTING.md and README contributing section
+- Fix: reliable multi-chat conversation ID tracking via `AIC_CONVERSATION_ID` env; `fix(hooks)` and `ci(pnpm)` alignment
+
+### 2026-03-07
+
+**Components:** SQLite diagnostics, CI alignment, MCP busy_timeout
+**Completed:**
+
+- `fix(mcp): add SQLite busy_timeout` (5000ms) and improve error diagnostics for SQLITE_BUSY
+- `ci: align pnpm and node versions` with local dev environment
+
+### 2026-03-06
+
+**Components:** Phase Q research upgrades — LitM constraints preamble, contextCompleteness, line-level pruner (SWE-Pruner), MarkdownInstructionScanner, CommandInjectionScanner, block/line gold annotations, per-task-class precision/recall, conversation ID fallback
+**Completed:**
+
+- Constraints preamble (LitM): duplicate top-3 constraints as short preamble before bulk context in `PromptAssembler` to mitigate Lost-in-the-Middle
+- `contextCompleteness` confidence signal in `CompilationMeta`: unresolved imports, missing symbols, intent token coverage (task 101)
+- Line-level pruner (task 103): `LineLevelPruner` interface and implementation; runs after `SummarisationLadder` for L0 chunks; keeps lines matching subject token (case-insensitive), ±1 context, syntax-only lines, structural keywords; `PipelineStepsResult.prunedFiles`; ten unit tests; integration snapshots ratcheted
+- `MarkdownInstructionScanner` (task 104): detect high-risk instruction payloads in `.md/.mdc/.mdx` files
+- `CommandInjectionScanner` (task 105): detect `$(...)`, backtick substitution, pipe chains in comments/docs
+- Block/line gold annotations (task 106): enrich `expected-selection/1.json` from path-only to block/line ranges per file
+- Per-task-class precision/recall (task 108): precision/recall at file, block, line granularity grouped by task class in `selection-quality-benchmark.test.ts`
+- Conversation ID fallback (task 107): when editor omits `clientInfo`, derive `conversationId` from session ID with `cid_` prefix; session context cache for editor and session resolution
+
+### 2026-03-05
+
+**Components:** Phase P performance — granular file-level transform cache, fast-glob double-stat elimination, async parallel file I/O, cached RepoMap with file watcher, chunk-level file inclusion, structural context map, adaptive scoring weights, symbol-level intent matching, reverse dependency walking, session tracking storage
+**Completed:**
+
+- Adaptive scoring weights (task 091): per-task-class weight profiles (bugfix → recency, refactor → import proximity, feature → symbol, etc.)
+- Reverse dependency walking (task 092): invert import graph to score files that import seed files (bidirectional BFS)
+- Symbol-level intent matching (task 093): match intent subject tokens against exported symbol names
+- Structural context map (task 095): compact project architecture summary injected before code context
+- Adaptive budget allocation (task 090): session history cap on budget; `deriveSessionBudget`
+- Session context cache: cache editor and session for resolving `modelId` / `editorId` across turns
+- Eliminate double-stat (task 097): use fast-glob `stats: true` to avoid second `fs.statSync` pass
+- Async parallel file I/O (task 098): replace `fg.sync`/`fs.statSync` with async + `Promise.all`; `INTERNAL_TEST` trigger source
+- Granular file-level transform cache (task 096): `SqliteFileTransformStore` caches per-file L0–L3 output by content hash; skip unchanged files on recompile
+- Cached RepoMap with file watcher (task 099): `WatchingRepoMapSupplier` wraps `FileSystemRepoMapSupplier`; `fs.watch` keeps repo map in memory; subsequent `getRepoMap()` returns cached result
+- Chunk-level file inclusion (task 100): include only relevant functions/blocks instead of whole files; `IntentAwareFileDiscoverer` updated
+
+### 2026-03-04
+
+**Components:** Release 0.2.0 (Quality Release), Phase O agentic session tracking, Phase N spec compiler, CLI report command, Guard warn severity, budget utilization in status, conversation tracking
+**Completed:**
+
+- Release 0.2.0 — Quality Release complete; CLI package dropped (MCP-only going forward)
+- Phase 1.0 planning: Phases N–W roadmap added to `mvp-progress.md` and `gaps.md`
+- Spec file discovery and scoring (task 084): `SpecFileDiscoverer` discovers `.md/.mdc` rule/ADR/design files; scoring uses heading density and keyword matches
+- Spec-aware summarisation tier (task 085): `MarkdownProvider` for `.md/.mdc` spec files; heading-based tier compression
+- Spec injection in prompt assembler: `## Specification` section injected before `## Context`
+- Session-level compilation deduplication (task 086): `AgenticSessionState` interface; `getPreviouslyShownFiles`; `runPipelineSteps` marks previously shown files; `PromptAssembler` emits placeholder for previously shown files; `CompilationRunner` records step via `recordSessionStepIfNeeded`
+- Conversation context compression (task 088): `ConversationCompressorImpl` summarises prior steps into compact session context header
+- Session tracking storage (task 089): migration 010 `session_state` table; `SqliteAgenticSessionStore`
+- Guard warn severity (task 081): `filesWarned` in guard result; split BLOCK vs WARN patterns; non-fatal warn files pass through
+- Budget utilization in `aic://status`
+- `aic report` static HTML command (task 083)
+- `fix(storage): derive status metrics from compilation_log directly` — remove dependency on telemetry for status aggregates
+
+### 2026-03-03
+
+**Components:** Conversation tracking (task 067–069), MCP hooks install, content transformers (tasks 063–078), async file I/O, performance fixes
+**Completed:**
+
+- Conversation tracking: `conversation_id` column in DB (migration); `aic_chat_summary` MCP tool; session-summary resource; hooks inject `conversation_id` into compile; reliable multi-chat detection via payload inspection
+- MCP hooks auto-install: `installCursorHooks` writes `.cursor/hooks/` scripts and `hooks.json` on server startup; startup self-check verifies `preToolUse` hook
+- Content transformers: `ImportDeduplicator`, `TestStructureExtractor`, `LicenseHeaderStripper`, `Base64InlineDataStripper`, `LongStringLiteralTruncator`, `DocstringTrimmer`, `CssVariableSummarizer`; `aic://last-compilation` and `aic://session-summary` MCP resources; `aic://status` total tokens and budget utilization
+- `HtmlToMarkdownTransformer`, `SvgDescriber`, `MinifiedCodeSkipper`, `YamlCompactor`, `AutoGeneratedSkipper`, `EnvExampleRedactor`, `SchemaFileCompactor`
+- Async file I/O (task 079): `FileContentReader.getContent` returns `Promise<string>`; all pipeline steps updated; DB WAL mode; `closeDatabase` exported; `purgeExpired` deferred via `setImmediate`
+- Performance: heuristic selector stable sort, `fix(mcp,shared)` prevent test hang
+
+### 2026-03-02
+
+**Components:** Language providers (Dart, Kotlin, Swift, Shell, Html/JSX, CSS), benchmarks, content transformers (LicenseHeaderStripper, Base64InlineDataStripper, LongStringLiteralTruncator, DocstringTrimmer, TypeDeclarationCompactor)
+**Completed:**
+
+- `TypeDeclarationCompactor` for `.d.ts` files (task 060)
+- `DocstringTrimmer` (task 061) and benchmark token logging
+- `LongStringLiteralTruncator` (task 062)
+- `Base64InlineDataStripper` (task 063)
+- `LicenseHeaderStripper` (task 064)
+- Token reduction benchmark (task 058): `token-reduction-benchmark.test.ts` with `baseline.json` auto-ratchet; enriched fixture `test/benchmarks/repos/1/`
+- Selection quality benchmark (task 057): `selection-quality-benchmark.test.ts` with `expected-selection/1.json`
+- `DartProvider` (task 053), `KotlinProvider` (task 054), `SwiftProvider` (task 055), `ShellScriptProvider` (task 056)
+- `HtmlJsxProvider` (task 049), `CssProvider` (task 050)
+- `fix(config): populate compilation_log.config_hash via config snapshot`
+
+### 2026-03-01
+
+**Components:** Language providers (Go, Rust, Java, Ruby, PHP, shared regex helpers), model detection, model.id config override, editor detection improvements
+**Completed:**
+
+- `PythonProvider` (task 042): tree-sitter AST for `.py`; conditional WASM loading (`web-tree-sitter` + `tree-sitter-python`)
+- `GoProvider` (task 043): tree-sitter parsing for `.go`
+- `RustProvider` (task 044): tree-sitter for `.rs`
+- `JavaProvider` (task 045): tree-sitter for `.java`
+- `RubyProvider` (task 046): regex-only LanguageProvider for `.rb`
+- `PhpProvider` (task 047) + shared `GenericRegexProvider` helper base
+- `ModelDetectorDispatch` and model env hints (task 048): dispatch table per editor/env combination
+- `aic.config model.id` override: explicit model ID in config takes precedence over detected model
+- `fix(mcp): detect Cursor subagents via CURSOR_AGENT env fallback`; prioritise Cursor over Claude in editor detection
+- `fix(status): expose editor and model in last compilation from DB`
+- `refactor(lint): ban namespace imports for internal modules` (named imports only, ESLint enforced)
+
+### 2026-02-28
+
+**Components:** Session management (002-server-sessions, SessionTracker, SqliteSessionStore), startup integrity, trigger rule auto-install, telemetry triggerSource, editor detection, Claude Code hooks, intent-aware discovery, GenericImportProvider, import-proximity scoring
+**Completed:**
+
+- 002-server-sessions migration (task 031), `SessionTracker` interface, `SqliteSessionStore` (task 033)
+- Startup self-check (task 034): migration 003 adds `installation_ok`/`installation_notes`; `runStartupSelfCheck` verifies trigger rule and hooks
+- Auto-install trigger rule (task 035): `installTriggerRule` writes `.cursor/rules/AIC.mdc` from template when missing (idempotent)
+- Server lifecycle hooks (task 036): `SIGINT/SIGTERM` handler for graceful session stop
+- Telemetry `triggerSource` (task 037): `TRIGGER_SOURCE` enum; optional field on `CompilationRequest` and `CompilationLogEntry`; migration 005 adds column; MCP defaults to `tool_gate`, CLI defaults to `cli`
+- Richer intent keyword extraction (task 038): expanded KEYWORDS for REFACTOR/BUGFIX/FEATURE/DOCS/TEST classes
+- `IntentAwareFileDiscoverer` (task 039) and `GenericImportProvider` (task 040)
+- Import-proximity scoring wired into `HeuristicSelector` (task 040)
+- Auto-detect editor from MCP `clientInfo` handshake; Claude Code hooks integration layer
+- `fix(cache): use taskClass in cache key`; `fix(storage): make migrations idempotent and transactional`; auto-gitignore `.aic/` on startup
+- Compilation perf: lazy scan (bytes/4 estimate in `FileSystemRepoMapSupplier`); `createCachingFileContentReader` with mtime cache
 
 **Components:** FileSystemRepoMapSupplier, createFullPipelineDeps, Wire real InspectRunner (CLI), Phase 0.5 planning, Telemetry write on compile, Guard findings write on scan, Config loading from aic.config, Real token counting in repo map
 **Completed:**
