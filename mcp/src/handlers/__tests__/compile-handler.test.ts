@@ -14,8 +14,14 @@ import {
   toProjectId,
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
-import { type AbsolutePath, toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import {
+  type AbsolutePath,
+  type FilePath,
+  toAbsolutePath,
+} from "@jatbas/aic-core/core/types/paths.js";
 import { EDITOR_ID } from "@jatbas/aic-core/core/types/enums.js";
+import { defaultResolvedConfig } from "@jatbas/aic-core/core/types/resolved-config.js";
+import type { ConfigLoader } from "@jatbas/aic-core/core/interfaces/config-loader.interface.js";
 import { NodePathAdapter } from "@jatbas/aic-core/adapters/node-path-adapter.js";
 import { STUB_COMPILATION_META } from "@jatbas/aic-core/testing/stub-compilation-meta.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
@@ -100,6 +106,7 @@ describe("compile-handler", () => {
       getModelId,
       null,
       [],
+      enabledConfigLoader,
     );
     const promise = handler(
       {
@@ -131,6 +138,10 @@ describe("compile-handler", () => {
         }),
     };
   }
+
+  const enabledConfigLoader: ConfigLoader = {
+    load: () => ({ config: defaultResolvedConfig() }),
+  };
 
   function makeDeps() {
     const fixedTs = toISOTimestamp("2026-03-07T12:00:00.000Z");
@@ -172,6 +183,7 @@ describe("compile-handler", () => {
         getModelId,
         null,
         [],
+        enabledConfigLoader,
       );
       const result = await handler(
         {
@@ -205,6 +217,7 @@ describe("compile-handler", () => {
         getModelId,
         null,
         [],
+        enabledConfigLoader,
       );
       const result = await handler(
         { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },
@@ -214,6 +227,52 @@ describe("compile-handler", () => {
       const first = items[0]!;
       const parsed = JSON.parse(first.text) as { conversationId: string | null };
       expect(parsed.conversationId).toBeNull();
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("compile_handler_disabled_returns_message_no_db_writes", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+    try {
+      const runCalls: unknown[] = [];
+      const mockRunner = {
+        run: (req: unknown): Promise<never> => {
+          runCalls.push(req);
+          return Promise.resolve({
+            compiledPrompt: "never",
+            meta: STUB_COMPILATION_META,
+            compilationId: toUUIDv7("00000000-0000-7000-8000-000000000099"),
+          } as never);
+        },
+      };
+      const mockConfigLoader: ConfigLoader = {
+        load: (_projectRoot: AbsolutePath, _configPath: FilePath | null) => ({
+          config: { ...defaultResolvedConfig(), enabled: false },
+        }),
+      };
+      const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
+      const handler = createCompileHandler(
+        getScope,
+        (_scope: ProjectScope) => mockRunner,
+        { hash: (): string => "" },
+        getSessionId,
+        getEditorId,
+        getModelId,
+        null,
+        [],
+        mockConfigLoader,
+      );
+      const result = await handler(
+        { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },
+        undefined,
+      );
+      const items = result.content as readonly { type: string; text: string }[];
+      const first = items[0];
+      const parsed = JSON.parse(first!.text) as { compiledPrompt: string };
+      expect(parsed.compiledPrompt).toContain("AIC is disabled for this project");
+      expect(parsed.compiledPrompt).toContain('"enabled": true');
+      expect(runCalls).toHaveLength(0);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -233,6 +292,7 @@ describe("compile-handler", () => {
         getModelId,
         null,
         [],
+        enabledConfigLoader,
       );
       await handler(
         { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },

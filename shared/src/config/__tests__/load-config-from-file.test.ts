@@ -67,6 +67,39 @@ describe("LoadConfigFromFile", () => {
     expect(() => loader.load(projectRoot, null)).toThrow(ConfigError);
   });
 
+  it("load_config_enabled_omitted_defaults_true", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-config-test-"));
+    const projectRoot = toAbsolutePath(tmpDir);
+    const loader = new LoadConfigFromFile();
+    const resultNoFile = loader.load(projectRoot, null);
+    expect(resultNoFile.config.enabled).toBe(true);
+    fs.writeFileSync(
+      path.join(tmpDir, "aic.config.json"),
+      '{"contextBudget":{"maxTokens":5000}}',
+      "utf8",
+    );
+    const resultOmitted = loader.load(projectRoot, null);
+    expect(resultOmitted.config.enabled).toBe(true);
+  });
+
+  it("load_config_enabled_false", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-config-test-"));
+    fs.writeFileSync(path.join(tmpDir, "aic.config.json"), '{"enabled": false}', "utf8");
+    const projectRoot = toAbsolutePath(tmpDir);
+    const loader = new LoadConfigFromFile();
+    const result = loader.load(projectRoot, null);
+    expect(result.config.enabled).toBe(false);
+  });
+
+  it("load_config_enabled_true", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-config-test-"));
+    fs.writeFileSync(path.join(tmpDir, "aic.config.json"), '{"enabled": true}', "utf8");
+    const projectRoot = toAbsolutePath(tmpDir);
+    const loader = new LoadConfigFromFile();
+    const result = loader.load(projectRoot, null);
+    expect(result.config.enabled).toBe(true);
+  });
+
   it("load_explicit_config_path_uses_that_file", () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-config-test-"));
     const subdir = path.join(tmpDir, "subdir");

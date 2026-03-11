@@ -121,11 +121,30 @@ describe("MCP server", () => {
       "updateAvailable",
       "installScope",
       "installScopeWarnings",
+      "projectEnabled",
     ];
     for (const key of expectedKeys) {
       expect(Object.prototype.hasOwnProperty.call(parsed, key)).toBe(true);
     }
     expect(Array.isArray(parsed["installScopeWarnings"])).toBe(true);
+  });
+
+  it("status_resource_disabled_shows_projectEnabled_false", async () => {
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
+    fs.writeFileSync(path.join(tmpDir, "aic.config.json"), '{"enabled": false}', "utf8");
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
+    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+    await server.connect(transportServer);
+    const client = new Client({ name: "test", version: "1.0" });
+    await client.connect(transportClient);
+    const result = await client.readResource({ uri: "aic://status" });
+    const first = result.contents[0];
+    const rawText: string =
+      first && "text" in first && typeof first.text === "string" ? first.text : "{}";
+    const parsed = JSON.parse(rawText) as { projectEnabled?: boolean };
+    expect(parsed.projectEnabled).toBe(false);
   });
 
   it("status_resource_includes_updateAvailable", async () => {

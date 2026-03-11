@@ -14,6 +14,7 @@ export interface ResolvedConfig {
     readonly maxFiles: number;
   };
   readonly model?: { readonly id?: string };
+  readonly enabled: boolean;
 }
 
 export function defaultResolvedConfig(): ResolvedConfig {
@@ -23,5 +24,6 @@ export function defaultResolvedConfig(): ResolvedConfig {
       perTaskClass: {},
     },
     heuristic: { maxFiles: 20 },
+    enabled: true,
   };
 }

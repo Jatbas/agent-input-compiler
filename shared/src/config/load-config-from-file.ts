@@ -33,6 +33,7 @@ const AicConfigSchema = z
       })
       .optional(),
     model: z.object({ id: z.string().optional() }).optional(),
+    enabled: z.boolean().optional(),
   })
   .strict();
 
@@ -89,6 +90,7 @@ function buildResolvedConfig(parsed: AicConfigParsed): ResolvedConfig {
     ...(parsed.model !== undefined && {
       model: parsed.model.id !== undefined ? { id: parsed.model.id } : {},
     }),
+    enabled: parsed.enabled ?? true,
   };
 }
 

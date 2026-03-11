@@ -9,6 +9,7 @@ import {
   type CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
 import type { CompilationRunner } from "@jatbas/aic-core/core/interfaces/compilation-runner.interface.js";
+import type { ConfigLoader } from "@jatbas/aic-core/core/interfaces/config-loader.interface.js";
 import type { StringHasher } from "@jatbas/aic-core/core/interfaces/string-hasher.interface.js";
 import type { ProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
 import { SqliteToolInvocationLogStore } from "@jatbas/aic-core/storage/sqlite-tool-invocation-log-store.js";
@@ -56,6 +57,7 @@ export function createCompileHandler(
   getModelId: (editorId: EditorId) => string | null,
   modelIdOverride: string | null,
   installScopeWarnings: readonly string[],
+  configLoader: ConfigLoader,
 ): (
   args: {
     intent: string;
@@ -72,6 +74,26 @@ export function createCompileHandler(
     try {
       const projectRoot = validateProjectRoot(args.projectRoot);
       const scope = getScope(projectRoot);
+      const configPath =
+        args.configPath !== null
+          ? validateConfigPath(args.configPath, projectRoot)
+          : null;
+      const configResult = configLoader.load(projectRoot, configPath);
+      if (configResult.config.enabled === false) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                compiledPrompt:
+                  'AIC is disabled for this project. Set "enabled": true in aic.config.json to re-enable.',
+                meta: {},
+                conversationId: resolveConversationId(args.conversationId) ?? null,
+              }),
+            },
+          ],
+        };
+      }
       const runner = getRunner(scope);
       const telemetryDeps = {
         telemetryStore: scope.telemetryStore,
@@ -93,10 +115,6 @@ export function createCompileHandler(
       );
       installTriggerRule(projectRoot);
       installCursorHooks(projectRoot);
-      const configPath =
-        args.configPath !== null
-          ? validateConfigPath(args.configPath, projectRoot)
-          : null;
       const intent = args.intent.replace(/[\x00-\x08\x0b-\x1f]/g, "");
       const resolvedEditorId: EditorId =
         args.editorId !== undefined ? (args.editorId as EditorId) : getEditorId();

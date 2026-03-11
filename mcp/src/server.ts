@@ -285,6 +285,7 @@ export function createMcpServer(
       getModelId,
       configModelId,
       installScopeWarnings,
+      configLoader,
     ),
   );
   server.tool("aic_inspect", InspectRequestSchema, (args) =>
@@ -383,6 +384,7 @@ export function createMcpServer(
     };
   });
   server.resource("status", "aic://status", () => {
+    const statusConfigResult = configLoader.load(startupScope.projectRoot, null);
     const statusStore = new SqliteStatusStore(
       startupScope.projectId,
       startupScope.db,
@@ -406,6 +408,7 @@ export function createMcpServer(
             updateAvailable: updateInfoRef.current.updateAvailable,
             installScope,
             installScopeWarnings,
+            projectEnabled: statusConfigResult.config.enabled,
           }),
         },
       ],
