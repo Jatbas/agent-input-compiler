@@ -8,19 +8,7 @@ import { toISOTimestamp, toProjectId } from "@jatbas/aic-core/core/types/identif
 import type { ISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
-import { migration as migration001 } from "../migrations/001-initial-schema.js";
-import { migration as migration002 } from "../migrations/002-server-sessions.js";
-import { migration as migration003 } from "../migrations/003-server-sessions-integrity.js";
-import { migration as migration004 } from "../migrations/004-normalize-telemetry.js";
-import { migration as migration005 } from "../migrations/005-trigger-source.js";
-import { migration as migration006 } from "../migrations/006-cache-datetime-format.js";
-import { migration as migration007 } from "../migrations/007-conversation-id.js";
-import { migration as migration008 } from "../migrations/008-session-state.js";
-import { migration as migration009 } from "../migrations/009-file-transform-cache.js";
-import { migration as migration010 } from "../migrations/010-tool-invocation-log.js";
-import { migration as migration011 } from "../migrations/011-global-project-root.js";
-import { migration as migration013 } from "../migrations/013-project-id-fk.js";
-import { migration as migration014 } from "../migrations/014-drop-project-root-columns.js";
+import { migration } from "../migrations/001-consolidated-schema.js";
 import { SqliteConfigStore } from "../sqlite-config-store.js";
 
 const TEST_PROJECT_ID = toProjectId("018f0000-0000-7000-8000-000000000001");
@@ -56,19 +44,7 @@ describe("SqliteConfigStore", () => {
 
   function setup(clock: Clock): SqliteConfigStore {
     db = new Database(":memory:");
-    migration001.up(db);
-    migration002.up(db);
-    migration003.up(db);
-    migration004.up(db);
-    migration005.up(db);
-    migration006.up(db);
-    migration007.up(db);
-    migration008.up(db);
-    migration009.up(db);
-    migration010.up(db);
-    migration011.up(db);
-    migration013.up(db);
-    migration014.up(db);
+    migration.up(db);
     db.prepare(
       "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
     ).run(
@@ -110,19 +86,7 @@ describe("SqliteConfigStore", () => {
       toISOTimestamp("2026-02-25T10:01:00.000Z"),
     ]);
     db = new Database(":memory:");
-    migration001.up(db);
-    migration002.up(db);
-    migration003.up(db);
-    migration004.up(db);
-    migration005.up(db);
-    migration006.up(db);
-    migration007.up(db);
-    migration008.up(db);
-    migration009.up(db);
-    migration010.up(db);
-    migration011.up(db);
-    migration013.up(db);
-    migration014.up(db);
+    migration.up(db);
     const projectIdA = toProjectId("018f0000-0000-7000-8000-000000000010");
     const projectIdB = toProjectId("018f0000-0000-7000-8000-000000000011");
     db.prepare(

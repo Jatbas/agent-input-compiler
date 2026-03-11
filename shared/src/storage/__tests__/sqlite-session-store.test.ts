@@ -5,9 +5,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import Database from "better-sqlite3";
 import { toSessionId, toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
 import { STOP_REASON } from "@jatbas/aic-core/core/types/enums.js";
-import { migration as migration001 } from "../migrations/001-initial-schema.js";
-import { migration as migration002 } from "../migrations/002-server-sessions.js";
-import { migration as migration003 } from "../migrations/003-server-sessions-integrity.js";
+import { migration } from "../migrations/001-consolidated-schema.js";
 import { SqliteSessionStore } from "../sqlite-session-store.js";
 
 describe("SqliteSessionStore", () => {
@@ -20,9 +18,7 @@ describe("SqliteSessionStore", () => {
 
   function setup(): void {
     db = new Database(":memory:");
-    migration001.up(db);
-    migration002.up(db);
-    migration003.up(db);
+    migration.up(db);
     store = new SqliteSessionStore(db);
   }
 

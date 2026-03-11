@@ -10,18 +10,7 @@ import {
   toRepoId,
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import { INCLUSION_TIER } from "@jatbas/aic-core/core/types/enums.js";
-import { migration as migration001 } from "../migrations/001-initial-schema.js";
-import { migration as migration002 } from "../migrations/002-server-sessions.js";
-import { migration as migration003 } from "../migrations/003-server-sessions-integrity.js";
-import { migration as migration004 } from "../migrations/004-normalize-telemetry.js";
-import { migration as migration005 } from "../migrations/005-trigger-source.js";
-import { migration as migration006 } from "../migrations/006-cache-datetime-format.js";
-import { migration as migration007 } from "../migrations/007-conversation-id.js";
-import { migration as migration008 } from "../migrations/008-session-state.js";
-import { migration as migration009 } from "../migrations/009-file-transform-cache.js";
-import { migration as migration010 } from "../migrations/010-tool-invocation-log.js";
-import { migration as migration011 } from "../migrations/011-global-project-root.js";
-import { migration as migration012 } from "../migrations/012-normalize-schema.js";
+import { migration } from "../migrations/001-consolidated-schema.js";
 import { SqliteTelemetryStore } from "../sqlite-telemetry-store.js";
 
 const COMPILATION_ID = "018c3d4e-0000-7000-8000-000000000100";
@@ -77,18 +66,7 @@ describe("SqliteTelemetryStore", () => {
 
   function setup(): void {
     db = new Database(":memory:");
-    migration001.up(db);
-    migration002.up(db);
-    migration003.up(db);
-    migration004.up(db);
-    migration005.up(db);
-    migration006.up(db);
-    migration007.up(db);
-    migration008.up(db);
-    migration009.up(db);
-    migration010.up(db);
-    migration011.up(db);
-    migration012.up(db);
+    migration.up(db);
     store = new SqliteTelemetryStore(db);
     insertCompilationLog(db, COMPILATION_ID);
   }

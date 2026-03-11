@@ -11,20 +11,7 @@ import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import { SqliteMigrationRunner } from "../sqlite-migration-runner.js";
-import { migration as migration001 } from "../migrations/001-initial-schema.js";
-import { migration as migration002 } from "../migrations/002-server-sessions.js";
-import { migration as migration003 } from "../migrations/003-server-sessions-integrity.js";
-import { migration as migration004 } from "../migrations/004-normalize-telemetry.js";
-import { migration as migration005 } from "../migrations/005-trigger-source.js";
-import { migration as migration006 } from "../migrations/006-cache-datetime-format.js";
-import { migration as migration007 } from "../migrations/007-conversation-id.js";
-import { migration as migration008 } from "../migrations/008-session-state.js";
-import { migration as migration009 } from "../migrations/009-file-transform-cache.js";
-import { migration as migration010 } from "../migrations/010-tool-invocation-log.js";
-import { migration as migration011 } from "../migrations/011-global-project-root.js";
-import { migration as migration012 } from "../migrations/012-normalize-schema.js";
-import { migration as migration013 } from "../migrations/013-project-id-fk.js";
-import { migration as migration014 } from "../migrations/014-drop-project-root-columns.js";
+import { migration } from "../migrations/001-consolidated-schema.js";
 
 const clock: Clock = {
   now(): ReturnType<typeof toISOTimestamp> {
@@ -45,12 +32,12 @@ describe("SqliteMigrationRunner", () => {
     if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("creates schema_migrations, applies pending migration, records it", () => {
+  it("applies consolidated migration on fresh DB and records one row", () => {
     tmpDir = mkdtempSync(join(tmpdir(), "aic-migration-test-"));
     const dbPath = join(tmpDir, "aic.sqlite");
     const db = new Database(dbPath);
     const runner = new SqliteMigrationRunner(clock);
-    runner.run(db, [migration001]);
+    runner.run(db, [migration]);
     db.close();
 
     const readDb = new Database(dbPath);
@@ -63,7 +50,7 @@ describe("SqliteMigrationRunner", () => {
     expect(rows).toHaveLength(1);
     const row = rows[0];
     if (row === undefined) throw new AicError("expected one row", "TEST_SETUP");
-    expect(row.id).toBe("001-initial-schema");
+    expect(row.id).toBe("001-consolidated-schema");
     expect(row.applied_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
   });
 
@@ -72,8 +59,8 @@ describe("SqliteMigrationRunner", () => {
     const dbPath = join(tmpDir, "aic.sqlite");
     const db = new Database(dbPath);
     const runner = new SqliteMigrationRunner(clock);
-    runner.run(db, [migration001]);
-    runner.run(db, [migration001]);
+    runner.run(db, [migration]);
+    runner.run(db, [migration]);
     db.close();
 
     const readDb = new Database(dbPath);
@@ -85,64 +72,16 @@ describe("SqliteMigrationRunner", () => {
     expect(rows).toHaveLength(1);
   });
 
-  it("applies_002_and_creates_server_sessions_table", () => {
-    tmpDir = mkdtempSync(join(tmpdir(), "aic-migration-test-"));
-    const dbPath = join(tmpDir, "aic.sqlite");
-    const db = new Database(dbPath);
+  it("creates all expected tables", () => {
+    const db = new Database(":memory:");
     const runner = new SqliteMigrationRunner(clock);
-    runner.run(db, [migration001, migration002]);
-    db.close();
+    runner.run(db, [migration]);
 
-    const readDb = new Database(dbPath);
-    const migrationRows = readDb.prepare("SELECT id FROM schema_migrations").all() as {
-      id: string;
-    }[];
-    expect(migrationRows).toHaveLength(2);
-    expect(migrationRows.some((r) => r.id === "002-server-sessions")).toBe(true);
-
-    const tableRows = readDb
-      .prepare(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'server_sessions'",
-      )
-      .all() as { name: string }[];
-    readDb.close();
-    expect(tableRows).toHaveLength(1);
-    expect(tableRows[0]?.name).toBe("server_sessions");
-  });
-
-  it("migration_003_adds_columns", () => {
-    tmpDir = mkdtempSync(join(tmpdir(), "aic-migration-test-"));
-    const dbPath = join(tmpDir, "aic.sqlite");
-    const db = new Database(dbPath);
-    const runner = new SqliteMigrationRunner(clock);
-    runner.run(db, [migration001, migration002, migration003]);
-    db.close();
-
-    const readDb = new Database(dbPath);
-    const columns = readDb.prepare("PRAGMA table_info(server_sessions)").all() as {
-      name: string;
-    }[];
-    readDb.close();
-    const names = columns.map((c) => c.name);
-    expect(names).toContain("installation_ok");
-    expect(names).toContain("installation_notes");
-  });
-
-  it("creates compilation_log and other MVP tables", () => {
-    tmpDir = mkdtempSync(join(tmpdir(), "aic-migration-test-"));
-    const dbPath = join(tmpDir, "aic.sqlite");
-    const db = new Database(dbPath);
-    const runner = new SqliteMigrationRunner(clock);
-    runner.run(db, [migration001]);
-    db.close();
-
-    const readDb = new Database(dbPath);
-    const tables = readDb
+    const tables = db
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
       .all() as { name: string }[];
-    readDb.close();
-
     const names = tables.map((t) => t.name);
+
     expect(names).toContain("schema_migrations");
     expect(names).toContain("compilation_log");
     expect(names).toContain("telemetry_events");
@@ -151,180 +90,83 @@ describe("SqliteMigrationRunner", () => {
     expect(names).toContain("guard_findings");
     expect(names).toContain("repomap_cache");
     expect(names).toContain("anonymous_telemetry_log");
-  });
-
-  it("migration_004_normalizes_telemetry", () => {
-    tmpDir = mkdtempSync(join(tmpdir(), "aic-migration-test-"));
-    const dbPath = join(tmpDir, "aic.sqlite");
-    const db = new Database(dbPath);
-    const runner = new SqliteMigrationRunner(clock);
-    runner.run(db, [migration001, migration002, migration003, migration004]);
+    expect(names).toContain("server_sessions");
+    expect(names).toContain("session_state");
+    expect(names).toContain("file_transform_cache");
+    expect(names).toContain("tool_invocation_log");
+    expect(names).toContain("projects");
     db.close();
-
-    const readDb = new Database(dbPath);
-    const compilationCols = readDb
-      .prepare("PRAGMA table_info(compilation_log)")
-      .all() as {
-      name: string;
-    }[];
-    const compilationNames = compilationCols.map((c) => c.name);
-    expect(compilationNames).toContain("session_id");
-    expect(compilationNames).toContain("config_hash");
-
-    const telemetryCols = readDb.prepare("PRAGMA table_info(telemetry_events)").all() as {
-      name: string;
-    }[];
-    const telemetryNames = telemetryCols.map((c) => c.name);
-    expect(telemetryNames).toContain("compilation_id");
-    expect(telemetryNames).not.toContain("task_class");
-    expect(telemetryNames).not.toContain("tokens_raw");
-    expect(telemetryNames).not.toContain("tokens_compiled");
-    expect(telemetryNames).not.toContain("token_reduction_pct");
-    expect(telemetryNames).not.toContain("duration_ms");
-    expect(telemetryNames).not.toContain("cache_hit");
-    expect(telemetryNames).not.toContain("model_id");
-    expect(telemetryNames).not.toContain("editor_id");
-    expect(telemetryNames).not.toContain("files_selected");
-    expect(telemetryNames).not.toContain("files_total");
-
-    const migrationRows = readDb.prepare("SELECT id FROM schema_migrations").all() as {
-      id: string;
-    }[];
-    readDb.close();
-    expect(migrationRows).toHaveLength(4);
-    expect(migrationRows.some((r) => r.id === "004-normalize-telemetry")).toBe(true);
   });
 
-  it("migration_011_applies_and_adds_project_root_columns", () => {
-    tmpDir = mkdtempSync(join(tmpdir(), "aic-migration-test-"));
-    const dbPath = join(tmpDir, "aic.sqlite");
-    const db = new Database(dbPath);
-    const runner = new SqliteMigrationRunner(clock);
-    runner.run(db, [
-      migration001,
-      migration002,
-      migration003,
-      migration004,
-      migration005,
-      migration006,
-      migration007,
-      migration008,
-      migration009,
-      migration010,
-      migration011,
-    ]);
-    db.close();
-
-    const readDb = new Database(dbPath);
-    const migrationRows = readDb.prepare("SELECT id FROM schema_migrations").all() as {
-      id: string;
-    }[];
-    expect(migrationRows.some((r) => r.id === "011-global-project-root")).toBe(true);
-
-    const compilationCols = readDb
-      .prepare("PRAGMA table_info(compilation_log)")
-      .all() as {
-      name: string;
-    }[];
-    expect(compilationCols.some((c) => c.name === "project_root")).toBe(true);
-
-    const projectsTable = readDb
-      .prepare(
-        "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'projects'",
-      )
-      .all() as { name: string }[];
-    readDb.close();
-    expect(projectsTable).toHaveLength(1);
-    expect(projectsTable[0]?.name).toBe("projects");
-  });
-
-  it("migration_012_drops_token_reduction_pct", () => {
+  it("compilation_log has final column set — includes project_id, excludes project_root and token_reduction_pct", () => {
     const db = new Database(":memory:");
-    migration001.up(db);
-    migration002.up(db);
-    migration003.up(db);
-    migration004.up(db);
-    migration005.up(db);
-    migration006.up(db);
-    migration007.up(db);
-    migration008.up(db);
-    migration009.up(db);
-    migration010.up(db);
-    migration011.up(db);
-    migration012.up(db);
+    migration.up(db);
     const cols = db.prepare("PRAGMA table_info(compilation_log)").all() as readonly {
       name: string;
     }[];
     const names = cols.map((c) => c.name);
+    expect(names).toContain("project_id");
+    expect(names).toContain("session_id");
+    expect(names).toContain("config_hash");
+    expect(names).toContain("conversation_id");
+    expect(names).toContain("trigger_source");
+    expect(names).not.toContain("project_root");
     expect(names).not.toContain("token_reduction_pct");
     db.close();
   });
 
-  it("migration_013_adds_project_id_columns", () => {
+  it("telemetry_events has final column set — includes compilation_id, excludes legacy columns", () => {
     const db = new Database(":memory:");
-    migration001.up(db);
-    migration002.up(db);
-    migration003.up(db);
-    migration004.up(db);
-    migration005.up(db);
-    migration006.up(db);
-    migration007.up(db);
-    migration008.up(db);
-    migration009.up(db);
-    migration010.up(db);
-    migration011.up(db);
-    migration012.up(db);
-    migration013.up(db);
-    const tablesToCheck = [
+    migration.up(db);
+    const cols = db.prepare("PRAGMA table_info(telemetry_events)").all() as readonly {
+      name: string;
+    }[];
+    const names = cols.map((c) => c.name);
+    expect(names).toContain("compilation_id");
+    expect(names).not.toContain("task_class");
+    expect(names).not.toContain("tokens_raw");
+    expect(names).not.toContain("tokens_compiled");
+    expect(names).not.toContain("token_reduction_pct");
+    expect(names).not.toContain("duration_ms");
+    expect(names).not.toContain("cache_hit");
+    expect(names).not.toContain("model_id");
+    expect(names).not.toContain("editor_id");
+    expect(names).not.toContain("files_selected");
+    expect(names).not.toContain("files_total");
+    expect(names).not.toContain("project_root");
+    db.close();
+  });
+
+  it("per-project tables have project_id FK and no project_root", () => {
+    const db = new Database(":memory:");
+    migration.up(db);
+    const tables = [
       "compilation_log",
       "cache_metadata",
       "tool_invocation_log",
       "session_state",
       "file_transform_cache",
       "config_history",
-    ];
-    for (const table of tablesToCheck) {
+    ] as const;
+    for (const table of tables) {
       const cols = db.prepare(`PRAGMA table_info(${table})`).all() as readonly {
         name: string;
       }[];
       const names = cols.map((c) => c.name);
       expect(names).toContain("project_id");
+      expect(names).not.toContain("project_root");
     }
     db.close();
   });
 
-  it("migration_014_drops_project_root_columns", () => {
+  it("down() drops all tables cleanly", () => {
     const db = new Database(":memory:");
-    migration001.up(db);
-    migration002.up(db);
-    migration003.up(db);
-    migration004.up(db);
-    migration005.up(db);
-    migration006.up(db);
-    migration007.up(db);
-    migration008.up(db);
-    migration009.up(db);
-    migration010.up(db);
-    migration011.up(db);
-    migration012.up(db);
-    migration013.up(db);
-    migration014.up(db);
-    const tablesToCheck = [
-      "compilation_log",
-      "cache_metadata",
-      "tool_invocation_log",
-      "session_state",
-      "file_transform_cache",
-      "config_history",
-    ];
-    for (const table of tablesToCheck) {
-      const cols = db.prepare(`PRAGMA table_info(${table})`).all() as readonly {
-        name: string;
-      }[];
-      const names = cols.map((c) => c.name);
-      expect(names).not.toContain("project_root");
-      expect(names).toContain("project_id");
-    }
+    migration.up(db);
+    migration.down(db);
+    const tables = db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
+      .all() as { name: string }[];
+    expect(tables).toHaveLength(0);
     db.close();
   });
 });

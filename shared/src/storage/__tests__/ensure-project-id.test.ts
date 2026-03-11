@@ -13,20 +13,7 @@ import type { IdGenerator } from "@jatbas/aic-core/core/interfaces/id-generator.
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
 import type { ProjectRootNormaliser } from "@jatbas/aic-core/core/interfaces/project-root-normaliser.interface.js";
 import { SqliteMigrationRunner } from "../sqlite-migration-runner.js";
-import { migration as migration001 } from "../migrations/001-initial-schema.js";
-import { migration as migration002 } from "../migrations/002-server-sessions.js";
-import { migration as migration003 } from "../migrations/003-server-sessions-integrity.js";
-import { migration as migration004 } from "../migrations/004-normalize-telemetry.js";
-import { migration as migration005 } from "../migrations/005-trigger-source.js";
-import { migration as migration006 } from "../migrations/006-cache-datetime-format.js";
-import { migration as migration007 } from "../migrations/007-conversation-id.js";
-import { migration as migration008 } from "../migrations/008-session-state.js";
-import { migration as migration009 } from "../migrations/009-file-transform-cache.js";
-import { migration as migration010 } from "../migrations/010-tool-invocation-log.js";
-import { migration as migration011 } from "../migrations/011-global-project-root.js";
-import { migration as migration012 } from "../migrations/012-normalize-schema.js";
-import { migration as migration013 } from "../migrations/013-project-id-fk.js";
-import { migration as migration014 } from "../migrations/014-drop-project-root-columns.js";
+import { migration } from "../migrations/001-consolidated-schema.js";
 import { reconcileProjectId, PROJECT_ID_FILENAME } from "../ensure-project-id.js";
 import { NodePathAdapter } from "@jatbas/aic-core/adapters/node-path-adapter.js";
 
@@ -59,22 +46,7 @@ describe("ensure-project-id", () => {
   function setupDb(clock: Clock): ExecutableDb {
     db = new Database(":memory:");
     const runner = new SqliteMigrationRunner(clock);
-    runner.run(db as unknown as ExecutableDb, [
-      migration001,
-      migration002,
-      migration003,
-      migration004,
-      migration005,
-      migration006,
-      migration007,
-      migration008,
-      migration009,
-      migration010,
-      migration011,
-      migration012,
-      migration013,
-      migration014,
-    ]);
+    runner.run(db as unknown as ExecutableDb, [migration]);
     return db as unknown as ExecutableDb;
   }
 
