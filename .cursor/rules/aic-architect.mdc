@@ -77,23 +77,22 @@ Use these rules for all three AIC prompt commands. Present data like a polished 
 
 - **"show aic status"** — When the user says this (or similar), read the MCP resource `aic://status` from the `project-0-AIC-AIC` server using `FetchMcpResource`. Start the reply with one short line: **Status = project-level AIC status.** Then display a formatted table using these labels and formats:
 
-  | JSON key                             | Label                  | Format                                                                                                                                                                                                         |
-  | ------------------------------------ | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-  | compilationsTotal                    | Compilations (total)   | number                                                                                                                                                                                                         |
-  | compilationsToday                    | Compilations (today)   | number                                                                                                                                                                                                         |
-  | totalTokensRaw → totalTokensCompiled | Tokens: raw → compiled | e.g. 8,484,717 → 15,739                                                                                                                                                                                        |
-  | totalTokensSaved                     | Tokens saved           | formatted with commas                                                                                                                                                                                          |
-  | budgetMaxTokens                      | Budget limit           | formatted with commas                                                                                                                                                                                          |
-  | budgetUtilizationPct                 | Budget utilization     | percentage, 1 decimal (e.g. 78.2%)                                                                                                                                                                             |
-  | cacheHitRatePct                      | Cache hit rate         | percentage, 1 decimal                                                                                                                                                                                          |
-  | avgReductionPct                      | Avg token reduction    | percentage, 1 decimal                                                                                                                                                                                          |
-  | guardByType                          | Guard findings         | type: count pairs, or "None"                                                                                                                                                                                   |
-  | topTaskClasses                       | Top task classes       | taskClass (count), comma-separated                                                                                                                                                                             |
-  | lastCompilation                      | Last compilation       | intent, files selected/total, tokens, relative time (e.g. "2 min ago")                                                                                                                                         |
-  | installationOk                       | Installation           | "OK" or "Issues detected"                                                                                                                                                                                      |
-  | installationNotes                    | Notes                  | text, or omit row if empty                                                                                                                                                                                     |
-  | updateAvailable                      | Update available       | version or "—"                                                                                                                                                                                                 |
-  | installScope                         | Install scope          | "Global", "Workspace — add AIC to your global MCP config for all workspaces", or "Duplicate — AIC is in both global and workspace config; remove the duplicate workspace entry to avoid running two instances" |
+  | JSON key                             | Label                  | Format                                                                 |
+  | ------------------------------------ | ---------------------- | ---------------------------------------------------------------------- |
+  | compilationsTotal                    | Compilations (total)   | number                                                                 |
+  | compilationsToday                    | Compilations (today)   | number                                                                 |
+  | totalTokensRaw → totalTokensCompiled | Tokens: raw → compiled | e.g. 8,484,717 → 15,739                                                |
+  | totalTokensSaved                     | Tokens saved           | formatted with commas                                                  |
+  | budgetMaxTokens                      | Budget limit           | formatted with commas                                                  |
+  | budgetUtilizationPct                 | Budget utilization     | percentage, 1 decimal (e.g. 78.2%)                                     |
+  | cacheHitRatePct                      | Cache hit rate         | percentage, 1 decimal                                                  |
+  | avgReductionPct                      | Avg token reduction    | percentage, 1 decimal                                                  |
+  | guardByType                          | Guard findings         | type: count pairs, or "None"                                           |
+  | topTaskClasses                       | Top task classes       | taskClass (count), comma-separated                                     |
+  | lastCompilation                      | Last compilation       | intent, files selected/total, tokens, relative time (e.g. "2 min ago") |
+  | installationOk                       | Installation           | "OK" or "Issues detected"                                              |
+  | installationNotes                    | Notes                  | text, or omit row if empty                                             |
+  | updateAvailable                      | Update available       | version or "—"                                                         |
 
 - **"show aic chat summary"** — When the user says "show aic chat summary" or asks for this conversation's AIC compilation stats, call the MCP tool `aic_chat_summary` with the `conversationId` returned in your most recent `aic_compile` response. If you have not yet called `aic_compile` in this conversation (no stored conversationId), call `aic_chat_summary` without conversationId — the server will return a zero-compilation payload. Start the reply with one short line: **Chat = this conversation's AIC compilations.** Then display a formatted table using these labels and formats:
 

@@ -62,7 +62,6 @@ Status = project-level AIC status.
 |                                | 7,692 tokens (98.8%), cursor                  |
 | Installation                   | OK                                            |
 | Installation notes             | (none)                                        |
-| Install scope                  | Global                                        |
 ```
 
 > `show aic last`
