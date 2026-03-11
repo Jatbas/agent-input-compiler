@@ -215,9 +215,8 @@ function recordSessionStepIfNeeded(
 ): void {
   if (!request.sessionId || !agenticSessionState) return;
   const stepIndex = request.stepIndex ?? toStepIndex(0);
-  const tiers = r.prunedFiles.reduce<Record<string, InclusionTier>>(
-    (acc, f) => ({ ...acc, [f.path]: f.tier }),
-    {},
+  const tiers: Record<string, InclusionTier> = Object.fromEntries(
+    r.prunedFiles.map((f) => [f.path, f.tier]),
   );
   agenticSessionState.recordStep(request.sessionId, {
     stepIndex,
