@@ -958,7 +958,7 @@ The current cache key is `hash(intent + config + fileTreeHash)`. For agentic ses
 
 Even before any agentic-specific code ships, AIC provides value in agentic workflows when `aic_compile` is called:
 
-1. **Security is maintained**: Context Guard runs on every `aic_compile` call, regardless of session state. Secrets are blocked at every agent step.
+1. **Security is maintained**: Context Guard runs on every `aic_compile` call, regardless of session state. Secrets are excluded from the compiled context at every agent step.
 2. **Per-step compilation works**: If the agent calls `aic_compile` with a different intent each time, AIC compiles fresh context. The agent gets relevant files per step — just without session deduplication or conversation compression.
 3. **Token reduction per call**: Each compilation reduces tokens compared to the model reading raw files. When the agent makes multiple compilation calls per task, the savings apply to each one.
 4. **Determinism across steps**: Each step's compilation is deterministic, making agentic workflows reproducible and debuggable via `aic_inspect`.
@@ -1642,6 +1642,8 @@ One file per class; no barrel re-exports at the pipeline step level to keep depe
 > ```
 
 All fields are optional. AIC works with an empty `{}` or no config file at all.
+
+> **Unimplemented options:** Some fields in the Field Reference below are planned but not yet implemented. Unimplemented options are ignored without error — you can set them today and they will take effect when the feature ships. If an option has no visible effect, it may still be unimplemented.
 
 ### Field Reference
 

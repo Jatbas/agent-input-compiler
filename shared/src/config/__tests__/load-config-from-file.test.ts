@@ -100,6 +100,20 @@ describe("LoadConfigFromFile", () => {
     expect(result.config.enabled).toBe(true);
   });
 
+  it("load_config_with_unimplemented_keys_ignores_extra_keys", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-config-test-"));
+    fs.writeFileSync(
+      path.join(tmpDir, "aic.config.json"),
+      '{"contextBudget":{"maxTokens":6000},"rulePacks":["built-in:default"],"guard":{"enabled":false},"cache":{"ttlMinutes":30}}',
+      "utf8",
+    );
+    const projectRoot = toAbsolutePath(tmpDir);
+    const loader = new LoadConfigFromFile();
+    const result = loader.load(projectRoot, null);
+    expect(result.config.contextBudget.maxTokens).toBe(toTokenCount(6000));
+    // rulePacks, guard, cache are ignored; contextBudget is applied
+  });
+
   it("load_explicit_config_path_uses_that_file", () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-config-test-"));
     const subdir = path.join(tmpDir, "subdir");

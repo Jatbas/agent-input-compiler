@@ -19,23 +19,21 @@ import type { HeuristicSelectorConfig } from "@jatbas/aic-core/core/interfaces/h
 import type { LoadConfigResult } from "@jatbas/aic-core/core/interfaces/load-config-result.interface.js";
 import type { StringHasher } from "@jatbas/aic-core/core/interfaces/string-hasher.interface.js";
 
-const AicConfigSchema = z
-  .object({
-    contextBudget: z
-      .object({
-        maxTokens: z.number(),
-        perTaskClass: z.record(z.string(), z.number()).optional(),
-      })
-      .optional(),
-    contextSelector: z
-      .object({
-        heuristic: z.object({ maxFiles: z.number().optional() }).optional(),
-      })
-      .optional(),
-    model: z.object({ id: z.string().optional() }).optional(),
-    enabled: z.boolean().optional(),
-  })
-  .strict();
+const AicConfigSchema = z.object({
+  contextBudget: z
+    .object({
+      maxTokens: z.number(),
+      perTaskClass: z.record(z.string(), z.number()).optional(),
+    })
+    .optional(),
+  contextSelector: z
+    .object({
+      heuristic: z.object({ maxFiles: z.number().optional() }).optional(),
+    })
+    .optional(),
+  model: z.object({ id: z.string().optional() }).optional(),
+  enabled: z.boolean().optional(),
+});
 
 type AicConfigParsed = z.infer<typeof AicConfigSchema>;
 

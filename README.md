@@ -83,17 +83,13 @@ Last = most recent compilation.
 
 ## Quick start
 
-### Prerequisites
+Requirements: Node.js 18+
 
-- **Node.js 18+**
-
-### Cursor
-
-**1. Install the MCP server**
+### 1. Install the MCP server
 
 [![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://jatbas.github.io/agent-input-compiler/install/cursor-install.html)
 
-If the button does nothing, enable **GitHub Pages** for this repo (Settings → Pages → Source: Deploy from branch → Branch: main, / (root)), then try again. Or copy this URL into your browser:
+Or copy this URL into your browser:
 
 ```text
 cursor://anysphere.cursor-deeplink/mcp/install?name=aic&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqYXRiYXMvYWljIl19
@@ -101,31 +97,19 @@ cursor://anysphere.cursor-deeplink/mcp/install?name=aic&config=eyJjb21tYW5kIjoib
 
 Cursor will prompt to add the server to your global MCP config (`~/.cursor/mcp.json`); confirm and you're done. AIC is now available in every workspace — no per-project setup needed.
 
-> **Need a project-specific install instead?** Add to `.cursor/mcp.json` in your project directory:
->
-> ```json
-> {
->   "mcpServers": {
->     "aic": { "command": "npx", "args": ["-y", "@jatbas/aic"] }
->   }
-> }
-> ```
+### 2. Start prompting
 
-**2. Start prompting** — approve the tools when prompted and start coding. AIC auto-initializes each project the first time it compiles (config, hooks, `.aic/`, ignore entries). All projects share a single database at `~/.aic/aic.sqlite` with per-project isolation; per-project files (config, cache, hooks) remain in each project directory. Nothing else to install or configure.
+Approve the tools when prompted and start coding. AIC creates its config file, hooks, and local data directory the first time it runs in a project. All projects share a single database at `~/.aic/aic.sqlite`; per-project files remain in each project directory. Nothing else to install or configure.
 
-### Claude Code
+### Disabling AIC for a specific project
 
-Claude Code integration is planned. The core pipeline is already editor-agnostic; the remaining work is the editor-specific integration layer.
+Add `"enabled": false` to `aic.config.json` in the project root. AIC returns immediately with no compilation and no database writes. Set it back to `true` (or remove the field) to re-enable. The `show aic status` command reflects the current state.
 
-### Other MCP-compatible editors
+For the full list of available configuration options, see [§6 Configuration in the Project Plan](documentation/project-plan.md#6-configuration--aicconfigjson).
 
-AIC can run in any editor that supports MCP, but the quality of the integration depends on the hooks and lifecycle events the editor exposes. Without a dedicated integration layer, the model may need to call AIC tools voluntarily rather than being guided automatically.
+### Other editors
 
-Want AIC in your editor? You can:
-
-- **Contribute** — build the integration layer and open a pull request
-- **Request** — [open an issue](https://github.com/Jatbas/agent-input-compiler/issues) describing your editor and use case
-- **Reach out** — email jatbas@gmail.com
+Claude Code and other MCP-compatible editors can connect directly by adding AIC to their MCP config (`"command": "npx", "args": ["-y", "@jatbas/aic"]`). A dedicated integration layer for Claude Code is planned; without it, the model calls AIC tools voluntarily rather than being guided automatically. [Open an issue](https://github.com/Jatbas/agent-input-compiler/issues) to request support for your editor or contribute an integration layer.
 
 ---
 
@@ -144,9 +128,9 @@ What to look for:
 - **Installation: OK** in `show aic status`
 - a recent compilation in `show aic last`
 - selected file count, compiled tokens, and reduction figures that make sense for the task
-- guard events when sensitive or excluded content is blocked
+- AIC blocking sensitive or excluded content
 
-If there is no recent compilation, AIC may be installed but not invoked correctly by the current editor workflow.
+If there is no recent compilation, the model may not be calling AIC automatically. Check that the AIC tools are approved in your editor's MCP settings and try starting a new chat.
 
 ---
 
@@ -154,10 +138,9 @@ If there is no recent compilation, AIC may be installed but not invoked correctl
 
 For team use, the practical split is simple:
 
-- each developer installs the MCP server locally
-- project-level integration files are committed to the repo when appropriate
-- `.aic/` remains local and should not be committed
-- rules, budgets, and integration behavior should be standardized at the repo level, not per developer
+- each developer installs the MCP server on their machine
+- `aic.config.json` and editor rule files are committed to the repo so the whole team compiles against the same settings
+- `.aic/` (local cache and runtime data) stays on each developer's machine and should not be committed
 
 AIC is useful for individuals, but it becomes more valuable when teams want more consistent context quality across the same codebase.
 
@@ -165,7 +148,7 @@ AIC is useful for individuals, but it becomes more valuable when teams want more
 
 ## How AIC fits into the workflow
 
-1. Your editor or model calls `aic_compile`
+1. Your editor automatically calls `aic_compile` at the start of each AI session
 2. AIC classifies the task, selects relevant files, applies guardrails, and compresses content
 3. AIC returns a bounded context package
 4. The editor continues the normal model workflow using that compiled context
@@ -176,13 +159,15 @@ AIC compiles context. It does not call models, replace the editor, or act as a s
 
 ## Security
 
-AIC is local-first.
+AIC is local-first. All processing runs on the developer's machine.
 
-Before file content reaches the model, AIC can block:
+AIC's Context Guard excludes the following from compiled context before it reaches the model:
 
 - common secrets and credentials
 - excluded paths such as `.env`, keys, and similar sensitive files
 - suspicious prompt-injection strings in selected content
+
+This prevents sensitive content from being included in bulk context. It does not prevent the model from reading files directly through editor tools — that is the editor's responsibility. For details, see [`security.md`](documentation/security.md).
 
 Telemetry is local by default. AIC stores compilation metadata locally and does not need an AIC account or API key.
 
