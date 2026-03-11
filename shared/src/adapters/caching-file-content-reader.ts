@@ -6,11 +6,13 @@ import * as path from "node:path";
 import type { FileContentReader } from "@jatbas/aic-core/core/interfaces/file-content-reader.interface.js";
 import type { AbsolutePath, RelativePath } from "@jatbas/aic-core/core/types/paths.js";
 
-// Wraps fs.readFileSync with mtime-based caching so repeated reads
-// of the same unchanged file (within or across compilations) hit memory.
+// Wraps fs with mtime-based LRU cache so repeated reads of the same
+// unchanged file hit memory; cap prevents unbounded growth.
 export function createCachingFileContentReader(
   projectRoot: AbsolutePath,
+  options?: { readonly maxEntries?: number },
 ): FileContentReader {
+  const maxEntries = options?.maxEntries ?? 500;
   const cache = new Map<string, { readonly content: string; readonly mtimeMs: number }>();
   return {
     async getContent(pathRel: RelativePath): Promise<string> {
@@ -19,10 +21,16 @@ export function createCachingFileContentReader(
       const mtimeMs = stat.mtimeMs;
       const cached = cache.get(pathRel);
       if (cached !== undefined && cached.mtimeMs === mtimeMs) {
+        cache.delete(pathRel);
+        cache.set(pathRel, cached);
         return cached.content;
       }
       const content = await fs.promises.readFile(full, "utf8");
       cache.set(pathRel, { content, mtimeMs });
+      if (cache.size > maxEntries) {
+        const firstKey = cache.keys().next().value;
+        if (firstKey !== undefined) cache.delete(firstKey);
+      }
       return content;
     },
   };

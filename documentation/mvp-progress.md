@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 45/67 done
+**Phase 1.0:** 46/67 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -194,7 +194,7 @@ Cap unbounded in-memory data structures to prevent long-running server memory gr
 
 | Component                                       | Status  | Package              | Deps | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | ----------------------------------------------- | ------- | -------------------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| P08: LRU bound on `CachingFileContentReader`    | Pending | shared/src/adapters/ | —    | The `Map` in `createCachingFileContentReader` (line 14) grows without bound — every file ever read is cached for the server's lifetime. For a 1000-file repo with an 8KB average, this is ~8MB of retained strings. Add a simple Map-based LRU with a configurable max size (default 500 entries). Ensures memory stays bounded during long sessions.                                                                                                                                                                                                                                                                                   |
+| P08: LRU bound on `CachingFileContentReader`    | Done    | shared/src/adapters/ | —    | The `Map` in `createCachingFileContentReader` (line 14) grows without bound — every file ever read is cached for the server's lifetime. For a 1000-file repo with an 8KB average, this is ~8MB of retained strings. Add a simple Map-based LRU with a configurable max size (default 500 entries). Ensures memory stays bounded during long sessions.                                                                                                                                                                                                                                                                                   |
 | P09: Bounded `runnerCache` with watcher cleanup | Pending | mcp/src/             | —    | The `runnerCache` Map in `server.ts` (line 217) caches `CompilationRunner` per project root forever. Each runner holds `PipelineStepsDeps` including a `WatchingRepoMapSupplier` with an active `fs.watch` file watcher. Cap at 10 entries. On eviction, close the watcher to release the OS file handle. Use the already-exported `createPipelineDeps` (returns `PipelineDepsWithoutRepoMap`) instead of `createFullPipelineDeps` in `getRunner`, create `WatchingRepoMapSupplier` manually, and store `{ runner, closeable }` in the cache. On eviction and shutdown, call `closeable.close()`. Only `mcp/src/server.ts` is modified. |
 
 Notes:
@@ -422,6 +422,13 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 ---
 
 ## Daily Log
+
+### 2025-03-12
+
+**Components:** P08 LRU bound on CachingFileContentReader (Task 140)
+**Completed:**
+
+- P08 LRU bound on CachingFileContentReader (Task 140): Optional `options?: { readonly maxEntries?: number }` (default 500). On cache hit: delete-then-set to move entry to end; after cache miss set, if size > maxEntries evict oldest via `cache.keys().next().value`. Four tests: cache_hit_returns_cached_content, cache_miss_reads_file, eviction_when_over_cap, touch_on_hit_moves_to_end. No new deps; existing call sites unchanged.
 
 ### 2025-03-11
 
