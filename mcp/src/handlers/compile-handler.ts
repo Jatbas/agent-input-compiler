@@ -155,7 +155,7 @@ export function createCompileHandler(
         "last-compiled-prompt.txt",
       );
       try {
-        fs.writeFileSync(lastPromptPath, result.compiledPrompt, "utf8");
+        await fs.promises.writeFile(lastPromptPath, result.compiledPrompt, "utf8");
       } catch {
         // Non-fatal — do not fail the request
       }

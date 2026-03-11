@@ -170,6 +170,39 @@ describe("compile-handler", () => {
     };
   }
 
+  it("prompt_log_written_after_successful_compile", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+    try {
+      const expectedPrompt = "expected prompt content";
+      const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
+      const handler = createCompileHandler(
+        getScope,
+        (_scope: ProjectScope) => makeSuccessRunner(expectedPrompt),
+        { hash: (): string => "" },
+        getSessionId,
+        getEditorId,
+        getModelId,
+        null,
+        [],
+        enabledConfigLoader,
+      );
+      await handler(
+        {
+          intent: "test",
+          projectRoot: tmpDir,
+          modelId: null,
+          configPath: null,
+        },
+        undefined,
+      );
+      const logPath = path.join(tmpDir, ".aic", "last-compiled-prompt.txt");
+      expect(fs.existsSync(logPath)).toBe(true);
+      expect(fs.readFileSync(logPath, "utf8")).toBe(expectedPrompt);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it("response_includes_conversation_id_when_provided", async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
     try {
