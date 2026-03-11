@@ -29,12 +29,15 @@ import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
 import { prunePromptLog } from "@jatbas/aic-core/maintenance/prune-prompt-log.js";
 import { pruneSessionLog } from "@jatbas/aic-core/maintenance/prune-session-log.js";
 import { NodePathAdapter } from "@jatbas/aic-core/adapters/node-path-adapter.js";
+import { SystemClock } from "@jatbas/aic-core/adapters/system-clock.js";
 import { ScopeRegistry } from "@jatbas/aic-core/storage/scope-registry.js";
+import { openDatabase, closeDatabase } from "@jatbas/aic-core/storage/open-database.js";
 import { SqliteStatusStore } from "@jatbas/aic-core/storage/sqlite-status-store.js";
 import type { CacheStore } from "@jatbas/aic-core/core/interfaces/cache-store.interface.js";
 import type { CompilationRunner } from "@jatbas/aic-core/core/interfaces/compilation-runner.interface.js";
 import type { SessionTracker } from "@jatbas/aic-core/core/interfaces/session-tracker.interface.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
+import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
 import type { ProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
 import type { SessionId } from "@jatbas/aic-core/core/types/identifiers.js";
 import {
@@ -136,10 +139,12 @@ function readPackageVersion(): { packageName: string; packageVersion: string } {
 
 export function createMcpServer(
   projectRoot: AbsolutePath,
+  db: ExecutableDb,
+  clock: Clock,
   additionalProviders?: readonly LanguageProvider[],
 ): McpServer {
   const normaliser = new NodePathAdapter();
-  const registry = new ScopeRegistry(normaliser);
+  const registry = new ScopeRegistry(normaliser, db, clock);
   const startupScope = registry.getOrCreate(projectRoot);
   const { packageName, packageVersion } = readPackageVersion();
   const purgeImmediateId = setImmediate(() => {
@@ -410,6 +415,7 @@ export function createMcpServer(
   out.close = (): Promise<void> => {
     clearImmediate(purgeImmediateId);
     registry.close();
+    closeDatabase(db);
     return Promise.resolve();
   };
   return out;
@@ -417,7 +423,16 @@ export function createMcpServer(
 
 export async function main(): Promise<void> {
   const projectRoot = toAbsolutePath(process.cwd());
-  const server = createMcpServer(projectRoot);
+  const globalAicDir = path.join(os.homedir(), ".aic");
+  const globalDbPath = path.join(globalAicDir, "aic.sqlite");
+  fs.mkdirSync(globalAicDir, { recursive: true, mode: 0o700 });
+  const cwdAicDb = path.join(process.cwd(), ".aic", "aic.sqlite");
+  if (!fs.existsSync(globalDbPath) && fs.existsSync(cwdAicDb)) {
+    fs.copyFileSync(cwdAicDb, globalDbPath);
+  }
+  const clock = new SystemClock();
+  const db = openDatabase(globalDbPath, clock);
+  const server = createMcpServer(projectRoot, db, clock);
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

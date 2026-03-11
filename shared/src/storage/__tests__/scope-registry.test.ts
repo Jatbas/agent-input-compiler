@@ -10,6 +10,8 @@ import type { ProjectRootNormaliser } from "../../core/interfaces/project-root-n
 import { toAbsolutePath } from "../../core/types/paths.js";
 import type { AbsolutePath } from "../../core/types/paths.js";
 import { ScopeRegistry } from "../scope-registry.js";
+import { openDatabase, closeDatabase } from "../open-database.js";
+import { SystemClock } from "../../adapters/system-clock.js";
 
 function makeTempDir(): string {
   return mkdtempSync(join(tmpdir(), "aic-scope-registry-"));
@@ -32,11 +34,14 @@ describe("ScopeRegistry", () => {
         return toAbsolutePath(raw);
       },
     };
-    const registry = new ScopeRegistry(normaliser);
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    const registry = new ScopeRegistry(normaliser, db, clock);
     const scope1 = registry.getOrCreate(pathA);
     const scope2 = registry.getOrCreate(pathA);
     expect(scope2).toBe(scope1);
     registry.close();
+    closeDatabase(db);
   });
 
   it("different_paths_different_instances", () => {
@@ -49,11 +54,14 @@ describe("ScopeRegistry", () => {
         return toAbsolutePath(raw);
       },
     };
-    const registry = new ScopeRegistry(normaliser);
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    const registry = new ScopeRegistry(normaliser, db, clock);
     const scopeA = registry.getOrCreate(pathA);
     const scopeB = registry.getOrCreate(pathB);
     expect(scopeB).not.toBe(scopeA);
     registry.close();
+    closeDatabase(db);
   });
 
   it("normalisation_trailing_slash", () => {
@@ -65,11 +73,14 @@ describe("ScopeRegistry", () => {
         return toAbsolutePath(raw.replace(/\/$/, ""));
       },
     };
-    const registry = new ScopeRegistry(normaliser);
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    const registry = new ScopeRegistry(normaliser, db, clock);
     const scope1 = registry.getOrCreate(pathNoSlash);
     const scope2 = registry.getOrCreate(pathWithSlash);
     expect(scope2).toBe(scope1);
     registry.close();
+    closeDatabase(db);
   });
 
   it("normalisation_drive_letter", () => {
@@ -82,11 +93,14 @@ describe("ScopeRegistry", () => {
         return pathA;
       },
     };
-    const registry = new ScopeRegistry(normaliser);
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    const registry = new ScopeRegistry(normaliser, db, clock);
     const scope1 = registry.getOrCreate(pathA);
     const scope2 = registry.getOrCreate(pathB);
     expect(scope2).toBe(scope1);
     registry.close();
+    closeDatabase(db);
   });
 
   it("close_releases_scopes", () => {
@@ -99,7 +113,9 @@ describe("ScopeRegistry", () => {
         return toAbsolutePath(raw);
       },
     };
-    const registry = new ScopeRegistry(normaliser);
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    const registry = new ScopeRegistry(normaliser, db, clock);
     const scope1 = registry.getOrCreate(pathA);
     registry.getOrCreate(pathB);
     registry.close();
@@ -111,5 +127,6 @@ describe("ScopeRegistry", () => {
     if (first === undefined) throw new AicError("expected one row", "TEST_SETUP");
     expect(first.one).toBe(1);
     registry.close();
+    closeDatabase(db);
   });
 });

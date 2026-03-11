@@ -7,6 +7,8 @@ import * as path from "node:path";
 import * as os from "node:os";
 import { toSessionId, toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
 import { createMcpServer, registerShutdownHandler } from "../server.js";
+import { openDatabase, closeDatabase } from "@jatbas/aic-core/storage/open-database.js";
+import { SystemClock } from "@jatbas/aic-core/adapters/system-clock.js";
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
 import { STOP_REASON } from "@jatbas/aic-core/core/types/enums.js";
 import { NodePathAdapter } from "@jatbas/aic-core/adapters/node-path-adapter.js";
@@ -46,7 +48,9 @@ describe("MCP server", () => {
 
   it("list_tools", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
-    server = createMcpServer(toAbsolutePath(tmpDir));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
@@ -61,7 +65,9 @@ describe("MCP server", () => {
 
   it("status_resource_returns_json", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
-    server = createMcpServer(toAbsolutePath(tmpDir));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
@@ -86,7 +92,9 @@ describe("MCP server", () => {
 
   it("status_resource_empty_db", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
-    server = createMcpServer(toAbsolutePath(tmpDir));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
@@ -128,7 +136,9 @@ describe("MCP server", () => {
     });
     try {
       tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
-      server = createMcpServer(toAbsolutePath(tmpDir));
+      const clock = new SystemClock();
+      const db = openDatabase(":memory:", clock);
+      server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
       const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
       await server.connect(transportServer);
       const client = new Client({ name: "test", version: "1.0" });
@@ -147,7 +157,9 @@ describe("MCP server", () => {
 
   it("last_resource_returns_json", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
-    server = createMcpServer(toAbsolutePath(tmpDir));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
@@ -200,7 +212,9 @@ describe("MCP server", () => {
 
   it("aic_last_no_compiled_prompt", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
-    server = createMcpServer(toAbsolutePath(tmpDir));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
@@ -221,7 +235,9 @@ describe("MCP server", () => {
 
   it("last_resource_empty_db", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
-    server = createMcpServer(toAbsolutePath(tmpDir));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
@@ -245,7 +261,9 @@ describe("MCP server", () => {
 
   it("valid_args_returns_compiled_prompt", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
-    server = createMcpServer(toAbsolutePath(tmpDir));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
@@ -269,7 +287,9 @@ describe("MCP server", () => {
 
   it("mcp_accepts_optional_trigger_source", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
-    server = createMcpServer(toAbsolutePath(tmpDir));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
@@ -295,7 +315,9 @@ describe("MCP server", () => {
 
   it("aic_chat_summary_tool_returns_json_when_compilations_exist", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
-    server = createMcpServer(toAbsolutePath(tmpDir));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
@@ -328,7 +350,9 @@ describe("MCP server", () => {
 
   it("aic_chat_summary_tool_returns_zero_when_no_compilations", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
-    server = createMcpServer(toAbsolutePath(tmpDir));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
@@ -360,7 +384,9 @@ describe("MCP server", () => {
       "conv-omit-file-test",
       "utf8",
     );
-    server = createMcpServer(toAbsolutePath(tmpDir));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
@@ -386,7 +412,9 @@ describe("MCP server", () => {
 
   it("aic_chat_summary_omitted_conversation_id_no_file_returns_zero", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
-    server = createMcpServer(toAbsolutePath(tmpDir));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
@@ -412,7 +440,9 @@ describe("MCP server", () => {
 
   it("invalid_args_returns_32602", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
-    server = createMcpServer(toAbsolutePath(tmpDir));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
@@ -424,7 +454,9 @@ describe("MCP server", () => {
 
   it("aic_inspect_invalid_params", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
-    server = createMcpServer(toAbsolutePath(tmpDir));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
@@ -436,7 +468,9 @@ describe("MCP server", () => {
 
   it("aic_chat_summary_catch_returns_internal_error", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
-    server = createMcpServer(toAbsolutePath(tmpDir));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
@@ -452,7 +486,9 @@ describe("MCP server", () => {
 
   it("aic_inspect_returns_trace", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
-    server = createMcpServer(toAbsolutePath(tmpDir));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
@@ -475,17 +511,18 @@ describe("MCP server", () => {
   it("idempotency", () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     const projectRoot = toAbsolutePath(tmpDir);
-    let scope1: ReturnType<typeof createProjectScope> | undefined;
-    let scope2: ReturnType<typeof createProjectScope> | undefined;
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
     const normaliser = new NodePathAdapter();
+    let _scope1: ReturnType<typeof createProjectScope> | undefined;
+    let _scope2: ReturnType<typeof createProjectScope> | undefined;
     expect(() => {
-      scope1 = createProjectScope(projectRoot, normaliser);
+      _scope1 = createProjectScope(projectRoot, normaliser, db, clock);
     }).not.toThrow();
     expect(() => {
-      scope2 = createProjectScope(projectRoot, normaliser);
+      _scope2 = createProjectScope(projectRoot, normaliser, db, clock);
     }).not.toThrow();
-    if (scope1?.db) (scope1.db as unknown as { close(): void }).close();
-    if (scope2?.db) (scope2.db as unknown as { close(): void }).close();
+    closeDatabase(db);
   });
 
   it("permissions", () => {
@@ -541,12 +578,14 @@ describe("MCP server", () => {
   it("server_sessions_row_has_integrity", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     const projectRoot = toAbsolutePath(tmpDir);
-    server = createMcpServer(projectRoot);
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(projectRoot, db, clock);
     const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
     await client.connect(transportClient);
-    const scope = createProjectScope(projectRoot, new NodePathAdapter());
+    const scope = createProjectScope(projectRoot, new NodePathAdapter(), db, clock);
     const rows = scope.db
       .prepare(
         "SELECT session_id, installation_ok, installation_notes FROM server_sessions ORDER BY started_at DESC LIMIT 1",
@@ -562,6 +601,5 @@ describe("MCP server", () => {
     expect(row.session_id).toBeDefined();
     expect(row.installation_ok === 0 || row.installation_ok === 1).toBe(true);
     expect(typeof row.installation_notes === "string").toBe(true);
-    (scope.db as unknown as { close(): void }).close();
   });
 });
