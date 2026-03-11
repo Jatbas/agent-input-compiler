@@ -100,11 +100,9 @@ If the button does nothing, enable **GitHub Pages** for this repo (Settings → 
 cursor://anysphere.cursor-deeplink/mcp/install?name=aic&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqYXRiYXMvYWljIl19
 ```
 
-Cursor will prompt to add the server; confirm and you're done.
+Cursor will prompt to add the server to your global MCP config (`~/.cursor/mcp.json`); confirm and you're done. AIC is now available in every workspace — no per-project setup needed.
 
-> **Important:** This installs AIC for the current workspace. When you open a different folder as a new workspace, click the link again from that workspace.
->
-> **Prefer a single global install?** Add to `~/.cursor/mcp.json` once and skip the link entirely:
+> **Need a project-specific install instead?** Add to `.cursor/mcp.json` in your project directory:
 >
 > ```json
 > {
@@ -114,7 +112,7 @@ Cursor will prompt to add the server; confirm and you're done.
 > }
 > ```
 
-**2. Start prompting** — approve the tools when prompted and start coding. AIC auto-initializes each project the first time it compiles (config, hooks, `.aic/`, ignore entries). Each project gets its own local database, cache, and configuration. Nothing else to install or configure.
+**2. Start prompting** — approve the tools when prompted and start coding. AIC auto-initializes each project the first time it compiles (config, hooks, `.aic/`, ignore entries). All projects share a single database at `~/.aic/aic.sqlite` with per-project isolation; per-project files (config, cache, hooks) remain in each project directory. Nothing else to install or configure.
 
 ### Claude Code
 
