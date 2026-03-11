@@ -72,7 +72,11 @@ import { loadRulePackFromPath } from "@jatbas/aic-core/core/load-rule-pack.js";
 import { createProjectFileReader } from "@jatbas/aic-core/adapters/project-file-reader-adapter.js";
 import { createCachingFileContentReader } from "@jatbas/aic-core/adapters/caching-file-content-reader.js";
 import { detectEditorId } from "./detect-editor-id.js";
-import { detectInstallScope, INSTALL_SCOPE } from "./detect-install-scope.js";
+import {
+  detectInstallScope,
+  removeWorkspaceAicEntry,
+  INSTALL_SCOPE,
+} from "./detect-install-scope.js";
 import { getUpdateInfo } from "./latest-version-check.js";
 import { EditorModelConfigReaderAdapter } from "@jatbas/aic-core/adapters/editor-model-config-reader.js";
 import { ModelDetectorDispatch } from "@jatbas/aic-core/adapters/model-detector-dispatch.js";
@@ -168,15 +172,22 @@ export function createMcpServer(
   });
   const { installationOk, installationNotes } = runStartupSelfCheck(projectRoot);
   const installScope = detectInstallScope(os.homedir(), projectRoot);
-  const installScopeWarnings: readonly string[] =
-    installScope === INSTALL_SCOPE.BOTH
-      ? [
-          "AIC is registered in both the global MCP config and the workspace MCP config. Your editor will run two AIC instances, causing duplicate tools and potential database conflicts. Remove the duplicate 'aic' entry from the workspace config (.cursor/mcp.json in this project directory) to fix this.",
-        ]
-      : [];
+  let installScopeWarnings: readonly string[] = [];
   if (installScope === INSTALL_SCOPE.BOTH) {
-    for (const message of installScopeWarnings) {
-      process.stderr.write(`[aic] ${message}\n`);
+    const removed = removeWorkspaceAicEntry(projectRoot);
+    if (removed) {
+      const msg =
+        "AIC was registered in both the global and workspace MCP configs. " +
+        "The duplicate workspace entry (.cursor/mcp.json) has been automatically removed. " +
+        "Please reload your Cursor window (Cmd+Shift+P → 'Reload Window') so the second server instance shuts down.";
+      process.stderr.write(`[aic] ${msg}\n`);
+      installScopeWarnings = [msg];
+    } else {
+      const msg =
+        "AIC is registered in both the global MCP config and the workspace MCP config. " +
+        "Automatic removal failed — manually remove the 'aic' entry from .cursor/mcp.json in this project directory, then reload Cursor.";
+      process.stderr.write(`[aic] ${msg}\n`);
+      installScopeWarnings = [msg];
     }
   }
   const sessionId = toSessionId(startupScope.idGenerator.generate());

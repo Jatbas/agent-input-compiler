@@ -18,6 +18,10 @@ describe("detectEditorId", () => {
     expect(detectEditorId("Cursor 0.44.11")).toBe(EDITOR_ID.CURSOR);
   });
 
+  it("returns cursor for cursor-vscode MCP client name", () => {
+    expect(detectEditorId("cursor-vscode")).toBe(EDITOR_ID.CURSOR);
+  });
+
   it("returns claude-code for claude-code client name", () => {
     expect(detectEditorId("claude-code")).toBe(EDITOR_ID.CLAUDE_CODE);
   });

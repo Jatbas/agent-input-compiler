@@ -5,7 +5,11 @@ import { describe, it, expect, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
-import { detectInstallScope, INSTALL_SCOPE } from "../detect-install-scope.js";
+import {
+  detectInstallScope,
+  removeWorkspaceAicEntry,
+  INSTALL_SCOPE,
+} from "../detect-install-scope.js";
 
 const AIC_CONFIG = JSON.stringify({
   mcpServers: { aic: { command: "npx", args: ["-y", "@jatbas/aic"] } },
@@ -95,5 +99,80 @@ describe("detectInstallScope", () => {
       JSON.stringify({ mcpServers: { AIC: { command: "npx" } } }),
     );
     expect(detectInstallScope(homeDir, projectDir)).toBe(INSTALL_SCOPE.WORKSPACE);
+  });
+});
+
+describe("removeWorkspaceAicEntry", () => {
+  let projectDir: string;
+
+  afterEach(() => {
+    if (projectDir !== undefined && fs.existsSync(projectDir)) {
+      fs.rmSync(projectDir, { recursive: true, force: true });
+    }
+  });
+
+  it("removes_aic_entry_and_preserves_other_servers", () => {
+    projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-remove-"));
+    const cursorDir = path.join(projectDir, ".cursor");
+    fs.mkdirSync(cursorDir, { recursive: true });
+    const config = {
+      mcpServers: { aic: { command: "npx" }, other: { command: "node" } },
+    };
+    fs.writeFileSync(path.join(cursorDir, "mcp.json"), JSON.stringify(config));
+    const removed = removeWorkspaceAicEntry(projectDir);
+    expect(removed).toBe(true);
+    const result = JSON.parse(fs.readFileSync(path.join(cursorDir, "mcp.json"), "utf8"));
+    expect(result.mcpServers).toStrictEqual({ other: { command: "node" } });
+  });
+
+  it("removes_aic_entry_case_insensitively", () => {
+    projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-remove-"));
+    const cursorDir = path.join(projectDir, ".cursor");
+    fs.mkdirSync(cursorDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(cursorDir, "mcp.json"),
+      JSON.stringify({ mcpServers: { AIC: { command: "npx" } } }),
+    );
+    const removed = removeWorkspaceAicEntry(projectDir);
+    expect(removed).toBe(true);
+    const result = JSON.parse(fs.readFileSync(path.join(cursorDir, "mcp.json"), "utf8"));
+    expect(result.mcpServers).toStrictEqual({});
+  });
+
+  it("returns_false_when_no_config_file", () => {
+    projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-remove-"));
+    expect(removeWorkspaceAicEntry(projectDir)).toBe(false);
+  });
+
+  it("returns_false_when_no_aic_entry", () => {
+    projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-remove-"));
+    const cursorDir = path.join(projectDir, ".cursor");
+    fs.mkdirSync(cursorDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(cursorDir, "mcp.json"),
+      JSON.stringify({ mcpServers: { other: {} } }),
+    );
+    expect(removeWorkspaceAicEntry(projectDir)).toBe(false);
+  });
+
+  it("returns_false_when_config_is_invalid_json", () => {
+    projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-remove-"));
+    const cursorDir = path.join(projectDir, ".cursor");
+    fs.mkdirSync(cursorDir, { recursive: true });
+    fs.writeFileSync(path.join(cursorDir, "mcp.json"), "not json");
+    expect(removeWorkspaceAicEntry(projectDir)).toBe(false);
+  });
+
+  it("preserves_non_mcpServers_fields", () => {
+    projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-remove-"));
+    const cursorDir = path.join(projectDir, ".cursor");
+    fs.mkdirSync(cursorDir, { recursive: true });
+    const config = { version: 2, mcpServers: { aic: { command: "npx" } }, extra: true };
+    fs.writeFileSync(path.join(cursorDir, "mcp.json"), JSON.stringify(config));
+    removeWorkspaceAicEntry(projectDir);
+    const result = JSON.parse(fs.readFileSync(path.join(cursorDir, "mcp.json"), "utf8"));
+    expect(result.version).toBe(2);
+    expect(result.extra).toBe(true);
+    expect(result.mcpServers).toStrictEqual({});
   });
 });
