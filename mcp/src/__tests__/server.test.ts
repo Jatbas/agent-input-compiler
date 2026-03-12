@@ -788,6 +788,27 @@ describe("MCP server", () => {
     }
   });
 
+  it("server_close_closes_runner_cache_entries", async () => {
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
+    const { WatchingRepoMapSupplier } =
+      await import("@jatbas/aic-core/adapters/watching-repo-map-supplier.js");
+    const closeSpy = vi.spyOn(WatchingRepoMapSupplier.prototype, "close");
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
+    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+    await server.connect(transportServer);
+    const client = new Client({ name: "test", version: "1.0" });
+    await client.connect(transportClient);
+    await client.callTool({
+      name: "aic_compile",
+      arguments: { intent: "fix watcher leak", projectRoot: tmpDir },
+    });
+    (server as { close(): void }).close();
+    expect(closeSpy).toHaveBeenCalled();
+    closeSpy.mockRestore();
+  });
+
   it("server_sessions_row_has_integrity", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     const projectRoot = toAbsolutePath(tmpDir);

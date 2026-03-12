@@ -533,6 +533,14 @@ export function createMcpServer(
   const out = server as McpServer & { close(): Promise<void> };
   out.close = (): Promise<void> => {
     clearImmediate(purgeImmediateId);
+    try {
+      for (const entry of runnerCache.values()) {
+        entry.closeable.close();
+      }
+    } catch {
+      // prevent one failing closeable from blocking registry/DB cleanup
+    }
+    runnerCache.clear();
     registry.close();
     closeDatabase(db);
     return Promise.resolve();
