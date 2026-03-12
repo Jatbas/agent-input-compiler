@@ -425,9 +425,10 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2025-03-12
 
-**Components:** P08 LRU bound on CachingFileContentReader (Task 140), P09 Bounded runnerCache with watcher cleanup (Task 141)
+**Components:** P08 LRU bound on CachingFileContentReader (Task 140), P09 Bounded runnerCache with watcher cleanup (Task 141), AA01 Install link uses @latest tag (Task 143)
 **Completed:**
 
+- AA01 Install link uses @latest tag (Task 143): install/cursor-install.html and README.md now use `npx -y @jatbas/aic@latest` (base64 config eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqYXRiYXMvYWljQGxhdGVzdCJdfQ==) in script, link href, and pre block; README install URL and Other editors example updated. No code or config changes.
 - P09 Bounded runnerCache with watcher cleanup (Task 141): runnerCache capped at 10 entries with LRU eviction; getRunner uses createPipelineDeps + manual FileSystemRepoMapSupplier and WatchingRepoMapSupplier; on eviction and shutdown closeable.close() releases file watchers. registerShutdownHandler optional 5th param closes all cache entries before purgeExpired. Tests: shutdown_handler_closes_runner_cache_entries, getRunner_evicts_oldest_and_closes_when_at_capacity. Measurement: run 10× aic_compile then record aic://last durationMs and process.memoryUsage().rss — log in Daily Log when measured.
 - P08 LRU bound on CachingFileContentReader (Task 140): Optional `options?: { readonly maxEntries?: number }` (default 500). On cache hit: delete-then-set to move entry to end; after cache miss set, if size > maxEntries evict oldest via `cache.keys().next().value`. Four tests: cache_hit_returns_cached_content, cache_miss_reads_file, eviction_when_over_cap, touch_on_hit_moves_to_end. No new deps; existing call sites unchanged.
 

@@ -92,7 +92,7 @@ Requirements: Node.js 18+
 Or copy this URL into your browser:
 
 ```text
-cursor://anysphere.cursor-deeplink/mcp/install?name=aic&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqYXRiYXMvYWljIl19
+cursor://anysphere.cursor-deeplink/mcp/install?name=aic&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqYXRiYXMvYWljQGxhdGVzdCJdfQ==
 ```
 
 Cursor will prompt to add the server to your global MCP config (`~/.cursor/mcp.json`); confirm and you're done. AIC is now available in every workspace — no per-project setup needed.
@@ -109,7 +109,7 @@ For the full list of available configuration options, see [§6 Configuration in 
 
 ### Other editors
 
-Claude Code and other MCP-compatible editors can connect directly by adding AIC to their MCP config (`"command": "npx", "args": ["-y", "@jatbas/aic"]`). A dedicated integration layer for Claude Code is planned; without it, the model calls AIC tools voluntarily rather than being guided automatically. [Open an issue](https://github.com/Jatbas/agent-input-compiler/issues) to request support for your editor or contribute an integration layer.
+Claude Code and other MCP-compatible editors can connect directly by adding AIC to their MCP config (`"command": "npx", "args": ["-y", "@jatbas/aic@latest"]`). A dedicated integration layer for Claude Code is planned; without it, the model calls AIC tools voluntarily rather than being guided automatically. [Open an issue](https://github.com/Jatbas/agent-input-compiler/issues) to request support for your editor or contribute an integration layer.
 
 ---
 
