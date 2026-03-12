@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "AIC": {
+    "aic-dev": {
       "command": "sh",
       "args": [
         "-c",

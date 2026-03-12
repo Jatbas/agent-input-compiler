@@ -169,53 +169,38 @@ Notes:
 
 ## Phase 1.5 — Performance Optimizations
 
-Minimize CPU, memory, and I/O usage of the MCP server at runtime. Every task below was validated against the current codebase — optimizations already in place (async file I/O, mtime-based file content caching, `WatchingRepoMapSupplier` file watcher, `SqliteCacheStore` compilation caching, lazy scan with bytes/4 estimate, fast-glob double-stat elimination, `isolatedModules`/`skipLibCheck` in tsconfig) are excluded. All changes are bounded to `mcp/src/` and `shared/src/` — zero pipeline algorithm changes.
+Runtime CPU, memory, and I/O optimizations for the MCP server. Bounded to `mcp/src/` and `shared/src/` — no pipeline algorithm changes.
 
 ### Phase X — Hot-Path I/O Elimination
 
-Remove sync I/O from compile path (async prompt log write; init/install/trigger/hooks run once per project).
-
-| Component                                             | Status | Package           | Deps | Description                                                                   |
-| ----------------------------------------------------- | ------ | ----------------- | ---- | ----------------------------------------------------------------------------- |
-| P01: Async prompt log write in compile handler        | Done   | mcp/src/handlers/ | —    | Last-prompt write uses `fs.promises.writeFile` instead of `writeFileSync`.    |
-| P02: Guard per-compile init/install behind once-flags | Done   | mcp/src/handlers/ | —    | Per-`projectRoot` guard so init/reconcile/trigger/hooks run once per project. |
+| Component                            | Status | Package           | Deps | Description                                                                |
+| ------------------------------------ | ------ | ----------------- | ---- | -------------------------------------------------------------------------- |
+| Async prompt log write in compile    | Done   | mcp/src/handlers/ | —    | Last-prompt write uses async `fs.promises.writeFile`                       |
+| Guard init/install behind once-flags | Done   | mcp/src/handlers/ | —    | Per-projectRoot guard so init/reconcile/trigger/hooks run once per project |
 
 ### Phase Y — Object Allocation & Computation Reduction
 
-Reduce per-request allocations and redundant computation (object spread → `Object.fromEntries`, repo-map hash cached per instance).
-
-| Component                                                 | Status | Package              | Deps | Description                                                                 |
-| --------------------------------------------------------- | ------ | -------------------- | ---- | --------------------------------------------------------------------------- |
-| P06: Replace object spread in `recordSessionStepIfNeeded` | Done   | shared/src/pipeline/ | —    | Session step recording uses `Object.fromEntries` instead of reduce spread.  |
-| P07: Cache `serializeRepoMap` hash per repo map instance  | Done   | shared/src/pipeline/ | —    | Repo-map hash cached in `CompilationRunner` via `WeakMap<RepoMap, string>`. |
+| Component                                       | Status | Package              | Deps | Description                                               |
+| ----------------------------------------------- | ------ | -------------------- | ---- | --------------------------------------------------------- |
+| Object.fromEntries in recordSessionStepIfNeeded | Done   | shared/src/pipeline/ | —    | Session step recording uses Object.fromEntries, no spread |
+| Cache serializeRepoMap hash per instance        | Done   | shared/src/pipeline/ | —    | Repo-map hash cached in CompilationRunner via WeakMap     |
 
 ### Phase Z — Memory Bounds
 
-Cap in-memory growth (file-content LRU, runner cache with watcher cleanup on eviction/shutdown).
-
-| Component                                       | Status | Package              | Deps | Description                                                               |
-| ----------------------------------------------- | ------ | -------------------- | ---- | ------------------------------------------------------------------------- |
-| P08: LRU bound on `CachingFileContentReader`    | Done   | shared/src/adapters/ | —    | Map-based LRU, default 500 entries; evict oldest when over cap.           |
-| P09: Bounded `runnerCache` with watcher cleanup | Done   | mcp/src/             | —    | Cap 10 runners; on eviction/shutdown call `closeable.close()` on watcher. |
+| Component                                | Status | Package              | Deps | Description                                             |
+| ---------------------------------------- | ------ | -------------------- | ---- | ------------------------------------------------------- |
+| LRU bound on CachingFileContentReader    | Done   | shared/src/adapters/ | —    | Map-based LRU (default 500); evict oldest when over cap |
+| Bounded runnerCache with watcher cleanup | Done   | mcp/src/             | —    | Cap 10 runners; on eviction/shutdown close watcher      |
 
 ### Phase AA — Reliable Version Updates
 
-Ensure users always run the latest published AIC version. Currently `npx -y @jatbas/aic` caches the package in `~/.npm/_npx/` and reuses it indefinitely, even after new versions are published. Users must manually clear the npx cache to get updates. This phase fixes the install command and improves the update-available warning to cover both new and existing users.
+Install and update path so users get the latest published version (npx @latest, warning with cache-clear instructions, optional self-upgrade of global mcp.json).
 
-| Component                                                    | Status | Package  | Deps | Description                                                                                                                                                                                                                                                                                                                                                                                                        |
-| ------------------------------------------------------------ | ------ | -------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| AA01: Install link uses `@latest` tag                        | Done   | install/ | —    | Change `install/cursor-install.html` deeplink to register `npx -y @jatbas/aic@latest` instead of `npx -y @jatbas/aic`. With the explicit `@latest` tag, npx checks the npm registry on each invocation and downloads the new version if the cached one is stale. Slightly slower startup (one registry roundtrip) but guarantees users always get the latest. Update README install instructions accordingly.      |
-| AA02: Update-available warning with cache-clear instructions | Done   | mcp/src/ | —    | When `getUpdateInfo()` detects a newer version, enhance the warning message (both stderr and `aic_compile` response) with actionable instructions: "A newer AIC version (x.y.z) is available. Run `rm -rf ~/.npm/_npx` then reload Cursor to update." This covers existing installations that still use the old `npx -y @jatbas/aic` command without `@latest`.                                                    |
-| AA03: Self-upgrade MCP config command                        | Done   | mcp/src/ | AA01 | On startup, if the global `~/.cursor/mcp.json` `aic` entry uses `npx -y @jatbas/aic` (without `@latest`), automatically rewrite it to `npx -y @jatbas/aic@latest`. This migrates existing users to the reliable update path without manual intervention. Only modifies the `args` array — no other config fields touched. Log the migration to stderr. Skip if args already contain `@latest` or a pinned version. |
-
-Notes:
-
-- **Root cause:** `npx -y @jatbas/aic` caches the resolved package in `~/.npm/_npx/`. Once cached, npx reuses it without checking the registry, even after newer versions are published. `npm cache clean --force` only clears `~/.npm/_cacache/` (download cache) — the npx package cache at `~/.npm/_npx/` is separate and unaffected.
-- **Why `@latest` fixes it:** When `npx -y @jatbas/aic@latest` runs, npx must resolve the `latest` dist-tag against the registry. If the cached version doesn't match, npx downloads the new one. This adds one registry roundtrip per startup (~200-500ms) but guarantees freshness.
-- **AA03 safety:** Only rewrites the `args` array in the `aic` entry of `~/.cursor/mcp.json`. Must NOT trigger Cursor's config watcher side-effects (the file is only read on Cursor launch, not watched live like workspace `.cursor/mcp.json`). Must preserve all other entries and formatting. If the entry uses a pinned version (`@0.6.3`), `tsx`, or any non-`npx` command, skip the migration entirely.
-- **AA03 vs 0.6.2 lesson:** In 0.6.2 we learned that modifying workspace `.cursor/mcp.json` at runtime triggers `config_server_removed` and kills the server. The global config (`~/.cursor/mcp.json`) is read only at Cursor launch — modifying it at runtime is safe because Cursor won't act on the change until the next reload. The user must reload Cursor after the migration takes effect, same as they would for any version update.
-- **Dependency order:** AA01 is standalone (install link change). AA02 is standalone (warning enhancement). AA03 depends on AA01 (the `@latest` convention must be established first). All three can ship in a single release.
-- **Existing users path:** Before AA03 ships, existing users with the old `npx -y @jatbas/aic` command see the AA02 warning with manual instructions. Once AA03 ships, their next AIC startup auto-migrates the config, and from the following Cursor reload onward, they get automatic updates.
+| Component                               | Status | Package  | Deps | Description                                                          |
+| --------------------------------------- | ------ | -------- | ---- | -------------------------------------------------------------------- |
+| Install link uses @latest tag           | Done   | install/ | —    | Deeplink and README register npx @jatbas/aic@latest                  |
+| Update-available warning + instructions | Done   | mcp/src/ | —    | Warning (stderr + aic_compile) includes cache-clear steps            |
+| Self-upgrade MCP config to @latest      | Done   | mcp/src/ | —    | On startup, rewrite global mcp.json aic args to @latest when missing |
 
 ---
 

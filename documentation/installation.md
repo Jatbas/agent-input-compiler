@@ -9,7 +9,8 @@ How AIC gets installed, what artifacts it creates, and how its components intera
   - [First-Compile Bootstrap](#first-compile-bootstrap)
   - [Per-Project Artifacts](#per-project-artifacts)
   - [Per-Project Disable](#per-project-disable)
-  - [Global vs Workspace Server](#global-vs-workspace-server)
+  - [Server Scope](#server-scope)
+  - [Version Updates](#version-updates)
   - [Known Gap: Hooks Fire When Disabled](#known-gap-hooks-fire-when-disabled)
 - [Cursor](#cursor)
   - [One-Click Install (Deeplink)](#one-click-install-deeplink)
@@ -19,9 +20,7 @@ How AIC gets installed, what artifacts it creates, and how its components intera
   - [Hook Lifecycle](#hook-lifecycle)
   - [How Hooks Are Delivered](#how-hooks-are-delivered)
 - [AIC Development Environment](#aic-development-environment)
-  - [Dev Server Configuration](#dev-server-configuration)
-  - [Global Server Conflict](#global-server-conflict)
-  - [Recommended Dev Setup](#recommended-dev-setup)
+- [Uninstall](#uninstall)
 - [Claude Code](#claude-code)
 
 ---
@@ -35,7 +34,18 @@ The npm package `@jatbas/aic` ships:
 - `dist/` — the compiled MCP server (`server.js` with shebang for `npx` execution)
 - `hooks/` — 9 Cursor hook scripts (`.cjs` files) bundled for auto-installation into user projects
 
-The server is the primary interface. It exposes these MCP tools: `aic_compile` (compile context), `aic_status` (project-level status), `aic_last` (most recent compilation), `aic_chat_summary` (per-conversation summary), and `aic_projects` (list known projects). All four prompt commands—"show aic status", "show aic last", "show aic chat summary", "show aic projects"—are available as tools in any editor without server-identifier dependencies; the AI calls the tool by name (e.g. `aic_status`, `aic_last`). Editors call the server, and the server returns compiled context or status JSON.
+The server is the primary interface. It exposes these MCP tools:
+
+| Tool               | Purpose                                                                                 |
+| ------------------ | --------------------------------------------------------------------------------------- |
+| `aic_compile`      | Compile context for the current AI message                                              |
+| `aic_inspect`      | Inspect a previous compilation                                                          |
+| `aic_status`       | Project-level status (pending task 145 — currently an `aic://status` resource)          |
+| `aic_last`         | Most recent compilation details (pending task 145 — currently an `aic://last` resource) |
+| `aic_chat_summary` | Per-conversation compilation stats                                                      |
+| `aic_projects`     | List all known AIC projects                                                             |
+
+The four prompt commands ("show aic status", "show aic last", "show aic chat summary", "show aic projects") map directly to tools. The AI calls them by name — no editor-specific server identifiers needed.
 
 ### First-Compile Bootstrap
 
@@ -93,11 +103,13 @@ The only workspace-scoped server is the AIC development environment, which runs 
 
 W10 detects when AIC is registered in both global and workspace configs (the dev scenario) and emits a warning to stderr and in the `aic_status` tool payload.
 
+### Version Updates
+
+The deeplink installs AIC with `@latest`, so `npx` fetches the newest published version on each Cursor launch. When a new version includes updated hook scripts, those scripts are re-copied into the project's `.cursor/hooks/` on the next bootstrap run (hook scripts are always re-copied to stay in sync with the server version). No manual update step is required.
+
 ### Known Gap: Hooks Fire When Disabled
 
-When `"enabled": false` is set in `aic.config.json`, the MCP server returns early — but Cursor hooks still fire. Hooks are registered in `.cursor/hooks.json` and Cursor invokes them regardless of AIC's config state. The hooks cannot check the config before running because they execute independently of the MCP server.
-
-This means a disabled project still pays the cost of hook invocations (though the `aic_compile` call inside the hooks returns immediately). A future improvement could have each hook script check `aic.config.json` directly and exit early, but this adds file I/O to every hook invocation.
+Setting `"enabled": false` makes the MCP server return early, but Cursor hooks still fire because Cursor invokes them independently. The practical impact is minimal — hooks run but `aic_compile` returns immediately — though each invocation still pays a small process-spawn cost. A future improvement could have hook scripts check `aic.config.json` directly and exit early.
 
 ---
 
@@ -175,73 +187,19 @@ On subsequent compilations (when hooks already exist), the merge logic adds any 
 
 ## AIC Development Environment
 
-The AIC source repository (`/Users/jatbas/Desktop/AIC`) uses a workspace-scoped MCP server that runs directly from source code, not the published npm package.
+The dev server is pre-configured in `.cursor/mcp.json` (checked into the repo as `"aic-dev"`). It runs from TypeScript source and uses hand-maintained hooks that include dev-only extras not present in the published package. No setup is needed — cloning the repo is sufficient.
 
-### Dev Server Configuration
+**The production server must be disabled while developing AIC.** If both run simultaneously, the production server overwrites dev hooks with published versions, the AI sees duplicate `aic_compile` tools, and both write to the same database. Disable the production server in whatever IDE you are using before opening the AIC project.
 
-The workspace `.cursor/mcp.json`:
+In Cursor, this means keeping `~/.cursor/mcp.json` empty (or with the `"aic"` entry removed). When you need to use AIC as an end user in another project, add the entry back. Toggle as needed — this is the standard MCP server development workflow.
 
-```json
-{
-  "mcpServers": {
-    "aic-dev": {
-      "command": "sh",
-      "args": [
-        "-c",
-        "cd /Users/jatbas/Desktop/AIC && pnpm --filter @jatbas/aic-core build >&2 && npx tsx mcp/src/server.ts"
-      ]
-    }
-  }
-}
-```
+No `aic.config.json` changes are needed. The `"enabled"` flag would disable both servers since they read the same config file.
 
-This builds the `shared` package and runs the server from TypeScript source via `tsx`. It uses the key `"aic-dev"`, distinct from the production server's `"aic"`.
+---
 
-The hooks in this workspace are hand-maintained (not auto-installed). They include an extra dev-only hook (`AIC-block-no-verify.cjs` for `beforeShellExecution`) not present in the published package.
+## Uninstall
 
-### Global Server Conflict
-
-If the developer also installs AIC globally (via the deeplink or manual `~/.cursor/mcp.json` entry), **both servers run simultaneously** when the AIC project is open in Cursor:
-
-| Server              | Key         | Source                  | Runs from                     |
-| ------------------- | ----------- | ----------------------- | ----------------------------- |
-| Dev (workspace)     | `"aic-dev"` | Local TypeScript source | `mcp/src/server.ts` via `tsx` |
-| Production (global) | `"aic"`     | Published npm package   | `npx -y @jatbas/aic@latest`   |
-
-Consequences:
-
-- **Both target the same `projectRoot`** (`/Users/jatbas/Desktop/AIC`) and write to the same `~/.aic/aic.sqlite` database
-- **The AI sees duplicate `aic_compile` tools** — one from each server
-- **The global server overwrites dev hooks** — `installCursorHooks` copies the published hook scripts into `.cursor/hooks/`, replacing the dev versions
-
-### Recommended Dev Setup
-
-Do not install AIC globally while actively developing. The global `~/.cursor/mcp.json` should remain empty:
-
-```json
-{
-  "mcpServers": {}
-}
-```
-
-If global installation is needed for testing in other projects, add a disable override to the AIC project's workspace `.cursor/mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "aic-dev": {
-      "command": "sh",
-      "args": [
-        "-c",
-        "cd /Users/jatbas/Desktop/AIC && pnpm --filter @jatbas/aic-core build >&2 && npx tsx mcp/src/server.ts"
-      ]
-    },
-    "aic": { "disabled": true }
-  }
-}
-```
-
-This suppresses the production `"aic"` server for this project while keeping the dev `"aic-dev"` server active. The hooks remain controlled by the dev workspace. The names are unambiguously different — no case-sensitivity risk.
+GAP — uninstall instructions will be added in a future task.
 
 ---
 

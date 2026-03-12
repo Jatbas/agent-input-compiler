@@ -189,6 +189,7 @@ Use the README for orientation. Use the docs below for implementation detail.
 
 | Document                                                         | Description                                               |
 | ---------------------------------------------------------------- | --------------------------------------------------------- |
+| [`installation.md`](documentation/installation.md)               | Installation, delivery, bootstrap, and per-editor details |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md)                             | Development setup, run from source, contribution process  |
 | [`architecture.md`](documentation/architecture.md)               | Core pipeline, integration layer, editor capability model |
 | [`best-practices.md`](documentation/best-practices.md)           | Practical usage guidance                                  |
