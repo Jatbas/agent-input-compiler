@@ -4,8 +4,17 @@
 import { z } from "zod";
 
 const compilationRequestShape = {
-  intent: z.string().min(1).max(10_000),
-  projectRoot: z.string().min(1),
+  intent: z
+    .string()
+    .min(1)
+    .max(10_000)
+    .describe("Short summary of the user's current message or task."),
+  projectRoot: z
+    .string()
+    .min(1)
+    .describe(
+      "Absolute path to the project root directory (the workspace folder open in the editor).",
+    ),
   modelId: z
     .string()
     .max(256)
