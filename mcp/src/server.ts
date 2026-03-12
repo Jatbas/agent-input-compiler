@@ -56,6 +56,8 @@ import { WatchingRepoMapSupplier } from "@jatbas/aic-core/adapters/watching-repo
 import { FastGlobAdapter } from "@jatbas/aic-core/adapters/fast-glob-adapter.js";
 import { IgnoreAdapter } from "@jatbas/aic-core/adapters/ignore-adapter.js";
 import { runInit } from "./init-project.js";
+import { installTriggerRule } from "./install-trigger-rule.js";
+import { installCursorHooks } from "./install-cursor-hooks.js";
 import { runStartupSelfCheck } from "./startup-self-check.js";
 import {
   LoadConfigFromFile,
@@ -550,6 +552,30 @@ export async function main(): Promise<void> {
   const clock = new SystemClock();
   const db = openDatabase(globalDbPath, clock);
   const server = createMcpServer(projectRoot, db, clock);
+  const homedir = os.homedir();
+  server.server.oninitialized = (): void => {
+    const caps = server.server.getClientCapabilities();
+    if (caps?.roots !== undefined) {
+      server.server
+        .listRoots()
+        .then((result) => {
+          for (const root of result.roots) {
+            try {
+              const rootPath = fileURLToPath(root.uri);
+              if (rootPath === homedir) continue;
+              const absRoot = toAbsolutePath(rootPath);
+              installTriggerRule(absRoot);
+              installCursorHooks(absRoot);
+            } catch {
+              // skip invalid roots
+            }
+          }
+        })
+        .catch(() => {
+          // client may not support roots despite advertising
+        });
+    }
+  };
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

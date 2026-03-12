@@ -7,6 +7,16 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.7] - 2026-03-13
+
+### Added
+
+- Proactive project bootstrap when MCP connects using provided roots so projects are ready on first compile
+
+### Changed
+
+- Internal tooling and dependency updates
+
 ## [0.6.6] - 2026-03-12
 
 ### Changed
