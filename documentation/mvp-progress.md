@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 47/70 done
+**Phase 1.0:** 48/70 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -201,6 +201,15 @@ Install and update path so users get the latest published version (npx @latest, 
 | Install link uses @latest tag           | Done   | install/ | —    | Deeplink and README register npx @jatbas/aic@latest                  |
 | Update-available warning + instructions | Done   | mcp/src/ | —    | Warning (stderr + aic_compile) includes cache-clear steps            |
 | Self-upgrade MCP config to @latest      | Done   | mcp/src/ | —    | On startup, rewrite global mcp.json aic args to @latest when missing |
+
+### Phase AB — File Discovery & Bootstrap Hardening
+
+Comprehensive default ignore patterns for all major ecosystems, and bootstrap artifact lifecycle management so stale files are cleaned up on version updates.
+
+| Component                                     | Status  | Package              | Deps | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| --------------------------------------------- | ------- | -------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| AB01: Comprehensive default ignore patterns   | Pending | shared/src/adapters/ | —    | Expand `DEFAULT_NEGATIVE_PATTERNS` in `file-system-repo-map-supplier.ts` and the language-provider init patterns in `init-language-providers.ts` to cover all major ecosystems. Current patterns only cover Node.js/JS tooling. Add at minimum: Python (`!**/.venv/**`, `!**/venv/**`, `!**/__pycache__/**`, `!**/.mypy_cache/**`, `!**/.tox/**`, `!**/.pytest_cache/**`), Rust (`!**/target/**`), Java/Kotlin (`!**/.gradle/**`, `!**/.m2/**`), Go/PHP (`!**/vendor/**`), Ruby (`!**/.bundle/**`), iOS (`!**/Pods/**`), Dart/Flutter (`!**/.dart_tool/**`, `!**/.pub-cache/**`), generic (`!**/.cache/**`, `!**/.turbo/**`, `!**/.parcel-cache/**`, `!**/out/**`, `!**/.svn/**`, `!**/.hg/**`, `!**/bower_components/**`, `!**/.terraform/**`, `!**/.stack-work/**`). Research each pattern to avoid false positives (e.g. `vendor/` in Go is intentional but still large; `out/` may conflict with custom dirs). Deduplicate across both files. Update existing tests and add a test that verifies the patterns list covers at least N ecosystems. Keep both pattern lists in sync — consider extracting a shared `DEFAULT_IGNORE_DIRS` constant.                                                          |
+| AB02: Bootstrap artifact lifecycle management | Done    | mcp/src/             | —    | On bootstrap, the server installs hook scripts (`.cursor/hooks/AIC-*.cjs`), hook registrations (`.cursor/hooks.json`), and a trigger rule (`.cursor/rules/AIC.mdc`). Currently, if a hook script is renamed or removed in a new AIC version, the old file lingers in the user's project. Fix: `installCursorHooks` should maintain a manifest of expected AIC script names (the `AIC_SCRIPT_NAMES` array already exists) and delete any `.cursor/hooks/AIC-*.cjs` files NOT in the current manifest. Similarly, `installCursorHooks` should remove stale hook entries from `.cursor/hooks.json` whose commands reference AIC scripts no longer in `AIC_SCRIPT_NAMES`. The trigger rule (`installTriggerRule`) should be updated to overwrite the existing rule when the AIC version changes (compare a version comment or hash in the rule file). This ensures that version updates via `npx @latest` propagate cleanly: new scripts arrive, old scripts are removed, and the trigger rule stays current. Add tests: stale_hook_script_deleted_on_bootstrap, stale_hook_entry_removed_from_hooks_json, trigger_rule_updated_when_version_changes. Guard: never delete non-AIC files or non-AIC hook entries. |
 
 ---
 
@@ -414,6 +423,13 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 ---
 
 ## Daily Log
+
+### 2025-03-13
+
+**Components:** AB02 Bootstrap artifact lifecycle management (Task 147)
+**Completed:**
+
+- AB02 Bootstrap artifact lifecycle management (Task 147): installCursorHooks deletes stale AIC-\*.cjs files not in AIC_SCRIPT_NAMES after ensuring hooks dir; filters parsed hooks.json arrays (sessionStart, preToolUse, postToolUse, beforeSubmitPrompt, afterFileEdit, sessionEnd, stop) to remove entries referencing removed AIC scripts via isAicScriptInManifest helper. installTriggerRule reads mcp package version with readPackageVersion(), template has <!-- AIC rule version: {{VERSION}} -->; overwrites rule when file missing or version comment missing or version differs. Tests: stale_hook_script_deleted_on_bootstrap, stale_hook_entry_removed_from_hooks_json, trigger_rule_updated_when_version_changes; trigger_exists_does_not_overwrite updated to use current version comment so same-version no overwrite. Lint, typecheck, test, knip, lint:clones 0.
 
 ### 2025-03-12
 

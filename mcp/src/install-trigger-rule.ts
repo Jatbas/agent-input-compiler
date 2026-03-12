@@ -3,13 +3,30 @@
 
 import * as path from "node:path";
 import * as fs from "node:fs";
+import { fileURLToPath } from "node:url";
 import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+
+function readPackageVersion(): string {
+  try {
+    const pkgPath = path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "..",
+      "package.json",
+    );
+    const raw = fs.readFileSync(pkgPath, "utf8");
+    const pkg = JSON.parse(raw) as { version?: string };
+    return typeof pkg.version === "string" ? pkg.version : "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
 
 const TRIGGER_RULE_TEMPLATE = `---
 description: MANDATORY — call aic_compile on EVERY message
 globs:
 alwaysApply: true
 ---
+<!-- AIC rule version: {{VERSION}} -->
 
 STOP. Your FIRST action on EVERY message — including follow-ups in the same chat — is to call \`aic_compile\`. No exceptions. No skipping because you "already have context." Each message has a different intent that needs fresh context.
 
@@ -29,10 +46,18 @@ Prompt commands (call the MCP tool; do not use resource URIs or server identifie
 `;
 
 export function installTriggerRule(projectRoot: AbsolutePath): void {
-  const triggerPath = path.join(projectRoot, ".cursor", "rules", "AIC.mdc");
-  if (fs.existsSync(triggerPath)) return;
+  const currentVersion = readPackageVersion();
+  const content = TRIGGER_RULE_TEMPLATE.replace("{{PROJECT_ROOT}}", projectRoot).replace(
+    "{{VERSION}}",
+    currentVersion,
+  );
   const rulesDir = path.join(projectRoot, ".cursor", "rules");
+  const triggerPath = path.join(rulesDir, "AIC.mdc");
+  if (fs.existsSync(triggerPath)) {
+    const existing = fs.readFileSync(triggerPath, "utf8");
+    const match = existing.match(/AIC rule version:\s*(\S+)/);
+    if (match !== null && match[1] === currentVersion) return;
+  }
   fs.mkdirSync(rulesDir, { recursive: true });
-  const content = TRIGGER_RULE_TEMPLATE.replace("{{PROJECT_ROOT}}", projectRoot);
   fs.writeFileSync(triggerPath, content, "utf8");
 }

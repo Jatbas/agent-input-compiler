@@ -72,6 +72,38 @@ function commandIncludes(entry: { command?: string }, scriptName: string): boole
   return String(entry.command ?? "").includes(scriptName);
 }
 
+function isAicScriptInManifest(entry: HookEntry): boolean {
+  const scriptName = (entry.command ?? "").match(/AIC-[a-z0-9-]+\.cjs/)?.[0];
+  if (scriptName === undefined) return true;
+  return AIC_SCRIPT_NAMES.includes(scriptName);
+}
+
+type ParsedHooks = {
+  version?: number;
+  hooks?: {
+    sessionStart?: readonly HookEntry[];
+    preToolUse?: readonly HookEntry[];
+    postToolUse?: readonly HookEntry[];
+    beforeSubmitPrompt?: readonly HookEntry[];
+    afterFileEdit?: readonly HookEntry[];
+    sessionEnd?: readonly HookEntry[];
+    stop?: readonly StopHookEntry[];
+  };
+};
+
+function readHooksOrRewrite(
+  pathToHooks: string,
+  writeDefault: (obj: Record<string, unknown>) => void,
+): ParsedHooks {
+  try {
+    const raw = fs.readFileSync(pathToHooks, "utf8");
+    return JSON.parse(raw) as ParsedHooks;
+  } catch {
+    writeDefault(DEFAULT_HOOKS);
+    return { version: DEFAULT_HOOKS.version, hooks: { ...DEFAULT_HOOKS.hooks } };
+  }
+}
+
 function mergeHookArray<T extends HookEntry>(
   existing: readonly T[],
   defaults: readonly T[],
@@ -94,52 +126,37 @@ export function installCursorHooks(projectRoot: AbsolutePath): void {
     fs.mkdirSync(cursorDir, { recursive: true });
     fs.writeFileSync(hooksPath, jsonContent(DEFAULT_HOOKS), "utf8");
   } else {
-    type ParsedHooks = {
-      version?: number;
-      hooks?: {
-        sessionStart?: readonly HookEntry[];
-        preToolUse?: readonly HookEntry[];
-        postToolUse?: readonly HookEntry[];
-        beforeSubmitPrompt?: readonly HookEntry[];
-        afterFileEdit?: readonly HookEntry[];
-        sessionEnd?: readonly HookEntry[];
-        stop?: readonly StopHookEntry[];
-      };
-    };
-    let parsed: ParsedHooks;
-    try {
-      const raw = fs.readFileSync(hooksPath, "utf8");
-      parsed = JSON.parse(raw) as ParsedHooks;
-    } catch {
-      // hooks.json is corrupt — rewrite from defaults to restore integrity
-      fs.writeFileSync(hooksPath, jsonContent(DEFAULT_HOOKS), "utf8");
-      parsed = { version: DEFAULT_HOOKS.version, hooks: { ...DEFAULT_HOOKS.hooks } };
-    }
+    const parsed = readHooksOrRewrite(hooksPath, (obj) =>
+      fs.writeFileSync(hooksPath, jsonContent(obj), "utf8"),
+    );
     const sessionStart = mergeHookArray(
-      parsed.hooks?.sessionStart ?? [],
+      (parsed.hooks?.sessionStart ?? []).filter(isAicScriptInManifest),
       DEFAULT_HOOKS.hooks.sessionStart,
     );
     const preToolUse = mergeHookArray(
-      parsed.hooks?.preToolUse ?? [],
+      (parsed.hooks?.preToolUse ?? []).filter(isAicScriptInManifest),
       DEFAULT_HOOKS.hooks.preToolUse,
     );
     const postToolUse = mergeHookArray(
-      parsed.hooks?.postToolUse ?? [],
+      (parsed.hooks?.postToolUse ?? []).filter(isAicScriptInManifest),
       DEFAULT_HOOKS.hooks.postToolUse,
     );
     const beforeSubmitPrompt = mergeHookArray(
-      parsed.hooks?.beforeSubmitPrompt ?? [],
+      (parsed.hooks?.beforeSubmitPrompt ?? []).filter(isAicScriptInManifest),
       DEFAULT_HOOKS.hooks.beforeSubmitPrompt,
     );
     const afterFileEdit = mergeHookArray(
-      parsed.hooks?.afterFileEdit ?? [],
+      (parsed.hooks?.afterFileEdit ?? []).filter(isAicScriptInManifest),
       DEFAULT_HOOKS.hooks.afterFileEdit,
     );
     const sessionEnd = mergeHookArray(
-      parsed.hooks?.sessionEnd ?? [],
+      (parsed.hooks?.sessionEnd ?? []).filter(isAicScriptInManifest),
       DEFAULT_HOOKS.hooks.sessionEnd,
     );
-    const stop = mergeHookArray(parsed.hooks?.stop ?? [], DEFAULT_HOOKS.hooks.stop);
+    const stop = mergeHookArray(
+      (parsed.hooks?.stop ?? []).filter(isAicScriptInManifest),
+      DEFAULT_HOOKS.hooks.stop,
+    );
     const merged = {
       version: parsed.version ?? 1,
       hooks: {
@@ -158,6 +175,13 @@ export function installCursorHooks(projectRoot: AbsolutePath): void {
 
   const hooksDir = path.join(cursorDir, "hooks");
   fs.mkdirSync(hooksDir, { recursive: true });
+
+  const hookNames = fs.readdirSync(hooksDir);
+  for (const name of hookNames) {
+    if (/^AIC-[a-z0-9-]+\.cjs$/.test(name) && !AIC_SCRIPT_NAMES.includes(name)) {
+      fs.unlinkSync(path.join(hooksDir, name));
+    }
+  }
 
   for (const name of AIC_SCRIPT_NAMES) {
     const srcPath = path.join(BUNDLED_HOOKS_DIR, name);

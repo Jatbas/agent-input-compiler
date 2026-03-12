@@ -111,6 +111,61 @@ describe("installCursorHooks", () => {
     expect(scriptAfter).toBe(scriptBefore);
   });
 
+  it("stale_hook_script_deleted_on_bootstrap", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-hooks-"));
+    const cursorDir = path.join(tmpDir, ".cursor");
+    const hooksDir = path.join(cursorDir, "hooks");
+    fs.mkdirSync(hooksDir, { recursive: true });
+    const stalePath = path.join(hooksDir, "AIC-old-removed.cjs");
+    fs.writeFileSync(stalePath, "stale", "utf8");
+    installCursorHooks(toAbsolutePath(tmpDir));
+    expect(fs.existsSync(stalePath)).toBe(false);
+    const scriptNames = [
+      "AIC-session-init.cjs",
+      "AIC-compile-context.cjs",
+      "AIC-require-aic-compile.cjs",
+      "AIC-inject-conversation-id.cjs",
+      "AIC-post-compile-context.cjs",
+      "AIC-before-submit-prewarm.cjs",
+      "AIC-after-file-edit-tracker.cjs",
+      "AIC-session-end.cjs",
+      "AIC-stop-quality-check.cjs",
+    ];
+    for (const name of scriptNames) {
+      expect(fs.existsSync(path.join(hooksDir, name))).toBe(true);
+    }
+  });
+
+  it("stale_hook_entry_removed_from_hooks_json", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-hooks-"));
+    const hooksPath = path.join(tmpDir, ".cursor", "hooks.json");
+    fs.mkdirSync(path.join(tmpDir, ".cursor"), { recursive: true });
+    fs.writeFileSync(
+      hooksPath,
+      JSON.stringify({
+        version: 1,
+        hooks: {
+          sessionStart: [{ command: "node .cursor/hooks/AIC-removed-script.cjs" }],
+        },
+      }),
+      "utf8",
+    );
+    fs.mkdirSync(path.join(tmpDir, ".cursor", "hooks"), { recursive: true });
+    installCursorHooks(toAbsolutePath(tmpDir));
+    const parsed = JSON.parse(fs.readFileSync(hooksPath, "utf8"));
+    const sessionStart = parsed.hooks?.sessionStart ?? [];
+    expect(
+      sessionStart.some((e: { command?: string }) =>
+        (e.command ?? "").includes("AIC-removed-script.cjs"),
+      ),
+    ).toBe(false);
+    expect(
+      sessionStart.some((e: { command?: string }) =>
+        (e.command ?? "").includes("AIC-compile-context.cjs"),
+      ),
+    ).toBe(true);
+  });
+
   it("self_check_passes_after_install", () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-hooks-"));
     const rulesDir = path.join(tmpDir, ".cursor", "rules");
