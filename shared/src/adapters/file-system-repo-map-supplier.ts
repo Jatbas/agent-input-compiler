@@ -11,16 +11,16 @@ import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 import { isBinaryExtension, languageFromExtension } from "./file-entry-utils.js";
 
 const DEFAULT_NEGATIVE_PATTERNS: readonly string[] = [
-  "!node_modules/**",
+  "!**/node_modules/**",
   "!.git/**",
-  "!dist/**",
-  "!build/**",
-  "!coverage/**",
-  "!.aic/**",
+  "!**/dist/**",
+  "!**/build/**",
+  "!**/coverage/**",
+  "!**/.aic/**",
   "!.next/**",
   "!.nuxt/**",
-  "!__pycache__/**",
-  "!.tsbuildinfo",
+  "!**/__pycache__/**",
+  "!**/*.tsbuildinfo",
 ];
 
 export class FileSystemRepoMapSupplier implements RepoMapSupplier {

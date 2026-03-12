@@ -23,9 +23,9 @@ async function projectHasExtension(projectRoot: string, ext: string): Promise<bo
   const paths = await glob.find(
     [
       `**/*${ext}`,
-      `!node_modules/**`,
+      `!**/node_modules/**`,
       `!.git/**`,
-      `!.aic/**`,
+      `!**/.aic/**`,
       `!.Trash/**`,
       `!Library/**`,
       `!$Recycle.Bin/**`,
