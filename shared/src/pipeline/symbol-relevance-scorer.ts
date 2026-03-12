@@ -9,6 +9,8 @@ import type { TaskClassification } from "@jatbas/aic-core/core/types/task-classi
 import type { RelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import { getProvider } from "./get-provider.js";
 
+const CONCURRENCY_LIMIT = 50;
+
 function scoreForFile(
   entry: FileEntry,
   subjectTokens: readonly string[],
@@ -31,6 +33,27 @@ function scoreForFile(
     .catch(() => 0);
 }
 
+async function scoreInBatches(
+  files: readonly FileEntry[],
+  subjectTokens: readonly string[],
+  fileContentReader: FileContentReader,
+  languageProviders: readonly LanguageProvider[],
+): Promise<ReadonlyMap<RelativePath, number>> {
+  const result = new Map<RelativePath, number>();
+  for (let i = 0; i < files.length; i += CONCURRENCY_LIMIT) {
+    const batch = files.slice(i, i + CONCURRENCY_LIMIT);
+    const scores = await Promise.all(
+      batch.map((entry) =>
+        scoreForFile(entry, subjectTokens, fileContentReader, languageProviders).then(
+          (score) => [entry.path, score] as const,
+        ),
+      ),
+    );
+    for (const [p, s] of scores) result.set(p, s);
+  }
+  return result;
+}
+
 export class SymbolRelevanceScorer implements ImportProximityScorer {
   constructor(
     private readonly fileContentReader: FileContentReader,
@@ -46,16 +69,11 @@ export class SymbolRelevanceScorer implements ImportProximityScorer {
       for (const entry of repo.files) zeroMap.set(entry.path, 0);
       return zeroMap;
     }
-    const scores = await Promise.all(
-      repo.files.map((entry) =>
-        scoreForFile(
-          entry,
-          task.subjectTokens,
-          this.fileContentReader,
-          this.languageProviders,
-        ).then((score) => [entry.path, score] as const),
-      ),
+    return scoreInBatches(
+      repo.files,
+      task.subjectTokens,
+      this.fileContentReader,
+      this.languageProviders,
     );
-    return new Map(scores);
   }
 }

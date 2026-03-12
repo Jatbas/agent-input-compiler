@@ -7,6 +7,12 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.3] - 2026-03-12
+
+### Fixed
+
+- Node process no longer crashes with "JavaScript heap out of memory" on large projects (50k+ files). Raised heap limit to 4 GB, batched concurrent file reads in symbol scoring, and cached `.gitignore` parsing to avoid redundant I/O
+
 ## [0.6.2] - 2026-03-12
 
 ### Fixed

@@ -5,7 +5,7 @@ const path = require("node:path");
 const fs = require("node:fs");
 
 const targetPath = path.join(__dirname, "..", "dist", "server.js");
-const shebang = "#!/usr/bin/env node\n";
+const shebang = "#!/usr/bin/env -S node --max-old-space-size=4096\n";
 const content = fs.readFileSync(targetPath, "utf8");
 if (content.startsWith("#!")) {
   return;
