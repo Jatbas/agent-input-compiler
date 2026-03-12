@@ -116,6 +116,7 @@ describe("compile-handler", () => {
       [],
       enabledConfigLoader,
       () => {},
+      () => null,
     );
     const promise = handler(
       {
@@ -206,6 +207,7 @@ describe("compile-handler", () => {
         [],
         enabledConfigLoader,
         () => {},
+        () => null,
       );
       await handler(
         {
@@ -239,6 +241,7 @@ describe("compile-handler", () => {
         [],
         enabledConfigLoader,
         () => {},
+        () => null,
       );
       const result = await handler(
         {
@@ -274,6 +277,7 @@ describe("compile-handler", () => {
         [],
         enabledConfigLoader,
         () => {},
+        () => null,
       );
       const result = await handler(
         { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },
@@ -319,6 +323,7 @@ describe("compile-handler", () => {
         [],
         mockConfigLoader,
         () => {},
+        () => null,
       );
       const result = await handler(
         { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },
@@ -351,6 +356,7 @@ describe("compile-handler", () => {
         [],
         enabledConfigLoader,
         () => {},
+        () => null,
       );
       await handler(
         { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },
@@ -383,6 +389,7 @@ describe("compile-handler", () => {
         [],
         enabledConfigLoader,
         () => {},
+        () => null,
       );
       await handler(
         {
@@ -425,6 +432,7 @@ describe("compile-handler", () => {
         [],
         enabledConfigLoader,
         () => {},
+        () => null,
       );
       await handler(
         { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },
@@ -472,6 +480,7 @@ describe("compile-handler", () => {
         [],
         enabledConfigLoader,
         () => {},
+        () => null,
       );
       const result = await handler(
         { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },
@@ -515,6 +524,7 @@ describe("compile-handler", () => {
         [],
         enabledConfigLoader,
         () => {},
+        () => null,
       );
       const result = await handler(
         { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },
@@ -553,6 +563,7 @@ describe("compile-handler", () => {
         [],
         enabledConfigLoader,
         () => {},
+        () => null,
       );
       const result = await handler(
         { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },
@@ -581,6 +592,7 @@ describe("compile-handler", () => {
         [],
         enabledConfigLoader,
         () => {},
+        () => null,
       );
       const result = await handler(
         { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },

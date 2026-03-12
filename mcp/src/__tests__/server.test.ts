@@ -170,6 +170,9 @@ describe("MCP server", () => {
         first && "text" in first && typeof first.text === "string" ? first.text : "{}";
       const parsed = JSON.parse(rawText) as Record<string, unknown>;
       expect(parsed["updateAvailable"]).toBe("99.0.0");
+      expect(parsed["updateMessage"]).toBe(
+        "A newer AIC version (99.0.0) is available. Run `rm -rf ~/.npm/_npx` then reload Cursor to update.",
+      );
     } finally {
       globalThis.fetch = originalFetch;
     }

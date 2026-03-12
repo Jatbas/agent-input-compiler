@@ -49,9 +49,14 @@ export function compareVersions(a: string, b: string): number {
   return 0;
 }
 
+function formatUpdateMessage(version: string): string {
+  return `A newer AIC version (${version}) is available. Run \`rm -rf ~/.npm/_npx\` then reload Cursor to update.`;
+}
+
 export interface UpdateInfo {
   readonly updateAvailable: string | null;
   readonly currentVersion: string;
+  readonly updateMessage: string | null;
 }
 
 function ensureAicDir(projectRoot: AbsolutePath): string {
@@ -149,15 +154,13 @@ export async function getUpdateInfo(
 
     if (latestVersion === null) {
       writeMessageFile(messagePath, "");
-      return { updateAvailable: null, currentVersion };
+      return { updateAvailable: null, currentVersion, updateMessage: null };
     }
 
     const hasUpdate = compareVersions(latestVersion, currentVersion) > 0;
+    const updateMessage = hasUpdate ? formatUpdateMessage(latestVersion) : null;
     if (hasUpdate) {
-      writeMessageFile(
-        messagePath,
-        `Update available: ${latestVersion}. Re-run the install link to update.`,
-      );
+      writeMessageFile(messagePath, formatUpdateMessage(latestVersion));
     } else {
       writeMessageFile(messagePath, "");
     }
@@ -165,6 +168,7 @@ export async function getUpdateInfo(
     return {
       updateAvailable: hasUpdate ? latestVersion : null,
       currentVersion,
+      updateMessage,
     };
   } catch {
     try {
@@ -175,7 +179,7 @@ export async function getUpdateInfo(
     } catch {
       // Ignore write failure on error path
     }
-    return { updateAvailable: null, currentVersion };
+    return { updateAvailable: null, currentVersion, updateMessage: null };
   }
 }
 

@@ -73,7 +73,7 @@ import { createProjectFileReader } from "@jatbas/aic-core/adapters/project-file-
 import { createCachingFileContentReader } from "@jatbas/aic-core/adapters/caching-file-content-reader.js";
 import { detectEditorId } from "./detect-editor-id.js";
 import { detectInstallScope, INSTALL_SCOPE } from "./detect-install-scope.js";
-import { getUpdateInfo } from "./latest-version-check.js";
+import { getUpdateInfo, type UpdateInfo } from "./latest-version-check.js";
 import { EditorModelConfigReaderAdapter } from "@jatbas/aic-core/adapters/editor-model-config-reader.js";
 import { ModelDetectorDispatch } from "@jatbas/aic-core/adapters/model-detector-dispatch.js";
 import type { ModelEnvHints } from "@jatbas/aic-core/core/types/model-env-hints.js";
@@ -211,13 +211,20 @@ export function createMcpServer(
     startupScope.cacheStore,
     runnerCache,
   );
-  const updateInfoRef: {
-    current: { updateAvailable: string | null; currentVersion: string };
-  } = { current: { updateAvailable: null, currentVersion: packageVersion } };
+  const updateInfoRef: { current: UpdateInfo } = {
+    current: {
+      updateAvailable: null,
+      currentVersion: packageVersion,
+      updateMessage: null,
+    },
+  };
   setImmediate(() => {
     getUpdateInfo(projectRoot, packageName, packageVersion, startupScope.clock)
       .then((info) => {
         updateInfoRef.current = info;
+        if (info.updateAvailable !== null) {
+          process.stderr.write(`[aic] ${info.updateMessage}\n`);
+        }
       })
       .catch(() => {});
   });
@@ -316,6 +323,8 @@ export function createMcpServer(
   const setLastConversationId = (id: string | null): void => {
     lastConversationIdRef.current = id;
   };
+  const getUpdateMessage = (): string | null =>
+    updateInfoRef.current.updateMessage ?? null;
   server.tool(
     "aic_compile",
     "Compile intent-specific project context. MUST be called as your FIRST action on EVERY message — including follow-ups in the same chat. Each message has a different intent that needs fresh context. Never skip.",
@@ -331,6 +340,7 @@ export function createMcpServer(
       installScopeWarnings,
       configLoader,
       setLastConversationId,
+      getUpdateMessage,
     ),
   );
   server.tool("aic_inspect", InspectRequestSchema, (args) =>
@@ -499,6 +509,7 @@ export function createMcpServer(
             budgetMaxTokens,
             budgetUtilizationPct,
             updateAvailable: updateInfoRef.current.updateAvailable,
+            updateMessage: updateInfoRef.current.updateMessage,
             installScope,
             installScopeWarnings,
             projectEnabled: statusConfigResult.config.enabled,

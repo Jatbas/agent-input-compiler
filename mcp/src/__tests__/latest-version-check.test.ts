@@ -110,5 +110,29 @@ describe("latest-version-check", () => {
       expect(result.currentVersion).toBe("0.2.1");
       expect(fetchMock).not.toHaveBeenCalled();
     });
+
+    it("getUpdateMessage_returned_when_update_available", async () => {
+      const registryJson = JSON.stringify({ "dist-tags": { latest: "0.2.2" } });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          arrayBuffer: () => Promise.resolve(new TextEncoder().encode(registryJson)),
+        }),
+      );
+      const clock = createMockClock("2025-01-01T12:00:00.000Z", 25 * 60 * 60 * 1000);
+      const result = await getUpdateInfo(
+        toAbsolutePath(tmpDir),
+        "@aic/mcp",
+        "0.2.1",
+        clock,
+      );
+      const expectedMessage =
+        "A newer AIC version (0.2.2) is available. Run `rm -rf ~/.npm/_npx` then reload Cursor to update.";
+      expect(result.updateMessage).toBe(expectedMessage);
+      const messagePath = path.join(tmpDir, ".aic", "update-available.txt");
+      expect(fs.existsSync(messagePath)).toBe(true);
+      const written = fs.readFileSync(messagePath, "utf8");
+      expect(written).toBe(result.updateMessage);
+    });
   });
 });

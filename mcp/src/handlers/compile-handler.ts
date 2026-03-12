@@ -71,6 +71,7 @@ function buildSuccessResponse(
   result: Awaited<ReturnType<CompilationRunner["run"]>>,
   request: CompilationRequest,
   installScopeWarnings: readonly string[],
+  getUpdateMessage: () => string | null,
 ): CallToolResult {
   const warningBlock =
     installScopeWarnings.length > 0
@@ -99,6 +100,7 @@ function buildSuccessResponse(
           compiledPrompt,
           meta: metaForModel,
           conversationId: request.conversationId ?? null,
+          updateMessage: getUpdateMessage() ?? null,
           ...(installScopeWarnings.length > 0 ? { warnings: installScopeWarnings } : {}),
         }),
       },
@@ -124,6 +126,7 @@ export function createCompileHandler(
   installScopeWarnings: readonly string[],
   configLoader: ConfigLoader,
   setLastConversationId: (id: string | null) => void,
+  getUpdateMessage: () => string | null,
 ): (
   args: {
     intent: string;
@@ -231,7 +234,12 @@ export function createCompileHandler(
       } catch {
         // Non-fatal — do not fail the request
       }
-      return buildSuccessResponse(result, request, installScopeWarnings);
+      return buildSuccessResponse(
+        result,
+        request,
+        installScopeWarnings,
+        getUpdateMessage,
+      );
     } catch (err) {
       if (err instanceof TimeoutError) {
         throw new McpError(ErrorCode.InternalError, "Compilation timed out after 30s");
