@@ -325,6 +325,76 @@ export function createMcpServer(
   };
   const getUpdateMessage = (): string | null =>
     updateInfoRef.current.updateMessage ?? null;
+  const getStatusPayload = (): Record<string, unknown> => {
+    const statusConfigResult = configLoader.load(startupScope.projectRoot, null);
+    const statusStore = new SqliteStatusStore(
+      startupScope.projectId,
+      startupScope.db,
+      startupScope.clock,
+    );
+    const summary = statusStore.getGlobalSummary();
+    const budgetMaxTokens = budgetConfig.getMaxTokens();
+    const budgetUtilizationPct =
+      summary.lastCompilation !== null
+        ? (summary.lastCompilation.tokensCompiled / budgetMaxTokens) * 100
+        : null;
+    return {
+      ...summary,
+      budgetMaxTokens,
+      budgetUtilizationPct,
+      updateAvailable: updateInfoRef.current.updateAvailable,
+      updateMessage: updateInfoRef.current.updateMessage,
+      installScope,
+      installScopeWarnings,
+      projectEnabled: statusConfigResult.config.enabled,
+    };
+  };
+  const getLastPayload = (): {
+    compilationCount: number;
+    lastCompilation: unknown;
+    promptSummary: { tokenCount: number | null; guardPassed: null };
+  } => {
+    const statusStore = new SqliteStatusStore(
+      startupScope.projectId,
+      startupScope.db,
+      startupScope.clock,
+    );
+    const lastConvId = lastConversationIdRef.current;
+    let summary: ReturnType<SqliteStatusStore["getSummary"]>;
+    if (lastConvId === null) {
+      summary = statusStore.getSummary();
+    } else {
+      const projectId = statusStore.getProjectIdForConversation(
+        toConversationId(lastConvId),
+      );
+      if (projectId === null) {
+        summary = statusStore.getSummary();
+      } else {
+        const scopedStore = new SqliteStatusStore(
+          projectId,
+          startupScope.db,
+          startupScope.clock,
+        );
+        summary = scopedStore.getSummary();
+      }
+    }
+    const last = summary.lastCompilation;
+    const lastPayload =
+      last === null
+        ? null
+        : {
+            ...last,
+            tokenReductionPct: Number(last.tokenReductionPct),
+          };
+    return {
+      compilationCount: summary.compilationsTotal,
+      lastCompilation: lastPayload,
+      promptSummary: {
+        tokenCount: last?.tokensCompiled ?? null,
+        guardPassed: null,
+      },
+    };
+  };
   server.tool(
     "aic_compile",
     "Compile intent-specific project context. MUST be called as your FIRST action on EVERY message — including follow-ups in the same chat. Each message has a different intent that needs fresh context. Never skip.",
@@ -369,6 +439,26 @@ export function createMcpServer(
         content: [{ type: "text" as const, text: JSON.stringify(list) }],
       });
     },
+  );
+  const aicStatusParams: z.ZodRawShape = {};
+  server.tool(
+    "aic_status",
+    "Project-level AIC status: compilations, token savings, budget utilization, guard findings, top task classes.",
+    aicStatusParams,
+    () =>
+      Promise.resolve({
+        content: [{ type: "text" as const, text: JSON.stringify(getStatusPayload()) }],
+      }),
+  );
+  const aicLastParams: z.ZodRawShape = {};
+  server.tool(
+    "aic_last",
+    "Most recent AIC compilation: intent, files selected, tokens compiled, reduction percentage, guard status.",
+    aicLastParams,
+    () =>
+      Promise.resolve({
+        content: [{ type: "text" as const, text: JSON.stringify(getLastPayload()) }],
+      }),
   );
   server.tool(
     "aic_chat_summary",
@@ -436,88 +526,6 @@ export function createMcpServer(
       }
     },
   );
-  server.resource("last", "aic://last", () => {
-    const statusStore = new SqliteStatusStore(
-      startupScope.projectId,
-      startupScope.db,
-      startupScope.clock,
-    );
-    const lastConvId = lastConversationIdRef.current;
-    let summary: ReturnType<SqliteStatusStore["getSummary"]>;
-    if (lastConvId === null) {
-      summary = statusStore.getSummary();
-    } else {
-      const projectId = statusStore.getProjectIdForConversation(
-        toConversationId(lastConvId),
-      );
-      if (projectId === null) {
-        summary = statusStore.getSummary();
-      } else {
-        const scopedStore = new SqliteStatusStore(
-          projectId,
-          startupScope.db,
-          startupScope.clock,
-        );
-        summary = scopedStore.getSummary();
-      }
-    }
-    const last = summary.lastCompilation;
-    const lastPayload =
-      last === null
-        ? null
-        : {
-            ...last,
-            tokenReductionPct: Number(last.tokenReductionPct),
-          };
-    return {
-      contents: [
-        {
-          uri: "aic://last",
-          mimeType: "application/json",
-          text: JSON.stringify({
-            compilationCount: summary.compilationsTotal,
-            lastCompilation: lastPayload,
-            promptSummary: {
-              tokenCount: last?.tokensCompiled ?? null,
-              guardPassed: null,
-            },
-          }),
-        },
-      ],
-    };
-  });
-  server.resource("status", "aic://status", () => {
-    const statusConfigResult = configLoader.load(startupScope.projectRoot, null);
-    const statusStore = new SqliteStatusStore(
-      startupScope.projectId,
-      startupScope.db,
-      startupScope.clock,
-    );
-    const summary = statusStore.getGlobalSummary();
-    const budgetMaxTokens = budgetConfig.getMaxTokens();
-    const budgetUtilizationPct =
-      summary.lastCompilation !== null
-        ? (summary.lastCompilation.tokensCompiled / budgetMaxTokens) * 100
-        : null;
-    return {
-      contents: [
-        {
-          uri: "aic://status",
-          mimeType: "application/json",
-          text: JSON.stringify({
-            ...summary,
-            budgetMaxTokens,
-            budgetUtilizationPct,
-            updateAvailable: updateInfoRef.current.updateAvailable,
-            updateMessage: updateInfoRef.current.updateMessage,
-            installScope,
-            installScopeWarnings,
-            projectEnabled: statusConfigResult.config.enabled,
-          }),
-        },
-      ],
-    };
-  });
   const out = server as McpServer & { close(): Promise<void> };
   out.close = (): Promise<void> => {
     clearImmediate(purgeImmediateId);

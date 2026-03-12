@@ -95,7 +95,7 @@ _Fix:_ Add an "ROI Considerations" section that frames the value: token reductio
 
 **DR-13: No failure mode documentation.**
 The error handling table is good, but there's no "what if AIC silently produces bad context?" section. If the heuristic selector has a bug and starts excluding critical files, developers might not notice.
-_Fix:_ Add a "Failure Modes & Mitigations" section covering silent failures: bad file selection (verify via `aic_inspect`), over-aggressive Guard (check `aic://last` findings), stale cache serving wrong results (clear cache).
+_Fix:_ Add a "Failure Modes & Mitigations" section covering silent failures: bad file selection (verify via `aic_inspect`), over-aggressive Guard (check `aic_last` tool findings), stale cache serving wrong results (clear cache).
 
 **DR-14: Privacy compliance story is incomplete.**
 The security documentation covers "no PII in telemetry" but doesn't address GDPR, SOC 2, or HIPAA readiness. When the director goes to Legal, they'll ask. The project plan has a "Compliance Readiness" section (section 24) but the README doesn't link to it.

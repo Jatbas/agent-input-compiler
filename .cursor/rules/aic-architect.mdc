@@ -75,7 +75,7 @@ Use these rules for all three AIC prompt commands. Present data like a polished 
 
 ---
 
-- **"show aic status"** — When the user says this (or similar), read the MCP resource `aic://status` from the `project-0-AIC-AIC` server using `FetchMcpResource`. Start the reply with one short line: **Status = project-level AIC status.** Then display a formatted table using these labels and formats:
+- **"show aic status"** — When the user says this (or similar), call the MCP tool `aic_status` (no arguments). Start the reply with one short line: **Status = project-level AIC status.** Then display a formatted table using these labels and formats:
 
   | JSON key                             | Label                  | Format                                                                 |
   | ------------------------------------ | ---------------------- | ---------------------------------------------------------------------- |
@@ -109,7 +109,7 @@ Use these rules for all three AIC prompt commands. Present data like a polished 
   | lastCompilationInConversation | Last compilation    | intent text + relative time (e.g. "5 min ago") |
   | topTaskClasses                | Top task classes    | taskClass (count), comma-separated             |
 
-- **"show aic last"** — When the user says this (or similar), read the MCP resource `aic://last` from the `project-0-AIC-AIC` server. Start the reply with one short line: **Last = most recent compilation.** Then display using these labels and formats:
+- **"show aic last"** — When the user says this (or similar), call the MCP tool `aic_last` (no arguments). Start the reply with one short line: **Last = most recent compilation.** Then display using these labels and formats:
 
   | JSON key                   | Label           | Format                                                        |
   | -------------------------- | --------------- | ------------------------------------------------------------- |

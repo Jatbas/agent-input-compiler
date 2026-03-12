@@ -34,7 +34,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Global MCP server with per-project isolation — single `~/.aic/aic.sqlite` database, stable project IDs that survive folder renames, data scoped via foreign keys
 - `aic_projects` tool to list all known projects with compilation stats
 - Per-project disable via `"enabled": false` in `aic.config.json`
-- Project-scoped `aic://status` and `aic://last` resources with per-project breakdown
+- Project-scoped `aic_status` and `aic_last` MCP tools with per-project breakdown
 - Duplicate-install warning when AIC is registered in both global and workspace configs
 
 ### Changed
@@ -123,7 +123,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Security
 
-- Path containment validation, timeout enforcement, audit logging, and safer aic://last behavior (no raw compiled prompt in resource)
+- Path containment validation, timeout enforcement, audit logging, and safer aic_last tool behavior (no raw compiled prompt in response)
 
 ## [0.2.1] - 2026-03-08
 
@@ -147,8 +147,8 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- aic://status resource with budget utilization
-- aic://last resource and aic_chat_summary tool
+- aic_status tool with budget utilization
+- aic_last tool and aic_chat_summary tool
 - MCP-only distribution: CLI removed, init via npx @aic/mcp init and auto-init on MCP startup
 - Conversation tracking and per-conversation stats
 - Multiple language provider support (TypeScript, Python, Go, Rust, Java, and others)

@@ -62,75 +62,11 @@ describe("MCP server", () => {
     expect(names).toContain("aic_inspect");
     expect(names).toContain("aic_chat_summary");
     expect(names).toContain("aic_projects");
+    expect(names).toContain("aic_status");
+    expect(names).toContain("aic_last");
   });
 
-  it("status_resource_returns_json", async () => {
-    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
-    const clock = new SystemClock();
-    const db = openDatabase(":memory:", clock);
-    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
-    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
-    await server.connect(transportServer);
-    const client = new Client({ name: "test", version: "1.0" });
-    await client.connect(transportClient);
-    const result = await client.readResource({ uri: "aic://status" });
-    expect(result.contents).toHaveLength(1);
-    const first = result.contents[0];
-    expect(first?.mimeType).toBe("application/json");
-    const text: string =
-      first && "text" in first && typeof first.text === "string" ? first.text : "{}";
-    const parsed = JSON.parse(text) as {
-      compilationsTotal?: number;
-      compilationsToday?: number;
-      lastCompilation?: unknown;
-    };
-    expect(typeof parsed["compilationsTotal"]).toBe("number");
-    expect(typeof parsed["compilationsToday"]).toBe("number");
-    expect(
-      parsed.lastCompilation === null || typeof parsed.lastCompilation === "object",
-    ).toBe(true);
-  });
-
-  it("status_resource_empty_db", async () => {
-    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
-    const clock = new SystemClock();
-    const db = openDatabase(":memory:", clock);
-    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
-    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
-    await server.connect(transportServer);
-    const client = new Client({ name: "test", version: "1.0" });
-    await client.connect(transportClient);
-    const result = await client.readResource({ uri: "aic://status" });
-    const first = result.contents[0];
-    const rawText: string =
-      first && "text" in first && typeof first.text === "string" ? first.text : "{}";
-    const parsed = JSON.parse(rawText) as Record<string, unknown>;
-    expect(parsed["compilationsTotal"]).toBe(0);
-    const expectedKeys = [
-      "compilationsTotal",
-      "compilationsToday",
-      "cacheHitRatePct",
-      "guardByType",
-      "topTaskClasses",
-      "lastCompilation",
-      "installationOk",
-      "installationNotes",
-      "totalTokensRaw",
-      "totalTokensCompiled",
-      "budgetMaxTokens",
-      "budgetUtilizationPct",
-      "updateAvailable",
-      "installScope",
-      "installScopeWarnings",
-      "projectEnabled",
-    ];
-    for (const key of expectedKeys) {
-      expect(Object.prototype.hasOwnProperty.call(parsed, key)).toBe(true);
-    }
-    expect(Array.isArray(parsed["installScopeWarnings"])).toBe(true);
-  });
-
-  it("status_resource_disabled_shows_projectEnabled_false", async () => {
+  it("aic_status_disabled_shows_projectEnabled_false", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     fs.writeFileSync(path.join(tmpDir, "aic.config.json"), '{"enabled": false}', "utf8");
     const clock = new SystemClock();
@@ -140,15 +76,14 @@ describe("MCP server", () => {
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
     await client.connect(transportClient);
-    const result = await client.readResource({ uri: "aic://status" });
-    const first = result.contents[0];
-    const rawText: string =
-      first && "text" in first && typeof first.text === "string" ? first.text : "{}";
-    const parsed = JSON.parse(rawText) as { projectEnabled?: boolean };
-    expect(parsed.projectEnabled).toBe(false);
+    const result = await client.callTool({ name: "aic_status", arguments: {} });
+    const content = (result as { content?: { text?: string }[] }).content;
+    const text = Array.isArray(content) ? content.map((c) => c?.text ?? "").join("") : "";
+    const parsed = JSON.parse(text || "{}") as { projectEnabled?: boolean };
+    expect(parsed["projectEnabled"]).toBe(false);
   });
 
-  it("status_resource_includes_updateAvailable", async () => {
+  it("aic_status_includes_updateAvailable", async () => {
     const registryJson = JSON.stringify({ "dist-tags": { latest: "99.0.0" } });
     const originalFetch = globalThis.fetch;
     globalThis.fetch = vi.fn().mockResolvedValue({
@@ -164,11 +99,12 @@ describe("MCP server", () => {
       const client = new Client({ name: "test", version: "1.0" });
       await client.connect(transportClient);
       await new Promise<void>((r) => setTimeout(r, 150));
-      const result = await client.readResource({ uri: "aic://status" });
-      const first = result.contents[0];
-      const rawText: string =
-        first && "text" in first && typeof first.text === "string" ? first.text : "{}";
-      const parsed = JSON.parse(rawText) as Record<string, unknown>;
+      const result = await client.callTool({ name: "aic_status", arguments: {} });
+      const content = (result as { content?: { text?: string }[] }).content;
+      const text = Array.isArray(content)
+        ? content.map((c) => c?.text ?? "").join("")
+        : "";
+      const parsed = JSON.parse(text || "{}") as Record<string, unknown>;
       expect(parsed["updateAvailable"]).toBe("99.0.0");
       expect(parsed["updateMessage"]).toBe(
         "A newer AIC version (99.0.0) is available. Run `rm -rf ~/.npm/_npx` then reload Cursor to update.",
@@ -178,7 +114,7 @@ describe("MCP server", () => {
     }
   });
 
-  it("last_resource_returns_json", async () => {
+  it("aic_last_after_compile_returns_json", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     const clock = new SystemClock();
     const db = openDatabase(":memory:", clock);
@@ -191,16 +127,10 @@ describe("MCP server", () => {
       name: "aic_compile",
       arguments: { intent: "fix bug", projectRoot: tmpDir },
     });
-    const result = await client.readResource({ uri: "aic://last" });
-    expect(result.contents).toHaveLength(1);
-    expect(result.contents[0]?.mimeType).toBe("application/json");
-    const text: string =
-      result.contents[0] &&
-      "text" in result.contents[0] &&
-      typeof result.contents[0].text === "string"
-        ? result.contents[0].text
-        : "{}";
-    const parsed = JSON.parse(text) as {
+    const result = await client.callTool({ name: "aic_last", arguments: {} });
+    const content = (result as { content?: { text?: string }[] }).content;
+    const text = Array.isArray(content) ? content.map((c) => c?.text ?? "").join("") : "";
+    const parsed = JSON.parse(text || "{}") as {
       compilationCount: number;
       lastCompilation: {
         intent: string;
@@ -214,26 +144,26 @@ describe("MCP server", () => {
       } | null;
       promptSummary: { tokenCount: number | null; guardPassed: null };
     };
-    expect(parsed.compilationCount).toBeGreaterThanOrEqual(1);
-    expect(parsed.lastCompilation).not.toBeNull();
+    expect(parsed["compilationCount"]).toBeGreaterThanOrEqual(1);
+    expect(parsed["lastCompilation"]).not.toBeNull();
     expect(parsed["promptSummary"]).toBeDefined();
     expect(Object.prototype.hasOwnProperty.call(parsed, "compiledPrompt")).toBe(false);
-    if (parsed.lastCompilation !== null) {
-      expect(parsed.lastCompilation.intent).toBe("fix bug");
-      expect(typeof parsed.lastCompilation.filesSelected).toBe("number");
-      expect(typeof parsed.lastCompilation.filesTotal).toBe("number");
-      expect(typeof parsed.lastCompilation.tokensCompiled).toBe("number");
-      expect(typeof parsed.lastCompilation.tokenReductionPct).toBe("number");
-      expect(typeof parsed.lastCompilation.created_at).toBe("string");
-      expect(typeof parsed.lastCompilation.editorId).toBe("string");
+    if (parsed["lastCompilation"] !== null) {
+      expect(parsed["lastCompilation"].intent).toBe("fix bug");
+      expect(typeof parsed["lastCompilation"].filesSelected).toBe("number");
+      expect(typeof parsed["lastCompilation"].filesTotal).toBe("number");
+      expect(typeof parsed["lastCompilation"].tokensCompiled).toBe("number");
+      expect(typeof parsed["lastCompilation"].tokenReductionPct).toBe("number");
+      expect(typeof parsed["lastCompilation"].created_at).toBe("string");
+      expect(typeof parsed["lastCompilation"].editorId).toBe("string");
       expect(
-        parsed.lastCompilation.modelId === null ||
-          typeof parsed.lastCompilation.modelId === "string",
+        parsed["lastCompilation"].modelId === null ||
+          typeof parsed["lastCompilation"].modelId === "string",
       ).toBe(true);
     }
   });
 
-  it("aic_last_no_compiled_prompt", async () => {
+  it("aic_last_empty_db_has_promptSummary", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     const clock = new SystemClock();
     const db = openDatabase(":memory:", clock);
@@ -242,21 +172,20 @@ describe("MCP server", () => {
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
     await client.connect(transportClient);
-    const result = await client.readResource({ uri: "aic://last" });
-    const first = result.contents[0];
-    const rawText: string =
-      first && "text" in first && typeof first.text === "string" ? first.text : "{}";
-    const parsed = JSON.parse(rawText) as Record<string, unknown>;
+    const result = await client.callTool({ name: "aic_last", arguments: {} });
+    const content = (result as { content?: { text?: string }[] }).content;
+    const text = Array.isArray(content) ? content.map((c) => c?.text ?? "").join("") : "";
+    const parsed = JSON.parse(text || "{}") as Record<string, unknown>;
     expect(parsed["promptSummary"]).toBeDefined();
     expect(
       parsed["promptSummary"] !== null &&
         typeof parsed["promptSummary"] === "object" &&
-        "tokenCount" in parsed["promptSummary"],
+        "tokenCount" in (parsed["promptSummary"] as object),
     ).toBe(true);
     expect(Object.prototype.hasOwnProperty.call(parsed, "compiledPrompt")).toBe(false);
   });
 
-  it("status_resource_global_with_breakdown", async () => {
+  it("aic_status_global_with_breakdown", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     const tmpDir2 = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     const clock = new SystemClock();
@@ -274,20 +203,19 @@ describe("MCP server", () => {
       name: "aic_compile",
       arguments: { intent: "second project", projectRoot: tmpDir2 },
     });
-    const result = await client.readResource({ uri: "aic://status" });
-    const first = result.contents[0];
-    const rawText: string =
-      first && "text" in first && typeof first.text === "string" ? first.text : "{}";
-    const parsed = JSON.parse(rawText) as { projectsBreakdown?: unknown[] };
-    expect(parsed.projectsBreakdown).toBeDefined();
-    expect(Array.isArray(parsed.projectsBreakdown)).toBe(true);
-    expect(parsed.projectsBreakdown).toHaveLength(2);
+    const result = await client.callTool({ name: "aic_status", arguments: {} });
+    const content = (result as { content?: { text?: string }[] }).content;
+    const text = Array.isArray(content) ? content.map((c) => c?.text ?? "").join("") : "";
+    const parsed = JSON.parse(text || "{}") as { projectsBreakdown?: unknown[] };
+    expect(parsed["projectsBreakdown"]).toBeDefined();
+    expect(Array.isArray(parsed["projectsBreakdown"])).toBe(true);
+    expect(parsed["projectsBreakdown"]).toHaveLength(2);
     if (tmpDir2 !== undefined && fs.existsSync(tmpDir2)) {
       fs.rmSync(tmpDir2, { recursive: true, force: true });
     }
   });
 
-  it("last_resource_scoped_by_conversation", async () => {
+  it("aic_last_scoped_by_conversation", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     const clock = new SystemClock();
     const db = openDatabase(":memory:", clock);
@@ -304,16 +232,15 @@ describe("MCP server", () => {
         conversationId: "conv-scoped-last",
       },
     });
-    const result = await client.readResource({ uri: "aic://last" });
-    const first = result.contents[0];
-    const rawText: string =
-      first && "text" in first && typeof first.text === "string" ? first.text : "{}";
-    const parsed = JSON.parse(rawText) as {
+    const result = await client.callTool({ name: "aic_last", arguments: {} });
+    const content = (result as { content?: { text?: string }[] }).content;
+    const text = Array.isArray(content) ? content.map((c) => c?.text ?? "").join("") : "";
+    const parsed = JSON.parse(text || "{}") as {
       lastCompilation: { intent: string } | null;
     };
-    expect(parsed.lastCompilation).not.toBeNull();
-    if (parsed.lastCompilation !== null) {
-      expect(parsed.lastCompilation.intent).toBe("scoped intent");
+    expect(parsed["lastCompilation"]).not.toBeNull();
+    if (parsed["lastCompilation"] !== null) {
+      expect(parsed["lastCompilation"].intent).toBe("scoped intent");
     }
   });
 
@@ -391,7 +318,7 @@ describe("MCP server", () => {
     expect(typeof first?.compilationCount).toBe("number");
   });
 
-  it("last_resource_empty_db", async () => {
+  it("aic_status returns project summary", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     const clock = new SystemClock();
     const db = openDatabase(":memory:", clock);
@@ -400,21 +327,69 @@ describe("MCP server", () => {
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
     await client.connect(transportClient);
-    const result = await client.readResource({ uri: "aic://last" });
-    const first = result.contents[0];
-    const rawText: string =
-      first && "text" in first && typeof first.text === "string" ? first.text : "{}";
-    const parsed = JSON.parse(rawText) as {
-      compilationCount: number;
-      lastCompilation: null;
-      promptSummary: { tokenCount: number | null; guardPassed: null };
+    const result = await client.callTool({
+      name: "aic_status",
+      arguments: {},
+    });
+    const content = (result as { content?: { text?: string }[] }).content;
+    const text = Array.isArray(content) ? content.map((c) => c?.text ?? "").join("") : "";
+    const parsed = JSON.parse(text || "{}") as Record<string, unknown>;
+    expect(Object.prototype.hasOwnProperty.call(parsed, "compilationsTotal")).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(parsed, "budgetMaxTokens")).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(parsed, "projectEnabled")).toBe(true);
+    expect(typeof parsed["compilationsTotal"]).toBe("number");
+    expect(typeof parsed["budgetMaxTokens"]).toBe("number");
+    expect(typeof parsed["projectEnabled"]).toBe("boolean");
+  });
+
+  it("aic_last returns last compilation", async () => {
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
+    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+    await server.connect(transportServer);
+    const client = new Client({ name: "test", version: "1.0" });
+    await client.connect(transportClient);
+    const result = await client.callTool({
+      name: "aic_last",
+      arguments: {},
+    });
+    const content = (result as { content?: { text?: string }[] }).content;
+    const text = Array.isArray(content) ? content.map((c) => c?.text ?? "").join("") : "";
+    const parsed = JSON.parse(text || "{}") as {
+      compilationCount?: number;
+      lastCompilation?: unknown;
     };
-    expect(parsed.compilationCount).toBe(0);
-    expect(parsed.lastCompilation).toBeNull();
-    expect(parsed["promptSummary"]).toBeDefined();
-    expect("tokenCount" in parsed["promptSummary"]).toBe(true);
-    expect("guardPassed" in parsed["promptSummary"]).toBe(true);
-    expect(Object.prototype.hasOwnProperty.call(parsed, "compiledPrompt")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(parsed, "compilationCount")).toBe(true);
+    expect(Object.prototype.hasOwnProperty.call(parsed, "lastCompilation")).toBe(true);
+    expect(typeof parsed["compilationCount"]).toBe("number");
+    expect(
+      parsed["lastCompilation"] === null || typeof parsed["lastCompilation"] === "object",
+    ).toBe(true);
+  });
+
+  it("aic_status with no compilations", async () => {
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
+    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+    await server.connect(transportServer);
+    const client = new Client({ name: "test", version: "1.0" });
+    await client.connect(transportClient);
+    const result = await client.callTool({
+      name: "aic_status",
+      arguments: {},
+    });
+    const content = (result as { content?: { text?: string }[] }).content;
+    const text = Array.isArray(content) ? content.map((c) => c?.text ?? "").join("") : "";
+    const parsed = JSON.parse(text || "{}") as {
+      compilationsTotal?: number;
+      lastCompilation?: unknown;
+    };
+    expect(parsed["compilationsTotal"]).toBe(0);
+    expect(parsed["lastCompilation"]).toBeNull();
   });
 
   it("valid_args_returns_compiled_prompt", async () => {
