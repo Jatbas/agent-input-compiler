@@ -21,6 +21,12 @@ function isUnderSensitivePrefix(resolved: string): boolean {
 
 function assertPathAllowed(resolved: string): void {
   const homedir = os.homedir();
+  if (resolved === homedir) {
+    throw new McpError(
+      ErrorCode.InvalidParams,
+      "projectRoot must be a project directory, not the home directory. Pass the workspace folder open in the editor.",
+    );
+  }
   if (!resolved.startsWith(homedir) || isUnderSensitivePrefix(resolved)) {
     throw new McpError(ErrorCode.InvalidParams, "Invalid projectRoot");
   }

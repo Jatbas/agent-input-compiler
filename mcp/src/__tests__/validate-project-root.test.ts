@@ -14,6 +14,17 @@ describe("validate-project-root", () => {
     expect(result).toBe(path.resolve(subpath));
   });
 
+  it("validate_project_root_rejects_home_directory", () => {
+    expect(() => validateProjectRoot(os.homedir())).toThrow(McpError);
+    try {
+      validateProjectRoot(os.homedir());
+    } catch (e) {
+      expect(e).toBeInstanceOf(McpError);
+      expect((e as McpError).code).toBe(ErrorCode.InvalidParams);
+      expect((e as McpError).message).toContain("not the home directory");
+    }
+  });
+
   it("validate_project_root_rejects_escape", () => {
     const outside = path.join(os.homedir(), "..", "etc");
     expect(() => validateProjectRoot(outside)).toThrow(McpError);
