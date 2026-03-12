@@ -27,6 +27,7 @@ import {
   toConversationId,
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import type { GuardResult } from "@jatbas/aic-core/core/types/guard-types.js";
 import type { CompilationRequest } from "@jatbas/aic-core/core/types/compilation-types.js";
 import { writeCompilationTelemetry } from "@jatbas/aic-core/core/write-compilation-telemetry.js";
 import { recordToolInvocation } from "../record-tool-invocation.js";
@@ -39,6 +40,70 @@ function rejectAfter(ms: number): Promise<never> {
   return new Promise((_, reject) =>
     setTimeout(() => reject(new TimeoutError("Compilation timed out after 30s")), ms),
   );
+}
+
+function sanitizeGuardForModel(guard: GuardResult): {
+  passed: boolean;
+  findings: readonly {
+    severity: string;
+    type: string;
+    line?: number;
+    message: string;
+    pattern?: string;
+  }[];
+  filesBlocked: readonly string[];
+  filesRedacted: readonly string[];
+  filesWarned: readonly string[];
+} {
+  return {
+    passed: guard.passed,
+    findings: guard.findings.map(({ file: _f, ...rest }) => rest),
+    filesBlocked: [],
+    filesRedacted: [],
+    filesWarned: [],
+  };
+}
+
+const EXCLUSION_INSTRUCTION =
+  "Do not attempt to read excluded or redacted files (e.g. .env, secrets) directly via editor tools. Use only the context provided below.\n\n";
+
+function buildSuccessResponse(
+  result: Awaited<ReturnType<CompilationRunner["run"]>>,
+  request: CompilationRequest,
+  installScopeWarnings: readonly string[],
+): CallToolResult {
+  const warningBlock =
+    installScopeWarnings.length > 0
+      ? installScopeWarnings.map((w) => `⚠️ WARNING: ${w}`).join("\n") + "\n\n"
+      : "";
+  const reinforcement =
+    "\n\nIMPORTANT: On your NEXT message in this conversation, call aic_compile again BEFORE doing anything else. Every message needs fresh context — do not reuse this result.";
+  const metaForModel = {
+    ...result.meta,
+    guard: result.meta.guard !== null ? sanitizeGuardForModel(result.meta.guard) : null,
+  };
+  const hadExclusions =
+    result.meta.guard !== null &&
+    (result.meta.guard.filesBlocked.length > 0 ||
+      result.meta.guard.filesRedacted.length > 0);
+  const compiledPrompt =
+    warningBlock +
+    (hadExclusions ? EXCLUSION_INSTRUCTION : "") +
+    result.compiledPrompt +
+    reinforcement;
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: JSON.stringify({
+          compiledPrompt,
+          meta: metaForModel,
+          conversationId: request.conversationId ?? null,
+          ...(installScopeWarnings.length > 0 ? { warnings: installScopeWarnings } : {}),
+        }),
+      },
+    ],
+  };
 }
 
 function resolveConversationId(argsValue: string | null | undefined): string | null {
@@ -166,27 +231,7 @@ export function createCompileHandler(
       } catch {
         // Non-fatal — do not fail the request
       }
-      const warningBlock =
-        installScopeWarnings.length > 0
-          ? installScopeWarnings.map((w) => `⚠️ WARNING: ${w}`).join("\n") + "\n\n"
-          : "";
-      const reinforcement =
-        "\n\nIMPORTANT: On your NEXT message in this conversation, call aic_compile again BEFORE doing anything else. Every message needs fresh context — do not reuse this result.";
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: JSON.stringify({
-              compiledPrompt: warningBlock + result.compiledPrompt + reinforcement,
-              meta: result.meta,
-              conversationId: request.conversationId ?? null,
-              ...(installScopeWarnings.length > 0
-                ? { warnings: installScopeWarnings }
-                : {}),
-            }),
-          },
-        ],
-      };
+      return buildSuccessResponse(result, request, installScopeWarnings);
     } catch (err) {
       if (err instanceof TimeoutError) {
         throw new McpError(ErrorCode.InternalError, "Compilation timed out after 30s");

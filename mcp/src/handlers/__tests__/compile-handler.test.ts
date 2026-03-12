@@ -19,8 +19,14 @@ import {
   type AbsolutePath,
   type FilePath,
   toAbsolutePath,
+  toRelativePath,
 } from "@jatbas/aic-core/core/types/paths.js";
-import { EDITOR_ID } from "@jatbas/aic-core/core/types/enums.js";
+import {
+  EDITOR_ID,
+  GUARD_SEVERITY,
+  GUARD_FINDING_TYPE,
+} from "@jatbas/aic-core/core/types/enums.js";
+import type { CompilationMeta } from "@jatbas/aic-core/core/types/compilation-types.js";
 import { defaultResolvedConfig } from "@jatbas/aic-core/core/types/resolved-config.js";
 import type { ConfigLoader } from "@jatbas/aic-core/core/interfaces/config-loader.interface.js";
 import { NodePathAdapter } from "@jatbas/aic-core/adapters/node-path-adapter.js";
@@ -137,6 +143,17 @@ describe("compile-handler", () => {
         Promise.resolve({
           compiledPrompt,
           meta: STUB_COMPILATION_META,
+          compilationId: toUUIDv7("00000000-0000-7000-8000-000000000099"),
+        }),
+    };
+  }
+
+  function makeRunnerWithMeta(compiledPrompt: string, meta: CompilationMeta) {
+    return {
+      run: () =>
+        Promise.resolve({
+          compiledPrompt,
+          meta,
           compilationId: toUUIDv7("00000000-0000-7000-8000-000000000099"),
         }),
     };
@@ -415,6 +432,163 @@ describe("compile-handler", () => {
       );
       expect(fs.existsSync(path.join(tmpDir, "aic.config.json"))).toBe(true);
       expect(fs.existsSync(path.join(tmpDir, ".aic"))).toBe(true);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  const EXCLUSION_INSTRUCTION =
+    "Do not attempt to read excluded or redacted files (e.g. .env, secrets) directly via editor tools. Use only the context provided below.";
+
+  it("meta_guard_strips_file_paths", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+    try {
+      const guardMeta: CompilationMeta = {
+        ...STUB_COMPILATION_META,
+        guard: {
+          passed: false,
+          findings: [
+            {
+              severity: GUARD_SEVERITY.BLOCK,
+              type: GUARD_FINDING_TYPE.SECRET,
+              file: toRelativePath("path/to/.env"),
+              message: "secret",
+            },
+          ],
+          filesBlocked: [toRelativePath("path/to/.env")],
+          filesRedacted: [],
+          filesWarned: [],
+        },
+      };
+      const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
+      const handler = createCompileHandler(
+        getScope,
+        (_scope: ProjectScope) => makeRunnerWithMeta("body", guardMeta),
+        { hash: (): string => "" },
+        getSessionId,
+        getEditorId,
+        getModelId,
+        null,
+        [],
+        enabledConfigLoader,
+        () => {},
+      );
+      const result = await handler(
+        { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },
+        undefined,
+      );
+      const items = result.content as readonly { type: string; text: string }[];
+      const parsed = JSON.parse(items[0]!.text) as {
+        meta: {
+          guard: { filesBlocked: unknown[]; findings: readonly { file?: unknown }[] };
+        };
+      };
+      expect(parsed.meta.guard.filesBlocked).toHaveLength(0);
+      expect(parsed.meta.guard.findings[0]).not.toHaveProperty("file");
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("exclusion_instruction_prepended_when_guard_excluded", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+    try {
+      const guardMeta: CompilationMeta = {
+        ...STUB_COMPILATION_META,
+        guard: {
+          passed: false,
+          findings: [],
+          filesBlocked: [toRelativePath("x")],
+          filesRedacted: [],
+          filesWarned: [],
+        },
+      };
+      const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
+      const handler = createCompileHandler(
+        getScope,
+        (_scope: ProjectScope) => makeRunnerWithMeta("body", guardMeta),
+        { hash: (): string => "" },
+        getSessionId,
+        getEditorId,
+        getModelId,
+        null,
+        [],
+        enabledConfigLoader,
+        () => {},
+      );
+      const result = await handler(
+        { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },
+        undefined,
+      );
+      const items = result.content as readonly { type: string; text: string }[];
+      const parsed = JSON.parse(items[0]!.text) as { compiledPrompt: string };
+      expect(parsed.compiledPrompt).toContain(EXCLUSION_INSTRUCTION);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("no_instruction_when_guard_passed", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+    try {
+      const guardMeta: CompilationMeta = {
+        ...STUB_COMPILATION_META,
+        guard: {
+          passed: true,
+          findings: [],
+          filesBlocked: [],
+          filesRedacted: [],
+          filesWarned: [],
+        },
+      };
+      const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
+      const handler = createCompileHandler(
+        getScope,
+        (_scope: ProjectScope) => makeRunnerWithMeta("body", guardMeta),
+        { hash: (): string => "" },
+        getSessionId,
+        getEditorId,
+        getModelId,
+        null,
+        [],
+        enabledConfigLoader,
+        () => {},
+      );
+      const result = await handler(
+        { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },
+        undefined,
+      );
+      const items = result.content as readonly { type: string; text: string }[];
+      const parsed = JSON.parse(items[0]!.text) as { compiledPrompt: string };
+      expect(parsed.compiledPrompt).not.toContain(EXCLUSION_INSTRUCTION);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("no_instruction_when_guard_null", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+    try {
+      const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
+      const handler = createCompileHandler(
+        getScope,
+        (_scope: ProjectScope) => makeSuccessRunner("body"),
+        { hash: (): string => "" },
+        getSessionId,
+        getEditorId,
+        getModelId,
+        null,
+        [],
+        enabledConfigLoader,
+        () => {},
+      );
+      const result = await handler(
+        { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },
+        undefined,
+      );
+      const items = result.content as readonly { type: string; text: string }[];
+      const parsed = JSON.parse(items[0]!.text) as { compiledPrompt: string };
+      expect(parsed.compiledPrompt).not.toContain(EXCLUSION_INSTRUCTION);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
