@@ -12,29 +12,19 @@ export const INSTALL_SCOPE = {
 
 export type InstallScope = (typeof INSTALL_SCOPE)[keyof typeof INSTALL_SCOPE];
 
-type CursorMcpConfig = {
-  readonly mcpServers?: Readonly<Record<string, unknown>>;
-};
-
-function readMcpConfig(
-  configPath: string,
-): { parsed: CursorMcpConfig; servers: Readonly<Record<string, unknown>> } | null {
-  if (!fs.existsSync(configPath)) return null;
+function hasAicEntry(configPath: string): boolean {
+  if (!fs.existsSync(configPath)) return false;
   try {
     const raw = fs.readFileSync(configPath, "utf8");
-    const parsed = JSON.parse(raw) as CursorMcpConfig;
+    const parsed = JSON.parse(raw) as {
+      readonly mcpServers?: Readonly<Record<string, unknown>>;
+    };
     const servers = parsed.mcpServers;
-    if (servers === undefined) return null;
-    return { parsed, servers };
+    if (servers === undefined) return false;
+    return Object.keys(servers).some((k) => k.toLowerCase() === "aic");
   } catch {
-    return null;
+    return false;
   }
-}
-
-function hasAicEntry(configPath: string): boolean {
-  const config = readMcpConfig(configPath);
-  if (config === null) return false;
-  return Object.keys(config.servers).some((k) => k.toLowerCase() === "aic");
 }
 
 export function detectInstallScope(homeDir: string, projectRoot: string): InstallScope {
@@ -45,25 +35,4 @@ export function detectInstallScope(homeDir: string, projectRoot: string): Instal
   if (inGlobal && inWorkspace) return INSTALL_SCOPE.BOTH;
   if (inGlobal) return INSTALL_SCOPE.GLOBAL;
   return INSTALL_SCOPE.WORKSPACE;
-}
-
-export function removeWorkspaceAicEntry(projectRoot: string): boolean {
-  const configPath = path.join(projectRoot, ".cursor", "mcp.json");
-  const config = readMcpConfig(configPath);
-  if (config === null) return false;
-  const aicKey = Object.keys(config.servers).find((k) => k.toLowerCase() === "aic");
-  if (aicKey === undefined) return false;
-  try {
-    const rest: Record<string, unknown> = {};
-    for (const key of Object.keys(config.servers)) {
-      if (key.toLowerCase() !== "aic") {
-        rest[key] = config.servers[key];
-      }
-    }
-    const updated = { ...config.parsed, mcpServers: rest };
-    fs.writeFileSync(configPath, JSON.stringify(updated, null, 2) + "\n", "utf8");
-    return true;
-  } catch {
-    return false;
-  }
 }
