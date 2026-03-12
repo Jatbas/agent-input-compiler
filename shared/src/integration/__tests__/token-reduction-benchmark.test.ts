@@ -17,6 +17,7 @@ import { createProjectScope } from "@jatbas/aic-core/storage/create-project-scop
 import { createCachingFileContentReader } from "@jatbas/aic-core/adapters/caching-file-content-reader.js";
 import { createFullPipelineDeps } from "../../bootstrap/create-pipeline-deps.js";
 import { CompilationRunner } from "@jatbas/aic-core/pipeline/compilation-runner.js";
+import { IgnoreAdapter } from "@jatbas/aic-core/adapters/ignore-adapter.js";
 import { initLanguageProviders } from "@jatbas/aic-core/adapters/init-language-providers.js";
 import { LoadConfigFromFile } from "../../config/load-config-from-file.js";
 import { applyConfigResult } from "../../config/load-config-from-file.js";
@@ -56,7 +57,7 @@ function createRulePackProvider(): RulePackProvider {
 let providers: Awaited<ReturnType<typeof initLanguageProviders>>;
 
 beforeAll(async () => {
-  providers = await initLanguageProviders(fixtureRoot as string);
+  providers = await initLanguageProviders(fixtureRoot as string, new IgnoreAdapter());
 });
 
 type BaselineEntry = { token_count: number; duration_ms: number };

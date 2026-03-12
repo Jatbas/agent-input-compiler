@@ -7,6 +7,20 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.8] - 2026-03-13
+
+### Added
+
+- Comprehensive default ignore patterns for Python, Rust, Java, Go, and other major ecosystems so scans skip build artifacts and system directories by default
+
+### Changed
+
+- Bootstrap removes stale AIC hook scripts and updates the trigger rule when the installed AIC version changes
+
+### Fixed
+
+- MCP server process now releases all file watchers on close so the Node process can exit cleanly
+
 ## [0.6.7] - 2026-03-13
 
 ### Added

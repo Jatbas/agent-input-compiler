@@ -1,6 +1,6 @@
 {
   "name": "@jatbas/aic",
-  "version": "0.6.7",
+  "version": "0.6.8",
   "type": "module",
   "main": "dist/server.js",
   "types": "dist/server.d.ts",

@@ -8,20 +8,8 @@ import type { IgnoreProvider } from "@jatbas/aic-core/core/interfaces/ignore-pro
 import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { RepoMap, FileEntry } from "@jatbas/aic-core/core/types/repo-map.js";
 import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
+import { DEFAULT_NEGATIVE_PATTERNS } from "./default-ignore-patterns.js";
 import { isBinaryExtension, languageFromExtension } from "./file-entry-utils.js";
-
-const DEFAULT_NEGATIVE_PATTERNS: readonly string[] = [
-  "!**/node_modules/**",
-  "!.git/**",
-  "!**/dist/**",
-  "!**/build/**",
-  "!**/coverage/**",
-  "!**/.aic/**",
-  "!.next/**",
-  "!.nuxt/**",
-  "!**/__pycache__/**",
-  "!**/*.tsbuildinfo",
-];
 
 export class FileSystemRepoMapSupplier implements RepoMapSupplier {
   constructor(

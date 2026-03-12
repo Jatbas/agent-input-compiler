@@ -10,6 +10,7 @@ import type { IgnoreProvider } from "@jatbas/aic-core/core/interfaces/ignore-pro
 import { toAbsolutePath, toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toBytes, toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import { DEFAULT_NEGATIVE_PATTERNS } from "../default-ignore-patterns.js";
 import { FileSystemRepoMapSupplier } from "../file-system-repo-map-supplier.js";
 
 const MOCK_LAST_MODIFIED = toISOTimestamp("2020-01-01T00:00:00.000Z");
@@ -121,5 +122,18 @@ describe("FileSystemRepoMapSupplier", () => {
     const repoMap = await supplier.getRepoMap(projectRoot);
     expect(repoMap.files.length).toBe(0);
     expect(repoMap.totalTokens).toBe(toTokenCount(0));
+  });
+
+  it("default_patterns_cover_ecosystems", () => {
+    const has = (sub: string): boolean =>
+      DEFAULT_NEGATIVE_PATTERNS.some((p) => p.includes(sub));
+    expect(has("node_modules")).toBe(true);
+    expect(has("__pycache__") || has(".venv") || has(".pytest_cache")).toBe(true);
+    expect(has("target")).toBe(true);
+    expect(has(".gradle") || has(".m2")).toBe(true);
+    expect(has("vendor")).toBe(true);
+    expect(has(".bundle")).toBe(true);
+    expect(has("Pods")).toBe(true);
+    expect(has(".dart_tool") || has(".pub-cache")).toBe(true);
   });
 });

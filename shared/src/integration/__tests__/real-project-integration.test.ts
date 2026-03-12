@@ -93,7 +93,7 @@ function createRunner(): CompilationRunner {
 let providers: Awaited<ReturnType<typeof initLanguageProviders>>;
 
 beforeAll(async () => {
-  providers = await initLanguageProviders(projectRoot);
+  providers = await initLanguageProviders(projectRoot, new IgnoreAdapter());
 }, 60_000);
 
 describe("real project integration", () => {
