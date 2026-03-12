@@ -7,6 +7,20 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.4] - 2026-03-12
+
+### Added
+
+- aic_status and aic_last exposed as MCP tools (replacing resources) for "show aic status" and "show aic last" prompt commands
+- Self-upgrade of global MCP config: on startup, AIC rewrites the global `~/.cursor/mcp.json` AIC entry to use `@jatbas/aic@latest` when the current args omit a version, so users stay on the latest without editing config by hand
+
+### Changed
+
+- Install link and README now use `npx -y @jatbas/aic@latest` so new installs get the latest published version
+- Update-available warning now includes cache-clear and reload steps (e.g. clear npx cache then reload Cursor) so users can update reliably
+- Guard metadata in aic_compile responses no longer includes file paths; only type and count are returned to the model (findings omit file, blocked/redacted/warned file lists are empty)
+- Compilation memory and I/O improvements: bounded file-content cache (LRU, default 500 entries) and bounded runner cache (cap 10, watcher cleanup on eviction and shutdown)
+
 ## [0.6.3] - 2026-03-12
 
 ### Fixed

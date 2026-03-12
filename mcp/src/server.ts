@@ -73,6 +73,7 @@ import { createProjectFileReader } from "@jatbas/aic-core/adapters/project-file-
 import { createCachingFileContentReader } from "@jatbas/aic-core/adapters/caching-file-content-reader.js";
 import { detectEditorId } from "./detect-editor-id.js";
 import { detectInstallScope, INSTALL_SCOPE } from "./detect-install-scope.js";
+import { upgradeGlobalMcpConfigIfNeeded } from "./upgrade-global-mcp-config-if-needed.js";
 import { getUpdateInfo, type UpdateInfo } from "./latest-version-check.js";
 import { EditorModelConfigReaderAdapter } from "@jatbas/aic-core/adapters/editor-model-config-reader.js";
 import { ModelDetectorDispatch } from "@jatbas/aic-core/adapters/model-detector-dispatch.js";
@@ -168,6 +169,7 @@ export function createMcpServer(
   });
   const { installationOk, installationNotes } = runStartupSelfCheck(projectRoot);
   const installScope = detectInstallScope(os.homedir(), projectRoot);
+  upgradeGlobalMcpConfigIfNeeded(os.homedir());
   const installScopeWarnings: readonly string[] =
     installScope === INSTALL_SCOPE.BOTH
       ? [
