@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 49/71 done
+**Phase 1.0:** 57/74 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---

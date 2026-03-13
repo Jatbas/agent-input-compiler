@@ -2,9 +2,10 @@
 // Copyright (c) 2025 AIC Contributors
 
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
-import type { ProjectId } from "@jatbas/aic-core/core/types/identifiers.js";
+import { type ProjectId, toProjectId } from "@jatbas/aic-core/core/types/identifiers.js";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import type { IdGenerator } from "@jatbas/aic-core/core/interfaces/id-generator.interface.js";
@@ -44,19 +45,35 @@ export interface ProjectScope {
   readonly projectId: ProjectId;
 }
 
+export function isHomedirPath(
+  projectRoot: AbsolutePath,
+  getHomedir: () => string = (): string => os.homedir(),
+): boolean {
+  const resolvedRoot = path.resolve(projectRoot);
+  const resolvedHomedir = path.resolve(getHomedir());
+  return resolvedRoot === resolvedHomedir;
+}
+
+export interface CreateProjectScopeOptions {
+  getHomedir?: () => string;
+}
+
 export function createProjectScope(
   projectRoot: AbsolutePath,
   normaliser: ProjectRootNormaliser,
   db: ExecutableDb,
   clock: Clock,
+  options?: CreateProjectScopeOptions,
 ): ProjectScope {
   const aicDir = ensureAicDir(projectRoot);
   const idGenerator = new UuidV7Generator(clock);
   const cacheDirPath = path.join(aicDir, "cache");
   fs.mkdirSync(cacheDirPath, { recursive: true });
   const cacheDir = toAbsolutePath(cacheDirPath);
-  // reconcileProjectId must run before stores are constructed (FK dependency)
-  const projectId = reconcileProjectId(projectRoot, db, clock, idGenerator, normaliser);
+  const getHomedir = options?.getHomedir ?? ((): string => os.homedir());
+  const projectId: ProjectId = isHomedirPath(projectRoot, getHomedir)
+    ? toProjectId(idGenerator.generate())
+    : reconcileProjectId(projectRoot, db, clock, idGenerator, normaliser);
   const cacheStore = new SqliteCacheStore(projectId, db, cacheDir, clock);
   const telemetryStore = new SqliteTelemetryStore(db);
   const configStore = new SqliteConfigStore(projectId, db, clock);

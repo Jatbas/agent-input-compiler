@@ -3,7 +3,7 @@ description: MANDATORY — call aic_compile on EVERY message
 globs:
 alwaysApply: true
 ---
-<!-- AIC rule version: 0.6.7 -->
+<!-- AIC rule version: 0.6.8 -->
 
 STOP. Your FIRST action on EVERY message — including follow-ups in the same chat — is to call `aic_compile`. No exceptions. No skipping because you "already have context." Each message has a different intent that needs fresh context.
 

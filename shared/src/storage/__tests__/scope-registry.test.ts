@@ -3,18 +3,19 @@
 
 import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
-import { tmpdir } from "node:os";
+import * as os from "node:os";
 import { describe, it, expect, afterEach } from "vitest";
 import { AicError } from "../../core/errors/aic-error.js";
 import type { ProjectRootNormaliser } from "../../core/interfaces/project-root-normaliser.interface.js";
 import { toAbsolutePath } from "../../core/types/paths.js";
 import type { AbsolutePath } from "../../core/types/paths.js";
 import { ScopeRegistry } from "../scope-registry.js";
+import { createProjectScope } from "../create-project-scope.js";
 import { openDatabase, closeDatabase } from "../open-database.js";
 import { SystemClock } from "../../adapters/system-clock.js";
 
 function makeTempDir(): string {
-  return mkdtempSync(join(tmpdir(), "aic-scope-registry-"));
+  return mkdtempSync(join(os.tmpdir(), "aic-scope-registry-"));
 }
 
 describe("ScopeRegistry", () => {
@@ -100,6 +101,26 @@ describe("ScopeRegistry", () => {
     const scope2 = registry.getOrCreate(pathB);
     expect(scope2).toBe(scope1);
     registry.close();
+    closeDatabase(db);
+  });
+
+  it("homedir_scope_does_not_insert_into_projects", () => {
+    tmpDirA = makeTempDir();
+    const pathTreatedAsHomedir = toAbsolutePath(tmpDirA);
+    const normaliser: ProjectRootNormaliser = {
+      normalise(raw: string): AbsolutePath {
+        return toAbsolutePath(raw);
+      },
+    };
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    createProjectScope(pathTreatedAsHomedir, normaliser, db, clock, {
+      getHomedir: () => tmpDirA,
+    });
+    const rows = db.prepare("SELECT COUNT(*) as n FROM projects").all() as {
+      n: number;
+    }[];
+    expect(rows[0]?.n).toBe(0);
     closeDatabase(db);
   });
 
