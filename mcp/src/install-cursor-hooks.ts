@@ -30,6 +30,12 @@ const DEFAULT_HOOKS = {
         matcher: "MCP",
       },
     ],
+    beforeShellExecution: [
+      {
+        command: "node .cursor/hooks/AIC-block-no-verify.cjs",
+        matcher: "git",
+      },
+    ],
     afterFileEdit: [{ command: "node .cursor/hooks/AIC-after-file-edit-tracker.cjs" }],
     sessionEnd: [{ command: "node .cursor/hooks/AIC-session-end.cjs" }],
     stop: [
@@ -54,6 +60,7 @@ const AIC_SCRIPT_NAMES: readonly string[] = [
   "AIC-inject-conversation-id.cjs",
   "AIC-post-compile-context.cjs",
   "AIC-before-submit-prewarm.cjs",
+  "AIC-block-no-verify.cjs",
   "AIC-after-file-edit-tracker.cjs",
   "AIC-session-end.cjs",
   "AIC-stop-quality-check.cjs",
@@ -85,6 +92,7 @@ type ParsedHooks = {
     preToolUse?: readonly HookEntry[];
     postToolUse?: readonly HookEntry[];
     beforeSubmitPrompt?: readonly HookEntry[];
+    beforeShellExecution?: readonly HookEntry[];
     afterFileEdit?: readonly HookEntry[];
     sessionEnd?: readonly HookEntry[];
     stop?: readonly StopHookEntry[];
@@ -145,6 +153,10 @@ export function installCursorHooks(projectRoot: AbsolutePath): void {
       (parsed.hooks?.beforeSubmitPrompt ?? []).filter(isAicScriptInManifest),
       DEFAULT_HOOKS.hooks.beforeSubmitPrompt,
     );
+    const beforeShellExecution = mergeHookArray(
+      (parsed.hooks?.beforeShellExecution ?? []).filter(isAicScriptInManifest),
+      DEFAULT_HOOKS.hooks.beforeShellExecution,
+    );
     const afterFileEdit = mergeHookArray(
       (parsed.hooks?.afterFileEdit ?? []).filter(isAicScriptInManifest),
       DEFAULT_HOOKS.hooks.afterFileEdit,
@@ -165,12 +177,18 @@ export function installCursorHooks(projectRoot: AbsolutePath): void {
         preToolUse,
         postToolUse,
         beforeSubmitPrompt,
+        beforeShellExecution,
         afterFileEdit,
         sessionEnd,
         stop,
       },
     };
-    fs.writeFileSync(hooksPath, jsonContent(merged), "utf8");
+    const mergedContent = jsonContent(merged);
+    // skip write when content is unchanged to avoid triggering mid-session hook reloads
+    const existingContent = fs.readFileSync(hooksPath, "utf8");
+    if (mergedContent !== existingContent) {
+      fs.writeFileSync(hooksPath, mergedContent, "utf8");
+    }
   }
 
   const hooksDir = path.join(cursorDir, "hooks");

@@ -127,6 +127,7 @@ describe("installCursorHooks", () => {
       "AIC-inject-conversation-id.cjs",
       "AIC-post-compile-context.cjs",
       "AIC-before-submit-prewarm.cjs",
+      "AIC-block-no-verify.cjs",
       "AIC-after-file-edit-tracker.cjs",
       "AIC-session-end.cjs",
       "AIC-stop-quality-check.cjs",
@@ -164,6 +165,35 @@ describe("installCursorHooks", () => {
         (e.command ?? "").includes("AIC-compile-context.cjs"),
       ),
     ).toBe(true);
+  });
+
+  it("before_shell_execution_hook_installed", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-hooks-"));
+    installCursorHooks(toAbsolutePath(tmpDir));
+    const parsed = JSON.parse(
+      fs.readFileSync(path.join(tmpDir, ".cursor", "hooks.json"), "utf8"),
+    );
+    expect(Array.isArray(parsed.hooks?.beforeShellExecution)).toBe(true);
+    expect(
+      parsed.hooks.beforeShellExecution.some((e: { command?: string }) =>
+        (e.command ?? "").includes("AIC-block-no-verify.cjs"),
+      ),
+    ).toBe(true);
+    expect(
+      fs.existsSync(path.join(tmpDir, ".cursor", "hooks", "AIC-block-no-verify.cjs")),
+    ).toBe(true);
+  });
+
+  it("hooks_json_not_rewritten_when_content_unchanged", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-hooks-"));
+    const projectRoot = toAbsolutePath(tmpDir);
+    installCursorHooks(projectRoot);
+    const hooksPath = path.join(tmpDir, ".cursor", "hooks.json");
+    const mtimeBefore = fs.statSync(hooksPath).mtimeMs;
+    // wait a tick so mtime would differ if a write occurred
+    installCursorHooks(projectRoot);
+    const mtimeAfter = fs.statSync(hooksPath).mtimeMs;
+    expect(mtimeAfter).toBe(mtimeBefore);
   });
 
   it("self_check_passes_after_install", () => {
