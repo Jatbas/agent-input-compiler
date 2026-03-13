@@ -1117,6 +1117,13 @@ When the MCP server process starts (via `npx @aic/mcp`), it executes the followi
          ▼
 11. Start MCP transport (stdio)
     └─ Server ready — accepting requests
+         │
+         ▼
+12. On MCP client connect (oninitialized / roots/list_changed)
+    └─ Fetch workspace roots from client (roots/list)
+    └─ For each root URI: convert file:// → absolute path
+    └─ Call installTriggerRule + installCursorHooks for each project root
+    └─ Bootstrap is idempotent — safe to re-run; skips when artifacts are already up to date
 ```
 
 **Timing target:** Steps 1–11 complete in <500ms (see [Project Plan §14](project-plan.md)).

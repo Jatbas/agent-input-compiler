@@ -72,6 +72,7 @@ function buildSuccessResponse(
   request: CompilationRequest,
   installScopeWarnings: readonly string[],
   getUpdateMessage: () => string | null,
+  getConfigUpgraded: () => boolean,
 ): CallToolResult {
   const warningBlock =
     installScopeWarnings.length > 0
@@ -101,6 +102,12 @@ function buildSuccessResponse(
           meta: metaForModel,
           conversationId: request.conversationId ?? null,
           updateMessage: getUpdateMessage() ?? null,
+          ...(getConfigUpgraded()
+            ? {
+                configUpgraded:
+                  "AIC updated your MCP config to @latest. Reload Cursor (Cmd+Shift+P → Reload Window) to start using the new version.",
+              }
+            : {}),
           ...(installScopeWarnings.length > 0 ? { warnings: installScopeWarnings } : {}),
         }),
       },
@@ -127,6 +134,7 @@ export function createCompileHandler(
   configLoader: ConfigLoader,
   setLastConversationId: (id: string | null) => void,
   getUpdateMessage: () => string | null,
+  getConfigUpgraded: () => boolean,
 ): (
   args: {
     intent: string;
@@ -239,6 +247,7 @@ export function createCompileHandler(
         request,
         installScopeWarnings,
         getUpdateMessage,
+        getConfigUpgraded,
       );
     } catch (err) {
       if (err instanceof TimeoutError) {

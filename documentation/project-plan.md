@@ -321,7 +321,7 @@ npx @aic/mcp init
 
 Today, this creates `aic.config.json`, installs the Cursor trigger rule and hooks, and creates `.aic/` with `0700` permissions. Claude Code installer support is tracked separately in the roadmap.
 
-That's it for Cursor. With the Cursor integration layer (hooks installed by `npx @aic/mcp init`), AIC compiles context at session start and enforces compilation on tool-using turns. In editors without hook support, AIC relies on the trigger rule and the model's willingness to call `aic_compile`.
+That's it for Cursor. When Cursor advertises workspace roots on connect, AIC proactively bootstraps each root — so the trigger rule and hooks are installed before the first AI message. In editors without proactive-roots support, bootstrap runs on the first `aic_compile` call. In editors without hook support, AIC relies on the trigger rule and the model's willingness to call `aic_compile`.
 
 ### Model Auto-detection
 

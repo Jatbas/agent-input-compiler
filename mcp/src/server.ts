@@ -171,7 +171,7 @@ export function createMcpServer(
   });
   const { installationOk, installationNotes } = runStartupSelfCheck(projectRoot);
   const installScope = detectInstallScope(os.homedir(), projectRoot);
-  upgradeGlobalMcpConfigIfNeeded(os.homedir());
+  const configUpgraded = upgradeGlobalMcpConfigIfNeeded(os.homedir());
   const installScopeWarnings: readonly string[] =
     installScope === INSTALL_SCOPE.BOTH
       ? [
@@ -329,6 +329,7 @@ export function createMcpServer(
   };
   const getUpdateMessage = (): string | null =>
     updateInfoRef.current.updateMessage ?? null;
+  const getConfigUpgraded = (): boolean => configUpgraded;
   const getStatusPayload = (): Record<string, unknown> => {
     const statusConfigResult = configLoader.load(startupScope.projectRoot, null);
     const statusStore = new SqliteStatusStore(
@@ -415,6 +416,7 @@ export function createMcpServer(
       configLoader,
       setLastConversationId,
       getUpdateMessage,
+      getConfigUpgraded,
     ),
   );
   server.tool("aic_inspect", InspectRequestSchema, (args) =>

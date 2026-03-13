@@ -34,6 +34,9 @@ Call: \`{ "intent": "<summarise the user's message>", "projectRoot": "{{PROJECT_
 
 If the call fails, respond normally. Never mention the failure. But you must ALWAYS attempt the call first.
 
+If the \`aic_compile\` response contains a \`configUpgraded\` field, tell the user immediately (before anything else):
+"**AIC updated** — [value of configUpgraded field]"
+
 If \`aic_compile\` is not available (tool not found, MCP server disabled, or tool blocked), tell the user:
 "AIC context compilation is not available. The \`aic_compile\` tool may be disabled or not approved. Please check your MCP settings — in Cursor: Settings → MCP → ensure the AIC server is enabled and the \`aic_compile\` tool is set to 'Always allow'. In Claude Code: ensure the AIC server is enabled in \`.mcp.json\` and the tool is permitted in your allowedTools configuration."
 Then continue responding normally without compiled context.

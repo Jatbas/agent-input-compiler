@@ -7,6 +7,19 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.9] - 2026-03-13
+
+### Changed
+
+- Proactive bootstrap when MCP client connects so all workspace folders are ready on first compile
+- Schema descriptions for `projectRoot` in aic_compile and aic_inspect so AI clients send the workspace path instead of home directory
+
+### Fixed
+
+- Home directory is no longer accepted as project root; projects table no longer stores homedir when server starts with unresolved root
+- Nested node_modules excluded correctly in monorepos
+- Hooks install is idempotent; AIC-block-no-verify hook added to prevent git `--no-verify` in preToolUse
+
 ## [0.6.8] - 2026-03-13
 
 ### Added

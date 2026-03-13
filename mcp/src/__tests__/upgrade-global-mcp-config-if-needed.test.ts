@@ -41,9 +41,10 @@ describe("upgradeGlobalMcpConfigIfNeeded", () => {
       JSON.stringify(config, null, 2),
     );
     const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
-    upgradeGlobalMcpConfigIfNeeded(homeDir);
+    const result = upgradeGlobalMcpConfigIfNeeded(homeDir);
     const parsed = readMcpJson(homeDir) as { mcpServers?: { aic?: { args?: string[] } } };
     expect(parsed.mcpServers?.aic?.args).toEqual(["-y", "@jatbas/aic@latest"]);
+    expect(result).toBe(true);
     expect(stderrSpy).toHaveBeenCalledWith(
       "[aic] Updated ~/.cursor/mcp.json to use @jatbas/aic@latest. Reload Cursor to use the new version.\n",
     );
@@ -60,9 +61,10 @@ describe("upgradeGlobalMcpConfigIfNeeded", () => {
     };
     const content = JSON.stringify(config, null, 2);
     fs.writeFileSync(path.join(homeDir, ".cursor", "mcp.json"), content);
-    upgradeGlobalMcpConfigIfNeeded(homeDir);
+    const result = upgradeGlobalMcpConfigIfNeeded(homeDir);
     const raw = fs.readFileSync(path.join(homeDir, ".cursor", "mcp.json"), "utf8");
     expect(raw).toBe(content);
+    expect(result).toBe(false);
   });
 
   it("skips_when_pinned_version", () => {
@@ -75,9 +77,10 @@ describe("upgradeGlobalMcpConfigIfNeeded", () => {
     };
     const content = JSON.stringify(config, null, 2);
     fs.writeFileSync(path.join(homeDir, ".cursor", "mcp.json"), content);
-    upgradeGlobalMcpConfigIfNeeded(homeDir);
+    const result = upgradeGlobalMcpConfigIfNeeded(homeDir);
     const raw = fs.readFileSync(path.join(homeDir, ".cursor", "mcp.json"), "utf8");
     expect(raw).toBe(content);
+    expect(result).toBe(false);
   });
 
   it("skips_when_command_not_npx", () => {
@@ -90,9 +93,10 @@ describe("upgradeGlobalMcpConfigIfNeeded", () => {
     };
     const content = JSON.stringify(config, null, 2);
     fs.writeFileSync(path.join(homeDir, ".cursor", "mcp.json"), content);
-    upgradeGlobalMcpConfigIfNeeded(homeDir);
+    const result = upgradeGlobalMcpConfigIfNeeded(homeDir);
     const raw = fs.readFileSync(path.join(homeDir, ".cursor", "mcp.json"), "utf8");
     expect(raw).toBe(content);
+    expect(result).toBe(false);
   });
 
   it("skips_when_no_aic_entry", () => {
@@ -101,14 +105,16 @@ describe("upgradeGlobalMcpConfigIfNeeded", () => {
     const config = { mcpServers: { other: {} } };
     const content = JSON.stringify(config, null, 2);
     fs.writeFileSync(path.join(homeDir, ".cursor", "mcp.json"), content);
-    upgradeGlobalMcpConfigIfNeeded(homeDir);
+    const result = upgradeGlobalMcpConfigIfNeeded(homeDir);
     const raw = fs.readFileSync(path.join(homeDir, ".cursor", "mcp.json"), "utf8");
     expect(raw).toBe(content);
+    expect(result).toBe(false);
   });
 
   it("skips_when_file_missing", () => {
     homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-upgrade-"));
-    expect(() => upgradeGlobalMcpConfigIfNeeded(homeDir)).not.toThrow();
+    const result = upgradeGlobalMcpConfigIfNeeded(homeDir);
+    expect(result).toBe(false);
     const configPath = path.join(homeDir, ".cursor", "mcp.json");
     expect(fs.existsSync(configPath)).toBe(false);
   });
@@ -118,7 +124,8 @@ describe("upgradeGlobalMcpConfigIfNeeded", () => {
     ensureCursorDir(homeDir);
     const badContent = "not valid json {";
     fs.writeFileSync(path.join(homeDir, ".cursor", "mcp.json"), badContent);
-    expect(() => upgradeGlobalMcpConfigIfNeeded(homeDir)).not.toThrow();
+    const result = upgradeGlobalMcpConfigIfNeeded(homeDir);
+    expect(result).toBe(false);
     const raw = fs.readFileSync(path.join(homeDir, ".cursor", "mcp.json"), "utf8");
     expect(raw).toBe(badContent);
   });

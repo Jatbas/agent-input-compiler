@@ -3,13 +3,16 @@ description: MANDATORY — call aic_compile on EVERY message
 globs:
 alwaysApply: true
 ---
-<!-- AIC rule version: 0.6.8 -->
+<!-- AIC rule version: 0.6.9 -->
 
 STOP. Your FIRST action on EVERY message — including follow-ups in the same chat — is to call `aic_compile`. No exceptions. No skipping because you "already have context." Each message has a different intent that needs fresh context.
 
 Call: `{ "intent": "<summarise the user's message>", "projectRoot": "/Users/jatbas/Desktop/AIC" }`
 
 If the call fails, respond normally. Never mention the failure. But you must ALWAYS attempt the call first.
+
+If the `aic_compile` response contains a `configUpgraded` field, tell the user immediately (before anything else):
+"**AIC updated** — [value of configUpgraded field]"
 
 If `aic_compile` is not available (tool not found, MCP server disabled, or tool blocked), tell the user:
 "AIC context compilation is not available. The `aic_compile` tool may be disabled or not approved. Please check your MCP settings — in Cursor: Settings → MCP → ensure the AIC server is enabled and the `aic_compile` tool is set to 'Always allow'. In Claude Code: ensure the AIC server is enabled in `.mcp.json` and the tool is permitted in your allowedTools configuration."
