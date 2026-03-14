@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -13,11 +12,7 @@ import type { BudgetConfig } from "@jatbas/aic-core/core/interfaces/budget-confi
 import type { LanguageProvider } from "@jatbas/aic-core/core/interfaces/language-provider.interface.js";
 import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
-import {
-  type TaskClass,
-  type EditorId,
-  EDITOR_ID,
-} from "@jatbas/aic-core/core/types/enums.js";
+import type { TaskClass, EditorId } from "@jatbas/aic-core/core/types/enums.js";
 import { InspectRunner } from "@jatbas/aic-core/pipeline/inspect-runner.js";
 import { CompilationRequestSchema } from "./schemas/compilation-request.js";
 import { ConversationSummaryRequestSchema } from "./schemas/conversation-summary-request.js";
@@ -74,12 +69,18 @@ import { loadRulePackFromPath } from "@jatbas/aic-core/core/load-rule-pack.js";
 import { createProjectFileReader } from "@jatbas/aic-core/adapters/project-file-reader-adapter.js";
 import { createCachingFileContentReader } from "@jatbas/aic-core/adapters/caching-file-content-reader.js";
 import { detectEditorId } from "./detect-editor-id.js";
-import { detectInstallScope, INSTALL_SCOPE } from "./detect-install-scope.js";
+import { detectInstallScope } from "./detect-install-scope.js";
+import {
+  getInstallScopeWarnings,
+  getDuplicateInstallStderrMessage,
+  getEditorModelHints,
+  getEditorEnvHints,
+  runEditorBootstrapIfNeeded,
+} from "./editor-integration-dispatch.js";
 import { upgradeGlobalMcpConfigIfNeeded } from "./upgrade-global-mcp-config-if-needed.js";
 import { getUpdateInfo, type UpdateInfo } from "./latest-version-check.js";
 import { EditorModelConfigReaderAdapter } from "@jatbas/aic-core/adapters/editor-model-config-reader.js";
 import { ModelDetectorDispatch } from "@jatbas/aic-core/adapters/model-detector-dispatch.js";
-import type { ModelEnvHints } from "@jatbas/aic-core/core/types/model-env-hints.js";
 
 function defaultRulePack(): RulePack {
   return {
@@ -173,26 +174,9 @@ export function createMcpServer(
   const { installationOk, installationNotes } = runStartupSelfCheck(projectRoot);
   const installScope = detectInstallScope(os.homedir(), projectRoot);
   const configUpgraded = upgradeGlobalMcpConfigIfNeeded(os.homedir());
-  const installScopeWarnings: readonly string[] =
-    installScope === INSTALL_SCOPE.BOTH
-      ? [
-          "Duplicate AIC installation detected.\n\n" +
-            "AIC is registered in **both** the global and workspace MCP configs. " +
-            "This causes Cursor to run two separate AIC server instances, which leads to duplicate tools and database conflicts.\n\n" +
-            "**How to fix:**\n" +
-            "1. Open the file `.cursor/mcp.json` **in this project directory** (not the global one)\n" +
-            '2. Delete the `"aic"` entry from `mcpServers`\n' +
-            "3. Save the file\n" +
-            "4. Reload Cursor: `Cmd+Shift+P` → **Reload Window**\n\n" +
-            "The global config (`~/.cursor/mcp.json`) already has AIC and covers all projects — no need to reinstall. " +
-            "After reloading, AIC will start normally from the global config.",
-        ]
-      : [];
+  const installScopeWarnings = getInstallScopeWarnings(installScope);
   if (installScopeWarnings.length > 0) {
-    process.stderr.write(
-      "[aic] Duplicate install detected: AIC is in both global and workspace MCP configs. " +
-        "Remove the 'aic' entry from .cursor/mcp.json in this project, then reload Cursor.\n",
-    );
+    process.stderr.write(getDuplicateInstallStderrMessage());
   }
   const sessionId = toSessionId(startupScope.idGenerator.generate());
   const startedAt = startupScope.clock.now();
@@ -301,25 +285,14 @@ export function createMcpServer(
   const editorConfigReader = new EditorModelConfigReaderAdapter(
     process.env["HOME"] ?? os.homedir(),
   );
-  const anthropicModel =
-    process.env["ANTHROPIC_MODEL"] ?? editorConfigReader.read(EDITOR_ID.CLAUDE_CODE);
-  const cursorModel =
-    process.env["CURSOR_MODEL"] ?? editorConfigReader.read(EDITOR_ID.CURSOR);
-  const envHints: ModelEnvHints = {
-    ...(typeof anthropicModel === "string" && anthropicModel !== ""
-      ? { anthropicModel }
-      : {}),
-    ...(typeof cursorModel === "string" && cursorModel !== "" ? { cursorModel } : {}),
-  };
+  const envHints = getEditorModelHints(editorConfigReader);
   const modelDetector = new ModelDetectorDispatch(envHints);
   const sessionContext = new SessionContext(sessionId);
   const getEditorId = (): EditorId =>
     sessionContext.getEditorId(() => {
       const clientName = server.server.getClientVersion()?.name;
       process.stderr.write(`[aic] MCP client name: ${clientName ?? "(none)"}\n`);
-      return detectEditorId(clientName, {
-        cursorAgent: process.env["CURSOR_AGENT"] === "1",
-      });
+      return detectEditorId(clientName, getEditorEnvHints());
     });
   const getSessionId = (): SessionId => sessionContext.getSessionId();
   const getModelId = (editorId: EditorId): string | null =>
@@ -580,22 +553,7 @@ export async function main(): Promise<void> {
               if (rootPath === homedir) continue;
               const absRoot = toAbsolutePath(rootPath);
               installTriggerRule(absRoot, server.getEditorId());
-              const cursorDetected =
-                fs.existsSync(path.join(absRoot, ".cursor")) ||
-                (process.env["CURSOR_PROJECT_DIR"] !== undefined &&
-                  process.env["CURSOR_PROJECT_DIR"] !== "");
-              if (!cursorDetected) {
-                continue;
-              }
-              const installScript = path.join(
-                absRoot,
-                "integrations",
-                "cursor",
-                "install.cjs",
-              );
-              if (fs.existsSync(installScript)) {
-                execFileSync("node", [installScript], { cwd: absRoot });
-              }
+              runEditorBootstrapIfNeeded(absRoot);
             } catch {
               // skip invalid roots
             }
