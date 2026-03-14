@@ -13,7 +13,6 @@ import {
 } from "@jatbas/aic-core/storage/ensure-aic-dir.js";
 import { PROJECT_ID_FILENAME } from "@jatbas/aic-core/storage/ensure-project-id.js";
 import { installTriggerRule } from "./install-trigger-rule.js";
-import { installCursorHooks } from "./install-cursor-hooks.js";
 import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
 
 const DEFAULT_CONFIG = {
@@ -44,7 +43,6 @@ export function ensureProjectInit(
   ensurePrettierignore(projectRoot);
   ensureEslintignore(projectRoot);
   installTriggerRule(projectRoot);
-  installCursorHooks(projectRoot);
 }
 
 export function runInit(projectRoot: AbsolutePath): void {

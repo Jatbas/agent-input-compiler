@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
+import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -57,7 +58,6 @@ import { FastGlobAdapter } from "@jatbas/aic-core/adapters/fast-glob-adapter.js"
 import { IgnoreAdapter } from "@jatbas/aic-core/adapters/ignore-adapter.js";
 import { runInit } from "./init-project.js";
 import { installTriggerRule } from "./install-trigger-rule.js";
-import { installCursorHooks } from "./install-cursor-hooks.js";
 import { runStartupSelfCheck } from "./startup-self-check.js";
 import {
   LoadConfigFromFile,
@@ -575,7 +575,15 @@ export async function main(): Promise<void> {
               if (rootPath === homedir) continue;
               const absRoot = toAbsolutePath(rootPath);
               installTriggerRule(absRoot);
-              installCursorHooks(absRoot);
+              const installScript = path.join(
+                absRoot,
+                "integrations",
+                "cursor",
+                "install.cjs",
+              );
+              if (fs.existsSync(installScript)) {
+                execFileSync("node", [installScript], { cwd: absRoot });
+              }
             } catch {
               // skip invalid roots
             }

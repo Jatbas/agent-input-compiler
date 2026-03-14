@@ -61,7 +61,6 @@ describe("ensureProjectInit", () => {
     expect(fs.existsSync(path.join(tmpDir, ".aic"))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, "aic.config.json"))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, ".cursor", "rules", "AIC.mdc"))).toBe(true);
-    expect(fs.existsSync(path.join(tmpDir, ".cursor", "hooks.json"))).toBe(true);
   });
 
   it("no_op_when_config_exists", () => {

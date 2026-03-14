@@ -32,7 +32,6 @@ import type { CompilationRequest } from "@jatbas/aic-core/core/types/compilation
 import { writeCompilationTelemetry } from "@jatbas/aic-core/core/write-compilation-telemetry.js";
 import { recordToolInvocation } from "../record-tool-invocation.js";
 import { ensureProjectInit } from "../init-project.js";
-import { installCursorHooks } from "../install-cursor-hooks.js";
 import { installTriggerRule } from "../install-trigger-rule.js";
 import { validateProjectRoot, validateConfigPath } from "../validate-project-root.js";
 
@@ -194,7 +193,6 @@ export function createCompileHandler(
           scope.normaliser,
         );
         installTriggerRule(projectRoot);
-        installCursorHooks(projectRoot);
         initDoneForProject.add(key);
       }
       const intent = args.intent.replace(/[\x00-\x08\x0b-\x1f]/g, "");
