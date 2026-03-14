@@ -11,3 +11,6 @@ aic.config.json
 .cursor/hooks/AIC-*.cjs
 documentation/tasks/
 .env
+.claude/CLAUDE.md
+.claude/settings.json
+.claude/hooks/aic-*.cjs

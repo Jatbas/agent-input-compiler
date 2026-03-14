@@ -4,47 +4,51 @@ Contributions are welcome. This is a structured codebase with a defined architec
 
 ## Development setup
 
-Node.js 18+ and pnpm are required for development.
+Node.js 20+ and pnpm are required for development.
 
-1. **Clone and install**
+### 1. Install the AIC MCP server globally
 
-   ```bash
-   pnpm install
-   ```
+Follow [documentation/installation.md](documentation/installation.md) for your editor. Installation is zero-intervention — AIC auto-generates all per-project files (`aic.config.json`, hooks, trigger rules) on first use. You do not need to create them manually.
 
-2. **Run the test suite** to confirm the baseline is green
+### 2. Enable dev mode
 
-   ```bash
-   pnpm test
-   ```
+When working on the AIC codebase itself, the preToolUse hook would normally block tools until `aic_compile` is called. Set `AIC_DEV_MODE=1` to bypass this gate:
 
-3. **Run the linter** and fix any issues
+```bash
+# Add to your shell rc, or create a .env file in the repo root:
+AIC_DEV_MODE=1
+```
 
-   ```bash
-   pnpm lint
-   ```
+For Cursor, you can also launch it as `AIC_DEV_MODE=1 cursor .` from the repo root.
 
-4. **Check for unused code** (optional but recommended)
+### 3. Clone and install dependencies
 
-   ```bash
-   pnpm knip
-   ```
+```bash
+pnpm install
+```
 
-5. **Read the relevant docs** — at least [architecture.md](documentation/architecture.md) and [implementation-spec.md](documentation/implementation-spec.md) — so your changes match the project's design and rules.
+### 4. Verify the baseline
 
-6. **Local MCP testing** — To try AIC in your editor against the local build, see [Local MCP testing](#local-mcp-testing) below.
+```bash
+pnpm test
+pnpm lint
+```
+
+### 5. Read the relevant docs
+
+At minimum, read [architecture.md](documentation/architecture.md) and [implementation-spec.md](documentation/implementation-spec.md) so your changes match the project's design and rules.
 
 ### Local MCP testing
 
-Run the MCP server from your clone instead of the published package:
+To run the MCP server from your clone instead of the published package:
 
-1. From the repo root (no build required):
+1. From the repo root (no build step required):
 
    ```bash
    pnpm run dev:mcp
    ```
 
-2. In `~/.cursor/mcp.json`, temporarily replace the `aic` server entry with:
+2. Temporarily replace the `aic` server entry in your editor's MCP config with:
 
    ```json
    "aic": {
@@ -54,12 +58,10 @@ Run the MCP server from your clone instead of the published package:
    }
    ```
 
-   Use the real path to your AIC clone for `cwd`. If your editor does not support `cwd`, start the editor from the AIC repo root.
+   Use the real absolute path to your clone for `cwd`. If your editor does not support `cwd`, start the editor from the AIC repo root.
 
-3. Restart Cursor (or reload MCP) so it uses the local server.
+3. Restart your editor (or reload MCP) so it picks up the local server.
    Restore the original config when done: `"command": "npx", "args": ["@aic/mcp"]`.
-
-4. **Developing AIC in Cursor:** The preToolUse hook blocks all tools until `aic_compile` has been called. To bypass this gate when working on the AIC repo itself, set `AIC_DEV_MODE=1` in your shell when launching Cursor (e.g. `AIC_DEV_MODE=1 cursor .`) or in a `.env` file in the repo root. With `AIC_DEV_MODE=1` set, the hook allows tool use without requiring a prior aic_compile call.
 
 ## Good contribution types
 
