@@ -7,6 +7,8 @@
     "integrations/cursor/hooks/**",
     "integrations/cursor/install.cjs",
     "integrations/cursor/__tests__/install.test.js",
+    "integrations/claude/hooks/**",
+    "integrations/claude/__tests__/**",
     "mcp/scripts/**",
     "shared/src/core/errors/budget-exceeded-error.ts",
     "shared/src/core/errors/guard-blocked-all-error.ts",
