@@ -8,9 +8,8 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
-// Skip enforcement inside the AIC source repo (development mode).
-const projectRoot = path.resolve(__dirname, "..", "..");
-if (fs.existsSync(path.join(projectRoot, "mcp", "hooks"))) {
+// Skip enforcement when developing AIC (set AIC_DEV_MODE=1 in env or .env).
+if (process.env.AIC_DEV_MODE === "1") {
   process.stdout.write(JSON.stringify({ permission: "allow" }));
   process.exit(0);
 }

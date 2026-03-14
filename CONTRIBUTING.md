@@ -59,6 +59,8 @@ Run the MCP server from your clone instead of the published package:
 3. Restart Cursor (or reload MCP) so it uses the local server.
    Restore the original config when done: `"command": "npx", "args": ["@aic/mcp"]`.
 
+4. **Developing AIC in Cursor:** The preToolUse hook blocks all tools until `aic_compile` has been called. To bypass this gate when working on the AIC repo itself, set `AIC_DEV_MODE=1` in your shell when launching Cursor (e.g. `AIC_DEV_MODE=1 cursor .`) or in a `.env` file in the repo root. With `AIC_DEV_MODE=1` set, the hook allows tool use without requiring a prior aic_compile call.
+
 ## Good contribution types
 
 - bug fixes
