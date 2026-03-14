@@ -488,9 +488,10 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2025-03-14
 
-**Components:** CL01 Move hook sources (Task 150), CL06 Fix dev-mode bypass (Task 152), CL07 Update toolchain references (Task 153), CL04 Wire npx @aic/mcp init to Cursor installer (Task 155)
+**Components:** CL01 Move hook sources (Task 150), CL06 Fix dev-mode bypass (Task 152), CL07 Update toolchain references (Task 153), CL04 Wire npx @aic/mcp init to Cursor installer (Task 155), Task 157 Install trigger rule editor-aware
 **Completed:**
 
+- Task 157 (Install trigger rule editor-aware): installTriggerRule(projectRoot, editorId) with CURSOR / CLAUDE_CODE / GENERIC dispatch; CLAUDE_MD_TEMPLATE for .claude/CLAUDE.md; ensureProjectInit no longer calls installTriggerRule; compile-handler and server listRoots pass editorId (resolvedEditorId / server.getEditorId()); createMcpServer return type extended with getEditorId for listRoots; tests: EDITOR_ID.CURSOR for existing cases, claude_code_creates_claude_md, generic_creates_no_trigger_file; init-project.test no longer asserts .cursor/rules/AIC.mdc. Lint, typecheck, test, knip, lint:clones 0.
 - CL04 (Task 155): In `mcp/src/server.ts` listRoots callback, added Cursor detection (`fs.existsSync(path.join(absRoot, ".cursor"))` or truthy `process.env["CURSOR_PROJECT_DIR"]`). Run `integrations/cursor/install.cjs` only when cursorDetected and script exists; otherwise `continue`. Preserved try/catch around loop body. Lint, typecheck, test, knip, lint:clones 0.
 - CL01 (Task 150): Created `integrations/cursor/hooks/`, moved all 10 hook scripts from `mcp/hooks/` to `integrations/cursor/hooks/`, updated `BUNDLED_HOOKS_DIR` in `mcp/src/install-cursor-hooks.ts`, removed `mcp/hooks/`. Updated `knip.json` to ignore `integrations/cursor/hooks/**`. Lint, typecheck, test, knip, lint:clones 0.
 - CL06 (Task 152): Replaced path-based dev-mode bypass in `integrations/cursor/hooks/AIC-require-aic-compile.cjs` with `process.env.AIC_DEV_MODE === '1'`; documented `AIC_DEV_MODE=1` in CONTRIBUTING.md under Local MCP testing. Lint, typecheck, test, knip, lint:clones 0.

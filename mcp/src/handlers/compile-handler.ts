@@ -183,6 +183,8 @@ export function createCompileHandler(
         scope.db,
       );
       const key = scope.normaliser.normalise(projectRoot);
+      const resolvedEditorId: EditorId =
+        args.editorId !== undefined ? (args.editorId as EditorId) : getEditorId();
       if (!initDoneForProject.has(key)) {
         ensureProjectInit(projectRoot, scope.clock, scope.idGenerator);
         reconcileProjectId(
@@ -192,12 +194,10 @@ export function createCompileHandler(
           scope.idGenerator,
           scope.normaliser,
         );
-        installTriggerRule(projectRoot);
+        installTriggerRule(projectRoot, resolvedEditorId);
         initDoneForProject.add(key);
       }
       const intent = args.intent.replace(/[\x00-\x08\x0b-\x1f]/g, "");
-      const resolvedEditorId: EditorId =
-        args.editorId !== undefined ? (args.editorId as EditorId) : getEditorId();
       const resolvedModelId: string | null =
         args.modelId ?? modelIdOverride ?? getModelId(resolvedEditorId);
       const resolvedConversationId = resolveConversationId(args.conversationId);

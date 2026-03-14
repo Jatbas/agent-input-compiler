@@ -160,7 +160,7 @@ export function createMcpServer(
   db: ExecutableDb,
   clock: Clock,
   additionalProviders?: readonly LanguageProvider[],
-): McpServer {
+): McpServer & { close(): Promise<void>; getEditorId(): EditorId } {
   const normaliser = new NodePathAdapter();
   const registry = new ScopeRegistry(normaliser, db, clock);
   const startupScope = registry.getOrCreate(projectRoot);
@@ -533,7 +533,10 @@ export function createMcpServer(
       }
     },
   );
-  const out = server as McpServer & { close(): Promise<void> };
+  const out = server as McpServer & {
+    close(): Promise<void>;
+    getEditorId(): EditorId;
+  };
   out.close = (): Promise<void> => {
     clearImmediate(purgeImmediateId);
     try {
@@ -548,6 +551,7 @@ export function createMcpServer(
     closeDatabase(db);
     return Promise.resolve();
   };
+  out.getEditorId = getEditorId;
   return out;
 }
 
@@ -575,7 +579,7 @@ export async function main(): Promise<void> {
               const rootPath = fileURLToPath(root.uri);
               if (rootPath === homedir) continue;
               const absRoot = toAbsolutePath(rootPath);
-              installTriggerRule(absRoot);
+              installTriggerRule(absRoot, server.getEditorId());
               const cursorDetected =
                 fs.existsSync(path.join(absRoot, ".cursor")) ||
                 (process.env["CURSOR_PROJECT_DIR"] !== undefined &&

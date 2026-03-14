@@ -12,7 +12,6 @@ import {
   ensurePrettierignore,
 } from "@jatbas/aic-core/storage/ensure-aic-dir.js";
 import { PROJECT_ID_FILENAME } from "@jatbas/aic-core/storage/ensure-project-id.js";
-import { installTriggerRule } from "./install-trigger-rule.js";
 import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
 
 const DEFAULT_CONFIG = {
@@ -42,7 +41,6 @@ export function ensureProjectInit(
   fs.writeFileSync(configPath, JSON.stringify(DEFAULT_CONFIG, null, 2), "utf8");
   ensurePrettierignore(projectRoot);
   ensureEslintignore(projectRoot);
-  installTriggerRule(projectRoot);
 }
 
 export function runInit(projectRoot: AbsolutePath): void {

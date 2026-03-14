@@ -8,6 +8,7 @@ import * as os from "node:os";
 import { fileURLToPath } from "node:url";
 import { installTriggerRule } from "../install-trigger-rule.js";
 import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import { EDITOR_ID } from "@jatbas/aic-core/core/types/enums.js";
 
 function readMcpPackageVersion(): string {
   const pkgPath = path.join(
@@ -33,7 +34,7 @@ describe("installTriggerRule", () => {
   it("trigger_missing_creates_file", () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-trigger-"));
     const projectRoot = toAbsolutePath(tmpDir);
-    installTriggerRule(projectRoot);
+    installTriggerRule(projectRoot, EDITOR_ID.CURSOR);
     const triggerPath = path.join(tmpDir, ".cursor", "rules", "AIC.mdc");
     expect(fs.existsSync(triggerPath)).toBe(true);
     const content = fs.readFileSync(triggerPath, "utf8");
@@ -53,7 +54,7 @@ describe("installTriggerRule", () => {
       "utf8",
     );
     const projectRoot = toAbsolutePath(tmpDir);
-    installTriggerRule(projectRoot);
+    installTriggerRule(projectRoot, EDITOR_ID.CURSOR);
     const content = fs.readFileSync(triggerPath, "utf8");
     expect(content).toContain("custom trigger");
     expect(content).toContain(`AIC rule version: ${currentVersion}`);
@@ -70,7 +71,7 @@ describe("installTriggerRule", () => {
       "utf8",
     );
     const projectRoot = toAbsolutePath(tmpDir);
-    installTriggerRule(projectRoot);
+    installTriggerRule(projectRoot, EDITOR_ID.CURSOR);
     const content = fs.readFileSync(triggerPath, "utf8");
     expect(content).toContain("aic_compile");
     const versionMatch = content.match(/AIC rule version:\s*(\S+)/);
@@ -83,8 +84,26 @@ describe("installTriggerRule", () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-trigger-"));
     fs.mkdirSync(path.join(tmpDir, ".cursor"));
     const projectRoot = toAbsolutePath(tmpDir);
-    installTriggerRule(projectRoot);
+    installTriggerRule(projectRoot, EDITOR_ID.CURSOR);
     expect(fs.existsSync(path.join(tmpDir, ".cursor", "rules"))).toBe(true);
     expect(fs.existsSync(path.join(tmpDir, ".cursor", "rules", "AIC.mdc"))).toBe(true);
+  });
+
+  it("claude_code_creates_claude_md", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-trigger-"));
+    const projectRoot = toAbsolutePath(tmpDir);
+    installTriggerRule(projectRoot, EDITOR_ID.CLAUDE_CODE);
+    const claudeMdPath = path.join(tmpDir, ".claude", "CLAUDE.md");
+    expect(fs.existsSync(claudeMdPath)).toBe(true);
+    const content = fs.readFileSync(claudeMdPath, "utf8");
+    expect(content).toContain("AIC — Claude Code Rules");
+  });
+
+  it("generic_creates_no_trigger_file", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-trigger-"));
+    const projectRoot = toAbsolutePath(tmpDir);
+    installTriggerRule(projectRoot, EDITOR_ID.GENERIC);
+    expect(fs.existsSync(path.join(tmpDir, ".cursor", "rules", "AIC.mdc"))).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, ".claude", "CLAUDE.md"))).toBe(false);
   });
 });
