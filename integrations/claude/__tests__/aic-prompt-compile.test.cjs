@@ -3,54 +3,55 @@
 
 const path = require("path");
 const fs = require("fs");
-const cp = require("child_process");
+const os = require("os");
 
 const hooksDir = path.join(__dirname, "..", "hooks");
 const hookPath = path.join(hooksDir, "aic-prompt-compile.cjs");
-const helperPath = path.join(hooksDir, "aic-compile-helper.cjs");
 
-function plain_text_stdout_when_helper_returns_prompt() {
+function mockHelper(returnValue) {
   const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
     paths: [hooksDir],
   });
   require.cache[resolvedHelper] = {
-    exports: { callAicCompile: () => "compiled text" },
+    exports: { callAicCompile: () => Promise.resolve(returnValue) },
     loaded: true,
     id: resolvedHelper,
   };
-  const { run } = require(hookPath);
-  const stdout = run(
-    JSON.stringify({ input: { prompt: "x", session_id: "s1", cwd: "/tmp" } }),
-  );
+  return resolvedHelper;
+}
+
+function cleanup(resolvedHelper) {
   delete require.cache[resolvedHelper];
   delete require.cache[require.resolve(hookPath)];
+}
+
+async function plain_text_stdout_when_helper_returns_prompt() {
+  const key = mockHelper("compiled text");
+  delete require.cache[require.resolve(hookPath)];
+  const { run } = require(hookPath);
+  const stdout = await run(
+    JSON.stringify({ input: { prompt: "x", session_id: "s1", cwd: "/tmp" } }),
+  );
+  cleanup(key);
   if (stdout !== "compiled text") {
     throw new Error(`Expected "compiled text", got ${JSON.stringify(stdout)}`);
   }
   console.log("plain_text_stdout_when_helper_returns_prompt: pass");
 }
 
-function exit_0_silent_when_helper_returns_null() {
-  const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
-    paths: [hooksDir],
-  });
-  require.cache[resolvedHelper] = {
-    exports: { callAicCompile: () => null },
-    loaded: true,
-    id: resolvedHelper,
-  };
-  const { run } = require(hookPath);
-  const stdout = run(JSON.stringify({ input: { prompt: "x", cwd: "/tmp" } }));
-  delete require.cache[resolvedHelper];
+async function exit_0_silent_when_helper_returns_null() {
+  const key = mockHelper(null);
   delete require.cache[require.resolve(hookPath)];
+  const { run } = require(hookPath);
+  const stdout = await run(JSON.stringify({ input: { prompt: "x", cwd: "/tmp" } }));
+  cleanup(key);
   if (stdout !== null) {
     throw new Error(`Expected null, got ${JSON.stringify(stdout)}`);
   }
   console.log("exit_0_silent_when_helper_returns_null: pass");
 }
 
-function dual_path_prepends_invariants_when_marker_missing() {
-  const os = require("os");
+async function dual_path_prepends_invariants_when_marker_missing() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-prompt-compile-test-"));
   try {
     const cursorRules = path.join(tmpDir, ".cursor", "rules");
@@ -61,21 +62,14 @@ function dual_path_prepends_invariants_when_marker_missing() {
       "## Critical reminders\n\n- **foo:** bar\n\n- **baz:** quux\n\n## Other section\n\n",
       "utf8",
     );
-    const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
-      paths: [hooksDir],
-    });
-    require.cache[resolvedHelper] = {
-      exports: { callAicCompile: () => "prompt part" },
-      loaded: true,
-      id: resolvedHelper,
-    };
+    const key = mockHelper("prompt part");
+    delete require.cache[require.resolve(hookPath)];
     const { run } = require(hookPath);
     const stdin = JSON.stringify({
       input: { prompt: "x", session_id: "other-session", cwd: tmpDir },
     });
-    const stdout = run(stdin);
-    delete require.cache[resolvedHelper];
-    delete require.cache[require.resolve(hookPath)];
+    const stdout = await run(stdin);
+    cleanup(key);
     if (!stdout || !stdout.includes("AIC Architectural Invariants")) {
       throw new Error(`Expected invariants header, got: ${String(stdout).slice(0, 100)}`);
     }
@@ -95,7 +89,9 @@ function dual_path_prepends_invariants_when_marker_missing() {
   }
 }
 
-plain_text_stdout_when_helper_returns_prompt();
-exit_0_silent_when_helper_returns_null();
-dual_path_prepends_invariants_when_marker_missing();
-console.log("All tests passed.");
+(async () => {
+  await plain_text_stdout_when_helper_returns_prompt();
+  await exit_0_silent_when_helper_returns_null();
+  await dual_path_prepends_invariants_when_marker_missing();
+  console.log("All tests passed.");
+})();

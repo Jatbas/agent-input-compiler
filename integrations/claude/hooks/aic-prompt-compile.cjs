@@ -5,7 +5,7 @@
 const fs = require("fs");
 const path = require("path");
 
-function run(stdinStr) {
+async function run(stdinStr) {
   const { callAicCompile } = require("./aic-compile-helper.cjs");
   let parsed;
   try {
@@ -13,12 +13,25 @@ function run(stdinStr) {
   } catch {
     parsed = {};
   }
-  const input = (parsed && parsed.input) || {};
-  const intent = input.prompt != null ? String(input.prompt) : "";
-  const sessionId = input.session_id != null ? input.session_id : null;
+  // Claude Code sends fields at top level; legacy spec nested under `input`
+  const top = parsed || {};
+  const input = top.input || {};
+  const intent =
+    top.prompt != null
+      ? String(top.prompt)
+      : input.prompt != null
+        ? String(input.prompt)
+        : "";
+  const sessionId =
+    top.session_id != null
+      ? top.session_id
+      : input.session_id != null
+        ? input.session_id
+        : null;
+  const cwdRaw = top.cwd || input.cwd || "";
   const projectRoot =
-    input.cwd && input.cwd.trim()
-      ? input.cwd.trim()
+    cwdRaw && cwdRaw.trim()
+      ? cwdRaw.trim()
       : process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
   const INJECTED_MARKER = path.join(projectRoot, ".aic", ".session-context-injected");
@@ -51,7 +64,7 @@ function run(stdinStr) {
     }
   }
 
-  const promptContext = callAicCompile(intent, projectRoot, sessionId, 30000);
+  const promptContext = await callAicCompile(intent, projectRoot, sessionId, 30000);
   if (promptContext == null) return null;
 
   if (invariantsBlock.length > 0) {
@@ -62,9 +75,24 @@ function run(stdinStr) {
 
 if (require.main === module) {
   const raw = fs.readFileSync(0, "utf8");
-  const out = run(raw);
-  if (out != null) process.stdout.write(out);
-  process.exit(0);
+  const debugLog = path.join(require("os").tmpdir(), "aic-hook-debug.log");
+  fs.appendFileSync(
+    debugLog,
+    `[${new Date().toISOString()}] stdin: ${raw.slice(0, 500)}\n`,
+  );
+  run(raw)
+    .then((out) => {
+      fs.appendFileSync(
+        debugLog,
+        `[${new Date().toISOString()}] output: ${out != null ? out.slice(0, 200) : "null"}\n`,
+      );
+      if (out != null) process.stdout.write(out);
+      process.exit(0);
+    })
+    .catch((err) => {
+      fs.appendFileSync(debugLog, `[${new Date().toISOString()}] error: ${err}\n`);
+      process.exit(0);
+    });
 }
 
 module.exports = { run };
