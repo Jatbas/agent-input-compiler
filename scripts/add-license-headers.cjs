@@ -28,7 +28,7 @@ function collectFiles() {
   walkDir(path.join(ROOT, "mcp", "src"), /\.ts$/, out);
   walkDir(path.join(ROOT, ".cursor"), /\.cjs$/, out);
   walkDir(path.join(ROOT, ".claude"), /\.cjs$/, out);
-  walkDir(path.join(ROOT, "mcp", "hooks"), /\.cjs$/, out);
+  walkDir(path.join(ROOT, "integrations", "cursor", "hooks"), /\.cjs$/, out);
   walkDir(path.join(ROOT, "mcp", "scripts"), /\.cjs$/, out);
   const commitlint = path.join(ROOT, "commitlint.config.cjs");
   if (fs.existsSync(commitlint)) out.push(commitlint);

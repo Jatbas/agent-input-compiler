@@ -5,6 +5,8 @@
     ".claude/**",
     "test/benchmarks/**",
     "integrations/cursor/hooks/**",
+    "integrations/cursor/install.cjs",
+    "integrations/cursor/__tests__/install.test.js",
     "mcp/scripts/**",
     "shared/src/core/errors/budget-exceeded-error.ts",
     "shared/src/core/errors/guard-blocked-all-error.ts",

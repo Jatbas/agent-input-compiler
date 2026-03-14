@@ -6,8 +6,7 @@
   "types": "dist/server.d.ts",
   "bin": "dist/server.js",
   "files": [
-    "dist",
-    "hooks"
+    "dist"
   ],
   "publishConfig": {
     "access": "public",
