@@ -4,7 +4,7 @@
     ".cursor/**",
     ".claude/**",
     "test/benchmarks/**",
-    "mcp/hooks/**",
+    "integrations/cursor/hooks/**",
     "mcp/scripts/**",
     "shared/src/core/errors/budget-exceeded-error.ts",
     "shared/src/core/errors/guard-blocked-all-error.ts",

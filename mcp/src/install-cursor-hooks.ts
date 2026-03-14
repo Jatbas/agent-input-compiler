@@ -50,6 +50,9 @@ const DEFAULT_HOOKS = {
 const BUNDLED_HOOKS_DIR = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
+  "..",
+  "integrations",
+  "cursor",
   "hooks",
 );
 
