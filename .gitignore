@@ -10,3 +10,4 @@ aic.config.json
 .cursor/hooks.json
 .cursor/hooks/AIC-*.cjs
 documentation/tasks/
+.env

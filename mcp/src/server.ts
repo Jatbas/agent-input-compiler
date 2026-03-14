@@ -126,6 +126,7 @@ export function registerShutdownHandler(
   };
   process.on("SIGINT", handler);
   process.on("SIGTERM", handler);
+  process.on("SIGHUP", handler);
   return handler;
 }
 
@@ -602,6 +603,15 @@ export async function main(): Promise<void> {
     }
   };
   const transport = new StdioServerTransport();
+  transport.onclose = (): void => {
+    process.exit(0);
+  };
+  transport.onerror = (_err: Error): void => {
+    process.exit(1);
+  };
+  process.stdin.on("end", () => {
+    process.exit(0);
+  });
   await server.connect(transport);
 }
 
