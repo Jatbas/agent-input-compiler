@@ -11,7 +11,7 @@ Produce a self-contained task file that any agent can pick up and execute withou
 **If you do not know something with certainty, STOP and tell the user.** Never guess, assume, or improvise. This applies to:
 
 - **Library APIs:** If you have not read the installed `.d.ts` files, you do not know the API. Do not write class names, import paths, or method signatures from memory. Read the actual type definitions first.
-- **Template fit:** If the component does not match any recipe (adapter, storage, pipeline, composition root, benchmark, release-pipeline), do not improvise a task structure. Stop and tell the user: "This component type has no recipe. I need guidance."
+- **Template fit:** If the component does not match any specialized recipe (adapter, storage, pipeline, composition root, benchmark, release-pipeline), use the **general-purpose recipe** from `SKILL-recipes.md`. The general-purpose recipe requires a full component characterization and closest-recipe analysis — it is more rigorous, not less. Never improvise a task structure outside of a recipe.
 - **TypeScript resolution:** If you propose changes to `package.json` exports, `tsconfig.json` paths, or module resolution, verify the change works. If you cannot verify, state the uncertainty.
 - **Any exploration checklist item:** If a field in the Exploration Report cannot be filled with verified information, it is a **blocker**. Do not write "None" or skip it. Do not proceed to writing. Tell the user what you could not determine and why.
 
@@ -169,7 +169,19 @@ Complete every item. Each produces evidence for the report. Items are organized 
      Record all normalization findings in the NORMALIZATION ANALYSIS field of the Exploration Report. If a violation is found in an existing schema, flag it as a prerequisite fix (new migration) or document the justified exception.
 3. **Check existing files** — for every file the recipe pattern would create, check if it already EXISTS (Glob). Record each.
 4. **Verify every external library API by reading installed `.d.ts` files** — locate under `node_modules/`, read them, record exact class names, constructor signatures, method signatures, and import paths. If not installed, search the web. This applies to ALL layers.
-5. **Check recipe fit** — determine which recipe applies (adapter, storage, pipeline, composition root, benchmark, release-pipeline) using the pre-read `SKILL-recipes.md`. If no recipe fits → **BLOCKER**.
+5. **Check recipe fit** — walk the decision tree below top-to-bottom. Stop at the **first** YES. Each question must be answered with evidence (file path, interface name, or concrete observation) — not assumption.
+
+   **Recipe decision tree (evaluate in this order):**
+   - Does the component wrap an external library (npm package) behind a core interface? → **adapter**. Evidence: interface in `core/interfaces/`, library in `package.json`, ESLint restriction needed.
+   - Does the component implement a `*Store` interface and execute SQL against `ExecutableDb`? → **storage**. Evidence: store interface, migration file, SQL queries.
+   - Does the component implement `ContentTransformer` and wire into `ContentTransformerPipeline`? → **pipeline transformer**. Evidence: implements `ContentTransformer`, has `id`, `fileExtensions`, `transform()`.
+   - Does the component instantiate concrete classes, open databases, register handlers, or start a process (`main()`, `createProjectScope()`)? → **composition root**. Evidence: `new ClassName()` calls, transport setup, handler registration.
+   - Does the component add or modify gold data, fixture repos, or benchmark evaluation tests in `test/benchmarks/`? → **benchmark**. Evidence: gold JSON files, fixture repos, benchmark test files.
+   - Does the component configure npm publishing, CI workflows, or package metadata for release? → **release-pipeline**. Evidence: `publishConfig`, workflow YAML, `npm pack`.
+   - None of the above? → **general-purpose**. Requires full component characterization, closest-recipe analysis, and existing-home check (see `SKILL-recipes.md`).
+
+   Never improvise a task structure outside of a recipe. If the decision tree produces a surprising result, re-read `SKILL-recipes.md` for that recipe's "When to use" section to confirm.
+
 6. **Sibling analysis, shared code reuse, and shared code prediction** (mandatory — applies to all recipe types regardless of sibling count):
    **When siblings exist and already use shared utilities:** Read the full source code of the closest sibling. Identify: (a) shared factories, utilities, and helpers the sibling imports (use its import statements as evidence), (b) the structural pattern (factory function vs manual class, shared walkers vs custom traversal), (c) which parts are sibling-specific (grammar, node types, naming rules) vs shared infrastructure. The new component MUST reuse the same shared utilities and structural pattern — never reimplement what the sibling delegates to shared code.
    **When a sibling exists but has NOT yet extracted shared utilities (second-of-its-kind):** This is the critical extraction moment. Compare the new component's needs against the sibling's inline code. Any function that is structurally identical but differs only in callbacks, predicates, or config values MUST be extracted to a shared utility file as a prerequisite step in the task. Add "Create" or "Modify" rows to the Files table for the shared utility file, and a "Modify" row for the first sibling (to refactor it to use the new shared utility). Signs of extractable code: traversal logic parameterized only by node-type predicates, factory/builder functions parameterized only by config objects, collection logic parameterized only by filter functions, import-extraction logic parameterized only by node-type identifiers.
@@ -202,7 +214,18 @@ Every field must be filled. Every field with pasted code must include a `Source:
 EXPLORATION REPORT
 
 LAYER: [adapter | storage | pipeline | core | mcp | cli]
-RECIPE: [adapter | storage | pipeline | composition-root | benchmark | release-pipeline | NONE → BLOCKER]
+RECIPE: [adapter | storage | pipeline | composition-root | benchmark | release-pipeline | general-purpose]
+
+COMPONENT CHARACTERIZATION (general-purpose recipe only — omit for specialized recipes):
+- Primary concern: [pure domain logic | bootstrap/factory | integration/orchestration | configuration | type/interface definition | refactoring | test infrastructure]
+- Layer: [core | pipeline | bootstrap | mcp | test | cross-layer]
+- Interface relationship: [implements existing | defines new | standalone function | no new code]
+- Dependency profile: [none | interface-only | external library | database | mixed]
+- State model: [stateless | immutable config | mutable (JUSTIFY)]
+- Closest recipe: [name] — does not fit because [specific reason]
+- Borrowed from closest recipe: [which exploration items or template patterns are reused]
+- Function vs class: [function | class] — [reason]
+- Existing home: Could not add to existing file/class because [reason]
 
 EXISTING FILES (for every file the recipe pattern would create):
 - [file path]: EXISTS / DOES NOT EXIST
@@ -327,7 +350,7 @@ LAYER BLOCKERS:
 - Storage needs node:fs/node:path? [YES → STOP | NO]
 - Core/pipeline imports external package? [YES → STOP | NO]
 - Adapter imports better-sqlite3 or zod? [YES → STOP | NO]
-- Recipe fit? [adapter | storage | pipeline | composition-root | benchmark | release-pipeline | NONE → STOP]
+- Recipe fit? [adapter | storage | pipeline | composition-root | benchmark | release-pipeline | general-purpose]
 
 LIBRARY API CALLS (exact function chain, no "or equivalent"):
 - [step]: call [exact function]([args]) → [return type]

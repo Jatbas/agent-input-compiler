@@ -241,7 +241,11 @@ Common failure: writing `Server` when the actual class is `McpServer`, or writin
 
 ## Recipe fit required
 
-Every task must match one of the defined recipes: adapter, storage, pipeline, composition root, benchmark, or release-pipeline. If a component does not fit any recipe, do not improvise a task structure. Stop and tell the user. The recipes exist because each component type has different template requirements, test strategies, and verification dimensions. A task written without a recipe will violate template requirements it doesn't know about.
+Every task must match one of the defined recipes: adapter, storage, pipeline transformer, composition root, benchmark, release-pipeline, or **general-purpose**. Never improvise a task structure outside of a recipe.
+
+The six specialized recipes encode domain-specific knowledge (template requirements, test strategies, verification dimensions) that produces higher-quality plans. Always prefer a specialized recipe when one fits. The **general-purpose recipe** is the structured fallback — it compensates for the lack of domain-specific guidance by requiring a full component characterization, closest-recipe analysis, existing-home check, and enhanced user gate. See `SKILL-recipes.md` for the complete general-purpose recipe.
+
+A task must never be written without following a recipe. If the general-purpose recipe's mandatory characterization reveals the component _does_ fit a specialized recipe after all, switch to that recipe immediately.
 
 ## Module resolution verification
 

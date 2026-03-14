@@ -412,3 +412,276 @@ Fill these fields instead: EXISTING FILES, DEPENDENCIES, ESLINT CHANGES (typical
 **Tests:** Release-pipeline tasks typically do not add new test files. Verification is via: (a) `npm pack` and inspection of the tarball, (b) CI workflow run (manual or on tag). If the task adds a small script used only by the workflow (e.g. a version-bump helper), and that script has logic worth unit-testing, add a test file and a Tests table row; otherwise the Tests table can list a single row: "Publish dry-run: workflow runs without error and tarball contents are correct."
 
 **Mechanical review (C.5) — N/A for release-pipeline:** Checks B (signature cross-check), C (dependent types), H (constructor branded types), K (library API accuracy), L (wiring accuracy) do not apply. Checks A (ambiguity), D (step count), E (config changes), F (files table — Create only for files that do not exist), G (self-contained), M (simplicity), and the verification steps apply. If the task adds no test file, J (test table ↔ step) is satisfied by the single verification row.
+
+---
+
+## General-purpose recipe (structured fallback when no specialized recipe fits)
+
+Use this recipe when a component does not fit any of the six specialized recipes (adapter, storage, pipeline transformer, composition root, benchmark, release-pipeline). This recipe replaces the previous hard-stop behavior — instead of blocking, the planner follows a more rigorous analysis process that derives the task structure from first principles.
+
+**When to use:** The component's primary concern is not wrapping an external library (adapter), implementing a store interface (storage), transforming content in the pipeline (pipeline transformer), wiring dependencies at the top level (composition root), enriching evaluation data (benchmark), or publishing packages (release-pipeline). Common examples: core domain logic, bootstrap/factory functions, utility extractors, configuration parsers, integration orchestrators, type-only changes, refactoring tasks, test infrastructure.
+
+**Closest-recipe analysis (mandatory — before proceeding):** Identify which specialized recipe is _closest_ to the component and explain specifically what differs. This forces a second look at whether a specialized recipe actually fits before falling through to general-purpose. Record the analysis in the Exploration Report's RECIPE field:
+
+```
+RECIPE: general-purpose
+CLOSEST RECIPE: [adapter | storage | pipeline | composition-root | benchmark | release-pipeline]
+WHY NOT: [specific reason the closest recipe does not fit — not "it's different"]
+```
+
+If the closest-recipe analysis reveals the component _does_ fit a specialized recipe after all, switch to that recipe. The general-purpose recipe is the last resort, not the easy path.
+
+### Component characterization (mandatory — 5 dimensions)
+
+Since there is no fixed recipe to provide defaults, the planner must explicitly classify the component along five dimensions. Each dimension triggers specific exploration requirements and determines which template sections apply.
+
+**Critical: every dimension must cite evidence.** Do not assert a dimension based on intuition. For each dimension, state the concrete observation (file path read, Grep result, interface name) that led to the classification. A dimension without evidence is not resolved — it is a guess. Cheaper models produce correct plans when every claim is grounded in tool output; they produce wrong plans when they assert things from training data.
+
+**Dimension 1 — Primary concern (pick exactly one):**
+
+| Concern                   | Description                                                                      | Triggers                                                            |
+| ------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Pure domain logic         | No I/O, no external deps, pure computation (scoring, classification, formatting) | Stateless constructor analysis                                      |
+| Bootstrap/factory         | Creates and returns configured objects for use by composition roots              | Conditional dependency check (O), wiring-style exploration          |
+| Integration/orchestration | Coordinates multiple existing components into a workflow                         | Consumer analysis (N), all dependency types explored                |
+| Configuration             | Loads, validates, or transforms configuration data                               | Validation boundary check, config schema analysis                   |
+| Type/interface definition | Defines new branded types, interfaces, or type aliases — no runtime code         | Minimal: no constructor, no tests beyond typecheck                  |
+| Refactoring               | Restructures existing code without changing behavior                             | Consumer analysis (N) for every modified file, regression test plan |
+| Test infrastructure       | Test helpers, fixtures, custom matchers, shared test utilities                   | Relaxed layer constraints, no production code changes               |
+
+**Validation gate 1:** After picking a concern, verify it does not overlap with a specialized recipe. Ask: "If I described this concern to someone who knows the six specialized recipes, would they say it fits one?" If yes, switch to that recipe. Common mistake: classifying a component as "pure domain logic" when it actually implements a core interface behind a library → that is an adapter.
+
+**Dimension 2 — Layer placement:**
+
+| Layer        | Constraints triggered                                                                                             |
+| ------------ | ----------------------------------------------------------------------------------------------------------------- |
+| `core/`      | Strictest: zero imports from adapters, storage, mcp, Node.js APIs, external packages. All I/O through interfaces. |
+| `pipeline/`  | Same as core: no I/O, no external imports, interfaces only.                                                       |
+| `bootstrap/` | Can import from all shared layers. Can create objects. No external library imports.                               |
+| `mcp/`       | Most permissive. Can import everything. Composition root territory.                                               |
+| `test/`      | Relaxed constraints. No production code impact.                                                                   |
+| Cross-layer  | Multiple layers affected. Each file's layer constraints apply independently.                                      |
+
+**Validation gate 2:** Read the `implementation-spec.md` entry for this component. What layer does the spec place it in? If the spec says `shared/src/adapters/`, the layer is adapter — which means the adapter recipe likely fits (go back to recipe selection). If the spec says `shared/src/pipeline/`, check if it implements `ContentTransformer` before assuming general-purpose. The layer often reveals the correct specialized recipe.
+
+**Dimension 3 — Interface relationship:**
+
+| Relationship                          | Template impact                                                                                                                                    |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Implements existing interface         | Interface/Signature section required: paste interface verbatim from source, show implementing class.                                               |
+| Defines new interface                 | Interface/Signature section required: show new interface + implementing class. Architecture Notes must justify why no existing interface suffices. |
+| Standalone function(s)                | Interface/Signature section required: show full export signature(s) with parameter types and return types.                                         |
+| No new code (type-only / refactoring) | Interface/Signature section shows the type definitions or before/after signatures of modified code.                                                |
+
+**Validation gate 3:** If "implements existing interface," Read the interface file right now and paste it into the exploration report. If you cannot find the interface file, the relationship is wrong — re-evaluate. If "defines new interface," Grep `core/interfaces/` for any interface with overlapping method names. Record what you found.
+
+**Dimension 4 — Dependency profile:**
+
+| Profile                       | Exploration triggered                                                                |
+| ----------------------------- | ------------------------------------------------------------------------------------ |
+| None (pure function)          | Constructor section: "None — pure function, no dependencies."                        |
+| Interface-only dependencies   | Standard constructor analysis (Clock, IdGenerator, ExecutableDb checklist).          |
+| External library dependencies | Full library API verification from installed `.d.ts` (same rigor as adapter recipe). |
+| Database access               | Schema analysis + normalization check (same rigor as storage recipe).                |
+| Mixed                         | All applicable checks from each profile above.                                       |
+
+**Validation gate 4:** If "none," verify by checking the implementation-spec description. Does it mention any external library, database table, or file system operation? If yes, the profile is not "none." If "external library," check `shared/package.json` — is the library already installed? Read its `.d.ts` now. If "database," read the migration file now.
+
+**Dimension 5 — State model:**
+
+| Model                   | Implication                                                                              |
+| ----------------------- | ---------------------------------------------------------------------------------------- |
+| Stateless               | No constructor state. Prefer standalone exported functions over classes with one method. |
+| Immutable configuration | Config passed to constructor, stored as `private readonly`, never mutated.               |
+| Mutable state           | **Red flag.** Architecture Notes must justify why immutable approach is insufficient.    |
+
+**Validation gate 5:** If "stateless," verify the component does not need to remember anything between method calls. Check: does it generate IDs (needs IdGenerator state)? Does it cache results? Does it track configuration? If any of these are true, it is "immutable configuration," not "stateless."
+
+Record all five dimensions with their evidence in the Exploration Report under the **COMPONENT CHARACTERIZATION** section (placed immediately after the RECIPE field).
+
+### Self-correction protocol
+
+After completing the characterization, run this 3-step self-correction before proceeding:
+
+**Step 1 — Recipe re-check:** Re-read the characterization as a whole. Does the combination of dimensions describe a component that actually fits a specialized recipe? Common false negatives:
+
+| Characterization combination                                              | Likely correct recipe                          |
+| ------------------------------------------------------------------------- | ---------------------------------------------- |
+| Interface-only deps + implements existing interface + wraps library calls | **Adapter** (not general-purpose)              |
+| Database access + implements `*Store` interface                           | **Storage** (not general-purpose)              |
+| Bootstrap/factory + creates instances + lives in `mcp/`                   | **Composition root** (not general-purpose)     |
+| Pipeline layer + transforms content + has `fileExtensions`                | **Pipeline transformer** (not general-purpose) |
+
+If any row matches, switch to the specialized recipe now. Do not proceed with general-purpose.
+
+**Step 2 — Evidence audit:** For each dimension, verify the evidence is from a tool call in this session (Read, Grep, Glob output), not from memory or training data. If any evidence is "I know that..." or "Based on the spec..." without a file read, re-read the file now.
+
+**Step 3 — Simplicity check:** Count the total new artifacts the characterization implies (files, types, interfaces). If the count exceeds 4, pause and ask: "Am I overcomplicating this? Could any of these live in existing files?" Run the EXISTING HOME CHECK before proceeding.
+
+### Files pattern (derived, not fixed)
+
+The general-purpose recipe has no fixed files pattern. The planner derives the file list from the characterization:
+
+| Condition                                     | Minimum files                                      |
+| --------------------------------------------- | -------------------------------------------------- |
+| Single class or function                      | 2: `source.ts` + `source.test.ts`                  |
+| New interface needed                          | 3: `interface.ts` + `source.ts` + `source.test.ts` |
+| New branded type(s)                           | 1 per type in `core/types/`                        |
+| Modifies existing files                       | 1 Modify row per affected file                     |
+| Type-only / refactoring (no new runtime code) | 0 Create rows, N Modify rows                       |
+
+**Simplicity constraint:** More than 3 "Create" rows for a single-concern component requires explicit justification in Architecture Notes (same as all recipes — enforced by check M).
+
+**Function vs class decision:** If the component is stateless and has a single public entry point, prefer a standalone exported function over a class. A class is justified when: (a) the component has constructor-injected dependencies, (b) the component has multiple related methods sharing state, or (c) the component implements an existing interface that requires a class shape. Record this decision in Architecture Notes.
+
+### Constructor analysis
+
+Same checklist as all recipes — walk through the standard decision tree:
+
+- Generates timestamps? → needs `Clock`
+- Generates entity IDs? → needs `IdGenerator`
+- Executes SQL? → needs `ExecutableDb`
+- Wraps an external library? → library instance or config
+- Reads/writes files? → check layer constraints (core/pipeline ban all I/O)
+
+For general-purpose components, additionally ask:
+
+- **Could this be a standalone function instead of a class?** If stateless + single method → prefer function. Record decision.
+- **Could this be added as a method to an existing class or interface?** Check closest existing files in the same layer/directory. Adding a method is simpler than a new file. Record finding.
+
+### Template section applicability
+
+All standard template sections apply. The general-purpose recipe does not replace or rename any section (unlike composition root which replaces Interface/Signature with "Wiring Specification"). Specific guidance per section:
+
+- **Architecture Notes:** Must include: (a) the component characterization (all 5 dimensions), (b) the closest-recipe analysis, (c) the function-vs-class decision, (d) any layer constraint considerations. This section is larger than in specialized recipes because the reader has no recipe context to fall back on.
+- **Interface/Signature:** Always required. For standalone functions, show the full `export function` signature with all parameter types and return type. For classes, show the full class declaration with constructor and method signatures.
+- **Dependent Types:** Always required when any types are consumed or produced. Use the standard tiered system.
+- **Config Changes:** Always check — usually "no change" for general-purpose components.
+- **Steps:** Same granularity rules as all recipes (max 2 methods per step, max 1 file per step).
+- **Tests:** Required for all components with non-trivial runtime logic. The only exception is type-only tasks (new branded type, interface definition) where `pnpm typecheck` is the sole verification.
+
+### Test strategy (derived from characterization)
+
+Since the general-purpose recipe covers diverse component types, the test strategy is derived from the closest analogy:
+
+| Component resembles        | Test approach                                                                                                                              |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Adapter (wraps something)  | Mock the wrapped dependency. Verify the adapter translates correctly between domain types and library types.                               |
+| Storage (data access)      | In-memory store, deterministic data. Same edge-test checklist as storage recipe (computed columns, idempotency, empty results).            |
+| Pipeline (transforms data) | Input/output pairs. Include edge cases: empty input, already-transformed input, boundary content.                                          |
+| Pure logic (no deps)       | Example-based tests with no mocking. Cover: happy path, edge cases, error cases. If logic is combinatorial, use parameterized tests.       |
+| Bootstrap/factory          | Call the factory with controlled inputs, verify returned objects have correct types and wiring.                                            |
+| Refactoring                | Regression tests: existing tests pass unchanged. Add targeted tests for any behavior that was previously untested but is now restructured. |
+| Configuration              | Valid config → correct output. Invalid config → specific error. Missing optional fields → defaults applied.                                |
+
+Record the chosen test approach in the Exploration Report's TEST STRATEGY section with the analogy stated: "Closest test analogy: [type]. Approach: [details]."
+
+### Exploration Report additions
+
+Beyond the standard Exploration Report fields, general-purpose tasks add:
+
+```
+COMPONENT CHARACTERIZATION:
+- Primary concern: [pure domain logic | bootstrap/factory | integration/orchestration | configuration | type/interface definition | refactoring | test infrastructure]
+- Layer: [core | pipeline | bootstrap | mcp | test | cross-layer]
+- Interface relationship: [implements existing | defines new | standalone function | no new code]
+- Dependency profile: [none | interface-only | external library | database | mixed]
+- State model: [stateless | immutable config | mutable (JUSTIFY)]
+
+CLOSEST RECIPE ANALYSIS:
+- Closest recipe: [name]
+- Why it does not fit: [specific reason]
+- What is borrowed: [which exploration items or template patterns from the closest recipe are reused]
+
+FUNCTION VS CLASS DECISION:
+- Decision: [function | class]
+- Reason: [stateless + single method → function | has injected deps → class | implements interface → class | ...]
+
+EXISTING HOME CHECK (mandatory):
+- Could this be a method on an existing class? [YES → which class, stop and propose | NO → why not]
+- Could this live in an existing file? [YES → which file, stop and propose | NO → why not]
+```
+
+The EXISTING HOME CHECK prevents unnecessary file proliferation. If the answer to either question is YES, the planner must propose the simpler approach to the user before creating new files.
+
+### Mechanical review applicability
+
+All universal checks always apply:
+
+| Check                         | Applies | Notes                                                                           |
+| ----------------------------- | ------- | ------------------------------------------------------------------------------- |
+| A (Ambiguity scan)            | Always  | Same banned patterns as all recipes.                                            |
+| B (Signature cross-check)     | Always  | Even for standalone functions — verify export signature matches implementation. |
+| C (Dependent types)           | Always  | If no types consumed/produced, "None" is valid only for type-only tasks.        |
+| D (Step count)                | Always  | Max 2 methods per step, max 1 file per step.                                    |
+| E (Config changes)            | Always  | Usually "None" with no caveats.                                                 |
+| F (Files table)               | Always  | No "Create" for existing files.                                                 |
+| G (Self-contained)            | Always  | No "see Task NNN" references.                                                   |
+| H (Branded types)             | Always  | Constructor params representing domain values use branded types.                |
+| I (Verify instructions)       | Always  | Actionable against codebase state at that step.                                 |
+| J (Test table ↔ step)         | Always  | Every test in table appears in step instructions and vice versa.                |
+| M (Simplicity)                | Always  | >3 Create rows for single-concern component requires justification.             |
+| S (Code block API extraction) | Always  | Every method/constructor call verified against source.                          |
+
+Conditional checks — triggered by the component characterization:
+
+| Check                              | Triggered when                                                                             |
+| ---------------------------------- | ------------------------------------------------------------------------------------------ |
+| K (Library API accuracy)           | Dependency profile includes "external library."                                            |
+| L (Wiring accuracy)                | Primary concern is "bootstrap/factory" and the component creates instances with `new`.     |
+| N (Consumer completeness)          | Task modifies existing interfaces or types (common for refactoring and integration tasks). |
+| O (Conditional dependency loading) | Primary concern is "bootstrap/factory" and the component creates conditional resources.    |
+| P (Sibling pattern reuse)          | Always — same as all recipes. Check closest sibling in the same layer/directory.           |
+| Q (Transformer benchmark)          | Never — not a pipeline transformer.                                                        |
+| R (Transformer safety tests)       | Never — not a pipeline transformer.                                                        |
+| T (Database normalization)         | Dependency profile includes "database" and the task creates or modifies a migration.       |
+
+### Enhanced user gate (A.5)
+
+Because the general-purpose recipe lacks the domain-specific knowledge of specialized recipes, the A.5 user checkpoint must present the full characterization for explicit user confirmation. The standard A.5 summary is extended with:
+
+> **Recipe:** General-purpose (closest: [name] — does not fit because [reason])
+>
+> **Characterization:** [primary concern] | [layer] | [interface relationship] | [dependency profile] | [state model]
+>
+> **Existing home:** [why this cannot live in an existing file/class]
+
+The user must confirm both the design decisions AND the characterization before Pass 2 proceeds. This compensates for the absence of recipe-level automation.
+
+### Auto-mode resilience (making cheaper models succeed)
+
+The general-purpose recipe is designed to work with less capable models (auto mode, fast models) by eliminating judgment calls and making every decision mechanical. This section documents the failure modes that cheaper models hit most often and the countermeasures built into the recipe.
+
+**Why cheaper models struggle without this:** Specialized recipes work well with cheaper models because the recipe provides the structure — the model just fills in blanks. Without a recipe, the model must _derive_ the structure, which requires synthesis and judgment that cheaper models lack. The general-purpose recipe compensates by providing exhaustive decision trees, validation gates, and self-correction checkpoints that turn synthesis into verification.
+
+**Common failure modes and countermeasures:**
+
+| Failure mode                         | What goes wrong                                                               | Built-in countermeasure                                                                             |
+| ------------------------------------ | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Recipe misclassification             | Model picks general-purpose when a specialized recipe fits                    | Recipe decision tree in SKILL.md A.1.5 + validation gates 1–2 + self-correction Step 1              |
+| Dimension assertion without evidence | Model asserts "pure domain logic" without reading any files                   | "Every dimension must cite evidence" rule + validation gates per dimension + self-correction Step 2 |
+| Over-engineering                     | Model creates many new files, types, interfaces out of comprehensiveness bias | Simplicity constraint (max 3 Create rows), existing-home check, self-correction Step 3              |
+| Training-data hallucination          | Model writes API calls that exist in training data but not in the project     | Check S (code block API extraction) applies to all recipes including general-purpose                |
+| Ambiguous instructions               | Model writes "if needed" or "or similar" in step text                         | Check A (ambiguity scan) applies to all recipes including general-purpose                           |
+| Missing test strategy                | Model skips tests or writes vague test descriptions                           | "Closest test analogy" table forces a concrete strategy derived from characterization               |
+| Wrong layer constraints              | Model imports forbidden packages in core/pipeline code                        | Validation gate 2 forces layer verification against implementation-spec                             |
+
+**Explicit reasoning prompts:** At each stage of the general-purpose recipe, the planner must pause and write one sentence explaining its reasoning before proceeding. This is not for documentation — it is a forcing function that catches errors. Cheaper models that "explain then act" make fewer mistakes than models that "act then rationalize."
+
+- After closest-recipe analysis: "I chose general-purpose over [closest] because [one sentence]."
+- After each dimension: "Evidence: [tool call result]. This means [dimension value] because [one sentence]."
+- After self-correction: "Re-check passed. No specialized recipe fits because [one sentence]."
+- After existing-home check: "New files needed because [one sentence]."
+- After function-vs-class decision: "Chose [function/class] because [one sentence]."
+
+These sentences are recorded in the Exploration Report. They serve as audit trail — if the plan is wrong, the sentences reveal where the reasoning went off track.
+
+**When to escalate:** If during the general-purpose recipe process the planner encounters any of these situations, it should tell the user explicitly rather than guessing:
+
+- Two dimensions contradict each other (e.g., "stateless" but needs Clock injection)
+- The existing-home check reveals an obvious home but changing that file would be risky
+- The closest-recipe analysis is ambiguous (two recipes seem equally close)
+- The implementation-spec description is vague or missing for this component
+- The self-correction protocol reveals a possible recipe match but the fit is uncertain
+
+In each case, state what was found, what the uncertainty is, and what decision the user needs to make. A plan that stops once for user input is better than a plan that proceeds on a wrong assumption.
