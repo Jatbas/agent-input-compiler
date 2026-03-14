@@ -25,6 +25,7 @@ How AIC gets installed, what artifacts it creates, and how its components intera
   - [Hooks](#hooks-1)
   - [Hook Lifecycle](#hook-lifecycle-1)
   - [How Hooks Are Delivered](#how-hooks-are-delivered-1)
+- [Other Editors](#other-editors)
 - [AIC Development Environment](#aic-development-environment)
 - [Uninstall](#uninstall)
 
@@ -205,6 +206,23 @@ Hook scripts are authored in `integrations/cursor/hooks/` and deployed to each p
 
 The `.cursor/` directory is a **deployment target** — hook scripts are never authored there directly.
 On subsequent compilations, merge logic adds any missing hook entries without overwriting user-added hooks. Scripts are re-copied on every bootstrap to stay in sync with the installed AIC version.
+
+---
+
+## Other Editors
+
+Any editor that supports the MCP protocol can run AIC. Register it as a global MCP server using the standard server entry:
+
+```json
+"aic": {
+  "command": "npx",
+  "args": ["-y", "@aic/mcp"]
+}
+```
+
+Add this to your editor's global MCP configuration file and restart the editor. The exact file path depends on your editor — consult its MCP documentation.
+
+Once registered, AIC auto-bootstraps on the first `aic_compile` call: it creates `aic.config.json`, the `.aic/` data directory, and installs any available trigger rules and hooks for your editor. Editors without a dedicated integration layer still benefit from the MCP tools (`aic_compile`, `aic_status`, etc.) — lifecycle hooks are simply not available until a dedicated integration is added.
 
 ---
 
