@@ -575,6 +575,13 @@ export async function main(): Promise<void> {
               if (rootPath === homedir) continue;
               const absRoot = toAbsolutePath(rootPath);
               installTriggerRule(absRoot);
+              const cursorDetected =
+                fs.existsSync(path.join(absRoot, ".cursor")) ||
+                (process.env["CURSOR_PROJECT_DIR"] !== undefined &&
+                  process.env["CURSOR_PROJECT_DIR"] !== "");
+              if (!cursorDetected) {
+                continue;
+              }
               const installScript = path.join(
                 absRoot,
                 "integrations",
