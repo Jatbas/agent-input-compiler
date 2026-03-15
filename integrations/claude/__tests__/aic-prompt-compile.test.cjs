@@ -30,7 +30,7 @@ async function plain_text_stdout_when_helper_returns_prompt() {
   delete require.cache[require.resolve(hookPath)];
   const { run } = require(hookPath);
   const stdout = await run(
-    JSON.stringify({ input: { prompt: "x", session_id: "s1", cwd: "/tmp" } }),
+    JSON.stringify({ prompt: "x", session_id: "s1", cwd: "/tmp" }),
   );
   cleanup(key);
   if (stdout !== "compiled text") {
@@ -43,7 +43,7 @@ async function exit_0_silent_when_helper_returns_null() {
   const key = mockHelper(null);
   delete require.cache[require.resolve(hookPath)];
   const { run } = require(hookPath);
-  const stdout = await run(JSON.stringify({ input: { prompt: "x", cwd: "/tmp" } }));
+  const stdout = await run(JSON.stringify({ prompt: "x", cwd: "/tmp" }));
   cleanup(key);
   if (stdout !== null) {
     throw new Error(`Expected null, got ${JSON.stringify(stdout)}`);
@@ -66,7 +66,9 @@ async function dual_path_prepends_invariants_when_marker_missing() {
     delete require.cache[require.resolve(hookPath)];
     const { run } = require(hookPath);
     const stdin = JSON.stringify({
-      input: { prompt: "x", session_id: "other-session", cwd: tmpDir },
+      prompt: "x",
+      session_id: "other-session",
+      cwd: tmpDir,
     });
     const stdout = await run(stdin);
     cleanup(key);
