@@ -6,6 +6,7 @@
     "test/benchmarks/**",
     "integrations/cursor/hooks/**",
     "integrations/cursor/install.cjs",
+    "integrations/claude/install.cjs",
     "integrations/cursor/__tests__/install.test.js",
     "integrations/claude/hooks/**",
     "integrations/claude/__tests__/**",
