@@ -70,9 +70,34 @@ describe("detectEditorId", () => {
     expect(detectEditorId(undefined, { cursorAgent: false })).toBe(EDITOR_ID.GENERIC);
   });
 
-  it("client name takes priority over cursorAgent env hint", () => {
-    expect(detectEditorId("claude-code", { cursorAgent: true })).toBe(
+  it("returns cursor for claude-code client when cursorAgent true", () => {
+    expect(detectEditorId("claude-code", { cursorAgent: true })).toBe(EDITOR_ID.CURSOR);
+  });
+
+  it("returns cursor for claude-code/version when cursorAgent true", () => {
+    expect(detectEditorId("claude-code/1.0.0", { cursorAgent: true })).toBe(
+      EDITOR_ID.CURSOR,
+    );
+  });
+
+  it("returns claude-code when client name undefined and claudeCodeProjectDir true", () => {
+    expect(detectEditorId(undefined, { claudeCodeProjectDir: true })).toBe(
       EDITOR_ID.CLAUDE_CODE,
     );
+  });
+
+  it("returns claude-code when client name vscode and claudeCodeProjectDir true", () => {
+    expect(detectEditorId("vscode", { claudeCodeProjectDir: true })).toBe(
+      EDITOR_ID.CLAUDE_CODE,
+    );
+  });
+
+  it("returns cursor when both cursorAgent and claudeCodeProjectDir true", () => {
+    expect(
+      detectEditorId(undefined, {
+        cursorAgent: true,
+        claudeCodeProjectDir: true,
+      }),
+    ).toBe(EDITOR_ID.CURSOR);
   });
 });

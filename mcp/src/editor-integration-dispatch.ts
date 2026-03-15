@@ -51,7 +51,13 @@ export function getEditorModelHints(
 }
 
 export function getEditorEnvHints(): EditorEnvHints {
-  return { cursorAgent: process.env["CURSOR_AGENT"] === "1" };
+  const claudeCodeProjectDir =
+    process.env["CLAUDE_PROJECT_DIR"] !== undefined &&
+    process.env["CLAUDE_PROJECT_DIR"] !== "";
+  return {
+    cursorAgent: process.env["CURSOR_AGENT"] === "1",
+    claudeCodeProjectDir,
+  };
 }
 
 const REL_INSTALL_SCRIPT = path.join("integrations", "cursor", "install.cjs");

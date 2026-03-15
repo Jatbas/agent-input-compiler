@@ -14,18 +14,20 @@ const EDITOR_PATTERNS: readonly { readonly substring: string; readonly id: Edito
 
 export interface EditorEnvHints {
   readonly cursorAgent?: boolean;
+  readonly claudeCodeProjectDir?: boolean;
 }
 
 export function detectEditorId(
   clientName: string | undefined,
   envHints?: EditorEnvHints,
 ): EditorId {
+  // Env-first: Cursor, then Claude Code, then client name (Cursor+Opus must not be misclassified)
+  if (envHints?.cursorAgent === true) return EDITOR_ID.CURSOR;
+  if (envHints?.claudeCodeProjectDir === true) return EDITOR_ID.CLAUDE_CODE;
   if (clientName !== undefined) {
     const lower = clientName.toLowerCase();
     const match = EDITOR_PATTERNS.find((p) => lower.includes(p.substring));
     if (match !== undefined) return match.id;
   }
-  // Cursor subagents (Task tool) don't send a client name but inherit CURSOR_AGENT env
-  if (envHints?.cursorAgent === true) return EDITOR_ID.CURSOR;
   return EDITOR_ID.GENERIC;
 }
