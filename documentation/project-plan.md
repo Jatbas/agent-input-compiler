@@ -68,10 +68,10 @@ AIC is a **local-first context compilation layer** that runs as an **MCP server*
 **Setup:** Add one entry to your editor's MCP config. That's it.
 
 ```json
-{ "mcpServers": { "aic": { "command": "npx", "args": ["@aic/mcp"] } } }
+{ "mcpServers": { "aic": { "command": "npx", "args": ["-y", "@jatbas/aic@latest"] } } }
 ```
 
-**Package:** `@aic/mcp` — the MCP server. Single package; no separate CLI.
+**Package:** `@jatbas/aic` — the MCP server. Single package; no separate CLI. See [installation](documentation/installation.md) for setup.
 
 ### Non-Goals (Phase 0 / MVP)
 
@@ -251,7 +251,7 @@ The editor's model, endpoint, and API key are **never touched by AIC**. AIC only
 
 **Why a tool, not a proxy:** MCP's tool pattern is universally supported. A proxy would require intercepting the editor's HTTP calls, which is fragile, editor-specific, and breaks with TLS. Tools are the standard extension point; any MCP-compatible editor supports them without modification.
 
-**The trigger rule** is a text instruction installed by `npx @aic/mcp init` into the editor's rule file (e.g. `.cursor/rules/aic.mdc` for Cursor, `.claude/CLAUDE.md` for Claude Code). It instructs the model to call `aic_compile` before generating responses. Compliance with the trigger rule depends on the model and editor — it is not a guaranteed enforcement mechanism (see [§2.2.1](#221-integration-layer--enforcement) for how editors can enforce it).
+**The trigger rule** is a text instruction installed during bootstrap into the editor's rule file (e.g. `.cursor/rules/AIC.mdc` for Cursor, `.claude/CLAUDE.md` for Claude Code). It instructs the model to call `aic_compile` before generating responses. Compliance with the trigger rule depends on the model and editor — it is not a guaranteed enforcement mechanism (see [§2.2.1](#221-integration-layer--enforcement) for how editors can enforce it).
 
 ### 2.2.1 Integration Layer & Enforcement
 
@@ -281,11 +281,11 @@ The **integration layer** is a thin set of hook scripts, specific to each editor
 | Subagent start + context injection | No                                          | Yes (`SubagentStart` + `additionalContext`)     | No          |
 | Session end                        | Yes (`sessionEnd`)                          | Yes (`SessionEnd`)                              | No          |
 | Pre-compaction                     | Yes (`preCompact`, observational only)      | Yes (`PreCompact`)                              | No          |
-| Trigger rule                       | Yes (`.cursor/rules/aic.mdc`)               | Yes (`.claude/CLAUDE.md`)                       | No          |
+| Trigger rule                       | Yes (`.cursor/rules/AIC.mdc`)               | Yes (`.claude/CLAUDE.md`)                       | No          |
 
 Cursor exposes sessionEnd, preCompact, subagentStart (gating only — no context injection), stop, and others; the AIC integration layer is being updated (Tasks 109–111, 113).
 
-**Current state:** The Cursor integration layer is built (session-start injection, tool gating, sessionEnd, stop quality check, afterFileEdit tracking, prompt logging). The Claude Code integration layer is not yet built but its hook system covers all capabilities in the checklist. Generic MCP editors have no hooks — they rely on the trigger rule.
+**Current state:** The Cursor integration layer is built (session-start injection, tool gating, sessionEnd, stop quality check, afterFileEdit tracking, prompt logging). The Claude Code integration layer is implemented (plugin and direct installer; see [installation](documentation/installation.md)). Generic MCP editors have no hooks — they rely on the trigger rule.
 
 **Key architectural insight:** Any perceived limitation in what AIC "can do" is a limitation of the editor's hook system, not of AIC's core pipeline. When an editor adds a new hook, AIC can immediately use it without core changes. This is why Claude Code — with its richer hook system — can enable per-prompt and subagent compilation that Cursor cannot.
 
@@ -300,7 +300,7 @@ _Cursor_ — add to `~/.cursor/mcp.json`:
 ```json
 {
   "mcpServers": {
-    "aic": { "command": "npx", "args": ["@aic/mcp"] }
+    "aic": { "command": "npx", "args": ["-y", "@jatbas/aic@latest"] }
   }
 }
 ```
@@ -310,20 +310,12 @@ _Claude Code_ — add to `~/.claude/settings.json`:
 ```json
 {
   "mcpServers": {
-    "aic": { "command": "npx", "args": ["@aic/mcp"] }
+    "aic": { "command": "npx", "args": ["-y", "@jatbas/aic@latest"] }
   }
 }
 ```
 
-**Step 2 — Install the trigger rule** (one-time, per project):
-
-```
-npx @aic/mcp init
-```
-
-Today, this creates `aic.config.json`, installs the Cursor trigger rule and hooks, and creates `.aic/` with `0700` permissions. Claude Code installer support is tracked separately in the roadmap.
-
-That's it for Cursor. When Cursor advertises workspace roots on connect, AIC proactively bootstraps each root — so the trigger rule and hooks are installed before the first AI message. In editors without proactive-roots support, bootstrap runs on the first `aic_compile` call. In editors without hook support, AIC relies on the trigger rule and the model's willingness to call `aic_compile`.
+**Step 2 — Bootstrap** (automatic): No manual init command. When Cursor advertises workspace roots on connect, AIC proactively bootstraps each root — creating `aic.config.json`, installing the trigger rule (`.cursor/rules/AIC.mdc`) and hooks, and creating `.aic/` with `0700` permissions before the first AI message. In editors without proactive-roots support, bootstrap runs on the first `aic_compile` call. See [installation](documentation/installation.md) for Cursor deeplink and Claude Code plugin/direct installer.
 
 ### Model Auto-detection
 
@@ -1110,11 +1102,11 @@ Boost and penalize patterns apply a ±0.2 additive modifier to the `HeuristicSel
 
 ### 4.0 Component Overview
 
-The diagram below shows AIC's two packages, their key classes, and how they depend on each other. `@aic/mcp` imports pipeline steps, providers, and storage from `@aic/shared` — the pipeline is never duplicated.
+The diagram below shows AIC's two packages, their key classes, and how they depend on each other. The MCP server (`@jatbas/aic`) imports pipeline steps, providers, and storage from the shared package — the pipeline is never duplicated.
 
 ```mermaid
 graph TB
-    subgraph mcp ["@aic/mcp — MCP Server"]
+    subgraph mcp ["@jatbas/aic — MCP Server"]
         Server["server.ts\n(composition root)"]
         CompileHandler["compile-handler"]
         InspectHandler["inspect-handler"]
@@ -1342,10 +1334,10 @@ Core remains untouched; enterprise features wrap around it:
 
 #### ADR-001: MCP-Only (not IDE plugin, not library, not CLI)
 
-- **Decision:** AIC's interface is an MCP server (`@aic/mcp`). There is no separate CLI package — all user-facing functionality is delivered via MCP tools, resources, and prompt commands inside the editor.
+- **Decision:** AIC's interface is an MCP server (`@jatbas/aic`). There is no separate CLI package — all user-facing functionality is delivered via MCP tools, resources, and prompt commands inside the editor.
 - **Context:** IDE plugins lock users into specific editors. A library requires integration work from each tool author. A CLI requires manual invocation, which creates friction that kills adoption. MCP is an open protocol supported by Cursor, Claude Code, and a growing ecosystem — it gives editor-native integration without locking to any one editor.
 - **Rationale:** MCP is the standard extension point for AI editors. The protocol is open, so supporting a new editor costs one `EditorAdapter` class, not a plugin rebuild. Effective enforcement of `aic_compile` usage requires an editor-specific integration layer (hooks, context injection), but the core pipeline works identically across all editors. Status and last-compilation data are served via MCP tools (`aic_status`, `aic_last`) and surfaced via prompt commands in the editor.
-- **Tradeoffs:** Requires the editor to support MCP (all primary targets do). One-time setup is the only terminal command: `npx @aic/mcp init`.
+- **Tradeoffs:** Requires the editor to support MCP (all primary targets do). One-time setup is registering the server in the editor's MCP config; bootstrap runs automatically when the client lists roots or on first `aic_compile`. See [installation](documentation/installation.md).
 
 #### ADR-002: SQLite for local storage (not LevelDB, not JSON files)
 
@@ -1447,7 +1439,7 @@ The following is the canonical layout for the AIC source repository itself:
 
 ```
 packages/
-├── mcp/                              # @aic/mcp — PRIMARY package (MCP server)
+├── mcp/                              # @jatbas/aic — PRIMARY package (MCP server)
 │   └── src/
 │       ├── server.ts                 # MCP server entry point + composition root
 │       ├── handlers/
@@ -1688,13 +1680,7 @@ All fields are optional. AIC works with an empty `{}` or no config file at all.
 
 ## 7. User Interface (MCP-Only)
 
-AIC has no separate CLI package. All user-facing functionality is delivered through MCP tools, resources, and prompt commands inside the editor. The only terminal command is one-time project setup:
-
-```
-npx @aic/mcp init
-```
-
-This creates `aic.config.json`, installs the trigger rule, installs editor hooks, and creates `.aic/` with `0700` permissions.
+AIC has no separate CLI package. All user-facing functionality is delivered through MCP tools, resources, and prompt commands inside the editor. Project setup is automatic: when the editor connects (or on first `aic_compile`), the server bootstraps the project — creating `aic.config.json`, installing the trigger rule (e.g. `.cursor/rules/AIC.mdc`), installing editor hooks, and creating `.aic/` with `0700` permissions. See [installation](documentation/installation.md).
 
 ### MCP Tools
 
@@ -2408,7 +2394,7 @@ The MCP server is AIC's primary interface. Its error modes differ from CLI error
 
 ### `.aic/` Directory Security
 
-- Add `.aic/` to `.gitignore` automatically on `npx @aic/mcp init`
+- Add `.aic/` to `.gitignore` automatically during bootstrap
 - Permissions: created with `0700` (owner-only read/write/execute)
 - No symlinks followed inside `.aic/` to prevent symlink attacks
 
@@ -2651,11 +2637,11 @@ On every server startup, AIC verifies its own installation is healthy so it can 
 
 **Checks performed:**
 
-| Check        | What it verifies                        | Outcome if missing                                                                      |
-| ------------ | --------------------------------------- | --------------------------------------------------------------------------------------- |
-| Trigger rule | `AIC.mdc` (Cursor) or equivalent exists | "show aic status" prompt command shows "trigger rule not found — run npx @aic/mcp init" |
-| Session hook | `hooks.json` contains AIC compile entry | "show aic status" prompt command shows "session hook not configured"                    |
-| Hook script  | `AIC-compile-context.cjs` exists        | "show aic status" prompt command shows "hook script missing"                            |
+| Check        | What it verifies                        | Outcome if missing                                                                                                  |
+| ------------ | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Trigger rule | `AIC.mdc` (Cursor) or equivalent exists | "show aic status" prompt command shows "trigger rule not found" (re-open project or run first compile to bootstrap) |
+| Session hook | `hooks.json` contains AIC compile entry | "show aic status" prompt command shows "session hook not configured"                                                |
+| Hook script  | `AIC-compile-context.cjs` exists        | "show aic status" prompt command shows "hook script missing"                                                        |
 
 Results are stored in the `server_sessions` row (`installation_ok` boolean, `installation_notes` text). The `aic_status` tool surfaces them as actionable suggestions ("AIC is running but the trigger rule is missing — context won't be compiled per-prompt").
 
@@ -2939,7 +2925,7 @@ Workflow: Planning agent calls `aic_compile_spec` with the exploration report an
 
 ## 19. Storage (MVP)
 
-**SQLite** — single file per project at `.aic/aic.sqlite`.
+**SQLite** — single global file at `~/.aic/aic.sqlite`. Per-project data is isolated via `project_id`; see [installation](documentation/installation.md).
 
 ### Tables
 
@@ -2956,7 +2942,7 @@ Workflow: Planning agent calls `aic_compile_spec` with the exploration report an
 | `server_sessions`         | **(Phase 0.5)** One row per MCP server run: `session_id` (TEXT PK, UUIDv7), `started_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`), `stopped_at` (TEXT, nullable), `stop_reason` (TEXT, nullable: `graceful` / `crash`), `pid` (INTEGER), `version` (TEXT). Written on server startup; updated on graceful shutdown. Orphaned rows (`stopped_at IS NULL`) are backfilled as `stop_reason = 'crash'` on next startup. See [§13.2 Server Lifecycle Tracking](#132-server-lifecycle-tracking)                                                                                                                        |
 | `session_state`           | **(Phase 1+)** One row per active session: `session_id` (TEXT PK, UUIDv7 — generated by the caller or by AIC on first step), `task_intent` (TEXT, original intent that started the session), `steps_json` (TEXT, JSON array of `SessionStep` objects — see [§2.7](#27-agentic-workflow-support)), `created_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`), `last_activity_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`, updated on each step). Rows expire after 30 min of inactivity (configurable via `session.expiryMinutes`). Powers `SessionTracker`. Not created by the MVP migration; added by a Phase 1 migration |
 
-**Local table retention (Phase 1):** All of the above tables are local-only (user's `.aic/aic.sqlite`). Phase 1 adds a retention policy: before purging, aggregated data for the period (e.g. compilations count, token totals, guard counts) is written to an `archive_*` table (exact name TBD, e.g. `archive_summary`), then rows in `compilation_log`, `telemetry_events`, `guard_findings`, and `server_sessions` older than 90 days (configurable) are removed. Detail is lost; a general picture of what happened is kept in the archive table so these tables stay bounded without losing all signal.
+**Local table retention (Phase 1):** All of the above tables live in the global database (`~/.aic/aic.sqlite`). Phase 1 adds a retention policy: before purging, aggregated data for the period (e.g. compilations count, token totals, guard counts) is written to an `archive_*` table (exact name TBD, e.g. `archive_summary`), then rows in `compilation_log`, `telemetry_events`, `guard_findings`, and `server_sessions` older than 90 days (configurable) are removed. Detail is lost; a general picture of what happened is kept in the archive table so these tables stay bounded without losing all signal.
 
 ### Two Independent Version Axes
 
@@ -2965,7 +2951,7 @@ AIC has two versioning concerns that are tracked separately:
 | Axis              | Field                          | What it versions                     | Where stored       |
 | ----------------- | ------------------------------ | ------------------------------------ | ------------------ |
 | **Config schema** | `version` in `aic.config.json` | Shape of the user-facing config file | Config file itself |
-| **DB schema**     | `schema_migrations` table      | Shape of `.aic/aic.sqlite` tables    | SQLite database    |
+| **DB schema**     | `schema_migrations` table      | Shape of `~/.aic/aic.sqlite` tables  | SQLite database    |
 
 These are deliberately decoupled. A DB schema change does not require a config version bump, and vice versa.
 
@@ -3000,7 +2986,7 @@ Authoritative DDL lives in `shared/src/storage/migrations/001-initial-schema.ts`
 ### Rollback
 
 - `aic db:rollback` (Phase 1 CLI addition) runs the `down()` of the last applied migration
-- For MVP, rollback is manual: delete `.aic/aic.sqlite` to reset to a clean state (data loss warning displayed)
+- For MVP, rollback is manual: delete `~/.aic/aic.sqlite` to reset to a clean state (data loss warning displayed)
 
 ### Downgrade Behaviour
 
@@ -3015,7 +3001,7 @@ If a newer DB schema version is detected than the running AIC binary knows about
 When `version` in `aic.config.json` is older than the current AIC version:
 
 - AIC reads the config using the old schema and silently upgrades in memory
-- The on-disk file is **never auto-modified** — the user must run `npx @aic/mcp init --upgrade` to write the new format
+- The on-disk file is **never auto-modified** — the user must run config upgrade (or re-bootstrap) to write the new format
 - Unknown fields in a newer config are ignored (forward compatibility)
 
 #### Example: v1 → v2 migration
@@ -3048,7 +3034,7 @@ if (raw.version === 1) {
 }
 ```
 
-**After `npx @aic/mcp init --upgrade` (written to disk):**
+**After config upgrade (written to disk):**
 
 ```json
 {
@@ -3062,7 +3048,7 @@ if (raw.version === 1) {
 }
 ```
 
-The on-disk file is only rewritten when the user explicitly runs `npx @aic/mcp init --upgrade`. Until then, in-memory migration keeps the tool working with no user action required.
+The on-disk file is only rewritten when the user explicitly runs a config upgrade (or re-bootstrap). Until then, in-memory migration keeps the tool working with no user action required.
 
 ---
 
@@ -3182,7 +3168,7 @@ Add it automatically with `git commit -s`. By signing off, you certify that you 
 
 | Phase   | Name                  | Version | Deliverables                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Exit Criteria                                                                                     |
 | ------- | --------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **0**   | MVP                   | `0.1.0` | MCP tools (`aic_compile`, `aic_inspect`); `npx @aic/mcp init`; HeuristicSelector; SQLite storage; default rule packs; Guard with `allowPatterns`; first-run message; formula-derived model budget profiles (`windowRatio`); trigger rule; anonymous telemetry (opt-in); full test suite                                                                                                                                                                                                                                                                    | MCP tools functional; benchmark suite passes; measurable token reduction on canonical tasks       |
+| **0**   | MVP                   | `0.1.0` | MCP tools (`aic_compile`, `aic_inspect`); auto-bootstrap (trigger rule + hooks); HeuristicSelector; SQLite storage; default rule packs; Guard with `allowPatterns`; first-run message; formula-derived model budget profiles (`windowRatio`); trigger rule; anonymous telemetry (opt-in); full test suite                                                                                                                                                                                                                                                  | MCP tools functional; benchmark suite passes; measurable token reduction on canonical tasks       |
 | **0.5** | Quality Release       | `0.2.0` | Cursor integration layer (session-start hooks, tool gate, prompt logging); `GenericImportProvider` (Python/Go/Rust/Java regex imports); intent-aware file discovery; `aic_status` tool; `aic_last` tool; `aic_chat_summary` tool; Guard `warn` severity; CSS/TypeDecl/test-structure transformers; **budget utilization** in `aic_status`; prompt commands; **error telemetry**; **server lifecycle tracking** (`server_sessions` table)                                                                                                                   | Context selection quality improved for non-TypeScript repos; Cursor integration layer functional  |
 | **1**   | OSS Release           | `1.0.0` | Public repo; docs site; CI/CD; npm package; `postinstall` team deployment; auto-detected dependency constraints; reverse dependency walking; optional cost estimation in `aic_status` (model-specific pricing, deferred from MVP since AIC is model-agnostic); **Session Tracker** + extended `CompilationRequest` agentic fields + **Adaptive Budget Allocator** (conversation-length + utilization-based auto-tuning) + **Specification Compiler** (`aic_compile_spec` MCP tool) + session-aware cache keying (see [§2.7](#27-agentic-workflow-support)) | 10+ external contributors; 100+ GitHub stars; stable API (no breaking changes for 4 weeks)        |
 | **2**   | Semantic + Governance | `2.0.0` | VectorSelector (Zvec integration); HybridSelector; governance adapters; policy engine; `extends` config for org-level deployment; centralised config server; **Conversation Compressor** + editor-specific conversation adapters for multi-step agentic workflows                                                                                                                                                                                                                                                                                          | Vector retrieval improves relevance by ≥15% over heuristic; policy engine passes compliance audit |
@@ -3226,7 +3212,7 @@ project-root/
 ```json
 {
   "scripts": {
-    "postinstall": "npx @aic/mcp init --non-interactive"
+    "postinstall": "npx -y @jatbas/aic@latest"
   }
 }
 ```
@@ -3311,14 +3297,14 @@ AIC is designed to be **technically compliant** with GDPR, SOC 2, and ISO 27001 
 
 ### Design Principles for Compliance
 
-| Principle              | How AIC achieves it                                                                           |
-| ---------------------- | --------------------------------------------------------------------------------------------- |
-| **Privacy by default** | No data collection without explicit opt-in. No PII in any storage.                            |
-| **Data minimisation**  | Telemetry collects only typed aggregates — no code, paths, or prompts                         |
-| **User control**       | Opt-in/out at any time. Telemetry data visible in `.aic/aic.sqlite`. Config toggle erases it. |
-| **Local-first**        | All processing on user’s machine. No cloud dependency for core functionality.                 |
-| **Transparency**       | Every telemetry payload logged locally before sending. Audit trail always available.          |
-| **Security by design** | Context Guard, API key isolation, `.aic/` permissions, no symlink traversal                   |
+| Principle              | How AIC achieves it                                                                             |
+| ---------------------- | ----------------------------------------------------------------------------------------------- |
+| **Privacy by default** | No data collection without explicit opt-in. No PII in any storage.                              |
+| **Data minimisation**  | Telemetry collects only typed aggregates — no code, paths, or prompts                           |
+| **User control**       | Opt-in/out at any time. Telemetry data visible in `~/.aic/aic.sqlite`. Config toggle erases it. |
+| **Local-first**        | All processing on user’s machine. No cloud dependency for core functionality.                   |
+| **Transparency**       | Every telemetry payload logged locally before sending. Audit trail always available.            |
+| **Security by design** | Context Guard, API key isolation, `.aic/` permissions, no symlink traversal                     |
 
 ### GDPR Readiness
 
@@ -3326,8 +3312,8 @@ AIC is designed to be **technically compliant** with GDPR, SOC 2, and ISO 27001 
 | ------------------------- | :--------: | ----------------------------------------------------------------- |
 | Lawful basis (consent)    |     ✅     | Opt-in via config. Default: disabled.                             |
 | Data minimisation         |     ✅     | Fixed enum fields only. No free-text. No PII.                     |
-| Right to access           |     ✅     | Telemetry data in `.aic/aic.sqlite` `anonymous_telemetry_log`     |
-| Right to erasure          |     ✅     | Set `telemetry.anonymousUsage: false`; delete `.aic/aic.sqlite`   |
+| Right to access           |     ✅     | Telemetry data in `~/.aic/aic.sqlite` `anonymous_telemetry_log`   |
+| Right to erasure          |     ✅     | Set `telemetry.anonymousUsage: false`; delete `~/.aic/aic.sqlite` |
 | Right to withdraw consent |     ✅     | Set config to `false` at any time. Immediate effect.              |
 | Purpose limitation        |     ✅     | "Product improvement" stated in opt-in prompt and privacy policy  |
 | Data retention limit      | ⚠️ Phase 1 | Server-side: auto-delete after 90 days. Define in privacy policy. |

@@ -44,14 +44,14 @@
 
 Deliver a working **MCP server** that compiles optimal context for AI coding tools — with zero required configuration.
 
-**Success looks like:** A developer registers the MCP server, runs `npx @aic/mcp init` in their project, and their AI responses improve measurably — fewer tokens, better file selection, and deterministic, reproducible context compilation. In editors with hook support (e.g. Cursor), the integration layer ensures compiled context is available from the first message of every session.
+**Success looks like:** A developer registers the MCP server (e.g. `npx -y @jatbas/aic@latest` in MCP config), opens a project, and their AI responses improve measurably — fewer tokens, better file selection, and deterministic, reproducible context compilation. Bootstrap runs automatically when the client lists roots or on first `aic_compile`. In editors with hook support (e.g. Cursor), the integration layer ensures compiled context is available from the first message of every session.
 
 > **AIC is model-agnostic and editor-agnostic by design.** It detects the active model automatically and adapts. It works with Cursor, Claude Code, and any MCP-compatible editor. No API key, no cloud account, and no config file are required to start.
 >
 > **Setup:**
 >
 > ```json
-> { "mcpServers": { "aic": { "command": "npx", "args": ["@aic/mcp"] } } }
+> { "mcpServers": { "aic": { "command": "npx", "args": ["-y", "@jatbas/aic@latest"] } } }
 > ```
 >
 > Add the above to your editor's MCP config. Done.
@@ -62,7 +62,7 @@ Deliver a working **MCP server** that compiles optimal context for AI coding too
 
 ### Included ✅
 
-**Primary: MCP Server (`@aic/mcp`)**
+**Primary: MCP Server (`@jatbas/aic`)**
 
 | Feature              | Detail                                                                                                                       |
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -80,14 +80,14 @@ Deliver a working **MCP server** that compiles optimal context for AI coding too
 
 **User Interface (MCP-only — no separate CLI)**
 
-| Interface                      | Purpose                                                                              |
-| ------------------------------ | ------------------------------------------------------------------------------------ |
-| `aic_compile` (MCP tool)       | Compile intent into context; returns compiled prompt to the model                    |
-| `aic_inspect` (MCP tool)       | Show full pipeline breakdown without executing                                       |
-| `aic_chat_summary` (MCP tool)  | Compilation stats for the current conversation                                       |
-| `aic_status` (MCP tool)        | Project-level summary: compilations, token savings, budget utilization, guard blocks |
-| `aic_last` (MCP tool)          | Most recent compilation breakdown with prompt summary                                |
-| `npx @aic/mcp init` (one-time) | Scaffold config, trigger rule, hooks, `.aic/` directory                              |
+| Interface                                         | Purpose                                                                              |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `aic_compile` (MCP tool)                          | Compile intent into context; returns compiled prompt to the model                    |
+| `aic_inspect` (MCP tool)                          | Show full pipeline breakdown without executing                                       |
+| `aic_chat_summary` (MCP tool)                     | Compilation stats for the current conversation                                       |
+| `aic_status` (MCP tool)                           | Project-level summary: compilations, token savings, budget utilization, guard blocks |
+| `aic_last` (MCP tool)                             | Most recent compilation breakdown with prompt summary                                |
+| Bootstrap (automatic on connect or first compile) | Scaffold config, trigger rule, hooks, `.aic/` directory                              |
 
 ### Excluded (deferred) ❌
 
@@ -113,7 +113,7 @@ All defaults apply when no config file exists or a field is omitted.
 | ---------------------------- | ----------------------------------------------------- | ----------------------------------- | ----------------- |
 | Project root                 | Git root (walk up from CWD)                           | Auto-detected per request           | `--root`          |
 | Config file                  | Auto-discovered (walk up from project root)           | Auto-discovered                     | `--config`        |
-| Database                     | `.aic/aic.sqlite` in project root                     | Auto-resolved                       | `--db`            |
+| Database                     | `~/.aic/aic.sqlite` (global)                          | Auto-resolved                       | `--db`            |
 | Context budget               | 8,000 tokens                                          | `aic.config.json` only              | `--budget`        |
 | Output format                | `unified-diff`                                        | `aic.config.json` only              | `--format`        |
 | Context selector             | `heuristic`                                           | `aic.config.json` only              | Config only       |
@@ -637,13 +637,13 @@ Full spec: [Project Plan §2.4](project-plan.md).
 
 ## 4c. Init, Inspect, and Status
 
-### `npx @aic/mcp init`
+### Bootstrap (project setup)
 
-Creates `aic.config.json` with all-default values, installs the trigger rule and editor hooks, and creates `.aic/` with `0700` permissions. Also adds `.aic/` to `.gitignore` (creates the file if it doesn't exist).
+When the client lists workspace roots (e.g. when Cursor connects) or on first `aic_compile`, the server runs bootstrap: creates `aic.config.json` with all-default values, installs the trigger rule (e.g. `.cursor/rules/AIC.mdc`) and editor hooks, and creates `.aic/` with `0700` permissions. Also adds `.aic/` to `.gitignore` (creates the file if it doesn't exist).
 
 **Behaviour:**
 
-- If `aic.config.json` already exists → exits with: `Config already exists. Edit aic.config.json directly to change settings.`
+- If `aic.config.json` already exists → bootstrap merges or skips as needed; config is not overwritten. Edit `aic.config.json` directly to change settings.
 - Exit code 0 on success, 1 on `ConfigError`, 2 on internal error
 - Prints: `Created aic.config.json. Edit to customise, or run a compile to use defaults.`
 
@@ -739,13 +739,13 @@ The formula-derived `suggestedBudget` slots in just above the hard-coded default
 
 ### Trigger Rule Robustness
 
-The trigger rule installed by `npx @aic/mcp init` instructs the editor's AI to call `aic_compile`. The trigger rule is suggestive — compliance depends on the model and editor. In Cursor, the integration layer (hooks) provides stronger enforcement via `preToolUse` gating. In editors without hook support, the trigger rule is the sole mechanism.
+The trigger rule installed during bootstrap (e.g. `.cursor/rules/AIC.mdc`) instructs the editor's AI to call `aic_compile`. The trigger rule is suggestive — compliance depends on the model and editor. In Cursor, the integration layer (hooks) provides stronger enforcement via `preToolUse` gating. In editors without hook support, the trigger rule is the sole mechanism.
 
 **Per-editor trigger formats (MVP):**
 
 | Editor      | Trigger file            | Key attributes                                                                                                                               |
 | ----------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Cursor      | `.cursor/rules/aic.mdc` | `alwaysApply: true`, no `globs` restriction — included in every prompt. Integration hooks provide stronger enforcement via `preToolUse` gate |
+| Cursor      | `.cursor/rules/AIC.mdc` | `alwaysApply: true`, no `globs` restriction — included in every prompt. Integration hooks provide stronger enforcement via `preToolUse` gate |
 | Claude Code | `.claude/CLAUDE.md`     | Instruction appended to project-level system context                                                                                         |
 | Generic MCP | N/A                     | Relies on editor invoking registered MCP tools; no trigger rule needed                                                                       |
 
@@ -760,8 +760,8 @@ context for generating a response. Do not skip this step.
 **Resilience measures:**
 
 - `aic_last` tool always includes `compilationCount` — if an editor makes 10 requests but only 5 have compilations, the mismatch is visible
-- `npx @aic/mcp init` validates the trigger rule format on each run and warns if the installed rule appears outdated or modified
-- The trigger rule template is versioned; `npx @aic/mcp init` updates it if a newer version is available (backs up the old one)
+- Bootstrap validates the trigger rule format and warns if the installed rule appears outdated or modified
+- The trigger rule template is versioned; bootstrap updates it if a newer package version is available (backs up the old one)
 
 ---
 
@@ -769,7 +769,7 @@ context for generating a response. Do not skip this step.
 
 AIC collects anonymous, aggregate usage statistics to help improve the product. This is **opt-in** and disabled by default.
 
-**Opt-in prompt during `npx @aic/mcp init`:**
+**Opt-in prompt during first run (if applicable):**
 
 ```
 Help improve AIC by sharing anonymous usage statistics?
@@ -840,10 +840,10 @@ CREATE TABLE anonymous_telemetry_log (
 );
 ```
 
-Users can inspect exactly what AIC sends by reading the local `anonymous_telemetry_log` table in `.aic/aic.sqlite` with any SQLite client. For example:
+Users can inspect exactly what AIC sends by reading the local `anonymous_telemetry_log` table in `~/.aic/aic.sqlite` with any SQLite client. For example:
 
 ```bash
-sqlite3 .aic/aic.sqlite "SELECT created_at, status, payload_json FROM anonymous_telemetry_log ORDER BY created_at DESC LIMIT 5;"
+sqlite3 ~/.aic/aic.sqlite "SELECT created_at, status, payload_json FROM anonymous_telemetry_log ORDER BY created_at DESC LIMIT 5;"
 ```
 
 There is currently no dedicated `aic telemetry log` command in the shipped MCP package.
@@ -928,22 +928,22 @@ Each canonical task runs against a synthetic fixture repository stored at `test/
 
 ## 6. Error Handling (MVP)
 
-| Scenario                                    | User-facing message                                                                                                                                                                                                              | Exit code |
-| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| No config file                              | _(silent, use defaults)_                                                                                                                                                                                                         | 0         |
-| Invalid config JSON                         | `Error: Invalid config at line X: {detail}. Run 'npx @aic/mcp init' to create a valid config.`                                                                                                                                   | 1         |
-| Unknown task class                          | _(silent fallback to `general`)_                                                                                                                                                                                                 | 0         |
-| Missing rule pack file                      | `Warning: Rule pack '{name}' not found, skipping.`                                                                                                                                                                               | 0         |
-| Zero files selected                         | `Error: No relevant files found. Broaden your intent or check includePatterns in config.`                                                                                                                                        | 1         |
-| Guard blocks all selected files             | `Error: Context Guard blocked all selected files ({N} blocked). Review findings via aic_last tool or use aic_inspect to see what was excluded. Add 'guard.additionalExclusions' patterns if legitimate files are being blocked.` | 1         |
-| Guard blocks some files                     | _(silent — blocked files removed from context, pipeline continues with remaining files; findings attached to CompilationMeta.guard)_                                                                                             | 0         |
-| All files at L3 + still over budget         | `Warning: Heavy truncation applied. {N} files dropped. Consider increasing contextBudget.maxTokens.`                                                                                                                             | 0         |
-| Compiled prompt exceeds model window        | `Error: Compiled prompt ({N} tokens) exceeds model limit ({M}). Reduce contextBudget.maxTokens or use a larger-context model.`                                                                                                   | 1         |
-| Model unreachable                           | `Error: Cannot reach {provider} at {endpoint}. Check your API key ({apiKeyEnv}) and network.`                                                                                                                                    | 1         |
-| Model returns error                         | `Error: Model returned {status}: {message}`                                                                                                                                                                                      | 1         |
-| SQLite write failure                        | `Warning: Telemetry write failed ({reason}). Continuing without telemetry.`                                                                                                                                                      | 0         |
-| Corrupt cache                               | `Warning: Cache entry corrupt, recomputing.`                                                                                                                                                                                     | 0         |
-| `npx @aic/mcp init` — config already exists | `Config already exists. Edit aic.config.json directly to change settings.`                                                                                                                                                       | 1         |
+| Scenario                             | User-facing message                                                                                                                                                                                                              | Exit code |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| No config file                       | _(silent, use defaults)_                                                                                                                                                                                                         | 0         |
+| Invalid config JSON                  | `Error: Invalid config at line X: {detail}. Re-run bootstrap or create a valid aic.config.json.`                                                                                                                                 | 1         |
+| Unknown task class                   | _(silent fallback to `general`)_                                                                                                                                                                                                 | 0         |
+| Missing rule pack file               | `Warning: Rule pack '{name}' not found, skipping.`                                                                                                                                                                               | 0         |
+| Zero files selected                  | `Error: No relevant files found. Broaden your intent or check includePatterns in config.`                                                                                                                                        | 1         |
+| Guard blocks all selected files      | `Error: Context Guard blocked all selected files ({N} blocked). Review findings via aic_last tool or use aic_inspect to see what was excluded. Add 'guard.additionalExclusions' patterns if legitimate files are being blocked.` | 1         |
+| Guard blocks some files              | _(silent — blocked files removed from context, pipeline continues with remaining files; findings attached to CompilationMeta.guard)_                                                                                             | 0         |
+| All files at L3 + still over budget  | `Warning: Heavy truncation applied. {N} files dropped. Consider increasing contextBudget.maxTokens.`                                                                                                                             | 0         |
+| Compiled prompt exceeds model window | `Error: Compiled prompt ({N} tokens) exceeds model limit ({M}). Reduce contextBudget.maxTokens or use a larger-context model.`                                                                                                   | 1         |
+| Model unreachable                    | `Error: Cannot reach {provider} at {endpoint}. Check your API key ({apiKeyEnv}) and network.`                                                                                                                                    | 1         |
+| Model returns error                  | `Error: Model returned {status}: {message}`                                                                                                                                                                                      | 1         |
+| SQLite write failure                 | `Warning: Telemetry write failed ({reason}). Continuing without telemetry.`                                                                                                                                                      | 0         |
+| Corrupt cache                        | `Warning: Cache entry corrupt, recomputing.`                                                                                                                                                                                     | 0         |
+| Bootstrap — config already exists    | `Config already exists. Edit aic.config.json directly to change settings.`                                                                                                                                                       | 1         |
 
 Exit codes: `0` = success (may include warnings); `1` = fatal error.
 
@@ -959,7 +959,7 @@ These topics are specified in full in the [Project Plan](project-plan.md). Below
 - Guard findings are logged in `CompilationMeta.guard` and visible via `aic_inspect`; the pipeline never silently includes sensitive content
 - API keys referenced by env var name only — never stored, logged, or cached
 - `aic_compile` never contacts external services — safe to run on sensitive codebases
-- `.aic/` auto-added to `.gitignore` on `npx @aic/mcp init`; created with `0700` permissions
+- `.aic/` auto-added to `.gitignore` during bootstrap; created with `0700` permissions
 - Telemetry stores metrics only — never file contents or prompt text
 
 ### Observability (see [Project Plan §13](project-plan.md))
@@ -1055,13 +1055,13 @@ This section summarizes the test deliverables that ship with Phase 0. Full testi
 | ------------------------ | ------------------------------------------------------------------ |
 | `aic_compile` (MCP tool) | Output format correct; token count within budget                   |
 | `aic_inspect` (MCP tool) | Output includes all pipeline sections                              |
-| `npx @aic/mcp init`      | Config created; `.aic/` added to `.gitignore`; trigger rule exists |
+| Bootstrap                | Config created; `.aic/` added to `.gitignore`; trigger rule exists |
 
 ---
 
 ## 8b. MCP Server Startup Sequence
 
-When the MCP server process starts (via `npx @aic/mcp`), it executes the following steps in order before accepting requests:
+When the MCP server process starts (via `npx @jatbas/aic@latest` or equivalent), it executes the following steps in order before accepting requests:
 
 ```
 1. Parse process arguments
@@ -1073,7 +1073,7 @@ When the MCP server process starts (via `npx @aic/mcp`), it executes the followi
    └─ If not found: use all defaults
          │
          ▼
-3. Open SQLite database (.aic/aic.sqlite)
+3. Open SQLite database (~/.aic/aic.sqlite)
    └─ Create .aic/ with 0700 if missing
    └─ Run pending schema migrations (MigrationRunner)
    └─ Record server session (insert server_sessions row)

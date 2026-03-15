@@ -70,7 +70,7 @@ The four prompt commands ("show aic status", "show aic last", "show aic chat sum
 
 ### First-Compile Bootstrap
 
-On the first `aic_compile` call for a new project, `ensureProjectInit` runs:
+On the first `aic_compile` call for a new project (or when the server first sees the project via workspace roots), `ensureProjectInit` runs:
 
 1. Creates `.aic/` directory with `0700` permissions
 2. Generates a stable UUIDv7 project ID in `.aic/project-id`
@@ -79,7 +79,7 @@ On the first `aic_compile` call for a new project, `ensureProjectInit` runs:
 5. Installs the trigger rule (editor-specific — e.g., `.cursor/rules/AIC.mdc` for Cursor, `.claude/CLAUDE.md` for Claude Code)
 6. Installs per-project artifacts (editor-specific — see the [Cursor](#cursor) and [Claude Code](#claude-code) sections)
 
-Steps 5 and 6 are idempotent. If the trigger rule or artifacts already exist, they are merged (new entries added, existing entries preserved).
+Step 6 runs when the server lists workspace roots (e.g. when Cursor connects). For Cursor, roots are typically listed before the first message, so hooks are in place by then. Steps 5 and 6 are idempotent. Per-project artifacts (e.g. hooks) are merged when they already exist (new entries added, existing preserved). The trigger rule is updated only if the installed version differs from the current package version.
 
 After bootstrap, the server compiles context normally. Subsequent calls skip bootstrap entirely (guarded by a per-project once-flag in the compile handler).
 
@@ -180,7 +180,7 @@ The deeplink writes the entry above into `~/.cursor/mcp.json`. This is the **onl
 5. Bootstrap creates `aic.config.json`, `.aic/`, trigger rule, hooks — all inside the project directory
 6. From this point on, every AI message in this project gets compiled context
 
-No per-project install step is needed. The global server auto-bootstraps each new project.
+No per-project install step is needed. The global server auto-bootstraps each new project. To verify: send a message in the project; the first compile will run and subsequent messages will receive compiled context (or use the `aic_status` tool if your editor exposes MCP tools).
 
 ### Trigger Rule
 
@@ -188,7 +188,7 @@ On bootstrap, AIC creates `.cursor/rules/AIC.mdc` with `alwaysApply: true`. This
 
 The trigger rule is suggestive — compliance depends on the model. Hooks provide stronger enforcement (see below).
 
-If `.cursor/rules/AIC.mdc` already exists, AIC does not overwrite it.
+If `.cursor/rules/AIC.mdc` already exists, AIC does not overwrite it unless the installed rule version differs from the current package version (in which case the file is updated).
 
 ### Hooks
 
@@ -250,7 +250,7 @@ The installer creates `.claude/` in the project root, writes `.claude/settings.l
 
 ### Prerequisite
 
-The AIC MCP server must be runnable as `npx @jatbas/aic-mcp` (or `npx @jatbas/aic-mcp@latest`; also exposed as `@jatbas/aic`). Ensure the package is available before relying on hooks or the compile flow. The plugin path uses this under the hood; the direct installer path assumes you are in the AIC repo or have the server on your path.
+The AIC MCP server must be runnable as `npx @jatbas/aic@latest` (Node 20+). Ensure the package is available before relying on hooks or the compile flow. The plugin path uses this under the hood; the direct installer path assumes you are in the AIC repo or have the server on your path.
 
 ### Trigger Rule
 
@@ -325,4 +325,4 @@ No `aic.config.json` changes are needed. The `"enabled"` flag would disable both
 
 ## Uninstall
 
-Uninstall instructions are not yet documented. To stop using AIC in a project, remove the `aic` entry from your editor's global MCP config (e.g. `~/.cursor/mcp.json` for Cursor) and optionally delete the project's `.aic/` directory.
+To stop using AIC in a project, remove the `aic` entry from your editor's global MCP config (e.g. `~/.cursor/mcp.json` for Cursor) and optionally delete the project's `.aic/` directory.

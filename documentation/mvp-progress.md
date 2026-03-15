@@ -472,9 +472,10 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2026-03-16
 
-**Components:** Task 177 Installation and integration docs symmetry
+**Components:** Task 177 Installation and integration docs symmetry, Task 178 Audit and fix installation.md
 **Completed:**
 
+- Task 178 (Audit and fix installation.md): installation.md — First-Compile Bootstrap (step 6 runs when server lists roots; merge vs trigger-rule version wording), Trigger Rule (overwrite when installed rule version differs), Prerequisite (@jatbas/aic@latest, Node 20+), Uninstall (removed "not yet documented"), verify sentence (send message / aic_status). cursor-integration-layer.md — installer wording (server runs when client lists roots; §13 zero-install path). project-plan.md — package @jatbas/aic, global ~/.aic/aic.sqlite, AIC.mdc, Claude Code integration implemented, bootstrap not npx init. implementation-spec.md — same canonical values; Bootstrap section; global DB. Verification: writing-quality, factual-accuracy, cross-doc, reader-sim subagents; one writing fix (merge/trigger distinction).
 - Task 177 (Installation and integration docs symmetry): installation.md — replaced Key terms paragraph with Glossary section (table: MCP, Hooks, Bootstrap, Trigger rule), added ToC entry for Glossary. claude-code-integration-layer.md — inserted §12 (Plugin distribution — available) between §11 and §13; in §13 replaced "Phase U (U05)" with path reference `integrations/claude/plugin/`; appended §17 (Verification checklist) with Context delivery, Quality gate, Settings, Plugin and direct-install, Temp file and marker conventions. Writing-quality fix: Glossary "your editor" → "the editor". Factual fix: §17 temp file name to `aic-cc-edited-<session_id>.json`; "plugin provides" → "the plugin provides". Mirror doc section numbering 1–15, 17 aligned with Cursor. Lint, typecheck pass.
 
 ### 2025-03-15

@@ -21,7 +21,7 @@ not a preference — it is a structural invariant.
 What this means concretely:
 
 - **No Cursor detection or installer in `mcp/src/`.** The installer (`integrations/cursor/install.cjs`)
-  is a standalone script invokable via `npx @aic/mcp init` — never wired into the MCP server startup.
+  is a standalone script. The MCP server does not run it at process startup; it runs the installer when the client lists workspace roots (e.g. when Cursor connects), so hooks are bootstrapped per project without user action.
 
 - **The `aic_compile` MCP tool is neutral.** It accepts `intent`, `projectRoot`, and
   `conversationId`. It does not know who called it. The hook adapter in `integrations/cursor/hooks/`
@@ -649,14 +649,14 @@ This is a future item, not a current blocker.
 
 ---
 
-## 13. Zero-install path — bootstrap at MCP startup
+## 13. Zero-install path — bootstrap when client lists roots
 
-The zero-install path piggybacks on the `npx @aic/mcp init` command:
+The zero-install path uses the global MCP server (registered via deeplink or `~/.cursor/mcp.json`). When the client lists workspace roots (e.g. when Cursor connects), the server runs the Cursor installer so hooks are bootstrapped per project with no manual init command:
 
 ```
-npx @aic/mcp init   (or first aic_compile call)
+Client lists roots (or first aic_compile call)
   ↓
-integrations/cursor/install.cjs   ← standalone, no mcp/ dependency
+runEditorBootstrapIfNeeded → integrations/cursor/install.cjs   ← standalone, no mcp/ dependency
   ↓
 .cursor/hooks/ + hooks.json written per project
 ```
