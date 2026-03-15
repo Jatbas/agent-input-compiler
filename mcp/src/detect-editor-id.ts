@@ -15,6 +15,7 @@ const EDITOR_PATTERNS: readonly { readonly substring: string; readonly id: Edito
 export interface EditorEnvHints {
   readonly cursorAgent?: boolean;
   readonly claudeCodeProjectDir?: boolean;
+  readonly cursorProjectDir?: boolean;
 }
 
 export function detectEditorId(
@@ -24,6 +25,12 @@ export function detectEditorId(
   // Env-first: Cursor, then Claude Code, then client name (Cursor+Opus must not be misclassified)
   if (envHints?.cursorAgent === true) return EDITOR_ID.CURSOR;
   if (envHints?.claudeCodeProjectDir === true) return EDITOR_ID.CLAUDE_CODE;
+  if (
+    envHints?.cursorProjectDir === true &&
+    clientName !== undefined &&
+    clientName.toLowerCase().includes("claude-code")
+  )
+    return EDITOR_ID.CURSOR;
   if (clientName !== undefined) {
     const lower = clientName.toLowerCase();
     const match = EDITOR_PATTERNS.find((p) => lower.includes(p.substring));

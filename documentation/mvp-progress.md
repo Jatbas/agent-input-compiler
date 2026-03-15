@@ -352,34 +352,34 @@ CLI package removed in Phase M 0.5. Init logic migrated to `mcp/src/init-project
 
 Prerequisite for everything else. Quick fixes to make the tool fully functional.
 
-| Component                       | Status | Package                                                     | Description                                                     |
-| ------------------------------- | ------ | ----------------------------------------------------------- | --------------------------------------------------------------- |
-| FileSystemRepoMapSupplier       | Done   | shared/src/adapters/                                        | Scans project files; glob + ignore; bytes/4 or real token count |
-| createFullPipelineDeps          | Done   | shared/src/bootstrap                                        | Single composition point for pipeline deps                      |
-| Wire real RepoMap in MCP        | Done   | mcp/                                                        | MCP uses real filesystem repo map                               |
-| Wire real InspectRunner (MCP)   | Done   | mcp/src/                                                    | MCP uses real pipeline for inspect                              |
-| Telemetry write on compile      | Done   | shared/src/core/ + mcp                                      | Persist compilation telemetry on every compile                  |
-| Guard findings write on scan    | Done   | shared/src/storage/                                         | Persist guard findings per compilation                          |
-| Config loading from aic.config  | Done   | shared/src/config/ + mcp                                    | aic.config.json: budget, selector, model overrides              |
-| Real token counting in repo map | Done   | shared/src/adapters/                                        | Accurate token count during scan (cl100k_base)                  |
-| WhitespaceNormalizer exclusions | Done   | shared/src/pipeline/                                        | Skip normalisation for .md, .py, .yml (preserve structure)      |
-| 002-server-sessions migration   | Done   | shared/src/storage/migrations/                              | server_sessions table for startup/stop                          |
-| SessionTracker interface        | Done   | shared/src/core/interfaces/                                 | startSession, stopSession, backfillCrashedSessions              |
-| SqliteSessionStore              | Done   | shared/src/storage/                                         | Persists server session rows                                    |
-| sessionStart compile hook       | Done   | .cursor/hooks/                                              | Compile on session start for initial context                    |
-| preToolUse gate hook            | Done   | .cursor/hooks/                                              | Injects conversationId/editorId into aic_compile args           |
-| beforeSubmitPrompt logging hook | Done   | .cursor/hooks/                                              | Logging hook                                                    |
-| afterFileEdit tracking hook     | Done   | .cursor/hooks/ (Task 111)                                   | Track file edits                                                |
-| stop quality check hook         | Done   | .cursor/hooks/ (Task 111)                                   | Quality check on stop                                           |
-| Startup self-check (integrity)  | Done   | mcp/src/                                                    | Validates trigger rule, hooks, DB on startup                    |
-| Auto-install trigger rule       | Done   | mcp/src/                                                    | Creates .cursor/rules/aic.mdc when missing                      |
-| Install Cursor hooks            | Done   | mcp/src/                                                    | Copies AIC hooks to .cursor/hooks/ on startup                   |
-| Server lifecycle hooks          | Done   | mcp/src/                                                    | SIGINT/SIGTERM → stopSession, purgeExpired, exit                |
-| Telemetry conversation tracking | Done   | shared + mcp (Phase M: schema, summary, `aic_chat_summary`) | conversation_id in log; per-conversation summary                |
-| Telemetry triggerSource field   | Done   | shared/src/core/types/ + storage                            | How compilation was triggered (tool, hook, CLI)                 |
-| Claude Code integration layer   | Done   | .claude/hooks/                                              | Basic Claude Code hooks                                         |
-| Subagent context injection (CC) | Done   | .claude/hooks/                                              | Inject context when Claude Code subagent starts                 |
-| Compilation perf: lazy scan     | Done   | shared/src/adapters/ + mcp + cli                            | Defer file content read until needed; bytes/4 in scan           |
+| Component                       | Status | Package                                                     | Description                                                                                  |
+| ------------------------------- | ------ | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| FileSystemRepoMapSupplier       | Done   | shared/src/adapters/                                        | Scans project files; glob + ignore; bytes/4 or real token count                              |
+| createFullPipelineDeps          | Done   | shared/src/bootstrap                                        | Single composition point for pipeline deps                                                   |
+| Wire real RepoMap in MCP        | Done   | mcp/                                                        | MCP uses real filesystem repo map                                                            |
+| Wire real InspectRunner (MCP)   | Done   | mcp/src/                                                    | MCP uses real pipeline for inspect                                                           |
+| Telemetry write on compile      | Done   | shared/src/core/ + mcp                                      | Persist compilation telemetry on every compile                                               |
+| Guard findings write on scan    | Done   | shared/src/storage/                                         | Persist guard findings per compilation                                                       |
+| Config loading from aic.config  | Done   | shared/src/config/ + mcp                                    | aic.config.json: budget, selector, model overrides                                           |
+| Real token counting in repo map | Done   | shared/src/adapters/                                        | Accurate token count during scan (cl100k_base)                                               |
+| WhitespaceNormalizer exclusions | Done   | shared/src/pipeline/                                        | Skip normalisation for .md, .py, .yml (preserve structure)                                   |
+| 002-server-sessions migration   | Done   | shared/src/storage/migrations/                              | server_sessions table for startup/stop                                                       |
+| SessionTracker interface        | Done   | shared/src/core/interfaces/                                 | startSession, stopSession, backfillCrashedSessions                                           |
+| SqliteSessionStore              | Done   | shared/src/storage/                                         | Persists server session rows                                                                 |
+| sessionStart compile hook       | Done   | .cursor/hooks/                                              | Compile on session start for initial context                                                 |
+| preToolUse gate hook            | Done   | .cursor/hooks/                                              | Injects conversationId into aic_compile and aic_chat_summary args; editor ID from MCP server |
+| beforeSubmitPrompt logging hook | Done   | .cursor/hooks/                                              | Logging hook                                                                                 |
+| afterFileEdit tracking hook     | Done   | .cursor/hooks/ (Task 111)                                   | Track file edits                                                                             |
+| stop quality check hook         | Done   | .cursor/hooks/ (Task 111)                                   | Quality check on stop                                                                        |
+| Startup self-check (integrity)  | Done   | mcp/src/                                                    | Validates trigger rule, hooks, DB on startup                                                 |
+| Auto-install trigger rule       | Done   | mcp/src/                                                    | Creates .cursor/rules/aic.mdc when missing                                                   |
+| Install Cursor hooks            | Done   | mcp/src/                                                    | Copies AIC hooks to .cursor/hooks/ on startup                                                |
+| Server lifecycle hooks          | Done   | mcp/src/                                                    | SIGINT/SIGTERM → stopSession, purgeExpired, exit                                             |
+| Telemetry conversation tracking | Done   | shared + mcp (Phase M: schema, summary, `aic_chat_summary`) | conversation_id in log; per-conversation summary                                             |
+| Telemetry triggerSource field   | Done   | shared/src/core/types/ + storage                            | How compilation was triggered (tool, hook, CLI)                                              |
+| Claude Code integration layer   | Done   | .claude/hooks/                                              | Basic Claude Code hooks                                                                      |
+| Subagent context injection (CC) | Done   | .claude/hooks/                                              | Inject context when Claude Code subagent starts                                              |
+| Compilation perf: lazy scan     | Done   | shared/src/adapters/ + mcp + cli                            | Defer file content read until needed; bytes/4 in scan                                        |
 
 ### Phase J — Intent & Selection Quality
 
@@ -472,9 +472,10 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2026-03-16
 
-**Components:** Task 177 Installation and integration docs symmetry, Task 178 Audit and fix installation.md
+**Components:** Task 177 Installation and integration docs symmetry, Task 178 Audit and fix installation.md, Task 179 compilation_log editor_id and conversation_id + doc alignment
 **Completed:**
 
+- Task 179 (compilation_log editor_id and conversation_id + doc alignment): EditorEnvHints + cursorProjectDir; getEditorEnvHints sets it from CURSOR_PROJECT_DIR. detectEditorId Cursor+Opus rescue: when cursorProjectDir true and client name includes "claude-code" return CURSOR. Tests: cursorProjectDir_true_claude_code_returns_cursor, cursorProjectDir_false_claude_code_returns_claude_code. installation.md hook table: AIC-inject-conversation-id.cjs row — conversationId only, editor from MCP server. mvp-progress.md preToolUse row: conversationId only, editor ID from MCP server. Lint, typecheck, test, knip, lint:clones 0.
 - Task 178 (Audit and fix installation.md): installation.md — First-Compile Bootstrap (step 6 runs when server lists roots; merge vs trigger-rule version wording), Trigger Rule (overwrite when installed rule version differs), Prerequisite (@jatbas/aic@latest, Node 20+), Uninstall (removed "not yet documented"), verify sentence (send message / aic_status). cursor-integration-layer.md — installer wording (server runs when client lists roots; §13 zero-install path). project-plan.md — package @jatbas/aic, global ~/.aic/aic.sqlite, AIC.mdc, Claude Code integration implemented, bootstrap not npx init. implementation-spec.md — same canonical values; Bootstrap section; global DB. Verification: writing-quality, factual-accuracy, cross-doc, reader-sim subagents; one writing fix (merge/trigger distinction).
 - Task 177 (Installation and integration docs symmetry): installation.md — replaced Key terms paragraph with Glossary section (table: MCP, Hooks, Bootstrap, Trigger rule), added ToC entry for Glossary. claude-code-integration-layer.md — inserted §12 (Plugin distribution — available) between §11 and §13; in §13 replaced "Phase U (U05)" with path reference `integrations/claude/plugin/`; appended §17 (Verification checklist) with Context delivery, Quality gate, Settings, Plugin and direct-install, Temp file and marker conventions. Writing-quality fix: Glossary "your editor" → "the editor". Factual fix: §17 temp file name to `aic-cc-edited-<session_id>.json`; "plugin provides" → "the plugin provides". Mirror doc section numbering 1–15, 17 aligned with Cursor. Lint, typecheck pass.
 

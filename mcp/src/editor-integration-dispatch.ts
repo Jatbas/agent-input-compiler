@@ -54,9 +54,13 @@ export function getEditorEnvHints(): EditorEnvHints {
   const claudeCodeProjectDir =
     process.env["CLAUDE_PROJECT_DIR"] !== undefined &&
     process.env["CLAUDE_PROJECT_DIR"] !== "";
+  const cursorProjectDir =
+    process.env["CURSOR_PROJECT_DIR"] !== undefined &&
+    process.env["CURSOR_PROJECT_DIR"] !== "";
   return {
     cursorAgent: process.env["CURSOR_AGENT"] === "1",
     claudeCodeProjectDir,
+    cursorProjectDir,
   };
 }
 

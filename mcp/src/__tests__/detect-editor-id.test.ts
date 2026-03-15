@@ -100,4 +100,16 @@ describe("detectEditorId", () => {
       }),
     ).toBe(EDITOR_ID.CURSOR);
   });
+
+  it("cursorProjectDir_true_claude_code_returns_cursor", () => {
+    expect(detectEditorId("claude-code", { cursorProjectDir: true })).toBe(
+      EDITOR_ID.CURSOR,
+    );
+  });
+
+  it("cursorProjectDir_false_claude_code_returns_claude_code", () => {
+    expect(detectEditorId("claude-code", { cursorProjectDir: false })).toBe(
+      EDITOR_ID.CLAUDE_CODE,
+    );
+  });
 });

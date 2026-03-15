@@ -194,18 +194,18 @@ If `.cursor/rules/AIC.mdc` already exists, AIC does not overwrite it unless the 
 
 AIC installs 10 Cursor hooks that provide lifecycle integration beyond what the trigger rule can achieve:
 
-| Hook                              | Cursor Event           | Purpose                                                              |
-| --------------------------------- | ---------------------- | -------------------------------------------------------------------- |
-| `AIC-session-init.cjs`            | `sessionStart`         | Injects architectural invariants as `additional_context`             |
-| `AIC-compile-context.cjs`         | `sessionStart`         | Pre-compiles context so it's ready for the first message             |
-| `AIC-before-submit-prewarm.cjs`   | `beforeSubmitPrompt`   | Prewarms the compile cache before the AI responds                    |
-| `AIC-require-aic-compile.cjs`     | `preToolUse`           | Blocks all tools until `aic_compile` has been called (enforcement)   |
-| `AIC-inject-conversation-id.cjs`  | `preToolUse`           | Injects `conversationId` and `editorId` into `aic_compile` args      |
-| `AIC-post-compile-context.cjs`    | `postToolUse`          | Injects confirmation `additional_context` after successful compile   |
-| `AIC-after-file-edit-tracker.cjs` | `afterFileEdit`        | Tracks edited files for quality checks                               |
-| `AIC-session-end.cjs`             | `sessionEnd`           | Cleanup and session metrics                                          |
-| `AIC-stop-quality-check.cjs`      | `stop`                 | Runs lint/typecheck on edited files; auto-fix via `followup_message` |
-| `AIC-block-no-verify.cjs`         | `beforeShellExecution` | Blocks `--no-verify` flag in git commands                            |
+| Hook                              | Cursor Event           | Purpose                                                                                                                                         |
+| --------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AIC-session-init.cjs`            | `sessionStart`         | Injects architectural invariants as `additional_context`                                                                                        |
+| `AIC-compile-context.cjs`         | `sessionStart`         | Pre-compiles context so it's ready for the first message                                                                                        |
+| `AIC-before-submit-prewarm.cjs`   | `beforeSubmitPrompt`   | Prewarms the compile cache before the AI responds                                                                                               |
+| `AIC-require-aic-compile.cjs`     | `preToolUse`           | Blocks all tools until `aic_compile` has been called (enforcement)                                                                              |
+| `AIC-inject-conversation-id.cjs`  | `preToolUse`           | Injects `conversationId` into `aic_compile` and `aic_chat_summary` args. Editor ID is determined by the MCP server from client and environment. |
+| `AIC-post-compile-context.cjs`    | `postToolUse`          | Injects confirmation `additional_context` after successful compile                                                                              |
+| `AIC-after-file-edit-tracker.cjs` | `afterFileEdit`        | Tracks edited files for quality checks                                                                                                          |
+| `AIC-session-end.cjs`             | `sessionEnd`           | Cleanup and session metrics                                                                                                                     |
+| `AIC-stop-quality-check.cjs`      | `stop`                 | Runs lint/typecheck on edited files; auto-fix via `followup_message`                                                                            |
+| `AIC-block-no-verify.cjs`         | `beforeShellExecution` | Blocks `--no-verify` flag in git commands                                                                                                       |
 
 ### Hook Lifecycle
 
