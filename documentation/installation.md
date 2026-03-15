@@ -2,6 +2,8 @@
 
 How AIC gets installed, what artifacts it creates, and how its components interact across editors and environments.
 
+**Key terms:** **MCP** (Model Context Protocol) is how your editor talks to AIC — the editor runs an AIC server process and calls tools like `aic_compile`. **Hooks** are scripts the editor runs at specific events (e.g. session start, before a message is sent); AIC uses them to inject context and enforce that compilation runs. **Bootstrap** is the one-time setup that runs on first use in a project (creating `.aic/`, `aic.config.json`, and editor-specific trigger rule and hooks). **Trigger rule** is the file (e.g. `.cursor/rules/AIC.mdc` or `.claude/CLAUDE.md`) that tells the AI to call `aic_compile` as its first action on every message.
+
 ## Table of Contents
 
 - [AIC Server](#aic-server)
@@ -313,4 +315,4 @@ No `aic.config.json` changes are needed. The `"enabled"` flag would disable both
 
 ## Uninstall
 
-GAP — uninstall instructions will be added in a future task.
+Uninstall instructions are not yet documented. To stop using AIC in a project, remove the `aic` entry from your editor's global MCP config (e.g. `~/.cursor/mcp.json` for Cursor) and optionally delete the project's `.aic/` directory.

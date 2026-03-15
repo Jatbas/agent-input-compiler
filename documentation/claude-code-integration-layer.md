@@ -21,8 +21,10 @@ directories. This distinction is not a preference — it is a structural invaria
 What this means concretely:
 
 - **No Claude Code detection or installer in `mcp/src/`.** The installer
-  (`integrations/claude/install.cjs`) is a standalone script invokable via `npx @aic/mcp init`
-  — never wired into the MCP server startup.
+  (`integrations/claude/install.cjs`) is a standalone script. It is run either manually
+  (`node integrations/claude/install.cjs`) or during first-compile bootstrap when the MCP
+  server detects Claude Code — the server delegates to the script; it does not embed
+  installer logic.
 
 - **The `aic_compile` MCP tool is neutral.** It accepts `intent`, `projectRoot`, and
   `conversationId`. It does not know who called it. The hook adapter in
@@ -646,11 +648,11 @@ timeout provides headroom.
 
 ---
 
-## 13. Zero-install path
+## 13. Direct installer path (zero-install)
 
-The zero-install path provides a one-command install experience. The installer is
-`integrations/claude/install.cjs` — a standalone script in the integration layer that has no
-dependency on `mcp/src/`.
+The direct installer path (also called zero-install in this doc) provides a one-command install
+experience. The installer is `integrations/claude/install.cjs` — a standalone script in the
+integration layer that has no dependency on `mcp/src/`.
 
 ```
 node integrations/claude/install.cjs
@@ -669,9 +671,10 @@ The installer:
    (upgrade-safe cleanup)
 4. Writes `.claude/CLAUDE.md` as a fallback trigger rule (for `disableAllHooks` users)
 
-The `npx @aic/mcp init` CLI calls this installer when it detects a Claude Code context
-(presence of `.claude/` directory or `$CLAUDE_PROJECT_DIR` env var set). The CLI delegates
-to the integration layer — it does not embed Claude Code logic itself.
+The MCP server runs this installer during first-compile bootstrap when it detects a Claude
+Code context (e.g. `.claude/` directory or `$CLAUDE_PROJECT_DIR`). The server delegates to
+the integration layer — it does not embed Claude Code logic itself. See
+`documentation/installation.md` for the user-facing description of this path.
 
 The committed `.claude/settings.json` (with `$CLAUDE_PROJECT_DIR`-based paths) covers the
 manual install case and team-shared repos without running the installer.
