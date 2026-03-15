@@ -648,6 +648,15 @@ timeout provides headroom.
 
 ---
 
+## 12. Plugin distribution — available
+
+Claude Code exposes a plugin system. AIC is packaged as a native Claude Code Plugin
+(`integrations/claude/plugin/`) installable via the Plugin Marketplace. This provides
+zero-friction install for end users. See §13 for the direct installer path when developing
+from source.
+
+---
+
 ## 13. Direct installer path (zero-install)
 
 The direct installer path (also called zero-install in this doc) provides a one-command install
@@ -680,8 +689,8 @@ The committed `.claude/settings.json` (with `$CLAUDE_PROJECT_DIR`-based paths) c
 manual install case and team-shared repos without running the installer.
 
 For end-user distribution, AIC is also packaged as a native Claude Code Plugin
-(`integrations/claude/plugin/`) installable via the Plugin Marketplace. See MVP Progress
-Phase U (U05) for the plugin structure.
+(`integrations/claude/plugin/`) installable via the Plugin Marketplace. See
+`integrations/claude/plugin/` for the plugin structure.
 
 ---
 
@@ -703,3 +712,34 @@ and it costs nothing when hooks are running.
 | `SessionStart` hook output silently discarded for new sessions in CLI                          | [#10373](https://github.com/anthropics/claude-code/issues/10373) | **Open** since Oct 2025                                        | Dual-path injection via `UserPromptSubmit` fallback (§7.2)                                               |
 | Plain text stdout caused "UserPromptSubmit hook error" in v2.0.69 (regression)                 | [#13912](https://github.com/anthropics/claude-code/issues/13912) | Closed as duplicate of #12151 — **resolved in later versions** | No workaround needed; plain text now works                                                               |
 | Plugin hook `hookSpecificOutput` drops concurrent user hook flat `additionalContext`           | [#31658](https://github.com/anthropics/claude-code/issues/31658) | **Open** Mar 2026                                              | Use consistent `hookSpecificOutput` format for events that require it; plain text for `UserPromptSubmit` |
+
+---
+
+## 17. Verification checklist
+
+All of the following must be verified for the Claude Code integration to be complete:
+
+Context delivery:
+
+- [ ] `aic-prompt-compile.cjs` runs on UserPromptSubmit and passes `intent` and `conversationId` to `aic_compile` (§7.1)
+- [ ] `aic-session-start.cjs` injects architectural invariants and project context via `hookSpecificOutput` (§7.2)
+- [ ] `aic-subagent-inject.cjs` injects context into subagents (§7.3)
+
+Quality gate (Claude Code–specific):
+
+- [ ] `aic-after-file-edit-tracker.cjs` records edited files to temp file (§7.5)
+- [ ] `aic-stop-quality-check.cjs` runs lint/typecheck, uses `decision: "block"` when needed (§7.6)
+- [ ] `aic-block-no-verify.cjs` blocks `--no-verify` via PreToolUse (Bash) (§7.4)
+
+Settings:
+
+- [ ] `settings.json` (or plugin `hooks.json`) has all 8 hook registrations with correct matchers and options (§10)
+
+Plugin and direct-install:
+
+- [ ] Plugin path: the plugin provides hooks and MCP registration; direct installer path: `install.cjs` writes `.claude/settings.local.json` and trigger rule (§12, §13)
+
+Temp file and marker conventions:
+
+- [ ] Temp file `aic-cc-edited-<session_id>.json` (in temp directory): written by PostToolUse (Edit|Write), read by Stop, cleaned by SessionEnd
+- [ ] `.aic/.session-context-injected`: written by SessionStart (dual-path workaround), read by UserPromptSubmit, deleted by SessionEnd (§7.2)

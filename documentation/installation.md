@@ -2,10 +2,9 @@
 
 How AIC gets installed, what artifacts it creates, and how its components interact across editors and environments.
 
-**Key terms:** **MCP** (Model Context Protocol) is how your editor talks to AIC — the editor runs an AIC server process and calls tools like `aic_compile`. **Hooks** are scripts the editor runs at specific events (e.g. session start, before a message is sent); AIC uses them to inject context and enforce that compilation runs. **Bootstrap** is the one-time setup that runs on first use in a project (creating `.aic/`, `aic.config.json`, and editor-specific trigger rule and hooks). **Trigger rule** is the file (e.g. `.cursor/rules/AIC.mdc` or `.claude/CLAUDE.md`) that tells the AI to call `aic_compile` as its first action on every message.
-
 ## Table of Contents
 
+- [Glossary](#glossary)
 - [AIC Server](#aic-server)
   - [What Gets Published](#what-gets-published)
   - [First-Compile Bootstrap](#first-compile-bootstrap)
@@ -33,6 +32,17 @@ How AIC gets installed, what artifacts it creates, and how its components intera
 - [Other Editors](#other-editors)
 - [AIC Development Environment](#aic-development-environment)
 - [Uninstall](#uninstall)
+
+---
+
+## Glossary
+
+| Term             | Definition                                                                                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **MCP**          | Model Context Protocol — how the editor talks to AIC. The editor runs an AIC server process and calls tools such as `aic_compile`.                            |
+| **Hooks**        | Scripts the editor runs at specific events (e.g. session start, before a message is sent). AIC uses them to inject context and enforce that compilation runs. |
+| **Bootstrap**    | One-time setup on first use in a project: creates `.aic/`, `aic.config.json`, and editor-specific trigger rule and hooks.                                     |
+| **Trigger rule** | The file (e.g. `.cursor/rules/AIC.mdc` or `.claude/CLAUDE.md`) that instructs the AI to call `aic_compile` as its first action on every message.              |
 
 ---
 

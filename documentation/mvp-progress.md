@@ -470,6 +470,13 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ## Daily Log
 
+### 2026-03-16
+
+**Components:** Task 177 Installation and integration docs symmetry
+**Completed:**
+
+- Task 177 (Installation and integration docs symmetry): installation.md — replaced Key terms paragraph with Glossary section (table: MCP, Hooks, Bootstrap, Trigger rule), added ToC entry for Glossary. claude-code-integration-layer.md — inserted §12 (Plugin distribution — available) between §11 and §13; in §13 replaced "Phase U (U05)" with path reference `integrations/claude/plugin/`; appended §17 (Verification checklist) with Context delivery, Quality gate, Settings, Plugin and direct-install, Temp file and marker conventions. Writing-quality fix: Glossary "your editor" → "the editor". Factual fix: §17 temp file name to `aic-cc-edited-<session_id>.json`; "plugin provides" → "the plugin provides". Mirror doc section numbering 1–15, 17 aligned with Cursor. Lint, typecheck pass.
+
 ### 2025-03-15
 
 **Components:** T11 Hook-based delivery integration tests (Task 168), U01 integrations/claude/install.cjs (Task 169), U02 Claude Code detection in bootstrap (Task 170), U03 Wire Claude Code dispatch in bootstrap (Task 170), U04 Startup self-check covers Claude Code artifacts (Task 171), U05 Claude Code Plugin Package (Task 172), Task 173 Strip ide_selection from intent, U06 Update Installation Documentation (Task 174), Task 175 Prefer Cursor env for editor ID, Task 176 Installation doc follow-up
