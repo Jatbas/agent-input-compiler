@@ -25,7 +25,8 @@ function run(stdinStr) {
   const aicDir = path.join(projectRoot, ".aic");
   const logPath = path.join(aicDir, "prompt-log.jsonl");
   const markerPath = path.join(projectRoot, ".aic", ".session-context-injected");
-  const tempPath = path.join(os.tmpdir(), "aic-cc-edited-" + sessionId + ".json");
+  const sanitized = String(sessionId).replace(/[^a-zA-Z0-9*-]/g, "_");
+  const tempPath = path.join(os.tmpdir(), "aic-cc-edited-" + sanitized + ".json");
 
   try {
     fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
