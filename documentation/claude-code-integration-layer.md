@@ -646,20 +646,6 @@ timeout provides headroom.
 
 ---
 
-## 12. Plugin distribution — future (zero-friction install)
-
-Claude Code supports a plugin system where hooks are bundled in `hooks/hooks.json`
-([plugin hooks reference](https://code.claude.com/docs/en/plugins-reference#hooks)). Users
-install a plugin once; its hooks merge with project and user hooks automatically.
-
-Packaging AIC as a Claude Code plugin would let users run `/plugins` and click Install instead
-of editing settings files. The plugin hooks use `${CLAUDE_PLUGIN_ROOT}` to reference bundled
-scripts ([hooks — reference scripts by path](https://code.claude.com/docs/en/hooks#reference-scripts-by-path)).
-
-This is a future item, after the zero-install path (§13) is working.
-
----
-
 ## 13. Zero-install path
 
 The zero-install path provides a one-command install experience. The installer is

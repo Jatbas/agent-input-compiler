@@ -36,24 +36,26 @@
    - 8.6 [InspectRunner Interface](#86-inspectrunner-interface)
 9. [Token Counting & Model Context Guard](#9-token-counting--model-context-guard)
    - 9.1 [Telemetry Event System](#91-telemetry-event-system)
-10. [Caching](#10-caching)
-11. [Error Handling](#11-error-handling)
-    - 11.1 [MCP Transport Error Handling](#111-mcp-transport-error-handling)
-12. [Security Considerations](#12-security-considerations)
-13. [Observability & Debugging](#13-observability--debugging)
+10. [Phase 2: Semantic + Governance](#10-phase-2-semantic--governance)
+    - 10.1 [Sandboxed Extensibility (V8 Isolates)](#101-sandboxed-extensibility-v8-isolates)
+11. [Caching](#11-caching)
+12. [Error Handling](#12-error-handling)
+    - 12.1 [MCP Transport Error Handling](#121-mcp-transport-error-handling)
+13. [Security Considerations](#12-security-considerations)
+14. [Observability & Debugging](#13-observability--debugging)
     - 13.1 [Worked Pipeline Example](#131-worked-pipeline-example)
-14. [Performance Constraints](#14-performance-constraints)
-15. [Sequence Diagrams](#15-sequence-diagrams)
-16. [Dependencies (MVP)](#16-dependencies-mvp)
-17. [Testing & Quality Strategy](#17-testing--quality-strategy)
-18. [User Stories](#18-user-stories)
-19. [Storage (MVP)](#19-storage-mvp)
-20. [Competitive Positioning](#20-competitive-positioning)
-21. [Licensing & Contribution (Phase 1 Prep)](#21-licensing--contribution-phase-1-prep)
-22. [Roadmap](#22-roadmap)
-23. [Enterprise Deployment Tiers](#23-enterprise-deployment-tiers)
-24. [Compliance Readiness](#24-compliance-readiness)
-25. [Data-Driven Feature Planning](#25-data-driven-feature-planning)
+15. [Performance Constraints](#14-performance-constraints)
+16. [Sequence Diagrams](#15-sequence-diagrams)
+17. [Dependencies (MVP)](#16-dependencies-mvp)
+18. [Testing & Quality Strategy](#17-testing--quality-strategy)
+19. [User Stories](#18-user-stories)
+20. [Storage (MVP)](#19-storage-mvp)
+21. [Competitive Positioning](#20-competitive-positioning)
+22. [Licensing & Contribution (Phase 1 Prep)](#21-licensing--contribution-phase-1-prep)
+23. [Roadmap](#22-roadmap)
+24. [Enterprise Deployment Tiers](#23-enterprise-deployment-tiers)
+25. [Compliance Readiness](#24-compliance-readiness)
+26. [Data-Driven Feature Planning](#25-data-driven-feature-planning)
 
 ---
 
@@ -2302,7 +2304,28 @@ MVP uses a synchronous in-process implementation (`SyncEventBus`). The interface
 
 ---
 
-## 10. Caching
+## 10. Phase 2: Semantic + Governance
+
+Phase 2 (`v2.0.0`) expands AIC from a strictly heuristic, static compiler into a semantic and extensible platform designed for enterprise deployments and advanced organizations.
+
+### 10.1 Sandboxed Extensibility (V8 Isolates)
+
+To support advanced governance adapters and dynamic rule packs without compromising AIC's local-first security guarantees, Phase 2 implements a secure V8 isolation layer (via libraries like `isolated-vm`).
+
+**Why Sandboxing?**
+Enterprise teams need to write custom JavaScript to evaluate project state or enforce complex context inclusion policies (e.g., querying an internal microservice registry to penalize deprecated APIs in the `HeuristicSelector` or checking files against an external compliance API). Scripts execute as JavaScript only; if users provide TypeScript, AIC must transpile it before injection (see Implementation Spec §8d for the transpilation attack surface). Executing third-party or team-provided JS within the main Node.js process is a massive security risk.
+
+**Implementation Strategy:**
+
+- **Execution Constraints**: Custom Governance Adapters and `ContextGuard` scanners run inside a V8 isolate. They are strictly limited by memory (e.g., `<128MB`), CPU execution time (e.g., `<50ms`), and have zero access to the host filesystem, environment variables, or Node modules natively. Isolate creation overhead must be benchmarked against the CPU budget.
+- **Read-Only Context Bridge**: AIC injects a read-only serialized state (the `RepoMap` or the current file being scanned) into the isolate via `ExternalCopy`. No `Reference` objects or callable functions on the bridge — see Implementation Spec §8d for the async bridge design tension.
+- **Deterministic API**: The sandboxed script must return a typed JSON object (e.g., a `GuardFinding[]` or a `RulePackBuilder` object) back to the main AIC process. Output must be validated against a strict schema before use.
+
+This significantly reduces the attack surface for executing untrusted governance scripts compared to running them in the main process. Residual risks (exfiltration of bridge-supplied data, encoding secrets in return values) are mitigated by output schema validation and bridge API design — see Implementation Spec §8d for the full threat model and constraint catalogue.
+
+---
+
+## 11. Caching
 
 | Aspect                           | Behaviour                                                                                                                                                                                                                                                                                                                       |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

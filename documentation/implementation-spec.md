@@ -95,6 +95,7 @@ Deliver a working **MCP server** that compiles optimal context for AI coding too
 | ----------------------------------- | -------- |
 | VectorSelector / HybridSelector     | Phase 2  |
 | Rules auto-fix (`aic fix-rules`)    | Phase 1  |
+| Sandboxed Extensibility (V8)        | Phase 2  |
 | Enterprise: RBAC, SSO, audit        | Phase 3  |
 | Policy engine / governance adapters | Phase 2  |
 | GUI / web dashboard                 | Phase 3  |
@@ -1591,6 +1592,55 @@ This task depends on W07 (ScopeRegistry wired into server) being complete so all
 
 ---
 
+## 8d. Deferred: Sandboxed Extensibility (V8 Isolates)
+
+To support advanced governance adapters and dynamic rule packs without compromising AIC's local-first security properties, Phase 2 implements a V8 isolation layer (via `isolated-vm`) for executing user-provided JavaScript governance scripts.
+
+**Threat model**
+
+The primary adversary is a governance script authored by one team member and distributed across an enterprise fleet — potentially misconfigured or malicious — that reads sensitive repository content passed to it and exfiltrates it to an internal or external service. The sandbox significantly reduces this attack surface by restricting filesystem access, environment variables, and native Node.js modules. It does not eliminate all exfiltration risk: a script receives whatever data the bridge passes to it, and can encode that data in its return value or exploit bridge callbacks. Output validation and bridge API design are the mitigating controls for residual risk.
+
+**Why Sandboxing?**
+
+Enterprise teams need to write custom JavaScript to evaluate project state or enforce complex context inclusion policies (e.g., querying an internal microservice registry to penalize deprecated APIs in the `HeuristicSelector`). Executing third-party or team-provided JS within the main Node.js process is a massive security risk.
+
+**Why not a declarative DSL first?**
+
+For most governance rules (pattern matching, file exclusion, budget overrides), a JSON/YAML declarative Rule Pack is safer — no code execution, no attack surface. V8 isolates are reserved for governance logic that genuinely requires imperative computation: AST traversal, internal API calls, or complex scoring formulas. The Phase 2 design document must define which extension points accept declarative config vs. sandboxed scripts.
+
+**Implementation constraints (required before implementation)**
+
+The following decisions must be resolved in a dedicated Phase 2 design document before any code is written:
+
+- **Isolate lifecycle**: Each governance script invocation must create a fresh isolate — never reuse across invocations, scripts, or compilation requests. Pooled isolates allow cross-script state contamination via mutated globals.
+- **Bridge API specification**: The exact object shape passed into the isolate must be specified. Only serialized data via `ExternalCopy` is permitted — no `Reference` objects and no callable functions on the bridge, as these allow re-entry into the main process. The bridge API is the primary attack surface. **Design tension:** if async operations are required (see Execution limits), the `isolated-vm` async bridge relies on `Reference` objects — the exact mechanism banned here. The Phase 2 design must choose one of: (a) no async operations, enforcing the `Reference` ban and limiting scripts to synchronous computation over pre-supplied data; or (b) a strictly audited set of async bridge callbacks with schema-constrained inputs and outputs, treated as an expanded attack surface requiring dedicated threat modelling.
+- **Output validation**: The JSON returned from the isolate must be validated against a strict schema in the main process before use — never trusted as-is. Prototype pollution, unexpected keys, and type coercion must all be rejected at this boundary.
+- **Execution limits**: Memory (`<128MB` per isolate) and CPU timeout serve as anti-DoS controls, not functional guarantees. If async operations are permitted (see Bridge API specification), they require the `isolated-vm` async bridge, which has a larger attack surface and must be separately designed. The maximum number of concurrent isolates must be bounded (via semaphore or queue) to prevent resource exhaustion under parallel compilations. Isolate creation overhead (~5-15ms) must be benchmarked against the CPU timeout budget to determine whether the budget covers isolate setup or only user-script execution.
+- **TypeScript handling**: Scripts execute as JavaScript only. If users provide TypeScript, AIC must transpile it before injection — but transpiling untrusted TypeScript in the main process is itself an attack surface. The transpilation boundary, toolchain, and source map disposal must be explicitly specified.
+- **Content timing**: Governance adapters running at the `ContextGuard` step receive raw file content before built-in guard scanners have filtered it — by design, since custom scanners need raw content. This means the bridge may carry secrets. The Phase 2 design must document this explicitly and enforce that `GuardFinding` messages returned from the isolate never echo back file content verbatim.
+- **Serialization cost**: The bridge passes file content via `ExternalCopy`. For large files, serialization and deserialization add measurable latency. The Phase 2 design must specify a maximum content size per bridge invocation and define behaviour when the limit is exceeded (truncate, skip, or error).
+- **Script provenance**: Governance scripts distributed across an enterprise fleet (as described in the threat model) have no built-in provenance verification. The Phase 2 design should evaluate whether script signing, hash pinning, or authorship tracking is required to prevent supply-chain substitution of governance scripts.
+- **`isolated-vm` dependency**: This is a native addon with historical sandbox-escape CVEs. It must be pinned to an exact version, covered by `pnpm audit` monitoring, and treated as a security-critical dependency requiring expedited patching.
+
+**What sandboxing protects against**
+
+- Direct access to `fs`, `net`, `process.env`, and native Node.js modules not explicitly bridged
+- Access to the main process heap and AIC internal state beyond what is explicitly passed via the bridge
+- Runaway memory consumption (bounded by isolate memory limit)
+- Synchronous CPU exhaustion (bounded by timeout)
+
+**What sandboxing does not protect against**
+
+- Exfiltration of data the script is explicitly given via the bridge
+- Encoding of sensitive content in the script's return value (mitigated by output schema validation)
+- Async exfiltration if any bridge callback has outbound network access
+- Timing side channels: a script can encode data in its execution duration, observable by a colluding process monitoring compilation latency
+- V8 zero-day vulnerabilities in the `isolated-vm` native addon itself
+
+This approach significantly reduces the attack surface for executing untrusted governance scripts compared to running them in the main process.
+
+---
+
 ## 9. Roadmap (aligned with Project Plan)
 
 | Phase                          | Version | Status     | Key Deliverables                                                                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -1598,7 +1648,7 @@ This task depends on W07 (ScopeRegistry wired into server) being complete so all
 | **Phase 0: MCP Server**        | `0.1.0` | 🟡 Current | This specification — all features in Sections 2–4d, including anonymous telemetry                                                                                                                                                                                                                                                                                                                                                                     |
 | **Phase 0.5: Quality Release** | `0.2.0` | ✅ Done    | GenericImportProvider (Python/Go/Rust/Java regex), intent-aware file discovery, `aic_status` tool, `aic_last` tool, `aic_chat_summary` tool, Guard `warn` severity, CSS/TypeDecl/test-structure transformers, **budget utilization** in `aic_status`, prompt commands                                                                                                                                                                                 |
 | Phase 1.0: OSS Release         | `1.0.0` | 🟡 Current | Public repo, docs, npm package, CI/CD, `postinstall` team deployment, auto-detected dependency constraints, reverse dependency walking, optional cost estimation in `aic_status` (model-specific pricing); **agentic support**: Session Tracker + extended `CompilationRequest` fields + **Adaptive Budget Allocator** + Specification Compiler (`aic_compile_spec` MCP tool) + session-aware cache keying (see [Project Plan §2.7](project-plan.md)) |
-| Phase 2: Semantic + Governance | `2.0.0` | ⬜ Planned | VectorSelector (Zvec integration), HybridSelector, governance adapters, policy engine, `extends` config for org-level deployment, centralised config server; **agentic support**: Conversation Compressor + editor-specific conversation adapters                                                                                                                                                                                                     |
+| Phase 2: Semantic + Governance | `2.0.0` | ⬜ Planned | VectorSelector (Zvec integration), HybridSelector, governance adapters, policy engine, `extends` config for org-level deployment, centralised config server; **Sandboxed Extensibility**: Secure V8 isolates (`isolated-vm`) for executing custom JavaScript Governance Adapters and Context Scanners (TypeScript requires transpilation; see §8d); **agentic support**: Conversation Compressor + editor-specific conversation adapters              |
 | Phase 3: Enterprise            | `3.0.0` | ⬜ Planned | Control plane, RBAC, SSO, audit logs, fleet management via MDM, live enterprise dashboard, hosted option                                                                                                                                                                                                                                                                                                                                              |
 
 Versioning policy: see [Project Plan §22](project-plan.md).
