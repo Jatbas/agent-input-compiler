@@ -41,7 +41,7 @@ How AIC gets installed, what artifacts it creates, and how its components intera
 The npm package `@jatbas/aic` ships:
 
 - `dist/` — the compiled MCP server (`server.js` with shebang for `npx` execution)
-- `hooks/` — integration hook scripts (`.cjs` files) bundled for auto-installation into user projects (currently Cursor; Claude Code hooks ship in Phase T)
+- `hooks/` — integration hook scripts (`.cjs` files) bundled for auto-installation into user projects (Cursor); Claude Code hooks are provided by the plugin or the direct installer (see [Claude Code](#claude-code)).
 
 The server is the primary interface. It exposes these MCP tools:
 
@@ -83,12 +83,12 @@ After bootstrap, each project contains:
 | `.cursor/rules/AIC.mdc`       | Trigger rule for Cursor — tells the AI to call `aic_compile` | Depends on team preference |
 | `.cursor/hooks.json`          | Hook registrations for Cursor                                | Depends on team preference |
 | `.cursor/hooks/AIC-*.cjs`     | Cursor hook scripts — auto-bootstrapped per project          | Depends on team preference |
-| `.claude/CLAUDE.md`           | Trigger rule for Claude Code (Phase T)                       | Depends on team preference |
+| `.claude/CLAUDE.md`           | Trigger rule for Claude Code                                 | Depends on team preference |
 | `.claude/settings.local.json` | Hook paths for Claude Code (direct installer only)           | No (gitignored)            |
 
 Note: With the **plugin** path, the plugin provides hooks and MCP registration globally — no per-project hook files. With the **direct installer** path, the installer writes `.claude/settings.local.json` in the project root with paths to `integrations/claude/hooks/` in the AIC repo. The trigger rule `.claude/CLAUDE.md` is written in both cases (during bootstrap for direct installer, or added manually by plugin users who disable hooks).
 
-The database lives globally at `~/.aic/aic.sqlite` (per Phase W). Per-project data is isolated via a `project_id` foreign key.
+The database lives globally at `~/.aic/aic.sqlite`. Per-project data is isolated via a `project_id` foreign key.
 
 ### Per-Project Disable
 
@@ -112,16 +112,16 @@ Default is `true` (omitted means enabled).
 
 AIC is a **global** MCP server — it registers once per user and serves every project without per-project installation:
 
-| Editor          | Global config file                                         | Install method                                     |
-| --------------- | ---------------------------------------------------------- | -------------------------------------------------- |
-| **Cursor**      | `~/.cursor/mcp.json`                                       | One-click deeplink (see [Cursor](#cursor))         |
-| **Claude Code** | Plugin or project config (see [Claude Code](#claude-code)) | Plugin (recommended) or direct installer (Phase U) |
+| Editor          | Global config file                                         | Install method                             |
+| --------------- | ---------------------------------------------------------- | ------------------------------------------ |
+| **Cursor**      | `~/.cursor/mcp.json`                                       | One-click deeplink (see [Cursor](#cursor)) |
+| **Claude Code** | Plugin or project config (see [Claude Code](#claude-code)) | Plugin (recommended) or direct installer   |
 
 There is no per-project or workspace-scoped server installation for end users. The global server handles every project automatically via the first-compile bootstrap.
 
 The only workspace-scoped server is the AIC development environment, which runs from TypeScript source instead of the published npm package. See [AIC Development Environment](#aic-development-environment) for details.
 
-W10 detects when AIC is registered in both global and workspace configs (the dev scenario) and emits a warning to stderr and in the `aic_status` tool payload.
+The server detects when AIC is registered in both global and workspace configs (the dev scenario) and emits a warning to stderr and in the `aic_status` tool payload.
 
 ### Version Updates
 
@@ -204,7 +204,7 @@ Key point: hooks and the MCP server are **separate execution paths**. The MCP se
 ### How Hooks Are Delivered
 
 Hook scripts are authored in `integrations/cursor/hooks/` and deployed to each project's
-`.cursor/hooks/` by the installer. On first-compile bootstrap, `installCursorHooks` performs:
+`.cursor/hooks/` by the Cursor installer (`integrations/cursor/install.cjs`). On first-compile bootstrap, the installer:
 
 1. **Registers hooks** — creates or merges `.cursor/hooks.json` with the hook definitions (event type, command, matcher, timeout, etc.)
 2. **Copies scripts** — copies the 10 `AIC-*.cjs` files from `integrations/cursor/hooks/` into the project's `.cursor/hooks/` directory
@@ -214,44 +214,9 @@ On subsequent compilations, merge logic adds any missing hook entries without ov
 
 ---
 
-## Other Editors
-
-Any editor that supports the MCP protocol can run AIC. Register it as a global MCP server using the standard server entry:
-
-```json
-"aic": {
-  "command": "npx",
-  "args": ["-y", "@aic/mcp"]
-}
-```
-
-Add this to your editor's global MCP configuration file and restart the editor. The exact file path depends on your editor — consult its MCP documentation.
-
-Once registered, AIC auto-bootstraps on the first `aic_compile` call: it creates `aic.config.json`, the `.aic/` data directory, and installs any available trigger rules and hooks for your editor. Editors without a dedicated integration layer still benefit from the MCP tools (`aic_compile`, `aic_status`, etc.) — lifecycle hooks are simply not available until a dedicated integration is added.
-
----
-
-## AIC Development Environment
-
-The dev server is pre-configured in `.cursor/mcp.json` (checked into the repo as `"aic-dev"`). It runs from TypeScript source and uses hand-maintained hooks that include dev-only extras not present in the published package. No setup is needed — cloning the repo is sufficient.
-
-**The production server must be disabled while developing AIC.** If both run simultaneously, the production server overwrites dev hooks with published versions, the AI sees duplicate `aic_compile` tools, and both write to the same database. Disable the production server in whatever IDE you are using before opening the AIC project.
-
-In Cursor, this means keeping `~/.cursor/mcp.json` empty (or with the `"aic"` entry removed). When you need to use AIC as an end user in another project, add the entry back. Toggle as needed — this is the standard MCP server development workflow.
-
-No `aic.config.json` changes are needed. The `"enabled"` flag would disable both servers since they read the same config file.
-
----
-
-## Uninstall
-
-GAP — uninstall instructions will be added in a future task.
-
----
-
 ## Claude Code
 
-Phase T (Claude Code Hook-Based Delivery) and Phase U (Claude Code Zero-Install) deliver AIC for Claude Code via two installation paths.
+AIC supports Claude Code via two installation paths: the plugin (recommended) and the direct installer (for development).
 
 ### Plugin (Recommended)
 
@@ -267,7 +232,7 @@ Once installed, the plugin provides the AIC MCP server and the 8 lifecycle hooks
 For development or when you have the AIC repo on disk, you can use the standalone installer instead of the plugin. This writes project-local hook paths and does not require the plugin marketplace.
 
 1. From the **project root** (the repo that contains `integrations/claude/`), run: `node integrations/claude/install.cjs`
-2. Or run `npx @aic/mcp init` — when you open this project in Claude Code, the MCP server auto-detects Claude Code (for example when `.claude/` exists or `CLAUDE_PROJECT_DIR` is set) and runs the same installer during bootstrap.
+2. Or rely on first-compile bootstrap — when you open this project in Claude Code, the MCP server auto-detects Claude Code (for example when `.claude/` exists or `CLAUDE_PROJECT_DIR` is set) and runs the same installer during bootstrap.
 
 The installer creates `.claude/` in the project root, writes `.claude/settings.local.json` with hook commands pointing at `integrations/claude/hooks/` in this project, and writes `.claude/CLAUDE.md` as the trigger rule. No scripts are copied to a global directory; everything stays project-local.
 
@@ -302,8 +267,10 @@ Key point: hooks and the MCP server are **separate execution paths**. The MCP se
 
 ### How Hooks Are Delivered
 
-- **Plugin path:** The plugin ships the 8 `aic-*.cjs` scripts in its `scripts/` directory and registers them in `hooks/hooks.json` using `${CLAUDE_PLUGIN_ROOT}/scripts/`. Claude Code loads the plugin and runs these hooks for every project. No per-project deployment step.
-- **Direct installer path:** Hook scripts live in `integrations/claude/hooks/`. The installer writes `.claude/settings.local.json` with command paths pointing at that directory in the project. Bootstrap (first `aic_compile` or `npx @aic/mcp init` with Claude Code context) runs the installer so the project gets the trigger rule and merged hook entries. Scripts are not copied; they run from the repo.
+- **Plugin path:** The plugin provides the 8 hook scripts and registers them with Claude Code; no per-project deployment.
+- **Direct installer path:** The installer writes `.claude/settings.local.json` with paths to `integrations/claude/hooks/` in this project; bootstrap runs the installer on first use so the project gets the trigger rule and hook entries.
+
+See `documentation/claude-code-integration-layer.md` for how hooks are packaged and delivered in each path.
 
 ### Troubleshooting
 
@@ -313,4 +280,37 @@ Key point: hooks and the MCP server are **separate execution paths**. The MCP se
 - If using the plugin: verify the plugin is enabled (for example via the `/plugin` command in Claude Code).
 - If using the direct installer: confirm `.claude/settings.local.json` exists and contains `aic-` hook entries, and that `.claude/CLAUDE.md` exists for the trigger fallback.
 
-See `documentation/claude-code-integration-layer.md` for the full design of the Claude Code implementation.
+---
+
+## Other Editors
+
+Any editor that supports the MCP protocol can run AIC. Register it as a global MCP server using the standard server entry:
+
+```json
+"aic": {
+  "command": "npx",
+  "args": ["-y", "@jatbas/aic@latest"]
+}
+```
+
+Add this to your editor's global MCP configuration file and restart the editor. The exact file path depends on your editor — consult its MCP documentation.
+
+Once registered, AIC auto-bootstraps on the first `aic_compile` call: it creates `aic.config.json`, the `.aic/` data directory, and installs any available trigger rules and hooks for your editor. Editors without a dedicated integration layer still benefit from the MCP tools (`aic_compile`, `aic_status`, etc.) — lifecycle hooks are simply not available until a dedicated integration is added.
+
+---
+
+## AIC Development Environment
+
+The dev server is pre-configured in `.cursor/mcp.json` (checked into the repo as `"aic-dev"`). It runs from TypeScript source and uses hand-maintained hooks that include dev-only extras not present in the published package. No setup is needed — cloning the repo is sufficient.
+
+**The production server must be disabled while developing AIC.** If both run simultaneously, the production server overwrites dev hooks with published versions, the AI sees duplicate `aic_compile` tools, and both write to the same database. Disable the production server in whatever IDE you are using before opening the AIC project.
+
+In Cursor, this means keeping `~/.cursor/mcp.json` empty (or with the `"aic"` entry removed). When you need to use AIC as an end user in another project, add the entry back. Toggle as needed — this is the standard MCP server development workflow.
+
+No `aic.config.json` changes are needed. The `"enabled"` flag would disable both servers since they read the same config file.
+
+---
+
+## Uninstall
+
+GAP — uninstall instructions will be added in a future task.
