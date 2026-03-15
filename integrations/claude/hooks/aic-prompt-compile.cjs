@@ -16,12 +16,13 @@ async function run(stdinStr) {
   // Claude Code sends fields at top level; legacy spec nested under `input`
   const top = parsed || {};
   const input = top.input || {};
-  const intent =
+  const rawIntent =
     top.prompt != null
       ? String(top.prompt)
       : input.prompt != null
         ? String(input.prompt)
         : "";
+  const intent = rawIntent.replace(/<ide_selection>[\s\S]*?<\/ide_selection>/gi, "");
   const sessionId =
     top.session_id != null
       ? top.session_id

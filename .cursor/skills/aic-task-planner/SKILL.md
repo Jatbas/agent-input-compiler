@@ -97,6 +97,32 @@ The planner operates in a dedicated worktree based on `main` so that task files 
 
 ---
 
+## §0b. Intent Classification (mandatory — run after §0, before §1)
+
+Before planning, classify the user's request. The planner must auto-delegate to the `aic-researcher` skill when the request needs investigation, ensuring identical quality regardless of which skill the user invoked.
+
+**Classification decision tree (evaluate in order, stop at first match):**
+
+1. Does the user reference a specific component from `mvp-progress.md`, say "plan next task", "what's next", or name a concrete component to plan? → **Task planning** — proceed to §1.
+2. Does the request contain question words (how, why, where, what) directed at understanding the codebase? → **Research-then-plan** — delegate to researcher.
+3. Does the request contain improvement language (improve, optimize, fix, analyze, gaps, problems, weaknesses, issues)? → **Research-then-plan** — delegate to researcher.
+4. Does the request ask to analyze, verify, or improve documentation? → **Research-then-plan** — delegate to researcher (documentation analysis classification).
+5. Does the request ask to evaluate a technology, compare options, or assess fit? → **Research-then-plan** — delegate to researcher (technology evaluation classification).
+6. Is the intent ambiguous? → **Ask the user:** "This seems like it needs investigation first. Want me to research this before planning, or go straight to planning a specific component?"
+
+**When auto-delegation triggers:**
+
+1. Announce: "This request needs investigation first. Running the research protocol."
+2. Read the `aic-researcher` skill's `SKILL.md` (at `.cursor/skills/aic-researcher/SKILL.md`).
+3. Execute the FULL research skill protocol — same phases (Frame → Investigate → Synthesize → Adversarial Review → Final Synthesis), same quality gates, same subagent model choices. Do NOT use a simplified version.
+4. Save the research document to `documentation/research/`.
+5. Present findings and ask: "Research complete — see `documentation/research/YYYY-MM-DD-title.md`. Want me to plan tasks based on these findings, or do you want to review the research first?"
+6. If the user says proceed, continue to §1 with the research document as an additional input.
+
+**The guarantee:** The research protocol that runs when auto-delegated is THE SAME protocol as the standalone research skill. Same explorers, same critic, same quality gates. Quality is identical regardless of entry point.
+
+---
+
 ## §1. Recommend the best next task
 
 **Pre-read all inputs in one parallel batch** — these are needed in Pass 1 regardless of which component the user picks, and pre-reading eliminates a full round of tool calls later:
@@ -110,6 +136,7 @@ The planner operates in a dedicated worktree based on `main` so that task files 
 - `eslint.config.mjs`
 - `SKILL-recipes.md` (this file's sibling — static reference)
 - `SKILL-guardrails.md` (this file's sibling — static reference)
+- Research document from `documentation/research/` (optional — include if §0b produced one, or if the user provided a path)
 
 From `mvp-progress.md`, identify all components with status `Not started` whose dependencies are `Done`.
 
@@ -178,6 +205,7 @@ Complete every item. Each produces evidence for the report. Items are organized 
    - Does the component instantiate concrete classes, open databases, register handlers, or start a process (`main()`, `createProjectScope()`)? → **composition root**. Evidence: `new ClassName()` calls, transport setup, handler registration.
    - Does the component add or modify gold data, fixture repos, or benchmark evaluation tests in `test/benchmarks/`? → **benchmark**. Evidence: gold JSON files, fixture repos, benchmark test files.
    - Does the component configure npm publishing, CI workflows, or package metadata for release? → **release-pipeline**. Evidence: `publishConfig`, workflow YAML, `npm pack`.
+   - Is the task about creating, editing, analyzing, or improving a `.md` documentation file? → **documentation**. Evidence: target file is in `documentation/`, task involves content editing not code implementation. See `SKILL-recipes.md` for the documentation recipe.
    - None of the above? → **general-purpose**. Requires full component characterization, closest-recipe analysis, and existing-home check (see `SKILL-recipes.md`).
 
    Never improvise a task structure outside of a recipe. If the decision tree produces a surprising result, re-read `SKILL-recipes.md` for that recipe's "When to use" section to confirm.
@@ -430,6 +458,8 @@ If unsure whether a parameter is needed, **ask the user**.
 **Module resolution (if config changes):** Verify tsconfig supports proposed exports format.
 
 **Dispatch pattern:** If any logic in the component has 3+ branches — whether dispatching on an enum, a type discriminator, or ordered predicate matching (path prefix tiers, conditional scoring maps, node-type checks) — choose `Record<Enum, Handler>` for exhaustive enum dispatch or a handler array for predicate-based dispatch. Write the chosen pattern and show the data structure in the step instructions. Review the algorithm sketch from A.0/A.1: any list of "X => value, Y => value, Z => value, else => default" with 3+ entries is a dispatch pattern that needs this treatment.
+
+**Research delegation (optional depth boost):** At any point during A.4, if the planner encounters a question that its exploration checklist cannot answer — an approach evaluation with 2+ viable candidates, a sibling analysis for a first-of-kind component where shared code prediction is speculative, or a cross-package duplication check that requires understanding intent — it can delegate to the `aic-researcher` skill protocol. Read `.cursor/skills/aic-researcher/SKILL.md` and run the appropriate protocol (codebase analysis or gap/improvement analysis). Use the research findings to make the decision. This is optional — only when the planner judges it needs deeper investigation than its checklist provides.
 
 ### A.4b Simplicity sweep
 

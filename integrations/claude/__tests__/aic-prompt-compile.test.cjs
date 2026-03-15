@@ -20,6 +20,23 @@ function mockHelper(returnValue) {
   return resolvedHelper;
 }
 
+function mockHelperCaptureIntent(captured) {
+  const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
+    paths: [hooksDir],
+  });
+  require.cache[resolvedHelper] = {
+    exports: {
+      callAicCompile: (intent) => {
+        captured.value = intent;
+        return Promise.resolve("ok");
+      },
+    },
+    loaded: true,
+    id: resolvedHelper,
+  };
+  return resolvedHelper;
+}
+
 function cleanup(resolvedHelper) {
   delete require.cache[resolvedHelper];
   delete require.cache[require.resolve(hookPath)];
@@ -91,9 +108,39 @@ async function dual_path_prepends_invariants_when_marker_missing() {
   }
 }
 
+async function intent_stripped_when_prompt_contains_ide_selection() {
+  const captured = { value: null };
+  const key = mockHelperCaptureIntent(captured);
+  delete require.cache[require.resolve(hookPath)];
+  const { run } = require(hookPath);
+  const stdin = JSON.stringify({
+    prompt: "fix bug <ide_selection>V8</ide_selection> end",
+    cwd: "/tmp",
+  });
+  await run(stdin);
+  cleanup(key);
+  const intent = captured.value;
+  if (intent == null) {
+    throw new Error("callAicCompile was not called with intent");
+  }
+  if (intent.includes("ide_selection")) {
+    throw new Error(
+      `Intent must not contain "ide_selection", got: ${JSON.stringify(intent)}`,
+    );
+  }
+  if (!intent.includes("fix bug")) {
+    throw new Error(`Intent must include "fix bug", got: ${JSON.stringify(intent)}`);
+  }
+  if (!intent.includes("end")) {
+    throw new Error(`Intent must include "end", got: ${JSON.stringify(intent)}`);
+  }
+  console.log("intent_stripped_when_prompt_contains_ide_selection: pass");
+}
+
 (async () => {
   await plain_text_stdout_when_helper_returns_prompt();
   await exit_0_silent_when_helper_returns_null();
   await dual_path_prepends_invariants_when_marker_missing();
+  await intent_stripped_when_prompt_contains_ide_selection();
   console.log("All tests passed.");
 })();

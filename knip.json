@@ -8,6 +8,7 @@
     "integrations/cursor/install.cjs",
     "integrations/claude/install.cjs",
     "integrations/cursor/__tests__/install.test.js",
+    "integrations/cursor/__tests__/AIC-require-aic-compile.test.cjs",
     "integrations/claude/hooks/**",
     "integrations/claude/plugin/**",
     "integrations/claude/__tests__/**",

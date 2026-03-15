@@ -129,6 +129,99 @@ Before writing any code, scan every non-code instruction sentence in the Steps s
 
 If you find any match: **stop and tell the user** that the task file contains unresolved decisions. List each ambiguous sentence and what decision it requires. Do not guess — the planner must resolve it. This prevents implementing the wrong approach and having to rewrite.
 
+### 2b. Documentation mode detection
+
+**Check if this is a documentation task.** A task is a documentation task if:
+
+- The task file's Layer field is absent or says "documentation"
+- The task file has a **Change Specification** section instead of an Interface/Signature section
+- The task file has a **Writing Standards** section instead of a Dependent Types section
+- All files in the Files table are `.md` files in `documentation/`
+
+If this is a documentation task, switch to the documentation execution workflow described in §3-doc below. Skip §3 (code implementation), §4a-§4b (code verification), and use §3-doc, §4-doc instead. §5 (finalize) and §6 (merge) remain the same.
+
+If this is NOT a documentation task, skip §3-doc and §4-doc. Proceed to §3 as usual.
+
+### 3-doc. Implement (documentation mode)
+
+**This section replaces §3 for documentation tasks.** Work through the Steps section in order, applying the documentation-specific workflow.
+
+**Pre-write: internalize voice and context.**
+
+Before editing any document, read in one parallel batch:
+
+- The full target document (not just the sections being edited — you need the full voice and tone)
+- The 2 most-related sibling documents (from the Cross-Reference Map in the task file)
+- The Writing Standards section from the task file
+
+Internalize: tone (formal/informal), sentence patterns, paragraph length, formatting conventions, terminology. Your edits must be indistinguishable from the surrounding text.
+
+**For each step in the Steps section:**
+
+1. **Read the Change Specification for this step.** Note: current text (to locate the edit point), rationale (to understand why), and target text (what to write).
+2. **Apply the change.** Use targeted edits (StrReplace) to replace the current text with the target text. Do not rewrite surrounding sections unless the step explicitly says to.
+3. **Per-edit quick check.** After each edit, re-read the edited section plus 5 lines before and 5 lines after. Verify:
+   - The target text was applied correctly (no truncation, no duplication)
+   - The transition from surrounding text to new text is smooth (no jarring tone change)
+   - No formatting inconsistencies introduced (heading level, bullet style, code block format)
+
+**After all steps are complete, proceed to §4-doc.**
+
+### 4-doc. Verify (documentation mode)
+
+**This section replaces §4 for documentation tasks.** Run a verification pass using subagents and tool output as objective evidence.
+
+**4-doc-a — Spawn three verification subagents in parallel.**
+
+All three subagents receive: the path to the edited document, the paths to sibling documents, and the Change Specification from the task file.
+
+**Subagent 1 — Writing quality** (`generalPurpose` subagent):
+
+Prompt: "You are a writing quality reviewer. Read the document at [path]. For every section that was edited (see Change Specification below), check:
+
+- Does the new text match the voice and tone of the surrounding text?
+- Is the sentence structure varied (not monotonous 'X does Y. Z does W. A does B.')?
+- Are paragraphs cohesive (one idea per paragraph, smooth transitions)?
+- Is the level of detail consistent with neighboring sections?
+- Are there ambiguous pronouns, dangling references, or undefined terms?
+- Does the heading hierarchy make sense?
+  Report each issue with the exact line or paragraph where it occurs. If no issues, state 'No writing quality issues found.'"
+
+**Subagent 2 — Factual accuracy** (`explore` subagent, `fast` model):
+
+Prompt: "Read the document at [path]. For every technical claim in the edited sections — interface names, type names, file paths, ADR references, component descriptions, architecture claims — grep the codebase to verify. Report: '[claim] — [source file:line] — VERIFIED / NOT FOUND / CONTRADICTED'. Check every claim, not just a sample."
+
+**Subagent 3 — Cross-document consistency** (`explore` subagent, `fast` model):
+
+Prompt: "Read the document at [path] and the sibling documents at [paths]. For every key term, component name, status claim, and architecture description in the edited sections, check that the same term/concept is used consistently in the sibling documents. Report: '[term] — [this doc says X] vs [sibling doc says Y] — CONSISTENT / DIVERGENT'. If no divergence, state 'All terms consistent.'"
+
+**4-doc-b — Process subagent results.**
+
+Read all three subagents' outputs. For each reported issue:
+
+- **Writing quality issues:** Fix them. Re-read the context around each fix to ensure the fix itself doesn't introduce new problems.
+- **Factual inaccuracies (NOT FOUND or CONTRADICTED):** Fix the document to match the codebase. If the codebase is wrong and the document is right, do NOT change the document — add this to the Blocked section instead.
+- **Consistency divergences:** Fix the edited document to align with the authoritative source. If the sibling document is wrong, note this as a follow-up item (do not edit sibling documents outside the task scope).
+
+**4-doc-c — Run mechanical verification.**
+
+After fixing all subagent-reported issues, run the mechanical checks:
+
+| Dimension                          | Tool check                                                                                               | Evidence                                                  |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| 1. Change specification compliance | Re-read the task's Change Specification. Re-read the edited document. Every specified change is present. | List each change — APPLIED or MISSING                     |
+| 2. Factual accuracy                | Re-run: grep codebase for every technical claim in edited sections                                       | List each claim — VERIFIED / NOT FOUND / CONTRADICTED     |
+| 3. Cross-document consistency      | Re-run: grep sibling docs for key terms in edited sections                                               | List each term — CONSISTENT or DIVERGENT                  |
+| 4. Link validity                   | For every markdown link `[text](path)` in the document, Glob for the target                              | List each link — VALID or BROKEN                          |
+| 5. Writing quality                 | Subagent 1 output — all issues resolved                                                                  | List each issue — FIXED or ACCEPTED (with reason)         |
+| 6. No regressions                  | `git diff` the document — verify only intended sections changed                                          | Diff shows only changes matching the Change Specification |
+
+All 6 dimensions must be clean before proceeding to §5.
+
+**4-doc-d — Track first-pass quality.**
+
+Same as code tasks: record whether each dimension was clean on first check or required a fix. Report in §5a (e.g. "6/6 first-pass clean" or "5/6 first-pass clean, fixed 1: factual claim about interface name").
+
 ### 3. Implement
 
 Work through the **Steps** section in order.
@@ -266,9 +359,10 @@ When all dimensions are confirmed clean, complete these three sub-steps in order
 **5a — Report to the user:**
 
 - What was implemented (files created/modified)
-- Test results (pass count, confirming no regressions)
-- **First-pass quality: N/M** (from §4c, where M = applicable dimensions) — list any dimensions that needed fixing and what was fixed
+- Test results (pass count, confirming no regressions) — for code tasks. For documentation tasks: subagent verification results instead.
+- **First-pass quality: N/M** (from §4c or §4-doc-d, where M = applicable dimensions) — list any dimensions that needed fixing and what was fixed
 - **Benchmark impact** (transformer tasks only): "Token reduction: baseline X → actual Y (delta: -Z%). Baseline auto-ratcheted / unchanged." Include this only when dimension 16 applied
+- **Verification subagent results** (documentation tasks only): writing quality issues found/fixed, factual accuracy results, consistency results
 - Review findings and fixes applied (if any)
 - Any concerns or follow-up items
 

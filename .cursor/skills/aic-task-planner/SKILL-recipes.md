@@ -685,3 +685,192 @@ These sentences are recorded in the Exploration Report. They serve as audit trai
 - The self-correction protocol reveals a possible recipe match but the fit is uncertain
 
 In each case, state what was found, what the uncertainty is, and what decision the user needs to make. A plan that stops once for user input is better than a plan that proceeds on a wrong assumption.
+
+---
+
+## Documentation recipe (creating, editing, or improving documentation)
+
+**When to use:** The task creates a new `.md` documentation file, edits existing documentation content, or improves documentation quality (accuracy, completeness, consistency, clarity). This recipe applies when the primary deliverable is documentation, not code. Code-adjacent documentation (inline comments, JSDoc) is NOT covered — that follows the code recipe for the relevant layer.
+
+**Files pattern:**
+
+| Action | Path                                         |
+| ------ | -------------------------------------------- |
+| Create | `documentation/[name].md` (new document)     |
+| Modify | `documentation/[name].md` (edit to existing) |
+
+No test files. No source files. Documentation tasks modify only `.md` files.
+
+### Exploration checklist (Pass 1)
+
+The documentation recipe has its own exploration checklist, equivalent in rigor to code recipes. Every item must be completed and produce evidence for the Exploration Report.
+
+**Batch A — fire in one parallel round:**
+
+1. **Read the target document fully** — if editing an existing document, read every line. Record: current structure (heading hierarchy), tone (formal/informal, active/passive), terminology (key terms and how they are used), audience (who reads this), and formatting patterns (bullet vs prose, code block usage, cross-references).
+2. **Read ALL sibling documents** — every `.md` in `documentation/`. Build a terminology index: for each key term (component names, architecture concepts, ADR references), record how each document uses it. Flag any term used differently across documents.
+3. **Cross-reference against codebase** — for every technical claim in the target document (interface names, type names, file paths, ADR references, component descriptions, architecture claims): grep the actual code and verify. Record: `[claim] — [source file:line] — ACCURATE / INACCURATE / NOT FOUND`. This is the same rigor as the research skill's factual accuracy explorer.
+4. **Completeness analysis** — compare the document's coverage against what actually exists. For architecture docs: are all interfaces documented? For progress docs: do statuses match actual code state? For spec docs: are all components described? Record: `[topic/component] — DOCUMENTED / UNDOCUMENTED`.
+5. **Structural analysis** — does the document flow logically? Are there orphaned sections (referenced but undefined, or defined but never referenced)? Missing transitions? Sections that assume context defined elsewhere? Circular references? Record findings.
+6. **Audience analysis** — who reads this document? Is the level of detail appropriate? Are there assumptions about reader knowledge that should be explicit? Record the target audience and any mismatches.
+7. **Writing quality baseline** — assess: passive voice frequency, sentence length variance (monotonous vs varied), paragraph cohesion (one idea per paragraph, smooth transitions), heading hierarchy (consistent nesting), formatting consistency (bullet style, code block usage). Record the baseline.
+8. **Gap identification** — what SHOULD be in this document but is not? Compare against: the stated purpose, the structure of well-regarded documentation for similar projects, what questions a reader would have after reading. Record each gap with its importance (critical / nice-to-have).
+
+**Batch B — after Batch A completes:**
+
+9. **If Batch A reveals the document needs deep investigation** (many inaccuracies, fundamental structural problems, or significant gaps), delegate to the `aic-researcher` skill's documentation analysis protocol BEFORE proceeding. Read `.cursor/skills/aic-researcher/SKILL.md` and run the full protocol. Use the research document's findings to inform the change specification.
+10. **Build the cross-reference map** — which other documents reference this one (grep for the filename), and which documents does this one reference (grep for links and mentions). For each cross-reference, verify it is valid and consistent.
+
+### Exploration Report additions
+
+Beyond standard fields, documentation tasks add:
+
+```
+DOCUMENT PROFILE:
+- Target: [file path]
+- Purpose: [one sentence — what this document is for]
+- Audience: [who reads it]
+- Current state: [Good with minor issues | Needs significant updates | Fundamentally outdated | New document]
+- Tone: [formal/informal, active/passive, technical level]
+
+FACTUAL ACCURACY:
+- [claim] — [source] — ACCURATE / INACCURATE / NOT FOUND
+(list all checked claims)
+
+COMPLETENESS:
+- [topic] — DOCUMENTED / UNDOCUMENTED — [importance]
+(list all gaps)
+
+CONSISTENCY:
+- [term/concept] — [this doc says X] vs [other doc says Y] — CONSISTENT / INCONSISTENT
+(list all cross-document checks)
+
+CROSS-REFERENCE MAP:
+- Documents that reference this one: [list with file paths]
+- Documents this one references: [list with file paths]
+- Invalid references: [list, if any]
+
+WRITING QUALITY BASELINE:
+- Passive voice: [low/medium/high]
+- Sentence variety: [monotonous/varied]
+- Paragraph cohesion: [strong/weak]
+- Formatting consistency: [consistent/inconsistent — details]
+```
+
+### Task file format (replaces Interface/Signature and Dependent Types)
+
+Documentation tasks replace the code-specific sections with:
+
+**Change Specification** (replaces Interface/Signature):
+
+For each section to edit, provide:
+
+```markdown
+## Change Specification
+
+### Change 1: [section heading or line range]
+
+**Current text:**
+
+> [Quote the exact current text that will be changed]
+
+**Required change:** [What needs to change and why — one sentence]
+
+**Target text:**
+
+> [The exact replacement text. Not "improve this" — the actual words.]
+
+### Change N: [...]
+
+[Same format for each change]
+```
+
+Every change must have all three parts: current text (so the executor can locate it), rationale (so the executor understands why), and target text (so the executor does not need to make writing decisions).
+
+**Writing Standards** (replaces Dependent Types):
+
+```markdown
+## Writing Standards
+
+- **Tone:** [Match existing tone of document — formal/informal, technical level]
+- **Audience:** [Who reads this — developers, users, contributors]
+- **Terminology:** [Key terms that must be used consistently — list with definitions]
+- **Formatting:** [Bullet vs prose, code block conventions, heading hierarchy rules]
+- **Cross-reference format:** [How to link to other docs, how to reference code artifacts]
+```
+
+**Cross-Reference Map:**
+
+```markdown
+## Cross-Reference Map
+
+| Document                 | References this doc   | This doc references | Consistency check         |
+| ------------------------ | --------------------- | ------------------- | ------------------------- |
+| `project-plan.md`        | Yes — §3 architecture | Yes — ADR-007       | Consistent / needs update |
+| `implementation-spec.md` | Yes — component table | No                  | Consistent                |
+```
+
+### Verification (C.5 equivalent)
+
+| Check                              | What it verifies                                    | Method                                               |
+| ---------------------------------- | --------------------------------------------------- | ---------------------------------------------------- |
+| A. Factual accuracy                | Every technical claim matches the codebase          | Grep for each interface, type, file path, ADR cited  |
+| B. Cross-document consistency      | Terminology matches across all docs                 | Grep sibling docs for each key term; flag divergence |
+| C. Link validity                   | All internal references resolve                     | Glob for every linked path                           |
+| D. No stale content                | Nothing refers to removed/renamed code              | Grep codebase for each code artifact mentioned       |
+| E. Structural coherence            | Heading hierarchy consistent, no orphan sections    | Grep for heading patterns, verify nesting            |
+| F. Writing quality                 | Tone matches, varied sentences, cohesive paragraphs | Adversarial review subagent (judgment-based)         |
+| G. Completeness                    | All required topics covered per gap analysis        | Cross-check against exploration's gap identification |
+| H. Change specification compliance | Every specified change was applied                  | Diff target text against actual document text        |
+
+Checks A-E and G-H are mechanical (grep/glob). Check F is judgment-based — spawn a `generalPurpose` subagent to read the full document and report writing quality issues.
+
+### Mechanical review scoring
+
+Score each check 0 (fail) or 1 (pass):
+
+1. Factual accuracy (check A)
+2. Cross-document consistency (check B)
+3. Link validity (check C)
+4. No stale content (check D)
+5. Structural coherence (check E)
+6. Writing quality (check F)
+7. Completeness (check G)
+8. Change specification compliance (check H)
+
+Target: 8/8 (100%). Fix every failing check before finalizing.
+
+### Step granularity
+
+- Step 1: Apply changes — one step per document (maximum 1 file per step applies). If the task edits multiple documents, each gets its own step.
+- Step 2: Factual verification — grep codebase for every technical claim in the edited sections.
+- Step 3: Consistency verification — grep sibling docs for terminology alignment.
+- Step 4: Writing quality review — spawn subagent for writing quality assessment. Fix issues.
+- Final step: Final verification — all 8 checks pass.
+
+### When to delegate to the researcher skill
+
+During documentation planning, the planner auto-delegates to the `aic-researcher` skill when:
+
+- The task is "analyze document X for problems" — this IS research (documentation analysis classification)
+- The task involves cross-referencing against external standards or best practices — technology evaluation classification
+- The task requires understanding how code actually works before documenting it — codebase analysis classification
+- The planner's exploration (Batch A) reveals deep issues that its checklist cannot resolve
+
+The planner does NOT delegate when:
+
+- The change is mechanical (update a status, add a row, fix a typo)
+- The planner's own exploration already found the correct content
+- The task is purely structural (reorder sections, fix heading hierarchy)
+
+### Auto-mode resilience for documentation tasks
+
+Documentation tasks are where auto-mode struggles most compared to Opus — writing quality, nuanced analysis, and cross-document consistency require the kind of holistic reasoning that cheaper models lack. The documentation recipe compensates through:
+
+1. **Explicit writing standards** — the task file specifies tone, audience, terminology, and formatting. The executor follows rules instead of making judgment calls.
+2. **Target text in change specifications** — the planner writes the actual words. The executor applies them. This moves the writing burden to the planning phase where the multi-agent protocol ensures quality.
+3. **Three post-write verification subagents in the executor** — writing quality, factual accuracy, and consistency are each checked by a focused subagent. This catches issues that a single auto-mode pass would miss.
+4. **Adversarial writing review** — the writing quality subagent is explicitly tasked with finding problems, not confirming quality. It checks: tone match, sentence variety, paragraph cohesion, detail consistency, ambiguous references, heading hierarchy.
+5. **Research delegation for deep analysis** — when the planner detects the documentation task needs genuine investigation (not just editing), it delegates to the full research protocol. This ensures the content is well-researched before being written.
+
+The net effect: auto-mode produces documentation that reads as if Opus wrote it, because the multi-agent protocol handles the reasoning that auto-mode cannot do alone.

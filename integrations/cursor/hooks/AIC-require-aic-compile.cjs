@@ -72,9 +72,13 @@ process.stdin.on("end", () => {
 
     // aic_compile not yet called — deny with the exact user prompt as intent
     const savedPrompt = readSavedPrompt(generationId);
+    const stripped = savedPrompt.replace(
+      /<ide_selection>[\s\S]*?<\/ide_selection>/gi,
+      "",
+    );
     const intentArg =
-      savedPrompt.length > 0
-        ? savedPrompt.replace(/"/g, '\\"')
+      stripped.length > 0
+        ? stripped.replace(/"/g, '\\"')
         : "<summarise the user message>";
 
     const denyMsg = `BLOCKED: You must call the aic_compile MCP tool FIRST before using any other tool. Call it now with { "intent": "${intentArg}", "projectRoot": "/Users/jatbas/Desktop/AIC" }`;
