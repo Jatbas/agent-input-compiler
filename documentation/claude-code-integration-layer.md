@@ -659,16 +659,26 @@ node integrations/claude/install.cjs
 The installer:
 
 1. Detects the project root (from `$CLAUDE_PROJECT_DIR` or `process.cwd()`)
-2. Writes `.claude/settings.local.json` with absolute paths (safer than relying on env var
-   expansion in settings.local.json on some platforms)
-3. Writes `.claude/CLAUDE.md` as a fallback trigger rule
+2. Reads `integrations/claude/settings.json.template` (T10), rewrites all hook `command`
+   values: replaces `$HOME/.claude/hooks/` with the absolute path to
+   `integrations/claude/hooks/` in the detected project root — hooks execute directly from
+   the project tree without file copying
+3. Writes `.claude/settings.local.json` (gitignored by Claude Code convention) with the
+   rewritten hook entries. Deep-merges into existing content if the file already exists,
+   preserving non-AIC entries. Removes stale AIC entries whose hook scripts no longer exist
+   (upgrade-safe cleanup)
+4. Writes `.claude/CLAUDE.md` as a fallback trigger rule (for `disableAllHooks` users)
 
 The `npx @aic/mcp init` CLI calls this installer when it detects a Claude Code context
 (presence of `.claude/` directory or `$CLAUDE_PROJECT_DIR` env var set). The CLI delegates
 to the integration layer — it does not embed Claude Code logic itself.
 
-The committed `.claude/settings.json` (with `$CLAUDE_PROJECT_DIR`) covers the manual install
-case and team-shared repos without running the installer.
+The committed `.claude/settings.json` (with `$CLAUDE_PROJECT_DIR`-based paths) covers the
+manual install case and team-shared repos without running the installer.
+
+For end-user distribution, AIC is also packaged as a native Claude Code Plugin
+(`integrations/claude/plugin/`) installable via the Plugin Marketplace. See MVP Progress
+Phase U (U05) for the plugin structure.
 
 ---
 

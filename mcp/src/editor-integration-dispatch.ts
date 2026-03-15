@@ -55,15 +55,30 @@ export function getEditorEnvHints(): EditorEnvHints {
 }
 
 const REL_INSTALL_SCRIPT = path.join("integrations", "cursor", "install.cjs");
+const REL_CC_INSTALL_SCRIPT = path.join("integrations", "claude", "install.cjs");
 
 export function runEditorBootstrapIfNeeded(absRoot: AbsolutePath): void {
   const cursorDetected =
     fs.existsSync(path.join(absRoot, ".cursor")) ||
     (process.env["CURSOR_PROJECT_DIR"] !== undefined &&
       process.env["CURSOR_PROJECT_DIR"] !== "");
-  if (!cursorDetected) return;
+  const claudeCodeDetected =
+    fs.existsSync(path.join(absRoot, ".claude")) ||
+    (process.env["CLAUDE_PROJECT_DIR"] !== undefined &&
+      process.env["CLAUDE_PROJECT_DIR"] !== "");
+  if (!cursorDetected && !claudeCodeDetected) return;
   const installScript = path.join(absRoot, REL_INSTALL_SCRIPT);
   if (fs.existsSync(installScript)) {
     execFileSync("node", [installScript], { cwd: absRoot });
+  }
+  if (claudeCodeDetected) {
+    const ccScript = path.join(absRoot, REL_CC_INSTALL_SCRIPT);
+    if (fs.existsSync(ccScript)) {
+      try {
+        execFileSync("node", [ccScript], { cwd: absRoot });
+      } catch {
+        process.stderr.write("[aic] Claude Code installer failed; continuing.\n");
+      }
+    }
   }
 }
