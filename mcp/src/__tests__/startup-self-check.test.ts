@@ -19,6 +19,7 @@ describe("runStartupSelfCheck", () => {
 
   it("all_missing_returns_false_and_notes", () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-startup-"));
+    fs.mkdirSync(path.join(tmpDir, ".cursor"), { recursive: true });
     const projectRoot = toAbsolutePath(tmpDir);
     const result = runStartupSelfCheck(projectRoot);
     expect(result.installationOk).toBe(false);
@@ -110,5 +111,109 @@ describe("runStartupSelfCheck", () => {
     const result = runStartupSelfCheck(projectRoot);
     expect(result.installationOk).toBe(false);
     expect(result.installationNotes).toContain("trigger rule not found — run aic init");
+  });
+
+  it("claude_dir_absent_skips_cc_checks", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-startup-"));
+    const rulesDir = path.join(tmpDir, ".cursor", "rules");
+    const hooksDir = path.join(tmpDir, ".cursor", "hooks");
+    fs.mkdirSync(rulesDir, { recursive: true });
+    fs.mkdirSync(hooksDir, { recursive: true });
+    fs.writeFileSync(path.join(rulesDir, "AIC.mdc"), "");
+    fs.writeFileSync(
+      path.join(tmpDir, ".cursor", "hooks.json"),
+      JSON.stringify({
+        hooks: {
+          sessionStart: [{ command: "node .cursor/hooks/AIC-compile-context.cjs" }],
+          preToolUse: [
+            { command: "node .cursor/hooks/AIC-require-aic-compile.cjs" },
+            { command: "node .cursor/hooks/AIC-inject-conversation-id.cjs" },
+          ],
+        },
+      }),
+    );
+    fs.writeFileSync(path.join(hooksDir, "AIC-compile-context.cjs"), "");
+    fs.writeFileSync(path.join(hooksDir, "AIC-require-aic-compile.cjs"), "");
+    fs.writeFileSync(path.join(hooksDir, "AIC-inject-conversation-id.cjs"), "");
+    const projectRoot = toAbsolutePath(tmpDir);
+    const result = runStartupSelfCheck(projectRoot);
+    expect(result.installationOk).toBe(true);
+    expect(result.installationNotes).not.toContain("Claude Code");
+  });
+
+  it("claude_settings_and_claude_md_pass", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-startup-"));
+    const claudeDir = path.join(tmpDir, ".claude");
+    fs.mkdirSync(claudeDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(claudeDir, "settings.local.json"),
+      JSON.stringify({
+        hooks: {
+          SessionStart: [
+            {
+              hooks: [{ command: "node /some/path/aic-session-start.cjs" }],
+            },
+          ],
+        },
+      }),
+    );
+    fs.writeFileSync(path.join(claudeDir, "CLAUDE.md"), "# Project");
+    const projectRoot = toAbsolutePath(tmpDir);
+    const result = runStartupSelfCheck(projectRoot);
+    expect(result.installationNotes).toContain("Claude Code: OK");
+    expect(result.installationOk).toBe(true);
+  });
+
+  it("claude_settings_missing_aic_hooks", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-startup-"));
+    const claudeDir = path.join(tmpDir, ".claude");
+    fs.mkdirSync(claudeDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(claudeDir, "settings.local.json"),
+      JSON.stringify({ hooks: {} }),
+    );
+    fs.writeFileSync(path.join(claudeDir, "CLAUDE.md"), "");
+    const projectRoot = toAbsolutePath(tmpDir);
+    const result = runStartupSelfCheck(projectRoot);
+    expect(result.installationNotes).toContain("Claude Code: settings missing AIC hooks");
+    expect(result.installationOk).toBe(false);
+  });
+
+  it("claude_claude_md_missing", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-startup-"));
+    const claudeDir = path.join(tmpDir, ".claude");
+    fs.mkdirSync(claudeDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(claudeDir, "settings.local.json"),
+      JSON.stringify({
+        hooks: {
+          SessionStart: [{ hooks: [{ command: "node aic-session-start.cjs" }] }],
+        },
+      }),
+    );
+    const projectRoot = toAbsolutePath(tmpDir);
+    const result = runStartupSelfCheck(projectRoot);
+    expect(result.installationNotes).toContain("Claude Code: CLAUDE.md not found");
+    expect(result.installationOk).toBe(false);
+  });
+
+  it("claude_either_settings_file_satisfies", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-startup-"));
+    const claudeDir = path.join(tmpDir, ".claude");
+    fs.mkdirSync(claudeDir, { recursive: true });
+    fs.writeFileSync(path.join(claudeDir, "CLAUDE.md"), "");
+    fs.writeFileSync(
+      path.join(claudeDir, "settings.json"),
+      JSON.stringify({
+        hooks: {
+          SessionStart: [{ hooks: [{ command: "node aic-session-start.cjs" }] }],
+        },
+      }),
+    );
+    const projectRoot = toAbsolutePath(tmpDir);
+    const result = runStartupSelfCheck(projectRoot);
+    expect(result.installationNotes).toContain("Claude Code: OK");
+    expect(result.installationNotes).not.toContain("settings missing");
+    expect(result.installationOk).toBe(true);
   });
 });
