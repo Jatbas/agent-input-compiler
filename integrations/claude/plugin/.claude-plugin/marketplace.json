@@ -1,0 +1,12 @@
+{
+  "name": "aic-tools",
+  "owner": { "name": "AIC Contributors" },
+  "description": "Catalog for the AIC (Agent Input Compiler) Claude Code plugin.",
+  "plugins": [
+    {
+      "name": "aic",
+      "source": "./",
+      "description": "Agent Input Compiler — compiles project context and specs into structured prompts via MCP hooks."
+    }
+  ]
+}

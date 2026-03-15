@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "aic": {
+      "command": "npx",
+      "args": ["@jatbas/aic-mcp@latest"]
+    }
+  }
+}

@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2025 AIC Contributors
+
+// Claude Code protocol adapter — calls AIC MCP server via stdio JSON-RPC and returns compiled prompt.
+// Uses async spawn to keep stdin open until the tools/call response arrives;
+// server.ts exits on stdin EOF before async handlers complete (race condition).
+const { spawn } = require("child_process");
+const fs = require("fs");
+const path = require("path");
+
+function callAicCompile(intent, projectRoot, sessionId, timeoutMs) {
+  const timeout = timeoutMs || 25000;
+  const serverPath = path.join(projectRoot, "mcp", "src", "server.ts");
+  const args = fs.existsSync(serverPath) ? ["tsx", serverPath] : ["@jatbas/aic"];
+  const initReq = JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "initialize",
+    params: {
+      protocolVersion: "2024-11-05",
+      capabilities: {},
+      clientInfo: { name: "AIC-claude-code-hook", version: "0.1.0" },
+    },
+  });
+  const initNotif = JSON.stringify({
+    jsonrpc: "2.0",
+    method: "notifications/initialized",
+  });
+  const toolsCall = JSON.stringify({
+    jsonrpc: "2.0",
+    id: 2,
+    method: "tools/call",
+    params: {
+      name: "aic_compile",
+      arguments: {
+        intent,
+        projectRoot,
+        ...(sessionId ? { conversationId: sessionId } : {}),
+      },
+    },
+  });
+
+  return new Promise((resolve) => {
+    const child = spawn("npx", args, {
+      cwd: projectRoot,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let resolved = false;
+    const finish = (value) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(timer);
+      child.stdin.end();
+      child.kill("SIGTERM");
+      resolve(value);
+    };
+
+    const timer = setTimeout(() => finish(null), timeout);
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+      const lines = stdout.split("\n");
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        try {
+          const msg = JSON.parse(line);
+          if (msg.id === 2 && msg.result && msg.result.content) {
+            const textContent = msg.result.content.find((c) => c.type === "text");
+            if (textContent) {
+              const parsed = JSON.parse(textContent.text);
+              if (parsed.compiledPrompt) {
+                finish(parsed.compiledPrompt);
+                return;
+              }
+            }
+          }
+        } catch {
+          // not a complete JSON line yet
+        }
+      }
+    });
+
+    child.on("error", () => finish(null));
+    child.on("close", () => finish(null));
+
+    child.stdin.write(initReq + "\n");
+    child.stdin.write(initNotif + "\n");
+    child.stdin.write(toolsCall + "\n");
+  });
+}
+
+module.exports = { callAicCompile };
