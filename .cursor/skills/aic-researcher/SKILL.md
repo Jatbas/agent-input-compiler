@@ -187,6 +187,17 @@ Write the draft research document using the template (see Research Document Temp
 
 Count evidence citations across all findings. If fewer than 1 citation per finding on average, the investigation was too shallow. Go back to §3 and re-spawn the weakest explorer with a more specific prompt.
 
+### 4e. Strategic implications pass (technology evaluation and gap/improvement only)
+
+For each finding, ask: **"What does this mean for AIC beyond the obvious first-order conclusion?"** Generate at least one second-order implication per finding. A second-order implication connects the finding to a project decision, timeline, or design choice that isn't directly stated in the evidence.
+
+**Examples of first-order vs. second-order reasoning:**
+
+- Finding: "MCP is moving toward stateless transport." First-order: "Doesn't affect AIC's stdio MVP." Second-order: "MCP's cookie-like session mechanism could influence AIC's Phase 1 session tracking design — aligning early avoids rework."
+- Finding: "Enterprise WG doesn't exist yet." First-order: "Track it." Second-order: "AIC's Phase 1 OSS release positions it to contribute requirements to the WG from day one, shaping the spec rather than reacting to it."
+
+**Process:** After writing the draft synthesis (§4c), re-read each finding and write one sentence starting with "This also means..." or "The non-obvious consequence is..." If no second-order implication exists after genuine effort, note "First-order only — no downstream project implications identified." Include the strongest implications in the Analysis section. This is what separates a fact-reporting exercise from strategic research.
+
 ---
 
 ## §5. Adversarial Review
@@ -241,7 +252,7 @@ Before finalizing, verify all five gates pass:
 1. **Minimum evidence density:** Every finding has at least 1 evidence citation. If not → remove the finding or investigate further.
 2. **Adversarial coverage:** The critic challenged at least some findings. If all are "Unchallenged" → re-run §5 with stronger mandate.
 3. **Explicit gap acknowledgment:** Open Questions section is non-empty (unless factual lookup). If empty → re-examine: what aspects of the question remain uncertain?
-4. **Confidence calibration:** No more than 60% of findings are rated "High confidence" (unless factual lookup). If over-calibrated → re-examine the weakest "High" findings.
+4. **Confidence calibration:** No more than 60% of findings are rated "High confidence" (unless factual lookup). If over 60% → count the High findings and apply this heuristic: a finding is High only if it is a **binary verifiable fact** (code does X, schema has field Y, API exists/doesn't exist). Findings that **characterize** priorities, intentions, timelines, or external project direction are Medium — they depend on interpretation or external actors. Downgrade the weakest characterization-type findings until the ratio is at or below 60%.
 5. **Cross-explorer convergence bonus:** Any finding independently discovered by 2+ explorers is upgraded to High confidence with note: "Independently confirmed by [N] explorers."
 
 ### 6c. Refine the document
@@ -250,6 +261,19 @@ Before finalizing, verify all five gates pass:
 - Ensure the Analysis section connects findings to each other (not just lists them)
 - Ensure Recommendations are actionable and specific
 - Ensure Sources section lists every file and URL cited
+
+### 6c-ii. Roadmap mapping (conditional)
+
+**Auto-detection:** If any recommendation references a future phase (Phase 1, Phase 1+, Phase 2, Phase 2+, Phase 2-3, Phase 3) or uses language indicating deferred work ("track", "revisit when", "align when", "no code change now", "no action today"), generate the Roadmap Mapping section. This applies to technology evaluation and gap/improvement classifications. Skip for codebase analysis and documentation analysis (these produce findings about current state, not future work).
+
+**On-demand:** If the user asks "write the roadmap mapping" or "map recommendations to the roadmap" after any research — regardless of classification — generate the section and append it to the existing document.
+
+**How to generate:**
+
+1. Read `documentation/mvp-progress.md` to understand the current phase structure, categories, and entry format.
+2. For each recommendation, determine: (a) which phase it belongs to based on the evidence in the findings, (b) the closest category in mvp-progress, (c) a one-line entry matching the style of existing entries, (d) whether it's immediately plannable or deferred (and why).
+3. Write the Roadmap Mapping table in the research document using the template.
+4. Recommendations that are purely informational ("track this") get "No — tracking only" in the Immediate column. Recommendations that depend on external events ("when WG forms") get "No — depends on [event]". Recommendations that can be planned and executed now get "Yes — plannable now".
 
 ### 6d. Save the document
 
@@ -267,9 +291,11 @@ Use today's date. If a file with that name already exists, append a sequence num
 >
 > **Key findings:** [top 3, one line each]
 >
+> **Roadmap mapping:** [count] recommendations mapped — [N immediate, M deferred] (or "None — all recommendations are current-phase" if section was omitted)
+>
 > **Open questions:** [count] — [one-line summary of what's uncertain]
 >
-> Review the full document, or tell me what to do next (e.g., "plan tasks based on this research").
+> Tell me which roadmap entries to add to `mvp-progress.md`, or say "plan tasks based on this research".
 
 ---
 
@@ -313,6 +339,16 @@ Use today's date. If a file with that name already exists, append a sequence num
 2. **[Priority 2]** — [...]
 
 [Recommendations must be ordered by impact. Each must be actionable by a human or the planner skill.]
+
+## Roadmap Mapping
+
+[Auto-generated when recommendations reference future phases. Omit this section if all recommendations are immediately actionable within the current phase or are purely informational (no code/doc change).]
+
+| #   | Recommendation | Phase                              | Category                                                                  | Candidate `mvp-progress.md` entry                         | Immediate?                                                                                     |
+| --- | -------------- | ---------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| [N] | [short name]   | [0 / 0.5 / 1 / 2 / 3 or "Current"] | [category from mvp-progress — e.g. MCP Server, Documentation, Enterprise] | [one-line entry as it would appear in the progress table] | [Yes — plannable now / No — [reason: tracking only, depends on X, WG doesn't exist yet, etc.]] |
+
+> **To add these to the roadmap:** tell me which rows to add to `mvp-progress.md` and I'll write them.
 
 ## Open Questions
 

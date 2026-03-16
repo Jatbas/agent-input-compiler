@@ -184,6 +184,8 @@ Wait for confirmation. If the user confirms their pick, proceed to Pass 1 with t
 
 Complete every item. Each produces evidence for the report. Items are organized into two batches to minimize sequential tool-call rounds.
 
+**Exploration scope principle:** The scope of a task and the scope of exploration are independent. A single-file task may require exploration of consumers, siblings, shared utilities, and configuration across the entire codebase. A single-section documentation edit may require full-document analysis. Never limit exploration to match task scope — always explore broadly enough to detect scope-adjacent issues, stale artifacts, and downstream impacts. Auto-mode models tend to narrow exploration to match the task; this principle counteracts that bias.
+
 **Batch A — fire in one parallel round** (no data dependencies; interface paths and library names come from the mvp-spec pre-read in §1):
 
 1. **Read every interface the component implements** — copy the full interface verbatim.
@@ -205,7 +207,7 @@ Complete every item. Each produces evidence for the report. Items are organized 
    - Does the component instantiate concrete classes, open databases, register handlers, or start a process (`main()`, `createProjectScope()`)? → **composition root**. Evidence: `new ClassName()` calls, transport setup, handler registration.
    - Does the component add or modify gold data, fixture repos, or benchmark evaluation tests in `test/benchmarks/`? → **benchmark**. Evidence: gold JSON files, fixture repos, benchmark test files.
    - Does the component configure npm publishing, CI workflows, or package metadata for release? → **release-pipeline**. Evidence: `publishConfig`, workflow YAML, `npm pack`.
-   - Is the task about creating, editing, analyzing, or improving a `.md` documentation file? → **documentation**. Evidence: target file is in `documentation/`, task involves content editing not code implementation. See `SKILL-recipes.md` for the documentation recipe.
+   - Is the task about creating, editing, analyzing, or improving a `.md` documentation file? → **documentation**. Evidence: target file is in `documentation/`, task involves content editing not code implementation. See `SKILL-recipes.md` for the documentation recipe. **Sub-check:** If the task references a specific section of a document (e.g. "update the Claude Code section"), the planner MUST still analyze the full document structure during exploration (items 5b-5e and item 11 in the documentation recipe). A section-scoped task does not mean section-scoped exploration — parallel sections, scope-adjacent consistency, stale markers, structural validation, and mirror document family detection require full-document and cross-document analysis.
    - None of the above? → **general-purpose**. Requires full component characterization, closest-recipe analysis, and existing-home check (see `SKILL-recipes.md`).
 
    Never improvise a task structure outside of a recipe. If the decision tree produces a surprising result, re-read `SKILL-recipes.md` for that recipe's "When to use" section to confirm.
@@ -217,6 +219,7 @@ Complete every item. Each produces evidence for the report. Items are organized 
    Record all findings in the SIBLING PATTERN field of the Exploration Report. Additionally, check if any existing class already solves part of the problem or if an existing interface could gain a method. Record reuse findings in the EXISTING SOLUTIONS field.
 7. **Cross-package duplication check** (conditional — if the task creates a new utility, helper, or factory function) — Grep the entire codebase for functionally equivalent code. Check `mcp/src/` and `shared/src/` — not just the target layer. If equivalent logic already exists in another package, the task must either (a) extract the shared logic to `shared/` and modify both consumers, or (b) justify the duplication in Architecture Notes. Record in the EXISTING SOLUTIONS field.
 8. **Wiring completeness check** (conditional — composition root tasks) — For every function called in the wiring steps, verify that its return value is either (a) consumed by a subsequent step, or (b) the function is explicitly called for side effects only (document which side effects). If a function returns a rich object and only side effects are needed, note this in Architecture Notes as a follow-up to wire the return value when consumers are ready.
+   8b. **Stale marker detection** (mandatory — all task types) — for every file in the Files table (both Create and Modify), grep for `TODO`, `FIXME`, `HACK` comments. Also grep for phase references (`Phase [A-Z]`) and cross-reference against `mvp-progress.md` to check if the phase is complete while the comment uses future tense. Record each finding as: `[marker] at [file:line] — ACTIONABLE (phase done, work can be done now) / INFORMATIONAL (future work, not yet relevant)`. If an actionable marker is in a file the task modifies, consider adding it to the task scope (present via scope expansion in A.4c). If outside the task's files, report as follow-up.
 
 **Batch B — fire in one parallel round after Batch A completes** (depends on interfaces, types, and library APIs discovered in Batch A):
 
@@ -226,6 +229,7 @@ Complete every item. Each produces evidence for the report. Items are organized 
 12. **Plan the step breakdown** — count methods, assign to steps (max 2 per step, max 1 file per step). Record the mapping.
 13. **Verify module resolution** — if config changes are proposed, read the relevant `tsconfig.json` and record `moduleResolution`. If uncertain → state as blocker.
 14. **Trace consumers of modified types** (conditional — if any file in the Files table is "Modify" and touches an interface or type) — Grep for all importers of the modified interface/type. Classify each as "will break" (uses removed/changed members) or "compatible" (unaffected). If breakage is expected, add "Modify" rows to the Files table for each broken consumer. Record findings in the CONSUMER ANALYSIS field of the Exploration Report.
+    14b. **Scope-adjacent string reference scan** (conditional — if any file in the Files table is "Modify") — for every function name, type name, interface name, or constant name being modified or renamed: grep the full codebase for string-literal occurrences beyond import statements. Check: dispatch tables using string keys (e.g. `Record<string, Handler>` entries), error messages referencing the name, log statements, test descriptions (`it("should ... [name] ...")`, `describe("[name]"...)`), comments in other files, and documentation. Flag any that would become stale after the modification. Classify each as: "in-scope fix" (add to task scope) or "follow-up" (report to user). Record in the SCOPE-ADJACENT REFERENCES field of the Exploration Report. This catches references that consumer analysis (item 14) misses because they are string-based, not import-based.
 
 **Pre-read items** (already in context from §1 — extract findings, do not re-read):
 
@@ -473,6 +477,35 @@ After resolving all decisions, review the plan for over-engineering. For every n
 
 Record any simplifications made. If simplification changes the STEP PLAN or FILES, update them before proceeding.
 
+### A.4c Scope expansion recommendation (all task types)
+
+After exploration completes (A.1 through A.4b), if the exploration discovered issues beyond the original task scope — stale markers in modified files (item 8b), scope-adjacent string references that would go stale (item 14b), consumer breakage beyond the minimum fix (item 14), sibling improvements, actionable TODOs in touched files, or for documentation tasks: parallel section asymmetry, structural mismatches, scope-adjacent inconsistencies, mirror document divergences (items 5b-5e, item 11) — present three scope tiers to the user before proceeding to the user checkpoint:
+
+> **Exploration found issues beyond the original scope.** Choose a scope tier:
+>
+> **Minimal (original scope only):** Implement only the original task. Found issues are reported as follow-up items.
+>
+> - Changes: [list the original changes]
+> - Issues deferred: [count and brief summary]
+>
+> **Recommended (original + high-impact findings):** Implement the original task plus fixes for issues that directly affect correctness or consistency of the modified code/document. Typically: stale markers in modified files, string references that would break, consumer fixes for type breakage.
+>
+> - Additional changes: [list each with one-line rationale]
+> - Issues deferred: [count and brief summary of remaining low-priority items]
+>
+> **Comprehensive (full sweep):** Implement the original task plus fix all found issues, including sibling improvements, actionable TODOs, and broader refactoring opportunities.
+>
+> - Additional changes: [list each with one-line rationale]
+> - Issues deferred: None
+>
+> **"Pick a tier, or tell me a custom scope."**
+
+Wait for the user's response. Update the task scope accordingly before writing the task file in Pass 2. If the user picks Minimal, the deferred issues are listed in a `## Follow-up Items` section at the end of the task file for future planning.
+
+**When to skip this checkpoint:** If exploration found zero issues beyond the original scope (no stale markers, no scope-adjacent references, no consumer breakage beyond what the task already covers), skip A.4c entirely and proceed to A.5. Do not present empty tiers.
+
+This checkpoint prevents two failure modes: under-scoping (applying a change too narrowly, leaving stale references and broken consumers) and over-scoping (the planner expanding scope silently without user consent).
+
 ### A.5 User checkpoint
 
 The full Exploration Report is in `documentation/tasks/.exploration-$EPOCH.md` (written in A.2). **Present a decisions-focused summary in chat**, not the full report. The summary must include every design decision so the user can approve the plan without opening the file for routine components. Say:
@@ -532,6 +565,9 @@ Mechanically map the Exploration Report to the template:
 | SCHEMA                         | Steps (SQL step references exact columns)                                       |
 | STEP PLAN                      | Steps (method-to-step assignment)                                               |
 | TEST STRATEGY                  | Steps (test step specifies exact mocking)                                       |
+| RESEARCH DOCUMENT              | Header `> **Research:**` line (path to `documentation/research/` file)          |
+
+**Research auto-reference rule:** If the planner produced or used a research document during this planning session (from §0b delegation or user-provided), the `> **Research:**` line MUST appear in the task header with the exact path. If no research document exists, omit the line entirely. Never write the line with an empty value.
 
 ### C.3 Write prohibitions (internalize before writing)
 
@@ -546,6 +582,7 @@ Violating any of these causes the mechanical review (C.5) to reject and force a 
 - Never use Tier 1 or Tier 2 for types the component calls methods on or constructs inline — those must be Tier 0
 - Never write a manual class when the closest sibling uses a factory function for the same purpose — the Interface/Signature must use the same factory
 - Never reimplement logic that the sibling delegates to shared utility functions — import and call the existing shared utilities
+- Never produce a research document (via §0b or inline) without referencing it in the task's `> **Research:**` header line
 
 ### C.4 Save the task file
 
@@ -792,6 +829,7 @@ For **release-pipeline** recipe, replace the "Interface / Signature" and "Depend
 > **Phase:** [from mvp-progress.md]
 > **Layer:** [core | pipeline | storage | adapter | mcp | cli]
 > **Depends on:** [list of components that must be Done]
+> **Research:** [path to research doc if one was produced, otherwise omit this line entirely]
 
 ## Goal
 

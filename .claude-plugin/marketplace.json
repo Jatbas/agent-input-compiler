@@ -1,0 +1,13 @@
+{
+  "name": "aic-tools",
+  "owner": {
+    "name": "Jatbas"
+  },
+  "plugins": [
+    {
+      "name": "aic",
+      "source": "./integrations/claude/plugin",
+      "description": "Agent Input Compiler — compiles project context and specs into structured prompts via MCP hooks."
+    }
+  ]
+}

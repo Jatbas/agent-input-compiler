@@ -35,12 +35,13 @@ Each dimension gets an explorer subagent. Assign 2-4 of these based on what the 
 - For each dependency: is it an interface (DI) or concrete class? What layer is it in?
 - Evidence to collect: dependency graph (component → depends on [list with file paths])
 
-**Dimension 4 — Consumers:**
+**Dimension 4 — Consumers and scope-adjacent references:**
 
 - What depends on the target component?
 - Grep for imports of the target file/class across the codebase
 - Classify consumers: direct callers, transitive dependents, test files
-- Evidence to collect: consumer list with file paths, how each consumer uses the component
+- Beyond import-based consumers: grep for string-literal references to the component name in dispatch tables (`Record<string, ...>` entries), error messages, log statements, test descriptions, comments, and documentation. These reveal the component's full footprint beyond the type system — references that import analysis misses
+- Evidence to collect: consumer list with file paths and how each consumer uses the component. Separate import-based consumers from string-reference consumers
 
 ### Synthesis Focus
 
@@ -83,6 +84,8 @@ Generate 3-5 hypotheses before reading any code. Each hypothesis proposes a spec
 - Each hypothesis proposes a specific change and predicts its impact
 - Include at least one "surprising" hypothesis (an unconventional approach)
 
+**Heuristic 4 — Stale artifact scan (zero-cost evidence):** Before hypothesizing, grep the target area for `TODO`, `FIXME`, `HACK` markers and phase references (`Phase [A-Z]`). Cross-reference phase references against `mvp-progress.md` to identify stale markers (referencing completed work). These are pre-identified improvement opportunities that require no hypothesis generation — they are explicit statements by the original author about known issues. Collect them as "low-hanging fruit" and include in the synthesis alongside deeper findings. This heuristic is additive — it runs alongside Heuristics 1-3, not instead of them.
+
 ### Explorer Assignment
 
 Each hypothesis gets an explorer. The explorer tries to BOTH confirm AND disconfirm:
@@ -123,7 +126,7 @@ The critic must challenge:
 
 ### Evaluation Dimensions
 
-Each dimension gets an explorer:
+Each dimension gets an explorer. **Dimension applicability:** Not every question requires all 4 dimensions. If a dimension does not apply to the question (e.g., "Alternatives" when evaluating fit of an existing standard rather than comparing competing options), explicitly state which dimension is skipped and why in the investigation plan (§2c). The research document's Analysis section must note: "Dimension [N] ([name]) not applicable because [reason]." Never silently omit a dimension — the omission must be a documented decision, not an oversight.
 
 **Dimension 1 — Fit (codebase explorer):**
 
@@ -182,7 +185,7 @@ The critic must challenge:
 
 ### Quality Dimensions
 
-Each dimension gets an explorer. For comprehensive analysis, use all 5. For targeted analysis (user asks about one specific aspect), use only the relevant dimensions.
+Each dimension gets an explorer (except Dimension 5 which stays with the main agent). For comprehensive analysis, use all 6. For targeted analysis (user asks about one specific aspect), use only the relevant dimensions.
 
 **Dimension 1 — Factual accuracy (explorer):**
 
@@ -212,6 +215,13 @@ Each dimension gets an explorer. For comprehensive analysis, use all 5. For targ
 - Check: does the documented version match the current code?
 - Evidence to collect: `[documented item] — [doc version] vs [code version] — CURRENT / OUTDATED`
 - Priority: check interfaces and type definitions first (these change most often)
+
+**Dimension 6 — Parallel section and structural analysis (explorer):**
+
+- Read the full document. Identify sections that describe the same concept for different targets (e.g., "Cursor" and "Claude Code" sections both describe editor-specific installation, or "macOS" and "Linux" sections both describe platform-specific setup).
+- For each parallel pair: compare heading structure (do they mirror each other?), content coverage (features/steps in one but not the other), writing style and detail level (one verbose, one sparse?), and information density (approximate word count per subsection).
+- Verify the Table of Contents matches the actual body heading order. Flag any ToC-body mismatches (missing entries, ordering differences).
+- Evidence to collect: `[Section A] ↔ [Section B] — structure: SYMMETRIC / ASYMMETRIC ([details]) — content parity: BALANCED / IMBALANCED ([what's missing where]) — density: [A ~N words/subsection, B ~M words/subsection]`. For ToC: `[ToC entry] — MATCHES BODY / MISSING IN BODY / ORDER MISMATCH`.
 
 **Dimension 5 — Clarity (main agent judgment, not a subagent):**
 
@@ -272,6 +282,15 @@ If two explorers report contradictory findings about the same thing:
 2. The critic receives both and attempts to determine which is correct
 3. If the critic cannot resolve it, both findings appear in the document with a note: "Contradictory evidence — requires manual verification"
 4. Add to Open Questions
+
+### Uncertainty Resolution (all protocols)
+
+If an explorer reports findings marked UNCERTAIN (partial evidence, ambiguous grep results, contradictory signals), the main agent must resolve them before synthesis:
+
+- **1-2 uncertain findings:** Re-spawn the explorer with more specific instructions targeting the uncertainty. Provide the specific file paths, line numbers, and questions that need answers. One re-spawn typically resolves it.
+- **3+ uncertain findings:** The investigation has significant ambiguity. Before finalizing the research document, add an **Uncertainty Summary** section listing each unresolved item with what was tried and what remains unclear. Inform the user: "This investigation has N uncertain findings that could not be fully resolved. See the Uncertainty Summary for details." Do not present uncertain findings as confirmed — the distinction between "confirmed" and "uncertain" is critical for downstream planning and execution.
+
+This prevents auto-mode models from producing confident-sounding research documents that contain unverified claims — the most dangerous failure mode for downstream consumers (planner, executor) that trust the research.
 
 ### Maximum Subagent Budget
 

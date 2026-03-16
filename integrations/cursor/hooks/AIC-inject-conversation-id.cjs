@@ -12,10 +12,23 @@ process.stdin.on("data", (chunk) => {
 process.stdin.on("end", () => {
   try {
     const input = JSON.parse(raw);
-    const conversationId = input.conversation_id || process.env.AIC_CONVERSATION_ID;
+    // Same fallback chain as other Cursor hooks (after-file-edit-tracker, stop-quality-check)
+    const conversationId =
+      input.conversation_id ??
+      input.conversationId ??
+      input.session_id ??
+      input.sessionId ??
+      process.env.AIC_CONVERSATION_ID;
     const toolInput = input.tool_input;
 
-    if (!conversationId || typeof conversationId !== "string") {
+    const idStr =
+      conversationId !== undefined &&
+      conversationId !== null &&
+      typeof conversationId === "string" &&
+      conversationId.trim() !== ""
+        ? conversationId.trim()
+        : null;
+    if (!idStr) {
       process.stdout.write(JSON.stringify({ permission: "allow" }));
       return;
     }
@@ -35,7 +48,7 @@ process.stdin.on("end", () => {
       return;
     }
 
-    const updated = { ...toolInput, conversationId };
+    const updated = { ...toolInput, conversationId: idStr };
     process.stdout.write(JSON.stringify({ permission: "allow", updated_input: updated }));
   } catch {
     process.stdout.write(JSON.stringify({ permission: "allow" }));

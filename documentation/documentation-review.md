@@ -18,7 +18,7 @@ Each persona reads the documentation cold — no prior context, no conversations
 
 ### What they'd appreciate
 
-- **Setup is dead simple.** One JSON entry in the editor's MCP config, `npx @aic/mcp init`, done. The README communicates this clearly. A developer could be running in under 5 minutes.
+- **Setup is dead simple.** One JSON entry in the editor's MCP config (or a one-click deeplink for Cursor), and AIC auto-bootstraps on first use. A developer could be running in under 5 minutes.
 - **`aic_inspect` is a standout feature.** Being able to see exactly which files were selected, why, and how they were transformed — without executing anything — is exactly the kind of transparency developers want. The worked pipeline example in the project plan (section 13.1) is excellent.
 - **Best practices section is useful.** Unlike most "best practices" docs, these explain _why_ with technical reasoning (attention degradation, compaction loss). Trustworthy advice.
 - **The architecture is clean.** Hexagonal approach, branded types, immutability constraints, SOLID enforcement — this is a codebase a developer would enjoy contributing to.
@@ -30,7 +30,7 @@ The first thing a developer would try after installing is using `aic_inspect`. I
 _Fix:_ Replace the synthetic example with real output captured from an actual project.
 
 **DR-02: No "verify your setup" section.**
-The README setup says "Done." after `npx @aic/mcp init`, but there's no way to verify it's actually working. Did it compile? Did it select files? The "First-Run Message" exists in the MVP spec but isn't mentioned in the README.
+The README setup says "Done." after registering the MCP server, but there's no way to verify it's actually working. Did it compile? Did it select files? The "First-Run Message" exists in the MVP spec but isn't mentioned in the README.
 _Fix:_ Add a "Verify your setup" section with something like `aic compile "hello world" --verbose` and explain what to expect in the output.
 
 **DR-03: No example of actual compiled output.**
@@ -59,7 +59,7 @@ _Fix:_ Include the key requirements inline (SOLID compliance, commit format, tes
 
 **DR-07: No team deployment story.**
 How does a team lead roll this out to a team of 10? The README describes individual setup. There's no mention of team-wide MCP config, onboarding automation, or recommended practices for teams. The project plan mentions `postinstall` team deployment in Phase 1, but nothing for today.
-_Fix:_ Add a "Team Setup" section to the README: "Commit `aic.config.json` to your repo. Each developer runs `npx @aic/mcp init` once. Config is shared via git — all team members get the same context selection, budget, and guard settings."
+_Fix:_ Add a "Team Setup" section to the README: "Commit `aic.config.json` to your repo. Each developer registers the AIC MCP server once (deeplink for Cursor, plugin for Claude Code). Config is shared via git — all team members get the same context selection, budget, and guard settings."
 
 **DR-08: No guidance on measuring impact.**
 A team lead needs to justify adoption to their director. "It reduces tokens" isn't enough. How do they measure whether the team's AI output quality improved? The "show aic status" prompt command shows compilation stats, but there's no way to track whether hallucinations decreased or code review rejections dropped.

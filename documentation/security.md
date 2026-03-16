@@ -81,7 +81,7 @@ We consider security research conducted in good faith to be authorized. We will 
 
 | Component          | Description                                                       |
 | ------------------ | ----------------------------------------------------------------- |
-| `@aic/mcp`         | The MCP server package (npm)                                      |
+| `@jatbas/aic`      | The MCP server package (npm)                                      |
 | Context Guard      | All scanner implementations (secret, exclusion, prompt injection) |
 | SQLite storage     | Local database schema, migrations, and data handling              |
 | Telemetry endpoint | `https://telemetry.aic.dev` — payload processing and storage      |
@@ -262,7 +262,7 @@ For the full threat/mitigation analysis, see [Project Plan §12 — Data Leakage
 
 The `.aic/` directory stores AIC's local database, cache, and metadata. It is treated as sensitive:
 
-- **Auto-gitignored:** `npx @aic/mcp init` adds `.aic/` to `.gitignore` automatically. The directory is never committed to version control.
+- **Auto-gitignored:** Bootstrap adds `.aic/` to `.gitignore` automatically. The directory is never committed to version control.
 - **Permissions:** Created with `0700` (owner-only read/write/execute). No group or world access.
 - **No symlink traversal:** AIC does not follow symlinks inside `.aic/` to prevent symlink attacks that could redirect reads/writes outside the intended directory.
 
@@ -270,7 +270,7 @@ The `.aic/` directory stores AIC's local database, cache, and metadata. It is tr
 
 ## Anonymous Telemetry
 
-AIC can optionally send anonymous usage statistics to help improve the product. This is **disabled by default** and requires explicit opt-in during `npx @aic/mcp init`.
+AIC can optionally send anonymous usage statistics to help improve the product. This is **disabled by default** and requires explicit opt-in via `aic.config.json`.
 
 **What is sent:** AIC version, OS, Node version, task class (enum), primary language (enum), token reduction percentage, file counts, Guard block counts, cache hit rate, duration, model family (enum), editor (enum), heuristic signal averages.
 
@@ -417,7 +417,7 @@ AIC's architecture is designed to be **technically compliant** with GDPR, SOC 2,
 
 | Requirement               |   Status   | Implementation                                                                        |
 | ------------------------- | :--------: | ------------------------------------------------------------------------------------- |
-| Lawful basis (consent)    |     ✅     | Opt-in prompt during `npx @aic/mcp init`. Default: disabled.                          |
+| Lawful basis (consent)    |     ✅     | Opt-in via `aic.config.json`. Default: disabled.                                      |
 | Data minimisation         |     ✅     | Fixed enum fields only. No free-text. No PII.                                         |
 | Right to access           |     ✅     | Inspect or export `anonymous_telemetry_log.payload_json` from `.aic/aic.sqlite`       |
 | Right to erasure          |     ✅     | Delete local `anonymous_telemetry_log` rows and set `telemetry.anonymousUsage: false` |

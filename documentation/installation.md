@@ -28,6 +28,7 @@ How AIC gets installed, what artifacts it creates, and how its components intera
   - [Hooks](#hooks-1)
   - [Hook Lifecycle](#hook-lifecycle-1)
   - [How Hooks Are Delivered](#how-hooks-are-delivered-1)
+  - [Update Notifications](#update-notifications)
   - [Troubleshooting](#troubleshooting)
 - [Other Editors](#other-editors)
 - [AIC Development Environment](#aic-development-environment)
@@ -79,7 +80,7 @@ On the first `aic_compile` call for a new project (or when the server first sees
 5. Installs the trigger rule (editor-specific — e.g., `.cursor/rules/AIC.mdc` for Cursor, `.claude/CLAUDE.md` for Claude Code)
 6. Installs per-project artifacts (editor-specific — see the [Cursor](#cursor) and [Claude Code](#claude-code) sections)
 
-Step 6 runs when the server lists workspace roots (e.g. when Cursor connects). For Cursor, roots are typically listed before the first message, so hooks are in place by then. Steps 5 and 6 are idempotent. Per-project artifacts (e.g. hooks) are merged when they already exist (new entries added, existing preserved). The trigger rule is updated only if the installed version differs from the current package version.
+Step 6 runs when the server lists workspace roots (e.g. when Cursor connects). For Cursor, roots are typically listed before the first message, so hooks are in place by then. Steps 5 and 6 are idempotent. Hook registrations (e.g. `.cursor/hooks.json`) are merged when they already exist (new entries added, existing preserved). Hook scripts (`.cjs` files) are re-copied on every bootstrap to stay in sync with the installed AIC version. The trigger rule is updated only if the installed version differs from the current package version.
 
 After bootstrap, the server compiles context normally. Subsequent calls skip bootstrap entirely (guarded by a per-project once-flag in the compile handler).
 
@@ -140,7 +141,7 @@ The server detects when AIC is registered in both global and workspace configs (
 AIC is installed with `@latest`, so `npx` fetches the newest published version on each editor launch. When a new version includes updated hook scripts:
 
 - **Cursor:** Scripts are re-copied into the project's `.cursor/hooks/` on the next bootstrap run. This is automatic — no manual update step.
-- **Claude Code (plugin):** Update the AIC plugin via Claude Code's plugin management so the new version's hooks and MCP server are used.
+- **Claude Code (plugin):** With auto-update enabled (see [Plugin (Recommended)](#plugin-recommended)), the plugin updates automatically at startup. Otherwise, update via `/plugin` in the Installed tab.
 - **Claude Code (direct installer):** Re-run `node integrations/claude/install.cjs` from the project root (or trigger first-compile bootstrap). The installer re-merges hook entries and updates script paths in `.claude/settings.local.json`.
 
 ### Known Gap: Cursor Hooks Fire When Disabled
@@ -234,10 +235,18 @@ AIC supports Claude Code via two installation paths: the plugin (recommended) an
 
 For most users, install AIC as a Claude Code Plugin. The plugin auto-starts the MCP server and registers all hooks; no manual config edits are required.
 
-1. Add the AIC marketplace: `claude plugin marketplace add <github-owner>/aic` (replace `<github-owner>` with the GitHub org or user that publishes the AIC plugin).
-2. Install the plugin: `claude plugin install aic@aic-tools`.
+1. Add the AIC marketplace: `/plugin marketplace add Jatbas/agent-input-compiler`
+2. Install the plugin: `/plugin install aic@aic-tools`
 
 Once installed, the plugin provides the AIC MCP server and the 8 lifecycle hooks. Every project you open in Claude Code gets compiled context automatically.
+
+**Enable auto-updates:** Third-party marketplaces (including AIC) do not auto-update by default. To receive updates automatically when a new version is pushed:
+
+1. Run `/plugin` to open the plugin manager
+2. Go to the **Marketplaces** tab
+3. Select **Enable auto-update** for the AIC marketplace
+
+With auto-update enabled, Claude Code refreshes the marketplace and updates the plugin at startup. If the plugin was updated, a notification prompts you to run `/reload-plugins` to activate the changes.
 
 ### Direct Installer (For Development)
 
@@ -283,6 +292,10 @@ Key point: hooks and the MCP server are **separate execution paths**. The MCP se
 - **Direct installer path:** The installer writes `.claude/settings.local.json` with paths to `integrations/claude/hooks/` in this project; bootstrap runs the installer on first use so the project gets the trigger rule and hook entries.
 
 See `documentation/claude-code-integration-layer.md` for how hooks are packaged and delivered in each path.
+
+### Update Notifications
+
+AIC checks for newer published versions during compilation. When a newer version is available, the `aic_compile` response includes an `updateMessage` that the model surfaces to the user in the chat. This works identically to the Cursor update notification — no additional setup is needed.
 
 ### Troubleshooting
 
