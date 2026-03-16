@@ -3,6 +3,7 @@
 
 import * as path from "node:path";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 
 // Cursor reads hooks from .cursor/hooks.json (project root), not .cursor/hooks/hooks.json.
@@ -21,24 +22,14 @@ function commandIncludes(entry: { command?: string }, name: string): boolean {
   return String(entry.command ?? "").includes(name);
 }
 
-function readClaudeSettings(projectRoot: AbsolutePath): ClaudeSettingsParsed | null {
-  const localPath = path.join(projectRoot, ".claude", "settings.local.json");
-  const jsonPath = path.join(projectRoot, ".claude", "settings.json");
-  if (fs.existsSync(localPath)) {
-    try {
-      return JSON.parse(fs.readFileSync(localPath, "utf8")) as ClaudeSettingsParsed;
-    } catch {
-      // fall through to try settings.json
-    }
+function readGlobalClaudeSettings(): ClaudeSettingsParsed | null {
+  const globalPath = path.join(os.homedir(), ".claude", "settings.json");
+  if (!fs.existsSync(globalPath)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(globalPath, "utf8")) as ClaudeSettingsParsed;
+  } catch {
+    return null;
   }
-  if (fs.existsSync(jsonPath)) {
-    try {
-      return JSON.parse(fs.readFileSync(jsonPath, "utf8")) as ClaudeSettingsParsed;
-    } catch {
-      // leave null
-    }
-  }
-  return null;
 }
 
 function settingsHaveAicHook(parsed: ClaudeSettingsParsed): boolean {
@@ -53,15 +44,10 @@ function settingsHaveAicHook(parsed: ClaudeSettingsParsed): boolean {
   });
 }
 
-function getClaudeNote(
-  claudeDirExists: boolean,
-  hasAicHook: boolean,
-  claudeMdExists: boolean,
-): string | null {
-  if (!claudeDirExists) return null;
-  if (!hasAicHook) return "Claude Code: settings missing AIC hooks";
-  if (!claudeMdExists) return "Claude Code: CLAUDE.md not found";
-  return "Claude Code: OK";
+function getClaudeNote(parsed: ClaudeSettingsParsed | null): string | null {
+  if (parsed === null) return null;
+  if (settingsHaveAicHook(parsed)) return "Claude Code: OK";
+  return "Claude Code: settings missing AIC hooks";
 }
 
 function buildCursorNotes(
@@ -138,12 +124,8 @@ export function runStartupSelfCheck(projectRoot: AbsolutePath): {
       )
     : [];
 
-  const claudeDirExists = fs.existsSync(path.join(projectRoot, ".claude"));
-  const parsed = claudeDirExists ? readClaudeSettings(projectRoot) : null;
-  const hasAicHook = parsed !== null && settingsHaveAicHook(parsed);
-  const claudeMdExists =
-    claudeDirExists && fs.existsSync(path.join(projectRoot, ".claude", "CLAUDE.md"));
-  const claudeNote = getClaudeNote(claudeDirExists, hasAicHook, claudeMdExists);
+  const parsed = readGlobalClaudeSettings();
+  const claudeNote = getClaudeNote(parsed);
   const claudeNotes = claudeNote !== null ? [claudeNote] : [];
 
   const notes = [...cursorNotes, ...claudeNotes];

@@ -7,19 +7,40 @@ const { execFileSync } = require("node:child_process");
 
 const installScript = path.join(__dirname, "..", "install.cjs");
 
-function fresh_install_creates_settings() {
+const AIC_SCRIPT_NAMES = [
+  "aic-session-start.cjs",
+  "aic-prompt-compile.cjs",
+  "aic-subagent-inject.cjs",
+  "aic-pre-compact.cjs",
+  "aic-after-file-edit-tracker.cjs",
+  "aic-stop-quality-check.cjs",
+  "aic-block-no-verify.cjs",
+  "aic-session-end.cjs",
+];
+
+function fresh_install_creates_global_settings() {
   const tmpDir = fs.mkdtempSync(
     path.join(require("node:os").tmpdir(), "aic-install-test-"),
   );
   try {
     execFileSync("node", [installScript], {
       cwd: tmpDir,
-      env: { ...process.env, CLAUDE_PROJECT_DIR: tmpDir },
+      env: { ...process.env, HOME: tmpDir },
       stdio: ["ignore", "pipe", "pipe"],
     });
-    const settingsPath = path.join(tmpDir, ".claude", "settings.local.json");
+    const globalHooksDir = path.join(tmpDir, ".claude", "hooks");
+    if (!fs.existsSync(globalHooksDir)) {
+      throw new Error("Expected .claude/hooks/ to exist");
+    }
+    for (const name of AIC_SCRIPT_NAMES) {
+      const p = path.join(globalHooksDir, name);
+      if (!fs.existsSync(p)) {
+        throw new Error("Expected hook script: " + name);
+      }
+    }
+    const settingsPath = path.join(tmpDir, ".claude", "settings.json");
     if (!fs.existsSync(settingsPath)) {
-      throw new Error("Expected .claude/settings.local.json to exist");
+      throw new Error("Expected .claude/settings.json to exist");
     }
     const raw = fs.readFileSync(settingsPath, "utf8");
     const data = JSON.parse(raw);
@@ -30,7 +51,7 @@ function fresh_install_creates_settings() {
     if (eventKeys.length === 0) {
       throw new Error("Expected at least one hook event key");
     }
-    let foundCommandWithPath = false;
+    let foundAicWithGlobalPath = false;
     for (const key of eventKeys) {
       const arr = data.hooks[key] || [];
       for (const wrapper of arr) {
@@ -38,24 +59,23 @@ function fresh_install_creates_settings() {
         for (const hook of hooks) {
           const cmd = String(hook.command || "");
           if (
-            cmd.includes("integrations") &&
-            cmd.includes("claude") &&
-            cmd.includes("hooks")
+            cmd.includes("aic-") &&
+            (cmd.includes(".claude/hooks/") || cmd.includes("$HOME/.claude/hooks"))
           ) {
-            foundCommandWithPath = true;
+            foundAicWithGlobalPath = true;
             break;
           }
         }
-        if (foundCommandWithPath) break;
+        if (foundAicWithGlobalPath) break;
       }
-      if (foundCommandWithPath) break;
+      if (foundAicWithGlobalPath) break;
     }
-    if (!foundCommandWithPath) {
+    if (!foundAicWithGlobalPath) {
       throw new Error(
-        "Expected at least one command to contain path to integrations/claude/hooks",
+        "Expected at least one command to contain aic- and .claude/hooks/ or $HOME/.claude/hooks",
       );
     }
-    console.log("fresh_install_creates_settings: pass");
+    console.log("fresh_install_creates_global_settings: pass");
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
@@ -66,9 +86,9 @@ function merge_preserves_non_aic_entries() {
     path.join(require("node:os").tmpdir(), "aic-install-merge-test-"),
   );
   try {
-    const claudeDir = path.join(tmpDir, ".claude");
-    fs.mkdirSync(claudeDir, { recursive: true });
-    const settingsPath = path.join(claudeDir, "settings.local.json");
+    const globalClaudeDir = path.join(tmpDir, ".claude");
+    fs.mkdirSync(globalClaudeDir, { recursive: true });
+    const settingsPath = path.join(globalClaudeDir, "settings.json");
     const nonAicPayload = {
       hooks: {
         SessionStart: [
@@ -87,7 +107,7 @@ function merge_preserves_non_aic_entries() {
     fs.writeFileSync(settingsPath, JSON.stringify(nonAicPayload, null, 2) + "\n", "utf8");
     execFileSync("node", [installScript], {
       cwd: tmpDir,
-      env: { ...process.env, CLAUDE_PROJECT_DIR: tmpDir },
+      env: { ...process.env, HOME: tmpDir },
       stdio: ["ignore", "pipe", "pipe"],
     });
     const raw = fs.readFileSync(settingsPath, "utf8");
@@ -100,11 +120,15 @@ function merge_preserves_non_aic_entries() {
     if (!hasCustom) {
       throw new Error("Expected non-AIC entry (custom-script.cjs) to be preserved");
     }
+    const hasAic = commands.some((c) => c.includes("aic-"));
+    if (!hasAic) {
+      throw new Error("Expected AIC hook entries to be present");
+    }
     console.log("merge_preserves_non_aic_entries: pass");
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 }
 
-fresh_install_creates_settings();
+fresh_install_creates_global_settings();
 merge_preserves_non_aic_entries();

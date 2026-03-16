@@ -10,8 +10,12 @@ import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 
 describe("runStartupSelfCheck", () => {
   let tmpDir: string;
+  let savedHome: string | undefined;
 
   afterEach(() => {
+    if (savedHome !== undefined) {
+      process.env["HOME"] = savedHome;
+    }
     if (tmpDir !== undefined && fs.existsSync(tmpDir)) {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -19,6 +23,8 @@ describe("runStartupSelfCheck", () => {
 
   it("all_missing_returns_false_and_notes", () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-startup-"));
+    savedHome = process.env["HOME"];
+    process.env["HOME"] = tmpDir;
     fs.mkdirSync(path.join(tmpDir, ".cursor"), { recursive: true });
     const projectRoot = toAbsolutePath(tmpDir);
     const result = runStartupSelfCheck(projectRoot);
@@ -30,6 +36,8 @@ describe("runStartupSelfCheck", () => {
 
   it("all_present_returns_true", () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-startup-"));
+    savedHome = process.env["HOME"];
+    process.env["HOME"] = tmpDir;
     const rulesDir = path.join(tmpDir, ".cursor", "rules");
     const hooksDir = path.join(tmpDir, ".cursor", "hooks");
     fs.mkdirSync(rulesDir, { recursive: true });
@@ -61,6 +69,8 @@ describe("runStartupSelfCheck", () => {
 
   it("session_only_missing_preToolUse_reports_preToolUse_notes", () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-startup-"));
+    savedHome = process.env["HOME"];
+    process.env["HOME"] = tmpDir;
     const rulesDir = path.join(tmpDir, ".cursor", "rules");
     const hooksDir = path.join(tmpDir, ".cursor", "hooks");
     fs.mkdirSync(rulesDir, { recursive: true });
@@ -87,6 +97,8 @@ describe("runStartupSelfCheck", () => {
 
   it("only_trigger_missing_notes_mention_trigger", () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-startup-"));
+    savedHome = process.env["HOME"];
+    process.env["HOME"] = tmpDir;
     const hooksDir = path.join(tmpDir, ".cursor", "hooks");
     fs.mkdirSync(hooksDir, { recursive: true });
     fs.writeFileSync(
@@ -115,6 +127,8 @@ describe("runStartupSelfCheck", () => {
 
   it("claude_dir_absent_skips_cc_checks", () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-startup-"));
+    savedHome = process.env["HOME"];
+    process.env["HOME"] = tmpDir;
     const rulesDir = path.join(tmpDir, ".cursor", "rules");
     const hooksDir = path.join(tmpDir, ".cursor", "hooks");
     fs.mkdirSync(rulesDir, { recursive: true });
@@ -143,10 +157,12 @@ describe("runStartupSelfCheck", () => {
 
   it("claude_settings_and_claude_md_pass", () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-startup-"));
-    const claudeDir = path.join(tmpDir, ".claude");
-    fs.mkdirSync(claudeDir, { recursive: true });
+    savedHome = process.env["HOME"];
+    process.env["HOME"] = tmpDir;
+    const globalClaudeDir = path.join(tmpDir, ".claude");
+    fs.mkdirSync(globalClaudeDir, { recursive: true });
     fs.writeFileSync(
-      path.join(claudeDir, "settings.local.json"),
+      path.join(globalClaudeDir, "settings.json"),
       JSON.stringify({
         hooks: {
           SessionStart: [
@@ -157,7 +173,6 @@ describe("runStartupSelfCheck", () => {
         },
       }),
     );
-    fs.writeFileSync(path.join(claudeDir, "CLAUDE.md"), "# Project");
     const projectRoot = toAbsolutePath(tmpDir);
     const result = runStartupSelfCheck(projectRoot);
     expect(result.installationNotes).toContain("Claude Code: OK");
@@ -166,44 +181,28 @@ describe("runStartupSelfCheck", () => {
 
   it("claude_settings_missing_aic_hooks", () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-startup-"));
-    const claudeDir = path.join(tmpDir, ".claude");
-    fs.mkdirSync(claudeDir, { recursive: true });
+    savedHome = process.env["HOME"];
+    process.env["HOME"] = tmpDir;
+    const globalClaudeDir = path.join(tmpDir, ".claude");
+    fs.mkdirSync(globalClaudeDir, { recursive: true });
     fs.writeFileSync(
-      path.join(claudeDir, "settings.local.json"),
+      path.join(globalClaudeDir, "settings.json"),
       JSON.stringify({ hooks: {} }),
     );
-    fs.writeFileSync(path.join(claudeDir, "CLAUDE.md"), "");
     const projectRoot = toAbsolutePath(tmpDir);
     const result = runStartupSelfCheck(projectRoot);
     expect(result.installationNotes).toContain("Claude Code: settings missing AIC hooks");
     expect(result.installationOk).toBe(false);
   });
 
-  it("claude_claude_md_missing", () => {
+  it("startup self-check Claude from global", () => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-startup-"));
-    const claudeDir = path.join(tmpDir, ".claude");
-    fs.mkdirSync(claudeDir, { recursive: true });
+    savedHome = process.env["HOME"];
+    process.env["HOME"] = tmpDir;
+    const globalClaudeDir = path.join(tmpDir, ".claude");
+    fs.mkdirSync(globalClaudeDir, { recursive: true });
     fs.writeFileSync(
-      path.join(claudeDir, "settings.local.json"),
-      JSON.stringify({
-        hooks: {
-          SessionStart: [{ hooks: [{ command: "node aic-session-start.cjs" }] }],
-        },
-      }),
-    );
-    const projectRoot = toAbsolutePath(tmpDir);
-    const result = runStartupSelfCheck(projectRoot);
-    expect(result.installationNotes).toContain("Claude Code: CLAUDE.md not found");
-    expect(result.installationOk).toBe(false);
-  });
-
-  it("claude_either_settings_file_satisfies", () => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-startup-"));
-    const claudeDir = path.join(tmpDir, ".claude");
-    fs.mkdirSync(claudeDir, { recursive: true });
-    fs.writeFileSync(path.join(claudeDir, "CLAUDE.md"), "");
-    fs.writeFileSync(
-      path.join(claudeDir, "settings.json"),
+      path.join(globalClaudeDir, "settings.json"),
       JSON.stringify({
         hooks: {
           SessionStart: [{ hooks: [{ command: "node aic-session-start.cjs" }] }],

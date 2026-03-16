@@ -22,7 +22,7 @@ How AIC gets installed, what artifacts it creates, and how its components intera
   - [How Hooks Are Delivered](#how-hooks-are-delivered)
 - [Claude Code](#claude-code)
   - [Plugin (Recommended)](#plugin-recommended)
-  - [Direct Installer (For Development)](#direct-installer-for-development)
+  - [Direct Installer](#direct-installer)
   - [Prerequisite](#prerequisite)
   - [Trigger Rule](#trigger-rule-1)
   - [Hooks](#hooks-1)
@@ -88,18 +88,17 @@ After bootstrap, the server compiles context normally. Subsequent calls skip boo
 
 After bootstrap, each project contains:
 
-| Path                          | Purpose                                                      | Committed to git?          |
-| ----------------------------- | ------------------------------------------------------------ | -------------------------- |
-| `aic.config.json`             | Project configuration (budget, guard, cache, telemetry)      | Yes                        |
-| `.aic/`                       | AIC data directory (DB, cache, project-id)                   | No (auto-gitignored)       |
-| `.aic/project-id`             | Stable UUIDv7 — survives folder renames                      | No                         |
-| `.cursor/rules/AIC.mdc`       | Trigger rule for Cursor — tells the AI to call `aic_compile` | Depends on team preference |
-| `.cursor/hooks.json`          | Hook registrations for Cursor                                | Depends on team preference |
-| `.cursor/hooks/AIC-*.cjs`     | Cursor hook scripts — auto-bootstrapped per project          | Depends on team preference |
-| `.claude/CLAUDE.md`           | Trigger rule for Claude Code                                 | Depends on team preference |
-| `.claude/settings.local.json` | Hook paths for Claude Code (direct installer only)           | No (gitignored)            |
+| Path                      | Purpose                                                      | Committed to git?          |
+| ------------------------- | ------------------------------------------------------------ | -------------------------- |
+| `aic.config.json`         | Project configuration (budget, guard, cache, telemetry)      | Yes                        |
+| `.aic/`                   | AIC data directory (DB, cache, project-id)                   | No (auto-gitignored)       |
+| `.aic/project-id`         | Stable UUIDv7 — survives folder renames                      | No                         |
+| `.cursor/rules/AIC.mdc`   | Trigger rule for Cursor — tells the AI to call `aic_compile` | Depends on team preference |
+| `.cursor/hooks.json`      | Hook registrations for Cursor                                | Depends on team preference |
+| `.cursor/hooks/AIC-*.cjs` | Cursor hook scripts — auto-bootstrapped per project          | Depends on team preference |
+| `.claude/CLAUDE.md`       | Trigger rule for Claude Code                                 | Depends on team preference |
 
-Note: With the **plugin** path, the plugin provides hooks and MCP registration globally — no per-project hook files. With the **direct installer** path, the installer writes `.claude/settings.local.json` in the project root with paths to `integrations/claude/hooks/` in the AIC repo. The trigger rule `.claude/CLAUDE.md` is written in both cases (during bootstrap for direct installer, or added manually by plugin users who disable hooks).
+Note: With the **plugin** path, the plugin provides hooks and MCP registration globally — no per-project hook files. With the **direct installer** path, the installer copies hook scripts to `~/.claude/hooks/` and merges AIC hook entries into `~/.claude/settings.json`, so every project gets compiled context with one install.
 
 The database lives globally at `~/.aic/aic.sqlite`. Per-project data is isolated via a `project_id` foreign key.
 
@@ -142,7 +141,7 @@ AIC is installed with `@latest`, so `npx` fetches the newest published version o
 
 - **Cursor:** Scripts are re-copied into the project's `.cursor/hooks/` on the next bootstrap run. This is automatic — no manual update step.
 - **Claude Code (plugin):** With auto-update enabled (see [Plugin (Recommended)](#plugin-recommended)), the plugin updates automatically at startup. Otherwise, update via `/plugin` in the Installed tab.
-- **Claude Code (direct installer):** Re-run `node integrations/claude/install.cjs` from the project root (or trigger first-compile bootstrap). The installer re-merges hook entries and updates script paths in `.claude/settings.local.json`.
+- **Claude Code (direct installer):** Re-run `node integrations/claude/install.cjs` (from the AIC repo or a directory that contains the script). The installer updates scripts in `~/.claude/hooks/` and re-merges hook entries in `~/.claude/settings.json`.
 
 ### Known Gap: Cursor Hooks Fire When Disabled
 
@@ -248,14 +247,9 @@ Once installed, the plugin provides the AIC MCP server and the 8 lifecycle hooks
 
 With auto-update enabled, Claude Code refreshes the marketplace and updates the plugin at startup. If the plugin was updated, a notification prompts you to run `/reload-plugins` to activate the changes.
 
-### Direct Installer (For Development)
+### Direct Installer
 
-For development or when you have the AIC repo on disk, you can use the standalone installer instead of the plugin. This writes project-local hook paths and does not require the plugin marketplace.
-
-1. From the **project root** (the repo that contains `integrations/claude/`), run: `node integrations/claude/install.cjs`
-2. Or rely on first-compile bootstrap — when you open this project in Claude Code, the MCP server auto-detects Claude Code (for example when `.claude/` exists or `CLAUDE_PROJECT_DIR` is set) and runs the same installer during bootstrap.
-
-The installer creates `.claude/` in the project root, writes `.claude/settings.local.json` with hook commands pointing at `integrations/claude/hooks/` in this project, and writes `.claude/CLAUDE.md` as the trigger rule. No scripts are copied to a global directory; everything stays project-local.
+Run `node integrations/claude/install.cjs` from the AIC repo (or from a path where the script and `integrations/claude/hooks/` are available). The installer copies the 8 hook scripts to `~/.claude/hooks/` and merges AIC hook entries into `~/.claude/settings.json`. Every project you open in Claude Code then gets compiled context. Optionally, the installer writes `.claude/CLAUDE.md` in the current working directory for the trigger-rule fallback.
 
 ### Prerequisite
 
@@ -263,7 +257,7 @@ The AIC MCP server must be runnable as `npx @jatbas/aic@latest` (Node 20+). Ensu
 
 ### Trigger Rule
 
-Claude Code supports custom context files. AIC creates `.claude/CLAUDE.md` (or merges into it) during first-compile bootstrap (direct installer path) or you can add it manually. It instructs the model to call `aic_compile`. For plugin users who set `disableAllHooks: true`, `.claude/CLAUDE.md` in the project root is the fallback so the model still knows to invoke AIC.
+Claude Code supports custom context files. `.claude/CLAUDE.md` in the project root is the fallback when hooks are disabled — it instructs the model to call `aic_compile`. The direct installer may write it when run from a project directory; plugin users who set `disableAllHooks: true` can add it manually.
 
 ### Hooks
 
@@ -282,14 +276,14 @@ Claude Code provides a richer hook lifecycle than Cursor, including the critical
 
 ### Hook Lifecycle
 
-Hooks run as Claude Code spawns them — they are independent processes, not part of the MCP server. Claude Code reads the active settings (plugin-provided or `.claude/settings.local.json` / `~/.claude/settings.json`) and invokes the registered commands at the relevant lifecycle events.
+Hooks run as Claude Code spawns them — they are independent processes, not part of the MCP server. Claude Code reads the active settings (plugin-provided or `~/.claude/settings.json`) and invokes the registered commands at the relevant lifecycle events.
 
 Key point: hooks and the MCP server are **separate execution paths**. The MCP server does not control when hooks run. Claude Code does.
 
 ### How Hooks Are Delivered
 
 - **Plugin path:** The plugin provides the 8 hook scripts and registers them with Claude Code; no per-project deployment.
-- **Direct installer path:** The installer writes `.claude/settings.local.json` with paths to `integrations/claude/hooks/` in this project; bootstrap runs the installer on first use so the project gets the trigger rule and hook entries.
+- **Direct installer path:** The installer copies hook scripts to `~/.claude/hooks/` and merges AIC hook entries into `~/.claude/settings.json`; bootstrap runs the installer on first use so every project gets compiled context.
 
 See `documentation/claude-code-integration-layer.md` for how hooks are packaged and delivered in each path.
 
@@ -303,7 +297,7 @@ AIC checks for newer published versions during compilation. When a newer version
 
 - Check whether `disableAllHooks` is set in your Claude Code settings; if it is true, hooks are disabled. Use `.claude/CLAUDE.md` in the project root so the model still knows to call `aic_compile` on every message.
 - If using the plugin: verify the plugin is enabled (for example via the `/plugin` command in Claude Code).
-- If using the direct installer: confirm `.claude/settings.local.json` exists and contains `aic-` hook entries, and that `.claude/CLAUDE.md` exists for the trigger fallback.
+- If using the direct installer: confirm `~/.claude/settings.json` contains `aic-` hook entries and that `~/.claude/hooks/` contains the 8 scripts; use `.claude/CLAUDE.md` in the project root for the trigger fallback if needed.
 
 ---
 

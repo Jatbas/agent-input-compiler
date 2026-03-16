@@ -110,8 +110,8 @@ must accept and forward it.
 
 ## 5. Target file layout
 
-`integrations/claude/` is the source. Deployment targets are `~/.claude/` (global) and
-`.claude/` (per-project). Nothing in `mcp/` or `shared/` changes.
+`integrations/claude/` is the source. Deployment target for hook registration is
+`~/.claude/` (global) only. Nothing in `mcp/` or `shared/` changes.
 
 ```
 integrations/claude/               ← SOURCE (authored here)
@@ -131,8 +131,8 @@ integrations/claude/               ← SOURCE (authored here)
   aic-*.cjs                        # Deployed from integrations/claude/hooks/
 ~/.claude/settings.json            # AIC hook entries merged in by install.cjs
 
-.claude/                           ← DEPLOYMENT TARGET (per-project, created by bootstrap)
-  CLAUDE.md                        # Fallback trigger rule
+.claude/ (in project, optional)    ← CLAUDE.md — Fallback trigger rule only
+  CLAUDE.md                        # Written by install.cjs when run from project dir
 ```
 
 ---
@@ -609,9 +609,9 @@ The target JSON payload merged into the `hooks` section of `~/.claude/settings.j
 }
 ```
 
-### 10.2 Local settings (`.claude/settings.json`)
+### 10.2 Hook registration scope
 
-If a user prefers project isolation, the installer can write the exact same payload above to `.claude/settings.json` directly within the project root, changing paths to relative ones (e.g. `node \".claude/hooks/aic-prompt-compile.cjs\"`). However, the global `~/.claude/settings.json` target is the preferred zero-intervention delivery method to guarantee immediate coverage.
+Hook registration lives only in `~/.claude/settings.json`; there is no project-local hook registration.
 
 ---
 
@@ -669,24 +669,19 @@ node integrations/claude/install.cjs
 
 The installer:
 
-1. Detects the project root (from `$CLAUDE_PROJECT_DIR` or `process.cwd()`)
-2. Reads `integrations/claude/settings.json.template` (T10), rewrites all hook `command`
-   values: replaces `$HOME/.claude/hooks/` with the absolute path to
-   `integrations/claude/hooks/` in the detected project root — hooks execute directly from
-   the project tree without file copying
-3. Writes `.claude/settings.local.json` (gitignored by Claude Code convention) with the
-   rewritten hook entries. Deep-merges into existing content if the file already exists,
-   preserving non-AIC entries. Removes stale AIC entries whose hook scripts no longer exist
-   (upgrade-safe cleanup)
-4. Writes `.claude/CLAUDE.md` as a fallback trigger rule (for `disableAllHooks` users)
+1. Resolves `~/.claude` from the user's home directory
+2. Copies hook scripts from `integrations/claude/hooks/` (relative to the script) to
+   `~/.claude/hooks/`
+3. Reads `settings.json.template` (paths are already `$HOME/.claude/hooks/`)
+4. Reads `~/.claude/settings.json` if present; deep-merges AIC hook entries, preserving
+   non-AIC entries; writes `~/.claude/settings.json`
+5. Optionally writes `.claude/CLAUDE.md` in the current working directory for the
+   trigger-rule fallback
 
 The MCP server runs this installer during first-compile bootstrap when it detects a Claude
 Code context (e.g. `.claude/` directory or `$CLAUDE_PROJECT_DIR`). The server delegates to
 the integration layer — it does not embed Claude Code logic itself. See
 `documentation/installation.md` for the user-facing description of this path.
-
-The committed `.claude/settings.json` (with `$CLAUDE_PROJECT_DIR`-based paths) covers the
-manual install case and team-shared repos without running the installer.
 
 For end-user distribution, AIC is also packaged as a native Claude Code Plugin
 (`integrations/claude/plugin/`) installable via the Plugin Marketplace. See
@@ -737,7 +732,7 @@ Settings:
 
 Plugin and direct-install:
 
-- [ ] Plugin path: the plugin provides hooks and MCP registration; direct installer path: `install.cjs` writes `.claude/settings.local.json` and trigger rule (§12, §13)
+- [ ] Plugin path: the plugin provides hooks and MCP registration; direct installer path: `install.cjs` copies to `~/.claude/hooks/` and merges into `~/.claude/settings.json` (§12, §13)
 
 Temp file and marker conventions:
 

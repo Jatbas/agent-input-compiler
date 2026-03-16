@@ -3,6 +3,7 @@
 
 const path = require("node:path");
 const fs = require("node:fs");
+const os = require("node:os");
 
 const AIC_SCRIPT_NAMES = [
   "aic-session-start.cjs",
@@ -116,34 +117,6 @@ Run \`pnpm lint\` before declaring work complete. Never add \`eslint-disable\`, 
 - No \`any\` in tests
 `;
 
-function replaceAllCommands(str, from, to) {
-  return str.split(from).join(to);
-}
-
-function rewriteCommand(command, hooksDirAbs) {
-  return replaceAllCommands(String(command), "$HOME/.claude/hooks", hooksDirAbs);
-}
-
-function rewriteHooksPayload(payload, hooksDirAbs) {
-  const hooks = payload.hooks || {};
-  const result = { hooks: {} };
-  for (const eventKey of Object.keys(hooks)) {
-    const wrappers = hooks[eventKey] || [];
-    result.hooks[eventKey] = wrappers.map((wrapper) => {
-      const inner = wrapper.hooks || [];
-      return {
-        ...wrapper,
-        hooks: inner.map((hook) =>
-          hook.command !== undefined
-            ? { ...hook, command: rewriteCommand(hook.command, hooksDirAbs) }
-            : hook,
-        ),
-      };
-    });
-  }
-  return result;
-}
-
 function isAicCommand(command) {
   const m = String(command || "").match(/aic-[a-z0-9-]+\.cjs/);
   return m ? AIC_SCRIPT_NAMES.includes(m[0]) : false;
@@ -174,36 +147,59 @@ function mergeHookArrays(existingArr, rewrittenArr) {
   return toAppend.length > 0 ? [...filtered, ...toAppend] : filtered;
 }
 
+function mergeNestedHooksPayload(existing, template) {
+  const result = { hooks: { ...(existing.hooks || {}) } };
+  const templateHooks = template.hooks || {};
+  for (const eventKey of Object.keys(templateHooks)) {
+    const existingWrappers = result.hooks[eventKey] ?? [];
+    const templateWrappers = templateHooks[eventKey] ?? [];
+    const existingArr = existingWrappers.flatMap((w) => w.hooks ?? []);
+    const templateArr = templateWrappers.flatMap((w) => w.hooks ?? []);
+    const mergedArr = mergeHookArrays(existingArr, templateArr);
+    result.hooks[eventKey] = [{ hooks: mergedArr }];
+  }
+  return result;
+}
+
 try {
-  const projectRoot = process.env.CLAUDE_PROJECT_DIR || process.cwd();
-  const claudeDir = path.join(projectRoot, ".claude");
-  const hooksDirAbs = path.join(projectRoot, "integrations", "claude", "hooks");
-  const templatePath = path.join(__dirname, "settings.json.template");
-  const settingsLocalPath = path.join(claudeDir, "settings.local.json");
-  const claudeMdPath = path.join(claudeDir, "CLAUDE.md");
+  const home = os.homedir();
+  const globalClaudeDir = path.join(home, ".claude");
+  const globalHooksDir = path.join(globalClaudeDir, "hooks");
+  const hooksSourceDir = path.join(__dirname, "hooks");
 
-  fs.mkdirSync(claudeDir, { recursive: true });
+  fs.mkdirSync(globalHooksDir, { recursive: true });
 
-  const templateRaw = fs.readFileSync(templatePath, "utf8");
-  const templateParsed = JSON.parse(templateRaw);
-  const rewritten = rewriteHooksPayload(templateParsed, hooksDirAbs);
-
-  let merged;
-  if (fs.existsSync(settingsLocalPath)) {
-    const existingRaw = fs.readFileSync(settingsLocalPath, "utf8");
-    const existing = JSON.parse(existingRaw);
-    merged = { ...existing, hooks: { ...(existing.hooks || {}) } };
-    for (const eventKey of Object.keys(rewritten.hooks)) {
-      const existingArr = existing.hooks?.[eventKey] ?? [];
-      const rewrittenArr = rewritten.hooks[eventKey] ?? [];
-      merged.hooks[eventKey] = mergeHookArrays(existingArr, rewrittenArr);
-    }
-  } else {
-    merged = rewritten;
+  for (const name of AIC_SCRIPT_NAMES) {
+    const src = path.join(hooksSourceDir, name);
+    const dest = path.join(globalHooksDir, name);
+    fs.copyFileSync(src, dest);
   }
 
-  fs.writeFileSync(settingsLocalPath, JSON.stringify(merged, null, 2) + "\n", "utf8");
-  fs.writeFileSync(claudeMdPath, CLAUDE_MD_TEMPLATE, "utf8");
+  const templatePath = path.join(__dirname, "settings.json.template");
+  const templateRaw = fs.readFileSync(templatePath, "utf8");
+  const templateParsed = JSON.parse(templateRaw);
+
+  const globalSettingsPath = path.join(globalClaudeDir, "settings.json");
+  let merged;
+  if (fs.existsSync(globalSettingsPath)) {
+    const existingRaw = fs.readFileSync(globalSettingsPath, "utf8");
+    const existing = JSON.parse(existingRaw);
+    merged = mergeNestedHooksPayload(existing, templateParsed);
+  } else {
+    merged = templateParsed;
+  }
+
+  fs.writeFileSync(globalSettingsPath, JSON.stringify(merged, null, 2) + "\n", "utf8");
+
+  const projectRoot = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  const projectClaudeDir = path.join(projectRoot, ".claude");
+  try {
+    fs.mkdirSync(projectClaudeDir, { recursive: true });
+    const claudeMdPath = path.join(projectClaudeDir, "CLAUDE.md");
+    fs.writeFileSync(claudeMdPath, CLAUDE_MD_TEMPLATE, "utf8");
+  } catch {
+    // optional: ignore if project dir not writable
+  }
 } catch (err) {
   process.stderr.write(String(err && err.message ? err.message : err) + "\n");
   process.exit(0);
