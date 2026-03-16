@@ -12,13 +12,9 @@ process.stdin.on("data", (chunk) => {
 process.stdin.on("end", () => {
   try {
     const input = JSON.parse(raw);
-    // Same fallback chain as other Cursor hooks (after-file-edit-tracker, stop-quality-check)
+    // Conversation-scoped id only — never session_id (wrong attribution across chats)
     const conversationId =
-      input.conversation_id ??
-      input.conversationId ??
-      input.session_id ??
-      input.sessionId ??
-      process.env.AIC_CONVERSATION_ID;
+      input.conversation_id ?? input.conversationId ?? process.env.AIC_CONVERSATION_ID;
     const toolInput = input.tool_input;
 
     const idStr =
@@ -48,7 +44,9 @@ process.stdin.on("end", () => {
       return;
     }
 
-    const updated = { ...toolInput, conversationId: idStr };
+    const updated = isAicCompile
+      ? { ...toolInput, conversationId: idStr, editorId: "cursor" }
+      : { ...toolInput, conversationId: idStr };
     process.stdout.write(JSON.stringify({ permission: "allow", updated_input: updated }));
   } catch {
     process.stdout.write(JSON.stringify({ permission: "allow" }));

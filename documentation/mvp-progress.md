@@ -470,6 +470,13 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ## Daily Log
 
+### 2025-03-16
+
+**Components:** Task 180 conversation_id and editorId integration fix
+**Completed:**
+
+- Task 180 (conversation_id and editorId integration fix): Cursor AIC-inject-conversation-id.cjs — conversationId from conversation_id ?? conversationId ?? AIC_CONVERSATION_ID only (no session_id); editorId "cursor" injected for aic_compile path only. AIC-session-init.cjs — AIC_CONVERSATION_ID line only when conversation_id present. AIC-compile-context.cjs — compileArgs.conversationId only from conversation_id (trimmed). Claude aic-compile-helper.cjs (hooks + plugin) — third param renamed to conversationId; pass to aic_compile only when truthy. Claude callers (aic-prompt-compile, aic-subagent-inject + plugin mirrors) — pass conversation_id ?? input?.conversation_id to callAicCompile. Lint, typecheck, test, knip, lint:clones 0.
+
 ### 2026-03-16
 
 **Components:** Task 177 Installation and integration docs symmetry, Task 178 Audit and fix installation.md, Task 179 compilation_log editor_id and conversation_id + doc alignment

@@ -22,6 +22,7 @@ async function run(stdinStr) {
       : input.prompt != null
         ? String(input.prompt)
         : "";
+  const conversationId = parsed.conversation_id ?? parsed.input?.conversation_id ?? null;
   const sessionId =
     top.session_id != null
       ? top.session_id
@@ -64,7 +65,7 @@ async function run(stdinStr) {
     }
   }
 
-  const promptContext = await callAicCompile(intent, projectRoot, sessionId, 30000);
+  const promptContext = await callAicCompile(intent, projectRoot, conversationId, 30000);
   if (promptContext == null) return null;
 
   if (invariantsBlock.length > 0) {

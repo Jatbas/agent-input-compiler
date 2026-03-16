@@ -5,7 +5,7 @@
 // Calls aic_compile via the MCP server's stdio JSON-RPC protocol and injects
 // the compiled project context into the conversation's system prompt via
 // additional_context. This runs before the model sees anything — deterministic.
-// Passes session_id as conversationId when present so compilation_log has conversation_id.
+// conversationId is set only when a conversation-scoped id is present (never session_id).
 const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
@@ -22,15 +22,19 @@ try {
   // Non-fatal — proceed without conversation_id
 }
 
-const sessionId = hookInput.session_id || null;
+const conversationId = hookInput.conversation_id || null;
 
 const compileArgs = {
   intent: INTENT,
   projectRoot: projectRoot,
   editorId: "cursor",
 };
-if (sessionId && typeof sessionId === "string" && sessionId.length > 0) {
-  compileArgs.conversationId = sessionId;
+if (
+  conversationId &&
+  typeof conversationId === "string" &&
+  conversationId.trim().length > 0
+) {
+  compileArgs.conversationId = conversationId.trim();
 }
 
 // Build a JSON-RPC request to call aic_compile via the MCP server
@@ -86,7 +90,9 @@ try {
               env: {
                 AIC_PROJECT_ROOT: projectRoot,
                 AIC_CONVERSATION_ID:
-                  sessionId && typeof sessionId === "string" ? sessionId : "",
+                  conversationId && typeof conversationId === "string"
+                    ? conversationId
+                    : "",
               },
               additional_context: [
                 "## AIC Compiled Context (auto-injected at session start)",

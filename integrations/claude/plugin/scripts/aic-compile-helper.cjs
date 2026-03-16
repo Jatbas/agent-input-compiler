@@ -8,7 +8,8 @@ const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
-function callAicCompile(intent, projectRoot, sessionId, timeoutMs) {
+// conversationId must be conversation-scoped (not session_id) for correct chat summary attribution.
+function callAicCompile(intent, projectRoot, conversationId, timeoutMs) {
   const timeout = timeoutMs || 25000;
   const serverPath = path.join(projectRoot, "mcp", "src", "server.ts");
   const args = fs.existsSync(serverPath) ? ["tsx", serverPath] : ["@jatbas/aic"];
@@ -35,7 +36,7 @@ function callAicCompile(intent, projectRoot, sessionId, timeoutMs) {
       arguments: {
         intent,
         projectRoot,
-        ...(sessionId ? { conversationId: sessionId } : {}),
+        ...(conversationId ? { conversationId } : {}),
       },
     },
   });

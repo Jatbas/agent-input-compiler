@@ -13,15 +13,14 @@ async function run(stdinStr) {
     parsed = {};
   }
   const agentType = parsed.agent_type ?? parsed.input?.agent_type ?? "unknown";
-  const sessionId =
-    parsed.session_id != null ? parsed.session_id : (parsed.input?.session_id ?? null);
+  const conversationId = parsed.conversation_id ?? parsed.input?.conversation_id ?? null;
   const cwdRaw = parsed.cwd ?? parsed.input?.cwd ?? "";
   const projectRoot = cwdRaw.trim()
     ? cwdRaw.trim()
     : process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
   const intent = "provide context for " + agentType + " subagent";
-  const text = await callAicCompile(intent, projectRoot, sessionId, 30000);
+  const text = await callAicCompile(intent, projectRoot, conversationId, 30000);
   if (text == null) return null;
   return {
     hookSpecificOutput: {

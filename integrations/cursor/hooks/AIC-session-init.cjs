@@ -17,10 +17,10 @@ try {
   const raw = fs.readFileSync(0, "utf8");
   if (raw && raw.trim()) hookInput = JSON.parse(raw);
 } catch {
-  // Non-fatal — proceed without session_id
+  // Non-fatal — proceed without conversation_id
 }
 
-const sessionId = hookInput.session_id || "";
+const conversationId = hookInput.conversation_id || "";
 
 const ROUTER_PATH = path.join(__dirname, "..", "rules", "AIC-architect.mdc");
 const SECTION_START = "## Critical reminders";
@@ -44,7 +44,9 @@ try {
     .join("\n");
 
   if (bullets.length > 0) {
-    const conversationLine = sessionId ? `\nAIC_CONVERSATION_ID=${sessionId}` : "";
+    const conversationLine = conversationId
+      ? `\nAIC_CONVERSATION_ID=${conversationId}`
+      : "";
     const projectRoot =
       process.env.CURSOR_PROJECT_DIR || process.env.AIC_PROJECT_ROOT || process.cwd();
     const updatePath = path.join(projectRoot, ".aic", "update-available.txt");
