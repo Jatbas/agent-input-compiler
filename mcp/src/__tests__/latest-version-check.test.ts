@@ -116,6 +116,11 @@ describe("latest-version-check", () => {
       vi.stubGlobal(
         "fetch",
         vi.fn().mockResolvedValue({
+          ok: true,
+          headers: {
+            get: (name: string) =>
+              name.toLowerCase() === "content-type" ? "application/json" : null,
+          },
           arrayBuffer: () => Promise.resolve(new TextEncoder().encode(registryJson)),
         }),
       );
@@ -133,6 +138,54 @@ describe("latest-version-check", () => {
       expect(fs.existsSync(messagePath)).toBe(true);
       const written = fs.readFileSync(messagePath, "utf8");
       expect(written).toBe(result.updateMessage);
+    });
+
+    it("getUpdateInfo_when_content_type_not_json_returns_null", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          headers: {
+            get: (name: string) =>
+              name.toLowerCase() === "content-type" ? "text/html" : null,
+          },
+          arrayBuffer: () =>
+            Promise.resolve(
+              new TextEncoder().encode(
+                JSON.stringify({ "dist-tags": { latest: "0.2.2" } }),
+              ),
+            ),
+        }),
+      );
+      const clock = createMockClock("2025-01-01T12:00:00.000Z", 25 * 60 * 60 * 1000);
+      const result = await getUpdateInfo(
+        toAbsolutePath(tmpDir),
+        "@aic/mcp",
+        "0.2.1",
+        clock,
+      );
+      expect(result.updateAvailable).toBe(null);
+      expect(result.currentVersion).toBe("0.2.1");
+    });
+
+    it("getUpdateInfo_when_packument_missing_dist_tags_returns_null", async () => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          headers: { get: () => "application/json" },
+          arrayBuffer: () =>
+            Promise.resolve(new TextEncoder().encode(JSON.stringify({ name: "pkg" }))),
+        }),
+      );
+      const clock = createMockClock("2025-01-01T12:00:00.000Z", 25 * 60 * 60 * 1000);
+      const result = await getUpdateInfo(
+        toAbsolutePath(tmpDir),
+        "@aic/mcp",
+        "0.2.1",
+        clock,
+      );
+      expect(result.updateAvailable).toBe(null);
     });
   });
 });

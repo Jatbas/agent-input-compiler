@@ -470,6 +470,13 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ## Daily Log
 
+### 2025-03-17
+
+**Components:** Task 182 External API response validation (update check)
+**Completed:**
+
+- Task 182 (External API response validation and security.md): Content-Type check in fetchLatestAndWriteCache — non-JSON or missing header yields { latest: null }. Strict contract: only body["dist-tags"] and distTags["latest"] read; invalid structure yields { latest: null }. Two tests: getUpdateInfo_when_content_type_not_json_returns_null, getUpdateInfo_when_packument_missing_dist_tags_returns_null. security.md: new subsection "External API response validation" (untrusted data, Content-Type, size, strict contract, no crypto verification); Update check bullets added (Content-Type, strict response contract). server.test.ts fetch mock updated for ok + application/json. Lint, typecheck, test, knip, lint:clones 0.
+
 ### 2025-03-16
 
 **Components:** Task 180 conversation_id and editorId integration fix

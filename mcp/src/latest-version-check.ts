@@ -109,16 +109,28 @@ async function fetchLatestAndWriteCache(
   const response = await fetch(url, {
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
+  if (!response.ok) return { latest: null };
+  const contentType = response.headers.get("content-type");
+  if (
+    contentType === null ||
+    contentType.toLowerCase().includes("application/json") === false
+  ) {
+    return { latest: null };
+  }
   const buffer = await response.arrayBuffer();
   if (buffer.byteLength > MAX_BODY_BYTES) return { latest: null };
-  const body = JSON.parse(new TextDecoder().decode(buffer)) as Record<string, unknown>;
-  const distTags = body["dist-tags"];
-  const rawLatest =
-    distTags !== null && typeof distTags === "object"
-      ? (distTags as Record<string, unknown>)["latest"]
-      : undefined;
-  const latest = typeof rawLatest === "string" ? rawLatest : null;
-  if (latest === null || !isValidVersionString(latest)) return { latest: null };
+  const body = JSON.parse(new TextDecoder().decode(buffer)) as unknown;
+  if (body === null || typeof body !== "object" || Array.isArray(body)) {
+    return { latest: null };
+  }
+  const distTags: unknown = (body as Record<string, unknown>)["dist-tags"];
+  if (distTags === null || typeof distTags !== "object" || Array.isArray(distTags)) {
+    return { latest: null };
+  }
+  const rawLatest = (distTags as Record<string, unknown>)["latest"];
+  if (typeof rawLatest !== "string") return { latest: null };
+  const latest = isValidVersionString(rawLatest) ? rawLatest : null;
+  if (latest === null) return { latest: null };
   fs.writeFileSync(
     cachePath,
     JSON.stringify({ lastCheck: now, latestVersion: latest, currentVersion }),

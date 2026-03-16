@@ -87,6 +87,11 @@ describe("MCP server", () => {
     const registryJson = JSON.stringify({ "dist-tags": { latest: "99.0.0" } });
     const originalFetch = globalThis.fetch;
     globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: {
+        get: (name: string) =>
+          name.toLowerCase() === "content-type" ? "application/json" : null,
+      },
       arrayBuffer: () => Promise.resolve(new TextEncoder().encode(registryJson)),
     });
     try {
