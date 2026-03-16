@@ -23,7 +23,7 @@ export class EditorModelConfigReaderAdapter implements EditorModelConfigReader {
   constructor(private readonly homeDir: string) {}
 
   read(editorId: EditorId): string | null {
-    if (editorId === EDITOR_ID.CURSOR) {
+    if (editorId === EDITOR_ID.CURSOR || editorId === EDITOR_ID.CURSOR_CLAUDE_CODE) {
       const fullPath = path.join(this.homeDir, ".cursor", "settings.json");
       return readModelFromPath(fullPath);
     }

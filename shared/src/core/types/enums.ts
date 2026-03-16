@@ -15,6 +15,7 @@ export type TaskClass = (typeof TASK_CLASS)[keyof typeof TASK_CLASS];
 export const EDITOR_ID = {
   CURSOR: "cursor",
   CLAUDE_CODE: "claude-code",
+  CURSOR_CLAUDE_CODE: "cursor-claude-code",
   GENERIC: "generic",
 } as const;
 export type EditorId = (typeof EDITOR_ID)[keyof typeof EDITOR_ID];

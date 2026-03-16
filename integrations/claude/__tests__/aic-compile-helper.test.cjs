@@ -72,9 +72,91 @@ async function returns_null_on_spawn_error() {
   console.log("returns_null_on_spawn_error: pass");
 }
 
+async function helper_passes_editor_id_cursor_claude_code_when_CURSOR_PROJECT_DIR_set() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-helper-test-"));
+  const mockDir = path.join(tmpDir, "mcp", "src");
+  fs.mkdirSync(mockDir, { recursive: true });
+  const argsFile = path.join(os.tmpdir(), `aic-mock-args-${process.pid}-cursor.json`);
+  fs.copyFileSync(mockRecordsArgs, path.join(mockDir, "server.ts"));
+  const prev = process.env.CURSOR_PROJECT_DIR;
+  try {
+    process.env.CURSOR_PROJECT_DIR = tmpDir;
+    delete require.cache[require.resolve(helperPath)];
+    const { callAicCompile } = require(helperPath);
+    process.env.AIC_MOCK_ARGS_FILE = argsFile;
+    await callAicCompile("intent", tmpDir, null, 10000);
+    delete process.env.AIC_MOCK_ARGS_FILE;
+    if (!fs.existsSync(argsFile)) {
+      throw new Error("Mock did not write args file");
+    }
+    const recorded = JSON.parse(fs.readFileSync(argsFile, "utf8"));
+    const parsed = JSON.parse(recorded.stdin);
+    const args = parsed.params && parsed.params.arguments ? parsed.params.arguments : {};
+    if (args.editorId !== "cursor-claude-code") {
+      throw new Error(
+        `Expected editorId "cursor-claude-code", got ${JSON.stringify(args.editorId)}`,
+      );
+    }
+    console.log(
+      "helper_passes_editor_id_cursor_claude_code_when_CURSOR_PROJECT_DIR_set: pass",
+    );
+  } finally {
+    if (prev !== undefined) process.env.CURSOR_PROJECT_DIR = prev;
+    else delete process.env.CURSOR_PROJECT_DIR;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    try {
+      fs.unlinkSync(argsFile);
+    } catch {
+      // ignore
+    }
+  }
+}
+
+async function helper_passes_editor_id_claude_code_when_CURSOR_PROJECT_DIR_unset() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-helper-test-"));
+  const mockDir = path.join(tmpDir, "mcp", "src");
+  fs.mkdirSync(mockDir, { recursive: true });
+  const argsFile = path.join(os.tmpdir(), `aic-mock-args-${process.pid}-claude.json`);
+  fs.copyFileSync(mockRecordsArgs, path.join(mockDir, "server.ts"));
+  const prev = process.env.CURSOR_PROJECT_DIR;
+  try {
+    delete process.env.CURSOR_PROJECT_DIR;
+    delete require.cache[require.resolve(helperPath)];
+    const { callAicCompile } = require(helperPath);
+    process.env.AIC_MOCK_ARGS_FILE = argsFile;
+    await callAicCompile("intent", tmpDir, null, 10000);
+    delete process.env.AIC_MOCK_ARGS_FILE;
+    if (!fs.existsSync(argsFile)) {
+      throw new Error("Mock did not write args file");
+    }
+    const recorded = JSON.parse(fs.readFileSync(argsFile, "utf8"));
+    const parsed = JSON.parse(recorded.stdin);
+    const args = parsed.params && parsed.params.arguments ? parsed.params.arguments : {};
+    if (args.editorId !== "claude-code") {
+      throw new Error(
+        `Expected editorId "claude-code", got ${JSON.stringify(args.editorId)}`,
+      );
+    }
+    console.log(
+      "helper_passes_editor_id_claude_code_when_CURSOR_PROJECT_DIR_unset: pass",
+    );
+  } finally {
+    if (prev !== undefined) process.env.CURSOR_PROJECT_DIR = prev;
+    else delete process.env.CURSOR_PROJECT_DIR;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    try {
+      fs.unlinkSync(argsFile);
+    } catch {
+      // ignore
+    }
+  }
+}
+
 (async () => {
   await happy_path_returns_compiled_prompt();
   await conversationId_forwarded_when_sessionId_provided();
   await returns_null_on_spawn_error();
+  await helper_passes_editor_id_cursor_claude_code_when_CURSOR_PROJECT_DIR_set();
+  await helper_passes_editor_id_claude_code_when_CURSOR_PROJECT_DIR_unset();
   console.log("All tests passed.");
 })();

@@ -27,6 +27,10 @@ function callAicCompile(intent, projectRoot, conversationId, timeoutMs) {
     jsonrpc: "2.0",
     method: "notifications/initialized",
   });
+  const editorId =
+    process.env.CURSOR_PROJECT_DIR && String(process.env.CURSOR_PROJECT_DIR).trim() !== ""
+      ? "cursor-claude-code"
+      : "claude-code";
   const toolsCall = JSON.stringify({
     jsonrpc: "2.0",
     id: 2,
@@ -36,6 +40,7 @@ function callAicCompile(intent, projectRoot, conversationId, timeoutMs) {
       arguments: {
         intent,
         projectRoot,
+        editorId,
         ...(conversationId ? { conversationId } : {}),
       },
     },

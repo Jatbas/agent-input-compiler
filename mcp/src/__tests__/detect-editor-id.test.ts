@@ -6,6 +6,13 @@ import { detectEditorId } from "../detect-editor-id.js";
 import { EDITOR_ID } from "@jatbas/aic-core/core/types/enums.js";
 
 describe("detectEditorId", () => {
+  it("editor_id_four_values EDITOR_ID has cursor cursor-claude-code claude-code generic", () => {
+    expect(EDITOR_ID.CURSOR).toBe("cursor");
+    expect(EDITOR_ID.CURSOR_CLAUDE_CODE).toBe("cursor-claude-code");
+    expect(EDITOR_ID.CLAUDE_CODE).toBe("claude-code");
+    expect(EDITOR_ID.GENERIC).toBe("generic");
+  });
+
   it("returns cursor for Cursor client name", () => {
     expect(detectEditorId("Cursor")).toBe(EDITOR_ID.CURSOR);
   });
@@ -20,6 +27,20 @@ describe("detectEditorId", () => {
 
   it("returns cursor for cursor-vscode MCP client name", () => {
     expect(detectEditorId("cursor-vscode")).toBe(EDITOR_ID.CURSOR);
+  });
+
+  it("detect_cursor_claude_code returns CURSOR_CLAUDE_CODE for cursor-claude-code", () => {
+    expect(detectEditorId("cursor-claude-code")).toBe(EDITOR_ID.CURSOR_CLAUDE_CODE);
+  });
+
+  it("detect_cursor_claude_code returns CURSOR_CLAUDE_CODE for AIC-cursor-claude-code-hook", () => {
+    expect(detectEditorId("AIC-cursor-claude-code-hook")).toBe(
+      EDITOR_ID.CURSOR_CLAUDE_CODE,
+    );
+  });
+
+  it("detect_cursor_claude_code returns CURSOR_CLAUDE_CODE for cursor-claude-code/1.0", () => {
+    expect(detectEditorId("cursor-claude-code/1.0")).toBe(EDITOR_ID.CURSOR_CLAUDE_CODE);
   });
 
   it("returns claude-code for claude-code client name", () => {

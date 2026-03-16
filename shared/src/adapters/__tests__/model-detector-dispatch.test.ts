@@ -25,6 +25,13 @@ describe("ModelDetectorDispatch", () => {
     expect(detector.detect(EDITOR_ID.CURSOR)).toBe("gpt-4o");
   });
 
+  it("model_detector_cursor_claude_code returns cursorModel for CURSOR_CLAUDE_CODE", () => {
+    const detector = new ModelDetectorDispatch({
+      cursorModel: "gpt-4o",
+    });
+    expect(detector.detect(EDITOR_ID.CURSOR_CLAUDE_CODE)).toBe("gpt-4o");
+  });
+
   it("returns null for cursor when cursorModel is absent", () => {
     const detector = new ModelDetectorDispatch({});
     expect(detector.detect(EDITOR_ID.CURSOR)).toBeNull();

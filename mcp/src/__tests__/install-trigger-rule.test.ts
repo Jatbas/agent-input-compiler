@@ -106,4 +106,16 @@ describe("installTriggerRule", () => {
     expect(fs.existsSync(path.join(tmpDir, ".cursor", "rules", "AIC.mdc"))).toBe(false);
     expect(fs.existsSync(path.join(tmpDir, ".claude", "CLAUDE.md"))).toBe(false);
   });
+
+  it("install_trigger_cursor_claude_code installs Cursor rule not Claude", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-trigger-"));
+    const projectRoot = toAbsolutePath(tmpDir);
+    installTriggerRule(projectRoot, EDITOR_ID.CURSOR_CLAUDE_CODE);
+    const cursorPath = path.join(tmpDir, ".cursor", "rules", "AIC.mdc");
+    const claudePath = path.join(tmpDir, ".claude", "CLAUDE.md");
+    expect(fs.existsSync(cursorPath)).toBe(true);
+    expect(fs.existsSync(claudePath)).toBe(false);
+    const content = fs.readFileSync(cursorPath, "utf8");
+    expect(content).toContain("aic_compile");
+  });
 });

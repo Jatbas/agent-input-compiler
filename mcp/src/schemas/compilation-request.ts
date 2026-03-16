@@ -21,7 +21,7 @@ const compilationRequestShape = {
     .regex(/^[\x20-\x7E]+$/)
     .nullable()
     .default(null),
-  editorId: z.enum(["cursor", "claude-code", "generic"]).optional(),
+  editorId: z.enum(["cursor", "cursor-claude-code", "claude-code", "generic"]).optional(),
   configPath: z
     .string()
     .max(4096)

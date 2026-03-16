@@ -26,6 +26,15 @@ describe("EditorModelConfigReaderAdapter", () => {
     expect(adapter.read(EDITOR_ID.CURSOR)).toBe("gpt-4o");
   });
 
+  it("editor_config_cursor_claude_code returns same as Cursor when .cursor/settings.json exists", () => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-editor-config-"));
+    const cursorDir = path.join(tempDir, ".cursor");
+    fs.mkdirSync(cursorDir, { recursive: true });
+    fs.writeFileSync(path.join(cursorDir, "settings.json"), '{"model":"gpt-4o"}', "utf8");
+    const adapter = new EditorModelConfigReaderAdapter(tempDir);
+    expect(adapter.read(EDITOR_ID.CURSOR_CLAUDE_CODE)).toBe("gpt-4o");
+  });
+
   it("editor_config_returns_model_for_claude_code", () => {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-editor-config-"));
     const claudeDir = path.join(tempDir, ".claude");

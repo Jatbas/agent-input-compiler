@@ -7,6 +7,7 @@ import type { EditorId } from "@jatbas/aic-core/core/types/enums.js";
 // Ordered most-specific first; first match wins
 const EDITOR_PATTERNS: readonly { readonly substring: string; readonly id: EditorId }[] =
   [
+    { substring: "cursor-claude-code", id: EDITOR_ID.CURSOR_CLAUDE_CODE },
     { substring: "cursor", id: EDITOR_ID.CURSOR },
     { substring: "claude-code", id: EDITOR_ID.CLAUDE_CODE },
     { substring: "claude code", id: EDITOR_ID.CLAUDE_CODE },
