@@ -222,13 +222,13 @@ Full regex patterns: [Project Plan §8.4](project-plan.md).
 
 ## Data Handling
 
-| Data type           |             Stored locally?              |                  Sent externally?                   |
-| ------------------- | :--------------------------------------: | :-------------------------------------------------: |
-| Source code         |     Cache only (`.aic/`, gitignored)     |        Never in the current MCP-only package        |
-| Prompts / intents   |     `compilation_log` table (SQLite)     |                        Never                        |
-| File paths          |     `compilation_log` table (SQLite)     |                        Never                        |
-| API keys            |               Never stored               |      Not used by the current MCP-only package       |
-| Guard findings      |     `guard_findings` table (SQLite)      |                        Never                        |
+| Data type           | Stored locally?                          | Sent externally?                                    |
+| ------------------- | ---------------------------------------- | --------------------------------------------------- |
+| Source code         | Cache only (`.aic/`, gitignored)         | Never in the current MCP-only package               |
+| Prompts / intents   | `compilation_log` table (SQLite)         | Never                                               |
+| File paths          | `compilation_log` table (SQLite)         | Never                                               |
+| API keys            | Never stored                             | Not used by the current MCP-only package            |
+| Guard findings      | `guard_findings` table (SQLite)          | Never                                               |
 | Anonymous telemetry | `anonymous_telemetry_log` table (SQLite) | Opt-in only. No code, paths, or prompts. See below. |
 
 ### External API response validation
@@ -236,14 +236,14 @@ Full regex patterns: [Project Plan §8.4](project-plan.md).
 AIC treats all data received from external endpoints as untrusted. For every outbound GET request:
 
 - The response is accepted only when the `Content-Type` header indicates JSON (e.g. `application/json`). Responses with a missing or non-JSON Content-Type are discarded without parsing.
-- Response body size is bounded (e.g. 1 MB for the npm registry) and a timeout applies. Excess or slow responses are discarded.
+- Response body size is bounded (e.g. 100 KB for the npm registry) and a timeout applies. Excess or slow responses are discarded.
 - Only expected fields are read. The client uses a strict contract: it reads a fixed set of keys and ignores the rest. Invalid or missing structure yields a safe default (e.g. no update).
 - The npm registry does not sign packument metadata; authenticity of the response is not cryptographically verified. Validation is limited to format, size, and schema.
 
 ### Update check (version notification)
 
 - **Data source:** GET `https://registry.npmjs.org/<package>` (fixed URL).
-- **Validate and bound:** Timeout 2s, max response body 1MB, version string must match semver regex and max 32 chars; invalid data yields no update.
+- **Validate and bound:** Timeout 2s, max response body 100 KB, version string must match semver regex and max 32 chars; invalid data yields no update.
 - **Content-Type:** The response is accepted only when the `Content-Type` header includes `application/json`. Other types are discarded without parsing.
 - **Strict response contract:** Only the `dist-tags.latest` field is read from the packument. Missing or invalid structure (e.g. `dist-tags` not an object, `latest` not a string) yields no update.
 - **No code/prompt injection:** Only fixed-format message with validated version; install link from our code only.

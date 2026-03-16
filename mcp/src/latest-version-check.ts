@@ -14,7 +14,7 @@ const MESSAGE_FILENAME = "update-available.txt";
 const CACHE_TTL_MS: Milliseconds = toMilliseconds(24 * 60 * 60 * 1000);
 const REGISTRY_BASE = "https://registry.npmjs.org";
 const FETCH_TIMEOUT_MS = 2000;
-const MAX_BODY_BYTES = 1_000_000;
+const MAX_BODY_BYTES = 100_000;
 
 const SEMVER_REGEX = /^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$/;
 const MAX_VERSION_LENGTH = 32;
