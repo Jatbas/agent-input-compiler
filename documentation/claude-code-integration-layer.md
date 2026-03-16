@@ -669,14 +669,17 @@ node integrations/claude/install.cjs
 
 The installer:
 
-1. Resolves `~/.claude` from the user's home directory
-2. Copies hook scripts from `integrations/claude/hooks/` (relative to the script) to
-   `~/.claude/hooks/`
-3. Reads `settings.json.template` (paths are already `$HOME/.claude/hooks/`)
-4. Reads `~/.claude/settings.json` if present; deep-merges AIC hook entries, preserving
-   non-AIC entries; writes `~/.claude/settings.json`
-5. Optionally writes `.claude/CLAUDE.md` in the current working directory for the
-   trigger-rule fallback
+1. Ensures `~/.claude/hooks/` directory exists (resolve `~/.claude` from home).
+2. For each hook script in `AIC_SCRIPT_NAMES`: reads content from
+   `integrations/claude/hooks/` and writes to `~/.claude/hooks/` only if content differs
+   (idempotent).
+3. Deletes any `aic-*.cjs` files in `~/.claude/hooks/` that are not in `AIC_SCRIPT_NAMES`
+   (stale script cleanup).
+4. Reads `~/.claude/settings.json` (if present) and merges AIC entries into existing
+   config, preserving non-AIC entries; writes only if merged content differs.
+5. Writes the trigger rule (`.claude/CLAUDE.md` in the current working directory when
+   writable), version-stamped; overwrites only when the installed version differs from
+   the current package version.
 
 The MCP server runs this installer during first-compile bootstrap when it detects a Claude
 Code context (e.g. `.claude/` directory or `$CLAUDE_PROJECT_DIR`). The server delegates to

@@ -16,7 +16,8 @@ const AIC_SCRIPT_NAMES = [
   "aic-session-end.cjs",
 ];
 
-const CLAUDE_MD_TEMPLATE = `# AIC — Claude Code Rules
+const CLAUDE_MD_TEMPLATE = `<!-- AIC rule version: {{VERSION}} -->
+# AIC — Claude Code Rules
 
 > This file is the Claude Code equivalent of \`.cursor/rules/AIC-architect.mdc\`.
 > Claude Code reads it on every session. Keep it condensed and action-oriented.
@@ -170,9 +171,26 @@ try {
   fs.mkdirSync(globalHooksDir, { recursive: true });
 
   for (const name of AIC_SCRIPT_NAMES) {
-    const src = path.join(hooksSourceDir, name);
-    const dest = path.join(globalHooksDir, name);
-    fs.copyFileSync(src, dest);
+    const srcPath = path.join(hooksSourceDir, name);
+    const destPath = path.join(globalHooksDir, name);
+    const sourceContent = fs.readFileSync(srcPath, "utf8");
+    let shouldWrite = true;
+    try {
+      const existing = fs.readFileSync(destPath, "utf8");
+      if (existing === sourceContent) shouldWrite = false;
+    } catch {
+      // dest missing
+    }
+    if (shouldWrite) {
+      fs.writeFileSync(destPath, sourceContent, "utf8");
+    }
+  }
+
+  const hookNames = fs.readdirSync(globalHooksDir);
+  for (const name of hookNames) {
+    if (/^aic-[a-z0-9-]+\.cjs$/.test(name) && !AIC_SCRIPT_NAMES.includes(name)) {
+      fs.unlinkSync(path.join(globalHooksDir, name));
+    }
   }
 
   const templatePath = path.join(__dirname, "settings.json.template");
@@ -181,24 +199,54 @@ try {
 
   const globalSettingsPath = path.join(globalClaudeDir, "settings.json");
   let merged;
-  if (fs.existsSync(globalSettingsPath)) {
-    const existingRaw = fs.readFileSync(globalSettingsPath, "utf8");
+  let existingRaw;
+  const settingsExisted = fs.existsSync(globalSettingsPath);
+  if (settingsExisted) {
+    existingRaw = fs.readFileSync(globalSettingsPath, "utf8");
     const existing = JSON.parse(existingRaw);
     merged = mergeNestedHooksPayload(existing, templateParsed);
   } else {
     merged = templateParsed;
   }
 
-  fs.writeFileSync(globalSettingsPath, JSON.stringify(merged, null, 2) + "\n", "utf8");
+  const mergedContent = JSON.stringify(merged, null, 2) + "\n";
+  if (settingsExisted) {
+    if (mergedContent !== existingRaw) {
+      fs.writeFileSync(globalSettingsPath, mergedContent, "utf8");
+    }
+  } else {
+    fs.writeFileSync(globalSettingsPath, mergedContent, "utf8");
+  }
 
+  let version = "0.0.0";
+  try {
+    const pkgPath = path.join(__dirname, "..", "..", "package.json");
+    const raw = fs.readFileSync(pkgPath, "utf8");
+    const pkg = JSON.parse(raw);
+    if (typeof pkg.version === "string") version = pkg.version;
+  } catch {
+    // keep 0.0.0
+  }
+
+  const triggerContent = CLAUDE_MD_TEMPLATE.replace("{{VERSION}}", version);
   const projectRoot = process.env.CLAUDE_PROJECT_DIR || process.cwd();
   const projectClaudeDir = path.join(projectRoot, ".claude");
+  const claudeMdPath = path.join(projectClaudeDir, "CLAUDE.md");
+  let skipTriggerWrite = false;
   try {
-    fs.mkdirSync(projectClaudeDir, { recursive: true });
-    const claudeMdPath = path.join(projectClaudeDir, "CLAUDE.md");
-    fs.writeFileSync(claudeMdPath, CLAUDE_MD_TEMPLATE, "utf8");
+    const existing = fs.readFileSync(claudeMdPath, "utf8");
+    const match = existing.match(/AIC rule version:\s*(\S+)/);
+    if (match !== null && match[1] === version) skipTriggerWrite = true;
   } catch {
-    // optional: ignore if project dir not writable
+    // file missing
+  }
+  if (!skipTriggerWrite) {
+    try {
+      fs.mkdirSync(projectClaudeDir, { recursive: true });
+      fs.writeFileSync(claudeMdPath, triggerContent, "utf8");
+    } catch {
+      // optional: ignore if project dir not writable
+    }
   }
 } catch (err) {
   process.stderr.write(String(err && err.message ? err.message : err) + "\n");
