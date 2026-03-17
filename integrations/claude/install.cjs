@@ -280,9 +280,26 @@ try {
           fs.rmdirSync(projectHooksDir);
         }
       }
+      // only remove the hooks section — preserve permissions and other Claude Code keys
       const settingsLocalPath = path.join(projectClaudeDir, "settings.local.json");
       if (fs.existsSync(settingsLocalPath)) {
-        fs.unlinkSync(settingsLocalPath);
+        try {
+          const parsed = JSON.parse(fs.readFileSync(settingsLocalPath, "utf8"));
+          delete parsed.hooks;
+          const remaining = Object.keys(parsed);
+          if (remaining.length === 0) {
+            fs.unlinkSync(settingsLocalPath);
+          } else {
+            fs.writeFileSync(
+              settingsLocalPath,
+              JSON.stringify(parsed, null, 2) + "\n",
+              "utf8",
+            );
+          }
+        } catch {
+          // if unparseable, delete it — it was likely AIC-only anyway
+          fs.unlinkSync(settingsLocalPath);
+        }
       }
     } catch {
       // optional cleanup: ignore errors
