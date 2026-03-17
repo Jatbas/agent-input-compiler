@@ -996,19 +996,22 @@ See [Project Plan §14 — Incremental Compilation Performance](project-plan.md)
 ## 8. Multi-Project Behaviour (MVP)
 
 ```
-Project-A/          Project-B/
-├── aic.config.json ├── aic.config.json
-├── aic-rules/      └── .aic/
-│   └── team.json       ├── aic.sqlite
-│   (optional)          └── cache/
+~/.aic/
+└── aic.sqlite          (single global database)
+
+Project-A/              Project-B/
+├── aic.config.json     ├── aic.config.json
+├── aic-rules/          └── .aic/
+│   └── team.json           ├── project-id
+│   (optional)               └── cache/
 └── .aic/
-    ├── aic.sqlite
+    ├── project-id
     └── cache/
 ```
 
-- Each project is hermetically isolated
-- `projectRoot` argument to `aic_compile` allows operating on any project
-- No shared state, no global database, no cross-project data leakage
+- One global database at `~/.aic/aic.sqlite`; per-project data isolated via `project_id` FK in store queries.
+- `projectRoot` argument to `aic_compile` allows operating on any project; the server uses `ScopeRegistry.getOrCreate(projectRoot)` to get or create the project scope.
+- No cross-project data leakage: all per-project stores filter with `WHERE project_id = ?`.
 
 ---
 
@@ -1078,6 +1081,7 @@ When the MCP server process starts (via `npx @jatbas/aic@latest` or equivalent),
    └─ Run pending schema migrations (MigrationRunner)
    └─ Record server session (insert server_sessions row)
    └─ Mark orphaned sessions as crash (stopped_at IS NULL → stop_reason = 'crash')
+   └─ Create ScopeRegistry (per-project scopes created lazily on first getOrCreate(projectRoot))
          │
          ▼
 4. Build shared infrastructure
@@ -1283,7 +1287,7 @@ Zod is imported only in boundary modules (`mcp/src/`, `shared/src/adapters/`). E
 
 ### Phase W — Global Server & Per-Project Isolation
 
-Single global MCP server registered in `~/.cursor/mcp.json`. One server process handles all workspace folders. Each `aic_compile` call specifies its `projectRoot`; the server creates or reuses a `ProjectScope` per project. The database is global at `~/.aic/aic.sqlite` with a `project_root` column on tables that need per-project filtering. Per-project files (`aic.config.json`, `.cursor/rules/AIC.mdc`, `.cursor/hooks/`) remain in each project directory. A stable project ID in `.aic/project-id` survives folder renames. The implementation is split into 14 tasks (W01–W14) with explicit dependencies; see `mvp-progress.md` §Phase W for the task table and dependency order.
+Single global MCP server registered in `~/.cursor/mcp.json`. One server process handles all workspace folders. Each `aic_compile` call specifies its `projectRoot`; the server creates or reuses a `ProjectScope` per project. The database is global at `~/.aic/aic.sqlite`; per-project tables use a `project_id` FK to `projects(project_id)`. Per-project stores take `projectId: ProjectId` and filter with `WHERE project_id = ?`. Per-project files (`aic.config.json`, `.cursor/rules/AIC.mdc`, `.cursor/hooks/`) remain in each project directory. A stable project ID in `.aic/project-id` survives folder renames. The implementation is split into 14 tasks (W01–W14) with explicit dependencies; see `mvp-progress.md` §Phase W for the task table and dependency order.
 
 **Current architecture (before Phase W):**
 
@@ -1449,6 +1453,8 @@ db.prepare(
 ).get(this.projectRoot);
 ```
 
+**W15–W16 (current state):** Per-project stores now take `projectId: ProjectId` (not `projectRoot: AbsolutePath`) and use `WHERE project_id = ?` in all queries. The `project_root` column is deprecated (NULL on new rows). See task 133-normalize-project-root-stores.md and migration 013.
+
 **W06. ScopeRegistry class:**
 
 File: `shared/src/storage/scope-registry.ts`
@@ -1578,17 +1584,17 @@ Update `.cursor/rules/AIC-architect.mdc` prompt command formatting rules to incl
 
 Phase W changes a core architectural assumption. The following documentation files contain statements that contradict the global DB model and must be updated:
 
-| File                              | Location                         | Current text                                                                                                   | Required change                                                                                                                                                                                                  |
-| --------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `implementation-spec.md`          | §8 (line ~1006)                  | "Each project is hermetically isolated" / "No shared state, no global database, no cross-project data leakage" | Replace with: single global DB at `~/.aic/aic.sqlite` with `project_root` column for logical isolation. Per-project files remain local. No cross-project data leakage (queries always filter by `project_root`). |
-| `implementation-spec.md`          | §8b Startup Sequence             | Sequence shows: "Open SQLite database (.aic/aic.sqlite)" from CWD                                              | Update to: open global DB at `~/.aic/aic.sqlite`, create `ScopeRegistry`, per-project scope created lazily on first `aic_compile`                                                                                |
-| `project-plan.md`                 | Multi-project table (~line 1590) | "Projects never share state; no global database or config"                                                     | Update to: projects share a global database with column-level isolation; per-project config remains local                                                                                                        |
-| `project-plan.md`                 | Non-goals table (~line 82)       | "Cross-project shared database — Per-project isolation is a core principle (ADR-005)"                          | Update: global DB is now a feature; ADR-005 isolation principle preserved via `project_root` column, not separate databases                                                                                      |
-| `security.md`                     | Local-first table (~line 430)    | "Local-first, no shared state"                                                                                 | Update to: "Local-first, single global DB with project-level column isolation"                                                                                                                                   |
-| `documentation-review.md`         | DR-09 (~line 69)                 | Cross-project view not possible                                                                                | Update: cross-project view now available via `aic_projects` tool and global `show aic status`                                                                                                                    |
-| `.cursor/rules/AIC-architect.mdc` | Database / storage rules         | References per-project DB assumptions                                                                          | Update storage rules to reference global DB path and `project_root` column requirement                                                                                                                           |
+| File                              | Location                         | Current text                                                                                                   | Required change                                                                                                                                                                                          |
+| --------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `implementation-spec.md`          | §8 (line ~1006)                  | "Each project is hermetically isolated" / "No shared state, no global database, no cross-project data leakage" | Replace with: single global DB at `~/.aic/aic.sqlite` with `project_id` FK for logical isolation. Per-project files remain local. No cross-project data leakage (queries always filter by `project_id`). |
+| `implementation-spec.md`          | §8b Startup Sequence             | Sequence shows: "Open SQLite database (.aic/aic.sqlite)" from CWD                                              | Update to: open global DB at `~/.aic/aic.sqlite`, create `ScopeRegistry`, per-project scope created lazily on first `aic_compile`                                                                        |
+| `project-plan.md`                 | Multi-project table (~line 1590) | "Projects never share state; no global database or config"                                                     | Update to: projects share a global database with column-level isolation; per-project config remains local                                                                                                |
+| `project-plan.md`                 | Non-goals table (~line 82)       | "Cross-project shared database — Per-project isolation is a core principle (ADR-005)"                          | Update: global DB is now a feature; ADR-005 isolation principle preserved via `project_root` column, not separate databases                                                                              |
+| `security.md`                     | Local-first table (~line 430)    | "Local-first, no shared state"                                                                                 | Update to: "Local-first, single global DB with project-level column isolation"                                                                                                                           |
+| `documentation-review.md`         | DR-09 (~line 69)                 | Cross-project view not possible                                                                                | Update: cross-project view now available via `aic_projects` tool and global `show aic status`                                                                                                            |
+| `.cursor/rules/AIC-architect.mdc` | Database / storage rules         | References per-project DB assumptions                                                                          | Update storage rules to reference global DB path (`~/.aic/aic.sqlite`) and `project_id`-based isolation in store queries                                                                                 |
 
-This task depends on W07 (ScopeRegistry wired into server) being complete so all code references are accurate. The task executor should grep for "no global database", "hermetically isolated", "no shared state", "{projectRoot}/.aic/aic.sqlite", and "per-project isolation" across all documentation to catch any additional references.
+This task depends on W07 (ScopeRegistry wired into server) and W16 (project_id normalization) being complete so all code references are accurate. The task executor should grep for "no global database", "hermetically isolated", "no shared state", "{projectRoot}/.aic/aic.sqlite", "per-project isolation", and "filter by project_root" (or "WHERE project_root") across all documentation to catch any additional references and update them to global DB and `project_id` as appropriate.
 
 ---
 

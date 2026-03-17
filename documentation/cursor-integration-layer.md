@@ -43,7 +43,8 @@ they must exist inside each project directory.
 **How they get there — zero user intervention:** The global AIC MCP server auto-bootstraps
 each new project on first use. When Cursor opens a project and spawns the server:
 
-1. The server detects the hooks are missing
+1. The server runs the installer when Cursor is detected for the project (e.g. when the
+   client lists workspace roots); the installer is idempotent.
 2. It runs the first-compile bootstrap ([detailed in installation.md](installation.md#first-compile-bootstrap))
 3. `.cursor/hooks.json` and all 10 `.cjs` scripts are written into the project
 
@@ -702,12 +703,12 @@ package version changes.
 
 ## 15. Known bugs tracker
 
-| Bug                                                                                               | Status                           | Workaround                                                                              |
-| ------------------------------------------------------------------------------------------------- | -------------------------------- | --------------------------------------------------------------------------------------- |
-| `afterFileEdit` input schema varies across Cursor versions                                        | No issue filed                   | Flexible field extraction in `AIC-after-file-edit-tracker.cjs` (§7.7)                   |
-| `conversation_id` not passed to all hooks — only `beforeSubmitPrompt` and `preToolUse` receive it | Cursor behavior — no issue filed | `AIC_CONVERSATION_ID` env var injected by sessionStart; used as fallback in other hooks |
-| `subagentStart` does not support `additional_context` output                                      | Cursor capability gap            | No workaround — subagent context injection is structurally impossible in Cursor         |
-| `preCompact` is observational only — no output injected into new context                          | Cursor capability gap            | No workaround — recompile after compaction is structurally impossible in Cursor         |
+| Bug                                                                                               | Issue | Status                           | Workaround                                                                              |
+| ------------------------------------------------------------------------------------------------- | ----- | -------------------------------- | --------------------------------------------------------------------------------------- |
+| `afterFileEdit` input schema varies across Cursor versions                                        | —     | No issue filed                   | Flexible field extraction in `AIC-after-file-edit-tracker.cjs` (§7.7)                   |
+| `conversation_id` not passed to all hooks — only `beforeSubmitPrompt` and `preToolUse` receive it | —     | Cursor behavior — no issue filed | `AIC_CONVERSATION_ID` env var injected by sessionStart; used as fallback in other hooks |
+| `subagentStart` does not support `additional_context` output                                      | —     | Cursor capability gap            | No workaround — subagent context injection is structurally impossible in Cursor         |
+| `preCompact` is observational only — no output injected into new context                          | —     | Cursor capability gap            | No workaround — recompile after compaction is structurally impossible in Cursor         |
 
 ---
 
@@ -717,29 +718,29 @@ All of the following must be verified for the Cursor integration to be complete:
 
 Context delivery:
 
-- [x] `AIC-session-init.cjs` injects architectural invariants via `additional_context` (§7.1)
-- [x] `AIC-compile-context.cjs` calls `aic_compile` with `conversationId` from `conversation_id` (§9)
-- [x] `AIC-before-submit-prewarm.cjs` saves prompt for gate deny message (§7.2)
-- [x] `AIC-require-aic-compile.cjs` blocks all tools until `aic_compile` called (§7.3)
-- [x] `AIC-inject-conversation-id.cjs` injects `conversationId` into MCP args (§7.4)
-- [x] `AIC-post-compile-context.cjs` injects confirmation after compile (§7.5)
+- [ ] `AIC-session-init.cjs` injects architectural invariants via `additional_context` (§7.1)
+- [ ] `AIC-compile-context.cjs` calls `aic_compile` with `conversationId` from `conversation_id` (§9)
+- [ ] `AIC-before-submit-prewarm.cjs` saves prompt for gate deny message (§7.2)
+- [ ] `AIC-require-aic-compile.cjs` blocks all tools until `aic_compile` called (§7.3)
+- [ ] `AIC-inject-conversation-id.cjs` injects `conversationId` into MCP args (§7.4)
+- [ ] `AIC-post-compile-context.cjs` injects confirmation after compile (§7.5)
 
 Quality gate (Cursor-specific):
 
-- [x] `AIC-after-file-edit-tracker.cjs` records edited files to temp file (§7.7)
-- [x] `AIC-stop-quality-check.cjs` runs lint/typecheck, uses `followup_message` (§7.8)
-- [x] `AIC-block-no-verify.cjs` blocks `--no-verify` via `beforeShellExecution` (§7.6)
+- [ ] `AIC-after-file-edit-tracker.cjs` records edited files to temp file (§7.7)
+- [ ] `AIC-stop-quality-check.cjs` runs lint/typecheck, uses `followup_message` (§7.8)
+- [ ] `AIC-block-no-verify.cjs` blocks `--no-verify` via `beforeShellExecution` (§7.6)
 
 Settings:
 
-- [x] `hooks.json` has all 10 hook registrations with correct matchers and options (§10)
+- [ ] `hooks.json` has all 10 hook registrations with correct matchers and options (§10)
 
 Zero-install:
 
-- [x] `installCursorHooks()` bootstraps per-project on MCP startup (§13)
+- [ ] MCP server runs install.cjs when client lists roots, bootstrapping per-project (§13)
 
 Temp file conventions:
 
-- [x] `aic-gate-<generation_id>`: written by preToolUse gate, deleted by sessionEnd
-- [x] `aic-prompt-<generation_id>`: written by beforeSubmitPrompt, deleted by sessionEnd
-- [x] `aic-edited-files-<conversation_key>.json`: written by afterFileEdit, read by stop, deleted by sessionEnd
+- [ ] `aic-gate-<generation_id>`: written by preToolUse gate, deleted by sessionEnd
+- [ ] `aic-prompt-<generation_id>`: written by beforeSubmitPrompt, deleted by sessionEnd
+- [ ] `aic-edited-files-<conversation_key>.json`: written by afterFileEdit, read by stop, deleted by sessionEnd

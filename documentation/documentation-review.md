@@ -67,7 +67,7 @@ _Fix:_ Add a "Measuring Impact" section. Acknowledge AIC measures compilation ef
 
 **DR-09: Telemetry data can't cross project boundaries.**
 "show aic status" shows stats for one project. A team lead managing 5 repos wants a cross-project view. ADR-005 explicitly excludes this (per-project isolation).
-_Fix:_ Acknowledge this limitation in the documentation. Suggest a workaround (using "show aic status" per project). Note that a Phase 2 aggregation layer is planned.
+_Fix:_ Cross-project view is now available: the `aic_projects` MCP tool lists all projects (ID, path, last seen, compilation count), and `aic_status` aggregates across all projects with a per-project breakdown when multiple projects exist. Document these in the user-facing docs and prompt-command rules.
 
 **DR-10: No guidance on config precedence across team members.**
 What happens if a developer has local config that conflicts with the shared `aic.config.json`? Is there a personal config layer? A precedence order?
@@ -149,29 +149,29 @@ _Fix:_ Address this in the licensing section — even a statement like "The proj
 
 ## 5. Summary of All Findings
 
-| ID    | Finding                                       | Severity | Personas      | Fix Complexity |
-| ----- | --------------------------------------------- | -------- | ------------- | -------------- |
-| DR-01 | Synthetic `aic_inspect` output in README      | High     | Dev           | Low            |
-| DR-02 | No "verify your setup" section                | Medium   | Dev           | Low            |
-| DR-03 | No example of actual compiled output          | Medium   | Dev           | Low            |
-| DR-04 | Token reduction claims are vague              | High     | Dev, Dir, CTO | Medium         |
-| DR-06 | Contributing section too thin                 | Low      | Dev           | Low            |
-| DR-07 | No team deployment story                      | High     | Lead          | Low            |
-| DR-08 | No impact measurement guidance                | Medium   | Lead          | Low            |
-| DR-09 | No cross-project visibility                   | Low      | Lead          | Low            |
-| DR-10 | No config precedence clarity                  | Low      | Lead          | Low            |
-| DR-11 | No CI/CD integration guidance                 | Low      | Lead          | Low            |
-| DR-12 | No ROI framework                              | High     | Dir, CTO      | Medium         |
-| DR-13 | No failure mode documentation                 | Medium   | Dir, CTO      | Medium         |
-| DR-14 | Privacy compliance story incomplete           | Medium   | Dir           | Low            |
-| DR-15 | Competitive positioning not a buying decision | Medium   | Dir           | Low            |
-| DR-16 | Model-agnostic claim needs qualification      | Low      | Dir           | Low            |
-| DR-17 | No business model or sustainability signal    | Medium   | CTO           | Low            |
-| DR-18 | "Lost in the Middle" thesis future-proofing   | Medium   | CTO           | Low            |
-| DR-19 | No adoption metrics or social proof           | Medium   | CTO           | Low            |
-| DR-20 | MCP protocol dependency risk not stated       | Low      | CTO           | Low            |
-| DR-21 | No operational guidance for scaled deployment | Low      | CTO           | Medium         |
-| DR-22 | Single-maintainer risk                        | Low      | CTO           | Low            |
+| ID    | Finding                                       | Severity | Personas      | Fix Complexity                               |
+| ----- | --------------------------------------------- | -------- | ------------- | -------------------------------------------- |
+| DR-01 | Synthetic `aic_inspect` output in README      | High     | Dev           | Low                                          |
+| DR-02 | No "verify your setup" section                | Medium   | Dev           | Low                                          |
+| DR-03 | No example of actual compiled output          | Medium   | Dev           | Low                                          |
+| DR-04 | Token reduction claims are vague              | High     | Dev, Dir, CTO | Medium                                       |
+| DR-06 | Contributing section too thin                 | Low      | Dev           | Low                                          |
+| DR-07 | No team deployment story                      | High     | Lead          | Low                                          |
+| DR-08 | No impact measurement guidance                | Medium   | Lead          | Low                                          |
+| DR-09 | No cross-project visibility                   | Low      | Lead          | Addressed (aic_projects + global aic_status) |
+| DR-10 | No config precedence clarity                  | Low      | Lead          | Low                                          |
+| DR-11 | No CI/CD integration guidance                 | Low      | Lead          | Low                                          |
+| DR-12 | No ROI framework                              | High     | Dir, CTO      | Medium                                       |
+| DR-13 | No failure mode documentation                 | Medium   | Dir, CTO      | Medium                                       |
+| DR-14 | Privacy compliance story incomplete           | Medium   | Dir           | Low                                          |
+| DR-15 | Competitive positioning not a buying decision | Medium   | Dir           | Low                                          |
+| DR-16 | Model-agnostic claim needs qualification      | Low      | Dir           | Low                                          |
+| DR-17 | No business model or sustainability signal    | Medium   | CTO           | Low                                          |
+| DR-18 | "Lost in the Middle" thesis future-proofing   | Medium   | CTO           | Low                                          |
+| DR-19 | No adoption metrics or social proof           | Medium   | CTO           | Low                                          |
+| DR-20 | MCP protocol dependency risk not stated       | Low      | CTO           | Low                                          |
+| DR-21 | No operational guidance for scaled deployment | Low      | CTO           | Medium                                       |
+| DR-22 | Single-maintainer risk                        | Low      | CTO           | Low                                          |
 
 ### Priority tiers
 
@@ -197,7 +197,7 @@ _Fix:_ Address this in the licensing section — even a statement like "The proj
 
 - DR-06: Expand contributing section
 - DR-08: Add impact measurement guidance
-- DR-09: Note cross-project limitation
+- DR-09: Cross-project view available via aic_projects and global aic_status (document in user docs)
 - DR-10: Clarify config precedence
 - DR-11: Add CI guidance
 - DR-16: Qualify model-agnostic claim

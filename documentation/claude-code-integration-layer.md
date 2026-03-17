@@ -22,9 +22,10 @@ What this means concretely:
 
 - **No Claude Code detection or installer in `mcp/src/`.** The installer
   (`integrations/claude/install.cjs`) is a standalone script. It is run either manually
-  (`node integrations/claude/install.cjs`) or during first-compile bootstrap when the MCP
-  server detects Claude Code — the server delegates to the script; it does not embed
-  installer logic.
+  (`node integrations/claude/install.cjs`) or when the client lists workspace roots and the
+  MCP server detects Claude Code (`.claude` directory or `CLAUDE_PROJECT_DIR`); the server
+  delegates to the script and does not embed installer logic. The installer is idempotent
+  (writes only when content differs).
 
 - **The `aic_compile` MCP tool is neutral.** It accepts `intent`, `projectRoot`, and
   `conversationId`. It does not know who called it. The hook adapter in
@@ -54,7 +55,7 @@ environment variables, hooks, and MCP servers." ([source](https://code.claude.co
 
 ---
 
-## 4. Architecture — adapter pattern, zero core changes
+## 4. Architecture — adapter pattern, no core changes needed
 
 ### 4.1 Why no AIC core changes are needed
 
@@ -126,6 +127,7 @@ integrations/claude/               ← SOURCE (authored here)
     aic-after-file-edit-tracker.cjs  # PostToolUse(Edit|Write) — feeds Stop hook
     aic-stop-quality-check.cjs     # Stop — ESLint + typecheck quality gate
     aic-block-no-verify.cjs        # PreToolUse(Bash) — block --no-verify git commits
+    aic-inject-conversation-id.cjs # conversationId injection for MCP calls (registered in settings template)
     aic-pre-compact.cjs            # PreCompact — re-inject context before compaction
     aic-session-end.cjs            # SessionEnd — telemetry only
   install.cjs                      # Installer: deploys hooks + merges settings
@@ -690,9 +692,9 @@ The installer:
    writable), version-stamped; overwrites only when the installed version differs from
    the current package version.
 
-The MCP server runs this installer during first-compile bootstrap when it detects a Claude
-Code context (e.g. `.claude/` directory or `$CLAUDE_PROJECT_DIR`). The server delegates to
-the integration layer — it does not embed Claude Code logic itself. See
+The MCP server runs this installer when the client lists workspace roots and it detects a
+Claude Code context (e.g. `.claude/` directory or `$CLAUDE_PROJECT_DIR`). The server
+delegates to the integration layer — it does not embed Claude Code logic itself. See
 `documentation/installation.md` for the user-facing description of this path.
 
 For end-user distribution, AIC is also packaged as a native Claude Code Plugin
@@ -713,7 +715,7 @@ and it costs nothing when hooks are running.
 
 ## 15. Known bugs tracker
 
-| Bug                                                                                            | Issue                                                            | Status                                                         | Workaround in AIC                                                                                        |
+| Bug                                                                                            | Issue                                                            | Status                                                         | Workaround                                                                                               |
 | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | `hookSpecificOutput` JSON causes "UserPromptSubmit hook error" on first message of new session | [#17550](https://github.com/anthropics/claude-code/issues/17550) | Closed **not_planned**                                         | Use plain text stdout for `UserPromptSubmit` and `PreCompact` (§6.1)                                     |
 | `SessionStart` hook output silently discarded for new sessions in CLI                          | [#10373](https://github.com/anthropics/claude-code/issues/10373) | **Open** since Oct 2025                                        | Dual-path injection via `UserPromptSubmit` fallback (§7.2)                                               |

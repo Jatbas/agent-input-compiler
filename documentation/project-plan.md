@@ -81,7 +81,7 @@ These are explicitly out of scope for the MVP. Documenting them here prevents sc
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Replacing your AI editor**      | AIC enhances the context going in; it never replaces Cursor, Claude Code, or any editor                                                              |
 | **Calling models directly**       | AIC compiles context; the editor's configured model makes the actual call                                                                            |
-| **Cross-project shared database** | Per-project isolation is a core principle (ADR-005); global state adds coupling and privacy risk                                                     |
+| **Cross-project shared database** | A single global DB at `~/.aic/aic.sqlite` is used; per-project isolation is preserved via `project_id` FK (ADR-005). No cross-project data leakage.  |
 | **Multi-model orchestration**     | Single model per session; routing/fallback is Phase 2+                                                                                               |
 | **Cloud or SaaS deployment**      | Local-first by design; no server, no account, no internet required for AIC itself                                                                    |
 | **GUI or web dashboard**          | MCP integration is sufficient for MVP; dashboard is Phase 3 enterprise                                                                               |
@@ -1376,7 +1376,7 @@ Core remains untouched; enterprise features wrap around it:
 
 #### ADR-007: UUIDv7 for all entity identifiers (not UUIDv4, not INTEGER AUTOINCREMENT)
 
-- **Decision:** All entity primary keys (compilation_log, guard_findings, telemetry_events, session_state, anonymous_telemetry_log) use UUIDv7 stored as `TEXT(36)` in SQLite
+- **Decision:** All entity primary keys (compilation_log, guard_findings, telemetry_events, session_state, anonymous_telemetry_log) use UUIDv7 stored as `TEXT(36)` in SQLite. Project identity uses the `ProjectId` branded type (UUIDv7) stored in `projects.project_id`; per-project stores scope queries by `project_id`.
 - **Context:** UUIDv4 is random — it fragments B-tree indexes and provides no temporal information. INTEGER AUTOINCREMENT is simple but has no global uniqueness and cannot be generated outside the database. Sequential numeric IDs also leak row counts.
 - **Rationale:** UUIDv7 (RFC 9562) embeds a Unix millisecond timestamp in the high bits, making IDs both globally unique and time-ordered. This gives: (1) natural sort order without a separate `created_at` index, (2) no index fragmentation in SQLite, (3) IDs that can be generated outside the database (useful for pre-assignment before write), (4) the creation timestamp is extractable from the ID itself. The `config_history` table retains `config_hash` (SHA-256) as its PK since it is content-addressed by design.
 - **Tradeoffs:** 36 characters vs 4–8 bytes for INTEGER. Acceptable for a local single-user database. Requires a UUIDv7 generation utility (small, zero-dependency implementation).
@@ -1575,14 +1575,14 @@ packages/
 
 One file per class; no barrel re-exports at the pipeline step level to keep dependency graphs explicit. The `mcp/` package imports from `shared/` — the pipeline is never duplicated.
 
-| Behavior             | Detail                                                                                  |
-| -------------------- | --------------------------------------------------------------------------------------- |
-| **Default root**     | Current working directory                                                               |
-| **Override root**    | `--root /path/to/project`                                                               |
-| **Config discovery** | Walk up from CWD until `aic.config.json` found (like `.eslintrc`)                       |
-| **Cross-project**    | MCP tool arguments `projectRoot`, `configPath`, `dbPath` allow operating on any project |
-| **Isolation**        | Projects never share state; no global database or config                                |
-| **Repo identity**    | `repo_id` = SHA-256 of absolute root path (for telemetry correlation)                   |
+| Behavior             | Detail                                                                                                                        |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **Default root**     | Current working directory                                                                                                     |
+| **Override root**    | `--root /path/to/project`                                                                                                     |
+| **Config discovery** | Walk up from CWD until `aic.config.json` found (like `.eslintrc`)                                                             |
+| **Cross-project**    | MCP tool arguments `projectRoot`, `configPath`, `dbPath` allow operating on any project                                       |
+| **Isolation**        | Single global database at `~/.aic/aic.sqlite`; per-project isolation via `project_id` FK. Config remains per-project (local). |
+| **Repo identity**    | `repo_id` = SHA-256 of absolute root path (for telemetry correlation)                                                         |
 
 ---
 
@@ -3322,21 +3322,21 @@ AIC is designed to be **technically compliant** with GDPR, SOC 2, and ISO 27001 
 
 ### SOC 2 Readiness
 
-| Trust principle     | Control                       |              Status              |  Phase  |
-| ------------------- | ----------------------------- | :------------------------------: | :-----: |
-| **Security**        | Access control                | ✅ Local-first, no shared state  |   MVP   |
-|                     | Encryption in transit         |    ✅ HTTPS/TLS for telemetry    |   MVP   |
-|                     | Encryption at rest            |      ⚠️ Optional SQLCipher       | Phase 2 |
-|                     | Vulnerability management      |      ⚠️ `pnpm audit` in CI       |   MVP   |
-|                     | Automated dependency scanning |        ⚠️ Dependabot/Snyk        | Phase 1 |
-|                     | Incident response plan        |         ⚠️ `security.md`         |   MVP   |
-|                     | Penetration testing           |    ❌ External firm required     | Phase 3 |
-| **Availability**    | Service availability          |  ✅ Local-first, works offline   |   MVP   |
-|                     | Disaster recovery             |  ✅ SQLite = single file backup  |   MVP   |
-|                     | Monitoring                    |     ⚠️ Enterprise dashboard      | Phase 3 |
-| **Confidentiality** | Data classification           |         ✅ Context Guard         |   MVP   |
-|                     | No code leaves machine        |   ✅ Local-first architecture    |   MVP   |
-|                     | Third-party data sharing      | ✅ Opt-in, anonymous, verifiable |   MVP   |
+| Trust principle     | Control                       |                            Status                             |  Phase  |
+| ------------------- | ----------------------------- | :-----------------------------------------------------------: | :-----: |
+| **Security**        | Access control                | ✅ Local-first; single global DB with project-level isolation |   MVP   |
+|                     | Encryption in transit         |                  ✅ HTTPS/TLS for telemetry                   |   MVP   |
+|                     | Encryption at rest            |                     ⚠️ Optional SQLCipher                     | Phase 2 |
+|                     | Vulnerability management      |                     ⚠️ `pnpm audit` in CI                     |   MVP   |
+|                     | Automated dependency scanning |                      ⚠️ Dependabot/Snyk                       | Phase 1 |
+|                     | Incident response plan        |                       ⚠️ `security.md`                        |   MVP   |
+|                     | Penetration testing           |                   ❌ External firm required                   | Phase 3 |
+| **Availability**    | Service availability          |                 ✅ Local-first, works offline                 |   MVP   |
+|                     | Disaster recovery             |                ✅ SQLite = single file backup                 |   MVP   |
+|                     | Monitoring                    |                    ⚠️ Enterprise dashboard                    | Phase 3 |
+| **Confidentiality** | Data classification           |                       ✅ Context Guard                        |   MVP   |
+|                     | No code leaves machine        |                  ✅ Local-first architecture                  |   MVP   |
+|                     | Third-party data sharing      |               ✅ Opt-in, anonymous, verifiable                |   MVP   |
 
 ### ISO 27001 Readiness
 

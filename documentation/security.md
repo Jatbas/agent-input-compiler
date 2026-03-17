@@ -439,20 +439,20 @@ AIC's architecture is designed to be **technically compliant** with GDPR, SOC 2,
 
 ### SOC 2 Readiness
 
-| Trust Principle     | Control                                                 |   Status   |
-| ------------------- | ------------------------------------------------------- | :--------: |
-| **Security**        | Local-first, no shared state                            |   ✅ MVP   |
-|                     | Encryption in transit (TLS)                             |   ✅ MVP   |
-|                     | Vulnerability management (`pnpm audit`)                 |   ✅ MVP   |
-|                     | Incident response (`security.md`)                       |   ✅ MVP   |
-|                     | Encryption at rest (SQLCipher)                          | ⚠️ Phase 2 |
-|                     | Automated scanning (Dependabot/Snyk)                    | ⚠️ Phase 1 |
-|                     | Penetration testing                                     | ❌ Phase 3 |
-| **Availability**    | Works offline, local-first                              |   ✅ MVP   |
-|                     | SQLite = single file backup                             |   ✅ MVP   |
-| **Confidentiality** | Context Guard data classification                       |   ✅ MVP   |
-|                     | No code leaves machine in the current MCP-only package  |   ✅ MVP   |
-|                     | Third-party data sharing: opt-in, anonymous, verifiable |   ✅ MVP   |
+| Trust Principle     | Control                                                                                            |   Status   |
+| ------------------- | -------------------------------------------------------------------------------------------------- | :--------: |
+| **Security**        | Local-first; single global DB at `~/.aic/aic.sqlite` with project-level isolation via `project_id` |   ✅ MVP   |
+|                     | Encryption in transit (TLS)                                                                        |   ✅ MVP   |
+|                     | Vulnerability management (`pnpm audit`)                                                            |   ✅ MVP   |
+|                     | Incident response (`security.md`)                                                                  |   ✅ MVP   |
+|                     | Encryption at rest (SQLCipher)                                                                     | ⚠️ Phase 2 |
+|                     | Automated scanning (Dependabot/Snyk)                                                               | ⚠️ Phase 1 |
+|                     | Penetration testing                                                                                | ❌ Phase 3 |
+| **Availability**    | Works offline, local-first                                                                         |   ✅ MVP   |
+|                     | SQLite = single file backup                                                                        |   ✅ MVP   |
+| **Confidentiality** | Context Guard data classification                                                                  |   ✅ MVP   |
+|                     | No code leaves machine in the current MCP-only package                                             |   ✅ MVP   |
+|                     | Third-party data sharing: opt-in, anonymous, verifiable                                            |   ✅ MVP   |
 
 ### Compliance Roadmap
 
