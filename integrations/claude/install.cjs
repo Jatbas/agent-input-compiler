@@ -143,7 +143,7 @@ function mergeHookArrays(existingArr, rewrittenArr) {
   );
   const existingScripts = new Set(
     filtered
-      .filter(isAicCommand)
+      .filter((e) => isAicCommand(e.command))
       .map((e) => (String(e.command || "").match(/aic-[a-z0-9-]+\.cjs/) || [])[0]),
   );
   const toAppend = aicFromRewritten.filter((entry) => {
