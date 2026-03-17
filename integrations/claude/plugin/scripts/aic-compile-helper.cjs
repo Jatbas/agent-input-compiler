@@ -9,10 +9,42 @@ const fs = require("fs");
 const path = require("path");
 
 // conversationId must be conversation-scoped (not session_id) for correct chat summary attribution.
-function callAicCompile(intent, projectRoot, conversationId, timeoutMs, triggerSource) {
+// modelId: string with content, or null, or undefined; undefined: resolve from sixth param first; if empty, read projectRoot/.aic/.claude-session-model
+function isValidModelId(s) {
+  if (typeof s !== "string") return false;
+  const trimmed = s.trim();
+  return trimmed.length >= 1 && trimmed.length <= 256 && /^[\x20-\x7E]+$/.test(trimmed);
+}
+
+function callAicCompile(
+  intent,
+  projectRoot,
+  conversationId,
+  timeoutMs,
+  triggerSource,
+  modelId,
+) {
   const timeout = timeoutMs || 25000;
   const serverPath = path.join(projectRoot, "mcp", "src", "server.ts");
   const args = fs.existsSync(serverPath) ? ["tsx", serverPath] : ["@jatbas/aic"];
+  const modelCachePath = path.join(projectRoot, ".aic", ".claude-session-model");
+  let resolved = null;
+  if (isValidModelId(modelId)) {
+    resolved = String(modelId).trim();
+    try {
+      fs.mkdirSync(path.join(projectRoot, ".aic"), { recursive: true, mode: 0o700 });
+      fs.writeFileSync(modelCachePath, resolved, "utf8");
+    } catch {
+      // ignore write errors
+    }
+  } else {
+    try {
+      const content = fs.readFileSync(modelCachePath, "utf8").trim();
+      if (isValidModelId(content)) resolved = content;
+    } catch {
+      // no cache or unreadable
+    }
+  }
   const initReq = JSON.stringify({
     jsonrpc: "2.0",
     id: 1,
@@ -58,6 +90,7 @@ function callAicCompile(intent, projectRoot, conversationId, timeoutMs, triggerS
         editorId,
         ...(conversationId ? { conversationId } : {}),
         ...(triggerSource ? { triggerSource } : {}),
+        ...(resolved ? { modelId: resolved } : {}),
       },
     },
   });

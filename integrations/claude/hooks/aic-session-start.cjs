@@ -17,6 +17,21 @@ async function run(stdinStr) {
     parsed.session_id != null ? parsed.session_id : (parsed.input?.session_id ?? null);
   const transcriptPath = parsed.transcript_path ?? parsed.input?.transcript_path ?? null;
   const conversationId = transcriptPath ? path.basename(transcriptPath, ".jsonl") : null;
+  const rawModel =
+    parsed.model != null
+      ? parsed.model
+      : parsed.input != null
+        ? parsed.input.model
+        : null;
+  const modelArg =
+    typeof rawModel === "string"
+      ? (() => {
+          const t = rawModel.trim();
+          return t.length >= 1 && t.length <= 256 && /^[\x20-\x7E]+$/.test(t)
+            ? t
+            : undefined;
+        })()
+      : undefined;
   const cwdRaw = parsed.cwd ?? parsed.input?.cwd ?? "";
   const projectRoot = cwdRaw.trim()
     ? cwdRaw.trim()
@@ -55,6 +70,7 @@ async function run(stdinStr) {
       conversationId,
       30000,
       "session_start",
+      modelArg,
     );
     if (text == null) return null;
     fs.writeFileSync(markerPath, sessionId ?? "", "utf8");

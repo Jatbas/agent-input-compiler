@@ -84,13 +84,14 @@ The adapter (`aic-compile-helper.cjs`) and all event hooks are **authored** in
 
 ### 4.3 Input field mapping
 
-| Claude Code hook input field       | AIC `aic_compile` argument                                                             |
-| ---------------------------------- | -------------------------------------------------------------------------------------- |
-| `input.prompt` (UserPromptSubmit)  | `intent`                                                                               |
-| `input.agent_type` (SubagentStart) | part of `intent` string                                                                |
-| Generic for session events         | fixed intent string `"understand project structure, architecture, and recent changes"` |
-| `input.cwd`                        | `projectRoot` (fallback to `$CLAUDE_PROJECT_DIR` → `process.cwd()`)                    |
-| `input.transcript_path`            | `conversationId` (via `path.basename(transcriptPath, ".jsonl")`)                       |
+| Claude Code hook input field              | AIC `aic_compile` argument                                                                                                |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `input.prompt` (UserPromptSubmit)         | `intent`                                                                                                                  |
+| `input.agent_type` (SubagentStart)        | part of `intent` string                                                                                                   |
+| Generic for session events                | fixed intent string `"understand project structure, architecture, and recent changes"`                                    |
+| `input.cwd`                               | `projectRoot` (fallback to `$CLAUDE_PROJECT_DIR` → `process.cwd()`)                                                       |
+| `input.transcript_path`                   | `conversationId` (via `path.basename(transcriptPath, ".jsonl")`)                                                          |
+| `input.model` (SessionStart when present) | `modelId`; SessionStart passes it; other hooks use cached value from `.aic/.claude-session-model` written on SessionStart |
 
 **`conversationId` must always be passed** from `transcript_path` so `compilation_log` rows are attributed to the correct conversation. Claude Code includes `transcript_path` in _every_ hook input ([common input fields](https://code.claude.com/docs/en/hooks#common-input-fields)). The UUID in the transcript filename (`path.basename(transcriptPath, ".jsonl")`) uniquely identifies the conversation and is stable across all hooks in the same chat. The `aic-compile-helper` accepts and forwards it. Note: `session_id` is per-hook-invocation and is NOT suitable for conversation attribution.
 
@@ -258,7 +259,7 @@ AIC uses eight of them.
 
 **Reference:** [hooks#sessionstart](https://code.claude.com/docs/en/hooks#sessionstart)
 
-**Purpose:** Inject architectural invariants and a broad project context snapshot at the start of a session. Also fires on `compact` — re-injecting context after compaction is the primary reliable use case.
+**Purpose:** Inject architectural invariants and a broad project context snapshot at the start of a session. `model` from hook input is passed as `modelId` to `aic_compile`; other hooks that call the helper use the cached value from `.aic/.claude-session-model` written when SessionStart provided a valid model. Also fires on `compact` — re-injecting context after compaction is the primary reliable use case.
 
 **Matcher values:** `startup`, `resume`, `clear`, `compact`
 ([matcher reference](https://code.claude.com/docs/en/hooks#matcher-patterns)).

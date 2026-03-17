@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 87/93 done
+**Phase 1.0:** 88/94 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -78,15 +78,16 @@ Industry-standard security hardening for the AIC MCP server, motivated by the of
 
 Cursor exposes hooks AIC was not yet using: sessionEnd, preCompact (observational only), subagentStart (gating only — no context injection), postToolUse (with `additional_context`), stop (with `followup_message`). This phase aligns existing hooks to the official schema, adds new lifecycle hooks (sessionEnd, stop quality check, afterFileEdit tracking), improves session-scoped env propagation, and updates documentation to reflect the corrected Cursor capability picture.
 
-| Component                                             | Status | Package               | Deps     | Description                                                                                |
-| ----------------------------------------------------- | ------ | --------------------- | -------- | ------------------------------------------------------------------------------------------ |
-| preToolUse schema alignment + failClosed (Task 109)   | Done   | .cursor/hooks/ + mcp/ | —        | Align `decision`/`reason` to official `permission`/`agent_message`; add `failClosed: true` |
-| sessionEnd hook (Task 110)                            | Done   | .cursor/hooks/ + mcp/ | —        | Cleanup temp files and log session metrics on session end                                  |
-| stop quality check + afterFileEdit tracker (Task 111) | Done   | .cursor/hooks/ + mcp/ | —        | Track edited files; run lint/typecheck on stop; auto-fix via `followup_message`            |
-| sessionStart env improvements (Task 112)              | Done   | .cursor/hooks/ + mcp/ | —        | Pass `AIC_PROJECT_ROOT` and `AIC_CONVERSATION_ID` via session-scoped env                   |
-| Documentation Cursor hooks update (Task 113)          | Done   | documentation/        | —        | Correct capability tables in architecture, project-plan, future docs                       |
-| postToolUse compile confirmation (Task 114)           | Done   | .cursor/hooks/ + mcp/ | Optional | Inject `additional_context` confirmation after successful `aic_compile`                    |
-| subagentStart hook (Task 193)                         | Done   | integrations/cursor/  | —        | aic_compile with trigger_source subagent_start for compilation_log telemetry               |
+| Component                                             | Status | Package                                     | Deps     | Description                                                                                                                            |
+| ----------------------------------------------------- | ------ | ------------------------------------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| preToolUse schema alignment + failClosed (Task 109)   | Done   | .cursor/hooks/ + mcp/                       | —        | Align `decision`/`reason` to official `permission`/`agent_message`; add `failClosed: true`                                             |
+| sessionEnd hook (Task 110)                            | Done   | .cursor/hooks/ + mcp/                       | —        | Cleanup temp files and log session metrics on session end                                                                              |
+| stop quality check + afterFileEdit tracker (Task 111) | Done   | .cursor/hooks/ + mcp/                       | —        | Track edited files; run lint/typecheck on stop; auto-fix via `followup_message`                                                        |
+| sessionStart env improvements (Task 112)              | Done   | .cursor/hooks/ + mcp/                       | —        | Pass `AIC_PROJECT_ROOT` and `AIC_CONVERSATION_ID` via session-scoped env                                                               |
+| Documentation Cursor hooks update (Task 113)          | Done   | documentation/                              | —        | Correct capability tables in architecture, project-plan, future docs                                                                   |
+| postToolUse compile confirmation (Task 114)           | Done   | .cursor/hooks/ + mcp/                       | Optional | Inject `additional_context` confirmation after successful `aic_compile`                                                                |
+| subagentStart hook (Task 193)                         | Done   | integrations/cursor/                        | —        | aic_compile with trigger_source subagent_start for compilation_log telemetry                                                           |
+| Hook-sourced model_id (Task 194)                      | Done   | integrations/cursor/ + integrations/claude/ | —        | Populate compilation_log.model_id from hooks; Claude .aic/.claude-session-model cache; Cursor sessionStart + preToolUse inject modelId |
 
 ### Phase CL — Cursor Clean-Layer Separation
 
@@ -463,9 +464,10 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2026-03-17
 
-**Components:** Task 186 Context-compaction DX documentation, Task 188 Integration layer docs alignment, Task 191 AIC uninstall (Cursor and Claude Code)
+**Components:** Task 186 Context-compaction DX documentation, Task 188 Integration layer docs alignment, Task 191 AIC uninstall (Cursor and Claude Code), Task 194 Hook-sourced model_id
 **Completed:**
 
+- Task 194 (Hook-sourced model_id for compilation_log): Claude aic-compile-helper sixth param modelId; isValidModelId (1–256 chars, ASCII); .aic/.claude-session-model cache read when sixth absent, write when sixth valid. SessionStart (hooks + plugin) passes parsed.model/input.model as sixth arg when valid. Cursor AIC-compile-context.cjs compileArgs.modelId from hookInput.model; AIC-inject-conversation-id.cjs injects modelId (and editorId) for aic_compile, allow without conversation_id when model present. Tests: modelId_sixth_param_forwarded, modelId_from_cache_when_sixth_absent, modelId_omitted_when_cache_invalid, inject_modelId_when_model_present, inject_allow_when_no_conversation_but_model. Docs: cursor-integration-layer.md input.model→modelId; claude-code-integration-layer.md modelId + cache. Lint, typecheck, test, knip, lint:clones 0.
 - Task 191 (AIC uninstall Cursor and Claude Code): integrations/cursor/uninstall.cjs (global mcp.json removal, optional --project for .cursor/hooks, hooks.json, AIC.mdc); integrations/claude/uninstall.cjs (remove AIC from ~/.claude/settings.json and ~/.claude/hooks/, idempotent); installation.md Uninstall section expanded with numbered steps per path (Cursor, Claude plugin, Claude direct, Other editors, optional data removal); README Uninstall subsection with link to installation.md#uninstall; Cursor and Claude uninstall tests (global removal, idempotent, project cleanup / hooks and files); knip ignore entries for uninstall scripts and tests. Lint, typecheck, test, knip, lint:clones 0.
 - Task 186 (Context-compaction DX documentation): README "What it helps with" table — new row (Editor lag from context compaction; fewer tokens, less compaction, smoother experience). best-practices "Keep sessions short" → "How AIC helps" — appended sentence on token reduction, context window fills less often, compaction less frequent, lag in some editors. architecture "The value of session-start context" — new bullet (fewer tokens, context fills more slowly, compaction less often, responsiveness). Evidence-based wording per research doc. Verification: writing-quality, factual-accuracy, cross-doc, reader-sim subagents; mechanical checks; diff matches Change Specification.
 - Task 188 (Integration layer docs alignment): Claude §2 bootstrap wording (list workspace roots, idempotent installer); Cursor §3 step 1 (installer when Cursor detected, idempotent); Claude §5 added aic-inject-conversation-id.cjs (referenced in settings.json.template); Cursor §15 Issue column (Bug | Issue | Status | Workaround); Cursor §17 [x] → [ ]; Claude §4 heading "no core changes needed"; Claude §13 listRoots wording; Claude §15 "Workaround in AIC" → "Workaround"; Cursor §17 installCursorHooks() → "MCP server runs install.cjs when client lists roots". Verification: writing-quality, factual-accuracy, cross-doc subagents; mechanical checks; pnpm lint && typecheck pass.

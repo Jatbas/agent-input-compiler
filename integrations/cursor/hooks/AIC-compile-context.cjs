@@ -37,6 +37,12 @@ if (
 ) {
   compileArgs.conversationId = conversationId.trim();
 }
+if (typeof hookInput.model === "string") {
+  const trimmed = hookInput.model.trim();
+  if (trimmed.length >= 1 && trimmed.length <= 256 && /^[\x20-\x7E]+$/.test(trimmed)) {
+    compileArgs.modelId = trimmed;
+  }
+}
 
 // Build a JSON-RPC request to call aic_compile via the MCP server
 const initRequest = JSON.stringify({

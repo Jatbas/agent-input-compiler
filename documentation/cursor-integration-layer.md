@@ -90,6 +90,7 @@ Only `AIC-compile-context.cjs` calls `aic_compile` directly — it spawns the MC
 | Cursor hook input field                         | How AIC uses it                                                                     |
 | ----------------------------------------------- | ----------------------------------------------------------------------------------- |
 | `input.conversation_id`                         | → `conversationId` for `aic_compile` (sessionStart hook and preToolUse)             |
+| `input.model`                                   | → `modelId` on `aic_compile` (sessionStart and preToolUse inject)                   |
 | `input.generation_id`                           | temp file key for per-generation state (`aic-gate-<id>`, `aic-prompt-<id>`)         |
 | `input.prompt`                                  | saved to temp file by `beforeSubmitPrompt` for gate deny message                    |
 | `input.command`                                 | inspected by `beforeShellExecution` for `--no-verify`                               |

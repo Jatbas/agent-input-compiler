@@ -184,6 +184,112 @@ async function helper_passes_editor_id_claude_code_when_CURSOR_TRACE_ID_unset() 
   }
 }
 
+async function modelId_sixth_param_forwarded() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-helper-test-"));
+  const mockDir = path.join(tmpDir, "mcp", "src");
+  fs.mkdirSync(mockDir, { recursive: true });
+  const argsFile = path.join(os.tmpdir(), `aic-mock-args-${process.pid}-model.json`);
+  fs.copyFileSync(mockRecordsArgs, path.join(mockDir, "server.ts"));
+  try {
+    delete require.cache[require.resolve(helperPath)];
+    const { callAicCompile } = require(helperPath);
+    process.env.AIC_MOCK_ARGS_FILE = argsFile;
+    await callAicCompile("i", tmpDir, null, 10000, null, "claude-sonnet-4-6");
+    delete process.env.AIC_MOCK_ARGS_FILE;
+    if (!fs.existsSync(argsFile)) {
+      throw new Error("Mock did not write args file");
+    }
+    const recorded = JSON.parse(fs.readFileSync(argsFile, "utf8"));
+    const parsed = JSON.parse(recorded.stdin);
+    const args = parsed.params && parsed.params.arguments ? parsed.params.arguments : {};
+    if (args.modelId !== "claude-sonnet-4-6") {
+      throw new Error(
+        `Expected modelId "claude-sonnet-4-6", got ${JSON.stringify(args.modelId)}`,
+      );
+    }
+    console.log("modelId_sixth_param_forwarded: pass");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    try {
+      fs.unlinkSync(argsFile);
+    } catch {
+      // ignore
+    }
+  }
+}
+
+async function modelId_from_cache_when_sixth_absent() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-helper-test-"));
+  const mockDir = path.join(tmpDir, "mcp", "src");
+  fs.mkdirSync(mockDir, { recursive: true });
+  const aicDir = path.join(tmpDir, ".aic");
+  fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
+  fs.writeFileSync(path.join(aicDir, ".claude-session-model"), "haiku-model\n", "utf8");
+  const argsFile = path.join(os.tmpdir(), `aic-mock-args-${process.pid}-cache.json`);
+  fs.copyFileSync(mockRecordsArgs, path.join(mockDir, "server.ts"));
+  try {
+    delete require.cache[require.resolve(helperPath)];
+    const { callAicCompile } = require(helperPath);
+    process.env.AIC_MOCK_ARGS_FILE = argsFile;
+    await callAicCompile("i", tmpDir, null, 10000);
+    delete process.env.AIC_MOCK_ARGS_FILE;
+    if (!fs.existsSync(argsFile)) {
+      throw new Error("Mock did not write args file");
+    }
+    const recorded = JSON.parse(fs.readFileSync(argsFile, "utf8"));
+    const parsed = JSON.parse(recorded.stdin);
+    const args = parsed.params && parsed.params.arguments ? parsed.params.arguments : {};
+    if (args.modelId !== "haiku-model") {
+      throw new Error(
+        `Expected modelId "haiku-model", got ${JSON.stringify(args.modelId)}`,
+      );
+    }
+    console.log("modelId_from_cache_when_sixth_absent: pass");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    try {
+      fs.unlinkSync(argsFile);
+    } catch {
+      // ignore
+    }
+  }
+}
+
+async function modelId_omitted_when_cache_invalid() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-helper-test-"));
+  const mockDir = path.join(tmpDir, "mcp", "src");
+  fs.mkdirSync(mockDir, { recursive: true });
+  const aicDir = path.join(tmpDir, ".aic");
+  fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
+  fs.writeFileSync(path.join(aicDir, ".claude-session-model"), "x".repeat(257), "utf8");
+  const argsFile = path.join(os.tmpdir(), `aic-mock-args-${process.pid}-invalid.json`);
+  fs.copyFileSync(mockRecordsArgs, path.join(mockDir, "server.ts"));
+  try {
+    delete require.cache[require.resolve(helperPath)];
+    const { callAicCompile } = require(helperPath);
+    process.env.AIC_MOCK_ARGS_FILE = argsFile;
+    await callAicCompile("i", tmpDir, null, 10000);
+    delete process.env.AIC_MOCK_ARGS_FILE;
+    if (!fs.existsSync(argsFile)) {
+      throw new Error("Mock did not write args file");
+    }
+    const recorded = JSON.parse(fs.readFileSync(argsFile, "utf8"));
+    const parsed = JSON.parse(recorded.stdin);
+    const args = parsed.params && parsed.params.arguments ? parsed.params.arguments : {};
+    if (args.modelId !== undefined) {
+      throw new Error(`Expected modelId undefined, got ${JSON.stringify(args.modelId)}`);
+    }
+    console.log("modelId_omitted_when_cache_invalid: pass");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    try {
+      fs.unlinkSync(argsFile);
+    } catch {
+      // ignore
+    }
+  }
+}
+
 (async () => {
   await happy_path_returns_compiled_prompt();
   await conversationId_forwarded_when_provided();
@@ -191,5 +297,8 @@ async function helper_passes_editor_id_claude_code_when_CURSOR_TRACE_ID_unset() 
   await returns_null_on_spawn_error();
   await helper_passes_editor_id_cursor_claude_code_when_CURSOR_TRACE_ID_set();
   await helper_passes_editor_id_claude_code_when_CURSOR_TRACE_ID_unset();
+  await modelId_sixth_param_forwarded();
+  await modelId_from_cache_when_sixth_absent();
+  await modelId_omitted_when_cache_invalid();
   console.log("All tests passed.");
 })();

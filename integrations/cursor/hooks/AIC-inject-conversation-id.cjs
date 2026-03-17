@@ -12,7 +12,6 @@ process.stdin.on("data", (chunk) => {
 process.stdin.on("end", () => {
   try {
     const input = JSON.parse(raw);
-    // Conversation-scoped id only — never session_id (wrong attribution across chats)
     const conversationId =
       input.conversation_id ?? input.conversationId ?? process.env.AIC_CONVERSATION_ID;
     const toolInput = input.tool_input;
@@ -24,10 +23,6 @@ process.stdin.on("end", () => {
       conversationId.trim() !== ""
         ? conversationId.trim()
         : null;
-    if (!idStr) {
-      process.stdout.write(JSON.stringify({ permission: "allow" }));
-      return;
-    }
 
     const toolName = (input.tool_name || "").toLowerCase();
     const isAicCompile =
@@ -44,10 +39,38 @@ process.stdin.on("end", () => {
       return;
     }
 
-    const updated = isAicCompile
-      ? { ...toolInput, conversationId: idStr, editorId: "cursor" }
-      : { ...toolInput, conversationId: idStr };
-    process.stdout.write(JSON.stringify({ permission: "allow", updated_input: updated }));
+    if (isAicChatSummary) {
+      if (!idStr) {
+        process.stdout.write(JSON.stringify({ permission: "allow" }));
+        return;
+      }
+      const updated = { ...toolInput, conversationId: idStr };
+      process.stdout.write(
+        JSON.stringify({ permission: "allow", updated_input: updated }),
+      );
+      return;
+    }
+
+    // isAicCompile
+    const updated = { ...toolInput, editorId: "cursor" };
+    if (idStr) updated.conversationId = idStr;
+    if (typeof input.model === "string") {
+      const trimmed = input.model.trim();
+      if (
+        trimmed.length >= 1 &&
+        trimmed.length <= 256 &&
+        /^[\x20-\x7E]+$/.test(trimmed)
+      ) {
+        updated.modelId = trimmed;
+      }
+    }
+    if (updated.conversationId !== undefined || updated.modelId !== undefined) {
+      process.stdout.write(
+        JSON.stringify({ permission: "allow", updated_input: updated }),
+      );
+    } else {
+      process.stdout.write(JSON.stringify({ permission: "allow" }));
+    }
   } catch {
     process.stdout.write(JSON.stringify({ permission: "allow" }));
   }
