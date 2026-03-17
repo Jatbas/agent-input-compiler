@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 86/92 done
+**Phase 1.0:** 87/93 done
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -86,6 +86,7 @@ Cursor exposes hooks AIC was not yet using: sessionEnd, preCompact (observationa
 | sessionStart env improvements (Task 112)              | Done   | .cursor/hooks/ + mcp/ | —        | Pass `AIC_PROJECT_ROOT` and `AIC_CONVERSATION_ID` via session-scoped env                   |
 | Documentation Cursor hooks update (Task 113)          | Done   | documentation/        | —        | Correct capability tables in architecture, project-plan, future docs                       |
 | postToolUse compile confirmation (Task 114)           | Done   | .cursor/hooks/ + mcp/ | Optional | Inject `additional_context` confirmation after successful `aic_compile`                    |
+| subagentStart hook (Task 193)                         | Done   | integrations/cursor/  | —        | aic_compile with trigger_source subagent_start for compilation_log telemetry               |
 
 ### Phase CL — Cursor Clean-Layer Separation
 
@@ -471,9 +472,10 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2025-03-17
 
-**Components:** Task 182 External API response validation (update check), Task 183 Claude installer Cursor parity, Task 184 Claude Code conversation_id integration fix and PreToolUse hook, Task 185 Claude installer legacy project-local cleanup, Task 187 Claude hook bug fixes, W13 Documentation update (Task 189), Task 190 installation doc align integration, Task 192 Integrations triggerSource
+**Components:** Task 182 External API response validation (update check), Task 183 Claude installer Cursor parity, Task 184 Claude Code conversation_id integration fix and PreToolUse hook, Task 185 Claude installer legacy project-local cleanup, Task 187 Claude hook bug fixes, W13 Documentation update (Task 189), Task 190 installation doc align integration, Task 192 Integrations triggerSource, Task 193 Cursor subagentStart hook
 **Completed:**
 
+- Task 193 (Cursor subagentStart hook): AIC-subagent-compile.cjs reads subagentStart stdin (task, parent_conversation_id), calls aic_compile with triggerSource "subagent_start" and conversationId; always returns permission "allow". hooks.json.template and install.cjs add subagentStart (11 scripts, hookKeys). cursor-integration-layer.md §7.10 and table row; install.test.js 11 scripts + subagentStart assertion. Lint, typecheck, test, knip, lint:clones 0.
 - Task 192 (Integrations set triggerSource for compilation_log): Claude callAicCompile optional 5th param triggerSource (hooks + plugin); arguments include triggerSource when provided. Claude subagent/session-start/prompt-compile hooks (hooks + plugin) pass "subagent_start", "session_start", "prompt_submit". Cursor AIC-compile-context.cjs compileArgs.triggerSource "session_start". Test triggerSource_forwarded_when_provided. Lint, typecheck, test, knip, lint:clones 0.
 - Task 190 (installation.md align integration layer): Three edits in documentation/installation.md: (1) Claude Code script wording — Direct Installer "AIC hook scripts (8 event hooks plus the compile helper and conversation-id script)", How Hooks Are Delivered "8 lifecycle hooks (and supporting scripts)", Troubleshooting "AIC hook scripts"; (2) Hooks table aic-after-file-edit-tracker.cjs → PostToolUse (Edit/Write) per claude-code-integration-layer.md §7.5; (3) Bootstrap Step 6 Cursor per-project vs Claude Code global + optional CLAUDE.md; Per-Project Artifacts note "Claude Code hook scripts and settings are global (~/.claude/); the only optional per-project artifact is .claude/CLAUDE.md." Step 6 clarified "when the installer is run from a project directory". Verification: writing-quality, factual-accuracy, cross-doc, reader-sim subagents; mechanical checks.
 - Task 189 (W13 Documentation update): implementation-spec.md §8 (global DB diagram and bullets, ScopeRegistry in §8b, Phase W intro project_id/store wording, W15–W16 note, W13 table and grep list), project-plan.md (non-goals and Isolation row, ADR-007 ProjectId sentence, SOC 2 Security row), security.md SOC 2 Security row, documentation-review.md DR-09 fix and table/action, mvp-progress.md Store changes bullet, AIC-architect.mdc Global DB critical reminder. All 16 Change Specification items applied. Factual verification: projectId/WHERE project_id/global DB path confirmed in codebase. Consistency: no stale "no global database", "hermetically isolated", "no shared state" in docs.

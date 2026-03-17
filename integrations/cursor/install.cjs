@@ -14,6 +14,7 @@ const AIC_SCRIPT_NAMES = [
   "AIC-block-no-verify.cjs",
   "AIC-after-file-edit-tracker.cjs",
   "AIC-session-end.cjs",
+  "AIC-subagent-compile.cjs",
   "AIC-stop-quality-check.cjs",
 ];
 
@@ -109,6 +110,7 @@ const hookKeys = [
   "beforeShellExecution",
   "afterFileEdit",
   "sessionEnd",
+  "subagentStart",
   "stop",
 ];
 

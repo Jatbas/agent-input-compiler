@@ -18,6 +18,7 @@ const AIC_SCRIPT_NAMES = [
   "AIC-block-no-verify.cjs",
   "AIC-after-file-edit-tracker.cjs",
   "AIC-session-end.cjs",
+  "AIC-subagent-compile.cjs",
   "AIC-stop-quality-check.cjs",
 ];
 
@@ -39,7 +40,7 @@ function install_creates_all_artifacts() {
     const hooksDir = path.join(tmpDir, ".cursor", "hooks");
     assert(fs.existsSync(hooksDir), ".cursor/hooks exists");
     const names = fs.readdirSync(hooksDir);
-    assert(names.length === 10, "10 scripts in .cursor/hooks");
+    assert(names.length === 11, "11 scripts in .cursor/hooks");
     for (const name of AIC_SCRIPT_NAMES) {
       assert(names.includes(name), `script ${name} present`);
     }
@@ -50,6 +51,14 @@ function install_creates_all_artifacts() {
     assert(
       hooksJson.hooks && typeof hooksJson.hooks === "object",
       "hooks object present",
+    );
+    assert(
+      Array.isArray(hooksJson.hooks.subagentStart) &&
+        hooksJson.hooks.subagentStart.length > 0 &&
+        hooksJson.hooks.subagentStart.some((e) =>
+          (e.command || "").includes("AIC-subagent-compile.cjs"),
+        ),
+      "hooks.json has subagentStart with AIC-subagent-compile.cjs",
     );
     const triggerPath = path.join(tmpDir, ".cursor", "rules", "AIC.mdc");
     assert(fs.existsSync(triggerPath), ".cursor/rules/AIC.mdc exists");

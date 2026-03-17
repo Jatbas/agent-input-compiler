@@ -119,6 +119,7 @@ integrations/cursor/               ← SOURCE (authored here)
     AIC-after-file-edit-tracker.cjs # afterFileEdit — records edited files to temp file
     AIC-stop-quality-check.cjs     # stop — ESLint + typecheck quality gate
     AIC-session-end.cjs            # sessionEnd — temp file cleanup + session telemetry
+    AIC-subagent-compile.cjs       # subagentStart — aic_compile for compilation_log telemetry
   install.cjs                      # Installer: copies hooks, merges hooks.json
   hooks.json.template              # hooks.json template
 
@@ -459,6 +460,23 @@ The model then sees this as a new prompt, fixes the errors, and tries to stop ag
 
 ---
 
+### 7.10 subagentStart — compilation_log telemetry
+
+**Event:** `subagentStart`
+
+**Input fields used:**
+
+- `input.task` → truncated to 200 chars as `intent` for `aic_compile` (or `"provide context for subagent"` when missing)
+- `input.parent_conversation_id` → passed as `conversationId` so the compile is attributed to the parent conversation
+
+**Purpose:** When a subagent (Task tool) is about to start, the hook calls `aic_compile` with `triggerSource: "subagent_start"` and the parent conversation ID. Cursor's subagentStart output schema does not support `additional_context`, so the hook does not inject context; it always returns `permission: "allow"`. The sole purpose is so `compilation_log` has one row per subagent start with valid token data for telemetry.
+
+**Must never block:** On parse or exec error the hook still returns `permission: "allow"` so subagent start is never blocked; the compile is best-effort.
+
+**File:** `.cursor/hooks/AIC-subagent-compile.cjs`
+
+---
+
 ## 8. Full event coverage — why some events are skipped
 
 Cursor exposes 8 hook events (as of Mar 2026). AIC uses all 8, though not all contribute to context injection:
@@ -474,8 +492,9 @@ Cursor exposes 8 hook events (as of Mar 2026). AIC uses all 8, though not all co
 | `afterFileEdit`              | §7.7    | File edit tracker                                                        |
 | `stop`                       | §7.8    | Quality gate                                                             |
 | `sessionEnd`                 | §7.9    | Cleanup + telemetry                                                      |
+| `subagentStart`              | §7.10   | Record compilation with trigger_source subagent_start for telemetry      |
 
-`preCompact` and `subagentStart` are listed in Cursor's docs but have limited output schemas in current versions — neither supports `additional_context` injection. They are registered only if AIC needs a gating capability from them in the future.
+`preCompact` is listed in Cursor's docs but has a limited output schema (no `additional_context`). It is registered only if AIC needs a gating capability from it in the future. AIC now registers `subagentStart` for trigger_source telemetry — one compile per subagent start — even though that hook cannot inject context.
 
 ---
 
