@@ -33,6 +33,7 @@ import { writeCompilationTelemetry } from "@jatbas/aic-core/core/write-compilati
 import { recordToolInvocation } from "../record-tool-invocation.js";
 import { ensureProjectInit } from "../init-project.js";
 import { installTriggerRule } from "../install-trigger-rule.js";
+import { runEditorBootstrapIfNeeded } from "../editor-integration-dispatch.js";
 import { validateProjectRoot, validateConfigPath } from "../validate-project-root.js";
 
 function rejectAfter(ms: number): Promise<never> {
@@ -195,6 +196,7 @@ export function createCompileHandler(
           scope.normaliser,
         );
         installTriggerRule(projectRoot, resolvedEditorId);
+        runEditorBootstrapIfNeeded(projectRoot);
         initDoneForProject.add(key);
       }
       const intent = args.intent.replace(/[\x00-\x08\x0b-\x1f]/g, "");

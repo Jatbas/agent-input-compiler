@@ -63,6 +63,21 @@ To run the MCP server from your clone instead of the published package:
 3. Restart your editor (or reload MCP) so it picks up the local server.
    Restore the original config when done: `"command": "npx", "args": ["@aic/mcp"]`.
 
+### Reflecting code changes during development
+
+`pnpm run dev:mcp` runs the server via `tsx` (on-the-fly TypeScript), so no build step is needed during development. However, the server process must be restarted to pick up changes:
+
+| What you changed                                           | What to do                                                                                                                        |
+| ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| **Integration hooks** (`integrations/*/hooks/*.cjs`)       | Restart the AIC dev server. On startup the server re-runs the installers, which copy the updated hooks to their target locations. |
+| **Integration installers** (`integrations/*/install.cjs`)  | Restart the AIC dev server.                                                                                                       |
+| **MCP server code** (`mcp/src/**`)                         | Restart the AIC dev server.                                                                                                       |
+| **Core / pipeline / adapters / storage** (`shared/src/**`) | Restart the AIC dev server. `tsx` picks up the changes at next start — no separate build needed.                                  |
+
+In all cases, "restart the AIC dev server" means reload MCP in your editor (e.g. Cursor: `Cmd+Shift+P` → **Reload Window**) so the server process is respawned.
+
+A full `pnpm build` is only needed before publishing or running the production entry point (`dist/server.js`).
+
 ## Good contribution types
 
 - bug fixes

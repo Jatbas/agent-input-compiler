@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import { describe, it, beforeAll, afterEach, expect, vi } from "vitest";
+import { describe, it, beforeAll, beforeEach, afterEach, expect, vi } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
@@ -23,10 +23,11 @@ type McpServerWithClose = ReturnType<typeof createMcpServer>;
 describe("MCP server", () => {
   let tmpDir: string;
   let server: McpServerWithClose | undefined;
+  let realFetch: typeof globalThis.fetch;
 
   beforeAll(() => {
     process.setMaxListeners(32);
-    // Remove stale temp dirs from previous killed test runs
+    realFetch = globalThis.fetch;
     const home = os.homedir();
     const entries = fs.readdirSync(home);
     for (const entry of entries) {
@@ -36,7 +37,15 @@ describe("MCP server", () => {
     }
   });
 
+  beforeEach(() => {
+    // prevent setImmediate version-check from hitting the real npm registry
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue({ ok: false }) as typeof globalThis.fetch;
+  });
+
   afterEach(() => {
+    globalThis.fetch = realFetch;
     if (typeof (server as { close?(): void })?.close === "function") {
       (server as { close(): void }).close();
       server = undefined;
@@ -85,7 +94,6 @@ describe("MCP server", () => {
 
   it("aic_status_includes_updateAvailable", async () => {
     const registryJson = JSON.stringify({ "dist-tags": { latest: "99.0.0" } });
-    const originalFetch = globalThis.fetch;
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       headers: {
@@ -94,6 +102,7 @@ describe("MCP server", () => {
       },
       arrayBuffer: () => Promise.resolve(new TextEncoder().encode(registryJson)),
     });
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     try {
       tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
       const clock = new SystemClock();
@@ -115,7 +124,7 @@ describe("MCP server", () => {
         "A newer AIC version (99.0.0) is available. Run `rm -rf ~/.npm/_npx` then reload Cursor to update.",
       );
     } finally {
-      globalThis.fetch = originalFetch;
+      stderrSpy.mockRestore();
     }
   });
 
