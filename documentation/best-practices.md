@@ -24,7 +24,7 @@ These are best practices for getting the most out of AI-assisted coding. AIC is 
 
 **Why:** Long conversations accumulate noise. The model's context window fills with previous messages, tool outputs, and intermediate results. When the context window reaches capacity, the editor compacts (summarizes) earlier content, and the model loses details from the beginning of the conversation — including AIC's compiled context. Short sessions avoid this compaction loss entirely.
 
-**How AIC helps:** In a short session, AIC's initial compiled context remains prominent in the context window throughout. Once built, Claude Code's integration will use the `PreCompact` hook to re-compile before compaction, preserving context quality even in longer sessions.
+**How AIC helps:** In a short session, AIC's initial compiled context remains prominent in the context window throughout. Once built, Claude Code's integration will use the `PreCompact` hook to re-compile before compaction, preserving context quality even in longer sessions. AIC's token reduction also means the context window fills less often, so the editor triggers compaction less frequently — and in some editors, compaction is a slow, resource-heavy process that can cause lag.
 
 ---
 

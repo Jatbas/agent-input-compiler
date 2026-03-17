@@ -73,6 +73,7 @@ When AIC compiles context at session start, it selects the most relevant files f
 - It doesn't need to spend tokens reading raw files to orient itself
 - File selection is algorithmic and deterministic, not dependent on the model's guesswork
 - Security scanning (Context Guard) runs before any code reaches the model
+- Sending fewer tokens means the context window fills more slowly, so editors trigger compaction (summarization) less often — improving responsiveness where compaction is costly
 
 Even if AIC doesn't compile every subsequent prompt in the conversation (that depends on the agent's behavior and the tool gate), the initial compilation provides a foundation that benefits every turn.
 

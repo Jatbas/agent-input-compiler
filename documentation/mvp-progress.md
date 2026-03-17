@@ -470,6 +470,13 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ## Daily Log
 
+### 2026-03-17
+
+**Components:** Task 186 Context-compaction DX documentation
+**Completed:**
+
+- Task 186 (Context-compaction DX documentation): README "What it helps with" table — new row (Editor lag from context compaction; fewer tokens, less compaction, smoother experience). best-practices "Keep sessions short" → "How AIC helps" — appended sentence on token reduction, context window fills less often, compaction less frequent, lag in some editors. architecture "The value of session-start context" — new bullet (fewer tokens, context fills more slowly, compaction less often, responsiveness). Evidence-based wording per research doc. Verification: writing-quality, factual-accuracy, cross-doc, reader-sim subagents; mechanical checks; diff matches Change Specification.
+
 ### 2025-03-17
 
 **Components:** Task 182 External API response validation (update check), Task 183 Claude installer Cursor parity, Task 184 Claude Code conversation_id integration fix and PreToolUse hook, Task 185 Claude installer legacy project-local cleanup
