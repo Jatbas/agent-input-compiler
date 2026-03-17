@@ -8,6 +8,7 @@ const { execFileSync } = require("node:child_process");
 const installScript = path.join(__dirname, "..", "install.cjs");
 
 const AIC_SCRIPT_NAMES = [
+  "aic-compile-helper.cjs",
   "aic-session-start.cjs",
   "aic-prompt-compile.cjs",
   "aic-subagent-inject.cjs",
@@ -15,6 +16,7 @@ const AIC_SCRIPT_NAMES = [
   "aic-after-file-edit-tracker.cjs",
   "aic-stop-quality-check.cjs",
   "aic-block-no-verify.cjs",
+  "aic-inject-conversation-id.cjs",
   "aic-session-end.cjs",
 ];
 

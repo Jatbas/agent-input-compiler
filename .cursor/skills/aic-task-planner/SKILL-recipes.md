@@ -715,7 +715,7 @@ The documentation recipe has its own exploration checklist, equivalent in rigor 
 
 **Batch A — fire in one parallel round:**
 
-1. **Read the target document fully** — if editing an existing document, read every line. Record: current structure (heading hierarchy), tone (formal/informal, active/passive), terminology (key terms and how they are used), audience (who reads this), and formatting patterns (bullet vs prose, code block usage, cross-references).
+1. **Read the target document fully** — if editing an existing document, read every line. Record: current structure (heading hierarchy), tone (formal/informal, active/passive), terminology (key terms and how they are used), audience (who reads this), formatting patterns (bullet vs prose, code block usage, cross-references), and line-break structure (which sections use single-line sentences vs wrapped paragraphs).
 2. **Read ALL sibling documents** — every `.md` in `documentation/`. Build a terminology index: for each key term (component names, architecture concepts, ADR references), record how each document uses it. Flag any term used differently across documents.
 3. **Cross-reference against codebase** — for every technical claim in the target document (interface names, type names, file paths, ADR references, component descriptions, architecture claims): grep the actual code and verify. Record: `[claim] — [source file:line] — ACCURATE / INACCURATE / NOT FOUND`. This is the same rigor as the research skill's factual accuracy explorer. Cross-reference the ENTIRE document, not just the target section — scope-adjacent claims matter.
    3b. **Uncertain claim escalation** — during cross-referencing, if a technical claim cannot be definitively confirmed or denied (grep returns partial/ambiguous results, multiple identifiers exist for the same thing, a command path is unclear), mark it as UNCERTAIN. For each uncertain claim: if 1-2 uncertain claims, investigate inline (read `package.json`, trace the code path, check the npm registry). If 3+ uncertain claims or deep ambiguity, delegate to the `aic-researcher` skill for a focused factual investigation before writing the Change Specification. Never write target text containing an uncertain claim — either resolve it or flag it as a blocker.
@@ -867,6 +867,8 @@ For each section to edit, provide:
 
 Every change must have all three parts: current text (so the executor can locate it), rationale (so the executor understands why), and target text (so the executor does not need to make writing decisions).
 
+**Line-break preservation:** Target text must match the source document's line-break structure. If the source uses single-line sentences in a section, keep them single-line; if it uses wrapped paragraphs, preserve that pattern. Do not introduce artificial line breaks at a fixed column width.
+
 **ToC update rule:** If any change adds, removes, or renames a heading, and the document has a Table of Contents, the Change Specification MUST include a dedicated change (or a sub-step within the relevant change) that updates the ToC to match. The ToC change must list both the current ToC text and the target ToC text. Never assume the executor will notice a ToC needs updating — make it explicit.
 
 **Writing Standards** (replaces Dependent Types):
@@ -881,7 +883,7 @@ Every change must have all three parts: current text (so the executor can locate
   - Developer reference: precise technical language, type signatures, architecture rationale, component relationships. Assume reader knows the codebase. Every section answers "how and why does this work?"
   - Mixed: clearly separate user instructions from technical details using headings or callout blocks. Label which parts are for which audience.
 - **Terminology:** [Key terms that must be used consistently — list with definitions]
-- **Formatting:** [Bullet vs prose, code block conventions, heading hierarchy rules]
+- **Formatting:** [Bullet vs prose, code block conventions, heading hierarchy rules, line-break structure (single-line vs wrapped paragraphs)]
 - **Cross-reference format:** [How to link to other docs, how to reference code artifacts]
 - **Temporal robustness:** Never reference phase names (Phase T, Phase U), task numbers (U06, T14), or temporal milestones ("in the next phase", "recently added") in the document body. These references become stale when the project progresses. Instead, describe capabilities: "AIC supports X" not "Phase T added X". If a feature is incomplete, write "Not yet available" instead of "Will be added in Phase X."
 ```

@@ -168,6 +168,7 @@ Before writing any new content, check these formatting rules. Violations cause 4
 - **Step-by-step procedures:** Must use numbered lists, not prose paragraphs.
 - **New sections:** Any new `##` or `###` heading MUST be added to the Table of Contents if one exists. The ToC entry must appear in the correct position relative to other entries.
 - **Placement:** When adding a new section, evaluate the document's existing flow (introduction → concepts → procedures → reference → appendix). Place the new section where it fits logically: glossaries/key terms go at the top (after intro, before or after ToC) or as an appendix; troubleshooting goes at the end of its parent section; reference material goes after procedural content. Never insert a new section at the first convenient gap without considering document flow.
+- **Line-break preservation:** Preserve the source document's line-break structure. Do not wrap prose onto multiple lines unless the surrounding text does. If the current text is a single line, the target text must remain a single line.
 
 **For each step in the Steps section:**
 
@@ -176,7 +177,7 @@ Before writing any new content, check these formatting rules. Violations cause 4
 3. **Per-edit quick check.** After each edit, re-read the edited section plus 5 lines before and 5 lines after. Verify:
    - The target text was applied correctly (no truncation, no duplication)
    - The transition from surrounding text to new text is smooth (no jarring tone change)
-   - No formatting inconsistencies introduced (heading level, bullet style, code block format)
+   - No formatting inconsistencies introduced (heading level, bullet style, code block format, line-break structure)
    - If a new heading was added, it appears in the Table of Contents (if one exists)
    - If definitions or terms were added, they use the correct format (table for 3+, not inline paragraph)
 

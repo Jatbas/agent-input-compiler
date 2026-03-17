@@ -4,10 +4,7 @@
 
 ## 1. Purpose
 
-This document is the single source of truth for building and maintaining the Cursor integration
-layer. It covers the hook scripts in `integrations/cursor/hooks/` (source) and their deployment
-to `.cursor/hooks/` (editor target), the `hooks.json` wiring, the adapter pattern, and all known
-limitations of Cursor's hook system.
+This document is the single source of truth for building and maintaining the Cursor integration layer. It covers the hook scripts in `integrations/cursor/hooks/` (source) and their deployment to `.cursor/hooks/` (editor target), the `hooks.json` wiring, the adapter pattern, and all known limitations of Cursor's hook system.
 
 ---
 
@@ -15,8 +12,7 @@ limitations of Cursor's hook system.
 
 The AIC core (anything in `shared/` or `mcp/src/`) has **zero knowledge of Cursor**. All
 Cursor-specific source code lives in `integrations/cursor/`. The `.cursor/` directory is a
-**deployment target** that Cursor reads — it is not a source directory. This distinction is
-not a preference — it is a structural invariant.
+**deployment target** that Cursor reads — it is not a source directory. This distinction is not a preference — it is a structural invariant.
 
 What this means concretely:
 
@@ -35,25 +31,18 @@ What this means concretely:
 
 ## 3. Deployment scope — per-project, auto-bootstrapped by the global server
 
-The AIC MCP server is global in Cursor (`~/.cursor/mcp.json`), but **Cursor does not support
-global hooks**. The hook configuration
-(`.cursor/hooks.json`) and scripts (`.cursor/hooks/AIC-*.cjs`) are per-project artifacts —
-they must exist inside each project directory.
+The AIC MCP server is global in Cursor (`~/.cursor/mcp.json`), but **Cursor does not support global hooks**. The hook configuration (`.cursor/hooks.json`) and scripts (`.cursor/hooks/AIC-*.cjs`) are per-project artifacts — they must exist inside each project directory.
 
-**How they get there — zero user intervention:** The global AIC MCP server auto-bootstraps
-each new project on first use. When Cursor opens a project and spawns the server:
+**How they get there — zero user intervention:** The global AIC MCP server auto-bootstraps each new project on first use. When Cursor opens a project and spawns the server:
 
 1. The server runs the installer when Cursor is detected for the project (e.g. when the
    client lists workspace roots); the installer is idempotent.
 2. It runs the first-compile bootstrap ([detailed in installation.md](installation.md#first-compile-bootstrap))
 3. `.cursor/hooks.json` and all 10 `.cjs` scripts are written into the project
 
-No user action is required. By the time the user sends their first message, the hooks are already
-in place from step 3.
+No user action is required. By the time the user sends their first message, the hooks are already in place from step 3.
 
-**Optional: commit hooks to the repo.** If the team wants all checkout users to have hooks
-pre-loaded (without waiting for bootstrap), the `.cursor/hooks.json` and `.cursor/hooks/AIC-*.cjs`
-files can be committed. This is a team preference, not a requirement.
+**Optional: commit hooks to the repo.** If the team wants all checkout users to have hooks pre-loaded (without waiting for bootstrap), the `.cursor/hooks.json` and `.cursor/hooks/AIC-*.cjs` files can be committed. This is a team preference, not a requirement.
 
 > **Verified:** Cursor's `beforeSubmitPrompt`, `preToolUse`, `postToolUse`, `beforeShellExecution`,
 > `afterFileEdit`, `sessionStart`, `sessionEnd`, `stop` events are all documented in the official
@@ -65,9 +54,7 @@ files can be committed. This is a team preference, not a requirement.
 
 ### 4.1 Why no AIC core changes are needed
 
-AIC's pipeline operates on `CompilationRequest → CompilationResult`. It does not know which
-editor or tool initiated the call. This is the hexagonal architecture invariant: core/pipeline
-has zero knowledge of callers.
+AIC's pipeline operates on `CompilationRequest → CompilationResult`. It does not know which editor or tool initiated the call. This is the hexagonal architecture invariant: core/pipeline has zero knowledge of callers.
 
 The integration layer is a thin adapter that translates Cursor's hook protocol into an
 `aic_compile` MCP call:
@@ -94,12 +81,9 @@ Cursor runtime → injects as context
 
 ### 4.2 Where the adapter lives
 
-All event hooks are **authored** in `integrations/cursor/hooks/`. The installer deploys them
-to `.cursor/hooks/` per project. Nothing outside `integrations/cursor/` changes at dev time.
+All event hooks are **authored** in `integrations/cursor/hooks/`. The installer deploys them to `.cursor/hooks/` per project. Nothing outside `integrations/cursor/` changes at dev time.
 
-Only `AIC-compile-context.cjs` calls `aic_compile` directly — it spawns the MCP server via
-`execSync` + JSON-RPC. All other hooks that need the model to call `aic_compile` use the
-gate-and-model-call pattern (§7.3).
+Only `AIC-compile-context.cjs` calls `aic_compile` directly — it spawns the MCP server via `execSync` + JSON-RPC. All other hooks that need the model to call `aic_compile` use the gate-and-model-call pattern (§7.3).
 
 ### 4.3 Input field mapping
 
@@ -164,10 +148,7 @@ process.stdout.write(
 );
 ```
 
-The `env` field sets environment variables for the session scope — all subsequent hooks in
-this session receive these values via `process.env`. This is the only mechanism available
-to propagate `conversationId` to hooks that don't receive `conversation_id` in their own
-stdin input.
+The `env` field sets environment variables for the session scope — all subsequent hooks in this session receive these values via `process.env`. This is the only mechanism available to propagate `conversationId` to hooks that don't receive `conversation_id` in their own stdin input.
 
 ### 6.2 beforeSubmitPrompt — `{ continue: true }`
 
@@ -175,9 +156,7 @@ stdin input.
 process.stdout.write(JSON.stringify({ continue: true }));
 ```
 
-Must always return `{ continue: true }`. Returning `{ continue: false }` blocks prompt
-submission. This hook is zero-cost — it saves the prompt to a temp file and returns
-immediately.
+Must always return `{ continue: true }`. Returning `{ continue: false }` blocks prompt submission. This hook is zero-cost — it saves the prompt to a temp file and returns immediately.
 
 ### 6.3 preToolUse — `permission: "allow"` or deny
 
@@ -199,8 +178,7 @@ process.stdout.write(
 );
 ```
 
-For the `AIC-inject-conversation-id.cjs` hook, an `updated_input` field can override the
-tool's input arguments:
+For the `AIC-inject-conversation-id.cjs` hook, an `updated_input` field can override the tool's input arguments:
 
 ```js
 process.stdout.write(
@@ -242,9 +220,7 @@ process.stdout.write(
 process.stdout.write(JSON.stringify({}));
 ```
 
-The `followup_message` causes Cursor to auto-submit the text as a follow-up prompt, allowing
-the model to fix errors before the session ends. The `loop_limit` field in `hooks.json`
-prevents infinite retry loops.
+The `followup_message` causes Cursor to auto-submit the text as a follow-up prompt, allowing the model to fix errors before the session ends. The `loop_limit` field in `hooks.json` prevents infinite retry loops.
 
 ### 6.8 sessionEnd — no stdout
 
@@ -261,10 +237,7 @@ AIC uses ten hook slots across eight event types.
 
 **Event:** `sessionStart`
 
-**Why two hooks:** The first hook (`AIC-session-init.cjs`) injects architectural invariants
-from the project's `AIC-architect.mdc` rule file — fast, no external call, always succeeds.
-The second hook (`AIC-compile-context.cjs`) calls `aic_compile` to inject a broad project
-context snapshot — may time out, fail non-fatally.
+**Why two hooks:** The first hook (`AIC-session-init.cjs`) injects architectural invariants from the project's `AIC-architect.mdc` rule file — fast, no external call, always succeeds. The second hook (`AIC-compile-context.cjs`) calls `aic_compile` to inject a broad project context snapshot — may time out, fail non-fatally.
 
 **AIC-session-init.cjs:**
 
@@ -280,11 +253,7 @@ context snapshot — may time out, fail non-fatally.
 - Outputs `additional_context` with the compiled project snapshot
 - **If this hook times out (20s), it exits 0 silently** — session creation is never blocked
 
-**Known limitation — `aic_compile` from sessionStart is best-effort:** The compiled context
-from `AIC-compile-context.cjs` is broad and intent-agnostic (project structure only). The
-primary per-intent context delivery in Cursor relies on the model calling `aic_compile` itself
-(enforced by the `preToolUse` gate). There is **no per-prompt context injection hook** in
-Cursor — `beforeSubmitPrompt` does not support `additional_context` output (see §7.2).
+**Known limitation — `aic_compile` from sessionStart is best-effort:** The compiled context from `AIC-compile-context.cjs` is broad and intent-agnostic (project structure only). The primary per-intent context delivery in Cursor relies on the model calling `aic_compile` itself (enforced by the `preToolUse` gate). There is **no per-prompt context injection hook** in Cursor — `beforeSubmitPrompt` does not support `additional_context` output (see §7.2).
 
 **File:** `.cursor/hooks/AIC-compile-context.cjs`
 
@@ -314,8 +283,7 @@ Cursor — `beforeSubmitPrompt` does not support `additional_context` output (se
 **Always returns `{ continue: true }`** — this hook must never block prompt submission.
 
 **Known limitation — no context injection:** `beforeSubmitPrompt` does not support an
-`additional_context` output field in Cursor's current hook schema. It can only allow/block
-the submission.
+`additional_context` output field in Cursor's current hook schema. It can only allow/block the submission.
 
 **File:** `.cursor/hooks/AIC-before-submit-prewarm.cjs`
 
@@ -331,8 +299,7 @@ the submission.
 - `input.tool_name` → to detect if the call is `aic_compile`
 - `input.tool_input` → alternative detection for `aic_compile`
 
-**Purpose:** Block every tool call until `aic_compile` has been called for the current
-generation. Mechanics:
+**Purpose:** Block every tool call until `aic_compile` has been called for the current generation. Mechanics:
 
 1. On the first `aic_compile` call: write a marker file `os.tmpdir()/aic-gate-<generation_id>`.
    Allow the call.
@@ -343,10 +310,7 @@ generation. Mechanics:
 
 **Output:** `{ permission: "allow" }` or `{ permission: "deny", user_message, agent_message }`
 
-**`failClosed` behavior:** The `hooks.json` entry has `"failClosed": false` — if this hook
-crashes or times out, Cursor allows the tool call (fail-open). This is intentional: the gate
-serves as a reminder mechanism, not a security enforcement. A crash in the gate must never
-block legitimate work.
+**`failClosed` behavior:** The `hooks.json` entry has `"failClosed": false` — if this hook crashes or times out, Cursor allows the tool call (fail-open). This is intentional: the gate serves as a reminder mechanism, not a security enforcement. A crash in the gate must never block legitimate work.
 
 **File:** `.cursor/hooks/AIC-require-aic-compile.cjs`
 
@@ -363,10 +327,7 @@ block legitimate work.
 - `input.tool_name` → to scope injection to `aic_compile` and `aic_chat_summary`
 - `input.tool_input` → the arguments object to augment
 
-**Purpose:** Cursor does not pass a `conversationId` in `aic_compile` tool arguments
-automatically. This hook intercepts every MCP tool call, checks if it is `aic_compile` or
-`aic_chat_summary`, and injects `conversationId` into `updated_input` so the MCP server
-receives it.
+**Purpose:** Cursor does not pass a `conversationId` in `aic_compile` tool arguments automatically. This hook intercepts every MCP tool call, checks if it is `aic_compile` or `aic_chat_summary`, and injects `conversationId` into `updated_input` so the MCP server receives it.
 
 **Output:**
 
@@ -374,8 +335,7 @@ receives it.
 { permission: "allow", updated_input: { ...toolInput, conversationId } }
 ```
 
-Without this, `compilation_log` rows from this Cursor session have `conversation_id = null`,
-breaking `aic_chat_summary` for this conversation.
+Without this, `compilation_log` rows from this Cursor session have `conversation_id = null`, breaking `aic_chat_summary` for this conversation.
 
 **File:** `.cursor/hooks/AIC-inject-conversation-id.cjs`
 
@@ -391,15 +351,13 @@ breaking `aic_chat_summary` for this conversation.
 - `input.tool_input` → confirms `intent` + `projectRoot` fields present
 - `input.tool_output` → checks for a non-empty `content` array (success)
 
-**Purpose:** After a successful `aic_compile` call, inject a short confirmation into the
-model's context:
+**Purpose:** After a successful `aic_compile` call, inject a short confirmation into the model's context:
 
 ```
 "AIC compilation completed. Use the compiled context for your next response."
 ```
 
-This gives the model a clear signal that the compilation result is available and should be
-used. Without this confirmation, the model may not reliably apply the compiled context.
+This gives the model a clear signal that the compilation result is available and should be used. Without this confirmation, the model may not reliably apply the compiled context.
 
 **Output:** `{ additional_context: "..." }` on success, `{}` on skip.
 
@@ -415,10 +373,7 @@ used. Without this confirmation, the model may not reliably apply the compiled c
 
 - `input.command` → the full shell command string
 
-**Purpose:** Block any git command that includes `--no-verify` or `-n` (the short form
-that skips hooks). Project rules (Husky + lint-staged) enforce formatting and linting in
-pre-commit hooks. An agent will sometimes try `--no-verify`; this hook prevents it
-deterministically.
+**Purpose:** Block any git command that includes `--no-verify` or `-n` (the short form that skips hooks). Project rules (Husky + lint-staged) enforce formatting and linting in pre-commit hooks. An agent will sometimes try `--no-verify`; this hook prevents it deterministically.
 
 **Logic:**
 
@@ -444,12 +399,9 @@ deterministically.
 - `input.edit` / `input.edits` → nested object with path field
 - `input.conversation_id` / `input.conversationId` / `input.session_id` / `AIC_CONVERSATION_ID` → temp file key
 
-**Purpose:** Maintain a cumulative list of file paths the agent edited during the current
-conversation. Written to `os.tmpdir()/aic-edited-files-<key>.json`. The `stop` hook reads
-this list to run lint and typecheck on only the touched files.
+**Purpose:** Maintain a cumulative list of file paths the agent edited during the current conversation. Written to `os.tmpdir()/aic-edited-files-<key>.json`. The `stop` hook reads this list to run lint and typecheck on only the touched files.
 
-**Why flexible extraction:** Cursor's `afterFileEdit` input schema is not fully stable (v2
-vs. earlier field names). The hook tries multiple field names to accommodate schema changes.
+**Why flexible extraction:** Cursor's `afterFileEdit` input schema is not fully stable (v2 vs. earlier field names). The hook tries multiple field names to accommodate schema changes.
 
 **Output:** `{}` always — side-effect only.
 
@@ -465,9 +417,7 @@ vs. earlier field names). The hook tries multiple field names to accommodate sch
 
 - `input.conversation_id` / `input.session_id` / `AIC_CONVERSATION_ID` → temp file key (for edited files list)
 
-**Purpose:** Before Cursor's agent reports "done", run ESLint and `tsc --noEmit` on every
-file edited this session (from §7.7's temp file). If either fails, return a
-`followup_message` so Cursor auto-submits a fix request:
+**Purpose:** Before Cursor's agent reports "done", run ESLint and `tsc --noEmit` on every file edited this session (from §7.7's temp file). If either fails, return a `followup_message` so Cursor auto-submits a fix request:
 
 ```
 "Fix lint and typecheck errors on the files you edited. Run pnpm lint and pnpm typecheck."
@@ -511,8 +461,7 @@ The model then sees this as a new prompt, fixes the errors, and tries to stop ag
 
 ## 8. Full event coverage — why some events are skipped
 
-Cursor exposes 8 hook events (as of Mar 2026). AIC uses all 8, though not all contribute
-to context injection:
+Cursor exposes 8 hook events (as of Mar 2026). AIC uses all 8, though not all contribute to context injection:
 
 | Event                        | AIC use | Notes                                                                    |
 | ---------------------------- | ------- | ------------------------------------------------------------------------ |
@@ -526,17 +475,13 @@ to context injection:
 | `stop`                       | §7.8    | Quality gate                                                             |
 | `sessionEnd`                 | §7.9    | Cleanup + telemetry                                                      |
 
-`preCompact` and `subagentStart` are listed in Cursor's docs but have limited output schemas
-in current versions — neither supports `additional_context` injection. They are registered
-only if AIC needs a gating capability from them in the future.
+`preCompact` and `subagentStart` are listed in Cursor's docs but have limited output schemas in current versions — neither supports `additional_context` injection. They are registered only if AIC needs a gating capability from them in the future.
 
 ---
 
 ## 9. `AIC-compile-context.cjs` — required design
 
-The only hook that calls `aic_compile` directly. Because `beforeSubmitPrompt` does not support
-context injection output, only `AIC-compile-context.cjs` calls `aic_compile` at session start.
-All other hooks use the gate-and-model-call pattern.
+The only hook that calls `aic_compile` directly. Because `beforeSubmitPrompt` does not support context injection output, only `AIC-compile-context.cjs` calls `aic_compile` at session start. All other hooks use the gate-and-model-call pattern.
 
 The JSON-RPC call must include `conversationId` when `conversation_id` is available:
 
@@ -556,8 +501,7 @@ if (
 }
 ```
 
-Without `conversationId`, `compilation_log` rows from this session have `conversation_id = null`,
-and `aic_chat_summary` cannot aggregate them.
+Without `conversationId`, `compilation_log` rows from this session have `conversation_id = null`, and `aic_chat_summary` cannot aggregate them.
 
 **Cold start:** `AIC-compile-context.cjs` launches a new Node.js process via `execSync`, which:
 
@@ -565,14 +509,11 @@ and `aic_chat_summary` cannot aggregate them.
 2. Performs MCP JSON-RPC initialize + tools/call round-trip over stdio
 3. Returns the result to the hook's stdout
 
-Total round-trip: **2–5 seconds** on a warm filesystem cache; up to **10 seconds** cold (first
-ever run). The hook has a 20-second timeout.
+Total round-trip: **2–5 seconds** on a warm filesystem cache; up to **10 seconds** cold (first ever run). The hook has a 20-second timeout.
 
 The published package eliminates the TypeScript compilation step — cold start drops to ~200–500ms.
 
-**This affects only `AIC-compile-context.cjs` (session start).** All other hooks — the gate,
-the tracker, the `--no-verify` blocker — are pure Node.js with no external process, completing
-in under 50ms.
+**This affects only `AIC-compile-context.cjs` (session start).** All other hooks — the gate, the tracker, the `--no-verify` blocker — are pure Node.js with no external process, completing in under 50ms.
 
 ---
 
@@ -616,15 +557,13 @@ The auto-bootstrapped `.cursor/hooks.json` installed per project:
 ```
 
 `hooks.json` is auto-bootstrapped by the global AIC MCP server on each new project's first use.
-Existing user entries outside the `AIC-*` namespace are preserved via merge logic. Hook entries
-referencing removed AIC scripts (stale names) are pruned automatically.
+Existing user entries outside the `AIC-*` namespace are preserved via merge logic. Hook entries referencing removed AIC scripts (stale names) are pruned automatically.
 
 ---
 
 ## 11. HTTP hook — future optimization (eliminates cold start)
 
-Cursor does not currently expose an HTTP hook type. When it does, the round-trip can be
-eliminated by pointing hooks to the already-running AIC MCP server's HTTP endpoint:
+Cursor does not currently expose an HTTP hook type. When it does, the round-trip can be eliminated by pointing hooks to the already-running AIC MCP server's HTTP endpoint:
 
 ```json
 {
@@ -677,27 +616,20 @@ The installer (`integrations/cursor/install.cjs`):
    preserving non-AIC hooks
 5. Installs the trigger rule (`.cursor/rules/AIC.mdc`)
 
-The installer is a standalone `.cjs` script with no dependency on `mcp/src/`. Source scripts
-live in `integrations/cursor/hooks/`. The installer copies them to `.cursor/hooks/`.
+The installer is a standalone `.cjs` script with no dependency on `mcp/src/`. Source scripts live in `integrations/cursor/hooks/`. The installer copies them to `.cursor/hooks/`.
 
 ---
 
 ## 14. Trigger rule fallback — AIC.mdc
 
-`.cursor/rules/AIC.mdc` with `alwaysApply: true` instructs the model to call `aic_compile`
-as its first action on every message. This is the demand side; the `preToolUse` gate (§7.3)
-is the enforcement side. They are co-dependent:
+`.cursor/rules/AIC.mdc` with `alwaysApply: true` instructs the model to call `aic_compile` as its first action on every message. This is the demand side; the `preToolUse` gate (§7.3) is the enforcement side. They are co-dependent:
 
-- Without the rule: the model may not call `aic_compile` at all until blocked by the gate.
-  The deny message then provides the intent, creating a round-trip penalty.
+- Without the rule: the model may not call `aic_compile` at all until blocked by the gate. The deny message then provides the intent, creating a round-trip penalty.
 - Without the gate: the rule is advisory only — the model can ignore it without consequence.
 
-The trigger rule + gate are the **primary** delivery mechanism for per-intent context in Cursor.
-Because there is no per-prompt context injection hook, these two components are essential — not
-a fallback.
+The trigger rule + gate are the **primary** delivery mechanism for per-intent context in Cursor. Because there is no per-prompt context injection hook, these two components are essential — not a fallback.
 
-Auto-installed by the bootstrap process. Version-stamped so it is overwritten when the AIC
-package version changes.
+Auto-installed by the bootstrap process. Version-stamped so it is overwritten when the AIC package version changes.
 
 ---
 

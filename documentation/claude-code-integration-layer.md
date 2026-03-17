@@ -4,19 +4,14 @@
 
 ## 1. Purpose
 
-This document is the single source of truth for building and maintaining the Claude Code
-integration layer. It covers the hook scripts in `integrations/claude/hooks/` (source) and
-their deployment to `~/.claude/hooks/` (editor target), the settings wiring in
-`~/.claude/settings.json`, the adapter pattern, and every known bug with its workaround.
+This document is the single source of truth for building and maintaining the Claude Code integration layer. It covers the hook scripts in `integrations/claude/hooks/` (source) and their deployment to `~/.claude/hooks/` (editor target), the settings wiring in `~/.claude/settings.json`, the adapter pattern, and every known bug with its workaround.
 
 ---
 
 ## 2. Clean-layer architectural principle — mandatory
 
 The AIC core (anything in `shared/` or `mcp/src/`) has **zero knowledge of Claude Code**.
-All Claude Code-specific source code lives in `integrations/claude/`. The `.claude/` directory
-and `~/.claude/` are **deployment targets** that Claude Code reads — they are not source
-directories. This distinction is not a preference — it is a structural invariant.
+All Claude Code-specific source code lives in `integrations/claude/`. The `.claude/` directory and `~/.claude/` are **deployment targets** that Claude Code reads — they are not source directories. This distinction is not a preference — it is a structural invariant.
 
 What this means concretely:
 
@@ -48,10 +43,7 @@ Claude Code's hook settings are read from the same files by all three deployment
 | **VS Code extension** (`anthropic.claude-code`)                 | Same hooks via shared settings | Same files — settings shared between CLI and extension ([IDE integrations docs](https://code.claude.com/docs/en/ide-integrations))                             |
 | **Cursor extension** (`cursor:extension/anthropic.claude-code`) | Same                           | Same files — listed explicitly as a supported install target ([IDE integrations docs](https://code.claude.com/docs/en/ide-integrations#install-the-extension)) |
 
-One set of hook scripts, one settings file. All three modes pick them up without any
-mode-specific code. The VS Code docs explicitly confirm: "Claude Code settings in
-`~/.claude/settings.json`: shared between the extension and CLI. Use for allowed commands,
-environment variables, hooks, and MCP servers." ([source](https://code.claude.com/docs/en/ide-integrations#configure-settings))
+One set of hook scripts, one settings file. All three modes pick them up without any mode-specific code. The VS Code docs explicitly confirm: "Claude Code settings in `~/.claude/settings.json`: shared between the extension and CLI. Use for allowed commands, environment variables, hooks, and MCP servers." ([source](https://code.claude.com/docs/en/ide-integrations#configure-settings))
 
 ---
 
@@ -59,9 +51,7 @@ environment variables, hooks, and MCP servers." ([source](https://code.claude.co
 
 ### 4.1 Why no AIC core changes are needed
 
-AIC's pipeline operates on `CompilationRequest → CompilationResult`. It does not know which
-editor or tool initiated the call. This is the hexagonal architecture invariant: core/pipeline
-has zero knowledge of callers.
+AIC's pipeline operates on `CompilationRequest → CompilationResult`. It does not know which editor or tool initiated the call. This is the hexagonal architecture invariant: core/pipeline has zero knowledge of callers.
 
 The integration layer is a thin adapter that translates Claude Code's hook protocol into an
 `aic_compile` MCP call:
@@ -102,25 +92,19 @@ The adapter (`aic-compile-helper.cjs`) and all event hooks are **authored** in
 | `input.cwd`                        | `projectRoot` (fallback to `$CLAUDE_PROJECT_DIR` → `process.cwd()`)                    |
 | `input.transcript_path`            | `conversationId` (via `path.basename(transcriptPath, ".jsonl")`)                       |
 
-**`conversationId` must always be passed** from `transcript_path` so `compilation_log` rows
-are attributed to the correct conversation. Claude Code includes `transcript_path` in _every_
-hook input ([common input fields](https://code.claude.com/docs/en/hooks#common-input-fields)).
-The UUID in the transcript filename (`path.basename(transcriptPath, ".jsonl")`) uniquely
-identifies the conversation and is stable across all hooks in the same chat. The
-`aic-compile-helper` accepts and forwards it. Note: `session_id` is per-hook-invocation
-and is NOT suitable for conversation attribution.
+**`conversationId` must always be passed** from `transcript_path` so `compilation_log` rows are attributed to the correct conversation. Claude Code includes `transcript_path` in _every_ hook input ([common input fields](https://code.claude.com/docs/en/hooks#common-input-fields)). The UUID in the transcript filename (`path.basename(transcriptPath, ".jsonl")`) uniquely identifies the conversation and is stable across all hooks in the same chat. The `aic-compile-helper` accepts and forwards it. Note: `session_id` is per-hook-invocation and is NOT suitable for conversation attribution.
 
 ---
 
 ## 5. Target file layout
 
 `integrations/claude/` is the source. Deployment target for hook registration is
-`~/.claude/` (global) only. Nothing in `mcp/` or `shared/` changes.
+`~/.claude/` (global) only. Nothing in `mcp/` or `shared/` changes. The installer deploys every listed script to `~/.claude/hooks/`; `aic-compile-helper.cjs` is deployed and is required at runtime by the context hooks (aic-prompt-compile, aic-session-start, aic-subagent-inject, aic-pre-compact).
 
 ```
 integrations/claude/               ← SOURCE (authored here)
   hooks/
-    aic-compile-helper.cjs         # Protocol adapter (shared by all context hooks)
+    aic-compile-helper.cjs         # Protocol adapter (deployed; required by context hooks)
     aic-prompt-compile.cjs         # UserPromptSubmit — PRIMARY context delivery
     aic-session-start.cjs          # SessionStart — bootstrapping + post-compaction
     aic-subagent-inject.cjs        # SubagentStart — subagent context injection
@@ -144,8 +128,7 @@ integrations/claude/               ← SOURCE (authored here)
 
 ## 6. Output format — event-specific rules
 
-Claude Code's hooks use two distinct output mechanisms depending on the event. Getting this
-wrong produces silent drops or "hook error" banners.
+Claude Code's hooks use two distinct output mechanisms depending on the event. Getting this wrong produces silent drops or "hook error" banners.
 
 ### 6.1 UserPromptSubmit — use plain text stdout
 
@@ -158,11 +141,7 @@ process.stdout.write(compiled);
 ```
 
 The docs also support a JSON format with `hookSpecificOutput`, but issue
-[#17550](https://github.com/anthropics/claude-code/issues/17550) (filed Jan 2026, **closed
-as `not_planned`**) shows that `hookSpecificOutput` JSON causes a "UserPromptSubmit hook
-error" on the **first message of every new session**. The hook runs correctly (exit code 0,
-valid JSON), but Claude Code's session-init path cannot process it. Anthropic declined to fix
-this. Plain text avoids the bug entirely and is the documented first-class path.
+[#17550](https://github.com/anthropics/claude-code/issues/17550) (filed Jan 2026, **closed as `not_planned`**) shows that `hookSpecificOutput` JSON causes a "UserPromptSubmit hook error" on the **first message of every new session**. The hook runs correctly (exit code 0, valid JSON), but Claude Code's session-init path cannot process it. Anthropic declined to fix this. Plain text avoids the bug entirely and is the documented first-class path.
 
 ```js
 // AVOID — triggers #17550 on first message of new session
@@ -178,9 +157,7 @@ process.stdout.write(
 
 ### 6.2 SessionStart — use `hookSpecificOutput` JSON
 
-For `SessionStart`, the [official docs](https://code.claude.com/docs/en/hooks#sessionstart-decision-control)
-only document the `hookSpecificOutput` format for `additionalContext` injection. There is no
-plain text path specified for this event. Use the documented format:
+For `SessionStart`, the [official docs](https://code.claude.com/docs/en/hooks#sessionstart-decision-control) only document the `hookSpecificOutput` format for `additionalContext` injection. There is no plain text path specified for this event. Use the documented format:
 
 ```js
 process.stdout.write(
@@ -194,14 +171,11 @@ process.stdout.write(
 ```
 
 Note: issue [#10373](https://github.com/anthropics/claude-code/issues/10373) (**open** since
-Oct 2025) means this hook's output is silently discarded for _brand new_ interactive sessions
-in CLI mode. The format is not the problem — the hook fires but its output is dropped at the
-session-init path. Workaround: dual-path injection via `UserPromptSubmit` (see §7.2).
+Oct 2025) means this hook's output is silently discarded for _brand new_ interactive sessions in CLI mode. The format is not the problem — the hook fires but its output is dropped at the session-init path. Workaround: dual-path injection via `UserPromptSubmit` (see §7.2).
 
 ### 6.3 SubagentStart — use `hookSpecificOutput` JSON
 
-Same behavior as `SessionStart`. The [docs](https://code.claude.com/docs/en/hooks#subagentstart)
-only document `hookSpecificOutput` for `additionalContext` injection on this event:
+Same behavior as `SessionStart`. The [docs](https://code.claude.com/docs/en/hooks#subagentstart) only document `hookSpecificOutput` for `additionalContext` injection on this event:
 
 ```js
 process.stdout.write(
@@ -260,10 +234,7 @@ AIC uses eight of them.
 
 **Reference:** [hooks#userpromptsubmit](https://code.claude.com/docs/en/hooks#userpromptsubmit)
 
-**Why this is AIC's core value for Claude Code:** Fires before every user message, before the
-model processes it. The user's actual prompt text is available as `input.prompt` — this is the
-intent. No trigger rule needed; no model compliance required. Context delivery becomes
-deterministic and automatic.
+**Why this is AIC's core value for Claude Code:** Fires before every user message, before the model processes it. The user's actual prompt text is available as `input.prompt` — this is the intent. No trigger rule needed; no model compliance required. Context delivery becomes deterministic and automatic.
 
 **Input fields used:**
 
@@ -287,19 +258,14 @@ deterministic and automatic.
 
 **Reference:** [hooks#sessionstart](https://code.claude.com/docs/en/hooks#sessionstart)
 
-**Purpose:** Inject architectural invariants and a broad project context snapshot at the start of
-a session. Also fires on `compact` — re-injecting context after compaction is the primary
-reliable use case.
+**Purpose:** Inject architectural invariants and a broad project context snapshot at the start of a session. Also fires on `compact` — re-injecting context after compaction is the primary reliable use case.
 
 **Matcher values:** `startup`, `resume`, `clear`, `compact`
 ([matcher reference](https://code.claude.com/docs/en/hooks#matcher-patterns)).
 The hook as written uses no matcher (fires on all four).
 
 **Known bug — not firing for new sessions in CLI:** Issue
-[#10373](https://github.com/anthropics/claude-code/issues/10373) (filed Oct 2025, **still open**
-as of Mar 2026). `SessionStart` fires on `/clear`, `/compact`, and URL resume, but
-**not on brand new interactive sessions** in CLI mode. The hook executes but its output is
-discarded. This is a runtime processing bug, not a format issue.
+[#10373](https://github.com/anthropics/claude-code/issues/10373) (filed Oct 2025, **still open** as of Mar 2026). `SessionStart` fires on `/clear`, `/compact`, and URL resume, but **not on brand new interactive sessions** in CLI mode. The hook executes but its output is discarded. This is a runtime processing bug, not a format issue.
 
 **Workaround — dual-path injection:** Because `SessionStart` is unreliable for new sessions,
 `UserPromptSubmit` acts as a fallback for the first prompt. Pattern:
@@ -322,8 +288,7 @@ if (!alreadyInjected) {
 parts.push(promptContext);
 ```
 
-The marker is scoped by `session_id` so multiple concurrent sessions don't interfere. Delete
-the marker in `SessionEnd`.
+The marker is scoped by `session_id` so multiple concurrent sessions don't interfere. Delete the marker in `SessionEnd`.
 
 **Output:** `hookSpecificOutput` JSON (see §6.2).
 
@@ -335,9 +300,7 @@ the marker in `SessionEnd`.
 
 **Reference:** [hooks#subagentstart](https://code.claude.com/docs/en/hooks#subagentstart)
 
-**Why this matters:** Subagents lose parent context. Without this hook, every Claude Code
-subagent (`Bash`, `Explore`, `Plan`, or custom agents from `.claude/agents/`) starts without
-knowing the project architecture or conventions.
+**Why this matters:** Subagents lose parent context. Without this hook, every Claude Code subagent (`Bash`, `Explore`, `Plan`, or custom agents from `.claude/agents/`) starts without knowing the project architecture or conventions.
 
 **Input fields used:**
 
@@ -358,10 +321,7 @@ knowing the project architecture or conventions.
 
 **Reference:** [hooks#pretooluse](https://code.claude.com/docs/en/hooks#pretooluse)
 
-**Purpose:** Block any `git` command that includes `--no-verify` or `-n`. Project rules forbid
-skipping pre-commit hooks (Husky + lint-staged enforce formatting and linting). An agent will
-sometimes try to add `--no-verify` to get past a failing commit — this hook stops it
-deterministically, not via instruction.
+**Purpose:** Block any `git` command that includes `--no-verify` or `-n`. Project rules forbid skipping pre-commit hooks (Husky + lint-staged enforce formatting and linting). An agent will sometimes try to add `--no-verify` to get past a failing commit — this hook stops it deterministically, not via instruction.
 
 **Matcher:** `Bash` — fires only on Bash tool calls.
 
@@ -378,8 +338,7 @@ deterministically, not via instruction.
 **Reference:** [hooks#posttooluse](https://code.claude.com/docs/en/hooks#posttooluse)
 
 **Purpose:** Record every file path the agent edits during a session into a temp file keyed by
-`session_id`. The `Stop` hook (§7.6) reads this list to run lint and typecheck only on touched
-files. Without the tracker, the `Stop` hook has no file list to operate on.
+`session_id`. The `Stop` hook (§7.6) reads this list to run lint and typecheck only on touched files. Without the tracker, the `Stop` hook has no file list to operate on.
 
 **Matcher:** `Edit|Write` — regex, matches both tool names
 ([matcher patterns](https://code.claude.com/docs/en/hooks#matcher-patterns)).
@@ -389,8 +348,7 @@ files. Without the tracker, the `Stop` hook has no file list to operate on.
 - `input.tool_input.path` → the absolute path of the file that was edited or written
 - `input.session_id` → temp file key
 
-**Output:** Empty JSON `{}` — this hook has no decision to make, only a side effect (write to
-temp file). Exit 0.
+**Output:** Empty JSON `{}` — this hook has no decision to make, only a side effect (write to temp file). Exit 0.
 
 **File:** `.claude/hooks/aic-after-file-edit-tracker.cjs`
 
@@ -400,18 +358,13 @@ temp file). Exit 0.
 
 **Reference:** [hooks#stop](https://code.claude.com/docs/en/hooks#stop)
 
-**Purpose:** Before Claude reports "done", run ESLint and `tsc --noEmit` on every file the agent
-touched this session (from the tracker in §7.5). If either fails, block the stop and feed the
-error back so Claude auto-fixes before finishing. The `Stop` hook uses `decision: "block"`
-(see §6.5) which prevents Claude from finishing, with `reason` shown as an error — Claude
-continues the conversation and fixes the errors before stopping again.
+**Purpose:** Before Claude reports "done", run ESLint and `tsc --noEmit` on every file the agent touched this session (from the tracker in §7.5). If either fails, block the stop and feed the error back so Claude auto-fixes before finishing. The `Stop` hook uses `decision: "block"` (see §6.5) which prevents Claude from finishing, with `reason` shown as an error — Claude continues the conversation and fixes the errors before stopping again.
 
 **Matcher:** `Stop` does not support matchers — fires on every stop.
 
 **Input fields used:** `input.session_id` → temp file key (to load the edited-files list)
 
-**Implementation note:** If the temp file for this `session_id` does not exist (no files were
-edited, or the tracker missed it), exit 0 immediately — do not block.
+**Implementation note:** If the temp file for this `session_id` does not exist (no files were edited, or the tracker missed it), exit 0 immediately — do not block.
 
 **File:** `.claude/hooks/aic-stop-quality-check.cjs`
 
@@ -421,14 +374,11 @@ edited, or the tracker missed it), exit 0 immediately — do not block.
 
 **Reference:** [hooks#precompact](https://code.claude.com/docs/en/hooks#precompact)
 
-**Purpose:** Fires before Claude Code compacts the context window. AIC can inject a fresh
-compilation so the model retains the most relevant project context through the compaction
-boundary. This is an observational/enrichment hook — it cannot prevent compaction.
+**Purpose:** Fires before Claude Code compacts the context window. AIC can inject a fresh compilation so the model retains the most relevant project context through the compaction boundary. This is an observational/enrichment hook — it cannot prevent compaction.
 
 **Matcher values:** `manual`, `auto`
 
-**Output:** Plain text stdout (same as §6.1 — `UserPromptSubmit` rule applies here; plain
-text is the safe path).
+**Output:** Plain text stdout (same as §6.1 — `UserPromptSubmit` rule applies here; plain text is the safe path).
 
 **File:** `.claude/hooks/aic-pre-compact.cjs`
 
@@ -438,13 +388,11 @@ text is the safe path).
 
 **Reference:** [hooks#sessionend](https://code.claude.com/docs/en/hooks#sessionend)
 
-**Purpose:** Log session lifecycle data to `.aic/prompt-log.jsonl`. No context injection — this
-hook produces no stdout. Exit 0 always (telemetry must never block the session from ending).
+**Purpose:** Log session lifecycle data to `.aic/prompt-log.jsonl`. No context injection — this hook produces no stdout. Exit 0 always (telemetry must never block the session from ending).
 
 **Input fields used:** `input.session_id`, `input.reason`
 
-**Additional responsibility:** Delete the `.aic/.session-context-injected` marker for this
-`session_id` (see the dual-path workaround in §7.2) so it doesn't persist across sessions.
+**Additional responsibility:** Delete the `.aic/.session-context-injected` marker for this `session_id` (see the dual-path workaround in §7.2) so it doesn't persist across sessions.
 
 **File:** `.claude/hooks/aic-session-end.cjs`
 
@@ -452,8 +400,7 @@ hook produces no stdout. Exit 0 always (telemetry must never block the session f
 
 ## 8. Full event coverage — why the remaining 10 events are skipped
 
-The 18 Claude Code hook events ([lifecycle table](https://code.claude.com/docs/en/hooks#hook-lifecycle))
-break down as: 8 AIC uses, 10 consciously skipped.
+The 18 Claude Code hook events ([lifecycle table](https://code.claude.com/docs/en/hooks#hook-lifecycle)) break down as: 8 AIC uses, 10 consciously skipped.
 
 | Event                               | AIC use | Reason skipped                                                                                                                                                            |
 | ----------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -480,8 +427,7 @@ break down as: 8 AIC uses, 10 consciously skipped.
 
 ## 9. `aic-compile-helper.cjs` — required design
 
-The shared helper mediates between a hook script and the AIC MCP server via MCP stdio. Its
-signature must be:
+The shared helper mediates between a hook script and the AIC MCP server via MCP stdio. Its signature must be:
 
 ```js
 callAicCompile(intent, projectRoot, conversationId, timeoutMs);
@@ -506,14 +452,9 @@ const conversationId = transcriptPath ? path.basename(transcriptPath, ".jsonl") 
 }
 ```
 
-Without `conversationId`, `compilation_log` rows from Claude Code hooks have null
-`conversation_id`, and `aic_chat_summary` cannot aggregate them. The `session_id` field is
-per-hook-invocation and must NOT be used for conversation attribution.
+Without `conversationId`, `compilation_log` rows from Claude Code hooks have null `conversation_id`, and `aic_chat_summary` cannot aggregate them. The `session_id` field is per-hook-invocation and must NOT be used for conversation attribution.
 
-**Cold start:** Each hook invocation spawns a new Node process and runs `npx tsx` to compile
-TypeScript before executing. On a cold filesystem cache this is ~500–1500ms. The 30-second hook
-timeout provides ample headroom, but §11 describes the HTTP hook path that eliminates the
-overhead entirely.
+**Cold start:** Each hook invocation spawns a new Node process and runs `npx tsx` to compile TypeScript before executing. On a cold filesystem cache this is ~500–1500ms. The 30-second hook timeout provides ample headroom, but §11 describes the HTTP hook path that eliminates the overhead entirely.
 
 ---
 
@@ -625,16 +566,12 @@ The target JSON payload merged into the `hooks` section of `~/.claude/settings.j
 ## 11. HTTP hook — future optimization (eliminates cold start)
 
 The hooks API supports `type: "http"` alongside `type: "command"`
-([HTTP hook fields](https://code.claude.com/docs/en/hooks#http-hook-fields)). Claude Code sends
-the hook's JSON input as an HTTP POST request body. The response body uses the same output
-format as command hooks:
+([HTTP hook fields](https://code.claude.com/docs/en/hooks#http-hook-fields)). Claude Code sends the hook's JSON input as an HTTP POST request body. The response body uses the same output format as command hooks:
 
 - `2xx` with plain text body → text added as context
 - `2xx` with JSON body → parsed using the same JSON output schema
 
-Since the AIC MCP server is already running when Claude Code is active, we can expose a
-lightweight HTTP endpoint on the MCP server (e.g. `http://localhost:PORT/hooks/user-prompt-submit`).
-The hook configuration changes from spawning a Node process to a single HTTP round-trip:
+Since the AIC MCP server is already running when Claude Code is active, we can expose a lightweight HTTP endpoint on the MCP server (e.g. `http://localhost:PORT/hooks/user-prompt-submit`). The hook configuration changes from spawning a Node process to a single HTTP round-trip:
 
 ```json
 {
@@ -650,25 +587,20 @@ Benefits:
 - No `npx tsx` overhead — pre-compiled JS already running
 - Response body is plain text (§6.1 rule applies)
 
-This is a future optimization, not a blocker. Command hooks work correctly and the 30-second
-timeout provides headroom.
+This is a future optimization, not a blocker. Command hooks work correctly and the 30-second timeout provides headroom.
 
 ---
 
 ## 12. Plugin distribution — available
 
 Claude Code exposes a plugin system. AIC is packaged as a native Claude Code Plugin
-(`integrations/claude/plugin/`) installable via the Plugin Marketplace. This provides
-zero-friction install for end users. See §13 for the direct installer path when developing
-from source.
+(`integrations/claude/plugin/`) installable via the Plugin Marketplace. This provides zero-friction install for end users. See §13 for the direct installer path when developing from source.
 
 ---
 
 ## 13. Direct installer path (zero-install)
 
-The direct installer path (also called zero-install in this doc) provides a one-command install
-experience. The installer is `integrations/claude/install.cjs` — a standalone script in the
-integration layer that has no dependency on `mcp/src/`.
+The direct installer path (also called zero-install in this doc) provides a one-command install experience. The installer is `integrations/claude/install.cjs` — a standalone script in the integration layer that has no dependency on `mcp/src/`.
 
 ```
 node integrations/claude/install.cjs
@@ -693,13 +625,9 @@ The installer:
    the current package version.
 
 The MCP server runs this installer when the client lists workspace roots and it detects a
-Claude Code context (e.g. `.claude/` directory or `$CLAUDE_PROJECT_DIR`). The server
-delegates to the integration layer — it does not embed Claude Code logic itself. See
-`documentation/installation.md` for the user-facing description of this path.
+Claude Code context (e.g. `.claude/` directory or `$CLAUDE_PROJECT_DIR`). The server delegates to the integration layer — it does not embed Claude Code logic itself. See `documentation/installation.md` for the user-facing description of this path.
 
-For end-user distribution, AIC is also packaged as a native Claude Code Plugin
-(`integrations/claude/plugin/`) installable via the Plugin Marketplace. See
-`integrations/claude/plugin/` for the plugin structure.
+For end-user distribution, AIC is also packaged as a native Claude Code Plugin (`integrations/claude/plugin/`) installable via the Plugin Marketplace. See `integrations/claude/plugin/` for the plugin structure.
 
 ---
 
@@ -708,8 +636,7 @@ For end-user distribution, AIC is also packaged as a native Claude Code Plugin
 `.claude/CLAUDE.md` remains as a fallback for users who have hooks disabled
 (`disableAllHooks: true`). It tells the model to call `aic_compile` manually on every message.
 With hooks active, the trigger rule becomes redundant — but it is kept because
-[users can disable all hooks](https://code.claude.com/docs/en/hooks#disable-or-remove-hooks)
-and it costs nothing when hooks are running.
+[users can disable all hooks](https://code.claude.com/docs/en/hooks#disable-or-remove-hooks) and it costs nothing when hooks are running.
 
 ---
 

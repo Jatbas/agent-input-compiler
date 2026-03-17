@@ -1,6 +1,6 @@
 # Installation & Delivery
 
-How AIC gets installed, what artifacts it creates, and how its components interact across editors and environments.
+How AIC gets installed, what artifacts it creates, and how its components interact across editors and environments. Terms used in this document are defined in the [Glossary](#glossary) or in context.
 
 ## Table of Contents
 
@@ -233,7 +233,7 @@ On subsequent compilations, merge logic adds any missing hook entries without ov
 
 ## Claude Code
 
-AIC supports Claude Code via two installation paths: the plugin (recommended) and the direct installer (for development).
+AIC supports Claude Code via two installation paths: the plugin (recommended) and the direct installer (for development). There is no one-click install URL for Claude Code; use the plugin or the direct installer below.
 
 ### Plugin (Recommended)
 
@@ -330,6 +330,8 @@ The dev server is pre-configured in `.cursor/mcp.json` (checked into the repo as
 **The production server must be disabled while developing AIC.** If both run simultaneously, the production server overwrites dev hooks with published versions, the AI sees duplicate `aic_compile` tools, and both write to the same database. Disable the production server in whatever IDE you are using before opening the AIC project.
 
 In Cursor, this means keeping `~/.cursor/mcp.json` empty (or with the `"aic"` entry removed). When you need to use AIC as an end user in another project, add the entry back. Toggle as needed — this is the standard MCP server development workflow.
+
+In Claude Code, disable the AIC plugin (via `/plugin` → disable or uninstall) or remove the AIC MCP and hook entries from `~/.claude/settings.json` if you use the direct installer. Re-enable or re-run the installer when you want to use AIC as an end user again.
 
 No `aic.config.json` changes are needed. The `"enabled"` flag would disable both servers since they read the same config file.
 
