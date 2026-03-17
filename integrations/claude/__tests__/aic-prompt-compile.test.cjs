@@ -155,7 +155,7 @@ async function prompt_compile_includes_AIC_CONVERSATION_ID_when_conversationId_t
     const stdin = JSON.stringify({
       prompt: "x",
       session_id: "s1",
-      conversation_id: "conv-456",
+      transcript_path: "/home/user/.claude/conversations/conv-456.jsonl",
       cwd: tmpDir,
     });
     const stdout = await run(stdin);
@@ -202,6 +202,39 @@ async function intent_stripped_when_prompt_contains_ide_selection() {
   console.log("intent_stripped_when_prompt_contains_ide_selection: pass");
 }
 
+async function prompt_compile_uses_transcript_path_as_conversationId() {
+  const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
+    paths: [hooksDir],
+  });
+  let capturedConversationId;
+  require.cache[resolvedHelper] = {
+    exports: {
+      callAicCompile: (_intent, _root, conversationId) => {
+        capturedConversationId = conversationId;
+        return Promise.resolve("compiled text");
+      },
+    },
+    loaded: true,
+    id: resolvedHelper,
+  };
+  delete require.cache[require.resolve(hookPath)];
+  const { run } = require(hookPath);
+  await run(
+    JSON.stringify({
+      prompt: "explain the codebase",
+      cwd: "/tmp",
+      transcript_path: "/home/user/.claude/conversations/prompt-conv-uuid.jsonl",
+    }),
+  );
+  cleanup(resolvedHelper);
+  if (capturedConversationId !== "prompt-conv-uuid") {
+    throw new Error(
+      `Expected "prompt-conv-uuid", got ${JSON.stringify(capturedConversationId)}`,
+    );
+  }
+  console.log("prompt_compile_uses_transcript_path_as_conversationId: pass");
+}
+
 (async () => {
   await plain_text_stdout_when_helper_returns_prompt();
   await exit_0_silent_when_helper_returns_null();
@@ -209,5 +242,6 @@ async function intent_stripped_when_prompt_contains_ide_selection() {
   await prompt_compile_no_AIC_CONVERSATION_ID_when_conversationId_null();
   await prompt_compile_includes_AIC_CONVERSATION_ID_when_conversationId_truthy();
   await intent_stripped_when_prompt_contains_ide_selection();
+  await prompt_compile_uses_transcript_path_as_conversationId();
   console.log("All tests passed.");
 })();

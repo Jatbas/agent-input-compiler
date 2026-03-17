@@ -3,6 +3,7 @@
 // PreCompact hook — plain text stdout per CC §6.1, §7.7; no marker file.
 
 const fs = require("fs");
+const path = require("path");
 const { callAicCompile } = require("./aic-compile-helper.cjs");
 
 async function run(stdinStr) {
@@ -12,8 +13,8 @@ async function run(stdinStr) {
   } catch {
     parsed = {};
   }
-  const sessionId =
-    parsed.session_id != null ? parsed.session_id : (parsed.input?.session_id ?? null);
+  const transcriptPath = parsed.transcript_path ?? parsed.input?.transcript_path ?? null;
+  const conversationId = transcriptPath ? path.basename(transcriptPath, ".jsonl") : null;
   const cwdRaw = parsed.cwd ?? parsed.input?.cwd ?? "";
   const projectRoot = cwdRaw.trim()
     ? cwdRaw.trim()
@@ -22,7 +23,7 @@ async function run(stdinStr) {
   const text = await callAicCompile(
     "understand project structure, architecture, and recent changes",
     projectRoot,
-    sessionId,
+    conversationId,
     30000,
   );
   return text;

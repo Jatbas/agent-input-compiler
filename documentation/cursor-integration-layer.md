@@ -269,12 +269,12 @@ context snapshot — may time out, fail non-fatally.
 
 - Reads the `## Critical reminders` section from `.cursor/rules/AIC-architect.mdc`
 - Extracts bullet points and outputs them as `additional_context`
-- Injects `AIC_CONVERSATION_ID=${sessionId}` into the context text so the model is aware
+- Injects `AIC_CONVERSATION_ID=${conversationId}` into the context text so the model is aware
 - Sets `env: { AIC_PROJECT_ROOT, AIC_CONVERSATION_ID }` for downstream hooks
 
 **AIC-compile-context.cjs:**
 
-- Reads `session_id` from stdin → passes as `conversationId` to `aic_compile`
+- Reads `conversation_id` from stdin → passes as `conversationId` to `aic_compile`
 - Calls `aic_compile` with intent `"understand project structure, architecture, and recent changes"`
 - Outputs `additional_context` with the compiled project snapshot
 - **If this hook times out (20s), it exits 0 silently** — session creation is never blocked
@@ -537,7 +537,7 @@ The only hook that calls `aic_compile` directly. Because `beforeSubmitPrompt` do
 context injection output, only `AIC-compile-context.cjs` calls `aic_compile` at session start.
 All other hooks use the gate-and-model-call pattern.
 
-The JSON-RPC call must include `conversationId` when `session_id` is available:
+The JSON-RPC call must include `conversationId` when `conversation_id` is available:
 
 ```js
 // correct
@@ -546,8 +546,12 @@ const compileArgs = {
   projectRoot: projectRoot,
   editorId: "cursor",
 };
-if (sessionId && typeof sessionId === "string" && sessionId.length > 0) {
-  compileArgs.conversationId = sessionId;
+if (
+  conversationId &&
+  typeof conversationId === "string" &&
+  conversationId.trim().length > 0
+) {
+  compileArgs.conversationId = conversationId.trim();
 }
 ```
 
@@ -714,7 +718,7 @@ All of the following must be verified for the Cursor integration to be complete:
 Context delivery:
 
 - [x] `AIC-session-init.cjs` injects architectural invariants via `additional_context` (§7.1)
-- [x] `AIC-compile-context.cjs` calls `aic_compile` with `conversationId` from `session_id` (§9)
+- [x] `AIC-compile-context.cjs` calls `aic_compile` with `conversationId` from `conversation_id` (§9)
 - [x] `AIC-before-submit-prewarm.cjs` saves prompt for gate deny message (§7.2)
 - [x] `AIC-require-aic-compile.cjs` blocks all tools until `aic_compile` called (§7.3)
 - [x] `AIC-inject-conversation-id.cjs` injects `conversationId` into MCP args (§7.4)

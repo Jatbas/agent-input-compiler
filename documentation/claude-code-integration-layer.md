@@ -99,12 +99,15 @@ The adapter (`aic-compile-helper.cjs`) and all event hooks are **authored** in
 | `input.agent_type` (SubagentStart) | part of `intent` string                                                                |
 | Generic for session events         | fixed intent string `"understand project structure, architecture, and recent changes"` |
 | `input.cwd`                        | `projectRoot` (fallback to `$CLAUDE_PROJECT_DIR` → `process.cwd()`)                    |
-| `input.session_id`                 | `conversationId`                                                                       |
+| `input.transcript_path`            | `conversationId` (via `path.basename(transcriptPath, ".jsonl")`)                       |
 
-**`conversationId` must always be passed** from `session_id` so `compilation_log` rows are
-attributed to the correct conversation. Claude Code resolves this cleanly because `session_id`
-is present in _every_ hook input ([common input fields](https://code.claude.com/docs/en/hooks#common-input-fields)). The `aic-compile-helper`
-must accept and forward it.
+**`conversationId` must always be passed** from `transcript_path` so `compilation_log` rows
+are attributed to the correct conversation. Claude Code includes `transcript_path` in _every_
+hook input ([common input fields](https://code.claude.com/docs/en/hooks#common-input-fields)).
+The UUID in the transcript filename (`path.basename(transcriptPath, ".jsonl")`) uniquely
+identifies the conversation and is stable across all hooks in the same chat. The
+`aic-compile-helper` accepts and forwards it. Note: `session_id` is per-hook-invocation
+and is NOT suitable for conversation attribution.
 
 ---
 
@@ -263,7 +266,7 @@ deterministic and automatic.
 **Input fields used:**
 
 - `input.prompt` → `intent` for `aic_compile`
-- `input.session_id` → `conversationId` for `aic_compile`
+- `input.transcript_path` → `conversationId` for `aic_compile` (via `path.basename`)
 - `input.cwd` → `projectRoot` fallback
 
 **Output:** Plain text stdout (see §6.1).
@@ -337,7 +340,8 @@ knowing the project architecture or conventions.
 **Input fields used:**
 
 - `input.agent_type` → `"Bash"`, `"Explore"`, `"Plan"`, or custom agent name
-- `input.session_id` → `conversationId`
+- `input.transcript_path` → `conversationId` (via `path.basename`)
+- `input.prompt` → `intent` (with `<ide_selection>` stripped; falls back to agent_type-based intent when absent)
 
 **Matcher:** Use `"*"` or omit — inject context into all subagent types. Optionally filter to
 `Explore|Plan` if Bash subagents don't need full context.
@@ -478,26 +482,31 @@ The shared helper mediates between a hook script and the AIC MCP server via MCP 
 signature must be:
 
 ```js
-callAicCompile(intent, projectRoot, sessionId, timeoutMs);
+callAicCompile(intent, projectRoot, conversationId, timeoutMs);
 ```
 
-The `compileRequest` arguments object must include `conversationId` when `sessionId` is
-available:
+The `compileRequest` arguments object must include `conversationId` derived from
+`transcript_path`:
 
 ```js
-// correct
-params: {
-  name: "aic_compile",
-  arguments: {
+const transcriptPath = parsed.transcript_path ?? parsed.input?.transcript_path ?? null;
+const conversationId = transcriptPath ? path.basename(transcriptPath, ".jsonl") : null;
+// ...
+{
+  method: "tools/call",
+  params: {
+    name: "aic_compile",
+    arguments: {
     intent,
     projectRoot,
-    ...(sessionId ? { conversationId: sessionId } : {})
+    ...(conversationId ? { conversationId } : {})
   }
 }
 ```
 
 Without `conversationId`, `compilation_log` rows from Claude Code hooks have null
-`conversation_id`, and `aic_chat_summary` cannot aggregate them.
+`conversation_id`, and `aic_chat_summary` cannot aggregate them. The `session_id` field is
+per-hook-invocation and must NOT be used for conversation attribution.
 
 **Cold start:** Each hook invocation spawns a new Node process and runs `npx tsx` to compile
 TypeScript before executing. On a cold filesystem cache this is ~500–1500ms. The 30-second hook
@@ -719,7 +728,7 @@ All of the following must be verified for the Claude Code integration to be comp
 
 Context delivery:
 
-- [ ] `aic-prompt-compile.cjs` runs on UserPromptSubmit and passes `intent` and `conversationId` to `aic_compile` (§7.1)
+- [ ] `aic-prompt-compile.cjs` runs on UserPromptSubmit and passes `intent` and `conversationId` (from `transcript_path`) to `aic_compile` (§7.1)
 - [ ] `aic-session-start.cjs` injects architectural invariants and project context via `hookSpecificOutput` (§7.2)
 - [ ] `aic-subagent-inject.cjs` injects context into subagents (§7.3)
 

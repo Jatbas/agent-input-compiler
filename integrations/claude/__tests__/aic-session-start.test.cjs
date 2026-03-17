@@ -22,7 +22,7 @@ function mockHelper(returnValue) {
 
 function cleanup(resolvedHelper) {
   delete require.cache[resolvedHelper];
-  delete require.cache[path.join(hooksDir, "aic-session-start.cjs")];
+  delete require.cache[hookPath];
 }
 
 async function output_format_hookSpecificOutput_when_helper_returns_text() {
@@ -64,7 +64,7 @@ async function session_start_passes_conversationId_when_in_input() {
   await run(
     JSON.stringify({
       session_id: "s1",
-      conversation_id: "conv-uuid-123",
+      transcript_path: "/home/user/.claude/conversations/conv-uuid-123.jsonl",
       cwd: "/tmp",
     }),
   );
@@ -100,6 +100,86 @@ async function session_start_passes_null_when_no_conversation_id() {
     throw new Error(`Expected third arg null, got ${JSON.stringify(captured.thirdArg)}`);
   }
   console.log("session_start_passes_null_when_no_conversation_id: pass");
+}
+
+async function lock_prevents_concurrent_session_start() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-session-start-test-"));
+  try {
+    let callCount = 0;
+    const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
+      paths: [hooksDir],
+    });
+    require.cache[resolvedHelper] = {
+      exports: {
+        callAicCompile: () => {
+          callCount++;
+          return new Promise((resolve) => setTimeout(() => resolve("compiled"), 100));
+        },
+      },
+      loaded: true,
+      id: resolvedHelper,
+    };
+    delete require.cache[hookPath];
+    const { run } = require(hookPath);
+    const input = JSON.stringify({ session_id: "s1", cwd: tmpDir });
+    const results = await Promise.all([run(input), run(input), run(input)]);
+    cleanup(resolvedHelper);
+    const nonNullCount = results.filter((r) => r !== null).length;
+    if (callCount !== 1) {
+      throw new Error(`Expected callAicCompile called 1 time, got ${callCount}`);
+    }
+    if (nonNullCount !== 1) {
+      throw new Error(`Expected 1 non-null result, got ${nonNullCount}`);
+    }
+    console.log("lock_prevents_concurrent_session_start: pass");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+async function lock_cleaned_up_after_success() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-session-start-test-"));
+  try {
+    const key = mockHelper("compiled");
+    delete require.cache[hookPath];
+    const { run } = require(hookPath);
+    await run(JSON.stringify({ session_id: "s1", cwd: tmpDir }));
+    cleanup(key);
+    const lockPath = path.join(tmpDir, ".aic", ".session-start-lock");
+    if (fs.existsSync(lockPath)) {
+      throw new Error("Lock file should be deleted after successful run");
+    }
+    console.log("lock_cleaned_up_after_success: pass");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+async function stale_lock_returns_null_when_marker_has_content() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-session-start-test-"));
+  try {
+    const aicDir = path.join(tmpDir, ".aic");
+    fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(
+      path.join(aicDir, ".session-context-injected"),
+      "prior-session",
+      "utf8",
+    );
+    fs.writeFileSync(path.join(aicDir, ".session-start-lock"), "", "utf8");
+    const key = mockHelper("should not be called");
+    delete require.cache[hookPath];
+    const { run } = require(hookPath);
+    const result = await run(JSON.stringify({ session_id: "s1", cwd: tmpDir }));
+    cleanup(key);
+    if (result !== null) {
+      throw new Error(
+        `Expected null (stale lock detected), got ${JSON.stringify(result)}`,
+      );
+    }
+    console.log("stale_lock_returns_null_when_marker_has_content: pass");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
 }
 
 async function marker_file_written_with_session_id() {
@@ -166,6 +246,9 @@ async function aic_dir_created_with_0700() {
   await output_format_hookSpecificOutput_when_helper_returns_text();
   await session_start_passes_conversationId_when_in_input();
   await session_start_passes_null_when_no_conversation_id();
+  await lock_prevents_concurrent_session_start();
+  await lock_cleaned_up_after_success();
+  await stale_lock_returns_null_when_marker_has_content();
   await marker_file_written_with_session_id();
   await exit_0_silent_when_helper_returns_null();
   await aic_dir_created_with_0700();

@@ -2,7 +2,6 @@
 // Copyright (c) 2025 AIC Contributors
 // SubagentStart hook — hookSpecificOutput JSON per CC §6.3; no marker file.
 
-const fs = require("fs");
 const path = require("path");
 const { callAicCompile } = require("./aic-compile-helper.cjs");
 
@@ -14,30 +13,19 @@ async function run(stdinStr) {
     parsed = {};
   }
   const agentType = parsed.agent_type ?? parsed.input?.agent_type ?? "unknown";
-  const sessionId = parsed.session_id ?? parsed.input?.session_id ?? null;
   const cwdRaw = parsed.cwd ?? parsed.input?.cwd ?? "";
   const projectRoot = cwdRaw.trim()
     ? cwdRaw.trim()
     : process.env.CLAUDE_PROJECT_DIR || process.cwd();
-  // SubagentStart payload has no conversation_id; fall back to env, then persisted file
-  let conversationId =
-    parsed.conversation_id ??
-    parsed.input?.conversation_id ??
-    process.env.AIC_CONVERSATION_ID ??
-    null;
-  if (conversationId === null) {
-    const convFile = path.join(projectRoot, ".aic", ".current-conversation-id");
-    try {
-      const stored = JSON.parse(fs.readFileSync(convFile, "utf8"));
-      if (stored && stored.sessionId === sessionId && stored.conversationId) {
-        conversationId = stored.conversationId;
-      }
-    } catch {
-      // ignore ENOENT or invalid JSON
-    }
-  }
+  const transcriptPath = parsed.transcript_path ?? parsed.input?.transcript_path ?? null;
+  const conversationId = transcriptPath ? path.basename(transcriptPath, ".jsonl") : null;
 
-  const intent = "provide context for " + agentType + " subagent";
+  const rawPrompt = parsed.prompt ?? parsed.input?.prompt ?? null;
+  const intent = rawPrompt
+    ? String(rawPrompt)
+        .replace(/<ide_selection>[\s\S]*?<\/ide_selection>/gi, "")
+        .trim()
+    : "provide context for " + agentType + " subagent";
   const text = await callAicCompile(intent, projectRoot, conversationId, 30000);
   if (text == null) return null;
   return {
@@ -49,6 +37,7 @@ async function run(stdinStr) {
 }
 
 if (require.main === module) {
+  const fs = require("fs");
   const raw = fs.readFileSync(0, "utf8");
   run(raw)
     .then((out) => {

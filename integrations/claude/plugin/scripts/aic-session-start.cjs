@@ -15,7 +15,8 @@ async function run(stdinStr) {
   }
   const sessionId =
     parsed.session_id != null ? parsed.session_id : (parsed.input?.session_id ?? null);
-  const conversationId = parsed.conversation_id ?? parsed.input?.conversation_id ?? null;
+  const transcriptPath = parsed.transcript_path ?? parsed.input?.transcript_path ?? null;
+  const conversationId = transcriptPath ? path.basename(transcriptPath, ".jsonl") : null;
   const cwdRaw = parsed.cwd ?? parsed.input?.cwd ?? "";
   const projectRoot = cwdRaw.trim()
     ? cwdRaw.trim()
@@ -23,8 +24,29 @@ async function run(stdinStr) {
 
   const aicDir = path.join(projectRoot, ".aic");
   const markerPath = path.join(projectRoot, ".aic", ".session-context-injected");
+  const lockPath = path.join(aicDir, ".session-start-lock");
 
   fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
+
+  // Atomic lock — prevent concurrent SessionStart invocations
+  let lockFd;
+  try {
+    lockFd = fs.openSync(lockPath, "wx");
+    fs.closeSync(lockFd);
+  } catch {
+    // Lock exists — check if a prior run already succeeded
+    const markerContent = fs.existsSync(markerPath)
+      ? fs.readFileSync(markerPath, "utf8").trim()
+      : "";
+    if (markerContent.length > 0) {
+      try {
+        fs.unlinkSync(lockPath);
+      } catch {
+        /* stale lock cleanup */
+      }
+    }
+    return null;
+  }
 
   try {
     const text = await callAicCompile(
@@ -43,6 +65,12 @@ async function run(stdinStr) {
     };
   } catch {
     return null;
+  } finally {
+    try {
+      fs.unlinkSync(lockPath);
+    } catch {
+      /* ignore */
+    }
   }
 }
 

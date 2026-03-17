@@ -34,26 +34,8 @@ async function run(stdinStr) {
     cwdRaw && cwdRaw.trim()
       ? cwdRaw.trim()
       : process.env.CLAUDE_PROJECT_DIR || process.cwd();
-  const convFile = path.join(projectRoot, ".aic", ".current-conversation-id");
-  let conversationId = parsed.conversation_id ?? parsed.input?.conversation_id ?? null;
-  if (conversationId === null) {
-    try {
-      const stored = JSON.parse(fs.readFileSync(convFile, "utf8"));
-      if (stored && stored.sessionId === sessionId && stored.conversationId) {
-        conversationId = stored.conversationId;
-      }
-    } catch {
-      // ignore ENOENT or invalid JSON
-    }
-  }
-  if (conversationId !== null && sessionId !== null) {
-    try {
-      fs.mkdirSync(path.dirname(convFile), { recursive: true, mode: 0o700 });
-      fs.writeFileSync(convFile, JSON.stringify({ conversationId, sessionId }), "utf8");
-    } catch {
-      // ignore
-    }
-  }
+  const transcriptPath = parsed.transcript_path ?? parsed.input?.transcript_path ?? null;
+  const conversationId = transcriptPath ? path.basename(transcriptPath, ".jsonl") : null;
 
   const INJECTED_MARKER = path.join(projectRoot, ".aic", ".session-context-injected");
   const markerContent = fs.existsSync(INJECTED_MARKER)

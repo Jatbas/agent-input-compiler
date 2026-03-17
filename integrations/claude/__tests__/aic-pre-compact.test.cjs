@@ -47,8 +47,42 @@ async function exit_0_silent_when_helper_returns_null() {
   console.log("exit_0_silent_when_helper_returns_null: pass");
 }
 
+async function pre_compact_uses_transcript_path_not_session_id() {
+  const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
+    paths: [hooksDir],
+  });
+  let capturedConversationId;
+  require.cache[resolvedHelper] = {
+    exports: {
+      callAicCompile: (_intent, _root, conversationId) => {
+        capturedConversationId = conversationId;
+        return Promise.resolve("compiled text");
+      },
+    },
+    loaded: true,
+    id: resolvedHelper,
+  };
+  delete require.cache[require.resolve(hookPath)];
+  const { run } = require(hookPath);
+  await run(
+    JSON.stringify({
+      session_id: "wrong-session-id",
+      cwd: "/tmp",
+      transcript_path: "/home/user/.claude/conversations/conv-uuid-correct.jsonl",
+    }),
+  );
+  cleanup(resolvedHelper);
+  if (capturedConversationId !== "conv-uuid-correct") {
+    throw new Error(
+      `Expected "conv-uuid-correct", got ${JSON.stringify(capturedConversationId)}`,
+    );
+  }
+  console.log("pre_compact_uses_transcript_path_not_session_id: pass");
+}
+
 (async () => {
   await plain_text_stdout_when_helper_returns_prompt();
   await exit_0_silent_when_helper_returns_null();
+  await pre_compact_uses_transcript_path_not_session_id();
   console.log("All tests passed.");
 })();

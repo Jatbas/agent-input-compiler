@@ -56,7 +56,7 @@ async function output_empty_object_when_helper_returns_null() {
   console.log("output_empty_object_when_helper_returns_null: pass");
 }
 
-async function conversationId_falls_back_to_env_when_not_in_payload() {
+async function transcript_path_used_as_conversationId() {
   const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
     paths: [hooksDir],
   });
@@ -73,31 +73,23 @@ async function conversationId_falls_back_to_env_when_not_in_payload() {
   };
   delete require.cache[hookPath];
   const { run } = require(hookPath);
-  process.env.AIC_CONVERSATION_ID = "env-conv-id-123";
   await run(
-    JSON.stringify({ agent_type: "general-purpose", session_id: "s1", cwd: "/tmp" }),
+    JSON.stringify({
+      agent_type: "general-purpose",
+      cwd: "/tmp",
+      transcript_path: "/home/user/.claude/conversations/abc-def-123.jsonl",
+    }),
   );
-  delete process.env.AIC_CONVERSATION_ID;
   cleanup(resolvedHelper);
-  if (capturedConversationId !== "env-conv-id-123") {
+  if (capturedConversationId !== "abc-def-123") {
     throw new Error(
-      `Expected conversationId "env-conv-id-123", got ${JSON.stringify(capturedConversationId)}`,
+      `Expected "abc-def-123", got ${JSON.stringify(capturedConversationId)}`,
     );
   }
-  console.log("conversationId_falls_back_to_env_when_not_in_payload: pass");
+  console.log("transcript_path_used_as_conversationId: pass");
 }
 
-async function conversationId_falls_back_to_file_when_not_in_env() {
-  const os = require("os");
-  const fs = require("fs");
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-subagent-test-"));
-  const aicDir = path.join(tmpDir, ".aic");
-  fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
-  fs.writeFileSync(
-    path.join(aicDir, ".current-conversation-id"),
-    JSON.stringify({ conversationId: "file-conv-id-456", sessionId: "s1" }),
-    "utf8",
-  );
+async function null_conversationId_when_no_transcript_path() {
   const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
     paths: [hooksDir],
   });
@@ -114,24 +106,84 @@ async function conversationId_falls_back_to_file_when_not_in_env() {
   };
   delete require.cache[hookPath];
   const { run } = require(hookPath);
-  delete process.env.AIC_CONVERSATION_ID;
+  await run(JSON.stringify({ agent_type: "Explore", cwd: "/tmp" }));
+  cleanup(resolvedHelper);
+  if (capturedConversationId !== null) {
+    throw new Error(`Expected null, got ${JSON.stringify(capturedConversationId)}`);
+  }
+  console.log("null_conversationId_when_no_transcript_path: pass");
+}
+
+async function subagent_uses_prompt_as_intent_when_present() {
+  const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
+    paths: [hooksDir],
+  });
+  let capturedIntent;
+  require.cache[resolvedHelper] = {
+    exports: {
+      callAicCompile: (intent) => {
+        capturedIntent = intent;
+        return Promise.resolve("compiled text");
+      },
+    },
+    loaded: true,
+    id: resolvedHelper,
+  };
+  delete require.cache[hookPath];
+  const { run } = require(hookPath);
   await run(
-    JSON.stringify({ agent_type: "general-purpose", session_id: "s1", cwd: tmpDir }),
+    JSON.stringify({
+      agent_type: "general-purpose",
+      prompt: "fix the authentication bug in auth.ts",
+      cwd: "/tmp",
+    }),
   );
   cleanup(resolvedHelper);
-  fs.rmSync(tmpDir, { recursive: true, force: true });
-  if (capturedConversationId !== "file-conv-id-456") {
+  if (capturedIntent !== "fix the authentication bug in auth.ts") {
     throw new Error(
-      `Expected "file-conv-id-456", got ${JSON.stringify(capturedConversationId)}`,
+      `Expected prompt-based intent, got ${JSON.stringify(capturedIntent)}`,
     );
   }
-  console.log("conversationId_falls_back_to_file_when_not_in_env: pass");
+  console.log("subagent_uses_prompt_as_intent_when_present: pass");
+}
+
+async function subagent_strips_ide_selection_from_prompt() {
+  const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
+    paths: [hooksDir],
+  });
+  let capturedIntent;
+  require.cache[resolvedHelper] = {
+    exports: {
+      callAicCompile: (intent) => {
+        capturedIntent = intent;
+        return Promise.resolve("compiled text");
+      },
+    },
+    loaded: true,
+    id: resolvedHelper,
+  };
+  delete require.cache[hookPath];
+  const { run } = require(hookPath);
+  await run(
+    JSON.stringify({
+      agent_type: "general-purpose",
+      prompt: "fix this <ide_selection>selected code here</ide_selection> please",
+      cwd: "/tmp",
+    }),
+  );
+  cleanup(resolvedHelper);
+  if (capturedIntent !== "fix this  please") {
+    throw new Error(`Expected stripped intent, got ${JSON.stringify(capturedIntent)}`);
+  }
+  console.log("subagent_strips_ide_selection_from_prompt: pass");
 }
 
 (async () => {
   await hookSpecificOutput_json_when_helper_returns_text();
   await output_empty_object_when_helper_returns_null();
-  await conversationId_falls_back_to_env_when_not_in_payload();
-  await conversationId_falls_back_to_file_when_not_in_env();
+  await transcript_path_used_as_conversationId();
+  await null_conversationId_when_no_transcript_path();
+  await subagent_uses_prompt_as_intent_when_present();
+  await subagent_strips_ide_selection_from_prompt();
   console.log("All tests passed.");
 })();

@@ -2,7 +2,6 @@
 // Copyright (c) 2025 AIC Contributors
 // PreToolUse hook — inject conversationId and editorId into aic_compile MCP calls.
 
-const fs = require("fs");
 const path = require("path");
 
 function run(stdinStr) {
@@ -20,18 +19,8 @@ function run(stdinStr) {
   const projectRoot = (toolInput.projectRoot || cwdRaw || "").trim()
     ? (toolInput.projectRoot || cwdRaw).trim()
     : process.env.CLAUDE_PROJECT_DIR || process.cwd();
-  let conversationId = top.conversation_id ?? input.conversation_id ?? null;
-  if (conversationId === null && projectRoot) {
-    try {
-      const convFile = path.join(projectRoot, ".aic", ".current-conversation-id");
-      const stored = JSON.parse(fs.readFileSync(convFile, "utf8"));
-      if (stored && stored.conversationId) {
-        conversationId = stored.conversationId;
-      }
-    } catch {
-      // ignore ENOENT or invalid JSON
-    }
-  }
+  const transcriptPath = top.transcript_path ?? input.transcript_path ?? null;
+  const conversationId = transcriptPath ? path.basename(transcriptPath, ".jsonl") : null;
   const isAicCompile =
     /aic_compile/i.test(toolName) ||
     (toolInput.intent != null && toolInput.projectRoot != null);
