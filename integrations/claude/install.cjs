@@ -149,7 +149,7 @@ function mergeHookArrays(existingArr, rewrittenArr) {
 }
 
 function mergeNestedHooksPayload(existing, template) {
-  const result = { hooks: { ...(existing.hooks || {}) } };
+  const result = { ...existing, hooks: { ...(existing.hooks || {}) } };
   const templateHooks = template.hooks || {};
   for (const eventKey of Object.keys(templateHooks)) {
     const existingWrappers = result.hooks[eventKey] ?? [];
