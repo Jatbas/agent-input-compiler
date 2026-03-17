@@ -44,6 +44,64 @@ async function output_format_hookSpecificOutput_when_helper_returns_text() {
   console.log("output_format_hookSpecificOutput_when_helper_returns_text: pass");
 }
 
+async function session_start_passes_conversationId_when_in_input() {
+  const captured = { thirdArg: null };
+  const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
+    paths: [hooksDir],
+  });
+  require.cache[resolvedHelper] = {
+    exports: {
+      callAicCompile: (_intent, _root, conversationId) => {
+        captured.thirdArg = conversationId;
+        return Promise.resolve("ok");
+      },
+    },
+    loaded: true,
+    id: resolvedHelper,
+  };
+  delete require.cache[hookPath];
+  const { run } = require(hookPath);
+  await run(
+    JSON.stringify({
+      session_id: "s1",
+      conversation_id: "conv-uuid-123",
+      cwd: "/tmp",
+    }),
+  );
+  cleanup(resolvedHelper);
+  if (captured.thirdArg !== "conv-uuid-123") {
+    throw new Error(
+      `Expected third arg "conv-uuid-123", got ${JSON.stringify(captured.thirdArg)}`,
+    );
+  }
+  console.log("session_start_passes_conversationId_when_in_input: pass");
+}
+
+async function session_start_passes_null_when_no_conversation_id() {
+  const captured = { thirdArg: undefined };
+  const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
+    paths: [hooksDir],
+  });
+  require.cache[resolvedHelper] = {
+    exports: {
+      callAicCompile: (_intent, _root, conversationId) => {
+        captured.thirdArg = conversationId;
+        return Promise.resolve("ok");
+      },
+    },
+    loaded: true,
+    id: resolvedHelper,
+  };
+  delete require.cache[hookPath];
+  const { run } = require(hookPath);
+  await run(JSON.stringify({ session_id: "s1", cwd: "/tmp" }));
+  cleanup(resolvedHelper);
+  if (captured.thirdArg !== null) {
+    throw new Error(`Expected third arg null, got ${JSON.stringify(captured.thirdArg)}`);
+  }
+  console.log("session_start_passes_null_when_no_conversation_id: pass");
+}
+
 async function marker_file_written_with_session_id() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-session-start-test-"));
   try {
@@ -106,6 +164,8 @@ async function aic_dir_created_with_0700() {
 
 (async () => {
   await output_format_hookSpecificOutput_when_helper_returns_text();
+  await session_start_passes_conversationId_when_in_input();
+  await session_start_passes_null_when_no_conversation_id();
   await marker_file_written_with_session_id();
   await exit_0_silent_when_helper_returns_null();
   await aic_dir_created_with_0700();

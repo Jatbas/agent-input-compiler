@@ -28,7 +28,7 @@ async function happy_path_returns_compiled_prompt() {
   }
 }
 
-async function conversationId_forwarded_when_sessionId_provided() {
+async function conversationId_forwarded_when_provided() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-helper-test-"));
   const mockDir = path.join(tmpDir, "mcp", "src");
   fs.mkdirSync(mockDir, { recursive: true });
@@ -38,7 +38,7 @@ async function conversationId_forwarded_when_sessionId_provided() {
     delete require.cache[require.resolve(helperPath)];
     const { callAicCompile } = require(helperPath);
     process.env.AIC_MOCK_ARGS_FILE = argsFile;
-    await callAicCompile("intent", tmpDir, "session-123", 10000);
+    await callAicCompile("intent", tmpDir, "conv-123", 10000);
     delete process.env.AIC_MOCK_ARGS_FILE;
     if (!fs.existsSync(argsFile)) {
       throw new Error("Mock did not write args file");
@@ -46,12 +46,12 @@ async function conversationId_forwarded_when_sessionId_provided() {
     const recorded = JSON.parse(fs.readFileSync(argsFile, "utf8"));
     const parsed = JSON.parse(recorded.stdin);
     const args = parsed.params && parsed.params.arguments ? parsed.params.arguments : {};
-    if (args.conversationId !== "session-123") {
+    if (args.conversationId !== "conv-123") {
       throw new Error(
-        `Expected conversationId "session-123", got ${JSON.stringify(args.conversationId)}`,
+        `Expected conversationId "conv-123", got ${JSON.stringify(args.conversationId)}`,
       );
     }
-    console.log("conversationId_forwarded_when_sessionId_provided: pass");
+    console.log("conversationId_forwarded_when_provided: pass");
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
     try {
@@ -72,15 +72,15 @@ async function returns_null_on_spawn_error() {
   console.log("returns_null_on_spawn_error: pass");
 }
 
-async function helper_passes_editor_id_cursor_claude_code_when_CURSOR_PROJECT_DIR_set() {
+async function helper_passes_editor_id_cursor_claude_code_when_CURSOR_TRACE_ID_set() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-helper-test-"));
   const mockDir = path.join(tmpDir, "mcp", "src");
   fs.mkdirSync(mockDir, { recursive: true });
   const argsFile = path.join(os.tmpdir(), `aic-mock-args-${process.pid}-cursor.json`);
   fs.copyFileSync(mockRecordsArgs, path.join(mockDir, "server.ts"));
-  const prev = process.env.CURSOR_PROJECT_DIR;
+  const prev = process.env.CURSOR_TRACE_ID;
   try {
-    process.env.CURSOR_PROJECT_DIR = tmpDir;
+    process.env.CURSOR_TRACE_ID = "test-trace-id-abc123";
     delete require.cache[require.resolve(helperPath)];
     const { callAicCompile } = require(helperPath);
     process.env.AIC_MOCK_ARGS_FILE = argsFile;
@@ -98,11 +98,11 @@ async function helper_passes_editor_id_cursor_claude_code_when_CURSOR_PROJECT_DI
       );
     }
     console.log(
-      "helper_passes_editor_id_cursor_claude_code_when_CURSOR_PROJECT_DIR_set: pass",
+      "helper_passes_editor_id_cursor_claude_code_when_CURSOR_TRACE_ID_set: pass",
     );
   } finally {
-    if (prev !== undefined) process.env.CURSOR_PROJECT_DIR = prev;
-    else delete process.env.CURSOR_PROJECT_DIR;
+    if (prev !== undefined) process.env.CURSOR_TRACE_ID = prev;
+    else delete process.env.CURSOR_TRACE_ID;
     fs.rmSync(tmpDir, { recursive: true, force: true });
     try {
       fs.unlinkSync(argsFile);
@@ -112,15 +112,15 @@ async function helper_passes_editor_id_cursor_claude_code_when_CURSOR_PROJECT_DI
   }
 }
 
-async function helper_passes_editor_id_claude_code_when_CURSOR_PROJECT_DIR_unset() {
+async function helper_passes_editor_id_claude_code_when_CURSOR_TRACE_ID_unset() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-helper-test-"));
   const mockDir = path.join(tmpDir, "mcp", "src");
   fs.mkdirSync(mockDir, { recursive: true });
   const argsFile = path.join(os.tmpdir(), `aic-mock-args-${process.pid}-claude.json`);
   fs.copyFileSync(mockRecordsArgs, path.join(mockDir, "server.ts"));
-  const prev = process.env.CURSOR_PROJECT_DIR;
+  const prev = process.env.CURSOR_TRACE_ID;
   try {
-    delete process.env.CURSOR_PROJECT_DIR;
+    delete process.env.CURSOR_TRACE_ID;
     delete require.cache[require.resolve(helperPath)];
     const { callAicCompile } = require(helperPath);
     process.env.AIC_MOCK_ARGS_FILE = argsFile;
@@ -137,12 +137,10 @@ async function helper_passes_editor_id_claude_code_when_CURSOR_PROJECT_DIR_unset
         `Expected editorId "claude-code", got ${JSON.stringify(args.editorId)}`,
       );
     }
-    console.log(
-      "helper_passes_editor_id_claude_code_when_CURSOR_PROJECT_DIR_unset: pass",
-    );
+    console.log("helper_passes_editor_id_claude_code_when_CURSOR_TRACE_ID_unset: pass");
   } finally {
-    if (prev !== undefined) process.env.CURSOR_PROJECT_DIR = prev;
-    else delete process.env.CURSOR_PROJECT_DIR;
+    if (prev !== undefined) process.env.CURSOR_TRACE_ID = prev;
+    else delete process.env.CURSOR_TRACE_ID;
     fs.rmSync(tmpDir, { recursive: true, force: true });
     try {
       fs.unlinkSync(argsFile);
@@ -154,9 +152,9 @@ async function helper_passes_editor_id_claude_code_when_CURSOR_PROJECT_DIR_unset
 
 (async () => {
   await happy_path_returns_compiled_prompt();
-  await conversationId_forwarded_when_sessionId_provided();
+  await conversationId_forwarded_when_provided();
   await returns_null_on_spawn_error();
-  await helper_passes_editor_id_cursor_claude_code_when_CURSOR_PROJECT_DIR_set();
-  await helper_passes_editor_id_claude_code_when_CURSOR_PROJECT_DIR_unset();
+  await helper_passes_editor_id_cursor_claude_code_when_CURSOR_TRACE_ID_set();
+  await helper_passes_editor_id_claude_code_when_CURSOR_TRACE_ID_unset();
   console.log("All tests passed.");
 })();

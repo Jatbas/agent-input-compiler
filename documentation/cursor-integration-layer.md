@@ -104,8 +104,7 @@ gate-and-model-call pattern (§7.3).
 
 | Cursor hook input field                         | How AIC uses it                                                                     |
 | ----------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `input.session_id`                              | → `conversationId` for `aic_compile` (sessionStart hook)                            |
-| `input.conversation_id`                         | → `conversationId` injected into `aic_compile` args by `preToolUse` gate            |
+| `input.conversation_id`                         | → `conversationId` for `aic_compile` (sessionStart hook and preToolUse)             |
 | `input.generation_id`                           | temp file key for per-generation state (`aic-gate-<id>`, `aic-prompt-<id>`)         |
 | `input.prompt`                                  | saved to temp file by `beforeSubmitPrompt` for gate deny message                    |
 | `input.command`                                 | inspected by `beforeShellExecution` for `--no-verify`                               |

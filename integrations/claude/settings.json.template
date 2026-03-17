@@ -80,6 +80,15 @@
             "command": "node \"$HOME/.claude/hooks/aic-block-no-verify.cjs\""
           }
         ]
+      },
+      {
+        "matcher": "mcp__.*__aic_compile",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/hooks/aic-inject-conversation-id.cjs\""
+          }
+        ]
       }
     ],
     "SessionEnd": [

@@ -108,6 +108,71 @@ async function dual_path_prepends_invariants_when_marker_missing() {
   }
 }
 
+async function prompt_compile_no_AIC_CONVERSATION_ID_when_conversationId_null() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-prompt-compile-test-"));
+  try {
+    const cursorRules = path.join(tmpDir, ".cursor", "rules");
+    fs.mkdirSync(cursorRules, { recursive: true });
+    fs.writeFileSync(
+      path.join(cursorRules, "AIC-architect.mdc"),
+      "## Critical reminders\n\n- **foo:** bar\n\n",
+      "utf8",
+    );
+    const key = mockHelper("prompt part");
+    delete require.cache[require.resolve(hookPath)];
+    const { run } = require(hookPath);
+    const stdin = JSON.stringify({
+      prompt: "x",
+      session_id: "other-session",
+      cwd: tmpDir,
+    });
+    const stdout = await run(stdin);
+    cleanup(key);
+    if (stdout && stdout.includes("AIC_CONVERSATION_ID=")) {
+      throw new Error(
+        `Expected no AIC_CONVERSATION_ID in invariants when conversationId null, got: ${String(stdout).slice(0, 300)}`,
+      );
+    }
+    console.log("prompt_compile_no_AIC_CONVERSATION_ID_when_conversationId_null: pass");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+async function prompt_compile_includes_AIC_CONVERSATION_ID_when_conversationId_truthy() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-prompt-compile-test-"));
+  try {
+    const cursorRules = path.join(tmpDir, ".cursor", "rules");
+    fs.mkdirSync(cursorRules, { recursive: true });
+    fs.writeFileSync(
+      path.join(cursorRules, "AIC-architect.mdc"),
+      "## Critical reminders\n\n- **foo:** bar\n\n",
+      "utf8",
+    );
+    const key = mockHelper("prompt part");
+    delete require.cache[require.resolve(hookPath)];
+    const { run } = require(hookPath);
+    const stdin = JSON.stringify({
+      prompt: "x",
+      session_id: "s1",
+      conversation_id: "conv-456",
+      cwd: tmpDir,
+    });
+    const stdout = await run(stdin);
+    cleanup(key);
+    if (!stdout || !stdout.includes("AIC_CONVERSATION_ID=conv-456")) {
+      throw new Error(
+        `Expected AIC_CONVERSATION_ID=conv-456 in output when conversationId set, got: ${String(stdout).slice(0, 300)}`,
+      );
+    }
+    console.log(
+      "prompt_compile_includes_AIC_CONVERSATION_ID_when_conversationId_truthy: pass",
+    );
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
 async function intent_stripped_when_prompt_contains_ide_selection() {
   const captured = { value: null };
   const key = mockHelperCaptureIntent(captured);
@@ -141,6 +206,8 @@ async function intent_stripped_when_prompt_contains_ide_selection() {
   await plain_text_stdout_when_helper_returns_prompt();
   await exit_0_silent_when_helper_returns_null();
   await dual_path_prepends_invariants_when_marker_missing();
+  await prompt_compile_no_AIC_CONVERSATION_ID_when_conversationId_null();
+  await prompt_compile_includes_AIC_CONVERSATION_ID_when_conversationId_truthy();
   await intent_stripped_when_prompt_contains_ide_selection();
   console.log("All tests passed.");
 })();

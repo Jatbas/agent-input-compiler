@@ -22,7 +22,6 @@ async function run(stdinStr) {
       : input.prompt != null
         ? String(input.prompt)
         : "";
-  const conversationId = parsed.conversation_id ?? parsed.input?.conversation_id ?? null;
   const sessionId =
     top.session_id != null
       ? top.session_id
@@ -34,6 +33,26 @@ async function run(stdinStr) {
     cwdRaw && cwdRaw.trim()
       ? cwdRaw.trim()
       : process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  const convFile = path.join(projectRoot, ".aic", ".current-conversation-id");
+  let conversationId = parsed.conversation_id ?? parsed.input?.conversation_id ?? null;
+  if (conversationId === null) {
+    try {
+      const stored = JSON.parse(fs.readFileSync(convFile, "utf8"));
+      if (stored && stored.sessionId === sessionId && stored.conversationId) {
+        conversationId = stored.conversationId;
+      }
+    } catch {
+      // ignore ENOENT or invalid JSON
+    }
+  }
+  if (conversationId !== null && sessionId !== null) {
+    try {
+      fs.mkdirSync(path.dirname(convFile), { recursive: true, mode: 0o700 });
+      fs.writeFileSync(convFile, JSON.stringify({ conversationId, sessionId }), "utf8");
+    } catch {
+      // ignore
+    }
+  }
 
   const INJECTED_MARKER = path.join(projectRoot, ".aic", ".session-context-injected");
   const markerContent = fs.existsSync(INJECTED_MARKER)
@@ -57,7 +76,7 @@ async function run(stdinStr) {
           .filter((line) => line.trimStart().startsWith("- **"));
         const header =
           "AIC Architectural Invariants (auto-injected):" +
-          (sessionId ? "\nAIC_CONVERSATION_ID=" + sessionId : "");
+          (conversationId ? "\nAIC_CONVERSATION_ID=" + conversationId : "");
         invariantsBlock = bulletLines.length
           ? header + "\n\n" + bulletLines.join("\n")
           : "";

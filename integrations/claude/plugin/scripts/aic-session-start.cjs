@@ -15,6 +15,7 @@ async function run(stdinStr) {
   }
   const sessionId =
     parsed.session_id != null ? parsed.session_id : (parsed.input?.session_id ?? null);
+  const conversationId = parsed.conversation_id ?? parsed.input?.conversation_id ?? null;
   const cwdRaw = parsed.cwd ?? parsed.input?.cwd ?? "";
   const projectRoot = cwdRaw.trim()
     ? cwdRaw.trim()
@@ -29,7 +30,7 @@ async function run(stdinStr) {
     const text = await callAicCompile(
       "understand project structure, architecture, and recent changes",
       projectRoot,
-      sessionId,
+      conversationId,
       30000,
     );
     if (text == null) return null;
