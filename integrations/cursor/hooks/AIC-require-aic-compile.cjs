@@ -9,6 +9,19 @@ const path = require("path");
 const os = require("os");
 
 // Skip enforcement when developing AIC (set AIC_DEV_MODE=1 in env or .env).
+// The hook process may not inherit .env, so load it from the project root.
+if (process.env.AIC_DEV_MODE !== "1") {
+  try {
+    const projectRoot = process.env.CURSOR_PROJECT_DIR || process.cwd();
+    const envFile = fs.readFileSync(path.join(projectRoot, ".env"), "utf8");
+    const match = envFile.match(/^AIC_DEV_MODE\s*=\s*(.+)$/m);
+    if (match && match[1].trim() === "1") {
+      process.env.AIC_DEV_MODE = "1";
+    }
+  } catch {
+    // .env missing or unreadable — continue with normal enforcement
+  }
+}
 if (process.env.AIC_DEV_MODE === "1") {
   process.stdout.write(JSON.stringify({ permission: "allow" }));
   process.exit(0);
@@ -16,6 +29,10 @@ if (process.env.AIC_DEV_MODE === "1") {
 
 function getStateFile(generationId) {
   return path.join(os.tmpdir(), `aic-gate-${generationId}`);
+}
+
+function getDenyMarker(generationId) {
+  return path.join(os.tmpdir(), `aic-deny-${generationId}`);
 }
 
 function getPromptFile(generationId) {
@@ -70,7 +87,17 @@ process.stdin.on("end", () => {
       return;
     }
 
-    // aic_compile not yet called — deny with the exact user prompt as intent
+    // Deny-once-then-allow: the gate is a reminder, not a security enforcement.
+    // If we already denied once for this generation, allow through.
+    const denyMarker = getDenyMarker(generationId);
+    if (fs.existsSync(denyMarker)) {
+      process.stdout.write(JSON.stringify({ permission: "allow" }));
+      return;
+    }
+
+    // First denial for this generation — write marker, then deny with instruction.
+    fs.writeFileSync(denyMarker, "1");
+
     const savedPrompt = readSavedPrompt(generationId);
     const stripped = savedPrompt.replace(
       /<ide_selection>[\s\S]*?<\/ide_selection>/gi,
@@ -81,7 +108,8 @@ process.stdin.on("end", () => {
         ? stripped.replace(/"/g, '\\"')
         : "<summarise the user message>";
 
-    const denyMsg = `BLOCKED: You must call the aic_compile MCP tool FIRST before using any other tool. Call it now with { "intent": "${intentArg}", "projectRoot": "/Users/jatbas/Desktop/AIC" }`;
+    const projectRoot = process.env.CURSOR_PROJECT_DIR || process.cwd();
+    const denyMsg = `BLOCKED: You must call the aic_compile MCP tool FIRST before using any other tool. Call it now with { "intent": "${intentArg}", "projectRoot": "${projectRoot}" }`;
     process.stdout.write(
       JSON.stringify({
         permission: "deny",

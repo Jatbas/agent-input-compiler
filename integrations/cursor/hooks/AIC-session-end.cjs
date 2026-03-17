@@ -8,6 +8,7 @@ const path = require("path");
 const os = require("os");
 
 const GATE_PREFIX = "aic-gate-";
+const DENY_PREFIX = "aic-deny-";
 const PROMPT_PREFIX = "aic-prompt-";
 
 function cleanupTempFiles() {
@@ -19,7 +20,12 @@ function cleanupTempFiles() {
     return;
   }
   for (const name of names) {
-    if (!name.startsWith(GATE_PREFIX) && !name.startsWith(PROMPT_PREFIX)) continue;
+    if (
+      !name.startsWith(GATE_PREFIX) &&
+      !name.startsWith(DENY_PREFIX) &&
+      !name.startsWith(PROMPT_PREFIX)
+    )
+      continue;
     try {
       fs.unlinkSync(path.join(tmpDir, name));
     } catch {

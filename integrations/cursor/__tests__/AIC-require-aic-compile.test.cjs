@@ -20,8 +20,33 @@ function getPromptFile(generationId) {
   return path.join(os.tmpdir(), `aic-prompt-${generationId}`);
 }
 
+function getGateFile(generationId) {
+  return path.join(os.tmpdir(), `aic-gate-${generationId}`);
+}
+
+function getDenyMarker(generationId) {
+  return path.join(os.tmpdir(), `aic-deny-${generationId}`);
+}
+
+function cleanupGeneration(generationId) {
+  for (const f of [
+    getGateFile(generationId),
+    getDenyMarker(generationId),
+    getPromptFile(generationId),
+  ]) {
+    try {
+      fs.unlinkSync(f);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+// Isolate from real .env by pointing CURSOR_PROJECT_DIR to an empty temp dir.
+const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-gate-empty-"));
+
 function runHook(stdinStr) {
-  const env = { ...process.env, AIC_DEV_MODE: "" };
+  const env = { ...process.env, AIC_DEV_MODE: "", CURSOR_PROJECT_DIR: emptyDir };
   const result = spawnSync("node", [hookPath], {
     input: stdinStr,
     encoding: "utf8",
@@ -72,5 +97,158 @@ function deny_message_intent_stripped_when_saved_prompt_has_ide_selection() {
   }
 }
 
+function dev_mode_from_dotenv_allows() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-devmode-test-"));
+  fs.writeFileSync(path.join(tmpDir, ".env"), "AIC_DEV_MODE=1\n", "utf8");
+  const env = { ...process.env, AIC_DEV_MODE: "", CURSOR_PROJECT_DIR: tmpDir };
+  const result = spawnSync("node", [hookPath], {
+    input: JSON.stringify({
+      generation_id: "test-gen",
+      tool_name: "other_tool",
+      tool_input: {},
+    }),
+    encoding: "utf8",
+    env,
+  });
+  const out = JSON.parse(result.stdout.trim());
+  if (out.permission !== "allow") {
+    throw new Error(`Expected "allow" from .env dev mode, got ${out.permission}`);
+  }
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+  console.log("dev_mode_from_dotenv_allows: pass");
+}
+
+function dev_mode_from_dotenv_not_set_denies() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-devmode-test-"));
+  fs.writeFileSync(path.join(tmpDir, ".env"), "SOME_OTHER_VAR=1\n", "utf8");
+  const env = { ...process.env, AIC_DEV_MODE: "", CURSOR_PROJECT_DIR: tmpDir };
+  const result = spawnSync("node", [hookPath], {
+    input: JSON.stringify({
+      generation_id: crypto.randomBytes(8).toString("hex"),
+      tool_name: "other_tool",
+      tool_input: {},
+    }),
+    encoding: "utf8",
+    env,
+  });
+  const out = JSON.parse(result.stdout.trim());
+  if (out.permission !== "deny") {
+    throw new Error(
+      `Expected "deny" when .env lacks AIC_DEV_MODE, got ${out.permission}`,
+    );
+  }
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+  console.log("dev_mode_from_dotenv_not_set_denies: pass");
+}
+
+function gate_denies_first_unknown_tool() {
+  const generationId = crypto.randomBytes(8).toString("hex");
+  try {
+    const stdin = JSON.stringify({
+      generation_id: generationId,
+      tool_name: "some_other_tool",
+      tool_input: {},
+    });
+    const out = JSON.parse(runHook(stdin));
+    if (out.permission !== "deny") {
+      throw new Error(`Expected "deny" on first unknown tool, got ${out.permission}`);
+    }
+    console.log("gate_denies_first_unknown_tool: pass");
+  } finally {
+    cleanupGeneration(generationId);
+  }
+}
+
+function gate_allows_after_one_deny() {
+  const generationId = crypto.randomBytes(8).toString("hex");
+  try {
+    const stdin = JSON.stringify({
+      generation_id: generationId,
+      tool_name: "some_other_tool",
+      tool_input: {},
+    });
+    // First call — should deny
+    const first = JSON.parse(runHook(stdin));
+    if (first.permission !== "deny") {
+      throw new Error(`Expected "deny" on first call, got ${first.permission}`);
+    }
+    // Second call with same generation — should allow (deny-once-then-allow)
+    const second = JSON.parse(runHook(stdin));
+    if (second.permission !== "allow") {
+      throw new Error(`Expected "allow" on second call, got ${second.permission}`);
+    }
+    console.log("gate_allows_after_one_deny: pass");
+  } finally {
+    cleanupGeneration(generationId);
+  }
+}
+
+function gate_allows_after_aic_compile() {
+  const generationId = crypto.randomBytes(8).toString("hex");
+  try {
+    // Call aic_compile first
+    const compileStdin = JSON.stringify({
+      generation_id: generationId,
+      tool_name: "mcp",
+      tool_input: { toolName: "aic_compile" },
+    });
+    const compileOut = JSON.parse(runHook(compileStdin));
+    if (compileOut.permission !== "allow") {
+      throw new Error(`Expected "allow" for aic_compile, got ${compileOut.permission}`);
+    }
+    // Subsequent tool should be allowed via state file
+    const toolStdin = JSON.stringify({
+      generation_id: generationId,
+      tool_name: "some_other_tool",
+      tool_input: {},
+    });
+    const toolOut = JSON.parse(runHook(toolStdin));
+    if (toolOut.permission !== "allow") {
+      throw new Error(`Expected "allow" after aic_compile, got ${toolOut.permission}`);
+    }
+    console.log("gate_allows_after_aic_compile: pass");
+  } finally {
+    cleanupGeneration(generationId);
+  }
+}
+
+function deny_message_uses_dynamic_project_root() {
+  const generationId = crypto.randomBytes(8).toString("hex");
+  const customDir = "/tmp/my-user-project";
+  const env = { ...process.env, AIC_DEV_MODE: "", CURSOR_PROJECT_DIR: customDir };
+  try {
+    const result = spawnSync("node", [hookPath], {
+      input: JSON.stringify({
+        generation_id: generationId,
+        tool_name: "other_tool",
+        tool_input: {},
+      }),
+      encoding: "utf8",
+      env,
+    });
+    const out = JSON.parse(result.stdout.trim());
+    if (out.permission !== "deny") {
+      throw new Error(`Expected "deny", got ${out.permission}`);
+    }
+    if (!out.user_message.includes(customDir)) {
+      throw new Error(
+        `Expected deny message to contain "${customDir}", got: ${out.user_message.slice(0, 200)}`,
+      );
+    }
+    if (out.user_message.includes("/Users/jatbas/Desktop/AIC")) {
+      throw new Error("Deny message still contains hardcoded path");
+    }
+    console.log("deny_message_uses_dynamic_project_root: pass");
+  } finally {
+    cleanupGeneration(generationId);
+  }
+}
+
 deny_message_intent_stripped_when_saved_prompt_has_ide_selection();
+dev_mode_from_dotenv_allows();
+dev_mode_from_dotenv_not_set_denies();
+gate_denies_first_unknown_tool();
+gate_allows_after_one_deny();
+gate_allows_after_aic_compile();
+deny_message_uses_dynamic_project_root();
 console.log("All tests passed.");
