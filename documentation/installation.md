@@ -33,6 +33,11 @@ How AIC gets installed, what artifacts it creates, and how its components intera
 - [Other Editors](#other-editors)
 - [AIC Development Environment](#aic-development-environment)
 - [Uninstall](#uninstall)
+  - [Cursor](#uninstall-cursor)
+  - [Claude Code (plugin)](#uninstall-claude-code-plugin)
+  - [Claude Code (direct installer)](#uninstall-claude-code-direct)
+  - [Other editors](#uninstall-other-editors)
+  - [Optional: remove all data](#uninstall-optional--remove-all-data)
 
 ---
 
@@ -332,4 +337,32 @@ No `aic.config.json` changes are needed. The `"enabled"` flag would disable both
 
 ## Uninstall
 
-To stop using AIC in a project, remove the `aic` entry from your editor's global MCP config (e.g. `~/.cursor/mcp.json` for Cursor) and optionally delete the project's `.aic/` directory.
+Uninstall stops AIC from running in your editor and removes the config and hooks the installers added. Optionally you can remove all AIC data (compilation history and cache) as described below.
+
+### Uninstall: Cursor
+
+1. From the AIC repo (or a directory that contains the script), run: `node integrations/cursor/uninstall.cjs`. If you no longer have the repo, copy `integrations/cursor/uninstall.cjs` from the [AIC repository](https://github.com/jatbas/AIC) and run it with Node from the same directory.
+2. To also remove AIC from the **current project** (hooks and trigger rule), run the same command with `--project`: `node integrations/cursor/uninstall.cjs --project`.
+3. Restart Cursor (or use **MCP: Reload Configurations**) so the editor picks up the change.
+
+This removes the global AIC entry from `~/.cursor/mcp.json`. With `--project`, it also removes AIC hooks and the trigger rule from the current project’s `.cursor/` directory.
+
+### Uninstall: Claude Code (plugin)
+
+1. In Claude Code, run `/plugin` and uninstall the AIC plugin. No script is required.
+2. Restart or reload Claude Code if needed.
+
+### Uninstall: Claude Code (direct installer)
+
+1. From the AIC repo (or the directory where the script lives), run: `node integrations/claude/uninstall.cjs`.
+2. Restart Claude Code (or reload) so the editor picks up the change.
+
+This removes AIC hook entries from `~/.claude/settings.json` and deletes the AIC scripts in `~/.claude/hooks/`.
+
+### Uninstall: Other editors
+
+Remove the `aic` entry from your editor’s global MCP config (the file and key name depend on the editor). Optionally delete the project’s `.aic/` directory to remove local AIC data for that project.
+
+### Uninstall: Optional — remove all data
+
+To delete compilation history and cache (global and per-project), remove the `~/.aic/` directory.

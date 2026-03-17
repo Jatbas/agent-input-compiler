@@ -102,6 +102,10 @@ Cursor will prompt to add the server to your global MCP config (`~/.cursor/mcp.j
 
 Approve the tools when prompted and start coding. AIC creates its config file, hooks, and local data directory the first time it runs in a project. All projects share a single database at `~/.aic/aic.sqlite`; per-project files remain in each project directory. Nothing else to install or configure.
 
+### Uninstall
+
+To uninstall AIC, see [Uninstall](documentation/installation.md#uninstall).
+
 ### Disabling AIC for a specific project
 
 Add `"enabled": false` to `aic.config.json` in the project root. AIC returns immediately with no compilation and no database writes. Set it back to `true` (or remove the field) to re-enable. The `show aic status` command reflects the current state.
