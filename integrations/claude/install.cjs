@@ -231,6 +231,39 @@ try {
   const triggerContent = CLAUDE_MD_TEMPLATE.replace("{{VERSION}}", version);
   const projectRoot = process.env.CLAUDE_PROJECT_DIR || process.cwd();
   const projectClaudeDir = path.join(projectRoot, ".claude");
+
+  let projectRootResolved;
+  let homeResolved;
+  try {
+    projectRootResolved = fs.realpathSync(path.resolve(projectRoot));
+    homeResolved = fs.realpathSync(path.resolve(home));
+  } catch {
+    projectRootResolved = path.resolve(projectRoot);
+    homeResolved = path.resolve(home);
+  }
+  if (projectRootResolved !== homeResolved) {
+    try {
+      const projectHooksDir = path.join(projectClaudeDir, "hooks");
+      if (fs.existsSync(projectHooksDir)) {
+        const names = fs.readdirSync(projectHooksDir);
+        for (const name of names) {
+          if (/^aic-[a-z0-9-]+\.cjs$/.test(name)) {
+            fs.unlinkSync(path.join(projectHooksDir, name));
+          }
+        }
+        if (fs.readdirSync(projectHooksDir).length === 0) {
+          fs.rmdirSync(projectHooksDir);
+        }
+      }
+      const settingsLocalPath = path.join(projectClaudeDir, "settings.local.json");
+      if (fs.existsSync(settingsLocalPath)) {
+        fs.unlinkSync(settingsLocalPath);
+      }
+    } catch {
+      // optional cleanup: ignore errors
+    }
+  }
+
   const claudeMdPath = path.join(projectClaudeDir, "CLAUDE.md");
   let skipTriggerWrite = false;
   try {

@@ -130,5 +130,51 @@ function merge_preserves_non_aic_entries() {
   }
 }
 
+function legacy_project_local_cleanup() {
+  const tmpDir = fs.mkdtempSync(
+    path.join(require("node:os").tmpdir(), "aic-install-legacy-cleanup-"),
+  );
+  try {
+    const projectDir = path.join(tmpDir, "project");
+    fs.mkdirSync(projectDir, { recursive: true });
+    const projectHooksDir = path.join(projectDir, ".claude", "hooks");
+    fs.mkdirSync(projectHooksDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(projectHooksDir, "aic-session-start.cjs"),
+      "// legacy",
+      "utf8",
+    );
+    fs.writeFileSync(
+      path.join(projectDir, ".claude", "settings.local.json"),
+      '{"hooks":{}}',
+      "utf8",
+    );
+    const homeDir = path.join(tmpDir, "home");
+    fs.mkdirSync(homeDir, { recursive: true });
+    execFileSync("node", [installScript], {
+      cwd: projectDir,
+      env: { ...process.env, HOME: homeDir },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const hooksPath = path.join(projectDir, ".claude", "hooks");
+    if (fs.existsSync(hooksPath)) {
+      const names = fs.readdirSync(hooksPath);
+      if (names.length !== 0) {
+        throw new Error(
+          "Expected project .claude/hooks to be empty, got: " + names.join(", "),
+        );
+      }
+    }
+    const settingsLocalPath = path.join(projectDir, ".claude", "settings.local.json");
+    if (fs.existsSync(settingsLocalPath)) {
+      throw new Error("Expected .claude/settings.local.json to be removed");
+    }
+    console.log("legacy_project_local_cleanup: pass");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
 fresh_install_creates_global_settings();
 merge_preserves_non_aic_entries();
+legacy_project_local_cleanup();

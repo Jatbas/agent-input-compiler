@@ -472,10 +472,11 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2026-03-17
 
-**Components:** Task 184 Claude Code conversation_id integration fix and PreToolUse hook
+**Components:** Task 184 Claude Code conversation_id integration fix and PreToolUse hook, Task 185 Claude installer legacy project-local cleanup
 **Completed:**
 
 - Task 184 (Claude Code conversation_id and PreToolUse): SessionStart (hooks + plugin) — read conversationId from parsed.conversation_id ?? input?.conversation_id, pass conversationId (not sessionId) to callAicCompile; marker file still keyed by sessionId. UserPromptSubmit (hooks + plugin) — AIC_CONVERSATION_ID in invariants block only when conversationId truthy (was sessionId). Cursor doc §4.3 — attribution row uses input.conversation_id for sessionStart and preToolUse. Optional: aic-inject-conversation-id.cjs PreToolUse hook (editorId claude-code, conversationId from input or .current-conversation-id), matcher mcp**.\***aic_compile in settings.json.template. Tests: session_start_passes_conversationId_when_in_input, session_start_passes_null_when_no_conversation_id, prompt_compile_no_AIC_CONVERSATION_ID_when_conversationId_null, prompt_compile_includes_AIC_CONVERSATION_ID_when_conversationId_truthy, conversationId_forwarded_when_provided (rename from conversationId_forwarded_when_sessionId_provided). Lint (changed files), typecheck, test, knip, lint:clones 0.
+- Task 185 (Claude installer legacy project-local cleanup): install.cjs removes legacy project-local artifacts when project root !== home: deletes `aic-*.cjs` in project `.claude/hooks/`, removes hooks dir if empty, deletes `.claude/settings.local.json`. Skip when project root === home (realpathSync comparison for macOS /private/var parity). New test legacy_project_local_cleanup (project dir with legacy hooks + settings.local.json, HOME different; after install both removed). claude-code-integration-layer.md §13: new step 5 (legacy cleanup), former step 5 renumbered to 6. Lint, typecheck, test, knip, lint:clones 0.
 
 ### 2025-03-17
 

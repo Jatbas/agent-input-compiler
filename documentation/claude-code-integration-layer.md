@@ -677,7 +677,11 @@ The installer:
    (stale script cleanup).
 4. Reads `~/.claude/settings.json` (if present) and merges AIC entries into existing
    config, preserving non-AIC entries; writes only if merged content differs.
-5. Writes the trigger rule (`.claude/CLAUDE.md` in the current working directory when
+5. Removes legacy project-local artifacts: in the current working directory (or
+   `$CLAUDE_PROJECT_DIR`), when that directory is not the user's home directory, deletes
+   any `aic-*.cjs` in `.claude/hooks/`, removes the hooks directory if empty, and
+   deletes `.claude/settings.local.json` if present.
+6. Writes the trigger rule (`.claude/CLAUDE.md` in the current working directory when
    writable), version-stamped; overwrites only when the installed version differs from
    the current package version.
 
