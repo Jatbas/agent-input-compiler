@@ -609,10 +609,6 @@ The target JSON payload merged into the `hooks` section of `~/.claude/settings.j
 }
 ```
 
-### 10.2 Hook registration scope
-
-Hook registration lives only in `~/.claude/settings.json`; there is no project-local hook registration.
-
 ---
 
 ## 11. HTTP hook — future optimization (eliminates cold start)

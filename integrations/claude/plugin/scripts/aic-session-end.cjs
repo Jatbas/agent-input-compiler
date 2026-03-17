@@ -48,6 +48,12 @@ function run(stdinStr) {
   }
 
   try {
+    fs.unlinkSync(path.join(projectRoot, ".aic", ".current-conversation-id"));
+  } catch {
+    // ignore
+  }
+
+  try {
     fs.unlinkSync(tempPath);
   } catch {
     // ignore

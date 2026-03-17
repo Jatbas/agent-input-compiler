@@ -170,19 +170,39 @@ try {
 
   fs.mkdirSync(globalHooksDir, { recursive: true });
 
+  // symlink in dev mode so edits to source files are reflected without server restart
+  const devMode = process.env.AIC_DEV_MODE === "1";
+
   for (const name of AIC_SCRIPT_NAMES) {
     const srcPath = path.join(hooksSourceDir, name);
     const destPath = path.join(globalHooksDir, name);
-    const sourceContent = fs.readFileSync(srcPath, "utf8");
-    let shouldWrite = true;
-    try {
-      const existing = fs.readFileSync(destPath, "utf8");
-      if (existing === sourceContent) shouldWrite = false;
-    } catch {
-      // dest missing
-    }
-    if (shouldWrite) {
-      fs.writeFileSync(destPath, sourceContent, "utf8");
+    if (devMode) {
+      let existingTarget = null;
+      try {
+        existingTarget = fs.readlinkSync(destPath);
+      } catch {
+        // not a symlink or missing
+      }
+      if (existingTarget !== srcPath) {
+        try {
+          fs.unlinkSync(destPath);
+        } catch {
+          /* ok if missing */
+        }
+        fs.symlinkSync(srcPath, destPath);
+      }
+    } else {
+      const sourceContent = fs.readFileSync(srcPath, "utf8");
+      let shouldWrite = true;
+      try {
+        const existing = fs.readFileSync(destPath, "utf8");
+        if (existing === sourceContent) shouldWrite = false;
+      } catch {
+        // dest missing
+      }
+      if (shouldWrite) {
+        fs.writeFileSync(destPath, sourceContent, "utf8");
+      }
     }
   }
 

@@ -27,10 +27,25 @@ function callAicCompile(intent, projectRoot, conversationId, timeoutMs) {
     jsonrpc: "2.0",
     method: "notifications/initialized",
   });
-  const editorId =
-    process.env.CURSOR_PROJECT_DIR && String(process.env.CURSOR_PROJECT_DIR).trim() !== ""
-      ? "cursor-claude-code"
-      : "claude-code";
+  // CURSOR_TRACE_ID is set by Cursor's extension host; persist detection for hooks without it
+  const editorIdFile = path.join(projectRoot, ".aic", ".editor-id");
+  let editorId;
+  if (process.env.CURSOR_TRACE_ID && String(process.env.CURSOR_TRACE_ID).trim() !== "") {
+    editorId = "cursor-claude-code";
+    try {
+      fs.mkdirSync(path.dirname(editorIdFile), { recursive: true, mode: 0o700 });
+      fs.writeFileSync(editorIdFile, editorId, "utf8");
+    } catch {
+      // ignore write errors
+    }
+  } else {
+    try {
+      const stored = fs.readFileSync(editorIdFile, "utf8").trim();
+      editorId = stored || "claude-code";
+    } catch {
+      editorId = "claude-code";
+    }
+  }
   const toolsCall = JSON.stringify({
     jsonrpc: "2.0",
     id: 2,
