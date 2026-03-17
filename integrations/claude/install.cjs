@@ -124,10 +124,15 @@ function isAicCommand(command) {
 }
 
 function filterStaleAic(existingArr) {
+  const seen = new Set();
   return (existingArr || []).filter((entry) => {
     if (!isAicCommand(entry.command)) return true;
     const m = String(entry.command || "").match(/aic-[a-z0-9-]+\.cjs/);
-    return m && AIC_SCRIPT_NAMES.includes(m[0]);
+    if (!m || !AIC_SCRIPT_NAMES.includes(m[0])) return false;
+    // deduplicate: keep only the first occurrence of each AIC script
+    if (seen.has(m[0])) return false;
+    seen.add(m[0]);
+    return true;
   });
 }
 
