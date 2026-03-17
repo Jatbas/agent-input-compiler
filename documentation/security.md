@@ -4,12 +4,17 @@
 
 - [Reporting a Vulnerability](#reporting-a-vulnerability)
   - [Severity Classification](#severity-classification)
+  - [Safe Harbor](#safe-harbor)
 - [Scope](#scope)
+  - [In scope](#in-scope)
+  - [Out of scope](#out-of-scope)
 - [Security Architecture](#security-architecture)
 - [Context Guard](#context-guard)
 - [Prompt Injection Prevention](#prompt-injection-prevention)
 - [API Key Handling](#api-key-handling)
 - [Data Handling](#data-handling)
+  - [External API response validation](#external-api-response-validation)
+  - [Update check (version notification)](#update-check-version-notification)
 - [Data Leakage Prevention](#data-leakage-prevention)
 - [`.aic/` Directory Security](#aic-directory-security)
 - [Anonymous Telemetry](#anonymous-telemetry)
@@ -20,6 +25,10 @@
 - [Supply Chain Security](#supply-chain-security)
 - [Supported Versions](#supported-versions)
 - [Compliance](#compliance)
+  - [Design Principles](#design-principles)
+  - [GDPR Readiness](#gdpr-readiness)
+  - [SOC 2 Readiness](#soc-2-readiness)
+  - [Compliance Roadmap](#compliance-roadmap)
 
 ---
 
@@ -87,7 +96,7 @@ We consider security research conducted in good faith to be authorized. We will 
 | Telemetry endpoint | `https://telemetry.aic.dev` — payload processing and storage      |
 | Configuration      | `aic.config.json` parsing, validation, and schema migration       |
 | Rule pack loading  | Built-in and project-level rule pack resolution                   |
-| Published releases | Any artifact published to npm under the `@aic` scope              |
+| Published releases | Any artifact published to npm (current package: `@jatbas/aic`)    |
 
 ### Out of scope
 
@@ -146,7 +155,7 @@ AIC is a **local-first** tool. All compilation processing runs on the developer'
 | AIC → Model endpoint | Compiled prompt (Guard-filtered) | Only when a model adapter is configured. Context Guard excludes secrets and injections from the compiled context. `aic_compile` never contacts any external service. |
 | AIC → Telemetry      | Anonymous aggregate metrics      | Opt-in only. No code, paths, prompts, or PII. TLS only. See [Telemetry Endpoint Threat Model](#telemetry-endpoint-threat-model).                                     |
 
-For the full architectural specification, see [Project Plan §12](project-plan.md).
+For the full architectural specification, see [Project Plan §12](project-plan.md#12-security-considerations).
 
 ---
 
@@ -175,9 +184,9 @@ AWS keys, GitHub tokens, Stripe keys, generic named API keys (e.g. `api_key = ".
 - All findings are logged in `CompilationMeta.guard` and visible via `aic_inspect`
 - If all selected files are excluded, the pipeline returns empty context with `guard.passed: false`
 
-**False-positive handling:** Files matching `guard.allowPatterns` (globs) or `guard.allowFiles` (exact paths) skip all scanners. Use this for test fixtures or documentation that intentionally contains secret-like strings. Built-in never-include patterns (`.env`, `*.pem`, etc.) are **not** overridable by allow patterns.
+**False-positive handling:** The Context Guard supports allow-list glob patterns; files matching these patterns skip all scanners. Use this for test fixtures or documentation that intentionally contain secret-like strings. Built-in never-include patterns (`.env`, `*.pem`, etc.) are **not** overridable by allow patterns. In the current release, allow patterns are not read from config (pipeline uses a fixed list at creation); config-based `guard.allowPatterns` is planned (see Project Plan §8.4).
 
-Full pattern tables: [Project Plan §8.4](project-plan.md).
+Full pattern tables: [Project Plan §8.4](project-plan.md#84-contextguard-interface).
 
 ---
 
@@ -203,9 +212,9 @@ AIC defends against prompt injection at multiple layers:
 | OpenAI chat markup        | `<\|system\|>`, `<\|im_start\|>`          | Model-specific special token injection             |
 | Llama/Mistral tokens      | `[INST] new instructions [/INST]`         | Instruction token injection for open-weight models |
 
-**False-positive mitigation:** These patterns target adversarial strings that have no legitimate reason to appear in production source code. If a legitimate file triggers the scanner (e.g., a test fixture for injection detection), add it to `guard.allowPatterns` or `guard.allowFiles`. The scanner logs the matched pattern in `GuardFinding.pattern` to help diagnose false positives.
+**False-positive mitigation:** These patterns target adversarial strings that have no legitimate reason to appear in production source code. If a legitimate file triggers the scanner (e.g., a test fixture for injection detection), add it to the Guard's allow patterns when config support is available (see Project Plan §8.4). The scanner logs the matched pattern in `GuardFinding.pattern` to help diagnose false positives.
 
-Full regex patterns: [Project Plan §8.4](project-plan.md).
+Full regex patterns: [Project Plan §8.4](project-plan.md#84-contextguard-interface).
 
 ---
 
@@ -263,19 +272,19 @@ AIC treats all data received from external endpoints as untrusted. For every out
 | **Cache contains sensitive code**    | Cache is stored in `.aic/cache/` (gitignored, `0700` permissions); never uploaded; user controls TTL via config                                             |
 | **`repo_id` reveals project path**   | `repo_id` is a SHA-256 hash of the absolute path — irreversible, cannot be used to identify the project                                                     |
 | **Model endpoint receives code**     | `aic_compile` never contacts any external service. Context Guard excludes secrets and credentials from the compiled context AIC returns to the editor.      |
-| **SQLite database contains prompts** | Database is stored in `.aic/` (gitignored, `0700`). Contains compilation metadata and intents — never pushed to any external service.                       |
+| **SQLite database contains prompts** | Database is at `~/.aic/aic.sqlite` (global; gitignored, `0700`). Contains compilation metadata and intents — never pushed to any external service.          |
 
-For the full threat/mitigation analysis, see [Project Plan §12 — Data Leakage Prevention](project-plan.md).
+For the full threat/mitigation analysis, see [Project Plan §12 — Data Leakage Prevention](project-plan.md#data-leakage-prevention).
 
 ---
 
 ## `.aic/` Directory Security
 
-The `.aic/` directory stores AIC's local database, cache, and metadata. It is treated as sensitive:
+The `.aic/` directory (global path `~/.aic/` for the single database) stores AIC's local database, cache, and metadata. It is treated as sensitive:
 
 - **Auto-gitignored:** Bootstrap adds `.aic/` to `.gitignore` automatically. The directory is never committed to version control.
 - **Permissions:** Created with `0700` (owner-only read/write/execute). No group or world access.
-- **No symlink traversal:** AIC does not follow symlinks inside `.aic/` to prevent symlink attacks that could redirect reads/writes outside the intended directory.
+- **No symlink traversal:** AIC uses only fixed paths under `.aic/` and does not enumerate the directory, so symlink traversal is not possible.
 
 ---
 
@@ -299,15 +308,15 @@ AIC can optionally send anonymous usage statistics to help improve the product. 
 | No IP logging         | Telemetry endpoint does not log client IPs                         |
 | HTTPS only            | All payloads sent over TLS                                         |
 
-**Full transparency:** Every payload is stored locally in SQLite before sending. Inspect the local `anonymous_telemetry_log` table in `.aic/aic.sqlite` with any SQLite client. For example:
+**Full transparency:** Every payload is stored locally in SQLite before sending. Inspect the local `anonymous_telemetry_log` table in `~/.aic/aic.sqlite` with any SQLite client. For example:
 
 ```bash
-sqlite3 .aic/aic.sqlite "SELECT created_at, status, payload_json FROM anonymous_telemetry_log ORDER BY created_at DESC LIMIT 5;"
+sqlite3 ~/.aic/aic.sqlite "SELECT created_at, status, payload_json FROM anonymous_telemetry_log ORDER BY created_at DESC LIMIT 5;"
 ```
 
 **Batching:** Payloads are queued locally and sent in a single HTTPS request at most once per 5 minutes. The endpoint stores received payloads in a cloud database. After a payload is successfully sent, the local row is removed so the queue does not grow unbounded. If the endpoint is unreachable, payloads are silently dropped (not retried, not stored on the server).
 
-Full payload schema and audit log spec: [MVP Spec §4d](implementation-spec.md).
+Full payload schema and audit log spec: [MVP Spec §4d](implementation-spec.md#4d-mvp-additions).
 
 ---
 
@@ -325,7 +334,7 @@ The `https://telemetry.aic.dev` endpoint is designed as an append-only, anonymou
 
 **Design principle:** If the telemetry endpoint goes down, AIC continues working normally. If it's compromised, no user data is at risk.
 
-Full threat model: [Project Plan §12 — Telemetry Endpoint Security](project-plan.md).
+Full threat model: [Project Plan §12 — Telemetry Endpoint Security](project-plan.md#telemetry-endpoint-security).
 
 ---
 
@@ -337,11 +346,11 @@ Mapping of AIC against the [CSA MCP Server Top 10 Security Risks](https://modelc
 | ------ | ----------------------------- | :-----------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
 | MCP-01 | Prompt Injection              |    Covered    | Context Guard (6 pattern categories), `PromptInjectionScanner`, `MarkdownInstructionScanner`, `CommandInjectionScanner`, structural prompt template (intent is opaque, code in delimited blocks, constraints after context)                                                                                                                                                    | See [Prompt Injection Prevention](#prompt-injection-prevention)                                         |
 | MCP-02 | Confused Deputy               |      N/A      | AIC is a local stdio server with no OAuth, no delegated auth, no multi-user. Single-user, single-process.                                                                                                                                                                                                                                                                      | Would apply if AIC added HTTP transport or multi-user auth (Phase 2+)                                   |
-| MCP-03 | Tool Poisoning                |      N/A      | AIC exposes exactly 3 tools (`aic_compile`, `aic_inspect`, `aic_chat_summary`). No dynamic tool loading, no third-party tool registry, no remote tool discovery.                                                                                                                                                                                                               | Fixed tool set compiled into the binary                                                                 |
+| MCP-03 | Tool Poisoning                |      N/A      | AIC exposes 6 tools (`aic_compile`, `aic_inspect`, `aic_projects`, `aic_status`, `aic_last`, `aic_chat_summary`). No dynamic tool loading, no third-party tool registry, no remote tool discovery.                                                                                                                                                                             | Fixed tool set compiled into the binary                                                                 |
 | MCP-04 | Credential & Token Exposure   |    Covered    | Config references env var _names_ only (never values). Log sanitization replaces secrets with `***`. Context Guard excludes `.env`, `*.pem`, `*.key` from compiled context. `compiledPrompt` removed from `aic_last` tool response. No API keys in SQLite or cache.                                                                                                            | See [API Key Handling](#api-key-handling)                                                               |
 | MCP-05 | Insecure Server Configuration |    Covered    | stdio only (no network exposure). `projectRoot`/`configPath` path containment guards reject traversal, sensitive prefixes, and the home directory itself (`os.homedir()` is explicitly blocked — `projectRoot` must be a project directory, not `~`). `.aic/` directory `0700` permissions, auto-gitignored. Zod schema validation at boundary with `max`/`regex` constraints. | See [`.aic/` Directory Security](#aic-directory-security)                                               |
 | MCP-06 | Supply Chain Attacks          | Covered (MVP) | Lockfile committed and verified. `pnpm audit` in CI. Exact version pinning (no `^`). Minimal runtime deps. Rule packs are local JSON only — no remote loading in MVP.                                                                                                                                                                                                          | SBOM, signed npm releases, Dependabot/Snyk planned for Phase 1                                          |
-| MCP-07 | Excessive Permissions         |    Covered    | All 3 tools are read-only (compile, inspect, summary). No file write, no shell exec, no network access exposed via MCP. Path containment guards prevent tools from reading outside the project home directory.                                                                                                                                                                 | Principle of least privilege by design                                                                  |
+| MCP-07 | Excessive Permissions         |    Covered    | All 6 tools are read-only (compile, inspect, status, last, projects, chat summary). No file write, no shell exec, no network access exposed via MCP. Path containment guards prevent tools from reading outside the project home directory.                                                                                                                                    | Principle of least privilege by design                                                                  |
 | MCP-08 | Data Exfiltration             |    Covered    | `aic_compile` never contacts external services. Telemetry is opt-in with no code, paths, or PII. `compiledPrompt` removed from `aic_last` tool response. `tool_invocation_log` provides audit trail for all tool calls.                                                                                                                                                        | See [Data Leakage Prevention](#data-leakage-prevention) and [Anonymous Telemetry](#anonymous-telemetry) |
 | MCP-09 | Context Spoofing              |    Covered    | Intent is treated as opaque text (never interpolated into system instructions). Zod schema validation at boundary. Intent control-char strip removes `\x00-\x08`, `\x0B-\x1F`. `conversationId`/`modelId` constrained to printable ASCII with max length.                                                                                                                      | See [Prompt Injection Prevention](#prompt-injection-prevention)                                         |
 | MCP-10 | Insecure Communication        |    Covered    | stdio transport only — local IPC, no network. No plaintext fallback.                                                                                                                                                                                                                                                                                                           | If HTTP transport added (Phase 2+), mutual TLS or token auth required                                   |
@@ -430,7 +439,7 @@ AIC's architecture is designed to be **technically compliant** with GDPR, SOC 2,
 | ------------------------- | :--------: | ------------------------------------------------------------------------------------- |
 | Lawful basis (consent)    |     ✅     | Opt-in via `aic.config.json`. Default: disabled.                                      |
 | Data minimisation         |     ✅     | Fixed enum fields only. No free-text. No PII.                                         |
-| Right to access           |     ✅     | Inspect or export `anonymous_telemetry_log.payload_json` from `.aic/aic.sqlite`       |
+| Right to access           |     ✅     | Inspect or export `anonymous_telemetry_log.payload_json` from `~/.aic/aic.sqlite`     |
 | Right to erasure          |     ✅     | Delete local `anonymous_telemetry_log` rows and set `telemetry.anonymousUsage: false` |
 | Right to withdraw consent |     ✅     | Set config to `false` at any time. Immediate effect.                                  |
 | Purpose limitation        |     ✅     | "Product improvement" stated in opt-in prompt and privacy policy                      |
@@ -463,4 +472,4 @@ AIC's architecture is designed to be **technically compliant** with GDPR, SOC 2,
 | **Phase 2** | SQLCipher optional encryption. Formal risk register. SOC 2 Type I prep. GDPR DPIA. Rule pack signature verification.      |
 | **Phase 3** | SOC 2 Type I audit. ISO 27001 gap assessment. Penetration test. Formal certifications when commercially justified.        |
 
-Full compliance readiness mapping (including ISO 27001): [Project Plan §24](project-plan.md).
+Full compliance readiness mapping (including ISO 27001): [Project Plan §24](project-plan.md#24-compliance-readiness).

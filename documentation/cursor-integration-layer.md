@@ -644,7 +644,7 @@ Auto-installed by the bootstrap process. Version-stamped so it is overwritten wh
 
 ---
 
-## 17. Verification checklist
+## 16. Verification checklist
 
 All of the following must be verified for the Cursor integration to be complete:
 

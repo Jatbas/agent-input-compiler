@@ -28,6 +28,7 @@ const compileArgs = {
   intent: INTENT,
   projectRoot: projectRoot,
   editorId: "cursor",
+  triggerSource: "session_start",
 };
 if (
   conversationId &&

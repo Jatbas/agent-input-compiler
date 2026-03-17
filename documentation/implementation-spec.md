@@ -270,15 +270,13 @@ Files matching `guard.allowPatterns` globs are exempt from Guard scanning entire
 ```json
 {
   "guard": {
-    "allowPatterns": ["test/fixtures/**", "docs/**", "examples/**"],
-    "allowFiles": ["src/config/example-keys.ts"]
+    "allowPatterns": ["test/fixtures/**", "docs/**", "examples/**"]
   }
 }
 ```
 
 - `allowPatterns` — glob array; matched files skip all scanners
-- `allowFiles` — exact relative paths; matched files skip all scanners
-- Both are empty by default — all files are scanned
+- Empty by default — all files are scanned
 - Built-in never-include patterns (`.env`, `*.pem`, etc.) are **not** overridable by allow patterns — they are always excluded
 
 **Output:** `{ result: GuardResult, safeFiles: SelectedFile[] }`
@@ -850,7 +848,7 @@ There is currently no dedicated `aic telemetry log` command in the shipped MCP p
 
 **Why this matters:** Full transparency builds trust. Users can verify AIC's privacy claims by inspecting the actual payloads. If a user sees something they're uncomfortable with, they can disable anonymous telemetry and file a report. The audit log also serves as the local queue for batching — `status: 'queued'` entries are sent in the next batch.
 
-**Endpoint security:** The `https://telemetry.aic.dev` endpoint is protected by schema validation (reject malformed payloads), rate limiting (10 req/min per IP), and TLS-only transport. The endpoint is append-only and anonymous — if it goes down, AIC continues working normally. Full threat model: [Project Plan §12](project-plan.md).
+**Endpoint security:** The `https://telemetry.aic.dev` endpoint is protected by schema validation (reject malformed payloads), rate limiting (10 req/min per IP), and TLS-only transport. The endpoint is append-only and anonymous — if it goes down, AIC continues working normally. Full threat model: [Project Plan §12](project-plan.md#12-security-considerations).
 
 **What this data enables:**
 
@@ -953,7 +951,7 @@ Exit codes: `0` = success (may include warnings); `1` = fatal error.
 
 These topics are specified in full in the [Project Plan](project-plan.md). Below are the MVP-critical highlights:
 
-### Security (see [Project Plan §12](project-plan.md))
+### Security (see [Project Plan §12](project-plan.md#12-security-considerations))
 
 - **Context Guard** scans every selected file and excludes secrets, credentials, excluded paths, and prompt injection patterns from the compiled context at Step 5 (note: this does not prevent the model from reading files directly through editor tools)
 - Guard findings are logged in `CompilationMeta.guard` and visible via `aic_inspect`; the pipeline never silently includes sensitive content
@@ -1208,7 +1206,6 @@ const AicConfigSchema = z
         enabled: z.boolean().default(true),
         additionalExclusions: z.array(z.string()).default([]),
         allowPatterns: z.array(z.string()).default([]),
-        allowFiles: z.array(z.string()).default([]),
       })
       .optional(),
     telemetry: z

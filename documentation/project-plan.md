@@ -1100,6 +1100,8 @@ Boost and penalize patterns apply a ±0.2 additive modifier to the `HeuristicSel
 
 ## 4. Architecture
 
+For the relationship between the editor-agnostic core pipeline and integration layers (hook coverage across editors and tools), see [Architecture](architecture.md).
+
 ### 4.0 Component Overview
 
 The diagram below shows AIC's two packages, their key classes, and how they depend on each other. The MCP server (`@jatbas/aic`) imports pipeline steps, providers, and storage from the shared package — the pipeline is never duplicated.
@@ -1659,7 +1661,6 @@ All fields are optional. AIC works with an empty `{}` or no config file at all.
 | `guard.enabled`                             | `true`                               | Set to `false` to disable all Guard scanning (not recommended in production)                                                                                                                             |
 | `guard.additionalExclusions`                | `[]`                                 | Extra glob patterns added to the built-in never-include list; useful when test fixtures contain intentional secret-like strings                                                                          |
 | `guard.allowPatterns`                       | `[]`                                 | Glob patterns for files exempt from Guard scanning (e.g. `test/fixtures/**`). Does **not** override built-in never-include patterns (`.env`, `*.pem`, etc.)                                              |
-| `guard.allowFiles`                          | `[]`                                 | Exact relative paths for files exempt from Guard scanning (e.g. `src/config/example-keys.ts`). Same restriction as `allowPatterns` — never-include patterns cannot be overridden                         |
 | `contentTransformers.enabled`               | `true`                               | Set to `false` to skip all content transformations (raw content passes through unchanged)                                                                                                                |
 | `contentTransformers.stripComments`         | `true`                               | Remove line/block comments from source files. Preserves JSDoc `@param`/`@returns` at L1 tier                                                                                                             |
 | `contentTransformers.normalizeWhitespace`   | `true`                               | Collapse blank lines (≥3→1), normalize indent to 2-space, trim trailing whitespace                                                                                                                       |
@@ -2090,7 +2091,7 @@ New patterns are added by updating the `SecretScanner` pattern list — no inter
 | `(?i)<\|?(system\|im_start\|endofprompt)\|?>`                                             | `<                                                                 | system                                                 | >`, `< | im_start | >`, `< | endofprompt | >`  | Model-specific special token injection (OpenAI chat markup) |
 | `(?i)\[INST\].*\[/INST\]`                                                                 | `[INST] new instructions [/INST]`                                  | Llama/Mistral instruction token injection              |
 
-**False-positive mitigation:** These patterns target adversarial strings that have no legitimate reason to appear in source code. If a legitimate file (e.g. a test fixture for prompt injection detection) triggers the scanner, add it to `guard.allowPatterns` or `guard.allowFiles`. The scanner logs the matched pattern in `GuardFinding.pattern` so the developer can diagnose false positives.
+**False-positive mitigation:** These patterns target adversarial strings that have no legitimate reason to appear in source code. If a legitimate file (e.g. a test fixture for prompt injection detection) triggers the scanner, add it to `guard.allowPatterns`. The scanner logs the matched pattern in `GuardFinding.pattern` so the developer can diagnose false positives.
 
 New scanner types (e.g. PII detector in Phase 2) are added by implementing `GuardScanner` and registering in the guard's scanner chain.
 

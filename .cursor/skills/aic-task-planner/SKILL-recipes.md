@@ -709,46 +709,34 @@ In each case, state what was found, what the uncertainty is, and what decision t
 
 No test files. No source files. Documentation tasks modify only `.md` files.
 
-### Exploration checklist (Pass 1)
+### Exploration checklist (Pass 1) — delegated to documentation-writer skill
 
-The documentation recipe has its own exploration checklist, equivalent in rigor to code recipes. Every item must be completed and produce evidence for the Exploration Report.
+The documentation recipe delegates exploration to the `aic-documentation-writer` skill's Phase 1 (Deep Analysis). This replaces the planner doing all exploration items itself — instead, 4 specialized subagents investigate in parallel, each focused on one dimension.
 
-**Batch A — fire in one parallel round:**
+**How to run Phase 1:**
 
-1. **Read the target document fully** — if editing an existing document, read every line. Record: current structure (heading hierarchy), tone (formal/informal, active/passive), terminology (key terms and how they are used), audience (who reads this), formatting patterns (bullet vs prose, code block usage, cross-references), and line-break structure (which sections use single-line sentences vs wrapped paragraphs).
-2. **Read ALL sibling documents** — every `.md` in `documentation/`. Build a terminology index: for each key term (component names, architecture concepts, ADR references), record how each document uses it. Flag any term used differently across documents.
-3. **Cross-reference against codebase** — for every technical claim in the target document (interface names, type names, file paths, ADR references, component descriptions, architecture claims): grep the actual code and verify. Record: `[claim] — [source file:line] — ACCURATE / INACCURATE / NOT FOUND`. This is the same rigor as the research skill's factual accuracy explorer. Cross-reference the ENTIRE document, not just the target section — scope-adjacent claims matter.
-   3b. **Uncertain claim escalation** — during cross-referencing, if a technical claim cannot be definitively confirmed or denied (grep returns partial/ambiguous results, multiple identifiers exist for the same thing, a command path is unclear), mark it as UNCERTAIN. For each uncertain claim: if 1-2 uncertain claims, investigate inline (read `package.json`, trace the code path, check the npm registry). If 3+ uncertain claims or deep ambiguity, delegate to the `aic-researcher` skill for a focused factual investigation before writing the Change Specification. Never write target text containing an uncertain claim — either resolve it or flag it as a blocker.
-4. **Completeness analysis** — compare the document's coverage against what actually exists. For architecture docs: are all interfaces documented? For progress docs: do statuses match actual code state? For spec docs: are all components described? Record: `[topic/component] — DOCUMENTED / UNDOCUMENTED`.
-5. **Structural analysis** — does the document flow logically? Are there orphaned sections (referenced but undefined, or defined but never referenced)? Missing transitions? Sections that assume context defined elsewhere? Circular references? Record findings.
-   5b. **Intra-document parallel section analysis** — identify sections within the same document that describe the same concept for different targets (e.g., "Cursor" and "Claude Code" sections both describe editor-specific installation). For each parallel pair, perform ALL of these checks: - **Subsection inventory:** List every `###` heading under each parallel `##` section, side by side. Classify each as: shared concept (same semantic role — e.g. both have "Trigger Rule", "Hooks", "Hook Lifecycle") or unique concept (inherent to one target only — e.g. "Deeplink" is Cursor-specific, "Plugin" is Claude Code-specific). - **Shared-concept ordering:** For headings classified as shared concepts, verify they appear in the SAME ORDER in both parallel sections. If "Trigger Rule" comes before "Hooks" in one section, it must come before "Hooks" in the other. Flag ordering mismatches. - **Shared-concept naming:** Shared concepts should use the SAME heading name in both sections (e.g. both say "### Trigger Rule", not one saying "### Trigger Rule" and the other "### Fallback Rule"). Flag naming mismatches. - **Content parity:** If one section has a subsection (e.g. "Troubleshooting") that the other lacks, determine: is this inherently target-specific, or should the other section have an equivalent? Flag missing equivalents. - **Information density:** Approximate word count per shared subsection. If one uses 2x+ the words for the same concept, flag it. - **Unique-concept framing:** Unique subsections (inherent to one target) should be framed symmetrically — if Cursor has 2 subsections for its install mechanism (One-Click Install + What the Deeplink Does), Claude Code should have a comparable number for its install mechanism (Plugin + Direct Installer), not 3 or 1.
-   If the task edits one parallel section, the exploration report must document whether the sibling section needs matching updates or justify the asymmetry.
-   5c. **Document structure validation** — verify that the document's actual heading order in the body matches the Table of Contents. Parse both and compare. Flag any section that appears in the ToC but not in the body (or vice versa), and any ordering mismatch. If the task's Change Specification would exacerbate or leave an existing structural mismatch, add a "reorder" change to the specification.
-   5d. **Scope-adjacent consistency scan** — for every concept modified in the target section (package names, commands, version references, phase references, component names), grep the ENTIRE document — not just the target section. Flag any occurrence outside the target that is stale, inconsistent, or contradicted by the change. Additionally, check for **intra-document description consistency**: when the same mechanism or behavior is described in two different sections of the document (e.g. "bootstrap merges artifacts" in one section, "scripts are re-copied on every bootstrap" in another), verify the descriptions agree. If they use different verbs for the same operation (e.g. "merged" vs "re-copied"), flag the discrepancy and decide which is accurate based on the codebase. Add findings to the exploration report as either "in-scope fix" (add a change to the spec) or "follow-up item" (report to user but don't expand scope).
-   5e. **Stale marker detection** — grep the full document for: "GAP", "TODO", "FIXME", "will be added", "future task". Also grep for "Phase X" references and cross-reference against `mvp-progress.md` to check if phase is done while text uses future tense. Report each as a finding. If any are in the target section, add a change to the spec. If outside, report as follow-up.
-6. **Audience analysis** — who reads this document? Classify as: user-facing guide (installation, getting started — task-oriented, concise), developer reference (implementation spec, project plan — precise, detailed), or mixed. Is the level of detail appropriate for the audience? Are there assumptions about reader knowledge that should be explicit? Record the target audience and any mismatches.
-   6b. **Information placement review** — for each subsection in the target section, ask: "Does this content serve the document's stated audience?" For user-facing guides: flag subsections that explain internal implementation details when the reader only needs to know what to do (candidates for relocation to a developer reference, replaced by a one-sentence summary and a link). For developer references: flag step-by-step user instructions that belong in a user guide. For each flagged subsection, decide: relocate (add to scope if user chooses expanded scope), simplify for the audience, or keep as-is with justification.
-7. **Writing quality baseline** — assess: passive voice frequency, sentence length variance (monotonous vs varied), paragraph cohesion (one idea per paragraph, smooth transitions), heading hierarchy (consistent nesting), formatting consistency (bullet style, code block usage). Record the baseline.
-8. **Gap identification** — what SHOULD be in this document but is not? Compare against: the stated purpose, the structure of well-regarded documentation for similar projects, what questions a reader would have after reading. Record each gap with its importance (critical / nice-to-have).
+1. Read the `aic-documentation-writer` skill files: `.cursor/skills/aic-documentation-writer/SKILL.md` and `.cursor/skills/aic-documentation-writer/SKILL-dimensions.md`.
+2. Follow Phase 1 (sections 1a through 1e) in `SKILL.md`:
+   - Pre-read the target document, all sibling documents in `documentation/`, and the skill's dimension templates
+   - Spawn 4 explorers in parallel using the templates from `SKILL-dimensions.md`:
+     - Explorer 1 — Factual accuracy: cross-references every technical claim against the codebase
+     - Explorer 2 — Structure + consistency: parallel sections, mirror documents, cross-doc terms, stale markers
+     - Explorer 3 — Audience + writing quality baseline: audience classification, tone profile, quality metrics
+     - Explorer 4 — Completeness + gaps: coverage analysis, cross-reference map, gap identification
+   - Collect and merge explorer findings (1c)
+   - Run gap check (1d) and evidence density check (1e)
+3. Use all explorer findings to populate the documentation-specific Exploration Report fields (see Exploration Report additions below).
 
-**Batch B — after Batch A completes:**
+**What the explorers cover (mapping to the previous items 1-12):**
 
-9. **If Batch A reveals the document needs deep investigation** (many inaccuracies, fundamental structural problems, or significant gaps), delegate to the `aic-researcher` skill's documentation analysis protocol BEFORE proceeding. Read `.cursor/skills/aic-researcher/SKILL.md` and run the full protocol. Use the research document's findings to inform the change specification.
-10. **Build the cross-reference map** — which other documents reference this one (grep for the filename), and which documents does this one reference (grep for links and mentions). For each cross-reference, verify it is valid and consistent.
-11. **Cross-documentation term ripple scan** — for every term, command, package name, file path, or reference that the Change Specification replaces (old value → new value), grep ALL files in `documentation/` for the OLD value. This catches stale references in documents outside the task's explicit scope (e.g. replacing `@aic/mcp` with `@jatbas/aic` in `installation.md` but missing the same stale `@aic/mcp` in `security.md`). For each match found outside the task's files, classify as: "non-historical" (current description that should use the new value — add to scope expansion tiers) or "historical" (daily log entry, task description, or changelog entry that correctly documents what existed at the time — leave as-is). Record in the CROSS-DOCUMENTATION TERM RIPPLE section of the Exploration Report.
-12. **Mirror document family detection** — check if the target document has a structural sibling: another document in `documentation/` that covers the same topic for a different subject (e.g. `cursor-integration-layer.md` and `claude-code-integration-layer.md` both describe editor integration layers; a future `windsurf-integration-layer.md` would join the same family). Detection heuristics:
-    - File names that share a suffix but differ by a subject prefix (e.g. `cursor-X.md` / `claude-code-X.md`)
-    - Documents with the same section numbering pattern and highly overlapping heading names
-    - Documents explicitly cross-referenced as "the [other-editor] equivalent"
+| Explorer                             | Covers previous items                                                                                                                                                        |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Explorer 1 (factual accuracy)        | Items 3, 3b (cross-reference against codebase, uncertain claim escalation)                                                                                                   |
+| Explorer 2 (structure + consistency) | Items 5, 5b, 5c, 5d, 5e, 11, 12 (structural analysis, parallel sections, ToC validation, scope-adjacent consistency, stale markers, cross-doc term ripple, mirror documents) |
+| Explorer 3 (audience + quality)      | Items 1 (partial), 6, 6b, 7 (document reading for tone, audience analysis, information placement, writing quality baseline)                                                  |
+| Explorer 4 (completeness + gaps)     | Items 2 (partial), 4, 8, 10 (sibling doc terminology index, completeness analysis, gap identification, cross-reference map)                                                  |
 
-    If a mirror sibling exists:
-    - **Read the sibling document fully** (add to Batch A pre-reads).
-    - **Compare section structure:** List every `##` and `###` heading in both documents side by side. Flag: missing sections (present in one, absent in the other), different section numbers for the same concept, different heading names for equivalent content, different section ordering.
-    - **Compare depth:** For each pair of corresponding sections, approximate word count. Flag sections where one is 2x+ longer than its counterpart for equivalent content.
-    - **Record in the Exploration Report** under a new MIRROR DOCUMENT ANALYSIS section.
-    - **Scope expansion:** If the task edits the target document and the mirror sibling has structural divergences, include the sibling in the scope expansion tiers (Recommended tier: align structure; Comprehensive tier: align structure + depth + content parity).
-
-    If no mirror sibling exists, record "No mirror document family detected" and skip.
+**Deep investigation escalation:** If explorer findings reveal the document needs deep investigation (many inaccuracies, fundamental structural problems, or significant gaps), delegate to the `aic-researcher` skill's documentation analysis protocol BEFORE proceeding to Phase 2. This replaces the previous item 9.
 
 ### Exploration Report additions
 
@@ -817,24 +805,24 @@ STALE MARKERS:
 
 UNCERTAIN CLAIMS:
 - [claim] — [reason for uncertainty] — [resolution: investigated inline / delegated to researcher / flagged as blocker]
-(list all claims from item 3b that could not be definitively confirmed)
+(list all claims from Explorer 1 that could not be definitively confirmed)
 
 INFORMATION PLACEMENT:
 - [subsection] — [audience mismatch: implementation detail in user guide / user instruction in dev reference] — [action: relocate / simplify / keep with justification]
-(list all findings from item 6b)
+(list all findings from Explorer 3 — audience + writing quality baseline)
 
 CROSS-DOCUMENTATION TERM RIPPLE:
 - [old term] → [new term]: grep `documentation/` for old term
   - [file:line] — NON-HISTORICAL (add to scope) / HISTORICAL (leave as-is) — [context]
 - Or: No cross-doc ripple — all replaced terms are unique to the target document.
-(from item 11)
+(from Explorer 2 — structure + consistency)
 
 MIRROR DOCUMENT ANALYSIS:
 - Mirror sibling: [path] or "No mirror document family detected"
 - Section alignment: [heading-by-heading comparison — ALIGNED / MISSING IN TARGET / MISSING IN SIBLING / DIFFERENT NAME / DIFFERENT ORDER]
 - Depth comparison: [section] — target ~N words, sibling ~M words — BALANCED / IMBALANCED (2x+)
 - Recommendation: [align structure in this task / propose follow-up task for sibling / no action needed]
-(from item 11)
+(from Explorer 2 — structure + consistency)
 ```
 
 ### Task file format (replaces Interface/Signature and Dependent Types)
@@ -867,11 +855,13 @@ For each section to edit, provide:
 
 Every change must have all three parts: current text (so the executor can locate it), rationale (so the executor understands why), and target text (so the executor does not need to make writing decisions).
 
+**Target text production:** After Phase 1 exploration completes and the user approves the Exploration Report (checkpoint A.5), run the documentation-writer skill's Phase 2 (Synthesis + Write) and Phase 3 (Adversarial Review) to produce the target text. Read `.cursor/skills/aic-documentation-writer/SKILL.md` sections 2a-2d and 3a-3f. The reviewed target text becomes the Change Specification. The planner wraps it in the task file template (Steps, Files table, Writing Standards, Cross-Reference Map, acceptance criteria).
+
 **Line-break preservation:** Target text must match the source document's line-break structure. If the source uses single-line sentences in a section, keep them single-line; if it uses wrapped paragraphs, preserve that pattern. Do not introduce artificial line breaks at a fixed column width.
 
 **ToC update rule:** If any change adds, removes, or renames a heading, and the document has a Table of Contents, the Change Specification MUST include a dedicated change (or a sub-step within the relevant change) that updates the ToC to match. The ToC change must list both the current ToC text and the target ToC text. Never assume the executor will notice a ToC needs updating — make it explicit.
 
-**Writing Standards** (replaces Dependent Types):
+**Writing Standards** (replaces Dependent Types — see also `.cursor/skills/aic-documentation-writer/SKILL-standards.md` for the full reference):
 
 ```markdown
 ## Writing Standards
@@ -903,21 +893,36 @@ Every change must have all three parts: current text (so the executor can locate
 
 Before proceeding to verification, scan the Change Specification target text for temporal references. Grep all target text blocks for: phase names ("Phase [A-Z]"), task identifiers ("[A-Z][0-9]{2}:"), temporal phrases ("will be added", "in the next", "recently", "upcoming", "future task"). Rewrite any found to use timeless capability descriptions. This ensures the planner's own output does not introduce the staleness it was designed to detect.
 
-### Verification (C.5 equivalent)
+### Verification (C.5 equivalent) — delegated to documentation-writer skill Phase 3
+
+Instead of running a single writing quality subagent (the previous check F), the planner delegates verification to the `aic-documentation-writer` skill's Phase 3 (Adversarial Review). This spawns 3-4 parallel critics — each with zero prior context — for editorial quality, factual re-verification, cross-doc consistency, and reader simulation.
+
+**How to run Phase 3:**
+
+1. Read `.cursor/skills/aic-documentation-writer/SKILL.md` (Phase 3 sections 3a through 3f).
+2. Read `.cursor/skills/aic-documentation-writer/SKILL-dimensions.md` (critic prompt templates).
+3. Spawn 3-4 critics in parallel using the templates:
+   - Critic 1 — Editorial quality: voice/tone match, sentence variety, paragraph cohesion, parallel section symmetry
+   - Critic 2 — Factual re-verification: independently re-verifies every technical claim (double-blind, not anchored by Explorer 1)
+   - Critic 3 — Cross-document consistency: independently checks terminology alignment across sibling docs
+   - Critic 4 — Reader simulation (conditional — user-facing docs only): first-time reader walkthrough
+4. Evaluate critic outputs (3d), run double-blind factual reconciliation (3e), apply backward feedback loop if needed (3f).
+
+**In addition to Phase 3, the following mechanical checks still apply:**
 
 | Check                              | What it verifies                                    | Method                                               |
 | ---------------------------------- | --------------------------------------------------- | ---------------------------------------------------- |
-| A. Factual accuracy                | Every technical claim matches the codebase          | Grep for each interface, type, file path, ADR cited  |
-| B. Cross-document consistency      | Terminology matches across all docs                 | Grep sibling docs for each key term; flag divergence |
+| A. Factual accuracy                | Every technical claim matches the codebase          | Covered by Critic 2 (factual re-verification)        |
+| B. Cross-document consistency      | Terminology matches across all docs                 | Covered by Critic 3 (cross-doc consistency)          |
 | C. Link validity                   | All internal references resolve                     | Glob for every linked path                           |
 | D. No stale content                | Nothing refers to removed/renamed code              | Grep codebase for each code artifact mentioned       |
 | E. Structural coherence            | Heading hierarchy consistent, no orphan sections    | Grep for heading patterns, verify nesting            |
-| F. Writing quality                 | Tone matches, varied sentences, cohesive paragraphs | Adversarial review subagent (judgment-based)         |
+| F. Writing quality                 | Tone matches, varied sentences, cohesive paragraphs | Covered by Critic 1 (editorial quality)              |
 | G. Completeness                    | All required topics covered per gap analysis        | Cross-check against exploration's gap identification |
 | H. Change specification compliance | Every specified change was applied                  | Diff target text against actual document text        |
 | I. Cross-doc term ripple coverage  | No stale old terms remain in non-historical docs    | Grep `documentation/` for each old term replaced     |
 
-Checks A-E, G-I are mechanical (grep/glob). Check F is judgment-based — spawn a `generalPurpose` subagent to read the full document and report writing quality issues.
+Checks A, B, and F are now covered by the documentation-writer's critics (stronger than a single subagent). Checks C-E, G-I remain mechanical (grep/glob) and are run by the planner directly.
 
 ### Mechanical review scoring
 
@@ -933,15 +938,14 @@ Score each check 0 (fail) or 1 (pass):
 8. Change specification compliance (check H)
 9. Cross-doc term ripple coverage (check I)
 
-Target: 9/9 (100%). Fix every failing check before finalizing.
+Target: 9/9 (100%). Fix every failing check before finalizing. Checks A, B, and F are scored based on the documentation-writer's critic outputs (Critic 2, Critic 3, Critic 1 respectively). Checks C-E, G-I are scored based on mechanical grep/glob results.
 
 ### Step granularity
 
 - Step 1: Apply changes — one step per document (maximum 1 file per step applies). If the task edits multiple documents, each gets its own step.
-- Step 2: Factual verification — grep codebase for every technical claim in the edited sections.
-- Step 3: Consistency verification — grep sibling docs for terminology alignment.
-- Step 4: Writing quality review — spawn subagent for writing quality assessment. Fix issues.
-- Final step: Final verification — all 8 checks pass.
+- Step 2: Run documentation-writer Phase 3 (adversarial review) — spawn 3-4 critics per the skill's protocol. Fix issues.
+- Step 3: Mechanical verification — run checks C-E, G-I from the verification table. Fix failures.
+- Final step: Final verification — all checks pass (A, B, F covered by critics; C-E, G-I by mechanical checks).
 
 ### When to delegate to the researcher skill
 
@@ -950,33 +954,36 @@ During documentation planning, the planner auto-delegates to the `aic-researcher
 - The task is "analyze document X for problems" — this IS research (documentation analysis classification)
 - The task involves cross-referencing against external standards or best practices — technology evaluation classification
 - The task requires understanding how code actually works before documenting it — codebase analysis classification
-- The planner's exploration (Batch A) reveals deep issues that its checklist cannot resolve
+- Explorer findings from Phase 1 reveal deep issues that the documentation-writer's pipeline cannot resolve (3+ UNCERTAIN claims from Explorer 1, fundamental structural problems from Explorer 2)
 
-The planner does NOT delegate when:
+The planner does NOT delegate to the researcher when:
 
 - The change is mechanical (update a status, add a row, fix a typo)
-- The planner's own exploration already found the correct content
+- The documentation-writer's explorers already found the correct content
 - The task is purely structural (reorder sections, fix heading hierarchy)
+
+**Note:** The documentation-writer skill itself can escalate to the researcher skill when Explorer 1 finds 3+ UNCERTAIN claims. This is built into the documentation-writer's Phase 1 (see `SKILL.md` section 1b, Explorer 1 template).
 
 ### Auto-mode resilience for documentation tasks
 
-Documentation tasks are where auto-mode struggles most compared to Opus — writing quality, nuanced analysis, and cross-document consistency require the kind of holistic reasoning that cheaper models lack. The documentation recipe compensates through:
+Documentation tasks are where auto-mode struggles most compared to Opus — writing quality, nuanced analysis, and cross-document consistency require the kind of holistic reasoning that cheaper models lack. The documentation recipe compensates by delegating to the `aic-documentation-writer` skill, which provides a multi-agent pipeline that surpasses single-model quality.
 
-1. **Explicit writing standards** — the task file specifies tone, audience, terminology, and formatting. The executor follows rules instead of making judgment calls.
-2. **Target text in change specifications** — the planner writes the actual words. The executor applies them. This moves the writing burden to the planning phase where the multi-agent protocol ensures quality.
-3. **Three post-write verification subagents in the executor** — writing quality, factual accuracy, and consistency are each checked by a focused subagent. This catches issues that a single auto-mode pass would miss.
-4. **Adversarial writing review** — the writing quality subagent is explicitly tasked with finding problems, not confirming quality. It checks: tone match, sentence variety, paragraph cohesion, detail consistency, ambiguous references, heading hierarchy.
-5. **Research delegation for deep analysis** — when the planner detects the documentation task needs genuine investigation (not just editing), it delegates to the full research protocol. This ensures the content is well-researched before being written.
+**How the documentation-writer skill surpasses Opus:**
 
-6. **Parallel section detection** — the exploration checklist (5b) forces the planner to identify and compare sibling sections. Auto-mode models miss structural asymmetry; the explicit density comparison and content parity check catch it mechanically.
-7. **Scope-adjacent and stale marker sweeps** — items 5d and 5e grep the full document for problems that auto-mode's narrow attention window misses. The full-document scan compensates for the model's tendency to focus only on the immediate task target.
-8. **Reader simulation subagent in the executor** — a dedicated verification subagent walks through the document as a first-time reader, catching ambiguity and assumed knowledge that analytical checks miss. This is the final safety net for user-facing documents.
-9. **Scope expansion recommendation** — the planner presents 3 scope tiers to the user after exploration, preventing under-scoping (auto-mode applies the change too narrowly) and over-scoping (model makes unnecessary changes).
+1. **4 parallel explorers during analysis** — instead of a single agent doing all exploration items, 4 specialized subagents each investigate one dimension in depth. This provides broader coverage AND deeper analysis per dimension than a single Opus pass.
+2. **Producer-critic separation** — the writing agent and review agents are different agents. Opus self-evaluates (anchoring bias); the documentation-writer's critics have zero sunk cost in the draft.
+3. **Double-blind factual verification** — Explorer 1 verifies facts during analysis, then Critic 2 independently re-verifies during review. Two passes catch more errors than one careful pass. Disagreement triggers investigation.
+4. **3-4 adversarial critics** — editorial quality, factual re-verification, cross-doc consistency, and reader simulation are each checked by a focused critic with zero prior context. Opus checks all dimensions in one pass with full anchoring on its own reasoning.
+5. **Backward feedback loops** — when critics find issues, the target text is revised and re-checked. Opus cannot iterate on its own output in a single pass.
+6. **Reader simulation agent** — a fresh agent with zero project knowledge reads as a first-time user. Opus has to pretend it does not know things it does — the reader simulation agent genuinely does not know.
+7. **Explicit tone profile** — Explorer 3 builds a tone profile that the writing agent follows as rules. Auto-mode models calibrate tone by feel (unreliable); rules are reproducible.
 
-10. **Content format conventions in the executor** — explicit rules for how definitions (table, not inline), comparisons (table), procedures (numbered list), and new sections (must update ToC, must follow document flow for placement) are formatted. Auto-mode models default to the easiest format (inline paragraph); these rules force the correct format mechanically.
-11. **Mirror document family detection** — item 11 in the exploration checklist identifies sibling documents that cover the same topic for different subjects (e.g. cursor vs claude code integration layers). Auto-mode models never look beyond the target file; this forces cross-document structural comparison and scope expansion when divergences are found.
-12. **Parallel section shared-concept enforcement** — the strengthened 5b check requires heading-by-heading inventory, ordering verification, naming consistency, and density comparison. Auto-mode models notice parallel sections exist but miss ordering mismatches and naming inconsistencies; the explicit checklist catches them mechanically.
-13. **Cross-documentation term ripple scan** — item 11 in Batch B greps ALL documentation files for old terms being replaced, catching stale references in documents outside the task scope. Auto-mode models focus on the target file and miss project-wide terminology drift; the explicit grep compensates.
-14. **Intra-document description consistency** — the strengthened 5d check compares descriptions of the same mechanism across different sections of the same document. Auto-mode models process sections independently and miss contradictions between them (e.g. one section saying "merged" and another saying "re-copied" for the same operation).
+**Additional structural protections (inherited from previous recipe):**
 
-The net effect: auto-mode produces documentation that reads as if Opus wrote it, because the multi-agent protocol handles the reasoning that auto-mode cannot do alone.
+8. **Explicit writing standards** — the task file specifies tone, audience, terminology, and formatting from `SKILL-standards.md`. The executor follows rules instead of making judgment calls.
+9. **Target text in change specifications** — the planner writes the actual words. The executor applies them. This moves the writing burden to the planning phase where the multi-agent protocol ensures quality.
+10. **Research delegation for deep analysis** — when explorer findings reveal deep issues, the planner delegates to the `aic-researcher` skill's documentation analysis protocol.
+11. **Scope expansion recommendation** — the planner presents 3 scope tiers to the user after exploration, preventing under-scoping and over-scoping.
+12. **Content format conventions** — explicit rules in `SKILL-standards.md` for definitions (table for 3+), comparisons (table), procedures (numbered list), and new sections (must update ToC).
+
+The net effect: auto-mode produces documentation that reads as if Opus wrote it, because the multi-agent pipeline handles the reasoning that auto-mode cannot do alone. The documentation-writer skill is the single source of truth — both planner and executor delegate to it, ensuring identical quality regardless of entry point.

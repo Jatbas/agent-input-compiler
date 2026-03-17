@@ -54,6 +54,7 @@ async function run(stdinStr) {
       projectRoot,
       conversationId,
       30000,
+      "session_start",
     );
     if (text == null) return null;
     fs.writeFileSync(markerPath, sessionId ?? "", "utf8");

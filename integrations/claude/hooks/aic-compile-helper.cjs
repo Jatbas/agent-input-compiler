@@ -9,7 +9,7 @@ const fs = require("fs");
 const path = require("path");
 
 // conversationId must be conversation-scoped (not session_id) for correct chat summary attribution.
-function callAicCompile(intent, projectRoot, conversationId, timeoutMs) {
+function callAicCompile(intent, projectRoot, conversationId, timeoutMs, triggerSource) {
   const timeout = timeoutMs || 25000;
   const serverPath = path.join(projectRoot, "mcp", "src", "server.ts");
   const args = fs.existsSync(serverPath) ? ["tsx", serverPath] : ["@jatbas/aic"];
@@ -57,6 +57,7 @@ function callAicCompile(intent, projectRoot, conversationId, timeoutMs) {
         projectRoot,
         editorId,
         ...(conversationId ? { conversationId } : {}),
+        ...(triggerSource ? { triggerSource } : {}),
       },
     },
   });

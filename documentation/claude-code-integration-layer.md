@@ -545,6 +545,15 @@ The target JSON payload merged into the `hooks` section of `~/.claude/settings.j
             "command": "node \"~/.claude/hooks/aic-block-no-verify.cjs\""
           }
         ]
+      },
+      {
+        "matcher": "mcp__.*__aic_compile",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"~/.claude/hooks/aic-inject-conversation-id.cjs\""
+          }
+        ]
       }
     ],
     "SessionEnd": [
@@ -651,7 +660,7 @@ With hooks active, the trigger rule becomes redundant — but it is kept because
 
 ---
 
-## 17. Verification checklist
+## 16. Verification checklist
 
 All of the following must be verified for the Claude Code integration to be complete:
 

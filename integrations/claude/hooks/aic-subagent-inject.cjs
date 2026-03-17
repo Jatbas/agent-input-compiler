@@ -26,7 +26,13 @@ async function run(stdinStr) {
         .replace(/<ide_selection>[\s\S]*?<\/ide_selection>/gi, "")
         .trim()
     : "provide context for " + agentType + " subagent";
-  const text = await callAicCompile(intent, projectRoot, conversationId, 30000);
+  const text = await callAicCompile(
+    intent,
+    projectRoot,
+    conversationId,
+    30000,
+    "subagent_start",
+  );
   if (text == null) return null;
   return {
     hookSpecificOutput: {

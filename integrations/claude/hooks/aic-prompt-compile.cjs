@@ -67,7 +67,13 @@ async function run(stdinStr) {
     }
   }
 
-  const promptContext = await callAicCompile(intent, projectRoot, conversationId, 30000);
+  const promptContext = await callAicCompile(
+    intent,
+    projectRoot,
+    conversationId,
+    30000,
+    "prompt_submit",
+  );
   if (promptContext == null) return null;
 
   if (invariantsBlock.length > 0) {

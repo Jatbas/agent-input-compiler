@@ -147,7 +147,7 @@ If this is NOT a documentation task, skip §3-doc and §4-doc. Proceed to §3 as
 
 ### 3-doc. Implement (documentation mode)
 
-**This section replaces §3 for documentation tasks.** Work through the Steps section in order, applying the documentation-specific workflow.
+**This section replaces §3 for documentation tasks.** Work through the Steps section in order, applying the documentation-specific workflow. The Change Specification's target text was already verified by the documentation-writer skill's multi-agent pipeline during planning (Phase 1 explorers + Phase 2 writing + Phase 3 critics). The executor applies these pre-verified edits and then runs a SECOND adversarial review pass (4-doc-a) with fresh critics.
 
 **Pre-write: internalize voice and context.**
 
@@ -161,7 +161,7 @@ Internalize: tone (formal/informal), sentence patterns, paragraph length, format
 
 **Content format conventions (mandatory for all documentation edits):**
 
-Before writing any new content, check these formatting rules. Violations cause 4-doc-c failures:
+These rules are also documented in `.cursor/skills/aic-documentation-writer/SKILL-standards.md` (the single source of truth for writing standards). Before writing any new content, check these formatting rules. Violations cause 4-doc-c failures:
 
 - **Definitions / glossaries:** 3+ terms being defined must use a table (columns: Term, Definition), under a proper heading (e.g. `## Glossary`). Never inline multiple definitions as a bold-text paragraph. 1-2 terms may be defined inline if contextually appropriate.
 - **Comparisons:** 2+ items being compared across multiple dimensions must use a table, not prose paragraphs.
@@ -187,71 +187,37 @@ Before writing any new content, check these formatting rules. Violations cause 4
 
 **This section replaces §4 for documentation tasks.** Run a verification pass using subagents and tool output as objective evidence.
 
-**4-doc-a — Spawn three verification subagents in parallel.**
+**4-doc-a — Run the documentation-writer skill's Phase 3 (Adversarial Review).**
 
-All three subagents receive: the path to the edited document, the paths to sibling documents, and the Change Specification from the task file.
+Instead of spawning subagents directly, delegate to the `aic-documentation-writer` skill's Phase 3. This provides the same verification (editorial quality, factual accuracy, cross-doc consistency, reader simulation) but from a single source of truth — the same protocol used during planning.
 
-**Subagent 1 — Writing quality** (`generalPurpose` subagent):
+**How to run Phase 3:**
 
-Prompt: "You are a writing quality reviewer. Read the document at [path]. For every section that was edited (see Change Specification below), check:
+1. Read `.cursor/skills/aic-documentation-writer/SKILL.md` (Phase 3 sections 3a through 3f).
+2. Read `.cursor/skills/aic-documentation-writer/SKILL-dimensions.md` (critic prompt templates).
+3. Spawn 3-4 critics in parallel using the templates. Each critic receives: the path to the edited document, the paths to sibling documents, and the Change Specification from the task file.
+   - **Critic 1 — Editorial quality** (`generalPurpose`): voice/tone match, sentence variety, paragraph cohesion, detail consistency, heading hierarchy, audience awareness, parallel section symmetry.
+   - **Critic 2 — Factual re-verification** (`explore`, `fast`): independently re-verifies every technical claim in the edited sections against the codebase. This is a SECOND independent factual check — the first was during planning.
+   - **Critic 3 — Cross-document consistency** (`explore`, `fast`): checks all key terms against sibling documents and mirror documents.
+   - **Critic 4 — Reader simulation** (`generalPurpose`, conditional): spawn ONLY for user-facing documents (installation guides, getting started docs, user-facing READMEs). Skip for developer references.
+4. Evaluate critic outputs per `SKILL.md` section 3d. Run double-blind factual reconciliation (3e) if the planner's Explorer 1 findings are available from the task's exploration report. Apply backward feedback loop (3f) if issues require target text revision.
 
-- Does the new text match the voice and tone of the surrounding text?
-- Is the sentence structure varied (not monotonous 'X does Y. Z does W. A does B.')?
-- Are paragraphs cohesive (one idea per paragraph, smooth transitions)?
-- Is the level of detail consistent with neighboring sections?
-- Are there ambiguous pronouns, dangling references, or undefined terms?
-- Does the heading hierarchy make sense?
-- **Audience awareness:** Identify the document's audience type (user-facing guide, developer reference, or mixed). Verify the edited text uses appropriate language and detail level for that audience. Flag user-facing text that dives into internal implementation details, or developer text that over-simplifies.
-- **Parallel section symmetry:** If the edited section has a structural sibling (a section describing the same concept for a different target — e.g. 'Cursor' and 'Claude Code' both describe editor installation), compare the edited section against its sibling. Check ALL of:
-  (a) Shared-concept ordering: subsections that exist in both (e.g. Trigger Rule, Hooks, Hook Lifecycle) must appear in the SAME ORDER.
-  (b) Shared-concept naming: same semantic concept must use the SAME heading name in both sections.
-  (c) Content parity: if one section has a subsection the other lacks, classify it as inherently target-specific or a gap.
-  (d) Information density: flag 2x+ word count differences for equivalent subsections.
-  (e) Unique-concept framing: unique subsections (inherent to one target) should be framed symmetrically in count and depth.
-  Report each issue with the exact line or paragraph where it occurs. If no issues, state 'No writing quality issues found.'"
+**Why this is stronger than the previous approach:** The documentation-writer's Phase 3 includes anti-agreement enforcement (3c), double-blind factual reconciliation (3e), and a backward feedback loop (3f) — mechanisms that the previous inline subagent prompts lacked. The critic prompt templates in `SKILL-dimensions.md` are also more detailed and structured than the previous inline prompts.
 
-**Subagent 2 — Factual accuracy** (`explore` subagent, `fast` model):
+**4-doc-b — Process critic results.**
 
-Prompt: "Read the document at [path]. For every technical claim in the edited sections — interface names, type names, file paths, ADR references, component descriptions, architecture claims — grep the codebase to verify. Report: '[claim] — [source file:line] — VERIFIED / NOT FOUND / CONTRADICTED'. Check every claim, not just a sample."
+Follow the documentation-writer skill's processing flow (SKILL.md section 3d). Read all critic outputs (3 or 4 depending on whether reader simulation was spawned). For each reported issue:
 
-**Subagent 3 — Cross-document consistency** (`explore` subagent, `fast` model):
-
-Prompt: "Read the document at [path] and the sibling documents at [paths]. For every key term, component name, status claim, and architecture description in the edited sections, check that the same term/concept is used consistently in the sibling documents. Report: '[term] — [this doc says X] vs [sibling doc says Y] — CONSISTENT / DIVERGENT'. If no divergence, state 'All terms consistent.'
-
-Additionally, if the task file mentions a mirror document (from `MIRROR DOCUMENT ANALYSIS` in the exploration report or from a Cross-Reference Map), read the mirror document and compare:
-
-- Section structure: do corresponding sections exist with matching heading names and order?
-- Content parity: are equivalent topics covered at comparable depth?
-  Report structural divergences as: '[section] — TARGET has [X] / MIRROR has [Y] — ALIGNED / DIVERGENT'."
-
-**Subagent 4 — Reader simulation** (`generalPurpose` subagent — spawn only for user-facing documents):
-
-Prompt: "You are a first-time reader of this document. You have never seen this project before. Read the document at [path] from top to bottom, mentally following every instruction as if you were actually performing the steps.
-
-For each instruction or section, report:
-
-- **Undefined terms:** Words or concepts used without prior definition or link to a definition. Example: 'Run the AIC server' when 'AIC server' has not been explained.
-- **Unclear prerequisites:** Steps that assume something is already done but the document doesn't say what. Example: 'Configure your editor' without saying what needs to be configured.
-- **Missing context:** Points where you would ask 'wait, what does this mean?' or 'how do I do that?' Example: a command shown without explaining what it does or what output to expect.
-- **Jargon without explanation:** Technical terms that a user installing the tool for the first time would not know. Example: 'MCP server', 'hooks', 'composition root' in a user-facing installation guide.
-- **Dead ends:** Points where the instructions stop but the user's task is not complete, or where an error could occur with no guidance on what to do.
-
-Focus on the edited sections (see Change Specification below) but also note issues in surrounding context that affect understanding of the edited sections. Report each finding with the exact sentence or paragraph. If the document is clear throughout, state 'No reader simulation issues found.'"
-
-Skip this subagent for developer-facing documents (implementation specs, project plans, architecture docs) — those assume reader expertise. Spawn it for: installation guides, getting started docs, user-facing READMEs, and any document whose stated audience includes non-developers or first-time users.
-
-**4-doc-b — Process subagent results.**
-
-Read all subagent outputs (3 or 4 depending on whether reader simulation was spawned). For each reported issue:
-
-- **Writing quality issues:** Fix them. Re-read the context around each fix to ensure the fix itself doesn't introduce new problems.
-- **Factual inaccuracies (NOT FOUND or CONTRADICTED):** Fix the document to match the codebase. If the codebase is wrong and the document is right, do NOT change the document — add this to the Blocked section instead.
-- **Consistency divergences:** Fix the edited document to align with the authoritative source. If the sibling document is wrong, note this as a follow-up item (do not edit sibling documents outside the task scope).
-- **Reader simulation findings (if subagent 4 was spawned):** For each finding: if it is in the edited section, fix it (add a definition, clarify a prerequisite, simplify jargon). If it is in surrounding context outside the task scope, note as a follow-up item.
+- **Editorial issues (Critic 1):** Fix them. Re-read the context around each fix to ensure the fix itself does not introduce new problems.
+- **Factual issues — NOT FOUND or CONTRADICTED (Critic 2):** Investigate by reading the source file. Fix the document to match the codebase. If the codebase is wrong and the document is right, do NOT change the document — add this to the Blocked section instead.
+- **Consistency divergences (Critic 3):** Fix the edited document to align with the authoritative source. If the sibling document is wrong, note this as a follow-up item (do not edit sibling documents outside the task scope).
+- **Reader simulation findings (Critic 4, if spawned):** For each finding: if it is in the edited section, fix it (add a definition, clarify a prerequisite, simplify jargon). If it is in surrounding context outside the task scope, note as a follow-up item.
+- **Anti-agreement check (SKILL.md section 3c):** If any critic reported zero issues on a substantial document, re-spawn with the strengthened adversarial mandate from `SKILL-dimensions.md`.
+- **Double-blind factual reconciliation (SKILL.md section 3e):** If the task's exploration report contains Explorer 1 findings, compare them against Critic 2's findings. Resolve any discrepancies per section 3e.
 
 **4-doc-c — Run mechanical verification.**
 
-After fixing all subagent-reported issues, run the mechanical checks:
+After fixing all critic-reported issues, run the mechanical checks:
 
 | Dimension                          | Tool check                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Evidence                                                                                                |
 | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
@@ -259,7 +225,7 @@ After fixing all subagent-reported issues, run the mechanical checks:
 | 2. Factual accuracy                | Re-run: grep codebase for every technical claim in edited sections                                                                                                                                                                                                                                                                                                                                                                                                   | List each claim — VERIFIED / NOT FOUND / CONTRADICTED                                                   |
 | 3. Cross-document consistency      | Re-run: grep sibling docs for key terms in edited sections                                                                                                                                                                                                                                                                                                                                                                                                           | List each term — CONSISTENT or DIVERGENT                                                                |
 | 4. Link validity                   | For every markdown link `[text](path)` in the document, Glob for the target                                                                                                                                                                                                                                                                                                                                                                                          | List each link — VALID or BROKEN                                                                        |
-| 5. Writing quality                 | Subagent 1 output — all issues resolved                                                                                                                                                                                                                                                                                                                                                                                                                              | List each issue — FIXED or ACCEPTED (with reason)                                                       |
+| 5. Writing quality                 | Critic 1 output — all issues resolved                                                                                                                                                                                                                                                                                                                                                                                                                                | List each issue — FIXED or ACCEPTED (with reason)                                                       |
 | 6. No regressions                  | `git diff` the document — verify only intended sections changed                                                                                                                                                                                                                                                                                                                                                                                                      | Diff shows only changes matching the Change Specification                                               |
 | 7. ToC-body structure match        | Parse the Table of Contents and body headings. Verify every ToC entry has a matching body heading and the order matches. Verify every body heading appears in the ToC. Flag mismatches. **This includes headings added by this task.**                                                                                                                                                                                                                               | List each ToC entry — MATCHES BODY / MISSING IN BODY / ORDER MISMATCH / MISSING IN TOC                  |
 | 8. Scope-adjacent consistency      | For every key concept in the edited sections (package names, commands, component names), grep the FULL document for other occurrences. Verify they are consistent with the edited text                                                                                                                                                                                                                                                                               | List each concept — [location outside target] — CONSISTENT / STALE / CONTRADICTED                       |
