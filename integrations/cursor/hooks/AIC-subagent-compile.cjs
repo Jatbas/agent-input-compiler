@@ -9,6 +9,8 @@ const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
+const { modelIdFromSubagentStartPayload } = require("./subagent-start-model-id.cjs");
+
 let hookInput = {};
 try {
   const raw = fs.readFileSync(0, "utf8");
@@ -36,6 +38,18 @@ const compileArgs = {
   triggerSource: "subagent_start",
 };
 if (conversationId) compileArgs.conversationId = conversationId;
+
+const mid = modelIdFromSubagentStartPayload(hookInput);
+if (mid !== null) {
+  compileArgs.modelId = mid;
+  try {
+    const cacheDir = path.join(projectRoot, ".aic");
+    fs.mkdirSync(cacheDir, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(path.join(cacheDir, ".claude-session-model"), mid, "utf8");
+  } catch {
+    // non-fatal
+  }
+}
 
 const initRequest = JSON.stringify({
   jsonrpc: "2.0",

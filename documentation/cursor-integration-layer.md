@@ -121,6 +121,7 @@ integrations/cursor/               ← SOURCE (authored here)
     AIC-stop-quality-check.cjs     # stop — ESLint + typecheck quality gate
     AIC-session-end.cjs            # sessionEnd — temp file cleanup + session telemetry
     AIC-subagent-compile.cjs       # subagentStart — aic_compile for compilation_log telemetry
+    subagent-start-model-id.cjs    # helper: subagent_model → modelId (deployed beside hooks)
   install.cjs                      # Installer: copies hooks, merges hooks.json
   hooks.json.template              # hooks.json template
 
@@ -469,6 +470,7 @@ The model then sees this as a new prompt, fixes the errors, and tries to stop ag
 
 - `input.task` → truncated to 200 chars as `intent` for `aic_compile` (or `"provide context for subagent"` when missing)
 - `input.parent_conversation_id` → passed as `conversationId` so the compile is attributed to the parent conversation
+- `input.subagent_model` → when valid (trimmed length 1–256, printable ASCII), passed as `modelId` on the `aic_compile` JSON-RPC `arguments` for `compilation_log.model_id`; also written to `.aic/.claude-session-model` like sessionStart
 
 **Purpose:** When a subagent (Task tool) is about to start, the hook calls `aic_compile` with `triggerSource: "subagent_start"` and the parent conversation ID. Cursor's subagentStart output schema does not support `additional_context`, so the hook does not inject context; it always returns `permission: "allow"`. The sole purpose is so `compilation_log` has one row per subagent start with valid token data for telemetry.
 

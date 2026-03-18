@@ -2,7 +2,7 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 89/94 done
+**Phase 1.0:** 90/95 done
 **Status:** W14 Release 0.7.0 complete — GitHub (tag, release) + npm (`@jatbas/aic-core`, `@jatbas/aic` via CI). Phase V benchmarks/demo/doc audit still pending.
 **Previous:** 0.2.0 (Quality Release) — Complete
 
@@ -88,6 +88,7 @@ Cursor exposes hooks AIC was not yet using: sessionEnd, preCompact (observationa
 | Documentation Cursor hooks update (Task 113)          | Done   | documentation/                              | —        | Correct capability tables in architecture, project-plan, future docs                                                                   |
 | postToolUse compile confirmation (Task 114)           | Done   | .cursor/hooks/ + mcp/                       | Optional | Inject `additional_context` confirmation after successful `aic_compile`                                                                |
 | subagentStart hook (Task 193)                         | Done   | integrations/cursor/                        | —        | aic_compile with trigger_source subagent_start for compilation_log telemetry                                                           |
+| subagentStart model_id (Task 196)                     | Done   | integrations/cursor/                        | Task 193 | subagent_model → aic_compile modelId; .claude-session-model; compile-handler Claude cache branch unchanged                             |
 | Hook-sourced model_id (Task 194)                      | Done   | integrations/cursor/ + integrations/claude/ | —        | Populate compilation_log.model_id from hooks; Claude .aic/.claude-session-model cache; Cursor sessionStart + preToolUse inject modelId |
 
 ### Phase CL — Cursor Clean-Layer Separation
@@ -462,6 +463,13 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 ---
 
 ## Daily Log
+
+### 2026-03-19
+
+**Components:** Task 196 Cursor subagent compilation_log model_id
+**Completed:**
+
+- Task 196 (subagentStart model_id): `subagent-start-model-id.cjs` validates `subagent_model` (trim, 1–256, printable ASCII); `AIC-subagent-compile.cjs` passes `modelId` and writes `.aic/.claude-session-model`; 12 hook scripts in manifest + install tests (`install_twelve_scripts`); `AIC-subagent-model-id.test.cjs` chained in `pnpm test`; `cursor-integration-layer.md` §7.10 documents `subagent_model` → `modelId`. `compile-handler.ts` audited — Claude cache branch retained, no broad Cursor cache. Lint, typecheck, test, knip, lint:clones 0.
 
 ### 2026-03-18
 

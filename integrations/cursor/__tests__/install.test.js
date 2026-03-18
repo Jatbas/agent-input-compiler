@@ -19,6 +19,7 @@ const AIC_SCRIPT_NAMES = [
   "AIC-after-file-edit-tracker.cjs",
   "AIC-session-end.cjs",
   "AIC-subagent-compile.cjs",
+  "subagent-start-model-id.cjs",
   "AIC-stop-quality-check.cjs",
 ];
 
@@ -44,7 +45,7 @@ function install_creates_all_artifacts() {
     const hooksDir = path.join(tmpDir, ".cursor", "hooks");
     assert(fs.existsSync(hooksDir), ".cursor/hooks exists");
     const names = fs.readdirSync(hooksDir);
-    assert(names.length === 11, "11 scripts in .cursor/hooks");
+    assert(names.length === 12, "12 scripts in .cursor/hooks");
     for (const name of AIC_SCRIPT_NAMES) {
       assert(names.includes(name), `script ${name} present`);
     }
@@ -69,6 +70,21 @@ function install_creates_all_artifacts() {
     const triggerContent = fs.readFileSync(triggerPath, "utf8");
     assert(triggerContent.includes(tmpDir), "AIC.mdc contains projectRoot");
     assert(/AIC rule version:\s*\S+/.test(triggerContent), "AIC.mdc contains version");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+function install_twelve_scripts() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-install-twelve-"));
+  try {
+    runInstaller(tmpDir);
+    const hooksDir = path.join(tmpDir, ".cursor", "hooks");
+    const names = fs.readdirSync(hooksDir);
+    assert(names.length === 12, "12 scripts in .cursor/hooks");
+    for (const name of AIC_SCRIPT_NAMES) {
+      assert(names.includes(name), `script ${name} present`);
+    }
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
@@ -222,6 +238,7 @@ function install_keeps_workspace_aic_when_global_has_no_aic() {
 
 const tests = [
   ["install_creates_all_artifacts", install_creates_all_artifacts],
+  ["install_twelve_scripts", install_twelve_scripts],
   ["install_idempotent", install_idempotent],
   ["install_merges_hooks_json", install_merges_hooks_json],
   ["install_removes_stale_scripts", install_removes_stale_scripts],

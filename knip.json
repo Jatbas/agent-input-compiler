@@ -15,6 +15,7 @@
     "integrations/cursor/__tests__/uninstall-drift.test.cjs",
     "integrations/cursor/__tests__/AIC-require-aic-compile.test.cjs",
     "integrations/cursor/__tests__/AIC-inject-conversation-id.test.cjs",
+    "integrations/cursor/__tests__/AIC-subagent-model-id.test.cjs",
     "integrations/claude/hooks/**",
     "integrations/claude/plugin/**",
     "integrations/claude/__tests__/**",
