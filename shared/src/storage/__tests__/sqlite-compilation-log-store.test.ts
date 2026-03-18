@@ -169,8 +169,8 @@ describe("SqliteCompilationLogStore", () => {
     ).run(sid, "2026-02-28T12:00:00.000Z", null, null, 1, "0.2.0", 1, "");
     const configHash = "abc123def456";
     db.prepare(
-      "INSERT INTO config_history (config_hash, config_json, created_at) VALUES (?, ?, ?)",
-    ).run(configHash, "{}", "2026-02-28T12:00:00.000Z");
+      "INSERT INTO config_history (project_id, config_hash, config_json, created_at) VALUES (?, ?, ?, ?)",
+    ).run(TEST_PROJECT_ID, configHash, "{}", "2026-02-28T12:00:00.000Z");
     const entry: CompilationLogEntry = {
       id: toUUIDv7("00000000-0000-7000-8000-000000000003"),
       intent: "test",

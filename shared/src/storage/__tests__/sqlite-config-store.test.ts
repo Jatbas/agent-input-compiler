@@ -102,4 +102,32 @@ describe("SqliteConfigStore", () => {
     expect(storeA.getLatestHash()).toBe("hash-a");
     expect(storeB.getLatestHash()).toBe("hash-b");
   });
+
+  it("same config hash for two projects keeps two rows", () => {
+    const { clock } = mockClock([
+      toISOTimestamp("2026-02-25T10:00:00.000Z"),
+      toISOTimestamp("2026-02-25T10:01:00.000Z"),
+    ]);
+    db = new Database(":memory:");
+    migration.up(db);
+    const projectIdA = toProjectId("018f0000-0000-7000-8000-000000000020");
+    const projectIdB = toProjectId("018f0000-0000-7000-8000-000000000021");
+    const sharedHash = "same-content-hash";
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(projectIdA, "/proj/a", "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z");
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(projectIdB, "/proj/b", "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z");
+    const storeA = new SqliteConfigStore(projectIdA, db, clock);
+    const storeB = new SqliteConfigStore(projectIdB, db, clock);
+    storeA.writeSnapshot(sharedHash, "{}");
+    storeB.writeSnapshot(sharedHash, "{}");
+    const count = db
+      .prepare("SELECT COUNT(*) as c FROM config_history WHERE config_hash = ?")
+      .get(sharedHash) as { c: number };
+    expect(count.c).toBe(2);
+    expect(storeA.getLatestHash()).toBe(sharedHash);
+    expect(storeB.getLatestHash()).toBe(sharedHash);
+  });
 });

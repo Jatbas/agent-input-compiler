@@ -35,10 +35,11 @@ export const migration: Migration = {
       );
 
       CREATE TABLE IF NOT EXISTS config_history (
-        config_hash TEXT PRIMARY KEY,
+        project_id  TEXT NOT NULL REFERENCES projects(project_id),
+        config_hash TEXT NOT NULL,
         config_json TEXT NOT NULL,
         created_at  TEXT NOT NULL,
-        project_id  TEXT REFERENCES projects(project_id)
+        PRIMARY KEY (project_id, config_hash)
       );
 
       CREATE TABLE IF NOT EXISTS compilation_log (
@@ -55,10 +56,11 @@ export const migration: Migration = {
         model_id       TEXT,
         created_at     TEXT NOT NULL,
         session_id     TEXT REFERENCES server_sessions(session_id),
-        config_hash    TEXT REFERENCES config_history(config_hash),
+        config_hash    TEXT,
         trigger_source TEXT,
         conversation_id TEXT,
-        project_id     TEXT REFERENCES projects(project_id)
+        project_id     TEXT NOT NULL REFERENCES projects(project_id),
+        FOREIGN KEY (project_id, config_hash) REFERENCES config_history(project_id, config_hash)
       );
 
       CREATE TABLE IF NOT EXISTS telemetry_events (
@@ -167,8 +169,6 @@ export const migration: Migration = {
         ON file_transform_cache(project_id);
       CREATE INDEX IF NOT EXISTS idx_tool_invocation_log_project_id
         ON tool_invocation_log(project_id);
-      CREATE INDEX IF NOT EXISTS idx_config_history_project_id
-        ON config_history(project_id);
     `);
   },
 

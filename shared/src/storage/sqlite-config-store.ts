@@ -27,8 +27,9 @@ export class SqliteConfigStore implements ConfigStore {
     const createdAt = this.clock.now();
     this.db
       .prepare(
-        "INSERT OR REPLACE INTO config_history (config_hash, config_json, created_at, project_id) VALUES (?, ?, ?, ?)",
+        "INSERT INTO config_history (project_id, config_hash, config_json, created_at) VALUES (?, ?, ?, ?) " +
+          "ON CONFLICT(project_id, config_hash) DO UPDATE SET config_json = excluded.config_json, created_at = excluded.created_at",
       )
-      .run(configHash, configJson, createdAt, this.projectId);
+      .run(this.projectId, configHash, configJson, createdAt);
   }
 }

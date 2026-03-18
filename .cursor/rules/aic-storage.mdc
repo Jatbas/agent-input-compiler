@@ -14,7 +14,7 @@ All entity primary keys use **UUIDv7** stored as `TEXT(36)`:
 
 - UUIDv7 is time-ordered (sorts chronologically), globally unique, and contains an embedded timestamp
 - Generate UUIDs via the `IdGenerator` interface (injected, not imported directly)
-- Exception: `config_history` uses SHA-256 content hash as PK (content-addressed by design)
+- Exception: `config_history` uses composite PK `(project_id, config_hash)` with SHA-256 `config_hash`
 - Never use `INTEGER AUTOINCREMENT` for entity tables
 
 All timestamps use the format **`YYYY-MM-DDTHH:mm:ss.sssZ`** (UTC, milliseconds, trailing `Z`):
@@ -76,7 +76,7 @@ Creating a new adapter:
 - Schema change + migration file = **same commit** — never one without the other
 - `MigrationRunner` applies pending migrations on startup in ID order
 - Never edit a migration that has been merged — create a new one
-- All tables use UUIDv7 text PKs (except content-addressed tables like `config_history`)
+- All tables use UUIDv7 text PKs except `config_history` (composite `(project_id, config_hash)`)
 - `down()` is required but best-effort for MVP (full rollback in Phase 1)
 - See Project Plan §19 for table descriptions; authoritative DDL lives in `shared/src/storage/migrations/001-initial-schema.ts`
 

@@ -6,7 +6,11 @@ import Database from "better-sqlite3";
 import { AicError } from "@jatbas/aic-core/core/errors/aic-error.js";
 import type { GuardFinding } from "@jatbas/aic-core/core/types/guard-types.js";
 import type { UUIDv7 } from "@jatbas/aic-core/core/types/identifiers.js";
-import { toUUIDv7, toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import {
+  toUUIDv7,
+  toISOTimestamp,
+  toProjectId,
+} from "@jatbas/aic-core/core/types/identifiers.js";
 import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toLineNumber } from "@jatbas/aic-core/core/types/units.js";
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
@@ -71,12 +75,22 @@ describe("SqliteGuardStore", () => {
     return new SqliteGuardStore(db, idGen, clock);
   }
 
+  const guardTestProjectId = toProjectId("018f0000-0000-7000-8000-000000000088");
+
   function ensureCompilationExists(compilationId: string): void {
+    db.prepare(
+      "INSERT OR IGNORE INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(
+      guardTestProjectId,
+      "/g",
+      "2026-01-01T00:00:00.000Z",
+      "2026-01-01T00:00:00.000Z",
+    );
     db.prepare(
       `INSERT OR IGNORE INTO compilation_log (
         id, intent, task_class, files_selected, files_total, tokens_raw, tokens_compiled,
-        cache_hit, duration_ms, editor_id, model_id, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        cache_hit, duration_ms, editor_id, model_id, created_at, project_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       compilationId,
       "intent",
@@ -90,6 +104,7 @@ describe("SqliteGuardStore", () => {
       "generic",
       null,
       "2026-02-25T10:00:00.000Z",
+      guardTestProjectId,
     );
   }
 

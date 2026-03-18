@@ -8,19 +8,24 @@ import {
   toUUIDv7,
   toISOTimestamp,
   toRepoId,
+  toProjectId,
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import { INCLUSION_TIER } from "@jatbas/aic-core/core/types/enums.js";
 import { migration } from "../migrations/001-consolidated-schema.js";
 import { SqliteTelemetryStore } from "../sqlite-telemetry-store.js";
 
 const COMPILATION_ID = "018c3d4e-0000-7000-8000-000000000100";
+const TEST_PROJECT_ID = toProjectId("018f0000-0000-7000-8000-000000000099");
 
 function insertCompilationLog(db: Database.Database, id: string): void {
   db.prepare(
+    "INSERT OR IGNORE INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+  ).run(TEST_PROJECT_ID, "/test", "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z");
+  db.prepare(
     `INSERT INTO compilation_log (
       id, intent, task_class, files_selected, files_total, tokens_raw, tokens_compiled,
-      cache_hit, duration_ms, editor_id, model_id, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      cache_hit, duration_ms, editor_id, model_id, created_at, project_id
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     "test",
@@ -34,6 +39,7 @@ function insertCompilationLog(db: Database.Database, id: string): void {
     "generic",
     "gpt-4",
     "2026-02-25T10:00:00.000Z",
+    TEST_PROJECT_ID,
   );
 }
 

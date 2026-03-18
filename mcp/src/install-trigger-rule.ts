@@ -82,7 +82,7 @@ You do **not** need to call \`aic_compile\` manually — hooks handle it. If you
 - **Comments:** \`//\` style only — \`/* */\` and \`/** */\` block comments are banned by ESLint. One short line max, explain _why_ not _what_. No JSDoc. No narrating comments.
 - **Branded types (ADR-010):** Use types from \`shared/src/core/types/\` — never raw \`string\`/\`number\` for domain values. \`AbsolutePath\`, \`TokenCount\`, \`Milliseconds\`, \`Percentage\`, \`ISOTimestamp\`, \`TaskClass\`, \`EditorId\`, \`InclusionTier\`, etc. \`as const\` objects for enums, not TypeScript \`enum\`. Null convention: \`Type | null\` = checked absent, \`?: Type\` = optional.
 - **Validation boundary (ADR-009):** Runtime validation at MCP handler and config loader only. Core/pipeline never imports the validation library. After validation, produce branded types via constructor functions (\`toTokenCount()\`, \`toAbsolutePath()\`, etc.).
-- **IDs:** All entity PKs use UUIDv7 (\`TEXT(36)\` in SQLite). Never \`INTEGER AUTOINCREMENT\`. Exception: \`config_history\` uses SHA-256 content hash.
+- **IDs:** All entity PKs use UUIDv7 (\`TEXT(36)\` in SQLite). Never \`INTEGER AUTOINCREMENT\`. Exception: \`config_history\` uses composite PK (project_id, config_hash).
 - **Timestamps:** Always \`YYYY-MM-DDTHH:mm:ss.sssZ\` (UTC, ms, \`Z\`). Use \`Clock\` interface and \`ISOTimestamp\` branded type. Never \`new Date()\` directly.
 - **Database:** All SQL lives exclusively in \`shared/src/storage/\`. Every schema change requires a migration in \`shared/src/storage/migrations/\` (\`NNN-description.ts\`). Schema change + migration = same commit. Never edit a merged migration. Never run raw DDL outside the \`MigrationRunner\`.
 
