@@ -7,6 +7,30 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-03-18
+
+### Added
+
+- Cursor `subagentStart` hook: calls `aic_compile` with `trigger_source` subagent_start for subagent telemetry
+- Hook-sourced `model_id` for `compilation_log`: Cursor passes model from hook input; Claude uses optional sixth arg or cache under `~/.aic`
+- `trigger_source` on compilations from hooks (`session_start`, `prompt_submit`, `subagent_start`)
+- Uninstall scripts for Cursor (`integrations/cursor/uninstall.cjs`) and Claude Code (`integrations/claude/uninstall.cjs`) plus installation docs
+
+### Changed
+
+- MCP bootstrap: workspace folders initialized on first compile per root (removed symlink-based dev bootstrap); cleaner batch shutdown
+- Claude Code installer: global-only `~/.claude/hooks` and settings merge aligned with Cursor (idempotent copies, stale hook cleanup, version-stamped CLAUDE.md)
+- Documentation: installation guide, Cursor and Claude integration layer references, global DB and project_id (W13)
+
+### Fixed
+
+- Claude hooks: SessionStart lock to avoid triple fire; `conversation_id` from transcript path; prompt / subagent intent handling; global settings merge preserves non-AIC keys and deduplicates AIC hook blocks
+- Cursor: preToolUse deny-once behavior; `.env` dev mode; dynamic project root in compile flow
+- Editor detection: `cursor-claude-code` when Cursor project dir is set with Claude Code client
+- `conversation_id` and `editor_id` forwarded consistently into `aic_compile` (including PreToolUse inject path)
+- npm update check: Content-Type and strict packument contract; response body capped at 100 KB
+- Server tests stub registry fetch so update checks do not flake
+
 ## [0.6.9] - 2026-03-13
 
 ### Changed

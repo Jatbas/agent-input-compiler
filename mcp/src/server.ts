@@ -156,12 +156,16 @@ function readPackageVersion(): { packageName: string; packageVersion: string } {
   }
 }
 
+export type BatchExitRef = { stdinEnded: boolean; pendingToolCalls: number };
+
 export function createMcpServer(
   projectRoot: AbsolutePath,
   db: ExecutableDb,
   clock: Clock,
   additionalProviders?: readonly LanguageProvider[],
+  batchExitRef?: BatchExitRef,
 ): McpServer & { close(): Promise<void>; getEditorId(): EditorId } {
+  const batchExit = batchExitRef;
   const normaliser = new NodePathAdapter();
   const registry = new ScopeRegistry(normaliser, db, clock);
   const startupScope = registry.getOrCreate(projectRoot);
@@ -374,24 +378,37 @@ export function createMcpServer(
       },
     };
   };
+  const compileHandler = createCompileHandler(
+    (projectRootArg: AbsolutePath) => registry.getOrCreate(projectRootArg),
+    getRunner,
+    sha256Adapter,
+    getSessionId,
+    getEditorId,
+    getModelId,
+    configModelId,
+    installScopeWarnings,
+    configLoader,
+    setLastConversationId,
+    getUpdateMessage,
+    getConfigUpgraded,
+  );
+  const aicCompileHandler =
+    batchExit !== undefined
+      ? async (...handlerArgs: Parameters<typeof compileHandler>) => {
+          batchExit.pendingToolCalls += 1;
+          try {
+            return await compileHandler(...handlerArgs);
+          } finally {
+            batchExit.pendingToolCalls -= 1;
+            if (batchExit.stdinEnded && batchExit.pendingToolCalls === 0) process.exit(0);
+          }
+        }
+      : compileHandler;
   server.tool(
     "aic_compile",
     "Compile intent-specific project context. MUST be called as your FIRST action on EVERY message — including follow-ups in the same chat. Each message has a different intent that needs fresh context. Never skip.",
     CompilationRequestSchema,
-    createCompileHandler(
-      (projectRootArg: AbsolutePath) => registry.getOrCreate(projectRootArg),
-      getRunner,
-      sha256Adapter,
-      getSessionId,
-      getEditorId,
-      getModelId,
-      configModelId,
-      installScopeWarnings,
-      configLoader,
-      setLastConversationId,
-      getUpdateMessage,
-      getConfigUpgraded,
-    ),
+    aicCompileHandler,
   );
   server.tool("aic_inspect", InspectRequestSchema, (args) =>
     handleInspect(
@@ -539,7 +556,11 @@ export async function main(): Promise<void> {
   }
   const clock = new SystemClock();
   const db = openDatabase(globalDbPath, clock);
-  const server = createMcpServer(projectRoot, db, clock);
+  const batchExitRef: BatchExitRef = {
+    stdinEnded: false,
+    pendingToolCalls: 0,
+  };
+  const server = createMcpServer(projectRoot, db, clock, undefined, batchExitRef);
   const homedir = os.homedir();
   server.server.oninitialized = (): void => {
     const caps = server.server.getClientCapabilities();
@@ -571,8 +592,11 @@ export async function main(): Promise<void> {
   transport.onerror = (_err: Error): void => {
     process.exit(1);
   };
+  // Batch stdin (e.g. subagentStart hook): exit only when stdin has ended and
+  // no tool call is in progress, so the compile can finish and write to the DB.
   process.stdin.on("end", () => {
-    process.exit(0);
+    batchExitRef.stdinEnded = true;
+    if (batchExitRef.pendingToolCalls === 0) process.exit(0);
   });
   await server.connect(transport);
 }

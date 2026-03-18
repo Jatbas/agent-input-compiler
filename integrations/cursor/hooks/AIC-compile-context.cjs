@@ -41,6 +41,13 @@ if (typeof hookInput.model === "string") {
   const trimmed = hookInput.model.trim();
   if (trimmed.length >= 1 && trimmed.length <= 256 && /^[\x20-\x7E]+$/.test(trimmed)) {
     compileArgs.modelId = trimmed;
+    try {
+      const cacheDir = path.join(projectRoot, ".aic");
+      fs.mkdirSync(cacheDir, { recursive: true, mode: 0o700 });
+      fs.writeFileSync(path.join(cacheDir, ".claude-session-model"), trimmed, "utf8");
+    } catch {
+      // non-fatal
+    }
   }
 }
 

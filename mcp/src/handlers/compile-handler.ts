@@ -36,6 +36,33 @@ import { installTriggerRule } from "../install-trigger-rule.js";
 import { runEditorBootstrapIfNeeded } from "../editor-integration-dispatch.js";
 import { validateProjectRoot, validateConfigPath } from "../validate-project-root.js";
 
+const CLAUDE_SESSION_MODEL_FILE = ".aic/.claude-session-model";
+
+function isValidModelId(s: string): boolean {
+  const t = s.trim();
+  return t.length >= 1 && t.length <= 256 && /^[\x20-\x7E]+$/.test(t);
+}
+
+function readClaudeSessionModelCache(projectRoot: AbsolutePath): string | null {
+  try {
+    const p = path.join(projectRoot, CLAUDE_SESSION_MODEL_FILE);
+    const content = fs.readFileSync(p, "utf8").trim();
+    return isValidModelId(content) ? content : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeClaudeSessionModelCache(projectRoot: AbsolutePath, modelId: string): void {
+  try {
+    const cachePath = path.join(projectRoot, CLAUDE_SESSION_MODEL_FILE);
+    fs.mkdirSync(path.dirname(cachePath), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(cachePath, modelId, "utf8");
+  } catch {
+    // non-fatal
+  }
+}
+
 function rejectAfter(ms: number): Promise<never> {
   return new Promise((_, reject) =>
     setTimeout(() => reject(new TimeoutError("Compilation timed out after 30s")), ms),
@@ -201,7 +228,15 @@ export function createCompileHandler(
       }
       const intent = args.intent.replace(/[\x00-\x08\x0b-\x1f]/g, "");
       const resolvedModelId: string | null =
-        args.modelId ?? modelIdOverride ?? getModelId(resolvedEditorId);
+        args.modelId ??
+        modelIdOverride ??
+        getModelId(resolvedEditorId) ??
+        (resolvedEditorId === "claude-code" || resolvedEditorId === "cursor-claude-code"
+          ? readClaudeSessionModelCache(projectRoot)
+          : null);
+      if (resolvedModelId !== null) {
+        writeClaudeSessionModelCache(projectRoot, resolvedModelId);
+      }
       const resolvedConversationId = resolveConversationId(args.conversationId);
       const request: CompilationRequest = {
         intent,

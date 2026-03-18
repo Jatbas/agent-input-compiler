@@ -1,8 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
-// PreToolUse hook — inject conversationId and editorId into aic_compile MCP calls.
+// PreToolUse hook — inject conversationId, editorId, and modelId (from cache) into aic_compile MCP calls.
 
+const fs = require("fs");
 const path = require("path");
+
+function isValidModelId(s) {
+  if (typeof s !== "string") return false;
+  const t = s.trim();
+  return t.length >= 1 && t.length <= 256 && /^[\x20-\x7E]+$/.test(t);
+}
 
 function run(stdinStr) {
   let parsed;
@@ -32,10 +39,19 @@ function run(stdinStr) {
       },
     };
   }
+  let cachedModelId = null;
+  try {
+    const cachePath = path.join(projectRoot, ".aic", ".claude-session-model");
+    const content = fs.readFileSync(cachePath, "utf8").trim();
+    if (isValidModelId(content)) cachedModelId = content;
+  } catch {
+    // no cache or unreadable
+  }
   const updatedInput = {
     ...toolInput,
     editorId: "claude-code",
     ...(conversationId ? { conversationId } : {}),
+    ...(cachedModelId ? { modelId: cachedModelId } : {}),
   };
   return {
     hookSpecificOutput: {

@@ -15,11 +15,13 @@ How AIC gets installed, what artifacts it creates, and how its components intera
   - [Known Gap: Cursor Hooks Fire When Disabled](#known-gap-cursor-hooks-fire-when-disabled)
 - [Cursor](#cursor)
   - [One-Click Install (Deeplink)](#one-click-install-deeplink)
+  - [Prerequisite](#prerequisite)
   - [What the Deeplink Does](#what-the-deeplink-does)
   - [Trigger Rule](#trigger-rule)
   - [Hooks](#hooks)
   - [Hook Lifecycle](#hook-lifecycle)
   - [How Hooks Are Delivered](#how-hooks-are-delivered)
+  - [Troubleshooting](#troubleshooting-cursor)
 - [Claude Code](#claude-code)
   - [Plugin (Recommended)](#plugin-recommended)
   - [Direct Installer](#direct-installer)
@@ -56,10 +58,7 @@ How AIC gets installed, what artifacts it creates, and how its components intera
 
 ### What Gets Published
 
-The npm package `@jatbas/aic` ships:
-
-- `dist/` — the compiled MCP server (`server.js` with shebang for `npx` execution)
-- `hooks/` — integration hook scripts (`.cjs` files) bundled for auto-installation into user projects (Cursor); Claude Code hooks are provided by the plugin or the direct installer (see [Claude Code](#claude-code)).
+The npm package `@jatbas/aic` ships only `dist/` — the compiled MCP server (`server.js` with shebang for `npx` execution). Cursor hook scripts live in the repository (`integrations/cursor/hooks/`) and are deployed by the Cursor installer when it runs (see [Cursor](#cursor)). Claude Code hooks are provided by the plugin or the direct installer (see [Claude Code](#claude-code)).
 
 The server is the primary interface. It exposes these MCP tools:
 
@@ -162,8 +161,12 @@ This does not affect Claude Code, whose hooks are global and invoke the MCP serv
 
 The primary installation method for Cursor users. A deeplink URL registers AIC in the global MCP config:
 
-```
-cursor://anysphere.cursor-deeplink/mcp/install?name=aic&config=<base64>
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://jatbas.github.io/agent-input-compiler/install/cursor-install.html)
+
+Or copy this URL into your browser:
+
+```text
+cursor://anysphere.cursor-deeplink/mcp/install?name=aic&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqYXRiYXMvYWljQGxhdGVzdCJdfQ==
 ```
 
 The base64 payload decodes to:
@@ -172,7 +175,9 @@ The base64 payload decodes to:
 { "command": "npx", "args": ["-y", "@jatbas/aic@latest"] }
 ```
 
-The install page is hosted at `install/cursor-install.html`. It redirects to the deeplink automatically and falls back to the GitHub repo after 1.5 seconds.
+### Prerequisite
+
+The AIC MCP server must be runnable as `npx -y @jatbas/aic@latest` (Node 20+). Ensure Node is installed and the package is reachable before relying on the deeplink or hooks.
 
 ### What the Deeplink Does
 
@@ -197,7 +202,7 @@ If `.cursor/rules/AIC.mdc` already exists, AIC does not overwrite it unless the 
 
 ### Hooks
 
-AIC installs 10 Cursor hooks that provide lifecycle integration beyond what the trigger rule can achieve:
+AIC installs 11 Cursor hooks that provide lifecycle integration beyond what the trigger rule can achieve:
 
 | Hook                              | Cursor Event           | Purpose                                                                                                                                         |
 | --------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -209,6 +214,7 @@ AIC installs 10 Cursor hooks that provide lifecycle integration beyond what the 
 | `AIC-post-compile-context.cjs`    | `postToolUse`          | Injects confirmation `additional_context` after successful compile                                                                              |
 | `AIC-after-file-edit-tracker.cjs` | `afterFileEdit`        | Tracks edited files for quality checks                                                                                                          |
 | `AIC-session-end.cjs`             | `sessionEnd`           | Cleanup and session metrics                                                                                                                     |
+| `AIC-subagent-compile.cjs`        | `subagentStart`        | Compiles and injects context when a subagent (e.g. Bash, Explore) starts                                                                        |
 | `AIC-stop-quality-check.cjs`      | `stop`                 | Runs lint/typecheck on edited files; auto-fix via `followup_message`                                                                            |
 | `AIC-block-no-verify.cjs`         | `beforeShellExecution` | Blocks `--no-verify` flag in git commands                                                                                                       |
 
@@ -224,10 +230,21 @@ Hook scripts are authored in `integrations/cursor/hooks/` and deployed to each p
 `.cursor/hooks/` by the Cursor installer (`integrations/cursor/install.cjs`). On first-compile bootstrap, the installer:
 
 1. **Registers hooks** — creates or merges `.cursor/hooks.json` with the hook definitions (event type, command, matcher, timeout, etc.)
-2. **Copies scripts** — copies the 10 `AIC-*.cjs` files from `integrations/cursor/hooks/` into the project's `.cursor/hooks/` directory
+2. **Copies scripts** — copies the 11 `AIC-*.cjs` files from `integrations/cursor/hooks/` into the project's `.cursor/hooks/` directory
 
 The `.cursor/` directory is a **deployment target** — hook scripts are never authored there directly.
 On subsequent compilations, merge logic adds any missing hook entries without overwriting user-added hooks. Scripts are re-copied on every bootstrap to stay in sync with the installed AIC version.
+
+### Troubleshooting (Cursor)
+
+**Hooks not firing**
+
+- Confirm `.cursor/hooks.json` and `.cursor/hooks/AIC-*.cjs` exist in the project (bootstrap creates them on first use). If they are missing, send a message so the server can run bootstrap, or run from the AIC repo: `node integrations/cursor/install.cjs`.
+- Ensure the AIC MCP server is enabled in Cursor: Settings → MCP → AIC server on.
+
+**`aic_compile` tool not found or not called**
+
+- In Cursor: Settings → MCP → ensure the AIC server is enabled and the `aic_compile` tool is set to "Always allow". Reload the window (Cmd+Shift+P → Reload Window) after changing MCP settings.
 
 ---
 
@@ -343,7 +360,7 @@ Uninstall stops AIC from running in your editor and removes the config and hooks
 
 ### Uninstall: Cursor
 
-1. From the AIC repo (or a directory that contains the script), run: `node integrations/cursor/uninstall.cjs`. If you no longer have the repo, copy `integrations/cursor/uninstall.cjs` from the [AIC repository](https://github.com/jatbas/AIC) and run it with Node from the same directory.
+1. From the AIC repo (or a directory that contains the script), run: `node integrations/cursor/uninstall.cjs`. If you no longer have the repo, copy `integrations/cursor/uninstall.cjs` from the [AIC repository](https://github.com/Jatbas/agent-input-compiler) and run it with Node from the same directory.
 2. To also remove AIC from the **current project** (hooks and trigger rule), run the same command with `--project`: `node integrations/cursor/uninstall.cjs --project`.
 3. Restart Cursor (or use **MCP: Reload Configurations**) so the editor picks up the change.
 

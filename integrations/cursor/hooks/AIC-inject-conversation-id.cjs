@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-// preToolUse hook — injects conversation_id into AIC MCP tool inputs so
-// compilation_log and chat_summary get the correct conversation_id per call.
+// preToolUse hook — injects conversation_id and modelId into AIC MCP tool inputs.
+// Also writes modelId to .aic/.claude-session-model so Claude Code hooks can read it.
+
+const fs = require("fs");
+const path = require("path");
 
 let raw = "";
 process.stdin.setEncoding("utf8");
@@ -62,6 +65,17 @@ process.stdin.on("end", () => {
         /^[\x20-\x7E]+$/.test(trimmed)
       ) {
         updated.modelId = trimmed;
+        const projectRoot =
+          (toolInput && toolInput.projectRoot) ||
+          process.env.CURSOR_PROJECT_DIR ||
+          process.cwd();
+        try {
+          const cacheDir = path.join(projectRoot, ".aic");
+          fs.mkdirSync(cacheDir, { recursive: true, mode: 0o700 });
+          fs.writeFileSync(path.join(cacheDir, ".claude-session-model"), trimmed, "utf8");
+        } catch {
+          // non-fatal
+        }
       }
     }
     if (updated.conversationId !== undefined || updated.modelId !== undefined) {
