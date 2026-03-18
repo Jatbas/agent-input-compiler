@@ -5,113 +5,152 @@ const path = require("node:path");
 const fs = require("node:fs");
 const os = require("node:os");
 
-const AIC_SCRIPT_NAMES = [
-  "AIC-session-init.cjs",
-  "AIC-compile-context.cjs",
-  "AIC-require-aic-compile.cjs",
-  "AIC-inject-conversation-id.cjs",
-  "AIC-post-compile-context.cjs",
-  "AIC-before-submit-prewarm.cjs",
-  "AIC-block-no-verify.cjs",
-  "AIC-after-file-edit-tracker.cjs",
-  "AIC-session-end.cjs",
-  "AIC-stop-quality-check.cjs",
-];
+const manifestPath = path.join(__dirname, "aic-hook-scripts.json");
+const AIC_SCRIPT_NAMES = JSON.parse(
+  fs.readFileSync(manifestPath, "utf8"),
+).hookScriptNames;
 
-const hookKeys = [
-  "sessionStart",
-  "beforeSubmitPrompt",
-  "preToolUse",
-  "postToolUse",
-  "beforeShellExecution",
-  "afterFileEdit",
-  "sessionEnd",
-  "stop",
-];
+function findAicMcpKey(servers) {
+  if (servers === undefined || typeof servers !== "object" || servers === null) {
+    return undefined;
+  }
+  return Object.keys(servers).find((k) => k.toLowerCase() === "aic");
+}
 
-function isAicScriptInManifest(entry) {
+function tryStripMcp(mcpPath) {
+  try {
+    if (!fs.existsSync(mcpPath)) return false;
+    const obj = JSON.parse(fs.readFileSync(mcpPath, "utf8"));
+    if (typeof obj !== "object" || obj === null) return false;
+    let changed = false;
+    const next = { ...obj };
+    if (Object.prototype.hasOwnProperty.call(next, "aic")) {
+      delete next.aic;
+      changed = true;
+    }
+    const servers = next.mcpServers;
+    if (servers && typeof servers === "object") {
+      const aicKey = findAicMcpKey(servers);
+      if (aicKey !== undefined) {
+        const nextServers = { ...servers };
+        delete nextServers[aicKey];
+        next.mcpServers = nextServers;
+        changed = true;
+      }
+    }
+    if (!changed) return false;
+    fs.mkdirSync(path.dirname(mcpPath), { recursive: true });
+    fs.writeFileSync(mcpPath, JSON.stringify(next, null, 2) + "\n", "utf8");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isAicScriptEntry(entry) {
   const m = (entry.command ?? "").match(/AIC-[a-z0-9-]+\.cjs/);
   const scriptName = m ? m[0] : undefined;
   if (scriptName === undefined) return false;
   return AIC_SCRIPT_NAMES.includes(scriptName);
 }
 
-function run() {
-  const home = os.homedir();
-  const cursorDir = path.join(home, ".cursor");
-  const mcpPath = path.join(cursorDir, "mcp.json");
-  let removedGlobal = false;
-  let removedProject = false;
-
-  if (fs.existsSync(mcpPath)) {
-    try {
-      const raw = fs.readFileSync(mcpPath, "utf8");
-      const obj = JSON.parse(raw);
-      if (Object.prototype.hasOwnProperty.call(obj, "aic")) {
-        delete obj.aic;
-        fs.mkdirSync(cursorDir, { recursive: true });
-        fs.writeFileSync(mcpPath, JSON.stringify(obj, null, 2) + "\n", "utf8");
-        removedGlobal = true;
-      }
-    } catch (err) {
-      process.stderr.write(String(err && err.message ? err.message : err) + "\n");
-      process.exit(1);
-    }
-  }
-
-  const withProject = process.argv.includes("--project");
-  if (withProject) {
-    const projectRoot = process.cwd();
-    const projectCursorDir = path.join(projectRoot, ".cursor");
-    const projectHooksDir = path.join(projectCursorDir, "hooks");
-    const hooksJsonPath = path.join(projectCursorDir, "hooks.json");
-    const rulesDir = path.join(projectRoot, ".cursor", "rules");
-    const triggerPath = path.join(rulesDir, "AIC.mdc");
-
-    try {
-      if (fs.existsSync(hooksJsonPath)) {
-        const raw = fs.readFileSync(hooksJsonPath, "utf8");
-        const data = JSON.parse(raw);
+function tryCleanProjectHooks(projectRoot) {
+  const projectHooksDir = path.join(projectRoot, ".cursor", "hooks");
+  const hooksJsonPath = path.join(projectRoot, ".cursor", "hooks.json");
+  const triggerPath = path.join(projectRoot, ".cursor", "rules", "AIC.mdc");
+  let removed = false;
+  try {
+    if (fs.existsSync(hooksJsonPath)) {
+      try {
+        const data = JSON.parse(fs.readFileSync(hooksJsonPath, "utf8"));
         const hooks = data.hooks || {};
-        let changed = false;
-        for (const key of hookKeys) {
-          const arr = (hooks[key] || []).filter((e) => !isAicScriptInManifest(e));
-          if (arr.length !== (hooks[key] || []).length) changed = true;
-          hooks[key] = arr;
-        }
-        if (changed) {
-          data.hooks = hooks;
+        const nextHooks = {};
+        const hooksChanged = Object.keys(hooks).reduce((acc, key) => {
+          const arr = hooks[key];
+          if (!Array.isArray(arr)) {
+            nextHooks[key] = arr;
+            return acc;
+          }
+          const filtered = arr.filter((e) => !isAicScriptEntry(e));
+          nextHooks[key] = filtered;
+          return acc || filtered.length !== arr.length;
+        }, false);
+        if (hooksChanged) {
+          data.hooks = nextHooks;
           fs.writeFileSync(hooksJsonPath, JSON.stringify(data, null, 2) + "\n", "utf8");
-          removedProject = true;
+          removed = true;
         }
+      } catch {
+        // Invalid hooks.json; still attempt file removals below
       }
-      for (const name of AIC_SCRIPT_NAMES) {
+    }
+    for (const name of AIC_SCRIPT_NAMES) {
+      try {
         const p = path.join(projectHooksDir, name);
         if (fs.existsSync(p)) {
           fs.unlinkSync(p);
-          removedProject = true;
+          removed = true;
         }
+      } catch {
+        // Best effort
       }
+    }
+    try {
       if (fs.existsSync(triggerPath)) {
         fs.unlinkSync(triggerPath);
-        removedProject = true;
+        removed = true;
       }
-    } catch (err) {
-      process.stderr.write(String(err && err.message ? err.message : err) + "\n");
-      process.exit(1);
+    } catch {
+      // Best effort
     }
+  } catch {
+    // Best effort
   }
+  return removed;
+}
 
-  if (removedGlobal) {
-    process.stdout.write(
-      "Removed AIC from ~/.cursor/mcp.json. Restart Cursor to complete uninstall.\n",
-    );
-  } else {
-    process.stdout.write("AIC was not found in ~/.cursor/mcp.json.\n");
+function resolveProjectRoot() {
+  const env = process.env.AIC_UNINSTALL_PROJECT_ROOT;
+  if (env !== undefined && String(env).trim() !== "") {
+    return path.resolve(String(env).trim());
   }
-  if (removedProject) {
-    process.stdout.write("Removed AIC hooks and rule from this project.\n");
+  const argv = process.argv;
+  const idx = argv.findIndex(
+    (a) => a === "--project-root" || a.startsWith("--project-root="),
+  );
+  if (idx === -1) return process.cwd();
+  const arg = argv[idx];
+  const eq = arg.indexOf("=");
+  if (eq !== -1) return path.resolve(arg.slice(eq + 1));
+  if (idx + 1 < argv.length) return path.resolve(argv[idx + 1]);
+  return process.cwd();
+}
+
+function run() {
+  const home = os.homedir();
+  const globalMcpPath = path.join(home, ".cursor", "mcp.json");
+  const projectRoot = resolveProjectRoot();
+  const projectMcpPath = path.join(projectRoot, ".cursor", "mcp.json");
+  const removedGlobalMcp = tryStripMcp(globalMcpPath);
+  const removedProjectMcp = tryStripMcp(projectMcpPath);
+  const removedProjectHooks = tryCleanProjectHooks(projectRoot);
+  const changed = removedGlobalMcp || removedProjectMcp || removedProjectHooks;
+  if (!changed) {
+    process.stdout.write("Nothing to remove. No need to restart Cursor.\n");
+    return;
   }
+  const parts = [];
+  if (removedGlobalMcp) {
+    parts.push("Removed AIC from ~/.cursor/mcp.json.");
+  }
+  if (removedProjectMcp) {
+    parts.push("Removed AIC from this project's Cursor MCP config.");
+  }
+  if (removedProjectHooks) {
+    parts.push("Removed AIC hooks and trigger rule from this project.");
+  }
+  parts.push("Restart Cursor to complete uninstall.");
+  process.stdout.write(parts.join(" ") + "\n");
 }
 
 run();

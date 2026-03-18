@@ -1,0 +1,14 @@
+{
+  "hookScriptNames": [
+    "aic-compile-helper.cjs",
+    "aic-session-start.cjs",
+    "aic-prompt-compile.cjs",
+    "aic-subagent-inject.cjs",
+    "aic-pre-compact.cjs",
+    "aic-after-file-edit-tracker.cjs",
+    "aic-stop-quality-check.cjs",
+    "aic-block-no-verify.cjs",
+    "aic-inject-conversation-id.cjs",
+    "aic-session-end.cjs"
+  ]
+}

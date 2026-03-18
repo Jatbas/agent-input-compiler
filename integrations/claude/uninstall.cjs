@@ -5,21 +5,59 @@ const path = require("node:path");
 const fs = require("node:fs");
 const os = require("node:os");
 
-const AIC_SCRIPT_NAMES = [
-  "aic-compile-helper.cjs",
-  "aic-session-start.cjs",
-  "aic-prompt-compile.cjs",
-  "aic-subagent-inject.cjs",
-  "aic-pre-compact.cjs",
-  "aic-after-file-edit-tracker.cjs",
-  "aic-stop-quality-check.cjs",
-  "aic-block-no-verify.cjs",
-  "aic-session-end.cjs",
-];
+const manifestPath = path.join(__dirname, "aic-hook-scripts.json");
+const AIC_SCRIPT_NAMES = JSON.parse(
+  fs.readFileSync(manifestPath, "utf8"),
+).hookScriptNames;
 
-function isAicCommand(command) {
-  const m = String(command || "").match(/aic-[a-z0-9-]+\.cjs/);
-  return m ? AIC_SCRIPT_NAMES.includes(m[0]) : false;
+const AIC_HOOK_CMD = /aic-[a-z0-9-]+\.cjs/i;
+
+function commandReferencesAicHook(command) {
+  return AIC_HOOK_CMD.test(String(command || ""));
+}
+
+function tryRemoveFromSettings(settingsPath) {
+  try {
+    if (!fs.existsSync(settingsPath)) return false;
+    const data = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    const hooks = data.hooks;
+    if (!hooks || typeof hooks !== "object") return false;
+    let changed = false;
+    const newHooks = {};
+    for (const eventKey of Object.keys(hooks)) {
+      const wrappers = hooks[eventKey] || [];
+      newHooks[eventKey] = wrappers.map((w) => {
+        const inner = w.hooks || [];
+        const filtered = inner.filter(
+          (entry) => !commandReferencesAicHook(entry.command),
+        );
+        if (filtered.length !== inner.length) changed = true;
+        return { ...w, hooks: filtered };
+      });
+    }
+    if (!changed) return false;
+    data.hooks = newHooks;
+    fs.writeFileSync(settingsPath, JSON.stringify(data, null, 2) + "\n", "utf8");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function tryRemoveHookFiles(globalHooksDir) {
+  let removed = false;
+  for (const name of AIC_SCRIPT_NAMES) {
+    try {
+      const p = path.join(globalHooksDir, name);
+      if (fs.existsSync(p)) {
+        fs.unlinkSync(p);
+        removed = true;
+      }
+    } catch {
+      // Best effort
+    }
+  }
+  return removed;
 }
 
 function run() {
@@ -27,54 +65,22 @@ function run() {
   const globalClaudeDir = path.join(home, ".claude");
   const globalHooksDir = path.join(globalClaudeDir, "hooks");
   const settingsPath = path.join(globalClaudeDir, "settings.json");
-  let removed = false;
-
-  if (!fs.existsSync(settingsPath)) {
-    process.stdout.write("AIC was not found in ~/.claude/settings.json.\n");
+  const removedSettings = tryRemoveFromSettings(settingsPath);
+  const removedFiles = tryRemoveHookFiles(globalHooksDir);
+  const changed = removedSettings || removedFiles;
+  if (!changed) {
+    process.stdout.write("Nothing to remove. No need to restart Claude Code.\n");
     return;
   }
-
-  try {
-    let removedFromSettings = false;
-    const raw = fs.readFileSync(settingsPath, "utf8");
-    const data = JSON.parse(raw);
-    const hooks = data.hooks;
-    if (hooks && typeof hooks === "object") {
-      const newHooks = {};
-      for (const eventKey of Object.keys(hooks)) {
-        const wrappers = hooks[eventKey] || [];
-        newHooks[eventKey] = wrappers.map((w) => {
-          const inner = w.hooks || [];
-          const filtered = inner.filter((entry) => !isAicCommand(entry.command));
-          if (filtered.length !== inner.length) removedFromSettings = true;
-          return { ...w, hooks: filtered };
-        });
-      }
-      data.hooks = newHooks;
-    }
-    if (removedFromSettings) {
-      fs.writeFileSync(settingsPath, JSON.stringify(data, null, 2) + "\n", "utf8");
-      removed = true;
-    }
-    for (const name of AIC_SCRIPT_NAMES) {
-      const p = path.join(globalHooksDir, name);
-      if (fs.existsSync(p)) {
-        fs.unlinkSync(p);
-        removed = true;
-      }
-    }
-  } catch (err) {
-    process.stderr.write(String(err && err.message ? err.message : err) + "\n");
-    process.exit(1);
+  const parts = [];
+  if (removedSettings) {
+    parts.push("Removed AIC hook entries from ~/.claude/settings.json.");
   }
-
-  if (removed) {
-    process.stdout.write(
-      "Removed AIC hooks from ~/.claude/settings.json and ~/.claude/hooks/. Restart Claude Code (or reload) to complete uninstall.\n",
-    );
-  } else {
-    process.stdout.write("AIC was not found in ~/.claude/settings.json.\n");
+  if (removedFiles) {
+    parts.push("Removed AIC scripts from ~/.claude/hooks/.");
   }
+  parts.push("Restart Claude Code (or reload) to complete uninstall.");
+  process.stdout.write(parts.join(" ") + "\n");
 }
 
 run();

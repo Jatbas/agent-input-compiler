@@ -5,19 +5,9 @@ const path = require("node:path");
 const fs = require("node:fs");
 const os = require("node:os");
 
-const AIC_SCRIPT_NAMES = [
-  "AIC-session-init.cjs",
-  "AIC-compile-context.cjs",
-  "AIC-require-aic-compile.cjs",
-  "AIC-inject-conversation-id.cjs",
-  "AIC-post-compile-context.cjs",
-  "AIC-before-submit-prewarm.cjs",
-  "AIC-block-no-verify.cjs",
-  "AIC-after-file-edit-tracker.cjs",
-  "AIC-session-end.cjs",
-  "AIC-subagent-compile.cjs",
-  "AIC-stop-quality-check.cjs",
-];
+const AIC_SCRIPT_NAMES = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "aic-hook-scripts.json"), "utf8"),
+).hookScriptNames;
 
 const TRIGGER_RULE_TEMPLATE = `---
 description: MANDATORY — call aic_compile on EVERY message

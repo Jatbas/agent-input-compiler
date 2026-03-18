@@ -240,6 +240,7 @@ export default tseslint.config(
       "**/dist/**",
       ".cursor/",
       ".claude/",
+      ".git-worktrees/",
       "documentation/",
       "test/benchmarks/",
       "*.md",
