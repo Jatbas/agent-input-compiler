@@ -3,6 +3,7 @@
 
 const path = require("node:path");
 const fs = require("node:fs");
+const os = require("node:os");
 
 const AIC_SCRIPT_NAMES = [
   "AIC-session-init.cjs",
@@ -168,4 +169,46 @@ try {
 if (!skipTriggerWrite) {
   fs.mkdirSync(rulesDir, { recursive: true });
   fs.writeFileSync(triggerPath, triggerContent, "utf8");
+}
+
+function findAicMcpKey(servers) {
+  if (servers === undefined || typeof servers !== "object" || servers === null) {
+    return undefined;
+  }
+  return Object.keys(servers).find((k) => k.toLowerCase() === "aic");
+}
+
+function globalCursorMcpHasAic(globalMcpPath) {
+  try {
+    if (!fs.existsSync(globalMcpPath)) return false;
+    const parsed = JSON.parse(fs.readFileSync(globalMcpPath, "utf8"));
+    return findAicMcpKey(parsed.mcpServers) !== undefined;
+  } catch {
+    return false;
+  }
+}
+
+const globalMcpPath = path.join(os.homedir(), ".cursor", "mcp.json");
+if (globalCursorMcpHasAic(globalMcpPath)) {
+  const workspaceMcpPath = path.join(cursorDir, "mcp.json");
+  try {
+    if (fs.existsSync(workspaceMcpPath)) {
+      const workspaceRaw = fs.readFileSync(workspaceMcpPath, "utf8");
+      const workspaceParsed = JSON.parse(workspaceRaw);
+      const servers = workspaceParsed.mcpServers;
+      const aicKey = findAicMcpKey(servers);
+      if (aicKey !== undefined) {
+        const nextServers = { ...servers };
+        delete nextServers[aicKey];
+        const nextDoc = { ...workspaceParsed, mcpServers: nextServers };
+        fs.writeFileSync(
+          workspaceMcpPath,
+          JSON.stringify(nextDoc, null, 2) + "\n",
+          "utf8",
+        );
+      }
+    }
+  } catch {
+    // corrupt workspace mcp.json — leave unchanged
+  }
 }

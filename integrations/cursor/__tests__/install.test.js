@@ -25,8 +25,12 @@ const AIC_SCRIPT_NAMES = [
 const repoRoot = path.resolve(__dirname, "..", "..", "..");
 const installScript = path.join(repoRoot, "integrations", "cursor", "install.cjs");
 
-function runInstaller(cwd) {
-  execFileSync("node", [installScript], { cwd, encoding: "utf8" });
+function runInstaller(cwd, env = {}) {
+  execFileSync("node", [installScript], {
+    cwd,
+    encoding: "utf8",
+    env: { ...process.env, ...env },
+  });
 }
 
 function assert(condition, message) {
@@ -141,11 +145,94 @@ function install_removes_stale_scripts() {
   }
 }
 
+function install_heals_workspace_aic_when_global_has_aic() {
+  const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), "aic-fake-home-"));
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-install-"));
+  try {
+    const globalCursor = path.join(fakeHome, ".cursor");
+    fs.mkdirSync(globalCursor, { recursive: true });
+    fs.writeFileSync(
+      path.join(globalCursor, "mcp.json"),
+      JSON.stringify({
+        mcpServers: { aic: { command: "npx", args: ["-y", "@jatbas/aic@latest"] } },
+      }) + "\n",
+      "utf8",
+    );
+    const projCursor = path.join(tmpDir, ".cursor");
+    fs.mkdirSync(projCursor, { recursive: true });
+    fs.writeFileSync(
+      path.join(projCursor, "mcp.json"),
+      JSON.stringify({
+        mcpServers: {
+          AIC: { command: "npx", args: ["-y", "@jatbas/aic@latest"] },
+          other: { command: "echo", args: [] },
+        },
+      }) + "\n",
+      "utf8",
+    );
+    runInstaller(tmpDir, { HOME: fakeHome, USERPROFILE: fakeHome });
+    const after = JSON.parse(fs.readFileSync(path.join(projCursor, "mcp.json"), "utf8"));
+    assert(
+      after.mcpServers && Object.keys(after.mcpServers).length === 1,
+      "only one mcp server left",
+    );
+    assert(after.mcpServers.other !== undefined, "non-aic server preserved");
+    assert(
+      Object.keys(after.mcpServers).every((k) => k.toLowerCase() !== "aic"),
+      "aic key removed case-insensitively",
+    );
+  } finally {
+    fs.rmSync(fakeHome, { recursive: true, force: true });
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+function install_keeps_workspace_aic_when_global_has_no_aic() {
+  const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), "aic-fake-home-"));
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-install-"));
+  try {
+    const globalCursor = path.join(fakeHome, ".cursor");
+    fs.mkdirSync(globalCursor, { recursive: true });
+    fs.writeFileSync(
+      path.join(globalCursor, "mcp.json"),
+      JSON.stringify({ mcpServers: { otherGlobal: { command: "x" } } }) + "\n",
+      "utf8",
+    );
+    const projCursor = path.join(tmpDir, ".cursor");
+    fs.mkdirSync(projCursor, { recursive: true });
+    const before = {
+      mcpServers: { aic: { command: "npx", args: ["-y", "@jatbas/aic"] } },
+    };
+    fs.writeFileSync(
+      path.join(projCursor, "mcp.json"),
+      JSON.stringify(before, null, 2) + "\n",
+      "utf8",
+    );
+    runInstaller(tmpDir, { HOME: fakeHome, USERPROFILE: fakeHome });
+    const after = JSON.parse(fs.readFileSync(path.join(projCursor, "mcp.json"), "utf8"));
+    assert(
+      after.mcpServers && after.mcpServers.aic !== undefined,
+      "workspace aic kept when global has no aic",
+    );
+  } finally {
+    fs.rmSync(fakeHome, { recursive: true, force: true });
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
 const tests = [
   ["install_creates_all_artifacts", install_creates_all_artifacts],
   ["install_idempotent", install_idempotent],
   ["install_merges_hooks_json", install_merges_hooks_json],
   ["install_removes_stale_scripts", install_removes_stale_scripts],
+  [
+    "install_heals_workspace_aic_when_global_has_aic",
+    install_heals_workspace_aic_when_global_has_aic,
+  ],
+  [
+    "install_keeps_workspace_aic_when_global_has_no_aic",
+    install_keeps_workspace_aic_when_global_has_no_aic,
+  ],
 ];
 for (const [name, fn] of tests) {
   fn();
