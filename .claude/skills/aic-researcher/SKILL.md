@@ -1,3 +1,8 @@
+---
+name: aic-researcher
+description: Evidence-backed research via multi-agent protocols; writes documentation/research/ for standalone answers or task-planner input.
+---
+
 # Researcher
 
 ## Purpose
@@ -7,6 +12,11 @@ Produce Opus-quality research through multi-agent investigation protocols. The s
 The deliverable is a **research document** saved to `documentation/research/`. This document can be used standalone (answers a question) or as input to the `aic-task-planner` skill (informs task planning).
 
 **Announce at start:** "Using the researcher skill."
+
+## Editors
+
+- In Cursor, attach the skill with `@` or invoke via `/`; where the skill names the Task tool with `subagent_type` or subagents, use those Cursor mechanisms.
+- In Claude Code, invoke with `/` plus the skill `name`; where the skill references multi-agent work, follow Claude Code subagent or parallel-session patterns.
 
 ## Cardinal Rule: Evidence Over Claims
 

@@ -1,8 +1,18 @@
+---
+name: aic-update-changelog
+description: Maintains root CHANGELOG.md (Keep a Changelog) with curated user-facing release notes from completed work.
+---
+
 # Update Changelog
 
 ## Purpose
 
 Maintain a curated, user-facing `CHANGELOG.md` at the project root. The changelog tracks notable public-facing changes grouped by release version, following [Keep a Changelog](https://keepachangelog.com/) and [Semantic Versioning](https://semver.org/).
+
+## Editors
+
+- In Cursor, attach the skill with `@` or invoke via `/`; where the skill names the Task tool with `subagent_type` or subagents, use those Cursor mechanisms.
+- In Claude Code, invoke with `/` plus the skill `name`; where the skill references multi-agent work, follow Claude Code subagent or parallel-session patterns.
 
 ## When to Use
 

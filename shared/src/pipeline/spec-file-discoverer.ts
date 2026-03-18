@@ -25,7 +25,7 @@ const SPEC_PATH_TIERS: readonly {
   },
   { matches: (p) => p.startsWith("documentation/"), score: 0.8 },
   { matches: (p) => p.startsWith(".cursor/rules/"), score: 0.7 },
-  { matches: (p) => p.startsWith(".cursor/skills/"), score: 0.6 },
+  { matches: (p) => p.startsWith(".claude/skills/"), score: 0.6 },
 ];
 
 const PATH_TIER_WEIGHT = 0.4;

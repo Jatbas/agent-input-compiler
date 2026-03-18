@@ -522,7 +522,7 @@ If any row matches, switch to the specialized recipe now. Do not proceed with ge
 
 - **0 uncertain items:** Proceed normally.
 - **1-2 uncertain items:** Investigate inline — read additional source files, trace the code path, check test files for usage examples, or search the web for library documentation. Resolve each before writing the task file. Do not leave uncertainties for the executor.
-- **3+ uncertain items:** The component has significant ambiguity that inline investigation cannot efficiently resolve. Delegate to the `aic-researcher` skill for a focused codebase analysis investigation. Read `.cursor/skills/aic-researcher/SKILL.md` and run the codebase analysis protocol targeting the uncertain items. Use the research findings to resolve all uncertainties before proceeding. This is more expensive but prevents the executor from hitting blockers on ambiguous task instructions.
+- **3+ uncertain items:** The component has significant ambiguity that inline investigation cannot efficiently resolve. Delegate to the `aic-researcher` skill for a focused codebase analysis investigation. Read `.claude/skills/aic-researcher/SKILL.md` and run the codebase analysis protocol targeting the uncertain items. Use the research findings to resolve all uncertainties before proceeding. This is more expensive but prevents the executor from hitting blockers on ambiguous task instructions.
 
 This graduated approach ensures auto-mode models don't silently write task files with unresolved ambiguities (training data fills in plausible-looking but wrong details). The escalation threshold of 3 balances thoroughness against cost.
 
@@ -715,7 +715,7 @@ The documentation recipe delegates exploration to the `aic-documentation-writer`
 
 **How to run Phase 1:**
 
-1. Read the `aic-documentation-writer` skill files: `.cursor/skills/aic-documentation-writer/SKILL.md` and `.cursor/skills/aic-documentation-writer/SKILL-dimensions.md`.
+1. Read the `aic-documentation-writer` skill files: `.claude/skills/aic-documentation-writer/SKILL.md` and `.claude/skills/aic-documentation-writer/SKILL-dimensions.md`.
 2. Follow Phase 1 (sections 1a through 1e) in `SKILL.md`:
    - Pre-read the target document, all sibling documents in `documentation/`, and the skill's dimension templates
    - Spawn 4 explorers in parallel using the templates from `SKILL-dimensions.md`:
@@ -855,13 +855,13 @@ For each section to edit, provide:
 
 Every change must have all three parts: current text (so the executor can locate it), rationale (so the executor understands why), and target text (so the executor does not need to make writing decisions).
 
-**Target text production:** After Phase 1 exploration completes and the user approves the Exploration Report (checkpoint A.5), run the documentation-writer skill's Phase 2 (Synthesis + Write) and Phase 3 (Adversarial Review) to produce the target text. Read `.cursor/skills/aic-documentation-writer/SKILL.md` sections 2a-2d and 3a-3f. The reviewed target text becomes the Change Specification. The planner wraps it in the task file template (Steps, Files table, Writing Standards, Cross-Reference Map, acceptance criteria).
+**Target text production:** After Phase 1 exploration completes and the user approves the Exploration Report (checkpoint A.5), run the documentation-writer skill's Phase 2 (Synthesis + Write) and Phase 3 (Adversarial Review) to produce the target text. Read `.claude/skills/aic-documentation-writer/SKILL.md` sections 2a-2d and 3a-3f. The reviewed target text becomes the Change Specification. The planner wraps it in the task file template (Steps, Files table, Writing Standards, Cross-Reference Map, acceptance criteria).
 
 **Line-break preservation:** Target text must match the source document's line-break structure. If the source uses single-line sentences in a section, keep them single-line; if it uses wrapped paragraphs, preserve that pattern. Do not introduce artificial line breaks at a fixed column width.
 
 **ToC update rule:** If any change adds, removes, or renames a heading, and the document has a Table of Contents, the Change Specification MUST include a dedicated change (or a sub-step within the relevant change) that updates the ToC to match. The ToC change must list both the current ToC text and the target ToC text. Never assume the executor will notice a ToC needs updating — make it explicit.
 
-**Writing Standards** (replaces Dependent Types — see also `.cursor/skills/aic-documentation-writer/SKILL-standards.md` for the full reference):
+**Writing Standards** (replaces Dependent Types — see also `.claude/skills/aic-documentation-writer/SKILL-standards.md` for the full reference):
 
 ```markdown
 ## Writing Standards
@@ -899,8 +899,8 @@ Instead of running a single writing quality subagent (the previous check F), the
 
 **How to run Phase 3:**
 
-1. Read `.cursor/skills/aic-documentation-writer/SKILL.md` (Phase 3 sections 3a through 3f).
-2. Read `.cursor/skills/aic-documentation-writer/SKILL-dimensions.md` (critic prompt templates).
+1. Read `.claude/skills/aic-documentation-writer/SKILL.md` (Phase 3 sections 3a through 3f).
+2. Read `.claude/skills/aic-documentation-writer/SKILL-dimensions.md` (critic prompt templates).
 3. Spawn 3-4 critics in parallel using the templates:
    - Critic 1 — Editorial quality: voice/tone match, sentence variety, paragraph cohesion, parallel section symmetry
    - Critic 2 — Factual re-verification: independently re-verifies every technical claim (double-blind, not anchored by Explorer 1)

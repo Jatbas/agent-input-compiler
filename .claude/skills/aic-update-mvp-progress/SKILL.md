@@ -1,8 +1,18 @@
+---
+name: aic-update-mvp-progress
+description: Updates documentation/mvp-progress.md after tasks—component tables, daily log, and phase header metrics.
+---
+
 # Update MVP Progress
 
 ## Purpose
 
 After completing a coding task, update the `documentation/mvp-progress.md` file to reflect the latest progress.
+
+## Editors
+
+- In Cursor, attach the skill with `@` or invoke via `/`; where the skill names the Task tool with `subagent_type` or subagents, use those Cursor mechanisms.
+- In Claude Code, invoke with `/` plus the skill `name`; where the skill references multi-agent work, follow Claude Code subagent or parallel-session patterns.
 
 ## When to Use
 

@@ -222,6 +222,38 @@ describe("SpecFileDiscoverer", () => {
     expect(penalized?.relevanceScore).toBeLessThan(neutral?.relevanceScore ?? 1);
   });
 
+  it("claude_skills_in_spec_discovery_below_documentation_tier", () => {
+    const discoverer = new SpecFileDiscoverer();
+    const sameMod = "2026-03-01T12:00:00.000Z";
+    const files: readonly FileEntry[] = [
+      fileEntry(".claude/skills/aic-task-planner/SKILL.md", 50, sameMod),
+      fileEntry("documentation/ref.md", 50, sameMod),
+    ];
+    const specRepoMap = repoMap(files);
+    const task: TaskClassification = {
+      taskClass: TASK_CLASS.GENERAL,
+      confidence: toConfidence(0.5),
+      matchedKeywords: [],
+      subjectTokens: [],
+    };
+    const rulePack: RulePack = {
+      constraints: [],
+      includePatterns: [],
+      excludePatterns: [],
+    };
+    const result = discoverer.discover(specRepoMap, task, rulePack);
+    expect(result.files).toHaveLength(2);
+    const doc = result.files.find(
+      (f) => f.path === toRelativePath("documentation/ref.md"),
+    );
+    const skill = result.files.find(
+      (f) => f.path === toRelativePath(".claude/skills/aic-task-planner/SKILL.md"),
+    );
+    expect(doc).toBeDefined();
+    expect(skill).toBeDefined();
+    expect(doc?.relevanceScore).toBeGreaterThan(skill?.relevanceScore ?? 1);
+  });
+
   it("no_mutation_of_inputs", () => {
     const discoverer = new SpecFileDiscoverer();
     const files: readonly FileEntry[] = [

@@ -85,7 +85,7 @@ function isSpecPath(path: string): boolean {
   return (
     path.startsWith("documentation/") ||
     path.startsWith(".cursor/rules/") ||
-    path.startsWith(".cursor/skills/") ||
+    path.startsWith(".claude/skills/") ||
     path.startsWith("adr-")
   );
 }

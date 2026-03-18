@@ -1,3 +1,8 @@
+---
+name: aic-documentation-writer
+description: Multi-agent documentation pipeline—exploration, Change Specifications, adversarial review, and double-blind factual checks.
+---
+
 # Documentation Writer
 
 ## Purpose
@@ -7,6 +12,11 @@ Produce documentation that surpasses single-model quality through a multi-agent 
 The deliverable is either a **Change Specification** (when called by the planner) with fully written target text, or **direct edits** to documentation files (when called by the executor or user).
 
 **Announce at start:** "Using the documentation-writer skill."
+
+## Editors
+
+- In Cursor, attach the skill with `@` or invoke via `/`; where the skill names the Task tool with `subagent_type` or subagents, use those Cursor mechanisms.
+- In Claude Code, invoke with `/` plus the skill `name`; where the skill references multi-agent work, follow Claude Code subagent or parallel-session patterns.
 
 ## Cardinal Rules
 

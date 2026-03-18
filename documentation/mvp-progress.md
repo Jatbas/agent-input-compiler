@@ -465,9 +465,10 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2026-03-18
 
-**Components:** W14 Release 0.7.0 (OSS release cut)
+**Components:** W14 Release 0.7.0 (OSS release cut), Task 195 agent skills relocation
 **Completed:**
 
+- Task 195 (Relocate agent skills to `.claude/skills/`): Six skill packages from `.cursor/skills/` with YAML frontmatter (`name`, `description` ≤200) and `## Editors` (Cursor `@`/`/` + Task/subagent; Claude Code `/` + skill name + multi-agent patterns); paths `.claude/skills/`. `spec-file-discoverer` + `run-pipeline-steps` `isSpecPath` tier 0.6 for `.claude/skills/`; test `claude_skills_in_spec_discovery_below_documentation_tier`. Removed `.cursor/skills/`. Lint, typecheck, test, knip, lint:clones 0.
 - Release prep: CHANGELOG 0.7.0 (2026-03-18); `package.json`, `mcp/`, `shared/`, Claude plugin manifest → 0.7.0; implementation-spec shipped-version example updated.
 - Release 0.7.0: commit `chore(release): bump to 0.7.0`; `git tag v0.7.0`; push `main` + tag (pre-push: typecheck, test, lint:clones); GitHub release v0.7.0 with 0.7.0 changelog body. W14 → Done; Phase 1.0 89/94.
 - npm 0.7.0: GitHub Actions CI published `@jatbas/aic-core` and `@jatbas/aic` to the registry (follow-up to local publish 404 during agent run).

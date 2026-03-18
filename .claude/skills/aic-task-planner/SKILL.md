@@ -1,3 +1,8 @@
+---
+name: aic-task-planner
+description: Plans self-contained tasks in documentation/tasks/ with goals, signatures, steps, tests, and acceptance criteria for agent execution.
+---
+
 # Task Planner
 
 ## Purpose
@@ -5,6 +10,11 @@
 Produce a self-contained task file that any agent can pick up and execute without prior context. The task file lives in `documentation/tasks/` and contains everything needed: goal, file paths, signatures, steps, tests, and acceptance criteria.
 
 **Announce at start:** "Using the task-planner skill."
+
+## Editors
+
+- In Cursor, attach the skill with `@` or invoke via `/`; where the skill names the Task tool with `subagent_type` or subagents, use those Cursor mechanisms.
+- In Claude Code, invoke with `/` plus the skill `name`; where the skill references multi-agent work, follow Claude Code subagent or parallel-session patterns.
 
 ## Cardinal Rule: Stop If Unsure
 
@@ -113,7 +123,7 @@ Before planning, classify the user's request. The planner must auto-delegate to 
 **When auto-delegation triggers:**
 
 1. Announce: "This request needs investigation first. Running the research protocol."
-2. Read the `aic-researcher` skill's `SKILL.md` (at `.cursor/skills/aic-researcher/SKILL.md`).
+2. Read the `aic-researcher` skill's `SKILL.md` (at `.claude/skills/aic-researcher/SKILL.md`).
 3. Execute the FULL research skill protocol — same phases (Frame → Investigate → Synthesize → Adversarial Review → Final Synthesis), same quality gates, same subagent model choices. Do NOT use a simplified version.
 4. Save the research document to `documentation/research/`.
 5. Present findings and ask: "Research complete — see `documentation/research/YYYY-MM-DD-title.md`. Want me to plan tasks based on these findings, or do you want to review the research first?"
@@ -463,7 +473,7 @@ If unsure whether a parameter is needed, **ask the user**.
 
 **Dispatch pattern:** If any logic in the component has 3+ branches — whether dispatching on an enum, a type discriminator, or ordered predicate matching (path prefix tiers, conditional scoring maps, node-type checks) — choose `Record<Enum, Handler>` for exhaustive enum dispatch or a handler array for predicate-based dispatch. Write the chosen pattern and show the data structure in the step instructions. Review the algorithm sketch from A.0/A.1: any list of "X => value, Y => value, Z => value, else => default" with 3+ entries is a dispatch pattern that needs this treatment.
 
-**Research delegation (optional depth boost):** At any point during A.4, if the planner encounters a question that its exploration checklist cannot answer — an approach evaluation with 2+ viable candidates, a sibling analysis for a first-of-kind component where shared code prediction is speculative, or a cross-package duplication check that requires understanding intent — it can delegate to the `aic-researcher` skill protocol. Read `.cursor/skills/aic-researcher/SKILL.md` and run the appropriate protocol (codebase analysis or gap/improvement analysis). Use the research findings to make the decision. This is optional — only when the planner judges it needs deeper investigation than its checklist provides.
+**Research delegation (optional depth boost):** At any point during A.4, if the planner encounters a question that its exploration checklist cannot answer — an approach evaluation with 2+ viable candidates, a sibling analysis for a first-of-kind component where shared code prediction is speculative, or a cross-package duplication check that requires understanding intent — it can delegate to the `aic-researcher` skill protocol. Read `.claude/skills/aic-researcher/SKILL.md` and run the appropriate protocol (codebase analysis or gap/improvement analysis). Use the research findings to make the decision. This is optional — only when the planner judges it needs deeper investigation than its checklist provides.
 
 ### A.4b Simplicity sweep
 

@@ -1,3 +1,8 @@
+---
+name: aic-task-executor
+description: Executes planner task files with steps, mechanical verification, mvp-progress updates, and isolated worktree commits.
+---
+
 # Task Executor
 
 ## Purpose
@@ -5,6 +10,11 @@
 Execute a task file produced by the `aic-task-planner` skill. Read the task, internalize its specs, implement every step, verify with Grep-based mechanical checks for scoring, iterate until clean, finalize progress, and stage for commit.
 
 **Announce at start:** "Using the task-executor skill on `<task file path>`."
+
+## Editors
+
+- In Cursor, attach the skill with `@` or invoke via `/`; where the skill names the Task tool with `subagent_type` or subagents, use those Cursor mechanisms.
+- In Claude Code, invoke with `/` plus the skill `name`; where the skill references multi-agent work, follow Claude Code subagent or parallel-session patterns.
 
 ## When to Use
 
@@ -161,7 +171,7 @@ Internalize: tone (formal/informal), sentence patterns, paragraph length, format
 
 **Content format conventions (mandatory for all documentation edits):**
 
-These rules are also documented in `.cursor/skills/aic-documentation-writer/SKILL-standards.md` (the single source of truth for writing standards). Before writing any new content, check these formatting rules. Violations cause 4-doc-c failures:
+These rules are also documented in `.claude/skills/aic-documentation-writer/SKILL-standards.md` (the single source of truth for writing standards). Before writing any new content, check these formatting rules. Violations cause 4-doc-c failures:
 
 - **Definitions / glossaries:** 3+ terms being defined must use a table (columns: Term, Definition), under a proper heading (e.g. `## Glossary`). Never inline multiple definitions as a bold-text paragraph. 1-2 terms may be defined inline if contextually appropriate.
 - **Comparisons:** 2+ items being compared across multiple dimensions must use a table, not prose paragraphs.
@@ -193,8 +203,8 @@ Instead of spawning subagents directly, delegate to the `aic-documentation-write
 
 **How to run Phase 3:**
 
-1. Read `.cursor/skills/aic-documentation-writer/SKILL.md` (Phase 3 sections 3a through 3f).
-2. Read `.cursor/skills/aic-documentation-writer/SKILL-dimensions.md` (critic prompt templates).
+1. Read `.claude/skills/aic-documentation-writer/SKILL.md` (Phase 3 sections 3a through 3f).
+2. Read `.claude/skills/aic-documentation-writer/SKILL-dimensions.md` (critic prompt templates).
 3. Spawn 3-4 critics in parallel using the templates. Each critic receives: the path to the edited document, the paths to sibling documents, and the Change Specification from the task file.
    - **Critic 1 — Editorial quality** (`generalPurpose`): voice/tone match, sentence variety, paragraph cohesion, detail consistency, heading hierarchy, audience awareness, parallel section symmetry.
    - **Critic 2 — Factual re-verification** (`explore`, `fast`): independently re-verifies every technical claim in the edited sections against the codebase. This is a SECOND independent factual check — the first was during planning.
