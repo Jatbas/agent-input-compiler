@@ -5,24 +5,16 @@ const path = require("node:path");
 const fs = require("node:fs");
 const os = require("node:os");
 
-const AIC_SCRIPT_NAMES = [
-  "aic-compile-helper.cjs",
-  "aic-session-start.cjs",
-  "aic-prompt-compile.cjs",
-  "aic-subagent-inject.cjs",
-  "aic-pre-compact.cjs",
-  "aic-after-file-edit-tracker.cjs",
-  "aic-stop-quality-check.cjs",
-  "aic-block-no-verify.cjs",
-  "aic-inject-conversation-id.cjs",
-  "aic-session-end.cjs",
-];
+const AIC_SCRIPT_NAMES = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "aic-hook-scripts.json"), "utf8"),
+).hookScriptNames;
 
 const CLAUDE_MD_TEMPLATE = `<!-- AIC rule version: {{VERSION}} -->
 # AIC — Claude Code Rules
 
 > This file is the Claude Code equivalent of \`.cursor/rules/AIC-architect.mdc\`.
 > Claude Code reads it on every session. Keep it condensed and action-oriented.
+> **Cross-editor sync:** This file and \`.cursor/rules/AIC-architect.mdc\` must stay in sync. When you change a rule in either file, apply the same change to the other. The architectural invariants are identical — only editor-specific mechanisms (hooks vs manual calls, prompt commands) differ.
 
 ## AIC Context Compilation (hooks handle this automatically)
 
@@ -39,27 +31,31 @@ You do **not** need to call \`aic_compile\` manually — hooks handle it. If you
 ## Non-Negotiable Architectural Invariants
 
 - **First pass:** Write code that passes lint and conventions on the first version. Avoid rework.
-- **SOLID:** One public method per class; one class per file; one interface per \`*.interface.ts\` file. Constructor receives only interfaces — never concrete classes.
+- **SOLID:** One public method per class; one class per file; one interface per \`*.interface.ts\` file. Constructor receives only interfaces — never concrete classes. No \`public\` constructor params in pipeline — use \`private readonly\`. No exported interfaces in pipeline files — extract to \`core/interfaces/\`. Max 60 lines per function in pipeline (enforced by ESLint). No exceptions in pipeline steps.
 - **Hexagonal:** \`core/\` and \`pipeline/\` have zero imports from \`adapters/\`, \`storage/\`, \`mcp/\`, Node.js APIs, or external packages. All I/O through interfaces only. Core interfaces must NOT expose infrastructure concepts (SQL syntax, HTTP verbs, file-system paths) — use domain terminology.
 - **Adapter wrapping:** Every external library has exactly ONE adapter or storage file that wraps it behind a core interface. No other file imports the library directly — enforced by ESLint \`no-restricted-imports\`. To swap a library, change one file.
 - **DIP:** No \`new\` for infrastructure/service classes outside the composition root (\`mcp/src/server.ts\`). All dependencies via constructor injection. Storage classes receive the database instance — never construct it. Adapters inject \`Clock\` for time, never call \`Date.now()\` directly.
-- **OCP:** New capabilities via new classes implementing existing interfaces — never modify existing pipeline classes.
-- **Errors:** Never throw bare \`Error\`. Use \`AicError\` subclasses with machine-readable \`code\` property. Pipeline steps never catch-and-ignore. MCP server never crashes on a single bad request.
-- **Determinism:** No \`Date.now()\`, \`new Date()\`, or \`Math.random()\` anywhere — enforced by ESLint globally. Only \`system-clock.ts\` is exempt. All other code injects time via \`Clock\` interface.
-- **Immutability:** No \`.push()\`, \`.splice()\`, \`.sort()\` (mutating), \`.reverse()\` (mutating). Use spread/reduce. Pipeline steps never mutate inputs.
+- **OCP:** New capabilities via new classes implementing existing interfaces — never modify existing pipeline classes. The core pipeline is frozen once correct; all evolution happens at the edges.
+- **Dispatch pattern:** No if/else-if chains with 3+ branches — enforced by ESLint. Use \`Record<Enum, Handler>\` for enum dispatch, handler arrays for predicate dispatch. Extend by adding entries (OCP), not modifying branches.
+- **Errors:** Never throw bare \`Error\`. Use \`AicError\` subclasses with machine-readable \`code\` property. Pipeline steps never catch-and-ignore — errors propagate to composition root. MCP server never crashes on a single bad request.
+- **Determinism:** No \`Date.now()\`, \`new Date()\`, or \`Math.random()\` anywhere — enforced by ESLint globally. Only \`system-clock.ts\` is exempt. All other code injects time via \`Clock\` interface. No \`date('now')\` or \`datetime('now')\` in SQL — pass the current timestamp as a bound parameter from the \`Clock\` interface.
+- **Immutability:** No \`.push()\`, \`.splice()\`, \`.sort()\` (mutating), \`.reverse()\` (mutating). Use spread/reduce. Pipeline steps never mutate their inputs — return new objects. No \`let\` in production code — use \`const\` exclusively. Only exception: boolean control flags in imperative closures (e.g. \`let found = false\` in a \`ts.forEachChild\` visitor). Accumulators must use reduce or a helper that returns the collected result — never \`let arr = []; ... arr = [...arr, item]\`.
 - **Types:** No \`any\`. Explicit return types on all functions. Interfaces in \`*.interface.ts\` files (one interface per file). Max 5 methods per interface (ISP). Related type aliases live in \`core/types/\`, not in interface files.
-- **Comments:** \`//\` style only — \`/* */\` and \`/** */\` block comments are banned by ESLint. One short line max, explain _why_ not _what_. No JSDoc. No narrating comments.
-- **Branded types (ADR-010):** Use types from \`shared/src/core/types/\` — never raw \`string\`/\`number\` for domain values. \`AbsolutePath\`, \`TokenCount\`, \`Milliseconds\`, \`Percentage\`, \`ISOTimestamp\`, \`TaskClass\`, \`EditorId\`, \`InclusionTier\`, etc. \`as const\` objects for enums, not TypeScript \`enum\`. Null convention: \`Type | null\` = checked absent, \`?: Type\` = optional.
+- **Named imports only (enforced by ESLint):** No \`import * as X\` for internal modules (relative or \`#alias\` paths). Use named imports: \`import { A, B } from "./foo.js"\`. Namespace imports allowed only for Node.js built-ins (\`import * as path from "node:path"\`) and established library APIs (\`import * as ts from "typescript"\`).
+- **Comments:** \`//\` style only — \`/* */\` and \`/** */\` block comments are banned by ESLint. One short line max, explain _why_ not _what_. No JSDoc. No narrating comments (\`// Get the user\`, \`// Return result\`).
+- **Branded types (ADR-010):** Use types from \`shared/src/core/types/\` — never raw \`string\`/\`number\` for domain values (paths, tokens, durations, scores, IDs, enums). \`as const\` objects for enums, not TypeScript \`enum\`. Null convention: \`Type | null\` = checked absent, \`?: Type\` = optional.
+- **Type safety (enforced by ESLint):** No \`as string\`, \`as number\`, \`as boolean\` — branded types are already their base type. No double-cast \`as unknown as T\` (only \`open-database.ts\` exempt). No \`!\` non-null assertions — use optional chaining or null guards. No \`Partial<T>\` in core/pipeline. No \`{ x } as Type\` object literal assertions — use type annotations. No \`enum\`, \`for...in\`, default exports, \`Object.assign\`, nested ternaries.
 - **Validation boundary (ADR-009):** Runtime validation at MCP handler and config loader only. Core/pipeline never imports the validation library. After validation, produce branded types via constructor functions (\`toTokenCount()\`, \`toAbsolutePath()\`, etc.).
-- **IDs:** All entity PKs use UUIDv7 (\`TEXT(36)\` in SQLite). Never \`INTEGER AUTOINCREMENT\`. Exception: \`config_history\` uses composite PK (project_id, config_hash).
-- **Timestamps:** Always \`YYYY-MM-DDTHH:mm:ss.sssZ\` (UTC, ms, \`Z\`). Use \`Clock\` interface and \`ISOTimestamp\` branded type. Never \`new Date()\` directly.
 - **Database:** All SQL lives exclusively in \`shared/src/storage/\`. Every schema change requires a migration in \`shared/src/storage/migrations/\` (\`NNN-description.ts\`). Schema change + migration = same commit. Never edit a merged migration. Never run raw DDL outside the \`MigrationRunner\`.
+- **Global DB:** The database is a single file at \`~/.aic/aic.sqlite\`. Per-project isolation is enforced via \`project_id\` in store queries (all per-project stores take \`projectId: ProjectId\` and use \`WHERE project_id = ?\`).
+- **IDs:** All entity PKs use UUIDv7 (\`TEXT(36)\` in SQLite). Never \`INTEGER AUTOINCREMENT\` for entities. Exception: \`config_history\` uses composite PK \`(project_id, config_hash)\` with SHA-256 \`config_hash\`. See Project Plan ADR-007.
+- **Timestamps:** Always \`YYYY-MM-DDTHH:mm:ss.sssZ\` (UTC, milliseconds, trailing \`Z\`). Use the \`Clock\` interface — never \`new Date()\` or \`Date.now()\` directly. Use the \`ISOTimestamp\` branded type. See Project Plan ADR-008.
 
 ## Security Invariants
 
-- **Secrets:** Never hardcode API keys or tokens. Config references env var _names_, never values. All logging sanitizes secrets with \`***\`.
-- **\`.aic/\` directory:** \`0700\` permissions, auto-gitignored, no symlink traversal.
-- **Telemetry:** No file paths, content, prompts, intents, or PII in payloads. Typed schema enforcement only.
+- **Secrets:** Never hardcode API keys or tokens. Config references env var _names_ (\`apiKeyEnv: "OPENAI_API_KEY"\`), never values. All logging must sanitize secrets — replace with \`***\`.
+- **\`.aic/\` directory:** \`0700\` permissions (owner-only), auto-gitignored, no symlink traversal. Storage code must enforce these invariants.
+- **Telemetry:** Telemetry payloads must never contain file paths, file content, prompts, intents, project names, or PII. Only typed aggregates and enum values. See \`security.md §Anonymous Telemetry\`.
 - **Context Guard:** Never-include patterns (\`.env\`, \`*.pem\`, etc.) are non-overridable. Guard cannot be skipped or disabled.
 - **Prompt assembly:** Intent is opaque text in a template — never interpolated into system instructions. Context in delimited code blocks. Constraints after context.
 - **MCP error sanitization:** No stack traces, internal paths, or env details in error responses.
@@ -72,9 +68,9 @@ You do **not** need to call \`aic_compile\` manually — hooks handle it. If you
 
 ## Documentation
 
-- \`documentation/project-plan.md\` is the architecture spec.
-- \`documentation/implementation-spec.md\` is the implementation spec.
-- Read docs before proposing or changing code.
+- \`documentation/project-plan.md\` is the architecture spec. \`documentation/implementation-spec.md\` is the implementation spec.
+- Read \`documentation/\` before proposing or changing code.
+- Do not create or modify any .md file (documentation/, README, .claude/, etc.) unless the user explicitly asks you to.
 
 ## File Naming
 
@@ -83,7 +79,13 @@ You do **not** need to call \`aic_compile\` manually — hooks handle it. If you
 
 ## Commits
 
-Format: \`type(scope): description\` — max 72 chars, imperative, no period. Never \`--no-verify\`.
+Format: \`type(scope): description\` — max 72 chars, target 50-60, imperative, no period. Subject line only — no body or footer. Never use \`--no-verify\`.
+
+## File Operations
+
+- Use targeted edits on the minimum necessary lines. Do not read a file and write a new file when an in-place edit suffices.
+- Read only the file sections you need for this change; avoid full-file reads when not needed.
+- Verify before implementing (ad-hoc): For any ad-hoc request (not driven by a task file), investigate first — query the actual database, read the actual file, check the actual API response — before writing any code. Never implement based on assumptions about external system behavior.
 
 ## Source Structure
 
@@ -106,11 +108,30 @@ Hexagonal boundaries are enforced by \`no-restricted-imports\` in \`eslint.confi
 - Storage cannot import from \`pipeline/\`, \`adapters/\`, \`mcp/\`
 - Adapters cannot import from \`storage/\`, \`pipeline/\`, \`mcp/\`
 
-Run \`pnpm lint\` before declaring work complete. Never add \`eslint-disable\`, \`eslint-disable-next-line\`, \`@ts-ignore\`, or \`@ts-nocheck\` comments — fix the code instead.
+Prefer \`npx eslint\` for targeted checks. Run \`pnpm lint\` before declaring work complete. Run \`pnpm knip\` to check for unused files, exports, and dependencies. Never add \`eslint-disable\`, \`eslint-disable-next-line\`, \`@ts-ignore\`, or \`@ts-nocheck\` comments — fix the code instead. If a rule genuinely does not apply, request a targeted override in \`eslint.config.mjs\`.
 
 ## Prompt Commands
 
-- **"show aic session summary"** — When the user says this (or similar), read the MCP resource \`aic://session-summary\`. Start the reply with one short line: **Session = this AIC server run (since the AIC MCP server started), not this chat.** Then display the result as a formatted table. The resource returns JSON with: \`compilationsTotal\`, \`compilationsToday\`, \`cacheHitRatePct\`, \`avgReductionPct\`, \`totalTokensRaw\`, \`totalTokensCompiled\`, \`totalTokensSaved\`, \`telemetryDisabled\`, \`guardByType\`, \`topTaskClasses\`, \`lastCompilation\`, \`installationOk\`, \`installationNotes\`. Show total tokens (raw → compiled) before total tokens saved.
+Use these rules for all AIC prompt commands. Present data like a polished dashboard, not raw JSON.
+
+**General formatting (all commands):**
+
+- Use human-readable labels only — never show raw JSON keys as column headers or labels.
+- Format large numbers with commas (e.g. 8,484,717).
+- Percentages: exactly 1 decimal place and a % symbol (e.g. 78.2%).
+- Timestamps: show as relative time (e.g. "2 min ago"); add ISO in parentheses only if helpful.
+- Null or missing values: show as "—" (em dash), never "null".
+- Keep the one-line summary at the top of each command as specified below.
+
+---
+
+- **"show aic status"** — Call the MCP tool \`aic_status\` (no arguments). Start the reply with one short line: **Status = project-level AIC status.** Then display a formatted table with labels: Compilations (total), Compilations (today), Tokens: raw → compiled, Tokens saved, Budget limit, Budget utilization (%), Cache hit rate (%), Avg token reduction (%), Guard findings, Top task classes, Last compilation, Installation, Notes, Project (Enabled/Disabled), Update available.
+
+- **"show aic chat summary"** — Call the MCP tool \`aic_chat_summary\`. If \`AIC_CONVERSATION_ID\` is available in context (injected by hooks), pass it as \`conversationId\`. Start the reply with one short line: **Chat = this conversation's AIC compilations.** Then display a formatted table with labels: Project path, Compilations, Tokens (raw), Tokens (compiled), Tokens saved, Cache hit rate (%), Avg token reduction (%), Last compilation, Top task classes.
+
+- **"show aic last"** — Call the MCP tool \`aic_last\` (no arguments). Start the reply with one short line: **Last = most recent compilation.** Then display with labels: Intent, Files (N selected / M total), Tokens compiled, Token reduction (%), Compiled (relative time), Editor, Guard (Passed or N findings), Compiled prompt (Available N chars — ask to see it).
+
+- **"show aic projects"** — Call the MCP tool \`aic_projects\` (no arguments). Start the reply with one short line: **Projects = known AIC projects.** Display a formatted table with columns: Project ID, Path, Last seen, Compilation count.
 
 ## Tests
 
@@ -118,6 +139,14 @@ Run \`pnpm lint\` before declaring work complete. Never add \`eslint-disable\`, 
 - Pattern: \`*.test.ts\`
 - Bug fixes must include a regression test
 - No \`any\` in tests
+
+## Cross-Editor Sync
+
+This file (\`.claude/CLAUDE.md\`) and \`.cursor/rules/AIC-architect.mdc\` are the two canonical rule files for the project. They must stay in sync:
+
+- Architectural invariants, security rules, dependency rules, commit rules, ESLint rules, and test rules are **identical** across both files.
+- Only editor-specific mechanics differ: Claude Code uses hooks for \`aic_compile\`; Cursor requires manual \`aic_compile\` calls. Prompt commands use the same MCP tools but instructions differ slightly per editor.
+- When changing any shared rule, update all three files in the same commit: (1) this file, (2) \`.cursor/rules/AIC-architect.mdc\`, and (3) the \`CLAUDE_MD_TEMPLATE\` in \`integrations/claude/install.cjs\`. If you only see one file in context, flag that the other two need the same change.
 `;
 
 function isAicCommand(command) {
