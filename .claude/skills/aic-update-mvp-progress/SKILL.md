@@ -37,9 +37,12 @@ After completing a coding task, update the `documentation/mvp-progress.md` file 
    - Update `**Status:**` with a brief description of current state.
 
 5. **Update the daily log:**
-   - Check whether an entry for today's date (`### YYYY-MM-DD`) already exists.
-   - **If today's entry exists:** append new items to the end of its `**Completed:**` list. Update the `**Components:**` line to include any new component names.
-   - **If today's entry does NOT exist:** create a new entry at the top of the Daily Log section (above all existing entries — reverse chronological order).
+   - **Mandatory existence check (tool call required):** Use Grep (or `grep`) to search the file for the exact heading `### YYYY-MM-DD` using today's date. This MUST be a tool-based search — do NOT rely on visual scanning or your memory of the file contents. The search result determines which branch to follow:
+   - **If grep finds 1+ matches (entry exists):** Do NOT create a new `### YYYY-MM-DD` heading. Instead, locate the existing entry and:
+     - Append new bullet items to the END of its `**Completed:**` list (after the last existing bullet, before the next `###` heading or end of section).
+     - Update the `**Components:**` line to include any new component names (merge with existing names, do not replace).
+   - **If grep finds 0 matches (no entry for today):** Create a new entry at the TOP of the Daily Log section (above all existing entries — reverse chronological order). Only in this case do you create a new `### YYYY-MM-DD` heading.
+   - **Anti-duplication guard:** After making the edit, grep the file again for `### YYYY-MM-DD` with today's date. If the count is greater than 1, you created a duplicate — undo the edit and merge the content into the first occurrence instead.
    - Follow this template for new entries:
 
 ```

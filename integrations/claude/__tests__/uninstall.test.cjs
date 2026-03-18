@@ -17,8 +17,9 @@ function runInstall(env, cwd) {
   });
 }
 
-function runUninstall(env, cwd) {
-  return execFileSync("node", [uninstallScript], {
+function runUninstall(env, cwd, args) {
+  const extra = Array.isArray(args) ? args : [];
+  return execFileSync("node", [uninstallScript, ...extra], {
     encoding: "utf8",
     env: { ...process.env, ...env },
     cwd: cwd ?? repoRoot(),
@@ -204,8 +205,45 @@ function claude_strips_multiple_events() {
   console.log("claude_strips_multiple_events: pass");
 }
 
+function claude_global_aic_clean_preserves_sqlite() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-claude-gic-"));
+  try {
+    const aicDir = path.join(tmpDir, ".aic");
+    fs.mkdirSync(aicDir, { recursive: true });
+    fs.writeFileSync(path.join(aicDir, "cache.txt"), "c", "utf8");
+    fs.writeFileSync(path.join(aicDir, "aic.sqlite"), "db", "utf8");
+    const out = runUninstall({ HOME: tmpDir }, tmpDir, []);
+    assert(out.includes("kept SQLite database files"), "mentions db preserved");
+    assert(!fs.existsSync(path.join(aicDir, "cache.txt")), "cache removed");
+    assert(
+      fs.readFileSync(path.join(aicDir, "aic.sqlite"), "utf8") === "db",
+      "db intact",
+    );
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+  console.log("claude_global_aic_clean_preserves_sqlite: pass");
+}
+
+function claude_global_aic_no_keep_db_wipes_dir() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-claude-gic2-"));
+  try {
+    const aicDir = path.join(tmpDir, ".aic");
+    fs.mkdirSync(aicDir, { recursive: true });
+    fs.writeFileSync(path.join(aicDir, "aic.sqlite"), "db", "utf8");
+    const out = runUninstall({ HOME: tmpDir }, tmpDir, ["--keep-aic-database=false"]);
+    assert(out.includes("including the database"), "mentions full removal");
+    assert(!fs.existsSync(aicDir), ".aic dir gone");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+  console.log("claude_global_aic_no_keep_db_wipes_dir: pass");
+}
+
 claude_uninstall_removes_hooks_and_files();
 claude_idempotent();
 claude_settings_only_no_scripts_line();
 claude_files_only_no_settings_line();
 claude_strips_multiple_events();
+claude_global_aic_clean_preserves_sqlite();
+claude_global_aic_no_keep_db_wipes_dir();

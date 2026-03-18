@@ -15,10 +15,16 @@ The deliverable is a **research document** saved to `documentation/research/`. T
 
 ## Editors
 
-- In Cursor, attach the skill with `@` or invoke via `/`; where the skill names the Task tool with `subagent_type` or subagents, use those Cursor mechanisms.
-- In Claude Code, invoke with `/` plus the skill `name`; where the skill references multi-agent work, follow Claude Code subagent or parallel-session patterns.
+- **Cursor:** Attach the skill with `@` or invoke via `/`. Every "Spawn N agents" instruction means N calls to the **Task tool** with the specified `subagent_type` and `model`. You MUST use the Task tool — never do the work inline.
+- **Claude Code:** Invoke with `/aic-researcher`. Every "Spawn N agents" instruction means N parallel subagent launches. You MUST spawn separate agents — never do the work inline.
 
-## Cardinal Rule: Evidence Over Claims
+## Cardinal Rules
+
+### 1. Mandatory Subagent Dispatch
+
+**This skill uses multi-agent parallelism. You MUST use the Task tool to spawn subagents where specified — NEVER perform investigation work in the main conversation.** §3 says "Spawn 2-4 explorers" — you MUST make 2-4 Task tool calls. §5 says "Spawn 1-2 critics" — you MUST make those Task tool calls. Single-agent investigation misses things that parallel independent agents catch. If the Task tool is unavailable, tell the user and stop.
+
+### 2. Evidence Over Claims
 
 **Every finding must cite at least one concrete source.** A file path with line number, a URL, or a grep result. No exceptions. If you cannot cite a source, the finding does not exist — move it to Open Questions. This single rule prevents the most common auto-mode failure: plausible-sounding hallucination.
 
@@ -142,9 +148,9 @@ Read the `SKILL-protocols.md` sibling file for the detailed protocol matching th
 
 **Goal:** Execute the investigation plan from §2 using parallel subagents. Each explorer investigates its assigned area independently.
 
-### 3a. Spawn explorers
+### 3a. Spawn explorers (MANDATORY — Cardinal Rule 1)
 
-Spawn 2-4 `explore` or `generalPurpose` subagents in parallel (use `fast` model). Each explorer's prompt must include:
+**You MUST make 2-4 Task tool calls here.** Do NOT perform the investigation yourself. Spawn 2-4 `explore` or `generalPurpose` subagents in parallel (use `fast` model). Each explorer's prompt must include:
 
 1. **Role:** "You are an investigator. Your job is to gather evidence about [specific area]. Report only what you find with citations — never speculate."
 2. **Target:** The specific hypothesis, dimension, or area to investigate
@@ -216,9 +222,9 @@ For each finding, ask: **"What does this mean for AIC beyond the obvious first-o
 
 **When to skip:** For codebase analysis only — if ALL findings in §4 have High confidence and at least 2 explorers converged on each finding, the adversarial review can be skipped. For all other classifications (gap/improvement, technology evaluation, documentation analysis), adversarial review is MANDATORY.
 
-### 5a. Spawn the critic
+### 5a. Spawn the critic (MANDATORY — Cardinal Rule 1)
 
-Spawn a `generalPurpose` subagent with `fast` model. The critic's prompt must include:
+**You MUST make a Task tool call here.** Do NOT critique your own synthesis — that defeats the purpose of adversarial review. Spawn a `generalPurpose` subagent with `fast` model. The critic's prompt must include:
 
 1. **Role:** "You are an independent critic. You have NO prior context about this investigation. Your only job is to find flaws, challenge assumptions, and propose alternatives. You are not helpful — you are adversarial."
 2. **Input:** The original question + the draft synthesis (from §4c) + the evidence citations

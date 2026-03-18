@@ -25,7 +25,7 @@ How AIC gets installed, what artifacts it creates, and how its components intera
 - [Claude Code](#claude-code)
   - [Plugin (Recommended)](#plugin-recommended)
   - [Direct Installer](#direct-installer)
-  - [Prerequisite](#prerequisite)
+  - [Prerequisite](#prerequisite-1)
   - [Trigger Rule](#trigger-rule-1)
   - [Hooks](#hooks-1)
   - [Hook Lifecycle](#hook-lifecycle-1)
@@ -95,7 +95,7 @@ After bootstrap, each project contains:
 | Path                      | Purpose                                                      | Committed to git?          |
 | ------------------------- | ------------------------------------------------------------ | -------------------------- |
 | `aic.config.json`         | Project configuration (budget, guard, cache, telemetry)      | Yes                        |
-| `.aic/`                   | AIC data directory (DB, cache, project-id)                   | No (auto-gitignored)       |
+| `.aic/`                   | Project-local AIC directory (`project-id`, ephemeral files)  | No (auto-gitignored)       |
 | `.aic/project-id`         | Stable UUIDv7 — survives folder renames                      | No                         |
 | `.cursor/rules/AIC.mdc`   | Trigger rule for Cursor — tells the AI to call `aic_compile` | Depends on team preference |
 | `.cursor/hooks.json`      | Hook registrations for Cursor                                | Depends on team preference |
@@ -118,7 +118,7 @@ Set `"enabled": false` in `aic.config.json`:
 
 When disabled:
 
-- `aic_compile` returns early with a message: "AIC is disabled for this project."
+- `aic_compile` returns early with: `AIC is disabled for this project. Set "enabled": true in aic.config.json to re-enable.`
 - No data is written to the database
 - `show aic status` shows "Disabled" for this project
 
@@ -185,7 +185,7 @@ The deeplink writes the entry above into `~/.cursor/mcp.json`. This is the **onl
 
 1. User opens any project in Cursor
 2. Cursor spawns the AIC MCP server process (`npx -y @jatbas/aic@latest`)
-3. If Cursor advertises workspace roots (`roots/list_changed`), the server proactively bootstraps each root — installing the trigger rule and hooks before any AI message is sent
+3. If the MCP client advertises the **roots** capability, the server calls `listRoots` on init and bootstraps each returned workspace root — installing the trigger rule and hooks before any AI message is sent (`mcp/src/server.ts` around the `oninitialized` handler)
 4. Otherwise, bootstrap runs on the first `aic_compile` call (see [First-Compile Bootstrap](#first-compile-bootstrap))
 5. Bootstrap creates `aic.config.json`, `.aic/`, trigger rule, hooks — all inside the project directory
 6. From this point on, every AI message in this project gets compiled context
@@ -360,11 +360,38 @@ Uninstall stops AIC from running in your editor and removes the config and hooks
 
 ### Uninstall: Cursor
 
-1. From the AIC repo (or a directory that contains the script), run: `node integrations/cursor/uninstall.cjs`. If you no longer have the repo, copy `integrations/cursor/uninstall.cjs` from the [AIC repository](https://github.com/Jatbas/agent-input-compiler) and run it with Node from the same directory.
-2. To also remove AIC from the **current project** (hooks and trigger rule), run the same command with `--project`: `node integrations/cursor/uninstall.cjs --project`.
-3. Restart Cursor (or use **MCP: Reload Configurations**) so the editor picks up the change.
+One run of the Cursor uninstall script does all of the following when it finds something to remove:
 
-This removes the global AIC entry from `~/.cursor/mcp.json`. With `--project`, it also removes AIC hooks and the trigger rule from the current project’s `.cursor/` directory.
+- Removes the AIC entry from **`~/.cursor/mcp.json`** (global MCP).
+- Removes the AIC entry from **`<project>/.cursor/mcp.json`** if that file exists (workspace-scoped MCP).
+- In **`<project>/.cursor/`**: strips AIC hook entries from `hooks.json`, deletes the deployed `AIC-*.cjs` scripts under `hooks/`, and removes the trigger rule `rules/AIC.mdc`.
+- Under **`~/.aic/`** (global data dir): removes cache and other non-database files while keeping `aic.sqlite` (and WAL/SHM) unless you opt out. To remove **`~/.aic/` entirely** including the database, pass `--keep-aic-database=0` or set `AIC_UNINSTALL_KEEP_AIC_DATABASE=false` (see `integrations/clean-global-aic-dir.cjs`).
+
+**Project directory** (`<project>`) is resolved in this order: environment variable `AIC_UNINSTALL_PROJECT_ROOT` (if set and non-empty); otherwise the `--project-root` / `--project-root=<path>` argument; otherwise the **current working directory** when you run Node.
+
+From a terminal, change to the AIC repository (or use an absolute path to the script), then run:
+
+```bash
+cd /path/to/agent-input-compiler
+node integrations/cursor/uninstall.cjs
+```
+
+To clean hooks and workspace MCP for a **different** project while running the script from the repo:
+
+```bash
+cd /path/to/agent-input-compiler
+node integrations/cursor/uninstall.cjs --project-root /path/to/your-project
+```
+
+Equivalent using the environment variable:
+
+```bash
+AIC_UNINSTALL_PROJECT_ROOT=/path/to/your-project node /path/to/agent-input-compiler/integrations/cursor/uninstall.cjs
+```
+
+If you do not have the repo, copy **`integrations/cursor/uninstall.cjs`** and **`integrations/cursor/aic-hook-scripts.json`** from the [AIC repository](https://github.com/Jatbas/agent-input-compiler) into the same folder, then run `node` on `uninstall.cjs` from a shell whose working directory is the project you want to clean (or set `AIC_UNINSTALL_PROJECT_ROOT` / `--project-root` as above).
+
+Restart Cursor (or use **MCP: Reload Configurations**) after a successful uninstall so the editor picks up the change.
 
 ### Uninstall: Claude Code (plugin)
 
@@ -373,10 +400,16 @@ This removes the global AIC entry from `~/.cursor/mcp.json`. With `--project`, i
 
 ### Uninstall: Claude Code (direct installer)
 
-1. From the AIC repo (or the directory where the script lives), run: `node integrations/claude/uninstall.cjs`.
-2. Restart Claude Code (or reload) so the editor picks up the change.
+The direct-installer uninstall removes AIC hook entries from **`~/.claude/settings.json`** and deletes the AIC scripts under **`~/.claude/hooks/`**. It applies the same **`~/.aic/`** cleanup rules as the Cursor uninstall (default: strip non-database files; optional full removal via `--keep-aic-database=0` / `AIC_UNINSTALL_KEEP_AIC_DATABASE=false`).
 
-This removes AIC hook entries from `~/.claude/settings.json` and deletes the AIC scripts in `~/.claude/hooks/`.
+From a terminal:
+
+```bash
+cd /path/to/agent-input-compiler
+node integrations/claude/uninstall.cjs
+```
+
+If the script is elsewhere, use the full path to `integrations/claude/uninstall.cjs` (it must sit next to **`integrations/claude/aic-hook-scripts.json`** in the tree). Restart Claude Code (or reload) after a successful uninstall.
 
 ### Uninstall: Other editors
 
@@ -384,4 +417,8 @@ Remove the `aic` entry from your editor’s global MCP config (the file and key 
 
 ### Uninstall: Optional — remove all data
 
-To delete compilation history and cache (global and per-project), remove the `~/.aic/` directory.
+If you already ran an uninstall with **`--keep-aic-database=0`** (or `AIC_UNINSTALL_KEEP_AIC_DATABASE=false`), the global database is gone. Otherwise, to delete compilation history and cache (global DB and per-project rows), remove the data directory:
+
+```bash
+rm -rf ~/.aic
+```

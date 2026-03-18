@@ -5,6 +5,11 @@ const path = require("node:path");
 const fs = require("node:fs");
 const os = require("node:os");
 
+const {
+  parseKeepAicDatabase,
+  tryCleanGlobalAicDir,
+} = require("../clean-global-aic-dir.cjs");
+
 const manifestPath = path.join(__dirname, "aic-hook-scripts.json");
 const AIC_SCRIPT_NAMES = JSON.parse(
   fs.readFileSync(manifestPath, "utf8"),
@@ -134,7 +139,10 @@ function run() {
   const removedGlobalMcp = tryStripMcp(globalMcpPath);
   const removedProjectMcp = tryStripMcp(projectMcpPath);
   const removedProjectHooks = tryCleanProjectHooks(projectRoot);
-  const changed = removedGlobalMcp || removedProjectMcp || removedProjectHooks;
+  const keepDb = parseKeepAicDatabase(process.argv, process.env);
+  const globalAic = tryCleanGlobalAicDir(home, keepDb);
+  const changed =
+    removedGlobalMcp || removedProjectMcp || removedProjectHooks || globalAic.changed;
   if (!changed) {
     process.stdout.write("Nothing to remove. No need to restart Cursor.\n");
     return;
@@ -148,6 +156,9 @@ function run() {
   }
   if (removedProjectHooks) {
     parts.push("Removed AIC hooks and trigger rule from this project.");
+  }
+  if (globalAic.message) {
+    parts.push(globalAic.message);
   }
   parts.push("Restart Cursor to complete uninstall.");
   process.stdout.write(parts.join(" ") + "\n");

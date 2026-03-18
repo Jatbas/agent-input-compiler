@@ -9,16 +9,27 @@ description: Multi-agent documentation pipeline—exploration, Change Specificat
 
 Produce documentation that surpasses single-model quality through a multi-agent pipeline: parallel deep analysis, synthesis-driven writing, adversarial review, and backward-feedback revision. The skill compensates for individual model blind spots by using specialized explorers, producer-critic separation, and double-blind factual verification — achieving depth and consistency that matches or exceeds a single Opus pass.
 
-The deliverable is either a **Change Specification** (when called by the planner) with fully written target text, or **direct edits** to documentation files (when called by the executor or user).
+The deliverable depends on the operation mode:
+
+- **Write / Modify** — a **Change Specification** (when called by the planner) with fully written target text, or **direct edits** to documentation files (when called by the executor or user).
+- **Audit** — a **Structured Audit Report** that inventories every factual claim, structural finding, writing-quality observation, and completeness gap with evidence — plus embedded Change Specifications for issues that need correction.
+
+The same multi-agent machinery (4 explorers, 3-5 critics, double-blind verification) runs in every mode. Quality is equal whether the skill is writing, modifying, or reviewing.
 
 **Announce at start:** "Using the documentation-writer skill."
 
 ## Editors
 
-- In Cursor, attach the skill with `@` or invoke via `/`; where the skill names the Task tool with `subagent_type` or subagents, use those Cursor mechanisms.
-- In Claude Code, invoke with `/` plus the skill `name`; where the skill references multi-agent work, follow Claude Code subagent or parallel-session patterns.
+- **Cursor:** Attach the skill with `@` or invoke via `/`. Every "Spawn N agents" instruction means N calls to the **Task tool** with the specified `subagent_type` and `model`. You MUST use the Task tool — never do the work inline.
+- **Claude Code:** Invoke with `/aic-documentation-writer`. Every "Spawn N agents" instruction means N parallel subagent launches. You MUST spawn separate agents — never do the work inline.
 
 ## Cardinal Rules
+
+### 0. Mandatory Subagent Dispatch
+
+**This skill's entire value comes from multi-agent parallelism. You MUST use the Task tool to spawn subagents where specified — NEVER perform explorer or critic work in the main conversation.** The point of producer-critic separation is that independent agents find issues the main agent misses due to anchoring bias. If you skip subagent dispatch and do the analysis yourself, the output is single-model quality — which defeats the purpose of this skill and violates Cardinal Rule 2 (Producer-Critic Separation).
+
+Concretely: Phase 1 says "Spawn 4 explorers" — you MUST make 4 Task tool calls. Phase 3 says "Spawn 3-5 critics" — you MUST make 3-5 Task tool calls. There is no "I'll just do it myself" shortcut. If the Task tool is unavailable (e.g. readonly mode), tell the user and stop — do not fall back to single-agent work silently.
 
 ### 1. Evidence Over Claims
 
@@ -75,9 +86,10 @@ Only after the user has chosen may the skill proceed — and only by changing do
 
 ## When to Use
 
-- **Via the planner:** The planner's documentation recipe delegates to this skill for Phase 1 (analysis) and Phases 2-3 (writing + review). The planner reads this `SKILL.md` and follows the protocol.
-- **Via the executor:** The executor's documentation mode (`4-doc`) delegates to this skill's Phase 3 (adversarial review) for post-edit verification. The executor reads this `SKILL.md` and runs Phase 3.
-- **Directly:** User says "improve this document", "review documentation X", "rewrite section Y", or "fix the docs". The skill runs the full pipeline (Phases 1-4) end-to-end and produces edits directly.
+- **Via the planner:** The planner's documentation recipe delegates to this skill for Phase 1 (analysis) and Phases 2-3 (writing + review). The planner reads this `SKILL.md` and follows the protocol. Mode is always write/modify.
+- **Via the executor:** The executor's documentation mode (`4-doc`) delegates to this skill's Phase 3 (adversarial review) for post-edit verification. The executor reads this `SKILL.md` and runs Phase 3. Mode is always write/modify.
+- **Directly (write/modify):** User says "improve this document", "rewrite section Y", "fix the docs", or "update the installation guide". The skill classifies as write or modify mode and runs the full pipeline (Phases 1-4) end-to-end, producing direct edits.
+- **Directly (audit):** User says "review documentation X", "validate this document", "check X for accuracy", "audit this doc", or "verify the installation guide". The skill classifies as audit mode and runs the audit pipeline variant (Phases 1, 2-audit, 3-audit, 4-audit), producing a Structured Audit Report with corrections.
 
 ## Inputs (read these when the skill runs directly)
 
@@ -90,14 +102,35 @@ Only after the user has chosen may the skill proceed — and only by changing do
 
 When called by the planner or executor, these inputs are already in context from the caller's pre-read batch.
 
+## Operation Mode Classification
+
+Before the pipeline runs, classify the user's request into one of three modes. The mode determines the Phase 2 deliverable, Phase 3 critic scope, and Phase 4 output format.
+
+| Mode       | Trigger keywords                                            | Deliverable                                    |
+| ---------- | ----------------------------------------------------------- | ---------------------------------------------- |
+| **Write**  | "write", "create", "add section", "document X"              | Change Specification with target text          |
+| **Modify** | "improve", "rewrite", "fix", "update section", "align"      | Change Specification with target text          |
+| **Audit**  | "review", "validate", "check", "verify", "audit", "inspect" | Structured Audit Report + embedded corrections |
+
+**Classification heuristic:** Match keywords in the user's request. If ambiguous (request contains both modify and audit signals), default to **Modify** — it produces both analysis and changes.
+
+When called by the planner or executor, the caller specifies the mode. When invoked directly, the skill classifies based on the user's request.
+
+**Mode effects on the pipeline:**
+
+- **Write / Modify:** Phase 2 produces Change Specifications. Phase 3 critics review the proposed changes (edited-section scope). Phase 4 applies changes and runs mechanical verification.
+- **Audit:** Phase 2 produces a Structured Audit Report. Phase 3 critics review the existing document (full-document scope) and challenge the audit itself (Critic 5). Phase 4 presents the report and applies approved corrections.
+
+Phase 1 (Deep Analysis) is identical across all modes — the 4 explorers always run full-document investigation regardless of mode.
+
 ## Process Overview
 
-| Phase                       | Deliverable                             | Subagents            | Typical duration |
-| --------------------------- | --------------------------------------- | -------------------- | ---------------- |
-| Phase 1: Deep Analysis      | Explorer findings with evidence         | 4 parallel explorers | 2-4 min          |
-| Phase 2: Synthesis + Write  | Change Specification with target text   | 0 (main agent)       | 1-2 min          |
-| Phase 3: Adversarial Review | Critic findings + revised target text   | 3-4 parallel critics | 2-4 min          |
-| Phase 4: Revise + Verify    | Final verified text + mechanical checks | 0 (main agent)       | 1-2 min          |
+| Phase                       | Write / Modify deliverable              | Audit deliverable                              | Subagents            | Typical duration |
+| --------------------------- | --------------------------------------- | ---------------------------------------------- | -------------------- | ---------------- |
+| Phase 1: Deep Analysis      | Explorer findings with evidence         | Explorer findings with evidence (same)         | 4 parallel explorers | 2-4 min          |
+| Phase 2: Synthesis + Write  | Change Specification with target text   | Structured Audit Report + embedded corrections | 0 (main agent)       | 1-2 min          |
+| Phase 3: Adversarial Review | Critic findings + revised target text   | Critic findings on existing doc + audit review | 3-5 parallel critics | 2-4 min          |
+| Phase 4: Revise + Verify    | Final verified text + mechanical checks | Report presentation + approved corrections     | 0 (main agent)       | 1-2 min          |
 
 Not every entry point needs all phases — see Entry Point Routing.
 
@@ -105,11 +138,12 @@ Not every entry point needs all phases — see Entry Point Routing.
 
 ## Entry Point Routing
 
-| Caller                           | Phases to run | Why                                                                                                                                                             |
-| -------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Planner (doc recipe exploration) | 1, 2, 3       | Planner needs the Change Specification with verified target text. Planner owns Phase 4 (mechanical verification via its own C.5 checks).                        |
-| Executor (4-doc verification)    | 3 only        | The Change Specification was already verified during planning. The executor re-runs adversarial review on the APPLIED edits — a second pass with fresh critics. |
-| Direct invocation                | 1, 2, 3, 4    | Full pipeline end-to-end. The skill handles everything including mechanical verification and direct file edits.                                                 |
+| Caller                              | Mode         | Phases to run                | Why                                                                                                                                                             |
+| ----------------------------------- | ------------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Planner (doc recipe exploration)    | Write/Modify | 1, 2, 3                      | Planner needs the Change Specification with verified target text. Planner owns Phase 4 (mechanical verification via its own C.5 checks).                        |
+| Executor (4-doc verification)       | Write/Modify | 3 only                       | The Change Specification was already verified during planning. The executor re-runs adversarial review on the APPLIED edits — a second pass with fresh critics. |
+| Direct invocation (write or modify) | Write/Modify | 1, 2, 3, 4                   | Full pipeline end-to-end. The skill handles everything including mechanical verification and direct file edits.                                                 |
+| Direct invocation (audit)           | Audit        | 1, 2-audit, 3-audit, 4-audit | Full pipeline with audit variants. Produces Structured Audit Report; applies corrections the user approves.                                                     |
 
 ---
 
@@ -126,9 +160,9 @@ Before spawning explorers, read in one parallel batch:
 - `SKILL-dimensions.md` (explorer prompt templates)
 - `SKILL-standards.md` (writing standards)
 
-### 1b. Spawn 4 explorers in parallel
+### 1b. Spawn 4 explorers in parallel (MANDATORY — Cardinal Rule 0)
 
-Build each explorer's prompt from the templates in `SKILL-dimensions.md`. Each explorer receives: the target document path, sibling document paths, and its specific investigation mandate.
+**You MUST make 4 Task tool calls here.** Build each explorer's prompt from the templates in `SKILL-dimensions.md`. Each explorer receives: the target document path, sibling document paths, and its specific investigation mandate. Do NOT skip this step or attempt to perform the exploration yourself.
 
 **Explorer 1 — Factual accuracy** (`explore` subagent, `fast` model):
 
@@ -212,6 +246,8 @@ For each identified change, write all three parts:
 
 - Match the voice and tone identified by Explorer 3
 - Follow content format conventions: tables for 3+ definitions, numbered lists for procedures, proper heading hierarchy
+- Paragraph density: one idea per paragraph — split paragraphs that cover multiple distinct points, editors, or contexts (see SKILL-standards.md §Paragraph density)
+- Editor-specific formatting: when content diverges by editor, give each editor its own paragraph with a bold label prefix like `**Cursor:**` — never inline multiple editors in one paragraph (see SKILL-standards.md §Editor-specific content formatting)
 - No temporal references (phase names, task numbers, "recently added"); no task references — do not mention that a task existed; describe what was implemented directly
 - Line-break preservation: match the source document's structure
 - Every technical claim in target text must be traceable to an Explorer 1 finding
@@ -224,35 +260,90 @@ Before proceeding to Phase 3:
 - Grep all target text blocks for temporal references: phase names ("Phase [A-Z]"), task identifiers ("[A-Z][0-9]{2}:", "task [0-9]+", "task [A-Z][0-9]+"), task-existence phrases ("as per task", "implemented in task", "this task adds", "the task"), temporal phrases ("will be added", "in the next", "recently", "upcoming", "future task"). Rewrite any found — describe capabilities directly, never attribute to a task.
 - For each technical claim in target text, verify it appears in the Explorer 1 findings. If a claim has no backing evidence, investigate or remove it.
 
+### 2e. Audit mode: Build the Structured Audit Report
+
+**This subsection replaces 2c-2d when mode = Audit.** The main agent writes the report — no subagents in this phase.
+
+Instead of producing only Change Specifications, produce a **Structured Audit Report** that covers the entire document. The report is the primary deliverable. See `SKILL-standards.md §Audit Report Format` for the mandatory structure.
+
+**Report sections (in order):**
+
+1. **Executive summary** — One-paragraph verdict: PASS (no corrections required), ADVISORY (observations but no factual or structural errors), or FAIL (corrections required). Include severity counts: N critical, M moderate, K informational.
+
+2. **Section-by-section assessment** — For every `##` section in the target document, a status line:
+   - CLEAN: all claims verified, no issues found (cite evidence)
+   - ISSUES FOUND: list each issue with severity and evidence
+   - NEEDS INVESTIGATION: claims that could not be verified (list with reasons)
+
+3. **Factual accuracy inventory** — Every technical claim from Explorer 1, with its classification and file:line citation. Group by document section. This is the full inventory — not a summary. Include ACCURATE findings, not just errors.
+
+4. **Structural integrity** — ToC-body match, parallel section symmetry, stale markers, intra-document consistency (from Explorer 2).
+
+5. **Writing quality assessment** — Audience classification, tone profile, quality baseline metrics (from Explorer 3). This section does not produce changes — it characterizes the document's current state.
+
+6. **Completeness assessment** — Coverage, gaps, cross-reference map (from Explorer 4). For each gap, include the sibling coverage classification (COVERED BY SIBLING / PARTIALLY COVERED / NOT COVERED).
+
+7. **Corrections required** — For each issue that needs fixing, a full Change Specification in the standard format (current text / required change / target text). Each correction has a severity: **critical** (factual error, broken link, stale content) or **moderate** (structural inconsistency, writing-quality issue, missing cross-reference).
+
+8. **Observations** — Findings that are informational, not actionable. Patterns worth noting, areas that are well-written, structural choices that work.
+
+9. **Open questions** — Claims that could not be verified by Explorer 1. Each includes: the claim text, what was searched, why it is uncertain, and suggested resolution method.
+
+**Key principles:**
+
+- The audit report includes positive findings (what is correct), not just errors. A review that only reports problems gives no confidence about the rest of the document.
+- Corrections required (section 7) use the same Change Specification format as write/modify mode. They can be applied in Phase 4.
+- Every finding must have at least one evidence citation (Cardinal Rule 1). Findings without evidence are moved to Open Questions.
+
 ---
 
-## Phase 3: Adversarial Review (3-4 Parallel Critics)
+## Phase 3: Adversarial Review (3-5 Parallel Critics)
 
-**Goal:** A fresh set of agents with zero prior commitment challenges the draft. Each critic receives the target text but NOT the explorer findings — they start fresh, preventing anchoring bias. This is the quality mechanism that most directly surpasses Opus: Opus self-evaluates its own writing; these critics have zero sunk cost.
+**Goal:** A fresh set of agents with zero prior commitment challenges the draft. Each critic receives the target text (write/modify) or the existing document (audit) but NOT the explorer findings — they start fresh, preventing anchoring bias. This is the quality mechanism that most directly surpasses Opus: Opus self-evaluates its own writing; these critics have zero sunk cost.
 
 ### 3a. Pre-read critic templates
 
-Read `SKILL-dimensions.md` for the critic prompt templates. Each critic's prompt is built from the template plus the specific document and target text.
+Read `SKILL-dimensions.md` for the critic prompt templates. Use the **standard critic templates** for write/modify mode, or the **audit-mode critic templates** for audit mode. Each critic's prompt is built from the template plus the specific document and target text (or audit report).
 
-### 3b. Spawn 3-4 critics in parallel
+### 3b. Spawn critics in parallel (MANDATORY — Cardinal Rule 0)
+
+**You MUST make 3-5 Task tool calls here.** Do NOT perform critic analysis yourself — that violates Cardinal Rule 2 (Producer-Critic Separation). **In write/modify mode:** spawn 3-4 critics (Critics 1-4) scoped to edited sections. **In audit mode:** spawn 4-5 critics (Critics 1-5) scoped to the full document.
 
 **Critic 1 — Editorial quality** (`generalPurpose` subagent):
 
-Read the document with the target text applied. Check: voice/tone match with surrounding text, sentence structure variety (not monotonous), paragraph cohesion (one idea per paragraph, smooth transitions), detail level consistency with neighboring sections, ambiguous pronouns or dangling references, heading hierarchy. Parallel section symmetry: if the edited section has a structural sibling, compare ordering, naming, content parity, information density. Audience awareness: verify the text uses appropriate language for the document's audience. Report each issue with the exact line or paragraph. If no issues, state "No editorial issues found."
+- **Write/Modify scope:** Read the document with the target text applied. Check: voice/tone match with surrounding text, sentence structure variety (not monotonous), paragraph cohesion (one idea per paragraph, smooth transitions), detail level consistency with neighboring sections, ambiguous pronouns or dangling references, heading hierarchy. Parallel section symmetry: if the edited section has a structural sibling, compare ordering, naming, content parity, information density. Audience awareness: verify the text uses appropriate language for the document's audience. Report each issue with the exact line or paragraph. If no issues, state "No editorial issues found."
+- **Audit scope:** Read the ENTIRE document. Perform the same checks across ALL sections, not just edited ones. Use the audit-mode Critic 1 template from `SKILL-dimensions.md`. Report issues per section.
 
 **Critic 2 — Factual re-verification** (`explore` subagent, `fast` model):
 
-Read the target text. For every technical claim — interface names, type names, file paths, ADR references, component descriptions, commands, package names — grep the codebase to verify. This is INDEPENDENT of Explorer 1's work. The critic has NOT seen Explorer 1's findings. Return: `[claim] — [source file:line] — VERIFIED / NOT FOUND / CONTRADICTED`. Check every claim, not a sample.
+- **Write/Modify scope:** Read the target text. For every technical claim — interface names, type names, file paths, ADR references, component descriptions, commands, package names — grep the codebase to verify. This is INDEPENDENT of Explorer 1's work. The critic has NOT seen Explorer 1's findings. Return: `[claim] — [source file:line] — VERIFIED / NOT FOUND / CONTRADICTED`. Check every claim, not a sample.
+- **Audit scope:** Read the ENTIRE document. Verify every technical claim in ALL sections against the codebase. Use the audit-mode Critic 2 template from `SKILL-dimensions.md`. This is the double-blind pass against Explorer 1 — same principle, full-document scope.
 
 **Critic 3 — Cross-document consistency** (`explore` subagent, `fast` model):
 
-Read the target text and ALL sibling documents. For every key term, component name, status claim, and architecture description in the target text, check that the same term/concept is used consistently in sibling documents. If a mirror document exists, compare section structure and content parity. Return: `[term] — [this doc says X] vs [sibling says Y] — CONSISTENT / DIVERGENT`.
+- **Write/Modify scope:** Read the target text and ALL sibling documents. For every key term, component name, status claim, and architecture description in the target text, check that the same term/concept is used consistently in sibling documents. If a mirror document exists, compare section structure and content parity. Return: `[term] — [this doc says X] vs [sibling says Y] — CONSISTENT / DIVERGENT`.
+- **Audit scope:** Same checks, but extract terms from the ENTIRE document, not just edited sections. Use the audit-mode Critic 3 template.
 
 **Critic 4 — Reader simulation** (`generalPurpose` subagent, **conditional**):
 
 Spawn ONLY for user-facing documents (installation guides, getting started docs, user-facing READMEs). Skip for developer references (implementation specs, project plans, architecture docs).
 
-Read the document from top to bottom as a first-time reader with zero project knowledge. Report: undefined terms (used without prior definition), unclear prerequisites (steps that assume prior context), missing context (points where the reader would ask "what does this mean?"), jargon without explanation (technical terms a first-time user would not know), dead ends (instructions that stop before the task is complete). Focus on the edited sections but note issues in surrounding context that affect comprehension.
+- **Write/Modify scope:** Read the document from top to bottom as a first-time reader with zero project knowledge. Report: undefined terms (used without prior definition), unclear prerequisites (steps that assume prior context), missing context (points where the reader would ask "what does this mean?"), jargon without explanation (technical terms a first-time user would not know), dead ends (instructions that stop before the task is complete). Focus on the edited sections but note issues in surrounding context that affect comprehension.
+- **Audit scope:** Same checks, full-document scope. Read every section with equal attention. Use the audit-mode Critic 4 template.
+
+**Critic 5 — Audit completeness** (`generalPurpose` subagent, **audit mode only**):
+
+Spawn ONLY in audit mode. This critic receives the Structured Audit Report from Phase 2 and challenges it. The critic has NOT seen the explorer findings — only the report and the document.
+
+Investigation mandate:
+
+- Re-read the document section by section. For each section, check whether the audit report has findings. Flag sections with zero findings — the audit may have skimmed them.
+- For claims the report marked ACCURATE, spot-check a sample by grepping the codebase. Flag any that appear wrong.
+- Check whether the report missed obvious gaps (topics the document should cover but does not).
+- Verify the severity classifications: are critical issues classified as critical? Are moderate issues genuinely moderate?
+- Challenge the executive summary verdict: does the evidence support PASS / ADVISORY / FAIL?
+
+Return: `[section or finding] — [issue type: MISSED_SECTION / WRONG_CLASSIFICATION / MISSED_GAP / SEVERITY_MISMATCH / VERDICT_CHALLENGE] — [description with evidence]`. End with: "Audit completeness issues: N."
 
 ### 3c. Anti-agreement enforcement
 
@@ -265,10 +356,11 @@ If any critic reports zero issues ("No problems found", "All claims verified", "
 
 Read all critic outputs. For each reported issue:
 
-- **Editorial issues (Critic 1):** Fix the target text. Re-read context around each fix to ensure the fix itself does not introduce new problems.
-- **Factual issues — NOT FOUND or CONTRADICTED (Critic 2):** Investigate. Read the source file to determine whether the document or the codebase is correct. For normal documents: fix the target text to match the code (never change code; see Cardinal Rule 7). For prescriptive documents (project-plan, implementation-spec, architecture, security): STOP, report the incongruency to the user with both locations, and ask how to proceed per Cardinal Rule 7.
-- **Consistency divergences (Critic 3):** Fix the target text to align with the authoritative source. If the sibling document is wrong, note as a follow-up item (do not edit sibling documents outside scope).
-- **Reader simulation findings (Critic 4):** For issues in the edited sections, fix them (add definitions, clarify prerequisites, simplify jargon). For issues in surrounding context, note as follow-up items.
+- **Editorial issues (Critic 1):** In write/modify mode: fix the target text. In audit mode: add to the Corrections Required section of the Audit Report. Re-read context around each fix to ensure the fix itself does not introduce new problems.
+- **Factual issues — NOT FOUND or CONTRADICTED (Critic 2):** Investigate. Read the source file to determine whether the document or the codebase is correct. For normal documents: fix the target text (write/modify) or add to Corrections Required (audit) to match the code (never change code; see Cardinal Rule 7). For prescriptive documents (project-plan, implementation-spec, architecture, security): STOP, report the incongruency to the user with both locations, and ask how to proceed per Cardinal Rule 7.
+- **Consistency divergences (Critic 3):** Fix the target text (write/modify) or add to Corrections Required (audit) to align with the authoritative source. If the sibling document is wrong, note as a follow-up item (do not edit sibling documents outside scope).
+- **Reader simulation findings (Critic 4):** In write/modify mode: for issues in the edited sections, fix them (add definitions, clarify prerequisites, simplify jargon); for issues in surrounding context, note as follow-up items. In audit mode: all findings go into the Section-by-section Assessment or Corrections Required.
+- **Audit completeness findings (Critic 5, audit mode only):** For each finding, investigate: re-read the document section, re-check the audit report. If the critic is correct (section was missed, classification is wrong, gap was overlooked), update the Audit Report accordingly. If the critic is wrong (the audit did cover it), note the false positive for transparency.
 
 ### 3e. Double-blind factual reconciliation
 
@@ -294,7 +386,9 @@ If Phase 3 found issues that require rewriting target text (not just minor fixes
 
 **Goal:** Apply the verified target text to the document and run mechanical verification. This phase runs only during direct invocation — when called by the planner or executor, they handle verification through their own protocols.
 
-### 4a. Apply changes
+### Write/Modify mode
+
+#### 4a. Apply changes
 
 For each change in the Change Specification:
 
@@ -302,7 +396,7 @@ For each change in the Change Specification:
 2. After each edit, re-read the edited section plus 5 lines before and after
 3. Verify: target text applied correctly, smooth transitions, no formatting inconsistencies
 
-### 4b. Run mechanical verification
+#### 4b. Run mechanical verification
 
 Run all 12 dimensions from the executor's `4-doc-c` table:
 
@@ -323,7 +417,7 @@ Run all 12 dimensions from the executor's `4-doc-c` table:
 
 Dimensions 1-7, 10, and 12 must be clean. Dimensions 8-9 are informational. Dimension 11 is blocking within scoped files only.
 
-### 4c. Present results
+#### 4c. Present results
 
 Report to the user:
 
@@ -334,19 +428,53 @@ Report to the user:
 - Follow-up items (issues outside scope noted by critics)
 - Open questions (unresolved factual discrepancies)
 
+### Audit mode
+
+#### 4d. Present the Audit Report
+
+Present the Structured Audit Report to the user as a formatted dashboard:
+
+1. **Executive summary first** — the verdict (PASS / ADVISORY / FAIL) and severity counts
+2. **Section-by-section assessment** — status per document section with key findings
+3. **Corrections required** — each correction with its Change Specification and severity
+4. **Observations** — informational findings
+5. **Open questions** — unresolved claims
+
+Do not present the full factual accuracy inventory or structural integrity details unless the user asks — these are available on request. Lead with what matters: verdict, corrections, and observations.
+
+#### 4e. Apply approved corrections
+
+After presenting the report:
+
+1. Apply all corrections from the Corrections Required section. If the user requests selective application, apply only the approved subset.
+2. For each applied correction, re-read the edited section plus 5 lines before and after to verify correct application.
+3. Run mechanical verification (dimensions 1-7, 10, 12 from 4b) on the applied corrections only.
+
+#### 4f. Re-present with applied status
+
+After applying corrections, update the report:
+
+- Mark each applied correction as APPLIED
+- Update the executive summary verdict if corrections changed the outcome (FAIL with all critical corrections applied becomes ADVISORY or PASS)
+- List any corrections that were not applied and why
+
 ---
 
 ## Adaptive Protocol Scaling
 
 Not every documentation change needs the full pipeline. Scale the protocol based on change complexity:
 
-| Change type   | Example                                          | Protocol                                                                                                                                              |
-| ------------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Mechanical    | Fix a typo, update a version number              | Skip Phase 1 explorers. Main agent verifies the single fact, writes the change, runs Critic 2 only (factual spot-check).                              |
-| Section edit  | Rewrite one section for clarity                  | Full Phase 1 (all 4 explorers). Full Phase 2-3. Phase 4 if direct invocation.                                                                         |
-| Major rewrite | Restructure entire document, create new document | Full Phase 1 with extended exploration (researcher delegation for deep analysis). Full Phase 2-3 with 2 revision loops. Phase 4 if direct invocation. |
+| Change type    | Example                                            | Protocol                                                                                                                                                                                                                  |
+| -------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Mechanical     | Fix a typo, update a version number                | Skip Phase 1 explorers. Main agent verifies the single fact, writes the change, runs Critic 2 only (factual spot-check).                                                                                                  |
+| Section edit   | Rewrite one section for clarity                    | Full Phase 1 (all 4 explorers). Full Phase 2-3. Phase 4 if direct invocation.                                                                                                                                             |
+| Major rewrite  | Restructure entire document, create new document   | Full Phase 1 with extended exploration (researcher delegation for deep analysis). Full Phase 2-3 with 2 revision loops. Phase 4 if direct invocation.                                                                     |
+| Audit (full)   | "review this document", "validate installation.md" | Full Phase 1 (all 4 explorers, full-document scope). Phase 2 produces Audit Report. Phase 3 uses audit-mode critics (full-document scope + Critic 5). Phase 4 presents report and applies approved corrections.           |
+| Audit (scoped) | "check the Uninstall section for accuracy"         | Same as full audit, but explorers and critics focus on the specified section plus scope-adjacent sections. The Audit Report covers only the scoped sections, with a note about out-of-scope areas not being investigated. |
 
-**Classification heuristic:** Count the number of sections affected. 1 section = section edit. 3+ sections or structural changes = major rewrite. Single-line changes with no analysis needed = mechanical.
+**Classification heuristic (write/modify):** Count the number of sections affected. 1 section = section edit. 3+ sections or structural changes = major rewrite. Single-line changes with no analysis needed = mechanical.
+
+**Classification heuristic (audit):** If the user specifies a section, use scoped audit. Otherwise, use full audit. Audit mode is selected by the Operation Mode Classification step — it is never a fallback from write/modify.
 
 When called by the planner or executor, the caller specifies the change type. When invoked directly, the skill classifies based on the user's request.
 
@@ -416,6 +544,8 @@ The documentation-writer skill is designed so that auto-mode (cheaper model) pro
 
 ### Quality gates (enforced before output)
 
+**All modes:**
+
 1. Every finding has at least 1 evidence citation (file:line or grep result)
 2. Factual re-verification (Critic 2) found zero NOT FOUND or CONTRADICTED claims
 3. Editorial review (Critic 1) has zero unresolved issues
@@ -423,6 +553,11 @@ The documentation-writer skill is designed so that auto-mode (cheaper model) pro
 5. Reader simulation (Critic 4) has zero "undefined term" or "dead end" findings (user-facing only)
 6. All applicable mechanical dimensions pass (Phase 4, or caller's own verification)
 7. Double-blind reconciliation (3e) has zero unresolved discrepancies
+
+**Audit mode only:**
+
+8. Audit coverage — every `##` section in the target document has at least one explorer finding. Sections with zero findings indicate the audit skipped them — re-investigate before finalizing the report.
+9. Audit completeness critic (Critic 5) found zero MISSED_SECTION or WRONG_CLASSIFICATION issues, or those issues were resolved by updating the Audit Report.
 
 ---
 
@@ -433,5 +568,5 @@ The documentation-writer skill is designed so that auto-mode (cheaper model) pro
 - Writing standards live in `SKILL-standards.md` — always read them before writing target text
 - The skill never modifies source code — only `.md` documentation files (Cardinal Rule 7). For normal docs, resolve mismatches by changing documentation to match code. For prescriptive docs (project-plan, implementation-spec, architecture, security), stop on any incongruence and ask the user how to proceed
 - When called by the planner or executor, the skill follows the caller's worktree and file path conventions
-- Maximum subagent budget per invocation: 4 explorers + 1 gap-fill + 4 critics + 1 re-spawn = 10. If the document requires more investigation, split into multiple skill invocations
+- Maximum subagent budget per invocation: write/modify = 4 explorers + 1 gap-fill + 4 critics + 1 re-spawn = 10; audit = 4 explorers + 1 gap-fill + 5 critics + 1 re-spawn = 11 (Critic 5 adds one). If the document requires more investigation, split into multiple skill invocations
 - The skill can delegate to the `aic-researcher` skill when factual investigation requires deep codebase analysis (3+ UNCERTAIN claims)

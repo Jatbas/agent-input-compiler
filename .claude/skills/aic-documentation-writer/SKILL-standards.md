@@ -36,6 +36,46 @@ When adding a new section, evaluate the document's existing flow:
 
 Place the new section where it fits logically. Never insert a new section at the first convenient gap without considering document flow.
 
+### Paragraph density
+
+When a paragraph covers multiple distinct points, split it into one paragraph per point. Each paragraph should carry a single idea a reader can absorb without re-reading. Signs a paragraph needs splitting:
+
+- It discusses two or more editors or platforms with different behaviors — give each its own paragraph
+- It contains a general statement followed by editor-specific qualifications — put the general statement in its own paragraph, then one paragraph per editor
+- It strings together cause, mechanism, and consequence in one block — separate the "what happens" from the "why it matters"
+- A sentence introduces a new actor or context shift (e.g. switching from Cursor behavior to Claude Code behavior)
+
+Dense paragraphs are the most common readability issue in generated documentation. When in doubt, split.
+
+### Editor-specific content formatting
+
+When a section discusses behavior that differs between editors (Cursor, Claude Code), format as follows:
+
+1. If there is a general statement that applies to all editors, write it as its own paragraph first
+2. Give each editor its own paragraph with a **bold label** prefix: `**Cursor:**` or `**Claude Code:**`
+3. Separate each editor paragraph with a blank line
+4. If the section warrants a sub-heading, use `### Section Title`
+
+**Correct:**
+
+```
+### How AIC helps
+
+**Cursor:** A new chat runs session-start compilation so file selection reflects the current tree.
+
+**Claude Code:** Hooks compile on session start and on every user message; a new chat clears stale transcript.
+```
+
+**Incorrect (single dense paragraph):**
+
+```
+### How AIC helps
+
+Cursor: a new chat runs session-start compilation so file selection reflects the current tree. Claude Code: hooks compile on session start and on every user message; a new chat clears stale transcript.
+```
+
+This pattern applies wherever content diverges by editor, environment, or platform — not only "How AIC helps" sections. The same rule applies to "Why" sections that explain different behavior per editor.
+
 ### Line-break preservation
 
 Preserve the source document's line-break structure. Do not wrap prose onto multiple lines unless the surrounding text does. If the current text uses single-line sentences, the target text must remain single-line. If the current text wraps at a column width, match the wrap point.
@@ -99,6 +139,128 @@ Never use these in target text — they indicate unresolved decisions or hedging
 - "consider", "you could", "you might want"
 
 Each prohibited pattern means the writer has not decided. Decide, then write the definitive text.
+
+---
+
+## Audit Report Format
+
+When mode = Audit, Phase 2 produces a Structured Audit Report instead of Change Specifications. This section defines the mandatory structure, ordering, and formatting rules.
+
+### Report structure (mandatory sections in order)
+
+**1. Executive Summary**
+
+One paragraph. Format:
+
+```
+**Verdict: [PASS / ADVISORY / FAIL]**
+
+[1-2 sentence summary of findings.] [N] sections audited. [X] critical issues, [Y] moderate issues, [Z] observations. [W] open questions.
+```
+
+- **PASS:** Zero corrections required. All claims verified, structure sound, writing quality consistent.
+- **ADVISORY:** Zero critical corrections, but moderate corrections or observations exist. The document is usable but has improvement opportunities.
+- **FAIL:** One or more critical corrections required (factual errors, broken links, stale content, missing critical coverage).
+
+**2. Section-by-Section Assessment**
+
+One status line per `##` section in the target document. Format:
+
+```
+### [Section heading]
+**Status: CLEAN / ISSUES FOUND / NEEDS INVESTIGATION**
+- [Key finding 1 with evidence citation]
+- [Key finding 2 with evidence citation]
+```
+
+- **CLEAN:** All claims verified, no structural or writing issues. Cite at least one piece of evidence (a verified claim or structural check).
+- **ISSUES FOUND:** List each issue with severity (critical / moderate) and evidence.
+- **NEEDS INVESTIGATION:** Claims that could not be verified. List each with what was searched and why it is uncertain.
+
+Every `##` section in the document MUST appear here. Omitting a section violates Gate 8 (audit coverage).
+
+**3. Factual Accuracy Inventory**
+
+Full claim-by-claim listing from Explorer 1, grouped by document section. Format per claim:
+
+```
+[exact claim] — [source file:line] — ACCURATE / INACCURATE / NOT FOUND / UNCERTAIN
+```
+
+Include ALL classifications, not just errors. This inventory demonstrates audit thoroughness. Present in a table when the section has 5+ claims.
+
+**4. Structural Integrity**
+
+Findings from Explorer 2, grouped by check type (ToC-body match, parallel section symmetry, stale markers, intra-document consistency). Use the evidence format from the explorer template.
+
+**5. Writing Quality Assessment**
+
+From Explorer 3. Present as a profile, not a list of problems:
+
+- Audience: [classification with evidence]
+- Tone: [profile — formality, voice, technical level, personality]
+- Quality baseline: [metrics — passive voice frequency, sentence variance, paragraph cohesion]
+- Notable strengths: [what the document does well]
+- Areas for improvement: [patterns to address — these feed into Corrections Required if actionable]
+
+**6. Completeness Assessment**
+
+From Explorer 4. Present as:
+
+- Coverage: [X] documented, [Y] undocumented ([Z] critical)
+- Cross-references: [N] valid, [M] invalid
+- Gaps: [K] total ([J] critical)
+- Sibling coverage: [A] fully covered by siblings, [B] partially covered, [C] not covered
+
+For each critical gap: one sentence explaining what is missing and why it matters.
+
+**7. Corrections Required**
+
+Each correction uses the standard Change Specification format:
+
+```
+#### Correction [N] — [severity: critical / moderate]
+
+**Current text:** [exact quote from document]
+
+**Required change:** [one sentence explaining what needs to change and why]
+
+**Target text:** [exact replacement text]
+
+**Evidence:** [file:line or grep result justifying the correction]
+```
+
+Order: critical corrections first, then moderate. Number sequentially.
+
+**8. Observations**
+
+Informational findings that do not require changes. Format:
+
+```
+- [Observation] — [evidence citation]
+```
+
+Include positive findings (well-structured sections, consistent terminology, accurate claims that were tricky to verify). A report with zero observations is suspicious — every document has noteworthy patterns.
+
+**9. Open Questions**
+
+Claims that could not be verified. Format:
+
+```
+- **Claim:** [exact text]
+- **Searched:** [what was grepped/globbed]
+- **Result:** [why it is uncertain]
+- **Suggested resolution:** [how to verify — specific file to check, person to ask, test to run]
+```
+
+### Audit Report presentation rules
+
+- Lead with the executive summary and section assessment — these are what the user needs first
+- Do not present the full factual accuracy inventory or structural integrity unless the user asks — summarize in the section assessment
+- Present corrections as an actionable list with clear severity
+- Present observations and open questions after corrections
+- Use tables for dense data (claim inventories with 5+ rows, cross-reference maps)
+- Use bullet lists for narrative findings (observations, quality assessment)
 
 ---
 
@@ -172,6 +334,18 @@ All applicable dimensions from the executor's 4-doc-c table must pass. This is t
 Explorer 1 and Critic 2 agree on every factual claim, or disagreements are resolved with source file evidence. No unresolved discrepancies remain.
 
 **Threshold:** Zero unresolved factual discrepancies between Explorer 1 and Critic 2.
+
+### Gate 8: Audit coverage (audit mode only)
+
+Every `##` section in the target document must have at least one explorer finding in the Audit Report's Section-by-Section Assessment. Sections with zero findings indicate the audit skipped them — the explorers must re-investigate before the report is finalized.
+
+**Threshold:** Zero sections with no findings. Every section has status CLEAN (with evidence), ISSUES FOUND (with details), or NEEDS INVESTIGATION (with explanation).
+
+### Gate 9: Audit completeness (audit mode only)
+
+Critic 5 (audit completeness) must find zero MISSED_SECTION or WRONG_CLASSIFICATION issues in the Audit Report, or those issues must be resolved by updating the report. Other Critic 5 finding types (MISSED_GAP, SEVERITY_MISMATCH, VERDICT_CHALLENGE) must be evaluated and either accepted with justification or resolved.
+
+**Threshold:** Zero unresolved MISSED_SECTION findings. Zero unresolved WRONG_CLASSIFICATION findings. All other Critic 5 findings evaluated.
 
 ---
 

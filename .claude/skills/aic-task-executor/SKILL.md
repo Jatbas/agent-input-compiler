@@ -13,18 +13,32 @@ Execute a task file produced by the `aic-task-planner` skill. Read the task, int
 
 ## Editors
 
-- In Cursor, attach the skill with `@` or invoke via `/`; where the skill names the Task tool with `subagent_type` or subagents, use those Cursor mechanisms.
-- In Claude Code, invoke with `/` plus the skill `name`; where the skill references multi-agent work, follow Claude Code subagent or parallel-session patterns.
+- **Cursor:** Attach the skill with `@` or invoke via `/`. Where this skill says to spawn subagents (e.g. documentation critics in §4-doc), use the **Task tool** with the specified `subagent_type`. You MUST use the Task tool for subagent work — never do it inline.
+- **Claude Code:** Invoke with `/aic-task-executor`. Where this skill references multi-agent work, spawn separate agents. Never perform critic/explorer work inline.
 
 ## When to Use
 
 - User says "execute task", "go", "implement task NNN"
 - User references a task file in `documentation/tasks/`
 - Immediately after the task-planner offers execution
+- User attaches this skill for ad-hoc work (no task file)
+
+## Ad-hoc Work (No Task File)
+
+**When this skill is attached but no task file is referenced, the full process still applies.** The worktree, verification, and merge steps are NOT optional — they exist to protect the main branch from untested changes. For ad-hoc work:
+
+- §1: Create a worktree (use the epoch-only naming: `.git-worktrees/$EPOCH`)
+- §2: Skip task internalization (no task file to read)
+- §3: Implement the user's request directly in the worktree
+- §4: Run the full verification pass (§4a toolchain + §4b mechanical checks on all files you created/modified)
+- §5: Report results, skip mvp-progress update, commit in the worktree
+- §6: Propose merge to user
+
+**NEVER skip §4 (verification) for ad-hoc work.** The most common failure mode is implementing the change, skipping verification, and committing directly to main. This skill exists to prevent that.
 
 ## Inputs
 
-1. The task file path (e.g. `documentation/tasks/001-phase-b-core-interfaces.md`)
+1. The task file path (e.g. `documentation/tasks/001-phase-b-core-interfaces.md`) — or the user's ad-hoc request
 2. `.cursor/rules/AIC-architect.mdc` — active architectural rules
 3. Existing source in `shared/src/` — current interfaces, types, patterns
 
@@ -405,7 +419,7 @@ When all dimensions are confirmed clean, complete these three sub-steps in order
 
 Use the `aic-update-mvp-progress` skill to update `documentation/mvp-progress.md`.
 
-**Critical:** Use today's actual date for the daily log entry. If today's entry already exists, append to it. If it is a new day, create a new entry at the top of the Daily Log section (reverse chronological). Do not put today's work under yesterday's date.
+**Critical — daily log deduplication:** Before editing the daily log, grep `documentation/mvp-progress.md` for `### YYYY-MM-DD` with today's actual date. If a match exists, append to the existing entry — do NOT create a new heading. Only create a new `### YYYY-MM-DD` heading if grep returns zero matches. After the edit, grep again to confirm exactly one `### YYYY-MM-DD` heading for today's date. Do not put today's work under yesterday's date.
 
 **5c — Archive task, update status, commit, and show diff.**
 

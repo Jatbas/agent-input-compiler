@@ -5,6 +5,11 @@ const path = require("node:path");
 const fs = require("node:fs");
 const os = require("node:os");
 
+const {
+  parseKeepAicDatabase,
+  tryCleanGlobalAicDir,
+} = require("../clean-global-aic-dir.cjs");
+
 const manifestPath = path.join(__dirname, "aic-hook-scripts.json");
 const AIC_SCRIPT_NAMES = JSON.parse(
   fs.readFileSync(manifestPath, "utf8"),
@@ -67,7 +72,9 @@ function run() {
   const settingsPath = path.join(globalClaudeDir, "settings.json");
   const removedSettings = tryRemoveFromSettings(settingsPath);
   const removedFiles = tryRemoveHookFiles(globalHooksDir);
-  const changed = removedSettings || removedFiles;
+  const keepDb = parseKeepAicDatabase(process.argv, process.env);
+  const globalAic = tryCleanGlobalAicDir(home, keepDb);
+  const changed = removedSettings || removedFiles || globalAic.changed;
   if (!changed) {
     process.stdout.write("Nothing to remove. No need to restart Claude Code.\n");
     return;
@@ -78,6 +85,9 @@ function run() {
   }
   if (removedFiles) {
     parts.push("Removed AIC scripts from ~/.claude/hooks/.");
+  }
+  if (globalAic.message) {
+    parts.push(globalAic.message);
   }
   parts.push("Restart Claude Code (or reload) to complete uninstall.");
   process.stdout.write(parts.join(" ") + "\n");

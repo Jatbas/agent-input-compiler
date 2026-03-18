@@ -13,8 +13,8 @@ Produce a self-contained task file that any agent can pick up and execute withou
 
 ## Editors
 
-- In Cursor, attach the skill with `@` or invoke via `/`; where the skill names the Task tool with `subagent_type` or subagents, use those Cursor mechanisms.
-- In Claude Code, invoke with `/` plus the skill `name`; where the skill references multi-agent work, follow Claude Code subagent or parallel-session patterns.
+- **Cursor:** Attach the skill with `@` or invoke via `/`. Where this skill delegates to the `aic-documentation-writer` or `aic-researcher` (which spawn subagents), use the **Task tool** with the specified `subagent_type`. Never do subagent work inline.
+- **Claude Code:** Invoke with `/aic-task-planner`. Where this skill delegates to multi-agent skills, spawn separate agents as specified.
 
 ## Cardinal Rule: Stop If Unsure
 
@@ -752,13 +752,13 @@ After the self-check (C.5 Steps 1–2) passes with all applicable checks at 100%
 
 After verification passes:
 
-1. **Assign the final task number.** From the **main workspace root**, scan `documentation/tasks/` for the highest existing task number:
+1. **Assign the final task number.** From the **main workspace root**, scan both `documentation/tasks/` and `documentation/tasks/done/` for the highest existing task number. Completed tasks are archived to `done/`, so you must check both directories:
 
    ```
-   ls documentation/tasks/ | grep -oP '^\d+' | sort -n | tail -1
+   { ls documentation/tasks/ 2>/dev/null; ls documentation/tasks/done/ 2>/dev/null; } | grep -oE '^[0-9]+' | sort -rn | head -1
    ```
 
-   Add 1 and zero-pad to 3 digits (e.g. `127`). This is the final NNN. If no numbered files exist, start at `001`.
+   Note: uses `-oE` (extended regex), not `-oP` (Perl regex), for macOS compatibility. Add 1 and zero-pad to 3 digits (e.g. `196`). This is the final NNN. If no numbered files exist, start at `001`.
 
 2. **Rename and update in the worktree** (run with `working_directory` set to the worktree):
    - Rename the task file: `mv documentation/tasks/$EPOCH-name.md documentation/tasks/NNN-name.md`

@@ -231,6 +231,64 @@ function cursor_project_root_env() {
   }
 }
 
+function cursor_global_aic_clean_preserves_sqlite() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-uninstall-"));
+  try {
+    const aicDir = path.join(tmpDir, ".aic");
+    fs.mkdirSync(aicDir, { recursive: true });
+    fs.writeFileSync(path.join(aicDir, "cache.txt"), "c", "utf8");
+    fs.writeFileSync(path.join(aicDir, "aic.sqlite"), "db", "utf8");
+    const out = runUninstall({ ...process.env, HOME: tmpDir }, [], tmpDir);
+    assert(out.includes("kept SQLite database files"), "mentions db preserved");
+    assert(!fs.existsSync(path.join(aicDir, "cache.txt")), "cache removed");
+    assert(
+      fs.readFileSync(path.join(aicDir, "aic.sqlite"), "utf8") === "db",
+      "db intact",
+    );
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+function cursor_global_aic_no_keep_db_wipes_dir() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-uninstall-"));
+  try {
+    const aicDir = path.join(tmpDir, ".aic");
+    fs.mkdirSync(aicDir, { recursive: true });
+    fs.writeFileSync(path.join(aicDir, "aic.sqlite"), "db", "utf8");
+    const out = runUninstall(
+      { ...process.env, HOME: tmpDir },
+      ["--keep-aic-database=false"],
+      tmpDir,
+    );
+    assert(out.includes("including the database"), "mentions full removal");
+    assert(!fs.existsSync(aicDir), ".aic dir gone");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+function cursor_global_aic_env_no_keep_db_wipes_dir() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-uninstall-"));
+  try {
+    const aicDir = path.join(tmpDir, ".aic");
+    fs.mkdirSync(aicDir, { recursive: true });
+    fs.writeFileSync(path.join(aicDir, "x.txt"), "x", "utf8");
+    runUninstall(
+      {
+        ...process.env,
+        HOME: tmpDir,
+        AIC_UNINSTALL_KEEP_AIC_DATABASE: "0",
+      },
+      [],
+      tmpDir,
+    );
+    assert(!fs.existsSync(aicDir), ".aic removed via env");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
 function cursor_project_mcp_removed() {
   const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "aic-uninstall-h2-"));
   const tmpProject = fs.mkdtempSync(path.join(os.tmpdir(), "aic-uninstall-p2-"));
@@ -270,5 +328,11 @@ cursor_corrupt_hooks_json_still_removes_scripts();
 console.log("ok: cursor_corrupt_hooks_json_still_removes_scripts");
 cursor_project_root_env();
 console.log("ok: cursor_project_root_env");
+cursor_global_aic_clean_preserves_sqlite();
+console.log("ok: cursor_global_aic_clean_preserves_sqlite");
+cursor_global_aic_no_keep_db_wipes_dir();
+console.log("ok: cursor_global_aic_no_keep_db_wipes_dir");
+cursor_global_aic_env_no_keep_db_wipes_dir();
+console.log("ok: cursor_global_aic_env_no_keep_db_wipes_dir");
 cursor_project_mcp_removed();
 console.log("ok: cursor_project_mcp_removed");

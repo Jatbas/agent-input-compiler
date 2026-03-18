@@ -121,6 +121,8 @@ Assess these dimensions with specific examples:
 - Passive voice frequency: count 5 representative sentences, note which are passive
 - Sentence length variance: are sentences monotonously similar length, or varied?
 - Paragraph cohesion: one idea per paragraph? Smooth transitions?
+- Paragraph density: are there paragraphs packing multiple distinct points (e.g. different editor behaviors) into one block? These need splitting.
+- Editor-specific formatting: when content differs by editor, does each editor get its own paragraph with a bold label prefix?
 - Heading hierarchy: consistent nesting levels? Skip-level headings?
 - Formatting consistency: bullet style, code block usage, bold/italic conventions
 - Line-break structure: single-line sentences or wrapped paragraphs? Consistent within sections?
@@ -212,15 +214,18 @@ For every gap identified in checks A and C (UNDOCUMENTED items and UNANSWERED qu
 1. **Voice and tone match:** Does the new text match the voice of the surrounding text? A jarring tonal shift indicates the text was written by a different process than the original.
 2. **Sentence variety:** Is the sentence structure varied? Flag monotonous patterns like 'X does Y. Z does W. A does B.' — three or more consecutive sentences with identical structure.
 3. **Paragraph cohesion:** One idea per paragraph? Smooth transitions between paragraphs? No orphan sentences.
-4. **Detail consistency:** Is the level of detail consistent with neighboring sections? Flag sections that are suddenly more or less detailed than their neighbors.
-5. **Ambiguous references:** Any pronouns without clear antecedents? Any 'this', 'it', 'these' that could refer to multiple things?
-6. **Heading hierarchy:** Do heading levels make sense? No skip-level headings (## to ####)?
-7. **Audience awareness:** Identify the document's audience. Verify the edited text uses appropriate language. Flag user-facing text with internal implementation details, or developer text that over-simplifies.
-8. **Parallel section symmetry:** If the edited section has a structural sibling (describing the same concept for a different target), compare:
-   - Shared-concept ordering: same order?
-   - Shared-concept naming: same heading names?
-   - Content parity: equivalent topics covered?
-   - Information density: comparable word counts per subsection?
+4. **Paragraph density:** Flag paragraphs that pack multiple distinct points into one block. Specifically: paragraphs discussing two or more editors with different behaviors must be split (one paragraph per editor, bold label prefix). General statements followed by editor-specific qualifications must be separate paragraphs. See SKILL-standards.md §Paragraph density and §Editor-specific content formatting.
+5. **Detail consistency:** Is the level of detail consistent with neighboring sections? Flag sections that are suddenly more or less detailed than their neighbors.
+6. **Ambiguous references:** Any pronouns without clear antecedents? Any 'this', 'it', 'these' that could refer to multiple things?
+7. **Heading hierarchy:** Do heading levels make sense? No skip-level headings (## to ####)?
+8. **Audience awareness:** Identify the document's audience. Verify the edited text uses appropriate language. Flag user-facing text with internal implementation details, or developer text that over-simplifies.
+9. **Editor-specific formatting:** When content diverges by editor (Cursor, Claude Code), verify each editor gets its own paragraph with a bold label prefix (`**Cursor:**`, `**Claude Code:**`). Flag inline run-on patterns like 'Cursor: X. Claude Code: Y.' in a single paragraph.
+10. **Parallel section symmetry:** If the edited section has a structural sibling (describing the same concept for a different target), compare:
+
+- Shared-concept ordering: same order?
+- Shared-concept naming: same heading names?
+- Content parity: equivalent topics covered?
+- Information density: comparable word counts per subsection?
 
 **Anti-agreement mandate:** If you find zero issues, describe the strongest possible concern for each section. If you genuinely cannot find a concern after exhaustive analysis, explain exactly what you checked and why the writing is sound. A review that says 'all good' without this justification will be rejected.
 
@@ -321,6 +326,180 @@ For mirror document: `[section] — TARGET has [X] / MIRROR has [Y] — ALIGNED 
 **Anti-agreement mandate:** If you understand everything perfectly, you are not role-playing effectively. A genuine first-time reader of a technical tool ALWAYS has questions. Push harder.
 
 **Output:** Report each finding with the exact sentence or paragraph. Format: `[section/paragraph] — [finding type] — [what is unclear and what would help].' End with: 'Reader simulation findings: N.'"
+
+---
+
+## Audit-Mode Critic Templates (Phase 3)
+
+Use these templates instead of the standard critic templates when mode = Audit. The key difference: scope is the **entire document**, not just edited sections. Critics investigate the existing text for issues, not proposed changes.
+
+### Audit Critic 1 — Editorial Quality (Full Document)
+
+**Subagent type:** `generalPurpose`
+
+**Prompt template:**
+
+"You are an independent editorial reviewer auditing an entire document. You have NO prior context about any analysis performed on this document. Your job is to find writing quality issues across EVERY section. You are not helpful — you are critical.
+
+**Document:** [path]
+
+**Instructions — check EVERY section of the document for ALL of the following:**
+
+1. **Voice and tone consistency:** Does the document maintain a consistent voice throughout? Flag sections where the tone shifts (more formal, more casual, more or less technical). A tonal shift may indicate the section was written at a different time or by a different process.
+2. **Sentence variety:** Is the sentence structure varied? Flag monotonous patterns like 'X does Y. Z does W. A does B.' — three or more consecutive sentences with identical structure. Check every section, not just a sample.
+3. **Paragraph cohesion:** One idea per paragraph? Smooth transitions between paragraphs? No orphan sentences. Check every paragraph, not just a sample.
+4. **Paragraph density:** Flag paragraphs that pack multiple distinct points into one block. Specifically: paragraphs discussing two or more editors with different behaviors must be split (one paragraph per editor, bold label prefix). General statements followed by editor-specific qualifications must be separate paragraphs. See SKILL-standards.md §Paragraph density and §Editor-specific content formatting. Check every section.
+5. **Detail consistency:** Is the level of detail consistent across parallel sections? Flag sections that are suddenly more or less detailed than their structural siblings.
+6. **Ambiguous references:** Any pronouns without clear antecedents? Any 'this', 'it', 'these' that could refer to multiple things?
+7. **Heading hierarchy:** Do heading levels make sense throughout? No skip-level headings (## to ####)?
+8. **Audience awareness:** Identify the document's audience from the opening section. Then verify every section uses appropriate language for that audience. Flag user-facing text with internal implementation details, or developer text that over-simplifies.
+9. **Editor-specific formatting:** When content diverges by editor (Cursor, Claude Code), verify each editor gets its own paragraph with a bold label prefix (`**Cursor:**`, `**Claude Code:**`). Flag inline run-on patterns like 'Cursor: X. Claude Code: Y.' in a single paragraph. Check every section.
+10. **Parallel section symmetry:** Identify ALL sections that describe the same concept for different targets (e.g. editor-specific sections). For each pair, compare:
+
+- Shared-concept ordering: same order?
+- Shared-concept naming: same heading names?
+- Content parity: equivalent topics covered?
+- Information density: comparable word counts per subsection?
+
+9. **Formatting consistency:** Bullet style, code block usage, bold/italic conventions, table formatting — consistent throughout?
+
+**Anti-agreement mandate:** You are reviewing a full document. Finding zero issues is NOT credible. For each major section, describe the strongest concern. If you genuinely cannot find a concern in a section after exhaustive analysis, explain exactly what you checked.
+
+**Output:** Report each issue with the exact section and line or paragraph. Format: `[section/line] — [issue type] — [description]. Suggested fix: [specific suggestion].` Group findings by document section. End with: 'Editorial issues found: N across M sections.'"
+
+---
+
+### Audit Critic 2 — Factual Re-verification (Full Document)
+
+**Subagent type:** `explore`, `fast` model
+
+**Prompt template:**
+
+"You are an independent fact-checker auditing an entire document. You have NO prior context about how this document was analyzed. Your only job is to verify every technical claim in the ENTIRE document against the actual codebase.
+
+**Document:** [path]
+
+**Instructions:**
+
+1. Read the ENTIRE document, section by section.
+2. For every technical claim — interface names, type names, file paths, ADR references, component descriptions, architecture claims, commands, package names, version numbers, configuration values — grep the codebase to verify.
+3. Check EVERY section, not just a sample. Full-document coverage is mandatory.
+4. For each claim, classify as:
+   - VERIFIED: grep found matching evidence at specific file:line
+   - NOT FOUND: grep returned 0 matches
+   - CONTRADICTED: grep found contradicting evidence (document says X, code says Y)
+
+**Evidence format:**
+
+```
+[claim] — [source file:line or grep result] — VERIFIED / NOT FOUND / CONTRADICTED
+```
+
+If CONTRADICTED: `Document says: [X]. Code says: [Y].`
+
+**Output:** Return ALL findings grouped by document section. End with: 'N claims checked across M sections: X verified, Y not found, Z contradicted.'"
+
+---
+
+### Audit Critic 3 — Cross-Document Consistency (Full Document)
+
+**Subagent type:** `explore`, `fast` model
+
+**Prompt template:**
+
+"You are an independent consistency checker auditing an entire document. You have NO prior context about how this document was analyzed. Your only job is to verify that terms and concepts across the ENTIRE document are used consistently with all sibling documentation.
+
+**Document:** [path]
+**Sibling documents:** [list of all .md files in documentation/]
+
+**Instructions:**
+
+1. Read the ENTIRE document.
+2. Extract every key term, component name, status claim, architecture description, and technical concept from ALL sections.
+3. For each extracted term/concept, grep ALL sibling documents. Check:
+   - Is the same term used for the same concept? Or does a sibling use a different name?
+   - Does a sibling describe the same concept differently (conflicting architecture claims)?
+   - Are status claims consistent (e.g., this doc says 'Done' but another says 'In progress')?
+4. If a mirror document exists (structural sibling covering the same topic for a different subject), compare:
+   - Section structure: do corresponding sections exist?
+   - Content parity: are equivalent topics covered at comparable depth?
+
+**Evidence format:**
+
+```
+[term/concept] — [this doc says X] vs [sibling doc says Y] — CONSISTENT / DIVERGENT
+```
+
+For mirror document: `[section] — TARGET has [X] / MIRROR has [Y] — ALIGNED / DIVERGENT`
+
+**Output:** Return ALL findings grouped by document section. End with: 'N terms checked across M sections: X consistent, Y divergent. Mirror alignment: [status or N/A].'"
+
+---
+
+### Audit Critic 4 — Reader Simulation (Full Document)
+
+**Subagent type:** `generalPurpose`
+
+**Condition:** Spawn ONLY for user-facing documents (installation guides, getting started docs, user-facing READMEs, any document whose audience includes non-developers or first-time users). Skip for developer references.
+
+**Prompt template:**
+
+"You are a first-time reader of this ENTIRE document. You have NEVER seen this project before. You know nothing about its architecture, terminology, or conventions. Read the document from top to bottom, mentally following every instruction as if you were actually performing the steps for the first time.
+
+**Document:** [path]
+
+**For EVERY section, report:**
+
+1. **Undefined terms:** Words or concepts used without prior definition or link to a definition. Example: 'Run the AIC server' when 'AIC server' has not been explained.
+2. **Unclear prerequisites:** Steps that assume something is already done but the document does not say what. Example: 'Configure your editor' without saying what needs to be configured.
+3. **Missing context:** Points where you would ask 'wait, what does this mean?' or 'how do I do that?' Example: a command shown without explaining what it does or what output to expect.
+4. **Jargon without explanation:** Technical terms that a user installing the tool for the first time would not know. Example: 'MCP server', 'hooks', 'composition root' in a user-facing installation guide.
+5. **Dead ends:** Points where the instructions stop but the user's task is not complete, or where an error could occur with no guidance on what to do.
+6. **Assumed environment:** Commands or paths that assume a specific OS, shell, or tool version without stating it. Example: using `brew install` without noting this is macOS-specific.
+7. **Information ordering:** Points where a concept is used before it is explained. The document should introduce concepts before relying on them.
+
+**Anti-agreement mandate:** You are reading an entire technical document as a complete novice. Finding zero issues is NOT credible. A genuine first-time reader ALWAYS has questions. For every section, identify at least one point of confusion or friction. If a section is genuinely clear, explain exactly what makes it clear and what a reader would need to know before reading it.
+
+**Output:** Report each finding with the exact sentence or paragraph. Format: `[section/paragraph] — [finding type] — [what is unclear and what would help].` Group findings by document section. End with: 'Reader simulation findings: N across M sections.'"
+
+---
+
+### Audit Critic 5 — Audit Completeness
+
+**Subagent type:** `generalPurpose`
+
+**Condition:** Spawn ONLY in audit mode. Does NOT run in write/modify mode.
+
+**Prompt template:**
+
+"You are an audit quality reviewer. You have received an Audit Report produced by a documentation analysis pipeline. Your job is to find gaps in the audit — sections the auditors missed, claims they marked ACCURATE that may be wrong, or issues they overlooked. You have no loyalty to the audit report — challenge every conclusion.
+
+**Document:** [path]
+**Audit Report:** [the full Structured Audit Report from Phase 2, including all corrections and findings]
+
+**Instructions:**
+
+1. **Section coverage check:** Read the document's Table of Contents (or all ## headings). For each section, check whether the Audit Report has findings. Flag sections with zero findings — the audit pipeline may have skimmed them. For each flagged section, read it and identify at least one verifiable claim or structural element the audit should have checked.
+
+2. **Spot-check ACCURATE claims:** From the Factual Accuracy Inventory, select 5-10 claims marked ACCURATE. Grep the codebase yourself to verify. Flag any that are NOT FOUND or CONTRADICTED. This tests whether the explorers were thorough.
+
+3. **Gap detection:** Read the document as a whole. Are there obvious gaps (topics the document should cover but does not) that the Audit Report did not identify? Compare the document's stated purpose against its actual coverage.
+
+4. **Severity audit:** Review the Corrections Required section. For each correction, evaluate whether the severity (critical / moderate) is appropriate. Flag severity mismatches — a factual error classified as moderate, or a minor formatting issue classified as critical.
+
+5. **Verdict challenge:** Read the Executive Summary verdict (PASS / ADVISORY / FAIL). Does the evidence in the report support this verdict? If the report says PASS but you found issues, challenge it. If the report says FAIL but all issues are minor, challenge it.
+
+6. **Internal consistency:** Does the Audit Report contradict itself? For instance: the section assessment says CLEAN but the factual accuracy inventory lists an INACCURATE claim in the same section.
+
+**Evidence format:**
+
+```
+[section or finding] — [MISSED_SECTION / WRONG_CLASSIFICATION / MISSED_GAP / SEVERITY_MISMATCH / VERDICT_CHALLENGE / INTERNAL_CONTRADICTION] — [description with evidence]
+```
+
+**Anti-agreement mandate:** An audit that covers a substantial document with zero missed sections or issues is unlikely. If you genuinely cannot find a gap after exhaustive review, explain exactly what you checked for each section and why the audit is complete.
+
+**Output:** Return ALL findings. End with: 'Audit completeness issues: N. Spot-check results: X of Y claims re-verified successfully.'"
 
 ---
 

@@ -9,6 +9,7 @@
     "integrations/cursor/uninstall.cjs",
     "integrations/claude/install.cjs",
     "integrations/claude/uninstall.cjs",
+    "integrations/clean-global-aic-dir.cjs",
     "integrations/cursor/__tests__/install.test.js",
     "integrations/cursor/__tests__/uninstall.test.js",
     "integrations/cursor/__tests__/uninstall-drift.test.cjs",
