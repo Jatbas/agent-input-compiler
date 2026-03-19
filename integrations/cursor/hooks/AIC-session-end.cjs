@@ -8,6 +8,7 @@ const path = require("path");
 const os = require("os");
 
 const { appendSessionLog } = require("../../shared/session-log.cjs");
+const { cleanupEditedFiles } = require("../../shared/edited-files-cache.cjs");
 
 const GATE_PREFIX = "aic-gate-";
 const DENY_PREFIX = "aic-deny-";
@@ -44,19 +45,28 @@ function main() {
     process.exit(0);
     return;
   }
+  let input = {};
   let sessionId = "";
   let reason = "";
   let durationMs = 0;
   try {
-    const input = JSON.parse(raw);
+    input = JSON.parse(raw);
     sessionId = input.session_id ?? "";
     reason = input.reason ?? "";
     durationMs = input.duration_ms ?? 0;
   } catch {
     // invalid JSON — still cleanup and exit 0
   }
+  const key =
+    input.conversation_id ??
+    input.conversationId ??
+    input.session_id ??
+    input.sessionId ??
+    process.env.AIC_CONVERSATION_ID ??
+    "default";
 
   cleanupTempFiles();
+  cleanupEditedFiles("cursor", key);
 
   const projectRoot = process.env.CURSOR_PROJECT_DIR || process.cwd();
   appendSessionLog(projectRoot, {
