@@ -24,6 +24,8 @@
     "integrations/shared/prompt-log.cjs",
     "integrations/shared/__tests__/session-model-cache.test.cjs",
     "integrations/shared/__tests__/prompt-log.test.cjs",
+    "integrations/shared/read-stdin-sync.cjs",
+    "integrations/shared/__tests__/read-stdin-sync.test.cjs",
     "mcp/scripts/**",
     "shared/src/core/errors/budget-exceeded-error.ts",
     "shared/src/core/errors/guard-blocked-all-error.ts",
