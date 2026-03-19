@@ -24,6 +24,7 @@ import { recordToolInvocation } from "./record-tool-invocation.js";
 import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
 import { prunePromptLog } from "@jatbas/aic-core/maintenance/prune-prompt-log.js";
 import { pruneSessionLog } from "@jatbas/aic-core/maintenance/prune-session-log.js";
+import { pruneJsonlByTimestamp } from "@jatbas/aic-core/maintenance/prune-jsonl-by-timestamp.js";
 import { NodePathAdapter } from "@jatbas/aic-core/adapters/node-path-adapter.js";
 import { SystemClock } from "@jatbas/aic-core/adapters/system-clock.js";
 import { ScopeRegistry } from "@jatbas/aic-core/storage/scope-registry.js";
@@ -174,6 +175,11 @@ export function createMcpServer(
     startupScope.cacheStore.purgeExpired();
     pruneSessionLog(startupScope.projectRoot, startupScope.clock);
     prunePromptLog(startupScope.projectRoot, startupScope.clock);
+    pruneJsonlByTimestamp(
+      startupScope.projectRoot,
+      startupScope.clock,
+      "session-models.jsonl",
+    );
   });
   const { installationOk, installationNotes } = runStartupSelfCheck(projectRoot);
   const installScope = detectInstallScope(os.homedir(), projectRoot);

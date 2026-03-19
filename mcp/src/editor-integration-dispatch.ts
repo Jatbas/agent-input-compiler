@@ -36,17 +36,28 @@ export function getDuplicateInstallStderrMessage(): string {
   );
 }
 
+// Cursor sends "default" for auto-mode; normalize to "auto"
+function normalizeModelHint(raw: string): string {
+  return raw.toLowerCase() === "default" ? "auto" : raw;
+}
+
 export function getEditorModelHints(
   reader: EditorModelConfigReaderAdapter,
 ): ModelEnvHints {
-  const anthropicModel =
+  const anthropicRaw =
     process.env["ANTHROPIC_MODEL"] ?? reader.read(EDITOR_ID.CLAUDE_CODE);
-  const cursorModel = process.env["CURSOR_MODEL"] ?? reader.read(EDITOR_ID.CURSOR);
+  const cursorRaw = process.env["CURSOR_MODEL"] ?? reader.read(EDITOR_ID.CURSOR);
+  const anthropicModel =
+    typeof anthropicRaw === "string" && anthropicRaw !== ""
+      ? normalizeModelHint(anthropicRaw)
+      : undefined;
+  const cursorModel =
+    typeof cursorRaw === "string" && cursorRaw !== ""
+      ? normalizeModelHint(cursorRaw)
+      : undefined;
   return {
-    ...(typeof anthropicModel === "string" && anthropicModel !== ""
-      ? { anthropicModel }
-      : {}),
-    ...(typeof cursorModel === "string" && cursorModel !== "" ? { cursorModel } : {}),
+    ...(anthropicModel !== undefined ? { anthropicModel } : {}),
+    ...(cursorModel !== undefined ? { cursorModel } : {}),
   };
 }
 

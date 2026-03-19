@@ -36,31 +36,101 @@ import { installTriggerRule } from "../install-trigger-rule.js";
 import { runEditorBootstrapIfNeeded } from "../editor-integration-dispatch.js";
 import { validateProjectRoot, validateConfigPath } from "../validate-project-root.js";
 
-const CLAUDE_SESSION_MODEL_FILE = ".aic/.claude-session-model";
+const SESSION_MODELS_FILE = "session-models.jsonl";
+
+interface SessionModelEntry {
+  readonly c: string;
+  readonly m: string;
+  readonly e?: string;
+  readonly timestamp: string;
+}
 
 function isValidModelId(s: string): boolean {
   const t = s.trim();
   return t.length >= 1 && t.length <= 256 && /^[\x20-\x7E]+$/.test(t);
 }
 
-function readClaudeSessionModelCache(projectRoot: AbsolutePath): string | null {
+function normalizeModelId(raw: string): string {
+  return raw.toLowerCase() === "default" ? "auto" : raw;
+}
+
+function sessionModelsPath(projectRoot: AbsolutePath): string {
+  return path.join(projectRoot, ".aic", SESSION_MODELS_FILE);
+}
+
+function readSessionModelCache(
+  projectRoot: AbsolutePath,
+  conversationId: string | null,
+  editorId: string,
+): string | null {
   try {
-    const p = path.join(projectRoot, CLAUDE_SESSION_MODEL_FILE);
-    const content = fs.readFileSync(p, "utf8").trim();
-    return isValidModelId(content) ? content : null;
+    const raw = fs.readFileSync(sessionModelsPath(projectRoot), "utf8");
+    const lines = raw.split("\n").filter((l) => l.trim().length > 0);
+    const cid = typeof conversationId === "string" ? conversationId.trim() : "";
+    let lastMatch: string | null = null;
+    let lastAny: string | null = null;
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line) as SessionModelEntry;
+        if (
+          typeof entry.m === "string" &&
+          isValidModelId(entry.m) &&
+          entry.e === editorId
+        ) {
+          lastAny = entry.m;
+          if (cid.length > 0 && entry.c === cid) lastMatch = entry.m;
+        }
+      } catch {
+        // skip malformed lines
+      }
+    }
+    return lastMatch ?? lastAny;
   } catch {
     return null;
   }
 }
 
-function writeClaudeSessionModelCache(projectRoot: AbsolutePath, modelId: string): void {
+function writeSessionModelCache(
+  projectRoot: AbsolutePath,
+  modelId: string,
+  conversationId: string | null,
+  editorId: string,
+  timestamp: string,
+): void {
   try {
-    const cachePath = path.join(projectRoot, CLAUDE_SESSION_MODEL_FILE);
-    fs.mkdirSync(path.dirname(cachePath), { recursive: true, mode: 0o700 });
-    fs.writeFileSync(cachePath, modelId, "utf8");
+    const filePath = sessionModelsPath(projectRoot);
+    fs.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
+    const entry: SessionModelEntry = {
+      c: typeof conversationId === "string" ? conversationId.trim() : "",
+      m: modelId,
+      e: editorId,
+      timestamp,
+    };
+    fs.appendFileSync(filePath, JSON.stringify(entry) + "\n", "utf8");
   } catch {
     // non-fatal
   }
+}
+
+function resolveAndCacheModelId(
+  argsModelId: string | null,
+  modelIdOverride: string | null,
+  getModelId: (editorId: EditorId) => string | null,
+  editorId: EditorId,
+  projectRoot: AbsolutePath,
+  conversationId: string | null,
+  timestamp: string,
+): string | null {
+  const raw: string | null =
+    argsModelId ??
+    modelIdOverride ??
+    readSessionModelCache(projectRoot, conversationId, editorId) ??
+    getModelId(editorId);
+  const resolved = raw !== null ? normalizeModelId(raw) : null;
+  if (resolved !== null) {
+    writeSessionModelCache(projectRoot, resolved, conversationId, editorId, timestamp);
+  }
+  return resolved;
 }
 
 function rejectAfter(ms: number): Promise<never> {
@@ -227,16 +297,15 @@ export function createCompileHandler(
         initDoneForProject.add(key);
       }
       const intent = args.intent.replace(/[\x00-\x08\x0b-\x1f]/g, "");
-      const resolvedModelId: string | null =
-        args.modelId ??
-        modelIdOverride ??
-        getModelId(resolvedEditorId) ??
-        (resolvedEditorId === "claude-code" || resolvedEditorId === "cursor-claude-code"
-          ? readClaudeSessionModelCache(projectRoot)
-          : null);
-      if (resolvedModelId !== null) {
-        writeClaudeSessionModelCache(projectRoot, resolvedModelId);
-      }
+      const resolvedModelId = resolveAndCacheModelId(
+        args.modelId,
+        modelIdOverride,
+        getModelId,
+        resolvedEditorId,
+        projectRoot,
+        args.conversationId ?? null,
+        scope.clock.now(),
+      );
       const resolvedConversationId = resolveConversationId(args.conversationId);
       const request: CompilationRequest = {
         intent,
