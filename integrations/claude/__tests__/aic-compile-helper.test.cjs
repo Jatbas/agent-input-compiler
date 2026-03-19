@@ -224,9 +224,17 @@ async function modelId_from_cache_when_sixth_absent() {
   fs.mkdirSync(mockDir, { recursive: true });
   const aicDir = path.join(tmpDir, ".aic");
   fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
-  fs.writeFileSync(path.join(aicDir, ".claude-session-model"), "haiku-model\n", "utf8");
+  const entry = JSON.stringify({
+    c: "",
+    m: "haiku-model",
+    e: "claude-code",
+    timestamp: "2026-01-01T00:00:00.000Z",
+  });
+  fs.writeFileSync(path.join(aicDir, "session-models.jsonl"), entry + "\n", "utf8");
   const argsFile = path.join(os.tmpdir(), `aic-mock-args-${process.pid}-cache.json`);
   fs.copyFileSync(mockRecordsArgs, path.join(mockDir, "server.ts"));
+  const savedTrace = process.env.CURSOR_TRACE_ID;
+  delete process.env.CURSOR_TRACE_ID;
   try {
     delete require.cache[require.resolve(helperPath)];
     const { callAicCompile } = require(helperPath);
@@ -246,6 +254,7 @@ async function modelId_from_cache_when_sixth_absent() {
     }
     console.log("modelId_from_cache_when_sixth_absent: pass");
   } finally {
+    if (savedTrace !== undefined) process.env.CURSOR_TRACE_ID = savedTrace;
     fs.rmSync(tmpDir, { recursive: true, force: true });
     try {
       fs.unlinkSync(argsFile);
@@ -261,7 +270,7 @@ async function modelId_omitted_when_cache_invalid() {
   fs.mkdirSync(mockDir, { recursive: true });
   const aicDir = path.join(tmpDir, ".aic");
   fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
-  fs.writeFileSync(path.join(aicDir, ".claude-session-model"), "x".repeat(257), "utf8");
+  fs.writeFileSync(path.join(aicDir, "session-models.jsonl"), "not valid json\n", "utf8");
   const argsFile = path.join(os.tmpdir(), `aic-mock-args-${process.pid}-invalid.json`);
   fs.copyFileSync(mockRecordsArgs, path.join(mockDir, "server.ts"));
   try {
@@ -290,6 +299,140 @@ async function modelId_omitted_when_cache_invalid() {
   }
 }
 
+async function modelId_default_normalized_to_auto() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-helper-test-"));
+  const mockDir = path.join(tmpDir, "mcp", "src");
+  fs.mkdirSync(mockDir, { recursive: true });
+  const argsFile = path.join(os.tmpdir(), `aic-mock-args-${process.pid}-norm.json`);
+  fs.copyFileSync(mockRecordsArgs, path.join(mockDir, "server.ts"));
+  try {
+    delete require.cache[require.resolve(helperPath)];
+    const { callAicCompile } = require(helperPath);
+    process.env.AIC_MOCK_ARGS_FILE = argsFile;
+    await callAicCompile("i", tmpDir, null, 10000, null, "default");
+    delete process.env.AIC_MOCK_ARGS_FILE;
+    if (!fs.existsSync(argsFile)) {
+      throw new Error("Mock did not write args file");
+    }
+    const recorded = JSON.parse(fs.readFileSync(argsFile, "utf8"));
+    const parsed = JSON.parse(recorded.stdin);
+    const args = parsed.params && parsed.params.arguments ? parsed.params.arguments : {};
+    if (args.modelId !== "auto") {
+      throw new Error(`Expected modelId "auto", got ${JSON.stringify(args.modelId)}`);
+    }
+    console.log("modelId_default_normalized_to_auto: pass");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    try {
+      fs.unlinkSync(argsFile);
+    } catch {
+      // ignore
+    }
+  }
+}
+
+async function modelId_from_conversation_scoped_cache() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-helper-test-"));
+  const mockDir = path.join(tmpDir, "mcp", "src");
+  fs.mkdirSync(mockDir, { recursive: true });
+  const aicDir = path.join(tmpDir, ".aic");
+  fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
+  const fallback = JSON.stringify({
+    c: "",
+    m: "fallback-model",
+    e: "claude-code",
+    timestamp: "2026-01-01T00:00:00.000Z",
+  });
+  const scoped = JSON.stringify({
+    c: "conv-xyz",
+    m: "scoped-model",
+    e: "claude-code",
+    timestamp: "2026-01-01T00:00:01.000Z",
+  });
+  fs.writeFileSync(
+    path.join(aicDir, "session-models.jsonl"),
+    fallback + "\n" + scoped + "\n",
+    "utf8",
+  );
+  const argsFile = path.join(os.tmpdir(), `aic-mock-args-${process.pid}-scoped.json`);
+  fs.copyFileSync(mockRecordsArgs, path.join(mockDir, "server.ts"));
+  const savedTrace = process.env.CURSOR_TRACE_ID;
+  delete process.env.CURSOR_TRACE_ID;
+  try {
+    delete require.cache[require.resolve(helperPath)];
+    const { callAicCompile } = require(helperPath);
+    process.env.AIC_MOCK_ARGS_FILE = argsFile;
+    await callAicCompile("i", tmpDir, "conv-xyz", 10000);
+    delete process.env.AIC_MOCK_ARGS_FILE;
+    if (!fs.existsSync(argsFile)) {
+      throw new Error("Mock did not write args file");
+    }
+    const recorded = JSON.parse(fs.readFileSync(argsFile, "utf8"));
+    const parsed = JSON.parse(recorded.stdin);
+    const args = parsed.params && parsed.params.arguments ? parsed.params.arguments : {};
+    if (args.modelId !== "scoped-model") {
+      throw new Error(
+        `Expected modelId "scoped-model", got ${JSON.stringify(args.modelId)}`,
+      );
+    }
+    console.log("modelId_from_conversation_scoped_cache: pass");
+  } finally {
+    if (savedTrace !== undefined) process.env.CURSOR_TRACE_ID = savedTrace;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    try {
+      fs.unlinkSync(argsFile);
+    } catch {
+      // ignore
+    }
+  }
+}
+
+async function modelId_cache_default_normalized_on_read() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-helper-test-"));
+  const mockDir = path.join(tmpDir, "mcp", "src");
+  fs.mkdirSync(mockDir, { recursive: true });
+  const aicDir = path.join(tmpDir, ".aic");
+  fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
+  const entry = JSON.stringify({
+    c: "",
+    m: "default",
+    e: "claude-code",
+    timestamp: "2026-01-01T00:00:00.000Z",
+  });
+  fs.writeFileSync(path.join(aicDir, "session-models.jsonl"), entry + "\n", "utf8");
+  const argsFile = path.join(os.tmpdir(), `aic-mock-args-${process.pid}-cnorm.json`);
+  fs.copyFileSync(mockRecordsArgs, path.join(mockDir, "server.ts"));
+  const savedTrace = process.env.CURSOR_TRACE_ID;
+  delete process.env.CURSOR_TRACE_ID;
+  try {
+    delete require.cache[require.resolve(helperPath)];
+    const { callAicCompile } = require(helperPath);
+    process.env.AIC_MOCK_ARGS_FILE = argsFile;
+    await callAicCompile("i", tmpDir, null, 10000);
+    delete process.env.AIC_MOCK_ARGS_FILE;
+    if (!fs.existsSync(argsFile)) {
+      throw new Error("Mock did not write args file");
+    }
+    const recorded = JSON.parse(fs.readFileSync(argsFile, "utf8"));
+    const parsed = JSON.parse(recorded.stdin);
+    const args = parsed.params && parsed.params.arguments ? parsed.params.arguments : {};
+    if (args.modelId !== "auto") {
+      throw new Error(
+        `Expected modelId "auto" (normalized from cache "default"), got ${JSON.stringify(args.modelId)}`,
+      );
+    }
+    console.log("modelId_cache_default_normalized_on_read: pass");
+  } finally {
+    if (savedTrace !== undefined) process.env.CURSOR_TRACE_ID = savedTrace;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    try {
+      fs.unlinkSync(argsFile);
+    } catch {
+      // ignore
+    }
+  }
+}
+
 (async () => {
   await happy_path_returns_compiled_prompt();
   await conversationId_forwarded_when_provided();
@@ -300,5 +443,8 @@ async function modelId_omitted_when_cache_invalid() {
   await modelId_sixth_param_forwarded();
   await modelId_from_cache_when_sixth_absent();
   await modelId_omitted_when_cache_invalid();
+  await modelId_default_normalized_to_auto();
+  await modelId_from_conversation_scoped_cache();
+  await modelId_cache_default_normalized_on_read();
   console.log("All tests passed.");
 })();

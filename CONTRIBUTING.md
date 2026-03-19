@@ -51,6 +51,8 @@ pnpm lint
 
 At minimum, read [architecture.md](documentation/architecture.md) and [implementation-spec.md](documentation/implementation-spec.md) so your changes match the project's design and rules.
 
+For optional Agent Skill workflows in this repo (planning, execution, documentation, research), see [contributor-agent-skills.md](documentation/contributor-agent-skills.md).
+
 ### Other useful commands
 
 Husky already runs checks on commit and push: **lint-staged** on commit (ESLint with fix on staged TypeScript under `shared/` and `mcp/`; Prettier on staged files matched by the project config). Staged `*.ts` files at the repository root get Prettier only, not ESLint. **commitlint** runs on the commit message; **typecheck**, **tests**, and **lint:clones** run on push. You can still run the commands below locally before committing or when debugging CI:

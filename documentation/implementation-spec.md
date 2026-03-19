@@ -129,7 +129,7 @@ All defaults apply when no config file exists or a field is omitted.
 | Telemetry anonymous usage    | `false` (opt-in)                                      | `aic.config.json` only              | Config only       |
 | Guard enabled                | `true`                                                | `aic.config.json` only              | Config only       |
 | Guard additional exclusions  | `[]` (empty — built-in patterns always active)        | `aic.config.json` only              | Config only       |
-| Guard allow patterns         | `[]` (no exemptions)                                  | `aic.config.json` only              | Config only       |
+| Guard allow patterns         | `[]` effective at runtime (config field ignored)      | `aic.config.json` (reserved)        | Not yet wired     |
 | Content transformers enabled | `true`                                                | `aic.config.json` only              | Config only       |
 | Strip comments               | `true`                                                | `aic.config.json` only              | Config only       |
 | Normalize whitespace         | `true`                                                | `aic.config.json` only              | Config only       |
@@ -265,9 +265,11 @@ Full scoring detail with normalisation methods: [Project Plan §8](project-plan.
 - `GuardResult` is attached to `CompilationMeta.guard`; the editor can surface a warning to the developer
 - If all selected files are excluded, the pipeline returns an empty context with a `guard.passed: false` indicator
 
-**Guard allow patterns (false-positive escape hatch):**
+**Guard allow patterns (reserved; not yet applied):**
 
-Files matching `guard.allowPatterns` globs are exempt from Guard scanning entirely. Use this for test fixtures, documentation, or example files that intentionally contain secret-like strings.
+The config schema includes `guard.allowPatterns`, but **`create-pipeline-deps` constructs `ContextGuard` with an empty allow list** — entries in `aic.config.json` do not affect compilation yet.
+
+**When wired:** Files matching those globs would skip all scanners except built-in never-include paths (`.env`, `*.pem`, etc.), which stay excluded regardless.
 
 ```json
 {
@@ -277,9 +279,7 @@ Files matching `guard.allowPatterns` globs are exempt from Guard scanning entire
 }
 ```
 
-- `allowPatterns` — glob array; matched files skip all scanners
-- Empty by default — all files are scanned
-- Built-in never-include patterns (`.env`, `*.pem`, etc.) are **not** overridable by allow patterns — they are always excluded
+- Intended shape: glob array; empty default in schema; runtime currently equivalent to empty
 
 **Output:** `{ result: GuardResult, safeFiles: SelectedFile[] }`
 

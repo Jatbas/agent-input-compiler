@@ -27,6 +27,7 @@ Reference file for the documentation-writer skill. Read this before spawning exp
    - NOT FOUND: grep returned 0 matches — the referenced artifact may not exist
    - UNCERTAIN: grep returned partial/ambiguous results — multiple candidates, unclear match
 5. Priority order: check code structure claims first (interfaces, types, file paths), then architecture claims (ADRs, design decisions), then commands and config values.
+6. Runtime behavior claims require deeper verification — do not rely on source code alone. The main agent has pre-read `shared/SKILL-investigation.md`; apply its **Runtime Evidence Checklist** (deployed files, bootstrap/lifecycle, database state, cache/file system, external system behavior, library API shapes) and **Codebase Investigation Depth** requirements (full code path tracing, verbatim type reads, `.d.ts` verification, deployed vs source diffing) for every runtime claim.
 
 **Evidence format (mandatory for every finding):**
 
@@ -158,6 +159,8 @@ Cite 3 representative sentences that exemplify the document's voice.
 **A. Coverage analysis:**
 Based on the document's stated purpose (usually in its first section), determine what topics it should cover. Then check: does it actually cover each one?
 
+- Do not list as critical gaps topics that would only document ambient developer knowledge (generic Git, generic editor or skill invocation) for contributor-facing docs — see SKILL-policies.md §Omit ambient / obvious knowledge. Gaps must be repo-specific or contract-specific for the document.
+
 - For architecture docs: glob `shared/src/core/interfaces/` and check if each interface is documented
 - For progress docs: compare statuses against actual code state (grep for implementation files)
 - For spec docs: check if every component in the project plan has a corresponding section
@@ -218,7 +221,7 @@ For every gap identified in checks A and C (UNDOCUMENTED items and UNANSWERED qu
 5. **Detail consistency:** Is the level of detail consistent with neighboring sections? Flag sections that are suddenly more or less detailed than their neighbors.
 6. **Ambiguous references:** Any pronouns without clear antecedents? Any 'this', 'it', 'these' that could refer to multiple things?
 7. **Heading hierarchy:** Do heading levels make sense? No skip-level headings (## to ####)?
-8. **Audience awareness:** Identify the document's audience. Verify the edited text uses appropriate language. Flag user-facing text with internal implementation details, or developer text that over-simplifies.
+8. **Audience awareness:** Identify the document's audience. Verify the edited text uses appropriate language. Flag user-facing text with internal implementation details, or developer text that over-simplifies. Also flag **ambient noise**: prose that restates generic developer practice (how to invoke skills slash-commands, basic Git, ambient IDE usage) with no repository-specific fact — see SKILL-policies.md §Omit ambient / obvious knowledge.
 9. **Editor-specific formatting:** When content diverges by editor (Cursor, Claude Code), verify each editor gets its own paragraph with a bold label prefix (`**Cursor:**`, `**Claude Code:**`). Flag inline run-on patterns like 'Cursor: X. Claude Code: Y.' in a single paragraph.
 10. **Parallel section symmetry:** If the edited section has a structural sibling (describing the same concept for a different target), compare:
 
@@ -248,7 +251,8 @@ For every gap identified in checks A and C (UNDOCUMENTED items and UNANSWERED qu
 
 1. Read only the edited sections (listed above).
 2. For every technical claim — interface names, type names, file paths, ADR references, component descriptions, architecture claims, commands, package names, version numbers — grep the codebase to verify.
-3. For each claim, classify as:
+3. For runtime behavior claims, apply the **Runtime Evidence Checklist** from `shared/SKILL-investigation.md` (the main agent has pre-read this file): read actual deployed files (not just source), trace bootstrap code paths, query the database, and check `.d.ts` types for library APIs. A claim that matches source but not deployed reality is CONTRADICTED.
+4. For each claim, classify as:
    - VERIFIED: grep found matching evidence at specific file:line
    - NOT FOUND: grep returned 0 matches
    - CONTRADICTED: grep found contradicting evidence (document says X, code says Y)
@@ -352,7 +356,7 @@ Use these templates instead of the standard critic templates when mode = Audit. 
 5. **Detail consistency:** Is the level of detail consistent across parallel sections? Flag sections that are suddenly more or less detailed than their structural siblings.
 6. **Ambiguous references:** Any pronouns without clear antecedents? Any 'this', 'it', 'these' that could refer to multiple things?
 7. **Heading hierarchy:** Do heading levels make sense throughout? No skip-level headings (## to ####)?
-8. **Audience awareness:** Identify the document's audience from the opening section. Then verify every section uses appropriate language for that audience. Flag user-facing text with internal implementation details, or developer text that over-simplifies.
+8. **Audience awareness:** Identify the document's audience from the opening section. Then verify every section uses appropriate language for that audience. Flag user-facing text with internal implementation details, or developer text that over-simplifies. Also flag **ambient noise** per SKILL-policies.md §Omit ambient / obvious knowledge (generic skill invocation, generic Git, no repo-specific fact).
 9. **Editor-specific formatting:** When content diverges by editor (Cursor, Claude Code), verify each editor gets its own paragraph with a bold label prefix (`**Cursor:**`, `**Claude Code:**`). Flag inline run-on patterns like 'Cursor: X. Claude Code: Y.' in a single paragraph. Check every section.
 10. **Parallel section symmetry:** Identify ALL sections that describe the same concept for different targets (e.g. editor-specific sections). For each pair, compare:
 
@@ -383,8 +387,9 @@ Use these templates instead of the standard critic templates when mode = Audit. 
 
 1. Read the ENTIRE document, section by section.
 2. For every technical claim — interface names, type names, file paths, ADR references, component descriptions, architecture claims, commands, package names, version numbers, configuration values — grep the codebase to verify.
-3. Check EVERY section, not just a sample. Full-document coverage is mandatory.
-4. For each claim, classify as:
+3. For runtime behavior claims, apply the **Runtime Evidence Checklist** from `shared/SKILL-investigation.md` (the main agent has pre-read this file): read actual deployed files (not just source), trace bootstrap code paths, query the database, and check `.d.ts` types for library APIs. A claim that matches source but not deployed reality is CONTRADICTED.
+4. Check EVERY section, not just a sample. Full-document coverage is mandatory.
+5. For each claim, classify as:
    - VERIFIED: grep found matching evidence at specific file:line
    - NOT FOUND: grep returned 0 matches
    - CONTRADICTED: grep found contradicting evidence (document says X, code says Y)

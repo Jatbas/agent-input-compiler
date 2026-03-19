@@ -11,6 +11,36 @@ function isValidModelId(s) {
   return t.length >= 1 && t.length <= 256 && /^[\x20-\x7E]+$/.test(t);
 }
 
+function normalizeModelId(raw) {
+  return raw.toLowerCase() === "default" ? "auto" : raw;
+}
+
+function readSessionModelCache(root, convId, eid) {
+  try {
+    const raw = fs.readFileSync(path.join(root, ".aic", "session-models.jsonl"), "utf8");
+    const lines = raw.split("\n").filter((l) => l.trim().length > 0);
+    const cid = typeof convId === "string" ? convId.trim() : "";
+    let lastMatch = null;
+    let lastAny = null;
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line);
+        if (typeof entry.m === "string" && isValidModelId(entry.m) && entry.e === eid) {
+          lastAny = entry.m;
+          if (cid.length > 0 && entry.c === cid) lastMatch = entry.m;
+        }
+      } catch {
+        // skip malformed
+      }
+    }
+    const result = lastMatch !== null ? lastMatch : lastAny;
+    return result !== null ? normalizeModelId(result) : null;
+  } catch {
+    // no cache
+  }
+  return null;
+}
+
 function run(stdinStr) {
   let parsed;
   try {
@@ -39,17 +69,14 @@ function run(stdinStr) {
       },
     };
   }
-  let cachedModelId = null;
-  try {
-    const cachePath = path.join(projectRoot, ".aic", ".claude-session-model");
-    const content = fs.readFileSync(cachePath, "utf8").trim();
-    if (isValidModelId(content)) cachedModelId = content;
-  } catch {
-    // no cache or unreadable
-  }
+  const eid =
+    process.env.CURSOR_TRACE_ID && String(process.env.CURSOR_TRACE_ID).trim() !== ""
+      ? "cursor-claude-code"
+      : "claude-code";
+  const cachedModelId = readSessionModelCache(projectRoot, conversationId, eid);
   const updatedInput = {
     ...toolInput,
-    editorId: "claude-code",
+    editorId: eid,
     ...(conversationId ? { conversationId } : {}),
     ...(cachedModelId ? { modelId: cachedModelId } : {}),
   };

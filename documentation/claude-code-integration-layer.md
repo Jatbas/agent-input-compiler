@@ -15,12 +15,13 @@ All Claude Code-specific source code lives in `integrations/claude/`. The `.clau
 
 What this means concretely:
 
-- **No Claude Code detection or installer in `mcp/src/`.** The installer
-  (`integrations/claude/install.cjs`) is a standalone script. It is run either manually
-  (`node integrations/claude/install.cjs`) or when the client lists workspace roots and the
-  MCP server detects Claude Code (`.claude` directory or `CLAUDE_PROJECT_DIR`); the server
-  delegates to the script and does not embed installer logic. The installer is idempotent
-  (writes only when content differs).
+- **All Claude Code hook and settings logic lives in `integrations/claude/`.** The installer
+  (`integrations/claude/install.cjs`) is standalone. `mcp/src/editor-integration-dispatch.ts`
+  detects a Claude Code workspace (`.claude/` or `CLAUDE_PROJECT_DIR`) and runs that script
+  with `execFileSync` when the MCP client lists workspace roots (if the client supports roots)
+  or on the **first** `aic_compile` for that project (`mcp/src/server.ts` /
+  `mcp/src/handlers/compile-handler.ts`). It does not duplicate copy/merge logic. Manual run:
+  `node integrations/claude/install.cjs`. Idempotent (writes only when content differs).
 
 - **The `aic_compile` MCP tool is neutral.** It accepts `intent`, `projectRoot`, and
   `conversationId`. It does not know who called it. The hook adapter in
@@ -33,15 +34,15 @@ What this means concretely:
 
 ---
 
-## 3. Deployment scope — one implementation covers all three modes
+## 3. Deployment scope
 
-Claude Code's hook settings are read from the same files by all three deployment modes:
+**Claude Code:** Hook settings are read from the same files by all three deployment modes:
 
-| Mode                                                            | Hook support                   | Settings source                                                                                                                                                |
-| --------------------------------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **CLI** (`claude`)                                              | Full 18-event hook lifecycle   | `~/.claude/settings.json` + `.claude/settings.json`                                                                                                            |
-| **VS Code extension** (`anthropic.claude-code`)                 | Same hooks via shared settings | Same files — settings shared between CLI and extension ([IDE integrations docs](https://code.claude.com/docs/en/ide-integrations))                             |
-| **Cursor extension** (`cursor:extension/anthropic.claude-code`) | Same                           | Same files — listed explicitly as a supported install target ([IDE integrations docs](https://code.claude.com/docs/en/ide-integrations#install-the-extension)) |
+| Mode                                                            | Hook support                   | Settings source                                                                                                                         |
+| --------------------------------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **CLI** (`claude`)                                              | Full 18-event hook lifecycle   | `~/.claude/settings.json` + `.claude/settings.json`                                                                                     |
+| **VS Code extension** (`anthropic.claude-code`)                 | Same hooks via shared settings | Same files — settings shared between CLI and extension ([IDE integrations docs](https://code.claude.com/docs/en/ide-integrations))      |
+| **Cursor extension** (`cursor:extension/anthropic.claude-code`) | Same                           | Same files — supported install target ([IDE integrations docs](https://code.claude.com/docs/en/ide-integrations#install-the-extension)) |
 
 One set of hook scripts, one settings file. All three modes pick them up without any mode-specific code. The VS Code docs explicitly confirm: "Claude Code settings in `~/.claude/settings.json`: shared between the extension and CLI. Use for allowed commands, environment variables, hooks, and MCP servers." ([source](https://code.claude.com/docs/en/ide-integrations#configure-settings))
 
@@ -61,7 +62,7 @@ Claude Code runtime
   │
   │  stdin: { prompt, cwd, session_id, hook_event_name, … }
   ▼
-.claude/hooks/aic-compile-helper.cjs   ← THE ADAPTER
+~/.claude/hooks/aic-compile-helper.cjs   ← shared MCP caller (used by several hooks)
   │
   │  JSON-RPC: tools/call aic_compile { intent, projectRoot, conversationId }
   ▼
@@ -69,9 +70,9 @@ mcp/src/server.ts → CompilationRunner.run()
   │
   │  result: { compiledPrompt, … }
   ▼
-.claude/hooks/<event-hook>.cjs
+~/.claude/hooks/<hook>.cjs (deployed script finishes the event)
   │
-  │  stdout: plain text or hookSpecificOutput JSON (see §5)
+  │  stdout: plain text or hookSpecificOutput JSON (see §6)
   ▼
 Claude Code runtime → injects as context
 ```
@@ -79,8 +80,10 @@ Claude Code runtime → injects as context
 ### 4.2 Where the adapter lives
 
 The adapter (`aic-compile-helper.cjs`) and all event hooks are **authored** in
-`integrations/claude/hooks/`. The installer deploys them to `~/.claude/hooks/` (global) or
-`.claude/hooks/` (project-local). Nothing outside `integrations/claude/` changes at dev time.
+`integrations/claude/hooks/`. The installer **writes** them only under `~/.claude/hooks/`.
+When run from a project directory that is not the user home, it also removes legacy
+`aic-*.cjs` copies from that project’s `.claude/hooks/`. Nothing outside
+`integrations/claude/` changes at dev time.
 
 ### 4.3 Input field mapping
 
@@ -225,11 +228,11 @@ These hooks have no context-injection or decision output. Exit 0 with no stdout 
 
 ---
 
-## 7. Hook events — details and known bugs
+## 7. Hook events — details
 
 All 18 Claude Code lifecycle events are documented at
 [code.claude.com/docs/en/hooks#hook-lifecycle](https://code.claude.com/docs/en/hooks#hook-lifecycle).
-AIC uses eight of them.
+AIC uses eight of them. Known product bugs and workarounds are called out per hook below.
 
 ### 7.1 UserPromptSubmit — PRIMARY delivery
 
@@ -318,9 +321,11 @@ The marker is scoped by `session_id` so multiple concurrent sessions don't inter
 
 ---
 
-### 7.4 PreToolUse (Bash matcher) — `--no-verify` blocker
+### 7.4 PreToolUse — Bash and MCP matchers
 
 **Reference:** [hooks#pretooluse](https://code.claude.com/docs/en/hooks#pretooluse)
+
+**Bash matcher — `--no-verify` blocker**
 
 **Purpose:** Block any `git` command that includes `--no-verify` or `-n`. Project rules forbid skipping pre-commit hooks (Husky + lint-staged enforce formatting and linting). An agent will sometimes try to add `--no-verify` to get past a failing commit — this hook stops it deterministically, not via instruction.
 
@@ -331,6 +336,12 @@ The marker is scoped by `session_id` so multiple concurrent sessions don't inter
 **Input fields used:** `input.tool_input.command`
 
 **File:** `.claude/hooks/aic-block-no-verify.cjs`
+
+**MCP matcher — `conversationId` injection**
+
+**Purpose:** Ensure `aic_compile` and `aic_chat_summary` receive `conversationId` in tool arguments when the model omits it. Matcher `mcp__.*__aic_compile` (and parallel for chat summary) runs `aic-inject-conversation-id.cjs`.
+
+**File:** `.claude/hooks/aic-inject-conversation-id.cjs` (see §10 for registration)
 
 ---
 
@@ -399,16 +410,16 @@ The marker is scoped by `session_id` so multiple concurrent sessions don't inter
 
 ---
 
-## 8. Full event coverage — why the remaining 10 events are skipped
+## 8. Full event coverage
 
-The 18 Claude Code hook events ([lifecycle table](https://code.claude.com/docs/en/hooks#hook-lifecycle)) break down as: 8 AIC uses, 10 consciously skipped.
+**Claude Code:** Of 18 lifecycle events ([table](https://code.claude.com/docs/en/hooks#hook-lifecycle)), AIC registers eight and skips ten.
 
 | Event                               | AIC use | Reason skipped                                                                                                                                                            |
 | ----------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `SessionStart`                      | §7.2    | —                                                                                                                                                                         |
 | `UserPromptSubmit`                  | §7.1    | —                                                                                                                                                                         |
 | `SubagentStart`                     | §7.3    | —                                                                                                                                                                         |
-| `PreToolUse` (Bash)                 | §7.4    | —                                                                                                                                                                         |
+| `PreToolUse` (Bash + MCP)           | §7.4    | —                                                                                                                                                                         |
 | `PostToolUse` (Edit\|Write)         | §7.5    | —                                                                                                                                                                         |
 | `Stop`                              | §7.6    | —                                                                                                                                                                         |
 | `PreCompact`                        | §7.7    | —                                                                                                                                                                         |
@@ -426,7 +437,9 @@ The 18 Claude Code hook events ([lifecycle table](https://code.claude.com/docs/e
 
 ---
 
-## 9. `aic-compile-helper.cjs` — required design
+## 9. MCP compile invocation from hooks
+
+### 9.1 Shared helper — `aic-compile-helper.cjs`
 
 The shared helper mediates between a hook script and the AIC MCP server via MCP stdio. Its signature must be:
 
@@ -459,9 +472,9 @@ Without `conversationId`, `compilation_log` rows from Claude Code hooks have nul
 
 ---
 
-## 10. `settings.json` — registration payload
+## 10. Registration payload
 
-The target JSON payload merged into the `hooks` section of `~/.claude/settings.json` (global scope):
+**Claude Code:** The JSON below merges into the `hooks` section of `~/.claude/settings.json` (global). The shipped `settings.json.template` uses `$HOME` in command paths instead of `~` for shell portability; structure matches.
 
 ```json
 {
@@ -601,16 +614,15 @@ This is a future optimization, not a blocker. Command hooks work correctly and t
 
 ---
 
-## 12. Plugin distribution — available
+## 12. Plugin distribution
 
-Claude Code exposes a plugin system. AIC is packaged as a native Claude Code Plugin
-(`integrations/claude/plugin/`) installable via the Plugin Marketplace. This provides zero-friction install for end users. See §13 for the direct installer path when developing from source.
+**Claude Code:** A plugin exists — AIC ships as a native Claude Code Plugin (`integrations/claude/plugin/`) via the Plugin Marketplace. See §13 when developing from source.
 
 ---
 
-## 13. Direct installer path (zero-install)
+## 13. Direct installer path
 
-The direct installer path (also called zero-install in this doc) provides a one-command install experience. The installer is `integrations/claude/install.cjs` — a standalone script in the integration layer that has no dependency on `mcp/src/`.
+**Claude Code:** Manual run or MCP bootstrap. The installer is `integrations/claude/install.cjs` — standalone, no dependency on `mcp/src/`.
 
 ```
 node integrations/claude/install.cjs
@@ -626,24 +638,25 @@ The installer:
    (stale script cleanup).
 4. Reads `~/.claude/settings.json` (if present) and merges AIC entries into existing
    config, preserving non-AIC entries; writes only if merged content differs.
-5. Removes legacy project-local artifacts: in the current working directory (or
-   `$CLAUDE_PROJECT_DIR`), when that directory is not the user's home directory, deletes
-   any `aic-*.cjs` in `.claude/hooks/`, removes the hooks directory if empty, and
-   deletes `.claude/settings.local.json` if present.
+5. Removes legacy project-local AIC hooks: when cwd is not the user home, deletes any
+   `aic-*.cjs` in `.claude/hooks/` and removes that directory if empty. For
+   `.claude/settings.local.json`, strips the `hooks` key or deletes the file if nothing
+   remains or the file is unparseable.
 6. Writes the trigger rule (`.claude/CLAUDE.md` in the current working directory when
    writable), version-stamped; overwrites only when the installed version differs from
    the current package version.
 
-The MCP server runs this installer when the client lists workspace roots and it detects a
-Claude Code context (e.g. `.claude/` directory or `$CLAUDE_PROJECT_DIR`). The server delegates to the integration layer — it does not embed Claude Code logic itself. See `documentation/installation.md` for the user-facing description of this path.
+The MCP server runs this installer when it detects a Claude Code context and the script exists:
+on workspace root listing (if the client supports roots) or on the first `aic_compile` for
+that project. See `documentation/installation.md` for the user-facing path.
 
 For end-user distribution, AIC is also packaged as a native Claude Code Plugin (`integrations/claude/plugin/`) installable via the Plugin Marketplace. See `integrations/claude/plugin/` for the plugin structure.
 
 ---
 
-## 14. Trigger rule fallback — CLAUDE.md
+## 14. Trigger rule
 
-`.claude/CLAUDE.md` remains as a fallback for users who have hooks disabled
+**Claude Code:** `.claude/CLAUDE.md` is a fallback when hooks are disabled
 (`disableAllHooks: true`). It tells the model to call `aic_compile` manually on every message.
 With hooks active, the trigger rule becomes redundant — but it is kept because
 [users can disable all hooks](https://code.claude.com/docs/en/hooks#disable-or-remove-hooks) and it costs nothing when hooks are running.
@@ -675,7 +688,7 @@ Quality gate (Claude Code–specific):
 
 - [ ] `aic-after-file-edit-tracker.cjs` records edited files to temp file (§7.5)
 - [ ] `aic-stop-quality-check.cjs` runs lint/typecheck, uses `decision: "block"` when needed (§7.6)
-- [ ] `aic-block-no-verify.cjs` blocks `--no-verify` via PreToolUse (Bash) (§7.4)
+- [ ] `aic-block-no-verify.cjs` / `aic-inject-conversation-id.cjs` on PreToolUse (Bash + MCP) (§7.4)
 
 Settings:
 

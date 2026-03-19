@@ -85,7 +85,7 @@ Format: \`type(scope): description\` — max 72 chars, target 50-60, imperative,
 
 - Use targeted edits on the minimum necessary lines. Do not read a file and write a new file when an in-place edit suffices.
 - Read only the file sections you need for this change; avoid full-file reads when not needed.
-- Verify before implementing (ad-hoc): For any ad-hoc request (not driven by a task file), investigate first — query the actual database, read the actual file, check the actual API response — before writing any code. Never implement based on assumptions about external system behavior.
+- Verify before implementing: For any request — ad-hoc or skill-driven — investigate first: query the actual database, read the actual deployed file, check the actual API response, trace the actual bootstrap code path. Never implement based on assumptions about external system behavior. This rule applies to ALL skills (planner, executor, researcher) — each skill has its own reinforcement: planner §0b Runtime Verification Checklist, executor §2.5 Verify External Assumptions, researcher §3a Runtime Evidence Mandate.
 
 ## Source Structure
 

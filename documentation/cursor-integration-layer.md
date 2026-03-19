@@ -16,8 +16,14 @@ Cursor-specific source code lives in `integrations/cursor/`. The `.cursor/` dire
 
 What this means concretely:
 
-- **No Cursor detection or installer in `mcp/src/`.** The installer (`integrations/cursor/install.cjs`)
-  is a standalone script. The MCP server does not run it at process startup; it runs the installer when the client lists workspace roots (e.g. when Cursor connects), so hooks are bootstrapped per project without user action.
+- **All Cursor hook and hooks.json logic lives in `integrations/cursor/`.** The installer
+  (`integrations/cursor/install.cjs`) is standalone. `mcp/src/editor-integration-dispatch.ts`
+  runs it with `execFileSync` when that script exists under the project root and the module’s
+  bootstrap gate passes (see that file — not only `.cursor/` / `CURSOR_PROJECT_DIR` may open
+  the gate). Triggers: workspace roots listed (if the client supports roots) or **first**
+  `aic_compile` for that project. No copy/merge logic duplicated in `mcp/src/`. Projects
+  without `integrations/cursor/install.cjs` in the root need a manual run from an AIC checkout
+  (see [installation.md](installation.md#first-compile-bootstrap)).
 
 - **The `aic_compile` MCP tool is neutral.** It accepts `intent`, `projectRoot`, and
   `conversationId`. It does not know who called it. The hook adapter in `integrations/cursor/hooks/`
@@ -29,24 +35,23 @@ What this means concretely:
 
 ---
 
-## 3. Deployment scope — per-project, auto-bootstrapped by the global server
+## 3. Deployment scope
 
-The AIC MCP server is global in Cursor (`~/.cursor/mcp.json`), but **Cursor does not support global hooks**. The hook configuration (`.cursor/hooks.json`) and scripts (`.cursor/hooks/AIC-*.cjs`) are per-project artifacts — they must exist inside each project directory.
+**Cursor:** The AIC MCP server is global in Cursor (`~/.cursor/mcp.json`), but **Cursor does not support global hooks**. The hook configuration (`.cursor/hooks.json`) and scripts (`.cursor/hooks/AIC-*.cjs`) are per-project artifacts — they must exist inside each project directory.
 
-**How they get there — zero user intervention:** The global AIC MCP server auto-bootstraps each new project on first use. When Cursor opens a project and spawns the server:
+**How they get there:** The MCP server runs `integrations/cursor/install.cjs` automatically when
+that path exists under the opened root and the bootstrap gate in
+`editor-integration-dispatch.ts` passes — on root listing (if supported) or on the first
+`aic_compile` for the project. Otherwise run `node integrations/cursor/install.cjs` manually
+from an AIC checkout (see [installation.md](installation.md#first-compile-bootstrap)).
 
-1. The server runs the installer when Cursor is detected for the project (e.g. when the
-   client lists workspace roots); the installer is idempotent.
-2. It runs the first-compile bootstrap ([detailed in installation.md](installation.md#first-compile-bootstrap))
-3. `.cursor/hooks.json` and all 10 `.cjs` scripts are written into the project
+The installer is idempotent: it merges `hooks.json` and copies all **11** `AIC-*.cjs` scripts from `integrations/cursor/hooks/`.
 
-No user action is required. By the time the user sends their first message, the hooks are already in place from step 3.
+**Optional: commit hooks to the repo.** Teams can commit `.cursor/hooks.json` and `.cursor/hooks/AIC-*.cjs` so every clone gets hooks without re-running the installer.
 
-**Optional: commit hooks to the repo.** If the team wants all checkout users to have hooks pre-loaded (without waiting for bootstrap), the `.cursor/hooks.json` and `.cursor/hooks/AIC-*.cjs` files can be committed. This is a team preference, not a requirement.
-
-> **Verified:** Cursor's `beforeSubmitPrompt`, `preToolUse`, `postToolUse`, `beforeShellExecution`,
-> `afterFileEdit`, `sessionStart`, `sessionEnd`, `stop` events are all documented in the official
-> Cursor hooks reference. See individual sections below for per-event source links.
+> **Verified:** Cursor documents `sessionStart`, `beforeSubmitPrompt`, `preToolUse`, `postToolUse`,
+> `beforeShellExecution`, `afterFileEdit`, `sessionEnd`, `stop`, and `subagentStart`. See
+> per-event sections below for source links.
 
 ---
 
@@ -64,17 +69,17 @@ Cursor runtime
   │
   │  stdin: { session_id, generation_id, prompt, … }
   ▼
-.cursor/hooks/AIC-<event>.cjs   ← THE ADAPTER (per event)
+.cursor/hooks/AIC-<role>.cjs   ← one hook process per registration
   │
-  │  JSON-RPC: tools/call aic_compile { intent, projectRoot, conversationId }
+  │  (session compile / subagent telemetry only) JSON-RPC: tools/call aic_compile …
   ▼
 mcp/src/server.ts → CompilationRunner.run()
   │
-  │  result: { compiledPrompt, … }
+  │  result: { compiledPrompt, … }  (only for hooks that invoke MCP)
   ▼
-.cursor/hooks/<event>.cjs
+same hook process
   │
-  │  stdout: JSON with additional_context, env, permission, etc. (see §6)
+  │  stdout: JSON — additional_context, env, permission, etc. (see §6)
   ▼
 Cursor runtime → injects as context
 ```
@@ -83,7 +88,9 @@ Cursor runtime → injects as context
 
 All event hooks are **authored** in `integrations/cursor/hooks/`. The installer deploys them to `.cursor/hooks/` per project. Nothing outside `integrations/cursor/` changes at dev time.
 
-Only `AIC-compile-context.cjs` calls `aic_compile` directly — it spawns the MCP server via `execSync` + JSON-RPC. All other hooks that need the model to call `aic_compile` use the gate-and-model-call pattern (§7.3).
+`AIC-compile-context.cjs` and `AIC-subagent-compile.cjs` each spawn the MCP server via `execSync`
+and JSON-RPC to call `aic_compile`. Every other hook is pure Node (gate, inject, tracker,
+blockers, telemetry).
 
 ### 4.3 Input field mapping
 
@@ -231,10 +238,10 @@ Side-effect only. Exit 0 always. Must never block.
 
 ---
 
-## 7. Hook events — details and known limitations
+## 7. Hook events — details
 
 Cursor's hook system is documented at [docs.cursor.com/context/rules](https://docs.cursor.com/context/rules).
-AIC uses ten hook slots across eight event types.
+AIC registers **11** hook commands across **9** event types (some types run more than one command). Limitations and workarounds are per hook below.
 
 ### 7.1 sessionStart — two hooks (architectural invariants + compiled context)
 
@@ -451,8 +458,8 @@ The model then sees this as a new prompt, fixes the errors, and tries to stop ag
 
 **Purpose:**
 
-1. **Cleanup:** Delete all `aic-gate-*` and `aic-prompt-*` temp files from `os.tmpdir()`.
-   These accumulate from `preToolUse` and `beforeSubmitPrompt` during the session.
+1. **Cleanup:** Delete `aic-gate-*`, `aic-deny-*`, and `aic-prompt-*` temp files from
+   `os.tmpdir()` (gate, failed gate attempts, prewarm).
 2. **Session log:** Append one JSON line to `.aic/session-log.jsonl` with `session_id`,
    `reason`, `duration_ms`, `timestamp`.
 
@@ -471,6 +478,7 @@ The model then sees this as a new prompt, fixes the errors, and tries to stop ag
 - `input.task` → truncated to 200 chars as `intent` for `aic_compile` (or `"provide context for subagent"` when missing)
 - `input.parent_conversation_id` → passed as `conversationId` so the compile is attributed to the parent conversation
 - `input.subagent_model` → when valid (trimmed length 1–256, printable ASCII), passed as `modelId` on the `aic_compile` JSON-RPC `arguments` for `compilation_log.model_id`; also written to `.aic/.claude-session-model` like sessionStart
+- **Cache fallback:** when `input.subagent_model` is missing or invalid, the hook reads `.aic/.claude-session-model` (written by the sessionStart hook) and uses its value as `modelId` if valid (same trimmed-length and printable-ASCII checks). This ensures `compilation_log.model_id` is populated even when Cursor omits `subagent_model` from the payload.
 
 **Purpose:** When a subagent (Task tool) is about to start, the hook calls `aic_compile` with `triggerSource: "subagent_start"` and the parent conversation ID. Cursor's subagentStart output schema does not support `additional_context`, so the hook does not inject context; it always returns `permission: "allow"`. The sole purpose is so `compilation_log` has one row per subagent start with valid token data for telemetry.
 
@@ -480,9 +488,9 @@ The model then sees this as a new prompt, fixes the errors, and tries to stop ag
 
 ---
 
-## 8. Full event coverage — why some events are skipped
+## 8. Full event coverage
 
-Cursor exposes 8 hook events (as of Mar 2026). AIC uses all 8, though not all contribute to context injection:
+**Cursor:** Nine documented event types get AIC registrations; **eleven** hook command entries total (some types run two commands). Unused events are listed after the table.
 
 | Event                        | AIC use | Notes                                                                    |
 | ---------------------------- | ------- | ------------------------------------------------------------------------ |
@@ -493,17 +501,21 @@ Cursor exposes 8 hook events (as of Mar 2026). AIC uses all 8, though not all co
 | `postToolUse` (MCP)          | §7.5    | Compile confirmation                                                     |
 | `beforeShellExecution` (git) | §7.6    | --no-verify blocker                                                      |
 | `afterFileEdit`              | §7.7    | File edit tracker                                                        |
-| `stop`                       | §7.8    | Quality gate                                                             |
 | `sessionEnd`                 | §7.9    | Cleanup + telemetry                                                      |
-| `subagentStart`              | §7.10   | Record compilation with trigger_source subagent_start for telemetry      |
+| `subagentStart`              | §7.10   | Telemetry compile per subagent start                                     |
+| `stop`                       | §7.8    | Quality gate                                                             |
 
-`preCompact` is listed in Cursor's docs but has a limited output schema (no `additional_context`). It is registered only if AIC needs a gating capability from it in the future. AIC now registers `subagentStart` for trigger_source telemetry — one compile per subagent start — even though that hook cannot inject context.
+**Not registered:** `preCompact` and any other Cursor event without a row above — no entry in
+`hooks.json.template`. `subagentStart` cannot inject context; it exists for `compilation_log`
+telemetry only.
 
 ---
 
-## 9. `AIC-compile-context.cjs` — required design
+## 9. MCP compile invocation from hooks
 
-The only hook that calls `aic_compile` directly. Because `beforeSubmitPrompt` does not support context injection output, only `AIC-compile-context.cjs` calls `aic_compile` at session start. All other hooks use the gate-and-model-call pattern.
+**Cursor:** Only `AIC-compile-context.cjs` and `AIC-subagent-compile.cjs` spawn MCP and call `aic_compile` directly. All other compilation goes through the model after the preToolUse gate. Because `beforeSubmitPrompt` cannot emit `additional_context`, session-wide snapshot injection depends on `AIC-compile-context.cjs`.
+
+### 9.1 Session compile — `AIC-compile-context.cjs`
 
 The JSON-RPC call must include `conversationId` when `conversation_id` is available:
 
@@ -525,23 +537,17 @@ if (
 
 Without `conversationId`, `compilation_log` rows from this session have `conversation_id = null`, and `aic_chat_summary` cannot aggregate them.
 
-**Cold start:** `AIC-compile-context.cjs` launches a new Node.js process via `execSync`, which:
+**Cold start:** `execSync` spawns the MCP server (~500–1500ms TS compile on cold cache; **2–5s** warm round-trip, up to **~10s** first run; 20s hook timeout). The published package drops TS compile overhead (~200–500ms cold).
 
-1. Invokes `npx tsx mcp/src/server.ts` (compiles TypeScript on first call, ~500–1500ms on cold cache)
-2. Performs MCP JSON-RPC initialize + tools/call round-trip over stdio
-3. Returns the result to the hook's stdout
+### 9.2 Subagent telemetry — `AIC-subagent-compile.cjs`
 
-Total round-trip: **2–5 seconds** on a warm filesystem cache; up to **10 seconds** cold (first ever run). The hook has a 20-second timeout.
-
-The published package eliminates the TypeScript compilation step — cold start drops to ~200–500ms.
-
-**This affects only `AIC-compile-context.cjs` (session start).** All other hooks — the gate, the tracker, the `--no-verify` blocker — are pure Node.js with no external process, completing in under 50ms.
+Same spawn pattern for a best-effort `compilation_log` row; on failure the hook still allows subagent start. All other hooks are pure Node (under ~50ms).
 
 ---
 
-## 10. `hooks.json` — registration payload
+## 10. Registration payload
 
-The auto-bootstrapped `.cursor/hooks.json` installed per project:
+**Cursor:** `.cursor/hooks.json` per project (merged by `install.cjs` when it runs):
 
 ```json
 {
@@ -571,6 +577,7 @@ The auto-bootstrapped `.cursor/hooks.json` installed per project:
       { "command": "node .cursor/hooks/AIC-after-file-edit-tracker.cjs" }
     ],
     "sessionEnd": [{ "command": "node .cursor/hooks/AIC-session-end.cjs" }],
+    "subagentStart": [{ "command": "node .cursor/hooks/AIC-subagent-compile.cjs" }],
     "stop": [
       { "command": "node .cursor/hooks/AIC-stop-quality-check.cjs", "loop_limit": 5 }
     ]
@@ -578,8 +585,7 @@ The auto-bootstrapped `.cursor/hooks.json` installed per project:
 }
 ```
 
-`hooks.json` is auto-bootstrapped by the global AIC MCP server on each new project's first use.
-Existing user entries outside the `AIC-*` namespace are preserved via merge logic. Hook entries referencing removed AIC scripts (stale names) are pruned automatically.
+When the MCP server runs `integrations/cursor/install.cjs` from a workspace root that contains that script, hooks are written or merged idempotently. Existing user entries outside the `AIC-*` namespace are preserved; stale `AIC-*` hook entries are pruned.
 
 ---
 
@@ -605,26 +611,27 @@ This is a future optimization once Cursor exposes the HTTP hook type.
 
 ---
 
-## 12. Plugin distribution — future (zero-friction install)
+## 12. Plugin distribution
 
-Cursor does not currently expose a plugin system. When it does, AIC could be packaged as a
-Cursor plugin so users install once and all hooks merge automatically.
-
-This is a future item, not a current blocker.
+**Cursor:** No plugin system yet; distribution is installer-only.
 
 ---
 
-## 13. Zero-install path — bootstrap when client lists roots
+## 13. Direct installer path
 
-The zero-install path uses the global MCP server (registered via deeplink or `~/.cursor/mcp.json`). When the client lists workspace roots (e.g. when Cursor connects), the server runs the Cursor installer so hooks are bootstrapped per project with no manual init command:
+**Cursor:** `runEditorBootstrapIfNeeded` runs `node integrations/cursor/install.cjs` when the
+script exists under the project root and the bootstrap gate passes (see §2). Same triggers as
+§3: roots listed (if supported) or first `aic_compile` per project.
 
 ```
-Client lists roots (or first aic_compile call)
+listRoots (if supported) or first aic_compile
   ↓
-runEditorBootstrapIfNeeded → integrations/cursor/install.cjs   ← standalone, no mcp/ dependency
+runEditorBootstrapIfNeeded → integrations/cursor/install.cjs
   ↓
-.cursor/hooks/ + hooks.json written per project
+.cursor/hooks/ + hooks.json merged
 ```
+
+Without `integrations/cursor/install.cjs` at the project root, use a manual run — [installation.md](installation.md#first-compile-bootstrap).
 
 The installer (`integrations/cursor/install.cjs`):
 
@@ -642,16 +649,16 @@ The installer is a standalone `.cjs` script with no dependency on `mcp/src/`. So
 
 ---
 
-## 14. Trigger rule fallback — AIC.mdc
+## 14. Trigger rule
 
-`.cursor/rules/AIC.mdc` with `alwaysApply: true` instructs the model to call `aic_compile` as its first action on every message. This is the demand side; the `preToolUse` gate (§7.3) is the enforcement side. They are co-dependent:
+**Cursor:** `.cursor/rules/AIC.mdc` with `alwaysApply: true` instructs the model to call `aic_compile` first on every message. The `preToolUse` gate (§7.3) enforces it. They are co-dependent:
 
 - Without the rule: the model may not call `aic_compile` at all until blocked by the gate. The deny message then provides the intent, creating a round-trip penalty.
 - Without the gate: the rule is advisory only — the model can ignore it without consequence.
 
 The trigger rule + gate are the **primary** delivery mechanism for per-intent context in Cursor. Because there is no per-prompt context injection hook, these two components are essential — not a fallback.
 
-Auto-installed by the bootstrap process. Version-stamped so it is overwritten when the AIC package version changes.
+Auto-installed when the Cursor installer runs. Version-stamped so it is overwritten when the AIC package version changes.
 
 ---
 
@@ -673,11 +680,12 @@ All of the following must be verified for the Cursor integration to be complete:
 Context delivery:
 
 - [ ] `AIC-session-init.cjs` injects architectural invariants via `additional_context` (§7.1)
-- [ ] `AIC-compile-context.cjs` calls `aic_compile` with `conversationId` from `conversation_id` (§9)
+- [ ] `AIC-compile-context.cjs` calls `aic_compile` with `conversationId` from `conversation_id` (§9.1)
 - [ ] `AIC-before-submit-prewarm.cjs` saves prompt for gate deny message (§7.2)
 - [ ] `AIC-require-aic-compile.cjs` blocks all tools until `aic_compile` called (§7.3)
 - [ ] `AIC-inject-conversation-id.cjs` injects `conversationId` into MCP args (§7.4)
 - [ ] `AIC-post-compile-context.cjs` injects confirmation after compile (§7.5)
+- [ ] `AIC-subagent-compile.cjs` runs telemetry `aic_compile` on subagentStart (§7.10)
 
 Quality gate (Cursor-specific):
 
@@ -687,14 +695,15 @@ Quality gate (Cursor-specific):
 
 Settings:
 
-- [ ] `hooks.json` has all 10 hook registrations with correct matchers and options (§10)
+- [ ] `hooks.json` matches template: 11 command entries across nine event keys, including `subagentStart` (§10)
 
-Zero-install:
+Init behaviour:
 
-- [ ] MCP server runs install.cjs when client lists roots, bootstrapping per-project (§13)
+- [ ] Bootstrap: `install.cjs` runs when present under project root (§2–§3); otherwise manual run ([installation.md#first-compile-bootstrap](installation.md#first-compile-bootstrap))
 
 Temp file conventions:
 
 - [ ] `aic-gate-<generation_id>`: written by preToolUse gate, deleted by sessionEnd
 - [ ] `aic-prompt-<generation_id>`: written by beforeSubmitPrompt, deleted by sessionEnd
-- [ ] `aic-edited-files-<conversation_key>.json`: written by afterFileEdit, read by stop, deleted by sessionEnd
+- [ ] `aic-deny-*`: optional leftovers from gate deny path, deleted by sessionEnd
+- [ ] `aic-edited-files-<conversation_key>.json`: written by afterFileEdit, read by stop (not removed by sessionEnd; overwritten per session key)

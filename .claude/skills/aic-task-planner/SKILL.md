@@ -114,11 +114,12 @@ Before planning, classify the user's request. The planner must auto-delegate to 
 **Classification decision tree (evaluate in order, stop at first match):**
 
 1. Does the user reference a specific component from `mvp-progress.md`, say "plan next task", "what's next", or name a concrete component to plan? → **Task planning** — proceed to §1.
-2. Does the request contain question words (how, why, where, what) directed at understanding the codebase? → **Research-then-plan** — delegate to researcher.
-3. Does the request contain improvement language (improve, optimize, fix, analyze, gaps, problems, weaknesses, issues)? → **Research-then-plan** — delegate to researcher.
-4. Does the request ask to analyze, verify, or improve documentation? → **Research-then-plan** — delegate to researcher (documentation analysis classification).
-5. Does the request ask to evaluate a technology, compare options, or assess fit? → **Research-then-plan** — delegate to researcher (technology evaluation classification).
-6. Is the intent ambiguous? → **Ask the user:** "This seems like it needs investigation first. Want me to research this before planning, or go straight to planning a specific component?"
+2. Does the user ask to analyze, investigate, or debug something AND explicitly say not to plan or create a task (e.g., "do not create a task", "just analyze", "tell me what's wrong")? → **Analysis-only** — run the Runtime Verification Checklist (below), present findings, stop. No worktree, no task file.
+3. Does the request contain question words (how, why, where, what) directed at understanding the codebase? → **Research-then-plan** — delegate to researcher.
+4. Does the request contain improvement language (improve, optimize, fix, analyze, gaps, problems, weaknesses, issues)? → **Research-then-plan** — delegate to researcher.
+5. Does the request ask to analyze, verify, or improve documentation? → **Research-then-plan** — delegate to researcher (documentation analysis classification).
+6. Does the request ask to evaluate a technology, compare options, or assess fit? → **Research-then-plan** — delegate to researcher (technology evaluation classification).
+7. Is the intent ambiguous? → **Ask the user:** "This seems like it needs investigation first. Want me to research this before planning, or go straight to planning a specific component?"
 
 **When auto-delegation triggers:**
 
@@ -130,6 +131,14 @@ Before planning, classify the user's request. The planner must auto-delegate to 
 6. If the user says proceed, continue to §1 with the research document as an additional input.
 
 **The guarantee:** The research protocol that runs when auto-delegated is THE SAME protocol as the standalone research skill. Same explorers, same critic, same quality gates. Quality is identical regardless of entry point.
+
+### Runtime Verification Checklist
+
+This checklist applies in two situations: (1) analysis-only requests (classification outcome #2 above) — run the full checklist then present findings; (2) during Pass 1 exploration when the component interacts with external systems (hooks, editor APIs, third-party tools, database state). In situation (2), integrate the relevant checklist items into Batch A/B exploration.
+
+For each item that applies, collect **actual evidence** — not assumed state. If an item cannot be verified, report it as a blocker.
+
+Read `../shared/SKILL-investigation.md` and apply the **Runtime Evidence Checklist** (database state, deployed files, bootstrap/lifecycle, cache/file system, documentation cross-check, external system behavior, library API shapes). When the investigation touches AIC codebase code, also apply the **Codebase Investigation Depth** requirements from the same file.
 
 ---
 

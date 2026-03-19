@@ -156,6 +156,14 @@ Before writing any code, scan every non-code instruction sentence in the Steps s
 
 If you find any match: **stop and tell the user** that the task file contains unresolved decisions. List each ambiguous sentence and what decision it requires. Do not guess — the planner must resolve it. This prevents implementing the wrong approach and having to rewrite.
 
+### 2.5. Verify external assumptions
+
+After internalizing the task but before writing code, scan the task's Steps section and Architecture Notes for claims about external system behavior — anything describing what an external system sends, how files are deployed, what runtime state looks like, or what an API returns. For each such claim, verify it against actual evidence before proceeding.
+
+Read `../shared/SKILL-investigation.md` and apply the **Runtime Evidence Checklist** to each claim (database state, deployed files, bootstrap/lifecycle, cache/file system, documentation cross-check, external system behavior, library API shapes). When the claim involves AIC codebase behavior, also apply the **Codebase Investigation Depth** requirements from the same file.
+
+If any assumption cannot be verified (no evidence exists, or the evidence contradicts the claim), **stop and report to the user** before implementing. Include: (1) the exact claim from the task file, (2) what you checked, (3) what you found. This catches tasks that are technically correct but based on stale or wrong assumptions about runtime state — the most common cause of "the fix didn't work" after execution.
+
 ### 2b. Documentation mode detection
 
 **Check if this is a documentation task.** A task is a documentation task if:

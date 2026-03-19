@@ -70,7 +70,7 @@ Cursor exposes sessionEnd, preCompact, subagentStart (gating only — no context
 
 ## Cursor
 
-AIC's integration layer for **Cursor** provides session-start context injection, pre-tool-use gating, session end, stop quality check, and afterFileEdit tracking. Cursor has the most mature AIC integration. For hook-by-hook behavior, deployment, and limitations, see [cursor-integration-layer](cursor-integration-layer.md).
+AIC's integration layer for **Cursor** provides session-start context injection, pre-tool-use gating, session end, stop quality check, and afterFileEdit tracking. For hook-by-hook behavior, deployment, and limitations, see [cursor-integration-layer](cursor-integration-layer.md).
 
 ## Claude Code
 

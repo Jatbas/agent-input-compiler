@@ -1,67 +1,118 @@
 # Best Practices for AI-Assisted Coding with AIC
 
-These are best practices for getting the most out of AI-assisted coding. AIC is designed to amplify them by supplying task-focused context — when you follow these patterns, AIC ensures your AI assistant has the best possible context. This doc assumes AIC is installed and enabled; see [Installation](installation.md). Terms used here are defined in the [Glossary](#glossary) or in context.
+These are best practices for getting the most out of AI-assisted coding. **AIC** (AI Context Compiler) amplifies them by supplying task-focused context — files and rules chosen for the current task. This doc assumes AIC is installed and enabled; see [Installation](installation.md) for setup, MCP approval, and troubleshooting. Terms are in the [Glossary](#glossary).
 
 ---
 
 ## Glossary
 
-| Term                    | Definition                                                                                                                                                                                    |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **AIC**                 | AI Context Compiler — compiles project code and rules into task-focused context for the AI assistant. See [Architecture](architecture.md).                                                    |
-| **Compilation**         | The process of classifying your intent, selecting relevant files, and assembling context for the model. Runs at session start and (in some editors) before each message or before compaction. |
-| **Compiled context**    | The output of compilation: the files, rules, and metadata injected into the model's view so it sees the right code for the current task.                                                      |
-| **Context window**      | The fixed-size input the model sees — your messages plus any injected content. When it fills up, the editor may compact (summarize) earlier content.                                          |
-| **Context Guard**       | AIC component that blocks secrets and excluded files from compiled context so they never reach the model. See [Architecture](architecture.md) and [Security](security.md).                    |
-| **Session-start hooks** | Scripts the editor runs when a new chat session begins. AIC uses them to run compilation and inject context into the model's system prompt.                                                   |
-| **Tool gate**           | A mechanism (in Cursor and Claude Code) that blocks other tool use until `aic_compile` has run, so the model always has compiled context before acting.                                       |
-| **PreCompact**          | A hook (in Claude Code) that runs before the editor compacts the context window, so AIC can re-compile and keep context relevant in long sessions.                                            |
+| Term                    | Definition                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **AIC**                 | AI Context Compiler — compiles project code and rules into task-focused context for the AI assistant. See [Architecture](architecture.md).                                                                                                                                                                                                                                                                                                                                            |
+| **Compilation**         | Classifying your intent, selecting relevant files, and assembling context. **Claude Code** runs compilation on session start, on every user message (UserPromptSubmit hook), and before compaction (PreCompact). **Cursor** injects compiled context at session start; on later turns the assistant should call the `aic_compile` MCP tool (project rules reinforce this), and preToolUse blocks other tools until `aic_compile` when tools run. See [Architecture](architecture.md). |
+| **Compiled context**    | Output of compilation: files, rules, and metadata for the assistant. **Cursor** injects the initial bulk at session start. **Claude Code** can refresh it each user message via hooks.                                                                                                                                                                                                                                                                                                |
+| **Context window**      | The fixed-size input the model sees — your messages plus any injected content. When it fills up, the editor may compact (summarize) earlier content.                                                                                                                                                                                                                                                                                                                                  |
+| **Context Guard**       | Strips secrets and excluded paths from **AIC-compiled** bulk context only. It does not limit what the assistant reads through normal editor file tools. See [Architecture](architecture.md) and [Security](security.md).                                                                                                                                                                                                                                                              |
+| **Session-start hooks** | Scripts the editor runs when a new chat begins. AIC uses them for the first compile and injection where the editor supports it. **Claude Code** also compiles on every user message via a separate hook path. See [Installation](installation.md).                                                                                                                                                                                                                                    |
+| **Tool gate**           | **Cursor:** preToolUse blocks other tools until the assistant calls `aic_compile` for that generation. **Claude Code:** hooks invoke compilation on each user message; there is no Cursor-style deny-all-tools gate. Text-only replies skip PreToolUse on both editors. See [cursor-integration-layer.md](cursor-integration-layer.md) and [claude-code-integration-layer.md](claude-code-integration-layer.md).                                                                      |
+| **PreCompact**          | A hook (in Claude Code) that runs before the editor compacts the context window, so AIC can re-compile and keep context relevant in long sessions.                                                                                                                                                                                                                                                                                                                                    |
 
 ---
 
 ## One task, one session
 
-**Why:** Dedicate each chat session to a single, focused task. Mixing concerns — "fix the auth bug, then refactor the database layer" — splits the model's attention across unrelated code and fills the context window with files from both tasks. Neither task gets the model's full focus. LLMs show degraded accuracy when context contains irrelevant information (the "Lost in the Middle" effect — a research finding that models pay less attention to the middle of long context). When you finish a task or need to switch topics, start a new session. A new session gives the model a clean context window — no stale variable names, no outdated file contents, no prior reasoning that might conflict with the new task.
+### Why
 
-**How AIC helps:** Each new session triggers a fresh AIC compilation. The compiled context is precisely targeted to the current task — all selected files score high for one task, not medium for two. Starting fresh also means AIC re-evaluates your codebase's current state, picking up any changes from the previous session.
+Dedicate each chat session to a single, focused task. Mixing concerns — "fix the auth bug, then refactor the database layer" — splits the model's attention across unrelated code and fills the context window with files from both tasks. Neither task gets the model's full focus.
+
+LLMs show degraded accuracy when context contains irrelevant information (the ["Lost in the Middle"](https://arxiv.org/abs/2307.03172) effect: models attend less to the middle of long context).
+
+When you finish a task or need to switch topics, start a new session. A new session gives the model a clean context window — no stale variable names, no outdated file contents, no prior reasoning that might conflict with the new task.
+
+### How AIC helps
+
+**Cursor:** A new chat runs session-start compilation so file selection reflects the current tree for the next task.
+
+**Claude Code:** Hooks compile on session start and on every user message; a new chat still clears stale transcript and prior reasoning while the next compile aligns selection to one task. Each compile pass uses the repo as it exists then.
 
 ---
 
 ## Be specific with your intent
 
-**Why:** The more specific your intent, the better the model understands what you need. Vague prompts like "fix the bug" give the model nothing to anchor on — it must guess which files matter. Specific prompts like "fix the authentication timeout in src/auth/middleware.ts" or "add null checks to parseRequest in src/server.ts" let it focus immediately, reducing the need for exploratory file reads that consume tokens.
+### Why
 
-**How AIC helps:** AIC uses your intent to classify the task and select which files to include. A specific intent produces higher-confidence classification and better file scoring — the model sees the right code from the start instead of a broad, unfocused selection.
+The more specific your intent, the better the model understands what you need. Vague prompts like "fix the bug" give the model nothing to anchor on — it must guess which files matter.
+
+Name paths, symbols, or behaviors so the assistant can focus without broad exploration that burns tokens.
+
+### How AIC helps
+
+AIC uses your intent to classify the task and select which files to include. A specific intent produces higher-confidence classification and better file scoring — the model sees the right code from the start instead of a broad, unfocused selection.
 
 ---
 
 ## Keep sessions short
 
-**Why:** Long conversations accumulate noise. The model's context window fills with previous messages, tool outputs, and intermediate results. When the context window reaches capacity, the editor compacts (summarizes) earlier content, and the model loses details from the beginning of the conversation — including AIC's compiled context. Short sessions avoid this compaction loss entirely.
+### Why
 
-**How AIC helps:** In a short session, AIC's initial compiled context remains prominent in the context window throughout. Once that context is built, editors that support it (e.g. Claude Code via the `PreCompact` hook) can re-compile before compaction, preserving context quality even in longer sessions; behavior varies by editor. AIC's token reduction also means the context window fills less often, so the editor triggers compaction less frequently — and in some editors, compaction is a slow, resource-heavy process that can cause lag.
+Long conversations accumulate noise. The model's context window fills with previous messages, tool outputs, and intermediate results.
+
+When the context window reaches capacity, the editor compacts (summarizes) earlier content, and the model loses details from the beginning of the conversation — including AIC's compiled context. Short sessions reduce how often that happens.
+
+### How AIC helps
+
+In a short session, compiled context stays near the start of the window longer.
+
+**Claude Code:** Can re-compile before compaction via the `PreCompact` hook so refreshed context survives compaction better.
+
+**Cursor:** Does not re-inject compiled context on that path (see [Architecture](architecture.md)).
+
+Smaller compiled payloads leave more room in the window before compaction.
 
 ---
 
 ## Don't switch models mid-chat
 
-**Why:** When you change the AI model in the middle of a conversation (e.g., switching from Claude to GPT-4o), the editor treats it as the same session. Session-start hooks don't re-fire, so the new model misses the compiled context and architectural instructions that were injected at the beginning. The new model may also lack the tool-use patterns needed to call `aic_compile` on its own, effectively operating without any compiled context for the rest of the conversation.
+### Why
 
-**How AIC helps:** Start a new chat after switching models so that session-start hooks run again. That triggers a fresh compilation, injects context into the new model's system prompt, and the tool gate enforces compilation before any other tool use. The new model gets the same curated context the previous one had.
+Changing the assistant model inside the same chat is still one thread.
+
+**Cursor:** Session-start hooks do not run again, so the new model may not see the same system prompt injection as at chat open, and it may not call `aic_compile` before other tools unless rules and the preToolUse gate apply.
+
+**Claude Code:** Your next user message still runs hook-driven compilation, but the thread already contains the prior model's outputs — behavior can feel inconsistent.
+
+### How AIC helps
+
+**Cursor:** After a model switch, open a new chat so session-start compilation runs again and the tool gate can require `aic_compile` before tools.
+
+**Claude Code:** The next message refreshes compiled context via hooks; start a new chat if the thread feels polluted.
 
 ---
 
 ## Review before accepting
 
-**Why:** AI hallucinations happen even with good context. The model might generate plausible-looking code that references APIs that don't exist, uses wrong method signatures, or subtly breaks edge cases. Better context reduces the frequency of hallucinations but cannot eliminate them — the model is still probabilistic.
+### Why
 
-**How AIC helps:** AIC reduces the hallucination surface by giving the model verified, relevant code rather than noise. Context Guard ensures no secrets leak into the model's view.
+AI hallucinations happen even with good context. The model might generate plausible-looking code that references APIs that don't exist, uses wrong method signatures, or subtly breaks edge cases.
 
-AIC doesn't eliminate the need for review — always verify generated code against your actual codebase (e.g. run tests or diff the change).
+Better context reduces the frequency of hallucinations but cannot eliminate them — the model is still probabilistic.
+
+### How AIC helps
+
+AIC tightens the hallucination surface by surfacing relevant project code in compiled context.
+
+Context Guard keeps secrets and excluded paths out of that compiled bulk only; the assistant can still read files through editor tools. See [Security](security.md).
+
+### Still required
+
+Verify generated changes — run tests, read diffs, and use your team's review process before merging.
 
 ---
 
 ## See also
 
-- [Installation & Delivery](installation.md) — how to install AIC, prerequisites, how to verify it's working (e.g. the "show aic status" prompt command), and when to use each prompt command (status, last, chat summary, projects).
-- [Architecture](architecture.md) — how AIC compiles context, which editors are supported (Cursor, Claude Code, and others), and how they integrate.
+- [Installation & Delivery](installation.md) — install steps, prerequisites, verification (including the natural-language **prompt commands** that call MCP tools: status, last, chat summary, projects), and troubleshooting when hooks or MCP fail.
+- [Architecture](architecture.md) — how AIC compiles context and how Cursor vs Claude Code differ.
+- [Security](security.md) — Context Guard scope, secrets, and telemetry.
+- [Cursor integration layer](cursor-integration-layer.md) — session start, preToolUse gate, and Cursor-specific limits.
+- [Claude Code integration layer](claude-code-integration-layer.md) — UserPromptSubmit, PreCompact, and Claude-specific behavior.

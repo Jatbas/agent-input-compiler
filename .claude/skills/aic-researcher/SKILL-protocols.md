@@ -19,21 +19,26 @@ Each dimension gets an explorer subagent. Assign 2-4 of these based on what the 
 - Where does the flow start? What triggers it?
 - Grep for the function/class name in exports, handler registrations, CLI command definitions
 - Read the entry point file fully
-- Evidence to collect: file path, function name, how it's triggered (MCP handler, CLI command, direct call)
+- Trace the FULL call chain from the entry point to the target behavior. Read every intermediate function. Report the chain as: `file:line` -> `file:line` -> ... with one-line descriptions at each hop
+- If the entry point involves a hook or bootstrap flow, verify that the actual deployed hook file matches the source. Read both the source (in `integrations/`) and the deployed copy (in `.cursor/hooks/` or `.claude/hooks/`) and diff them
+- Evidence to collect: file path, function name, how it's triggered (MCP handler, CLI command, direct call), full call chain with file:line citations
 
 **Dimension 2 — Data flow:**
 
 - What types flow through the system? What gets passed as parameters and returned?
-- Read the interfaces involved (from `core/interfaces/`)
+- Read the interfaces involved (from `core/interfaces/`) and the type definitions from `core/types/` verbatim. Do not paraphrase — report exact field names, optionality markers (`?:`), and branded type usage
 - Trace parameter types from entry to exit
-- Evidence to collect: interface names, method signatures, type transformations at each step
+- For each data transformation step, check whether runtime data matches the expected types. If the investigation involves database columns, query actual rows from `~/.aic/aic.sqlite` to see real values
+- Evidence to collect: interface names, method signatures, verbatim type definitions, type transformations at each step, sample runtime data when relevant
 
 **Dimension 3 — Dependencies:**
 
 - What does the target component depend on?
 - Read import statements, constructor parameters
 - For each dependency: is it an interface (DI) or concrete class? What layer is it in?
-- Evidence to collect: dependency graph (component → depends on [list with file paths])
+- For external library dependencies, read the installed `.d.ts` files under `node_modules/` to verify the actual API. Do not rely on documentation or memory. Report exact constructor and method signatures
+- Check `shared/package.json` for pinned versions and `eslint.config.mjs` for restricted-import rules relevant to the target component
+- Evidence to collect: dependency graph (component → depends on [list with file paths]), library API signatures from `.d.ts` files
 
 **Dimension 4 — Consumers and scope-adjacent references:**
 
@@ -41,6 +46,7 @@ Each dimension gets an explorer subagent. Assign 2-4 of these based on what the 
 - Grep for imports of the target file/class across the codebase
 - Classify consumers: direct callers, transitive dependents, test files
 - Beyond import-based consumers: grep for string-literal references to the component name in dispatch tables (`Record<string, ...>` entries), error messages, log statements, test descriptions, comments, and documentation. These reveal the component's full footprint beyond the type system — references that import analysis misses
+- Check string-literal references in: dispatch table keys, error messages, log statements, test descriptions (`it("...")`), and documentation files. These catch references the type system misses
 - Evidence to collect: consumer list with file paths and how each consumer uses the component. Separate import-based consumers from string-reference consumers
 
 ### Synthesis Focus
@@ -96,7 +102,10 @@ Each hypothesis gets an explorer. The explorer tries to BOTH confirm AND disconf
 - Read [target files/directories]
 - Grep for [specific patterns]
 - Check [specific conditions]
-  Report findings with file:line citations. For each finding, state whether it supports or contradicts the hypothesis."
+
+When investigating AIC codebase components, apply the **Runtime Evidence Checklist** and **Codebase Investigation Depth** requirements from `../shared/SKILL-investigation.md`. Read that file and include its protocols in your investigation: trace full code paths, read types/interfaces verbatim, query the database, diff deployed vs source files, check `.d.ts` library APIs, scan for stale markers, and cross-reference documentation.
+
+Report findings with file:line citations. For each finding, state whether it supports or contradicts the hypothesis."
 
 ### Synthesis Focus
 

@@ -46,6 +46,7 @@ Read these reference files when the question involves the AIC codebase:
 3. `documentation/mvp-progress.md` — what is done, what is next
 4. `documentation/security.md` — security constraints
 5. `.cursor/rules/AIC-architect.mdc` — active architectural rules
+6. `../shared/SKILL-investigation.md` — runtime evidence checklist and codebase investigation depth (include in explorer prompts)
 
 For technology evaluations, also use `WebSearch` and `WebFetch` tools.
 
@@ -163,6 +164,10 @@ Read the `SKILL-protocols.md` sibling file for the detailed protocol matching th
 5. **Disconfirmation mandate:** "Actively look for evidence AGAINST the hypothesis, not just evidence for it. Report disconfirming evidence with the same rigor."
 
 For technology evaluation: one explorer uses `WebSearch` and `WebFetch` for external research (official docs, benchmarks, comparisons). The prompt must specify: "Use official documentation and primary sources. Avoid forum posts and blog articles unless no better source exists."
+
+**Runtime evidence mandate:** When the research question involves runtime behavior (hooks, database contents, deployed files, external system payloads, bootstrap flows), at least one explorer must be a `shell` subagent (or `generalPurpose` with shell access) tasked with gathering actual runtime evidence. Read `../shared/SKILL-investigation.md` and include the **Runtime Evidence Checklist** in this explorer's prompt. This explorer's findings take precedence over documentation-based findings when they conflict.
+
+**Codebase investigation depth:** When the investigation touches the AIC codebase (classifications: codebase analysis, gap/improvement analysis, documentation analysis with code cross-checks), explorer prompts MUST include the **Codebase Investigation Depth** requirements from `../shared/SKILL-investigation.md`. These are read-only — explorers read, query, and trace, but never modify files. These depth requirements do NOT activate for technology evaluations that only involve external technologies (no AIC codebase code).
 
 ### 3b. Collect explorer results
 

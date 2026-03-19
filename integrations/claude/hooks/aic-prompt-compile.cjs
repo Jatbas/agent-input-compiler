@@ -36,6 +36,15 @@ async function run(stdinStr) {
       : process.env.CLAUDE_PROJECT_DIR || process.cwd();
   const transcriptPath = parsed.transcript_path ?? parsed.input?.transcript_path ?? null;
   const conversationId = transcriptPath ? path.basename(transcriptPath, ".jsonl") : null;
+  const rawModel =
+    top.model != null ? top.model : input.model != null ? input.model : null;
+  const modelArg =
+    typeof rawModel === "string" &&
+    rawModel.trim().length >= 1 &&
+    rawModel.trim().length <= 256 &&
+    /^[\x20-\x7E]+$/.test(rawModel.trim())
+      ? rawModel.trim()
+      : undefined;
 
   const INJECTED_MARKER = path.join(projectRoot, ".aic", ".session-context-injected");
   const markerContent = fs.existsSync(INJECTED_MARKER)
@@ -73,6 +82,7 @@ async function run(stdinStr) {
     conversationId,
     30000,
     "prompt_submit",
+    modelArg,
   );
   if (promptContext == null) return null;
 

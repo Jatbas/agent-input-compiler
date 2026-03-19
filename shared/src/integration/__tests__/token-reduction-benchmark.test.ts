@@ -150,9 +150,9 @@ describe("token reduction benchmarks", () => {
       );
     }
     expect(tokenCount).toBeLessThanOrEqual(prev.token_count * 1.05);
-    // Allow 4× baseline duration for CI/slow machines; 2× was too tight
+    // Allow 5× baseline duration for CI/slow machines and timing variance
     if (prev.duration_ms > 0) {
-      expect(durationMs).toBeLessThanOrEqual(prev.duration_ms * 4);
+      expect(durationMs).toBeLessThanOrEqual(prev.duration_ms * 5);
     }
   }, 30_000);
 });

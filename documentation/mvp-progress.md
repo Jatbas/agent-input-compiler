@@ -2,8 +2,9 @@
 
 **Current phase:** 1.0 (OSS Release)
 **Version target:** 1.0.0
-**Phase 1.0:** 90/95 done
-**Status:** W14 Release 0.7.0 complete — GitHub (tag, release) + npm (`@jatbas/aic-core`, `@jatbas/aic` via CI). Phase V benchmarks/demo/doc audit still pending.
+**Phase 1.0:** 90/97 done
+**Phase 1.5:** 18/27 done
+**Status:** W14 Release 0.7.0 complete — GitHub (tag, release) + npm (`@jatbas/aic-core`, `@jatbas/aic` via CI). Phase V benchmarks/demo/doc audit still pending. Phase AE (cache security) and AF (model ID simplification) added.
 **Previous:** 0.2.0 (Quality Release) — Complete
 
 ---
@@ -186,9 +187,9 @@ One global MCP server in `~/.cursor/mcp.json`; one DB at `~/.aic/aic.sqlite`. Ea
 
 ---
 
-## Phase 1.5 — Performance Optimizations
+## Phase 1.5 — Optimizations, Hardening & Simplification
 
-Runtime CPU, memory, and I/O optimizations for the MCP server. Bounded to `mcp/src/` and `shared/src/` — no pipeline algorithm changes.
+Runtime CPU/memory/I/O optimizations, bootstrap reliability, cache file security hardening, and model ID resolution simplification. Bounded to `mcp/src/`, `shared/src/`, and `integrations/` — no pipeline algorithm changes.
 
 ### Phase X — Hot-Path I/O Elimination
 
@@ -250,6 +251,97 @@ Bootstrap on MCP roots notification; reject home dir as projectRoot; schema desc
 | fix: idempotent hooks write + AIC-block-no-verify in manifest | Done   | mcp/src/ + integrations/cursor/ | AD01 | Hooks write safe to call multiple times; AIC-block-no-verify in manifest   |
 | fix: do not store homedir in projects table on startup        | Done   | shared/src/storage/ + mcp/src/  | AD02 | ScopeRegistry/createProjectScope guard: do not register homedir as project |
 | fix: use \*\*/node_modules/\*\* for nested exclusion          | Done   | shared/src/adapters/            | AB01 | **/node_modules → **/node_modules/\*\* for nested monorepo exclusion       |
+
+### Phase AE — Cache File Security Validation
+
+Validate all `.aic/` JSONL cache files against injection attacks. Cache entries are written by integration-layer hooks (CommonJS, outside the core sandbox) and read by both hooks and the MCP server. A malicious or corrupted cache row could inject arbitrary model IDs, conversation IDs, or other values into the compilation pipeline. This phase adds strict input validation at every read boundary.
+
+**Threat model:** The `.aic/` directory is `0700` (owner-only), but a compromised hook, a rogue process with the same UID, or manual file editing could inject crafted JSONL rows. Values read from cache flow into: (1) `aic_compile` tool arguments (`modelId`, `conversationId`, `editorId`), (2) SQL bind parameters in `compilation_log` inserts, and (3) the `compiledPrompt` text returned to the editor. Injection vectors include overlong strings, control characters, embedded JSON objects, and values that bypass the Zod schema gates because they arrive as pre-validated strings.
+
+**Cache files and their schemas:**
+
+- `session-models.jsonl` — fields: `c` (string, conversationId), `m` (string, modelId), `e` (string, editorId), `timestamp` (string, ISO 8601)
+- `session-log.jsonl` — session tracking entries (see `shared/src/maintenance/prune-session-log.ts`)
+- `prompt-log.jsonl` — prompt history entries (see `shared/src/maintenance/prune-prompt-log.ts`)
+
+**Read sites for `session-models.jsonl` (6 files, each with a local `readSessionModelCache` or inline read):**
+
+- `mcp/src/handlers/compile-handler.ts` — `readSessionModelCache()` function
+- `integrations/claude/hooks/aic-compile-helper.cjs` — `readSessionModelCache()` function
+- `integrations/claude/hooks/aic-inject-conversation-id.cjs` — `readSessionModelCache()` function
+- `integrations/claude/plugin/scripts/aic-compile-helper.cjs` — `readSessionModelCache()` function
+- `integrations/cursor/hooks/AIC-subagent-compile.cjs` — `readSessionModelCache()` function
+
+**Write sites for `session-models.jsonl` (8 files, each with a local `writeSessionModelCache` or inline write):**
+
+- `mcp/src/handlers/compile-handler.ts` — `writeSessionModelCache()` function
+- `integrations/claude/hooks/aic-compile-helper.cjs` — `writeSessionModelCache()` function
+- `integrations/claude/plugin/scripts/aic-compile-helper.cjs` — `writeSessionModelCache()` function
+- `integrations/cursor/hooks/AIC-subagent-compile.cjs` — `writeSessionModelCache()` function
+- `integrations/cursor/hooks/AIC-compile-context.cjs` — inline `fs.appendFileSync` with `JSON.stringify`
+- `integrations/cursor/hooks/AIC-inject-conversation-id.cjs` — inline `fs.appendFileSync` with `JSON.stringify`
+- `integrations/cursor/hooks/AIC-before-submit-prewarm.cjs` — inline `fs.appendFileSync` with `JSON.stringify`
+
+**Existing validation to reuse as reference:**
+
+- `mcp/src/schemas/compilation-request.ts` — Zod schema with `.max(256)`, `.regex(/^[\x20-\x7E]+$/)` for `modelId`; `.max(128)` + printable ASCII for `conversationId`; `.enum(["cursor", "cursor-claude-code", "claude-code", "generic"])` for `editorId`
+- `isValidModelId()` — basic length + printable-ASCII check (currently duplicated in 3 hook files)
+
+**Architectural constraint:** Integration-layer hooks are CommonJS (`.cjs`) and cannot import Zod or TypeScript modules. Validation in hooks must be plain JavaScript. Server-side validation can use Zod. The existing `isValidModelId()` pattern (regex + length check) is the right model for hook-side validation. Server-side reads should additionally pass values through the existing Zod schema fields.
+
+| Component                                          | Status  | Package                                      | Deps | Description                                                                                                                                                                                           |
+| -------------------------------------------------- | ------- | -------------------------------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AE01: Audit all cache file read sites              | Pending | integrations/ + mcp/src/handlers/            | —    | Inventory every read/write site for all 3 JSONL cache files; document the expected schema per file; identify which reads currently lack validation (most do — only `isValidModelId` exists for `m`)   |
+| AE02: Strict field validation on cache reads       | Pending | integrations/ + mcp/src/handlers/            | AE01 | Add per-field validation at every read site: type check (`typeof === "string"`), max length (256 for modelId, 128 for conversationId, 20 for editorId), printable-ASCII regex; silently skip bad rows |
+| AE03: Sanitise cache values before pipeline use    | Pending | mcp/src/handlers/                            | AE02 | On the server side, pass cache-derived `modelId`/`conversationId`/`editorId` through the same Zod schema constraints used in `compilation-request.ts` before using them in SQL or tool responses      |
+| AE04: Integration tests for malicious cache inputs | Pending | integrations/**tests**/ + mcp/src/**tests**/ | AE03 | Test vectors: overlong strings (>256 chars), control characters (`\x00`-`\x1f`), nested JSON objects as field values, empty strings, missing fields, duplicate keys; verify all are silently rejected |
+
+### Phase AF — Model ID Resolution Simplification
+
+The model ID resolution logic is currently scattered across integration-layer hooks (Cursor + Claude Code), the JSONL session-models cache, the server-side compile handler, and the model-detector-dispatch adapter — with duplicated read/write/normalize helpers in each file. This phase refactors the model ID lifecycle into a clear, minimal flow per editor: one write point (hook → cache), one read point (server → cache → detector fallback), and one shared validation/normalization module. The goal is fewer moving parts, easier debugging, and a single source of truth for how each editor's model is captured and resolved.
+
+**Current duplication (the problem):**
+
+- `isValidModelId()` — duplicated in 3 files: `integrations/claude/hooks/aic-compile-helper.cjs`, `integrations/cursor/hooks/AIC-subagent-compile.cjs`, `integrations/cursor/hooks/subagent-start-model-id.cjs`
+- `normalizeModelId()` (maps `"default"` → `"auto"`) — duplicated in 6 files: `aic-compile-helper.cjs`, `AIC-subagent-compile.cjs`, `AIC-compile-context.cjs`, `AIC-before-submit-prewarm.cjs`, `AIC-inject-conversation-id.cjs`, `mcp/src/handlers/compile-handler.ts`
+- `readSessionModelCache()` — duplicated in 5 files: `aic-compile-helper.cjs`, `aic-inject-conversation-id.cjs` (Claude), `AIC-subagent-compile.cjs` (Cursor), `aic-compile-helper.cjs` (plugin), `compile-handler.ts` (server)
+- `writeSessionModelCache()` — duplicated in 3 files as named function + 3 files as inline `fs.appendFileSync` (total 6 write sites)
+
+**Current server-side resolution chain** (`compile-handler.ts` `resolveAndCacheModelId`):
+
+```
+argsModelId → modelIdOverride → readSessionModelCache(projectRoot, convId, editorId) → getModelId(editorId)
+```
+
+Where `getModelId` calls `ModelDetectorDispatch.detect()` which uses env vars / config files / defaults ("auto" for Cursor, "sonnet" for Claude Code / cursor-claude-code).
+
+**Current model capture points per editor:**
+
+- **Cursor:** `AIC-compile-context.cjs` (sessionStart, writes to cache + passes to aic_compile), `AIC-before-submit-prewarm.cjs` (beforeSubmitPrompt, writes to cache), `AIC-inject-conversation-id.cjs` (preToolUse, writes to cache + injects into aic_compile args), `AIC-subagent-compile.cjs` (subagentStart, reads from payload + cache fallback + passes to aic_compile)
+- **Claude Code:** `aic-compile-helper.cjs` (called by all hooks, reads/writes cache, passes to aic_compile), `aic-inject-conversation-id.cjs` (preToolUse, reads cache + injects into aic_compile args)
+- **Server:** `compile-handler.ts` (reads cache as additional fallback, writes resolved value back to cache)
+
+**Target state after refactoring:**
+
+- One shared CommonJS module (`integrations/shared/session-model-cache.cjs` or similar) exporting: `isValidModelId()`, `normalizeModelId()`, `readSessionModelCache()`, `writeSessionModelCache()` — used by all Cursor and Claude Code hooks via `require("../shared/...")` or a path relative to the integration root
+- All hook files import from the shared module instead of defining local copies
+- Server-side `compile-handler.ts` has its own TypeScript versions (or reuses via a shared adapter) but the logic is identical
+- Resolution chain is clear and minimal: hook writes model to cache on every prompt → server reads cache filtered by editorId + conversationId → falls back to detector default → writes resolved value back to cache
+
+**Architectural constraints:**
+
+- Integration hooks are CommonJS (`.cjs`); the shared module must also be CommonJS
+- The shared module lives in `integrations/` (not `shared/src/` or `mcp/src/`) to respect hexagonal boundaries — hooks are integration-layer code
+- Server-side code in `mcp/src/handlers/` may duplicate the logic in TypeScript or import a shared `.cjs` via `createRequire` — decide during AF01
+- The `aic-compile-helper.cjs` plugin version (`integrations/claude/plugin/scripts/`) must also use the shared module or be kept in sync
+
+| Component                                               | Status  | Package                                      | Deps | Description                                                                                                                                                                                       |
+| ------------------------------------------------------- | ------- | -------------------------------------------- | ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AF01: Document current model ID flow per editor         | Pending | documentation/                               | —    | Create a sequence diagram (text or mermaid) showing the full model capture → cache write → cache read → server resolve flow for each editor (Cursor, Claude Code, cursor-claude-code)             |
+| AF02: Extract shared cache read/write/validate module   | Pending | integrations/                                | AF01 | Create `integrations/shared/session-model-cache.cjs` with `isValidModelId`, `normalizeModelId`, `readSessionModelCache`, `writeSessionModelCache`; all hooks require from this file               |
+| AF03: Simplify server-side resolution chain             | Pending | mcp/src/handlers/                            | AF02 | Reduce `resolveAndCacheModelId` to 3 steps: `args.modelId → cache(editorId, convId) → detector default`; remove `modelIdOverride` if redundant; remove server-side cache write if hooks handle it |
+| AF04: Remove dead code and redundant fallback paths     | Pending | integrations/ + mcp/src/                     | AF03 | Delete all local `isValidModelId`/`normalizeModelId`/`readSessionModelCache`/`writeSessionModelCache` copies; remove inline `fs.appendFileSync` write blocks replaced by shared module calls      |
+| AF05: Integration tests for simplified model resolution | Pending | integrations/**tests**/ + mcp/src/**tests**/ | AF04 | End-to-end tests per editor: hook writes cache → server reads correct entry → DB `compilation_log.model_id` matches; test model switch mid-session; test empty cache defaults                     |
 
 ---
 
@@ -412,39 +504,41 @@ Need measurement before optimizing further. Benchmarks prove Phase J worked and 
 
 Incremental output quality improvements, measured by Phase K benchmarks. New transformers must be semantically safe — never break indentation (Python/YAML/Makefile), JSX syntax, or templating languages. Each transformer needs file-type safety tests.
 
-| Component                  | Status | Package              | Description                                                                             |
-| -------------------------- | ------ | -------------------- | --------------------------------------------------------------------------------------- |
-| LicenseHeaderStripper      | Done   | shared/src/pipeline/ | Strips leading license/copyright/SPDX comment blocks                                    |
-| Base64InlineDataStripper   | Done   | shared/src/pipeline/ | Replaces data:base64 URLs with placeholder                                              |
-| LongStringLiteralTruncator | Done   | shared/src/pipeline/ | Truncates string literals >200 chars                                                    |
-| DocstringTrimmer           | Done   | shared/src/pipeline/ | Trims long Python/JSDoc docstrings                                                      |
-| CssVariableSummarizer      | Done   | shared/src/pipeline/ | Keeps :root; replaces other rule bodies with "[N declarations]"                         |
-| TypeDeclarationCompactor   | Done   | shared/src/pipeline/ | Collapses .d.ts type/interface/enum to single line                                      |
-| TestStructureExtractor     | Done   | shared/src/pipeline/ | Strips describe/it/test bodies; keeps names and structure                               |
-| ImportDeduplicator         | Done   | shared/src/pipeline/ | Merges duplicate imports per file                                                       |
-| HtmlToMarkdownTransformer  | Done   | shared/src/pipeline/ | Converts HTML to Markdown; strips script/style                                          |
-| SvgDescriber               | Done   | shared/src/pipeline/ | Replaces SVG with "[SVG: viewBox, N elements, bytes]"                                   |
-| YamlCompactor              | Done   | shared/src/pipeline/ | Strips YAML comments; normalises indent; collapses single-key blocks                    |
-| MinifiedCodeSkipper        | Done   | shared/src/pipeline/ | Placeholder for .min.js/.min.css, dist/, build/                                         |
-| AutoGeneratedSkipper       | Done   | shared/src/pipeline/ | Placeholder when header contains "auto-generated"/"code generated"                      |
-| EnvExampleRedactor         | Done   | shared/src/pipeline/ | Redacts KEY=value to KEY= in .env.example/.env.sample/.env.template (secret protection) |
-| SchemaFileCompactor        | Done   | shared/src/pipeline/ | Compacts JSON Schema, GraphQL, Prisma, Proto                                            |
-| Transformer safety tests   | Done   | shared/src/pipeline/ | Safety tests (indentation, YAML, JSX preserved)                                         |
-| Guard `warn` severity      | Done   | shared/src/pipeline/ | Warn on suspicious content without blocking file                                        |
+| Component                                   | Status        | Package               | Description                                                                                         |
+| ------------------------------------------- | ------------- | --------------------- | --------------------------------------------------------------------------------------------------- |
+| LicenseHeaderStripper                       | Done          | shared/src/pipeline/  | Strips leading license/copyright/SPDX comment blocks                                                |
+| Base64InlineDataStripper                    | Done          | shared/src/pipeline/  | Replaces data:base64 URLs with placeholder                                                          |
+| LongStringLiteralTruncator                  | Done          | shared/src/pipeline/  | Truncates string literals >200 chars                                                                |
+| DocstringTrimmer                            | Done          | shared/src/pipeline/  | Trims long Python/JSDoc docstrings                                                                  |
+| CssVariableSummarizer                       | Done          | shared/src/pipeline/  | Keeps :root; replaces other rule bodies with "[N declarations]"                                     |
+| TypeDeclarationCompactor                    | Done          | shared/src/pipeline/  | Collapses .d.ts type/interface/enum to single line                                                  |
+| TestStructureExtractor                      | Done          | shared/src/pipeline/  | Strips describe/it/test bodies; keeps names and structure                                           |
+| ImportDeduplicator                          | Done          | shared/src/pipeline/  | Merges duplicate imports per file                                                                   |
+| HtmlToMarkdownTransformer                   | Done          | shared/src/pipeline/  | Converts HTML to Markdown; strips script/style                                                      |
+| SvgDescriber                                | Done          | shared/src/pipeline/  | Replaces SVG with "[SVG: viewBox, N elements, bytes]"                                               |
+| YamlCompactor                               | Done          | shared/src/pipeline/  | Strips YAML comments; normalises indent; collapses single-key blocks                                |
+| MinifiedCodeSkipper                         | Done          | shared/src/pipeline/  | Placeholder for .min.js/.min.css, dist/, build/                                                     |
+| AutoGeneratedSkipper                        | Done          | shared/src/pipeline/  | Placeholder when header contains "auto-generated"/"code generated"                                  |
+| EnvExampleRedactor                          | Done          | shared/src/pipeline/  | Redacts KEY=value to KEY= in .env.example/.env.sample/.env.template (secret protection)             |
+| SchemaFileCompactor                         | Done          | shared/src/pipeline/  | Compacts JSON Schema, GraphQL, Prisma, Proto                                                        |
+| Transformer safety tests                    | Done          | shared/src/pipeline/  | Safety tests (indentation, YAML, JSX preserved)                                                     |
+| Guard `warn` severity                       | Done          | shared/src/pipeline/  | Warn on suspicious content without blocking file                                                    |
+| Config `guard.allowPatterns` → ContextGuard | Pending - Gap | shared/src/bootstrap/ | Schema field exists; pipeline passes `[]` — user config not applied until composition root wires it |
 
 ### Phase M — Reporting & Resources
 
 User-facing polish. Comes last because it doesn't improve the core algorithm.
 
-| Component                                                | Status | Package       | Description                                                                 |
-| -------------------------------------------------------- | ------ | ------------- | --------------------------------------------------------------------------- |
-| aic_status tool (replaced status resource)               | Done   | mcp/src/      | Compilation stats, token savings, guard summary, installation check         |
-| aic_last tool (replaced last resource)                   | Done   | mcp/src/      | Last compilation details, token count and guard status (no compiled prompt) |
-| Conversation tracking: schema + plumbing                 | Done   | shared + mcp  | conversation_id in compilation_log; plumbing through pipeline               |
-| Conversation tracking: summary + prompt cmd              | Done   | shared + mcp  | Per-conversation aggregates; "show aic chat summary"                        |
-| Budget utilization in aic_status tool                    | Done   | mcp/src/      | % of token budget used by last compilation                                  |
-| `aic_chat_summary` tool (was `aic_conversation_summary`) | Done   | mcp/src/      | MCP tool: per-conversation stats by conversationId                          |
-| Conversation ID fallback (our own when editor omits)     | Done   | .cursor + mcp | preToolUse hook injects conversationId per-chat                             |
+| Component                                                | Status  | Package       | Description                                                                                                          |
+| -------------------------------------------------------- | ------- | ------------- | -------------------------------------------------------------------------------------------------------------------- |
+| aic_status tool (replaced status resource)               | Done    | mcp/src/      | Compilation stats, token savings, guard summary, installation check                                                  |
+| aic_last tool (replaced last resource)                   | Done    | mcp/src/      | Last compilation details, token count and guard status (no compiled prompt)                                          |
+| Conversation tracking: schema + plumbing                 | Done    | shared + mcp  | conversation_id in compilation_log; plumbing through pipeline                                                        |
+| Conversation tracking: summary + prompt cmd              | Done    | shared + mcp  | Per-conversation aggregates; "show aic chat summary"                                                                 |
+| Budget utilization in aic_status tool                    | Done    | mcp/src/      | % of token budget used by last compilation                                                                           |
+| `aic_chat_summary` tool (was `aic_conversation_summary`) | Done    | mcp/src/      | MCP tool: per-conversation stats by conversationId                                                                   |
+| Conversation ID fallback (our own when editor omits)     | Done    | .cursor + mcp | preToolUse hook injects conversationId per-chat                                                                      |
+| show aic status with time range                          | Pending | -             | show the status for the last 7d / 15d / 30 days. Default should be no time range filter. Example: show aic status 7d |
 
 ### Phase M 0.5 — MCP-only (Drop CLI)
 

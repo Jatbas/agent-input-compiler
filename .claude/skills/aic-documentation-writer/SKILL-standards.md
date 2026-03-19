@@ -10,7 +10,7 @@ These rules are mandatory for all documentation edits. Violations cause verifica
 
 ### Definitions and glossaries
 
-3+ terms being defined MUST use a table (columns: Term, Definition), placed under a proper heading (e.g. `## Glossary` or `## Key Terms`). Never inline multiple definitions as bold-text paragraphs. 1-2 terms may be defined inline if contextually appropriate.
+3+ terms being defined MUST use a table (columns: Term, Definition), placed under a `## Glossary` heading. Never inline multiple definitions as bold-text paragraphs. 1-2 terms may be defined inline if contextually appropriate.
 
 ### Comparisons
 
@@ -29,12 +29,22 @@ Any new `##` or `###` heading MUST be added to the Table of Contents if one exis
 When adding a new section, evaluate the document's existing flow:
 
 - Introduction sections go at the top
-- Concept/definition sections follow the introduction
+- Glossary sections (`## Glossary`) follow the introduction, before concept sections. Use "Glossary" as the heading — not "Terminology," "Key Terms," or similar variants.
+- Concept/definition sections follow the glossary (or the introduction when no glossary exists)
 - Procedural/how-to sections follow concepts
 - Reference/lookup sections follow procedures
-- Appendix/glossary sections go at the end
+- Appendix sections go at the end
 
 Place the new section where it fits logically. Never insert a new section at the first convenient gap without considering document flow.
+
+### Bold labels vs subheadings
+
+When a section contains multiple labeled items (bold-prefixed entries like `**Label:** description`), choose between bold labels and `###` subheadings based on content length:
+
+- If every item is a single sentence, bold labels are acceptable.
+- If any item runs longer than one sentence, promote all items in that group to `###` subheadings. Mixing bold labels for short items and subheadings for long ones inside the same section creates visual inconsistency.
+
+The test: scan the group of labeled items. If the longest one is multi-sentence, use subheadings for the group.
 
 ### Paragraph density
 
@@ -117,6 +127,22 @@ Tone matching checklist:
 | User-facing guide   | Task-oriented: "Run this command", "Open settings". Short paragraphs. Numbered steps for procedures. Avoid internal implementation details unless essential for understanding. Every section answers "what do I do?" not "how does it work internally?" |
 | Developer reference | Precise technical language: type signatures, architecture rationale, component relationships. Assume reader knows the codebase. Every section answers "how and why does this work?"                                                                     |
 | Mixed               | Clearly separate user instructions from technical details using headings or callout blocks. Label which parts are for which audience.                                                                                                                   |
+
+### Professional register
+
+Use concise professional language. Documentation is not a conversation — avoid casual constructions that talk around a concept when a direct term exists.
+
+| Instead of                       | Write                                    |
+| -------------------------------- | ---------------------------------------- |
+| "people who change the codebase" | "developers" or "contributors"           |
+| "this page"                      | "this document"                          |
+| "stuff under `X/`"               | "files under `X/`" or "contents of `X/`" |
+| "things like hooks and rules"    | "hooks and rules"                        |
+| "in order to"                    | "to"                                     |
+| "make sure"                      | "verify" or "confirm"                    |
+| "a bunch of"                     | state the quantity or drop the qualifier |
+
+The goal is not formal prose. Contractions are fine when the surrounding document uses them. Short sentences are fine. The standard is: prefer the term a technical writer would choose over the term someone would say in a chat message.
 
 ### Temporal robustness
 

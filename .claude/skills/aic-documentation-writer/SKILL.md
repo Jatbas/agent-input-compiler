@@ -99,6 +99,8 @@ Only after the user has chosen may the skill proceed — and only by changing do
 4. Existing source in `shared/src/` — for factual verification against codebase
 5. `SKILL-dimensions.md` (this file's sibling — explorer and critic prompt templates)
 6. `SKILL-standards.md` (this file's sibling — writing standards and quality gates)
+7. `SKILL-policies.md` (this file's sibling — editorial content policies)
+8. `../shared/SKILL-investigation.md` — runtime evidence checklist and codebase investigation depth protocols
 
 When called by the planner or executor, these inputs are already in context from the caller's pre-read batch.
 
@@ -159,6 +161,8 @@ Before spawning explorers, read in one parallel batch:
 - All `.md` files in `documentation/` (sibling documents)
 - `SKILL-dimensions.md` (explorer prompt templates)
 - `SKILL-standards.md` (writing standards)
+- `SKILL-policies.md` (editorial content policies)
+- `../shared/SKILL-investigation.md` (runtime evidence checklist and codebase investigation depth — inject relevant content into Explorer 1 and Critic 2 prompts for runtime behavior claims)
 
 ### 1b. Spawn 4 explorers in parallel (MANDATORY — Cardinal Rule 0)
 
@@ -242,7 +246,7 @@ For each identified change, write all three parts:
 2. **Required change:** What needs to change and why (one sentence)
 3. **Target text:** The exact replacement text — the actual words, not "improve this"
 
-**Writing rules (from SKILL-standards.md):**
+**Writing rules (from SKILL-standards.md and SKILL-policies.md):**
 
 - Match the voice and tone identified by Explorer 3
 - Follow content format conventions: tables for 3+ definitions, numbered lists for procedures, proper heading hierarchy
@@ -252,6 +256,12 @@ For each identified change, write all three parts:
 - Line-break preservation: match the source document's structure
 - Every technical claim in target text must be traceable to an Explorer 1 finding
 - Cross-reference, do not duplicate: if a sibling document covers the topic, link to it (see SKILL-standards.md §Cross-Reference Instead of Duplication)
+- Cross-editor references: name another editor only when it helps the reader; no rankings or gratuitous comparisons (see SKILL-policies.md §Cross-editor references)
+- No marketing or hedge language: no "powerful," "seamless," "robust," "leverage"; describe what happens factually (see SKILL-policies.md §No marketing or hedge language)
+- Examples must be verifiable: every code snippet, command, and path must match the current codebase (see SKILL-policies.md §Examples must be verifiable)
+- No secrets in examples: use placeholders for API keys, tokens, and user-specific paths (see SKILL-policies.md §No secrets in examples)
+- Acronyms and key terms: define on first use; one canonical term per concept across all docs (see SKILL-policies.md §Acronyms and key terms)
+- Omit ambient knowledge: do not restate obvious high-level tooling usage (generic skills invocation, generic Git) — document repo-specific commands and flows instead (see SKILL-policies.md §Omit ambient / obvious knowledge)
 
 ### 2d. Pre-verification self-check
 
@@ -566,6 +576,7 @@ The documentation-writer skill is designed so that auto-mode (cheaper model) pro
 - The documentation-writer skill is the single source of truth for documentation quality protocols
 - Explorer and critic prompt templates live in `SKILL-dimensions.md` — always read them before spawning subagents
 - Writing standards live in `SKILL-standards.md` — always read them before writing target text
+- Editorial content policies live in `SKILL-policies.md` — always read them before writing target text or evaluating content decisions
 - The skill never modifies source code — only `.md` documentation files (Cardinal Rule 7). For normal docs, resolve mismatches by changing documentation to match code. For prescriptive docs (project-plan, implementation-spec, architecture, security), stop on any incongruence and ask the user how to proceed
 - When called by the planner or executor, the skill follows the caller's worktree and file path conventions
 - Maximum subagent budget per invocation: write/modify = 4 explorers + 1 gap-fill + 4 critics + 1 re-spawn = 10; audit = 4 explorers + 1 gap-fill + 5 critics + 1 re-spawn = 11 (Critic 5 adds one). If the document requires more investigation, split into multiple skill invocations

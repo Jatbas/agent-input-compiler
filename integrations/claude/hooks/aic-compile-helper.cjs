@@ -9,11 +9,63 @@ const fs = require("fs");
 const path = require("path");
 
 // conversationId must be conversation-scoped (not session_id) for correct chat summary attribution.
-// modelId: string with content, or null, or undefined; undefined: resolve from sixth param first; if empty, read projectRoot/.aic/.claude-session-model
+// modelId: string with content, or null, or undefined; undefined: resolve from sixth param first; if empty, read projectRoot/.aic/session-models.jsonl
 function isValidModelId(s) {
   if (typeof s !== "string") return false;
   const trimmed = s.trim();
   return trimmed.length >= 1 && trimmed.length <= 256 && /^[\x20-\x7E]+$/.test(trimmed);
+}
+
+function normalizeModelId(raw) {
+  return raw.toLowerCase() === "default" ? "auto" : raw;
+}
+
+function writeSessionModelCache(root, modelId, convId, eid) {
+  try {
+    const filePath = path.join(root, ".aic", "session-models.jsonl");
+    fs.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
+    const entry = JSON.stringify({
+      c: typeof convId === "string" ? convId.trim() : "",
+      m: modelId,
+      e: eid,
+      timestamp: new Date().toISOString(),
+    });
+    fs.appendFileSync(filePath, entry + "\n", "utf8");
+  } catch {
+    // non-fatal
+  }
+}
+
+function readSessionModelCache(root, convId, eid) {
+  try {
+    const raw = fs.readFileSync(path.join(root, ".aic", "session-models.jsonl"), "utf8");
+    const lines = raw.split("\n").filter((l) => l.trim().length > 0);
+    const cid = typeof convId === "string" ? convId.trim() : "";
+    let lastMatch = null;
+    let lastAny = null;
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line);
+        if (typeof entry.m === "string" && isValidModelId(entry.m) && entry.e === eid) {
+          lastAny = entry.m;
+          if (cid.length > 0 && entry.c === cid) lastMatch = entry.m;
+        }
+      } catch {
+        // skip malformed
+      }
+    }
+    return lastMatch !== null ? lastMatch : lastAny;
+  } catch {
+    // no cache
+  }
+  return null;
+}
+
+function detectEditorId() {
+  if (process.env.CURSOR_TRACE_ID && String(process.env.CURSOR_TRACE_ID).trim() !== "") {
+    return "cursor-claude-code";
+  }
+  return "claude-code";
 }
 
 function callAicCompile(
@@ -26,24 +78,23 @@ function callAicCompile(
 ) {
   const timeout = timeoutMs || 25000;
   const serverPath = path.join(projectRoot, "mcp", "src", "server.ts");
-  const args = fs.existsSync(serverPath) ? ["tsx", serverPath] : ["@jatbas/aic"];
-  const modelCachePath = path.join(projectRoot, ".aic", ".claude-session-model");
+  const isDev = fs.existsSync(serverPath);
+  const needsBuild =
+    isDev && fs.existsSync(path.join(projectRoot, "shared", "package.json"));
+  const spawnCmd = needsBuild ? "sh" : "npx";
+  const spawnArgs = needsBuild
+    ? ["-c", "pnpm --filter @jatbas/aic-core build >&2 && npx tsx " + serverPath]
+    : isDev
+      ? ["tsx", serverPath]
+      : ["@jatbas/aic"];
+  const editorId = detectEditorId();
   let resolved = null;
   if (isValidModelId(modelId)) {
-    resolved = String(modelId).trim();
-    try {
-      fs.mkdirSync(path.join(projectRoot, ".aic"), { recursive: true, mode: 0o700 });
-      fs.writeFileSync(modelCachePath, resolved, "utf8");
-    } catch {
-      // ignore write errors
-    }
+    resolved = normalizeModelId(String(modelId).trim());
+    writeSessionModelCache(projectRoot, resolved, conversationId, editorId);
   } else {
-    try {
-      const content = fs.readFileSync(modelCachePath, "utf8").trim();
-      if (isValidModelId(content)) resolved = content;
-    } catch {
-      // no cache or unreadable
-    }
+    const cached = readSessionModelCache(projectRoot, conversationId, editorId);
+    if (cached !== null) resolved = normalizeModelId(cached);
   }
   const initReq = JSON.stringify({
     jsonrpc: "2.0",
@@ -59,25 +110,6 @@ function callAicCompile(
     jsonrpc: "2.0",
     method: "notifications/initialized",
   });
-  // CURSOR_TRACE_ID is set by Cursor's extension host; persist detection for hooks without it
-  const editorIdFile = path.join(projectRoot, ".aic", ".editor-id");
-  let editorId;
-  if (process.env.CURSOR_TRACE_ID && String(process.env.CURSOR_TRACE_ID).trim() !== "") {
-    editorId = "cursor-claude-code";
-    try {
-      fs.mkdirSync(path.dirname(editorIdFile), { recursive: true, mode: 0o700 });
-      fs.writeFileSync(editorIdFile, editorId, "utf8");
-    } catch {
-      // ignore write errors
-    }
-  } else {
-    try {
-      const stored = fs.readFileSync(editorIdFile, "utf8").trim();
-      editorId = stored || "claude-code";
-    } catch {
-      editorId = "claude-code";
-    }
-  }
   const toolsCall = JSON.stringify({
     jsonrpc: "2.0",
     id: 2,
@@ -96,7 +128,7 @@ function callAicCompile(
   });
 
   return new Promise((resolve) => {
-    const child = spawn("npx", args, {
+    const child = spawn(spawnCmd, spawnArgs, {
       cwd: projectRoot,
       stdio: ["pipe", "pipe", "pipe"],
     });
