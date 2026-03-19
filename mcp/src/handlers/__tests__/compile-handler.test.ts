@@ -15,7 +15,8 @@ import {
   toProjectId,
   toConversationId,
 } from "@jatbas/aic-core/core/types/identifiers.js";
-import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
+import { toMilliseconds, toTokenCount } from "@jatbas/aic-core/core/types/units.js";
+import { toPercentage } from "@jatbas/aic-core/core/types/scores.js";
 import {
   type AbsolutePath,
   type FilePath,
@@ -26,6 +27,7 @@ import {
   EDITOR_ID,
   GUARD_SEVERITY,
   GUARD_FINDING_TYPE,
+  TASK_CLASS,
 } from "@jatbas/aic-core/core/types/enums.js";
 import type {
   CompilationMeta,
@@ -37,6 +39,8 @@ import { NodePathAdapter } from "@jatbas/aic-core/adapters/node-path-adapter.js"
 import { STUB_COMPILATION_META } from "@jatbas/aic-core/testing/stub-compilation-meta.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import type { ProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
+import { openDatabase } from "@jatbas/aic-core/storage/open-database.js";
+import { createProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
 
 function mockScopeForHandler(
   clock: Clock,
@@ -1094,6 +1098,291 @@ describe("compile-handler", () => {
         );
         expect(runCalls).toHaveLength(1);
         expect(runCalls[0]!.modelId).toBeNull();
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe("model resolution integration", () => {
+    function writeSessionModelsCache(
+      tmpDir: string,
+      m: string,
+      c: string,
+      e: string,
+      timestamp?: string,
+    ): void {
+      const aicDir = path.join(tmpDir, ".aic");
+      fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
+      const line =
+        JSON.stringify({
+          m,
+          c,
+          e,
+          timestamp: timestamp ?? "2026-01-01T00:00:00.000Z",
+        }) + "\n";
+      fs.writeFileSync(path.join(tmpDir, ".aic", "session-models.jsonl"), line, "utf8");
+    }
+
+    function createScopeWithRealDb(tmpDir: string): {
+      scope: ProjectScope;
+      projectId: ReturnType<typeof toProjectId>;
+    } {
+      const fixedTs = toISOTimestamp("2026-03-07T12:00:00.000Z");
+      const clock = {
+        now: (): typeof fixedTs => fixedTs,
+        addMinutes: (_m: number): typeof fixedTs => fixedTs,
+        durationMs: (_s: typeof fixedTs, _e: typeof fixedTs) => toMilliseconds(0),
+      };
+      const db = openDatabase(":memory:", clock);
+      const scope = createProjectScope(
+        toAbsolutePath(tmpDir),
+        new NodePathAdapter(),
+        db,
+        clock,
+      );
+      return { scope, projectId: scope.projectId };
+    }
+
+    function createRecordingRunner(scope: ProjectScope): {
+      run: (request: CompilationRequest) => Promise<{
+        compiledPrompt: string;
+        meta: CompilationMeta;
+        compilationId: ReturnType<typeof toUUIDv7>;
+      }>;
+    } {
+      return {
+        run: (request: CompilationRequest) => {
+          // sessionId null to avoid server_sessions FK in test DB
+          const entry = {
+            id: scope.idGenerator.generate(),
+            intent: request.intent,
+            taskClass: TASK_CLASS.GENERAL,
+            filesSelected: 0,
+            filesTotal: 0,
+            tokensRaw: toTokenCount(0),
+            tokensCompiled: toTokenCount(0),
+            tokenReductionPct: toPercentage(0),
+            cacheHit: false,
+            durationMs: toMilliseconds(0),
+            editorId: request.editorId,
+            modelId: request.modelId ?? "",
+            sessionId: null as ReturnType<typeof toSessionId> | null,
+            configHash: null,
+            createdAt: scope.clock.now(),
+            conversationId: request.conversationId ?? null,
+            triggerSource: null,
+          };
+          scope.compilationLogStore.record(entry);
+          return Promise.resolve({
+            compiledPrompt: "",
+            meta: STUB_COMPILATION_META,
+            compilationId: entry.id,
+          });
+        },
+      };
+    }
+
+    it("cache_entry_cursor_editor_model_id_recorded_in_db", async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+      try {
+        writeSessionModelsCache(tmpDir, "claude-sonnet-4", "conv-1", "cursor");
+        const { scope, projectId } = createScopeWithRealDb(tmpDir);
+        const getScope = (_projectRoot: AbsolutePath) => scope;
+        const recordingRunner = createRecordingRunner(scope);
+        const getSessionId = (): ReturnType<typeof toSessionId> =>
+          toSessionId("00000000-0000-7000-8000-000000000002");
+        const getEditorId = () => EDITOR_ID.CURSOR;
+        const getModelId = (): string | null => null;
+        const handler = createCompileHandler(
+          getScope,
+          (_s: ProjectScope) => recordingRunner,
+          { hash: (): string => "" },
+          getSessionId,
+          getEditorId,
+          getModelId,
+          [],
+          enabledConfigLoader,
+          () => {},
+          () => null,
+          () => false,
+        );
+        await handler(
+          {
+            intent: "test",
+            projectRoot: tmpDir,
+            modelId: null,
+            configPath: null,
+            conversationId: "conv-1",
+          },
+          undefined,
+        );
+        const rows = scope.db
+          .prepare(
+            "SELECT model_id FROM compilation_log WHERE project_id = ? ORDER BY created_at DESC LIMIT 1",
+          )
+          .all(projectId) as readonly { model_id: string }[];
+        expect(rows).toHaveLength(1);
+        expect(rows[0]!.model_id).toBe("claude-sonnet-4");
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it("cache_entry_claude_code_editor_model_id_recorded_in_db", async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+      try {
+        writeSessionModelsCache(tmpDir, "claude-sonnet-4", "conv-1", "claude-code");
+        const { scope, projectId } = createScopeWithRealDb(tmpDir);
+        const getScope = (_projectRoot: AbsolutePath) => scope;
+        const recordingRunner = createRecordingRunner(scope);
+        const getSessionId = (): ReturnType<typeof toSessionId> =>
+          toSessionId("00000000-0000-7000-8000-000000000002");
+        const getEditorId = () => EDITOR_ID.CLAUDE_CODE;
+        const getModelId = (): string | null => null;
+        const handler = createCompileHandler(
+          getScope,
+          (_s: ProjectScope) => recordingRunner,
+          { hash: (): string => "" },
+          getSessionId,
+          getEditorId,
+          getModelId,
+          [],
+          enabledConfigLoader,
+          () => {},
+          () => null,
+          () => false,
+        );
+        await handler(
+          {
+            intent: "test",
+            projectRoot: tmpDir,
+            modelId: null,
+            configPath: null,
+            conversationId: "conv-1",
+          },
+          undefined,
+        );
+        const rows = scope.db
+          .prepare(
+            "SELECT model_id FROM compilation_log WHERE project_id = ? ORDER BY created_at DESC LIMIT 1",
+          )
+          .all(projectId) as readonly { model_id: string }[];
+        expect(rows).toHaveLength(1);
+        expect(rows[0]!.model_id).toBe("claude-sonnet-4");
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it("model_switch_mid_session", async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+      try {
+        writeSessionModelsCache(tmpDir, "model-a", "conv-1", "cursor");
+        const { scope, projectId } = createScopeWithRealDb(tmpDir);
+        const getScope = (_projectRoot: AbsolutePath) => scope;
+        const recordingRunner = createRecordingRunner(scope);
+        const getSessionId = (): ReturnType<typeof toSessionId> =>
+          toSessionId("00000000-0000-7000-8000-000000000002");
+        const getEditorId = () => EDITOR_ID.CURSOR;
+        const getModelId = (): string | null => null;
+        const handler = createCompileHandler(
+          getScope,
+          (_s: ProjectScope) => recordingRunner,
+          { hash: (): string => "" },
+          getSessionId,
+          getEditorId,
+          getModelId,
+          [],
+          enabledConfigLoader,
+          () => {},
+          () => null,
+          () => false,
+        );
+        await handler(
+          {
+            intent: "test",
+            projectRoot: tmpDir,
+            modelId: null,
+            configPath: null,
+            conversationId: "conv-1",
+          },
+          undefined,
+        );
+        const secondLine =
+          JSON.stringify({
+            m: "model-b",
+            c: "conv-1",
+            e: "cursor",
+            timestamp: "2026-01-01T00:00:00.000Z",
+          }) + "\n";
+        fs.appendFileSync(
+          path.join(tmpDir, ".aic", "session-models.jsonl"),
+          secondLine,
+          "utf8",
+        );
+        await handler(
+          {
+            intent: "test",
+            projectRoot: tmpDir,
+            modelId: null,
+            configPath: null,
+            conversationId: "conv-1",
+          },
+          undefined,
+        );
+        const rows = scope.db
+          .prepare(
+            "SELECT model_id FROM compilation_log WHERE project_id = ? ORDER BY created_at ASC",
+          )
+          .all(projectId) as readonly { model_id: string }[];
+        expect(rows).toHaveLength(2);
+        expect(rows[0]!.model_id).toBe("model-a");
+        expect(rows[1]!.model_id).toBe("model-b");
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it("empty_cache_defaults_to_detector", async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+      try {
+        const { scope, projectId } = createScopeWithRealDb(tmpDir);
+        const getScope = (_projectRoot: AbsolutePath) => scope;
+        const recordingRunner = createRecordingRunner(scope);
+        const getSessionId = (): ReturnType<typeof toSessionId> =>
+          toSessionId("00000000-0000-7000-8000-000000000002");
+        const getEditorId = () => EDITOR_ID.CURSOR;
+        const getModelId = (): string => "auto";
+        const handler = createCompileHandler(
+          getScope,
+          (_s: ProjectScope) => recordingRunner,
+          { hash: (): string => "" },
+          getSessionId,
+          getEditorId,
+          getModelId,
+          [],
+          enabledConfigLoader,
+          () => {},
+          () => null,
+          () => false,
+        );
+        await handler(
+          {
+            intent: "test",
+            projectRoot: tmpDir,
+            modelId: null,
+            configPath: null,
+          },
+          undefined,
+        );
+        const rows = scope.db
+          .prepare(
+            "SELECT model_id FROM compilation_log WHERE project_id = ? ORDER BY created_at DESC LIMIT 1",
+          )
+          .all(projectId) as readonly { model_id: string }[];
+        expect(rows).toHaveLength(1);
+        expect(rows[0]!.model_id).toBe("auto");
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }

@@ -11,6 +11,7 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
+const { appendPromptLog } = require("../../shared/prompt-log.cjs");
 const {
   isValidModelId,
   normalizeModelId,
@@ -18,20 +19,9 @@ const {
 } = require("../../shared/session-model-cache.cjs");
 
 const projectRoot = process.env.CURSOR_PROJECT_DIR || process.cwd();
-const LOG_FILE = path.join(projectRoot, ".aic", "prompt-log.jsonl");
 
 function promptFile(generationId) {
   return path.join(os.tmpdir(), `aic-prompt-${generationId}`);
-}
-
-function appendLog(entry) {
-  try {
-    const dir = path.dirname(LOG_FILE);
-    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-    fs.appendFileSync(LOG_FILE, JSON.stringify(entry) + "\n", "utf8");
-  } catch {
-    // Non-fatal — never block submission
-  }
 }
 
 let raw = "";
@@ -51,7 +41,9 @@ process.stdin.on("end", () => {
       fs.writeFileSync(promptFile(generationId), prompt, "utf8");
 
       const ts = new Date().toISOString();
-      appendLog({
+      appendPromptLog(projectRoot, {
+        type: "prompt",
+        editorId: "cursor",
         conversationId,
         generationId,
         title: prompt.slice(0, 200),

@@ -6,6 +6,8 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
+const { appendPromptLog } = require("../../../shared/prompt-log.cjs");
+
 function run(stdinStr) {
   const parsed = (() => {
     try {
@@ -22,24 +24,17 @@ function run(stdinStr) {
     ? cwdRaw.trim()
     : process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
-  const aicDir = path.join(projectRoot, ".aic");
-  const logPath = path.join(aicDir, "prompt-log.jsonl");
   const markerPath = path.join(projectRoot, ".aic", ".session-context-injected");
   const sanitized = String(sessionId).replace(/[^a-zA-Z0-9*-]/g, "_");
   const tempPath = path.join(os.tmpdir(), "aic-cc-edited-" + sanitized + ".json");
 
-  try {
-    fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
-    const line =
-      JSON.stringify({
-        sessionId,
-        reason,
-        timestamp: new Date().toISOString(),
-      }) + "\n";
-    fs.appendFileSync(logPath, line, "utf8");
-  } catch {
-    // ignore; telemetry must not block
-  }
+  appendPromptLog(projectRoot, {
+    type: "session_end",
+    editorId: "claude-code",
+    conversationId: sessionId,
+    reason,
+    timestamp: new Date().toISOString(),
+  });
 
   try {
     fs.unlinkSync(markerPath);
