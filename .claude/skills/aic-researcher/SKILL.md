@@ -43,7 +43,7 @@ Read these reference files when the question involves the AIC codebase:
 
 1. `documentation/project-plan.md` — architecture, ADRs, conventions
 2. `documentation/implementation-spec.md` — detailed component specs
-3. `documentation/mvp-progress.md` — what is done, what is next
+3. `documentation/tasks/progress/mvp-progress.md` — what is done, what is next (main workspace only — gitignored)
 4. `documentation/security.md` — security constraints
 5. `.cursor/rules/AIC-architect.mdc` — active architectural rules
 6. `../shared/SKILL-investigation.md` — runtime evidence checklist and codebase investigation depth (include in explorer prompts)
@@ -291,7 +291,7 @@ Before finalizing, verify all five gates pass:
 
 **How to generate:**
 
-1. Read `documentation/mvp-progress.md` to understand the current phase structure, categories, and entry format.
+1. Read `documentation/tasks/progress/mvp-progress.md` (main workspace) to understand the current phase structure, categories, and entry format.
 2. For each recommendation, determine: (a) which phase it belongs to based on the evidence in the findings, (b) the closest category in mvp-progress, (c) a one-line entry matching the style of existing entries, (d) whether it's immediately plannable or deferred (and why).
 3. Write the Roadmap Mapping table in the research document using the template.
 4. Recommendations that are purely informational ("track this") get "No — tracking only" in the Immediate column. Recommendations that depend on external events ("when WG forms") get "No — depends on [event]". Recommendations that can be planned and executed now get "Yes — plannable now".
@@ -316,7 +316,7 @@ Use today's date. If a file with that name already exists, append a sequence num
 >
 > **Open questions:** [count] — [one-line summary of what's uncertain]
 >
-> Tell me which roadmap entries to add to `mvp-progress.md`, or say "plan tasks based on this research".
+> Tell me which roadmap entries to add to `documentation/tasks/progress/mvp-progress.md`, or say "plan tasks based on this research".
 
 ---
 
@@ -365,11 +365,11 @@ Use today's date. If a file with that name already exists, append a sequence num
 
 [Auto-generated when recommendations reference future phases. Omit this section if all recommendations are immediately actionable within the current phase or are purely informational (no code/doc change).]
 
-| #   | Recommendation | Phase                              | Category                                                                  | Candidate `mvp-progress.md` entry                         | Immediate?                                                                                     |
-| --- | -------------- | ---------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| [N] | [short name]   | [0 / 0.5 / 1 / 2 / 3 or "Current"] | [category from mvp-progress — e.g. MCP Server, Documentation, Enterprise] | [one-line entry as it would appear in the progress table] | [Yes — plannable now / No — [reason: tracking only, depends on X, WG doesn't exist yet, etc.]] |
+| #   | Recommendation | Phase                              | Category                                                                   | Candidate progress entry                                  | Immediate?                                                                                     |
+| --- | -------------- | ---------------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| [N] | [short name]   | [0 / 0.5 / 1 / 2 / 3 or "Current"] | [category from progress file — e.g. MCP Server, Documentation, Enterprise] | [one-line entry as it would appear in the progress table] | [Yes — plannable now / No — [reason: tracking only, depends on X, WG doesn't exist yet, etc.]] |
 
-> **To add these to the roadmap:** tell me which rows to add to `mvp-progress.md` and I'll write them.
+> **To add these to the roadmap:** tell me which rows to add to `documentation/tasks/progress/mvp-progress.md` and I'll write them.
 
 ## Open Questions
 

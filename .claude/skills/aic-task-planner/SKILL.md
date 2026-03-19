@@ -46,12 +46,12 @@ The planner's natural bias is toward comprehensiveness — more types, more file
 
 - User says "plan next task", "what's next", or "create a task"
 - Before any multi-file implementation work
-- When the user picks a component from `documentation/mvp-progress.md` — still run §1 ranking to validate the pick
+- When the user picks a component from `documentation/tasks/progress/mvp-progress.md` — still run §1 ranking to validate the pick
 - User says "review task NNN", "review tasks", or "review all tasks" — triggers the **Review** process (see §7)
 
 ## Inputs (read these every time)
 
-1. `documentation/mvp-progress.md` — what is done, what is next
+1. `documentation/tasks/progress/mvp-progress.md` — what is done, what is next (main workspace only — gitignored)
 2. `documentation/project-plan.md` — architecture, ADRs, conventions
 3. `documentation/implementation-spec.md` — detailed component specs
 4. `documentation/security.md` — security constraints
@@ -113,7 +113,7 @@ Before planning, classify the user's request. The planner must auto-delegate to 
 
 **Classification decision tree (evaluate in order, stop at first match):**
 
-1. Does the user reference a specific component from `mvp-progress.md`, say "plan next task", "what's next", or name a concrete component to plan? → **Task planning** — proceed to §1.
+1. Does the user reference a specific component from `documentation/tasks/progress/mvp-progress.md`, say "plan next task", "what's next", or name a concrete component to plan? → **Task planning** — proceed to §1.
 2. Does the user ask to analyze, investigate, or debug something AND explicitly say not to plan or create a task (e.g., "do not create a task", "just analyze", "tell me what's wrong")? → **Analysis-only** — run the Runtime Verification Checklist (below), present findings, stop. No worktree, no task file.
 3. Does the request contain question words (how, why, where, what) directed at understanding the codebase? → **Research-then-plan** — delegate to researcher.
 4. Does the request contain improvement language (improve, optimize, fix, analyze, gaps, problems, weaknesses, issues)? → **Research-then-plan** — delegate to researcher.
@@ -146,7 +146,7 @@ Read `../shared/SKILL-investigation.md` and apply the **Runtime Evidence Checkli
 
 **Pre-read all inputs in one parallel batch** — these are needed in Pass 1 regardless of which component the user picks, and pre-reading eliminates a full round of tool calls later:
 
-- `documentation/mvp-progress.md`
+- `documentation/tasks/progress/mvp-progress.md` (read from main workspace — gitignored)
 - `documentation/project-plan.md`
 - `documentation/implementation-spec.md`
 - `documentation/security.md`
@@ -157,13 +157,13 @@ Read `../shared/SKILL-investigation.md` and apply the **Runtime Evidence Checkli
 - `SKILL-guardrails.md` (this file's sibling — static reference)
 - Research document from `documentation/research/` (optional — include if §0b produced one, or if the user provided a path)
 
-From `mvp-progress.md`, identify all components with status `Not started` whose dependencies are `Done`.
+From `documentation/tasks/progress/mvp-progress.md`, identify all components with status `Not started` whose dependencies are `Done`.
 
 **Rank** the unblocked components using these criteria (in priority order):
 
 1. **Pattern-setter:** Is this the first component of its kind in the current phase? The first CLI command, first adapter, first storage class, etc. establishes the conventions that all subsequent siblings will follow. Pattern-setters always rank highest.
 2. **Implicit prerequisites:** Will other unblocked components import from or depend on this one? Schemas before commands, shared utilities before consumers, composition roots before feature handlers. Components that unblock the most downstream work rank higher.
-3. **Phase table order:** Within a phase, the row order in `mvp-progress.md` reflects intended implementation sequence. Earlier rows rank higher than later rows when the above criteria do not differentiate.
+3. **Phase table order:** Within a phase, the row order in `documentation/tasks/progress/mvp-progress.md` reflects intended implementation sequence. Earlier rows rank higher than later rows when the above criteria do not differentiate.
 
 **Present** the result:
 
@@ -238,7 +238,7 @@ Complete every item. Each produces evidence for the report. Items are organized 
    Record all findings in the SIBLING PATTERN field of the Exploration Report. Additionally, check if any existing class already solves part of the problem or if an existing interface could gain a method. Record reuse findings in the EXISTING SOLUTIONS field.
 7. **Cross-package duplication check** (conditional — if the task creates a new utility, helper, or factory function) — Grep the entire codebase for functionally equivalent code. Check `mcp/src/` and `shared/src/` — not just the target layer. If equivalent logic already exists in another package, the task must either (a) extract the shared logic to `shared/` and modify both consumers, or (b) justify the duplication in Architecture Notes. Record in the EXISTING SOLUTIONS field.
 8. **Wiring completeness check** (conditional — composition root tasks) — For every function called in the wiring steps, verify that its return value is either (a) consumed by a subsequent step, or (b) the function is explicitly called for side effects only (document which side effects). If a function returns a rich object and only side effects are needed, note this in Architecture Notes as a follow-up to wire the return value when consumers are ready.
-   8b. **Stale marker detection** (mandatory — all task types) — for every file in the Files table (both Create and Modify), grep for `TODO`, `FIXME`, `HACK` comments. Also grep for phase references (`Phase [A-Z]`) and cross-reference against `mvp-progress.md` to check if the phase is complete while the comment uses future tense. Record each finding as: `[marker] at [file:line] — ACTIONABLE (phase done, work can be done now) / INFORMATIONAL (future work, not yet relevant)`. If an actionable marker is in a file the task modifies, consider adding it to the task scope (present via scope expansion in A.4c). If outside the task's files, report as follow-up.
+   8b. **Stale marker detection** (mandatory — all task types) — for every file in the Files table (both Create and Modify), grep for `TODO`, `FIXME`, `HACK` comments. Also grep for phase references (`Phase [A-Z]`) and cross-reference against `documentation/tasks/progress/mvp-progress.md` (main workspace) to check if the phase is complete while the comment uses future tense. Record each finding as: `[marker] at [file:line] — ACTIONABLE (phase done, work can be done now) / INFORMATIONAL (future work, not yet relevant)`. If an actionable marker is in a file the task modifies, consider adding it to the task scope (present via scope expansion in A.4c). If outside the task's files, report as follow-up.
 
 **Batch B — fire in one parallel round after Batch A completes** (depends on interfaces, types, and library APIs discovered in Batch A):
 
@@ -845,7 +845,7 @@ For **release-pipeline** recipe, replace the "Interface / Signature" and "Depend
 # Task NNN: [Component Name]
 
 > **Status:** Pending
-> **Phase:** [from mvp-progress.md]
+> **Phase:** [from progress file]
 > **Layer:** [core | pipeline | storage | adapter | mcp | cli]
 > **Depends on:** [list of components that must be Done]
 > **Research:** [path to research doc if one was produced, otherwise omit this line entirely]

@@ -433,6 +433,123 @@ async function modelId_cache_default_normalized_on_read() {
   }
 }
 
+function assertSafeRecordedArgs(args, label) {
+  if (args.modelId !== undefined && args.modelId !== null) {
+    if (typeof args.modelId !== "string") {
+      throw new Error(
+        `${label}: modelId must be string or null, got ${typeof args.modelId}`,
+      );
+    }
+    if (args.modelId.length > 256) {
+      throw new Error(`${label}: modelId length ${args.modelId.length} > 256`);
+    }
+    if (!/^[\x20-\x7E]*$/.test(args.modelId)) {
+      throw new Error(`${label}: modelId contains control characters`);
+    }
+  }
+  const allowedEditorIds = ["cursor", "cursor-claude-code", "claude-code", "generic"];
+  if (args.editorId !== undefined && !allowedEditorIds.includes(args.editorId)) {
+    throw new Error(
+      `${label}: editorId must be one of ${allowedEditorIds.join(",")}, got ${JSON.stringify(args.editorId)}`,
+    );
+  }
+  if (args.conversationId !== undefined && args.conversationId !== null) {
+    if (typeof args.conversationId !== "string") {
+      throw new Error(
+        `${label}: conversationId must be string or null, got ${typeof args.conversationId}`,
+      );
+    }
+    if (args.conversationId.length > 128) {
+      throw new Error(
+        `${label}: conversationId length ${args.conversationId.length} > 128`,
+      );
+    }
+    if (!/^[\x20-\x7E]*$/.test(args.conversationId)) {
+      throw new Error(`${label}: conversationId contains control characters`);
+    }
+  }
+}
+
+async function helper_malicious_cache_rejected() {
+  const savedTrace = process.env.CURSOR_TRACE_ID;
+  delete process.env.CURSOR_TRACE_ID;
+  const cases = [
+    {
+      name: "overlong modelId (257 chars)",
+      suffix: "overlong",
+      line: JSON.stringify({
+        c: "",
+        m: "a".repeat(257),
+        e: "claude-code",
+        timestamp: "2026-01-01T00:00:00.000Z",
+      }),
+    },
+    {
+      name: "control char in modelId",
+      suffix: "control",
+      line: JSON.stringify({
+        c: "",
+        m: "a\x00b",
+        e: "claude-code",
+        timestamp: "2026-01-01T00:00:00.000Z",
+      }),
+    },
+    {
+      name: "nested object as modelId",
+      suffix: "nested",
+      line: JSON.stringify({
+        c: "",
+        m: { nested: true },
+        e: "claude-code",
+        timestamp: "2026-01-01T00:00:00.000Z",
+      }),
+    },
+  ];
+  for (const tc of cases) {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-helper-test-"));
+    const mockDir = path.join(tmpDir, "mcp", "src");
+    fs.mkdirSync(mockDir, { recursive: true });
+    const aicDir = path.join(tmpDir, ".aic");
+    fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
+    fs.writeFileSync(path.join(aicDir, "session-models.jsonl"), tc.line + "\n", "utf8");
+    const argsFile = path.join(
+      os.tmpdir(),
+      `aic-mock-args-${process.pid}-malicious-${tc.suffix}.json`,
+    );
+    fs.copyFileSync(mockRecordsArgs, path.join(mockDir, "server.ts"));
+    try {
+      delete require.cache[require.resolve(helperPath)];
+      const { callAicCompile } = require(helperPath);
+      process.env.AIC_MOCK_ARGS_FILE = argsFile;
+      await callAicCompile("intent", tmpDir, null, 10000);
+      delete process.env.AIC_MOCK_ARGS_FILE;
+      if (!fs.existsSync(argsFile)) {
+        throw new Error(`Mock did not write args file for ${tc.name}`);
+      }
+      const recorded = JSON.parse(fs.readFileSync(argsFile, "utf8"));
+      const parsed = JSON.parse(recorded.stdin);
+      const args =
+        parsed.params && parsed.params.arguments ? parsed.params.arguments : {};
+      assertSafeRecordedArgs(args, tc.name);
+      if (args.modelId !== undefined) {
+        throw new Error(
+          `${tc.name}: expected modelId undefined/null when cache is malicious, got ${JSON.stringify(args.modelId)}`,
+        );
+      }
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+      try {
+        fs.unlinkSync(argsFile);
+      } catch {
+        // ignore
+      }
+    }
+  }
+  if (savedTrace !== undefined) process.env.CURSOR_TRACE_ID = savedTrace;
+  else delete process.env.CURSOR_TRACE_ID;
+  console.log("helper_malicious_cache_rejected: pass");
+}
+
 (async () => {
   await happy_path_returns_compiled_prompt();
   await conversationId_forwarded_when_provided();
@@ -446,5 +563,6 @@ async function modelId_cache_default_normalized_on_read() {
   await modelId_default_normalized_to_auto();
   await modelId_from_conversation_scoped_cache();
   await modelId_cache_default_normalized_on_read();
+  await helper_malicious_cache_rejected();
   console.log("All tests passed.");
 })();

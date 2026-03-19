@@ -90,7 +90,7 @@ Generate 3-5 hypotheses before reading any code. Each hypothesis proposes a spec
 - Each hypothesis proposes a specific change and predicts its impact
 - Include at least one "surprising" hypothesis (an unconventional approach)
 
-**Heuristic 4 — Stale artifact scan (zero-cost evidence):** Before hypothesizing, grep the target area for `TODO`, `FIXME`, `HACK` markers and phase references (`Phase [A-Z]`). Cross-reference phase references against `mvp-progress.md` to identify stale markers (referencing completed work). These are pre-identified improvement opportunities that require no hypothesis generation — they are explicit statements by the original author about known issues. Collect them as "low-hanging fruit" and include in the synthesis alongside deeper findings. This heuristic is additive — it runs alongside Heuristics 1-3, not instead of them.
+**Heuristic 4 — Stale artifact scan (zero-cost evidence):** Before hypothesizing, grep the target area for `TODO`, `FIXME`, `HACK` markers and phase references (`Phase [A-Z]`). Cross-reference phase references against `documentation/tasks/progress/mvp-progress.md` (main workspace) to identify stale markers (referencing completed work). These are pre-identified improvement opportunities that require no hypothesis generation — they are explicit statements by the original author about known issues. Collect them as "low-hanging fruit" and include in the synthesis alongside deeper findings. This heuristic is additive — it runs alongside Heuristics 1-3, not instead of them.
 
 ### Explorer Assignment
 

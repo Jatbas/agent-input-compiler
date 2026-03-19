@@ -762,4 +762,362 @@ describe("compile-handler", () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+
+  describe("malicious cache inputs", () => {
+    function setupMaliciousCache(
+      tmpDir: string,
+      jsonlLine: string,
+    ): (projectRoot: AbsolutePath) => ProjectScope {
+      const aicDir = path.join(tmpDir, ".aic");
+      fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
+      fs.writeFileSync(
+        path.join(aicDir, "session-models.jsonl"),
+        jsonlLine + "\n",
+        "utf8",
+      );
+      const fixedTs = toISOTimestamp("2026-03-07T12:00:00.000Z");
+      const mockClock = {
+        now: (): typeof fixedTs => fixedTs,
+        addMinutes: (_m: number): typeof fixedTs => fixedTs,
+        durationMs: (_s: typeof fixedTs, _e: typeof fixedTs) => toMilliseconds(0),
+      };
+      const mockIdGenerator = {
+        generate: (): ReturnType<typeof toUUIDv7> =>
+          toUUIDv7("00000000-0000-7000-8000-000000000001"),
+      };
+      return (projectRoot: AbsolutePath) =>
+        mockScopeForHandler(mockClock, mockIdGenerator, projectRoot);
+    }
+
+    it("malicious_cache_overlong_modelId_rejected", async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+      try {
+        const overlong = "a".repeat(257);
+        const line = JSON.stringify({
+          c: "",
+          m: overlong,
+          e: "generic",
+          timestamp: "2026-01-01T00:00:00.000Z",
+        });
+        const getScope = setupMaliciousCache(tmpDir, line);
+        const runCalls: CompilationRequest[] = [];
+        const captureRunner = {
+          run: (req: CompilationRequest) => {
+            runCalls.push(req);
+            return Promise.resolve({
+              compiledPrompt: "ok",
+              meta: STUB_COMPILATION_META,
+              compilationId: toUUIDv7("00000000-0000-7000-8000-000000000099"),
+            });
+          },
+        };
+        const getSessionId = (): ReturnType<typeof toSessionId> =>
+          toSessionId("00000000-0000-7000-8000-000000000002");
+        const getEditorId = () => EDITOR_ID.GENERIC;
+        const getModelId = (): string | null => null;
+        const handler = createCompileHandler(
+          getScope,
+          (_scope: ProjectScope) => captureRunner,
+          { hash: (): string => "" },
+          getSessionId,
+          getEditorId,
+          getModelId,
+          null,
+          [],
+          enabledConfigLoader,
+          () => {},
+          () => null,
+          () => false,
+        );
+        await handler(
+          {
+            intent: "test",
+            projectRoot: tmpDir,
+            modelId: null,
+            configPath: null,
+          },
+          undefined,
+        );
+        expect(runCalls).toHaveLength(1);
+        expect(runCalls[0]!.modelId).toBeNull();
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it("malicious_cache_control_char_in_modelId_rejected", async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+      try {
+        const line = JSON.stringify({
+          c: "",
+          m: "a\x00b",
+          e: "generic",
+          timestamp: "2026-01-01T00:00:00.000Z",
+        });
+        const getScope = setupMaliciousCache(tmpDir, line);
+        const runCalls: CompilationRequest[] = [];
+        const captureRunner = {
+          run: (req: CompilationRequest) => {
+            runCalls.push(req);
+            return Promise.resolve({
+              compiledPrompt: "ok",
+              meta: STUB_COMPILATION_META,
+              compilationId: toUUIDv7("00000000-0000-7000-8000-000000000099"),
+            });
+          },
+        };
+        const getSessionId = (): ReturnType<typeof toSessionId> =>
+          toSessionId("00000000-0000-7000-8000-000000000002");
+        const getEditorId = () => EDITOR_ID.GENERIC;
+        const getModelId = (): string | null => null;
+        const handler = createCompileHandler(
+          getScope,
+          (_scope: ProjectScope) => captureRunner,
+          { hash: (): string => "" },
+          getSessionId,
+          getEditorId,
+          getModelId,
+          null,
+          [],
+          enabledConfigLoader,
+          () => {},
+          () => null,
+          () => false,
+        );
+        await handler(
+          {
+            intent: "test",
+            projectRoot: tmpDir,
+            modelId: null,
+            configPath: null,
+          },
+          undefined,
+        );
+        expect(runCalls).toHaveLength(1);
+        expect(runCalls[0]!.modelId).toBeNull();
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it("malicious_cache_nested_object_as_modelId_rejected", async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+      try {
+        const line = JSON.stringify({
+          c: "",
+          m: { nested: true },
+          e: "generic",
+          timestamp: "2026-01-01T00:00:00.000Z",
+        });
+        const getScope = setupMaliciousCache(tmpDir, line);
+        const runCalls: CompilationRequest[] = [];
+        const captureRunner = {
+          run: (req: CompilationRequest) => {
+            runCalls.push(req);
+            return Promise.resolve({
+              compiledPrompt: "ok",
+              meta: STUB_COMPILATION_META,
+              compilationId: toUUIDv7("00000000-0000-7000-8000-000000000099"),
+            });
+          },
+        };
+        const getSessionId = (): ReturnType<typeof toSessionId> =>
+          toSessionId("00000000-0000-7000-8000-000000000002");
+        const getEditorId = () => EDITOR_ID.GENERIC;
+        const getModelId = (): string | null => null;
+        const handler = createCompileHandler(
+          getScope,
+          (_scope: ProjectScope) => captureRunner,
+          { hash: (): string => "" },
+          getSessionId,
+          getEditorId,
+          getModelId,
+          null,
+          [],
+          enabledConfigLoader,
+          () => {},
+          () => null,
+          () => false,
+        );
+        await handler(
+          {
+            intent: "test",
+            projectRoot: tmpDir,
+            modelId: null,
+            configPath: null,
+          },
+          undefined,
+        );
+        expect(runCalls).toHaveLength(1);
+        expect(runCalls[0]!.modelId).toBeNull();
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it("malicious_cache_empty_modelId_rejected", async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+      try {
+        const line = JSON.stringify({
+          c: "",
+          m: "",
+          e: "generic",
+          timestamp: "2026-01-01T00:00:00.000Z",
+        });
+        const getScope = setupMaliciousCache(tmpDir, line);
+        const runCalls: CompilationRequest[] = [];
+        const captureRunner = {
+          run: (req: CompilationRequest) => {
+            runCalls.push(req);
+            return Promise.resolve({
+              compiledPrompt: "ok",
+              meta: STUB_COMPILATION_META,
+              compilationId: toUUIDv7("00000000-0000-7000-8000-000000000099"),
+            });
+          },
+        };
+        const getSessionId = (): ReturnType<typeof toSessionId> =>
+          toSessionId("00000000-0000-7000-8000-000000000002");
+        const getEditorId = () => EDITOR_ID.GENERIC;
+        const getModelId = (): string | null => null;
+        const handler = createCompileHandler(
+          getScope,
+          (_scope: ProjectScope) => captureRunner,
+          { hash: (): string => "" },
+          getSessionId,
+          getEditorId,
+          getModelId,
+          null,
+          [],
+          enabledConfigLoader,
+          () => {},
+          () => null,
+          () => false,
+        );
+        await handler(
+          {
+            intent: "test",
+            projectRoot: tmpDir,
+            modelId: null,
+            configPath: null,
+          },
+          undefined,
+        );
+        expect(runCalls).toHaveLength(1);
+        expect(runCalls[0]!.modelId).toBeNull();
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it("malicious_cache_missing_m_rejected", async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+      try {
+        const line = JSON.stringify({
+          c: "",
+          e: "generic",
+          timestamp: "2026-01-01T00:00:00.000Z",
+        });
+        const getScope = setupMaliciousCache(tmpDir, line);
+        const runCalls: CompilationRequest[] = [];
+        const captureRunner = {
+          run: (req: CompilationRequest) => {
+            runCalls.push(req);
+            return Promise.resolve({
+              compiledPrompt: "ok",
+              meta: STUB_COMPILATION_META,
+              compilationId: toUUIDv7("00000000-0000-7000-8000-000000000099"),
+            });
+          },
+        };
+        const getSessionId = (): ReturnType<typeof toSessionId> =>
+          toSessionId("00000000-0000-7000-8000-000000000002");
+        const getEditorId = () => EDITOR_ID.GENERIC;
+        const getModelId = (): string | null => null;
+        const handler = createCompileHandler(
+          getScope,
+          (_scope: ProjectScope) => captureRunner,
+          { hash: (): string => "" },
+          getSessionId,
+          getEditorId,
+          getModelId,
+          null,
+          [],
+          enabledConfigLoader,
+          () => {},
+          () => null,
+          () => false,
+        );
+        await handler(
+          {
+            intent: "test",
+            projectRoot: tmpDir,
+            modelId: null,
+            configPath: null,
+          },
+          undefined,
+        );
+        expect(runCalls).toHaveLength(1);
+        expect(runCalls[0]!.modelId).toBeNull();
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it("malicious_cache_duplicate_keys_invalid_last_rejected", async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+      try {
+        const overlong = "a".repeat(257);
+        const line = JSON.stringify({
+          c: "",
+          m: "valid",
+          e: "generic",
+          timestamp: "2026-01-01T00:00:00.000Z",
+        }).replace(/"valid"/, `"valid","m":"${overlong}"`);
+        const getScope = setupMaliciousCache(tmpDir, line);
+        const runCalls: CompilationRequest[] = [];
+        const captureRunner = {
+          run: (req: CompilationRequest) => {
+            runCalls.push(req);
+            return Promise.resolve({
+              compiledPrompt: "ok",
+              meta: STUB_COMPILATION_META,
+              compilationId: toUUIDv7("00000000-0000-7000-8000-000000000099"),
+            });
+          },
+        };
+        const getSessionId = (): ReturnType<typeof toSessionId> =>
+          toSessionId("00000000-0000-7000-8000-000000000002");
+        const getEditorId = () => EDITOR_ID.GENERIC;
+        const getModelId = (): string | null => null;
+        const handler = createCompileHandler(
+          getScope,
+          (_scope: ProjectScope) => captureRunner,
+          { hash: (): string => "" },
+          getSessionId,
+          getEditorId,
+          getModelId,
+          null,
+          [],
+          enabledConfigLoader,
+          () => {},
+          () => null,
+          () => false,
+        );
+        await handler(
+          {
+            intent: "test",
+            projectRoot: tmpDir,
+            modelId: null,
+            configPath: null,
+          },
+          undefined,
+        );
+        expect(runCalls).toHaveLength(1);
+        expect(runCalls[0]!.modelId).toBeNull();
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+  });
 });

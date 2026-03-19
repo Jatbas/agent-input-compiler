@@ -1,13 +1,15 @@
 ---
 name: aic-update-mvp-progress
-description: Updates documentation/mvp-progress.md after tasks—component tables, daily log, and phase header metrics.
+description: Updates documentation/tasks/progress/mvp-progress.md after tasks—component tables, daily log, and phase header metrics.
 ---
 
 # Update MVP Progress
 
 ## Purpose
 
-After completing a coding task, update the `documentation/mvp-progress.md` file to reflect the latest progress.
+After completing a coding task, update the `documentation/tasks/progress/mvp-progress.md` file to reflect the latest progress.
+
+**Main workspace only:** This file is under `documentation/tasks/` which is gitignored. Always read and edit it in the **main workspace**, never in a worktree. Do NOT stage or commit this file.
 
 ## Editors
 
@@ -22,7 +24,7 @@ After completing a coding task, update the `documentation/mvp-progress.md` file 
 
 ## Steps
 
-1. **Read** `documentation/mvp-progress.md` to get the current state.
+1. **Read** `documentation/tasks/progress/mvp-progress.md` to get the current state.
 
 2. **Determine today's date.** Use the actual current date, not the date of the most recent log entry. The system provides today's date in the user info — use that.
 

@@ -28,7 +28,7 @@ Do **not** run after every small internal task — that is the mvp-progress skil
 ## Inputs
 
 1. **`CHANGELOG.md`** (project root) — the current changelog, or absent if bootstrapping.
-2. **`documentation/mvp-progress.md`** — source of truth for what has been implemented. Read this to understand recent completions.
+2. **`documentation/tasks/progress/mvp-progress.md`** — source of truth for what has been implemented (main workspace only — gitignored). Read this to understand recent completions.
 3. **The user's message** — may specify which changes to add, or request a release cut.
 
 ## Steps
@@ -37,7 +37,7 @@ Do **not** run after every small internal task — that is the mvp-progress skil
 
 1. **Read** `CHANGELOG.md`. If it does not exist, bootstrap it with the file header (see Format below) and an empty `[Unreleased]` section.
 
-2. **Read** `documentation/mvp-progress.md` to identify recently completed work that is not yet reflected in the changelog.
+2. **Read** `documentation/tasks/progress/mvp-progress.md` (main workspace) to identify recently completed work that is not yet reflected in the changelog.
 
 3. **Curate entries for `[Unreleased]`:**
    - Collapse internal implementation detail into user-facing descriptions. Multiple related components become one line (e.g., three scan optimizations become "Compilation scan performance improvements").

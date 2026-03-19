@@ -77,7 +77,7 @@ For every key term, command, package name, file path, or reference in the target
 Parse the Table of Contents (if present) and all body headings. Verify: every ToC entry has a matching body heading in the correct order, every body heading appears in the ToC. Report mismatches.
 
 **E. Stale marker detection:**
-Grep the full document for: 'GAP', 'TODO', 'FIXME', 'will be added', 'future task'. Grep for 'Phase [A-Z]' references and cross-reference against `documentation/mvp-progress.md` to check if the referenced phase is complete while the text uses future tense. Report each marker with its location and whether it is actionable or informational.
+Grep the full document for: 'GAP', 'TODO', 'FIXME', 'will be added', 'future task'. Grep for 'Phase [A-Z]' references and cross-reference against `documentation/tasks/progress/mvp-progress.md` (main workspace) to check if the referenced phase is complete while the text uses future tense. Report each marker with its location and whether it is actionable or informational.
 
 **F. Intra-document description consistency:**
 When the same mechanism or behavior is described in two different sections of the document, verify the descriptions agree. Flag contradictions where sections use different verbs or descriptions for the same operation.

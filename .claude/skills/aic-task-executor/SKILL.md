@@ -1,6 +1,6 @@
 ---
 name: aic-task-executor
-description: Executes planner task files with steps, mechanical verification, mvp-progress updates, and isolated worktree commits.
+description: Executes planner task files with steps, mechanical verification, progress updates, and isolated worktree commits.
 ---
 
 # Task Executor
@@ -31,7 +31,7 @@ Execute a task file produced by the `aic-task-planner` skill. Read the task, int
 - §2: Skip task internalization (no task file to read)
 - §3: Implement the user's request directly in the worktree
 - §4: Run the full verification pass (§4a toolchain + §4b mechanical checks on all files you created/modified)
-- §5: Report results, skip mvp-progress update, commit in the worktree
+- §5: Report results, skip progress update, commit in the worktree
 - §6: Propose merge to user
 
 **NEVER skip §4 (verification) for ad-hoc work.** The most common failure mode is implementing the change, skipping verification, and committing directly to main. This skill exists to prevent that.
@@ -49,7 +49,7 @@ Execute a task file produced by the `aic-task-planner` skill. Read the task, int
 **Pre-read all inputs in one parallel batch** to eliminate extra rounds:
 
 - The task file (e.g. `documentation/tasks/NNN-name.md`)
-- `documentation/mvp-progress.md`
+- `documentation/tasks/progress/mvp-progress.md` (read from **main workspace**, not worktree — this file is gitignored)
 - `shared/package.json`
 - `eslint.config.mjs`
 - `.cursor/rules/AIC-architect.mdc`
@@ -58,7 +58,7 @@ Execute a task file produced by the `aic-task-planner` skill. Read the task, int
 **Validate** from the pre-read results:
 
 - Status is `Pending` (do not re-execute `Done` or `Blocked` tasks)
-- All dependencies listed in "Depends on" are actually `Done` in `documentation/mvp-progress.md`
+- All dependencies listed in "Depends on" are actually `Done` in `documentation/tasks/progress/mvp-progress.md` (read from main workspace)
 
 If a dependency is not done, **stop and tell the user**.
 
@@ -131,11 +131,9 @@ For non-composition-root tasks, all types are Tier 0 (verbatim) — this distinc
 
 **Cross-check prerequisites:** If Config Changes lists a dependency as "already at X", verify it's actually there (package.json is in context). If it lists an ESLint change, confirm the Steps section has a step for it. If anything doesn't match, **stop and tell the user** — the task file may need replanning.
 
-**Build the touched-files list.** Extract every file path from the task's **Files table** (both "Create" and "Modify" rows). Then add the standard files that every task modifies:
+**Build the touched-files list.** Extract every file path from the task's **Files table** (both "Create" and "Modify" rows).
 
-- `documentation/mvp-progress.md` (progress update in §5b)
-
-Note: task files (`documentation/tasks/`) are gitignored and never committed. The move to `done/` and status update happen on the main workspace filesystem only — they are NOT part of the commit allowlist.
+Note: `documentation/tasks/` is gitignored and never committed. This includes `documentation/tasks/progress/mvp-progress.md` (updated in §5b) and task files themselves. The progress update, task status change, and move to `done/` all happen on the **main workspace** filesystem only — they are NOT part of the commit allowlist and must NOT be staged.
 
 If any step mentions auto-ratcheting benchmark files (e.g. `test/benchmarks/baseline.json`), add those too. If Config Changes lists modifications to `shared/package.json` or `eslint.config.mjs`, add those.
 
@@ -261,7 +259,7 @@ After fixing all critic-reported issues, run the mechanical checks:
 | 6. No regressions                  | `git diff` the document — verify only intended sections changed                                                                                                                                                                                                                                                                                                                                                                                                      | Diff shows only changes matching the Change Specification                                               |
 | 7. ToC-body structure match        | Parse the Table of Contents and body headings. Verify every ToC entry has a matching body heading and the order matches. Verify every body heading appears in the ToC. Flag mismatches. **This includes headings added by this task.**                                                                                                                                                                                                                               | List each ToC entry — MATCHES BODY / MISSING IN BODY / ORDER MISMATCH / MISSING IN TOC                  |
 | 8. Scope-adjacent consistency      | For every key concept in the edited sections (package names, commands, component names), grep the FULL document for other occurrences. Verify they are consistent with the edited text                                                                                                                                                                                                                                                                               | List each concept — [location outside target] — CONSISTENT / STALE / CONTRADICTED                       |
-| 9. Pre-existing issue scan         | Grep the full document for: "GAP", "TODO", "FIXME", "will be added", "future task". Also grep for "Phase [A-Z]" and cross-reference against `mvp-progress.md` for stale phase references                                                                                                                                                                                                                                                                             | List each marker found — [type] at [location] — IN TARGET (should fix) / OUTSIDE TARGET (informational) |
+| 9. Pre-existing issue scan         | Grep the full document for: "GAP", "TODO", "FIXME", "will be added", "future task". Also grep for "Phase [A-Z]" and cross-reference against `documentation/tasks/progress/mvp-progress.md` (main workspace) for stale phase references                                                                                                                                                                                                                               | List each marker found — [type] at [location] — IN TARGET (should fix) / OUTSIDE TARGET (informational) |
 | 10. Content format compliance      | Verify: (a) any group of 3+ definitions uses a table, not inline paragraph; (b) any new section has a ToC entry; (c) new section placement follows document flow logic (intro→concepts→procedures→reference→appendix)                                                                                                                                                                                                                                                | List each check — COMPLIANT / VIOLATION (describe)                                                      |
 | 11. Cross-doc term ripple          | For every term/command/reference that was replaced in the target document (old value → new value), grep ALL files in `documentation/` for the old value. Classify each match as: non-historical (current description that should use the new value) or historical (daily log entry, task description, changelog — leave as-is). Non-historical stale references in the task's scoped files must be fixed; in out-of-scope files they are reported as follow-up items | List each old term — [file:line] — NON-HISTORICAL (fix or follow-up) / HISTORICAL (leave)               |
 | 12. Intra-document consistency     | For each concept described in the edited sections (e.g. how hooks are deployed, when bootstrap runs), grep the FULL document for other sections that describe the same concept. Verify they agree. Flag contradictions where one section uses different verbs or descriptions for the same mechanism (e.g. "merged" vs "re-copied" for the same operation)                                                                                                           | List each concept — [section A says X] vs [section B says Y] — CONSISTENT / CONTRADICTED                |
@@ -393,7 +391,7 @@ Fire all of these in a single round of tool calls:
 | 16. Transformer benchmark delta      | For tasks that add or modify a `ContentTransformer` and wire it in `create-pipeline-deps.ts`: run `pnpm test shared/src/integration/__tests__/token-reduction-benchmark.test.ts` and note the actual `tokensCompiled` from the test output. The test auto-ratchets `baseline.json` when tokens decrease — no manual editing needed. Check the test stdout for "baseline ratcheted" (tokens improved) or unchanged delta. If the baseline was ratcheted, the updated `baseline.json` will appear in the git diff — commit it with the task. Also run `pnpm test shared/src/integration/__tests__/selection-quality-benchmark.test.ts` to verify file selection is unaffected. If no transformer was added or modified, this check passes automatically                                                                                                                                                                                                | "Benchmark: baseline N tokens → actual M tokens (delta: -X%). Baseline auto-ratcheted / unchanged." and "Selection quality: PASS (paths unchanged)"                                                                                             |
 | 17. Transformer file-type safety     | For tasks that add a `ContentTransformer`: Grep the test file for test names matching `safety_` pattern. Verify that for non-format-specific transformers, at least one safety test exists per sensitive file type (Python indentation, YAML structure, JSX syntax). For format-specific transformers, at least one safety test per listed extension. If no transformer was added, this check passes automatically                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | List each `safety_*` test found, or "N/A — no transformer added"                                                                                                                                                                                |
 | 18. Database normalization           | For tasks that create or modify a migration: re-read the migration file and check each CREATE TABLE / ALTER TABLE for normalization violations. **(a) 1NF:** Grep for TEXT columns storing comma-separated or multi-value data — any multi-value column without a junction table = fail. **(b) 2NF:** If composite PK exists, verify all non-key columns depend on the full key — partial dependency = fail. **(c) 3NF:** Check for non-key columns that determine other non-key columns (e.g. `status_code` + `status_text`) — transitive dependency without a lookup table = fail unless the task's Architecture Notes documents a justified exception. **(d) Lookup tables:** Flag TEXT columns with bounded repeated-value domains that lack a reference table (warn). **(e) Redundant columns:** Check for derivable values stored as columns — fail unless justified. If no migration was created or modified, this check passes automatically | For each table: "[table] — 1NF: PASS, 2NF: PASS, 3NF: PASS/VIOLATION ([detail]), Lookups: [list or none], Redundant: [list or none]", or "N/A — no migration files created or modified"                                                         |
-| 19. Stale markers in modified files  | Grep all new/modified production files for `TODO`, `FIXME`, `HACK` comments. Also grep for phase references (`Phase [A-Z]`) and cross-reference against `mvp-progress.md` to check if the referenced phase is complete while the comment uses future tense. Report each as: `[marker] at [file:line] — ACTIONABLE (phase done) / INFORMATIONAL (future work)`. This check is informational — it does not block completion but is reported in §5a. If an actionable marker is in code the executor just wrote, fix it (the executor should not introduce stale markers). Pre-existing actionable markers in modified files are reported as follow-up items                                                                                                                                                                                                                                                                                            | List each marker found with actionable/informational classification, or "0 stale markers found"                                                                                                                                                 |
+| 19. Stale markers in modified files  | Grep all new/modified production files for `TODO`, `FIXME`, `HACK` comments. Also grep for phase references (`Phase [A-Z]`) and cross-reference against `documentation/tasks/progress/mvp-progress.md` (main workspace) to check if the referenced phase is complete while the comment uses future tense. Report each as: `[marker] at [file:line] — ACTIONABLE (phase done) / INFORMATIONAL (future work)`. This check is informational — it does not block completion but is reported in §5a. If an actionable marker is in code the executor just wrote, fix it (the executor should not introduce stale markers). Pre-existing actionable markers in modified files are reported as follow-up items                                                                                                                                                                                                                                              | List each marker found with actionable/informational classification, or "0 stale markers found"                                                                                                                                                 |
 | 20. Scope-adjacent string references | For every function, type, interface, or constant that was renamed or had its behavior changed: grep the full codebase for string-literal occurrences of the old name. Check: dispatch table keys, error messages, log statements, test descriptions (`it("...")`), and comments. Any string reference that still uses the old name or describes the old behavior = stale. This check is informational for pre-existing references but blocking if the executor's own changes introduced a rename without updating string references                                                                                                                                                                                                                                                                                                                                                                                                                  | List each string reference found — [file:line] — STALE / CURRENT, or "N/A — no renames or behavior changes in this task"                                                                                                                        |
 
 **4c — Confirm clean and track first-pass quality.**
@@ -425,9 +423,11 @@ When all dimensions are confirmed clean, complete these three sub-steps in order
 
 **5b — Update progress.**
 
-Use the `aic-update-mvp-progress` skill to update `documentation/mvp-progress.md`.
+Use the `aic-update-mvp-progress` skill to update `documentation/tasks/progress/mvp-progress.md`.
 
-**Critical — daily log deduplication:** Before editing the daily log, grep `documentation/mvp-progress.md` for `### YYYY-MM-DD` with today's actual date. If a match exists, append to the existing entry — do NOT create a new heading. Only create a new `### YYYY-MM-DD` heading if grep returns zero matches. After the edit, grep again to confirm exactly one `### YYYY-MM-DD` heading for today's date. Do not put today's work under yesterday's date.
+**Main workspace only:** This file is under `documentation/tasks/` which is gitignored. Edit it in the **main workspace**, not the worktree. Use the main workspace root for Read/Write/Grep when running the update-mvp-progress skill. Do NOT stage or commit this file — it is never part of the worktree commit.
+
+**Critical — daily log deduplication:** Before editing the daily log, grep `documentation/tasks/progress/mvp-progress.md` (main workspace) for `### YYYY-MM-DD` with today's actual date. If a match exists, append to the existing entry — do NOT create a new heading. Only create a new `### YYYY-MM-DD` heading if grep returns zero matches. After the edit, grep again to confirm exactly one `### YYYY-MM-DD` heading for today's date. Do not put today's work under yesterday's date.
 
 **5c — Archive task, update status, commit, and show diff.**
 
@@ -528,10 +528,10 @@ git commit -m "feat(<scope>): <what was built>"
 
 The squash merge produces a single clean commit on main. Use the same commit message from 5c (or the user's adjusted version).
 
-**If the merge has conflicts** (common when multiple executors modify `mvp-progress.md`):
+**If the merge has conflicts:**
 
 1. List conflicted files: `git diff --name-only --diff-filter=U`
-2. For each conflicted file, read it, resolve the conflict markers — prefer the feature branch changes and integrate main's additions where they don't overlap (e.g. new entries appended by another executor in `mvp-progress.md`).
+2. For each conflicted file, read it, resolve the conflict markers — prefer the feature branch changes and integrate main's additions where they don't overlap.
 3. Stage resolved files: `git add <resolved files>`
 4. Verify no conflict markers remain: Grep for `<<<<<<<` in the resolved files (expect 0 matches).
 5. Complete the commit: `git commit -m "feat(<scope>): <what was built>"`
@@ -571,7 +571,7 @@ a. **Clean pop (exit 0, no conflicts):** Done. The user's changes are back exact
 b. **Pop with conflicts:** The stash was applied but not dropped (git keeps it as insurance). Resolve the conflicts:
 
 1.  Run `git diff --name-only --diff-filter=U` to list conflicted files.
-2.  For each file, read it, resolve the conflict markers. For additive files like `mvp-progress.md`, keep both the merged task changes and the stashed user changes.
+2.  For each file, read it, resolve the conflict markers — keep both the merged task changes and the stashed user changes where they don't overlap.
 3.  Stage resolved files: `git add <resolved files>`.
 4.  Verify no conflict markers remain: Grep for `<<<<<<<` (expect 0 matches).
 5.  Do NOT commit — the resolved files stay staged/unstaged in the working tree, matching the user's original pre-stash state (uncommitted changes).
