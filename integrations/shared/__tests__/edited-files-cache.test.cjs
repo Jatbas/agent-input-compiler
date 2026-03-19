@@ -13,6 +13,8 @@ const {
   cleanupEditedFiles,
 } = require("../edited-files-cache.cjs");
 
+let keyCounter = 0;
+
 function getTempPath_returns_path_with_unified_prefix() {
   const p = getTempPath("cursor", "k1");
   assert.ok(p.includes("aic-edited-cursor-"), "path should include prefix");
@@ -29,13 +31,21 @@ function getTempPath_sanitizes_editorId_and_key() {
   assert.ok(!keySegment.includes(" "), "key segment should have no space");
 }
 
+function getTempPath_returns_path_for_claude_code_editorId() {
+  const p = getTempPath("claude_code", "k1");
+  assert.ok(p.includes("aic-edited-claude_code-"), "path should include prefix");
+  assert.ok(p.includes("k1"), "path should include key");
+  assert.ok(p.endsWith(".json"), "path should end with .json");
+  assert.ok(p.startsWith(os.tmpdir()), "path should be under os.tmpdir()");
+}
+
 function readEditedFiles_returns_empty_when_missing() {
   const result = readEditedFiles("editor", "nonexistent-key-12345");
   assert.deepStrictEqual(result, []);
 }
 
 function readEditedFiles_returns_parsed_array() {
-  const key = "parsed-" + Date.now() + "-" + Math.random();
+  const key = "parsed-" + ++keyCounter;
   const editorId = "editor";
   const tmpPath = getTempPath(editorId, key);
   fs.writeFileSync(tmpPath, '["/p1","/p2"]', "utf8");
@@ -48,7 +58,7 @@ function readEditedFiles_returns_parsed_array() {
 }
 
 function readEditedFiles_returns_empty_on_invalid_json() {
-  const key = "invalid-" + Date.now() + "-" + Math.random();
+  const key = "invalid-" + ++keyCounter;
   const editorId = "editor";
   const tmpPath = getTempPath(editorId, key);
   fs.writeFileSync(tmpPath, "not json", "utf8");
@@ -61,7 +71,7 @@ function readEditedFiles_returns_empty_on_invalid_json() {
 }
 
 function writeEditedFiles_creates_file_and_merge() {
-  const key = "merge-" + Date.now() + "-" + Math.random();
+  const key = "merge-" + ++keyCounter;
   const editorId = "editor";
   try {
     writeEditedFiles(editorId, key, ["/a"]);
@@ -79,7 +89,7 @@ function writeEditedFiles_creates_file_and_merge() {
 }
 
 function cleanupEditedFiles_removes_file() {
-  const key = "cleanup-" + Date.now() + "-" + Math.random();
+  const key = "cleanup-" + ++keyCounter;
   const editorId = "editor";
   writeEditedFiles(editorId, key, ["/x"]);
   cleanupEditedFiles(editorId, key);
@@ -90,6 +100,7 @@ function cleanupEditedFiles_removes_file() {
 const cases = [
   getTempPath_returns_path_with_unified_prefix,
   getTempPath_sanitizes_editorId_and_key,
+  getTempPath_returns_path_for_claude_code_editorId,
   readEditedFiles_returns_empty_when_missing,
   readEditedFiles_returns_parsed_array,
   readEditedFiles_returns_empty_on_invalid_json,
