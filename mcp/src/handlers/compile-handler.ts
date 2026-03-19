@@ -48,13 +48,6 @@ import {
 
 const SESSION_MODELS_FILE = "session-models.jsonl";
 
-interface SessionModelEntry {
-  readonly c: string;
-  readonly m: string;
-  readonly e?: string;
-  readonly timestamp: string;
-}
-
 function normalizeModelId(raw: string): string {
   return raw.toLowerCase() === "default" ? "auto" : raw;
 }
@@ -76,7 +69,7 @@ function readSessionModelCache(
     let lastAny: string | null = null;
     for (const line of lines) {
       try {
-        const entry = JSON.parse(line) as SessionModelEntry;
+        const entry = JSON.parse(line) as { m?: string; c?: string; e?: string };
         if (
           typeof entry.m !== "string" ||
           !isValidModelId(entry.m) ||
@@ -97,28 +90,6 @@ function readSessionModelCache(
     return lastMatch ?? lastAny;
   } catch {
     return null;
-  }
-}
-
-function _writeSessionModelCache(
-  projectRoot: AbsolutePath,
-  modelId: string,
-  conversationId: string | null,
-  editorId: string,
-  timestamp: string,
-): void {
-  try {
-    const filePath = sessionModelsPath(projectRoot);
-    fs.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
-    const entry: SessionModelEntry = {
-      c: typeof conversationId === "string" ? conversationId.trim() : "",
-      m: modelId,
-      e: editorId,
-      timestamp,
-    };
-    fs.appendFileSync(filePath, JSON.stringify(entry) + "\n", "utf8");
-  } catch {
-    // non-fatal
   }
 }
 
