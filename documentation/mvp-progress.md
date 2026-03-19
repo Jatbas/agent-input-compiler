@@ -291,7 +291,7 @@ Validate all `.aic/` JSONL cache files against injection attacks. Cache entries 
 
 | Component                                          | Status  | Package                                      | Deps | Description                                                                                                                                                                                           |
 | -------------------------------------------------- | ------- | -------------------------------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AE01: Audit all cache file read sites              | Pending | integrations/ + mcp/src/handlers/            | —    | Inventory every read/write site for all 3 JSONL cache files; document the expected schema per file; identify which reads currently lack validation (most do — only `isValidModelId` exists for `m`)   |
+| AE01: Audit all cache file read sites              | Done    | integrations/ + mcp/src/handlers/            | —    | Inventory every read/write site for all 3 JSONL cache files; document the expected schema per file; identify which reads currently lack validation (most do — only `isValidModelId` exists for `m`)   |
 | AE02: Strict field validation on cache reads       | Pending | integrations/ + mcp/src/handlers/            | AE01 | Add per-field validation at every read site: type check (`typeof === "string"`), max length (256 for modelId, 128 for conversationId, 20 for editorId), printable-ASCII regex; silently skip bad rows |
 | AE03: Sanitise cache values before pipeline use    | Pending | mcp/src/handlers/                            | AE02 | On the server side, pass cache-derived `modelId`/`conversationId`/`editorId` through the same Zod schema constraints used in `compilation-request.ts` before using them in SQL or tool responses      |
 | AE04: Integration tests for malicious cache inputs | Pending | integrations/**tests**/ + mcp/src/**tests**/ | AE03 | Test vectors: overlong strings (>256 chars), control characters (`\x00`-`\x1f`), nested JSON objects as field values, empty strings, missing fields, duplicate keys; verify all are silently rejected |
@@ -557,6 +557,13 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 ---
 
 ## Daily Log
+
+### 2025-03-19
+
+**Components:** Task 198 cache file audit (AE01)
+**Completed:**
+
+- Task 198 (AE01 Audit cache file read sites): documentation/cache-file-audit.md created with full inventory of read/write sites for session-models.jsonl, session-log.jsonl, prompt-log.jsonl; expected schema per file; validation gap notes. Lint, typecheck pass.
 
 ### 2026-03-19
 
