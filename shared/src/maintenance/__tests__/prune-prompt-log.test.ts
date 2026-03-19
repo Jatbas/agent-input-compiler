@@ -78,4 +78,49 @@ describe("prunePromptLog", () => {
     prunePromptLog(projectRoot, stubClock());
     expect(readFileSync(logPath, "utf8")).toBe("");
   });
+
+  it("prunes correctly when log has unified-schema lines", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "aic-prune-prompt-"));
+    const aicDir = join(tmpDir, ".aic");
+    mkdirSync(aicDir, { recursive: true });
+    const logPath = join(aicDir, "prompt-log.jsonl");
+    const oldTs = "2026-03-08T12:00:00.000Z";
+    const atCutoff = "2026-03-09T12:00:00.000Z";
+    const lines = [
+      JSON.stringify({
+        type: "prompt",
+        editorId: "cursor",
+        conversationId: "c1",
+        timestamp: oldTs,
+        generationId: "g1",
+        title: "old prompt",
+        model: "",
+      }),
+      JSON.stringify({
+        type: "session_end",
+        editorId: "claude-code",
+        conversationId: "c2",
+        timestamp: atCutoff,
+        reason: "user_ended",
+      }),
+      JSON.stringify({
+        type: "prompt",
+        editorId: "cursor",
+        conversationId: "c3",
+        timestamp: atCutoff,
+        generationId: "g2",
+        title: "at cutoff",
+        model: "",
+      }),
+    ];
+    writeFileSync(logPath, lines.join("\n") + "\n", "utf8");
+    projectRoot = toAbsolutePath(tmpDir);
+    prunePromptLog(projectRoot, stubClock());
+    const out = readFileSync(logPath, "utf8").trim().split("\n");
+    expect(out).toHaveLength(2);
+    out.forEach((line) => {
+      const parsed = JSON.parse(line) as { timestamp: string };
+      expect(parsed.timestamp >= CUTOFF).toBe(true);
+    });
+  });
 });
