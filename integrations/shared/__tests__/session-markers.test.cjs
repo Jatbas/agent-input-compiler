@@ -71,12 +71,31 @@ function isSessionAlreadyInjected_false() {
   }
 }
 
+function stale_lock_recovery() {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aic-session-markers-"));
+  try {
+    const dir = path.join(projectRoot, ".aic");
+    fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+    const lock = path.join(projectRoot, ".aic", ".session-start-lock");
+    const fd = fs.openSync(lock, "w");
+    fs.closeSync(fd);
+    writeSessionMarker(projectRoot, "sid-stale");
+    assert.strictEqual(acquireSessionLock(projectRoot), false);
+    assert.strictEqual(acquireSessionLock(projectRoot), true);
+    releaseSessionLock(projectRoot);
+    assert.strictEqual(fs.existsSync(lock), false);
+  } finally {
+    fs.rmSync(projectRoot, { recursive: true, force: true });
+  }
+}
+
 const cases = [
   acquire_release_roundtrip,
   lock_blocks_second_caller,
   marker_write_read_clear,
   isSessionAlreadyInjected_true,
   isSessionAlreadyInjected_false,
+  stale_lock_recovery,
 ];
 
 let failed = 0;
