@@ -2,7 +2,7 @@
 // Copyright (c) 2025 AIC Contributors
 
 // preToolUse hook — injects conversation_id and modelId into AIC MCP tool inputs.
-// Also writes modelId to .aic/.claude-session-model so Claude Code hooks can read it.
+// Also writes modelId to .aic/session-models.jsonl so Claude Code hooks can read it.
 
 const fs = require("fs");
 const path = require("path");
@@ -64,15 +64,22 @@ process.stdin.on("end", () => {
         trimmed.length <= 256 &&
         /^[\x20-\x7E]+$/.test(trimmed)
       ) {
-        updated.modelId = trimmed;
+        const normalized = trimmed.toLowerCase() === "default" ? "auto" : trimmed;
+        updated.modelId = normalized;
         const projectRoot =
           (toolInput && toolInput.projectRoot) ||
           process.env.CURSOR_PROJECT_DIR ||
           process.cwd();
         try {
-          const cacheDir = path.join(projectRoot, ".aic");
-          fs.mkdirSync(cacheDir, { recursive: true, mode: 0o700 });
-          fs.writeFileSync(path.join(cacheDir, ".claude-session-model"), trimmed, "utf8");
+          const filePath = path.join(projectRoot, ".aic", "session-models.jsonl");
+          fs.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
+          const entry = JSON.stringify({
+            c: idStr || "",
+            m: normalized,
+            e: "cursor",
+            timestamp: new Date().toISOString(),
+          });
+          fs.appendFileSync(filePath, entry + "\n", "utf8");
         } catch {
           // non-fatal
         }

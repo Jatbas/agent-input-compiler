@@ -44,13 +44,31 @@ process.stdin.on("end", () => {
     if (prompt.length > 0) {
       fs.writeFileSync(promptFile(generationId), prompt, "utf8");
 
+      const ts = new Date().toISOString();
       appendLog({
         conversationId,
         generationId,
         title: prompt.slice(0, 200),
         model,
-        timestamp: new Date().toISOString(),
+        timestamp: ts,
       });
+
+      if (model.length >= 1 && model.length <= 256 && /^[\x20-\x7E]+$/.test(model)) {
+        const normalized = model.toLowerCase() === "default" ? "auto" : model;
+        try {
+          const smPath = path.join(projectRoot, ".aic", "session-models.jsonl");
+          fs.mkdirSync(path.dirname(smPath), { recursive: true, mode: 0o700 });
+          const entry = JSON.stringify({
+            c: conversationId,
+            m: normalized,
+            e: "cursor",
+            timestamp: ts,
+          });
+          fs.appendFileSync(smPath, entry + "\n", "utf8");
+        } catch {
+          // non-fatal
+        }
+      }
     }
   } catch {
     // Non-fatal

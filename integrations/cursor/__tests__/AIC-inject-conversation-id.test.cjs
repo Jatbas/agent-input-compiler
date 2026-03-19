@@ -76,6 +76,30 @@ function inject_allow_when_no_conversation_but_model() {
   console.log("inject_allow_when_no_conversation_but_model: pass");
 }
 
+function inject_normalizes_default_to_auto() {
+  const stdin = JSON.stringify({
+    tool_name: "aic_compile",
+    tool_input: {
+      intent: "test intent",
+      projectRoot: "/some/project",
+    },
+    conversation_id: "conv-abc",
+    model: "default",
+  });
+  const stdout = runHook(stdin);
+  const out = JSON.parse(stdout);
+  if (out.permission !== "allow") {
+    throw new Error(`Expected permission "allow", got ${out.permission}`);
+  }
+  if (!out.updated_input || out.updated_input.modelId !== "auto") {
+    throw new Error(
+      `Expected updated_input.modelId "auto", got ${JSON.stringify(out.updated_input?.modelId)}`,
+    );
+  }
+  console.log("inject_normalizes_default_to_auto: pass");
+}
+
 inject_modelId_when_model_present();
 inject_allow_when_no_conversation_but_model();
+inject_normalizes_default_to_auto();
 console.log("All tests passed.");

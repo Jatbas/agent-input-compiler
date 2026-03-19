@@ -24,12 +24,40 @@ try {
 
 const conversationId = hookInput.conversation_id || null;
 
+function normalizeModelId(raw) {
+  return raw.toLowerCase() === "default" ? "auto" : raw;
+}
+
+let modelId = null;
+if (typeof hookInput.model === "string") {
+  const trimmed = hookInput.model.trim();
+  if (trimmed.length >= 1 && trimmed.length <= 256 && /^[\x20-\x7E]+$/.test(trimmed)) {
+    modelId = normalizeModelId(trimmed);
+    try {
+      const smPath = path.join(projectRoot, ".aic", "session-models.jsonl");
+      fs.mkdirSync(path.dirname(smPath), { recursive: true, mode: 0o700 });
+      const entry = JSON.stringify({
+        c: conversationId || "",
+        m: modelId,
+        e: "cursor",
+        timestamp: new Date().toISOString(),
+      });
+      fs.appendFileSync(smPath, entry + "\n", "utf8");
+    } catch {
+      // non-fatal
+    }
+  }
+}
+
 const compileArgs = {
   intent: INTENT,
   projectRoot: projectRoot,
   editorId: "cursor",
   triggerSource: "session_start",
 };
+if (modelId !== null) {
+  compileArgs.modelId = modelId;
+}
 if (
   conversationId &&
   typeof conversationId === "string" &&
@@ -37,20 +65,6 @@ if (
 ) {
   compileArgs.conversationId = conversationId.trim();
 }
-if (typeof hookInput.model === "string") {
-  const trimmed = hookInput.model.trim();
-  if (trimmed.length >= 1 && trimmed.length <= 256 && /^[\x20-\x7E]+$/.test(trimmed)) {
-    compileArgs.modelId = trimmed;
-    try {
-      const cacheDir = path.join(projectRoot, ".aic");
-      fs.mkdirSync(cacheDir, { recursive: true, mode: 0o700 });
-      fs.writeFileSync(path.join(cacheDir, ".claude-session-model"), trimmed, "utf8");
-    } catch {
-      // non-fatal
-    }
-  }
-}
-
 // Build a JSON-RPC request to call aic_compile via the MCP server
 const initRequest = JSON.stringify({
   jsonrpc: "2.0",

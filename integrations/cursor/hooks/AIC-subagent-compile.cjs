@@ -39,16 +39,64 @@ const compileArgs = {
 };
 if (conversationId) compileArgs.conversationId = conversationId;
 
-const mid = modelIdFromSubagentStartPayload(hookInput);
-if (mid !== null) {
-  compileArgs.modelId = mid;
+function isValidModelId(s) {
+  if (typeof s !== "string") return false;
+  const t = s.trim();
+  return t.length >= 1 && t.length <= 256 && /^[\x20-\x7E]+$/.test(t);
+}
+
+function writeSessionModelCache(root, modelId, convId) {
   try {
-    const cacheDir = path.join(projectRoot, ".aic");
-    fs.mkdirSync(cacheDir, { recursive: true, mode: 0o700 });
-    fs.writeFileSync(path.join(cacheDir, ".claude-session-model"), mid, "utf8");
+    const filePath = path.join(root, ".aic", "session-models.jsonl");
+    fs.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
+    const entry = JSON.stringify({
+      c: typeof convId === "string" ? convId.trim() : "",
+      m: modelId,
+      e: "cursor",
+      timestamp: new Date().toISOString(),
+    });
+    fs.appendFileSync(filePath, entry + "\n", "utf8");
   } catch {
     // non-fatal
   }
+}
+
+function readSessionModelCache(root, convId) {
+  try {
+    const raw = fs.readFileSync(path.join(root, ".aic", "session-models.jsonl"), "utf8");
+    const lines = raw.split("\n").filter((l) => l.trim().length > 0);
+    const cid = typeof convId === "string" ? convId.trim() : "";
+    let lastMatch = null;
+    let lastAny = null;
+    for (const line of lines) {
+      try {
+        const entry = JSON.parse(line);
+        if (
+          typeof entry.m === "string" &&
+          isValidModelId(entry.m) &&
+          entry.e === "cursor"
+        ) {
+          lastAny = entry.m;
+          if (cid.length > 0 && entry.c === cid) lastMatch = entry.m;
+        }
+      } catch {
+        // skip malformed
+      }
+    }
+    return lastMatch !== null ? lastMatch : lastAny;
+  } catch {
+    // no cache
+  }
+  return null;
+}
+
+const mid = modelIdFromSubagentStartPayload(hookInput);
+if (mid !== null) {
+  compileArgs.modelId = mid;
+  writeSessionModelCache(projectRoot, mid, conversationId);
+} else {
+  const cached = readSessionModelCache(projectRoot, conversationId);
+  if (cached !== null) compileArgs.modelId = cached;
 }
 
 const initRequest = JSON.stringify({
