@@ -4,21 +4,9 @@
 // afterFileEdit hook — records edited file paths to a temp file keyed by conversation/session
 // so the stop hook can run lint/typecheck on those files. Cumulative list: read existing,
 // merge new paths from input, dedupe, overwrite temp file.
-const fs = require("fs");
 const path = require("path");
-const os = require("os");
-
-function readStdinSync() {
-  const chunks = [];
-  let size = 0;
-  const buf = Buffer.alloc(64 * 1024);
-  let n;
-  while ((n = fs.readSync(0, buf, 0, buf.length, null)) > 0) {
-    chunks.push(buf.slice(0, n));
-    size += n;
-  }
-  return Buffer.concat(chunks, size).toString("utf8");
-}
+const { readStdinSync } = require("../../shared/read-stdin-sync.cjs");
+const { writeEditedFiles } = require("../../shared/edited-files-cache.cjs");
 
 function extractPaths(input) {
   if (!input || typeof input !== "object") return [];
@@ -53,23 +41,7 @@ try {
     process.env.AIC_CONVERSATION_ID ??
     "default";
   const newPaths = extractPaths(input);
-  const tmpPath = path.join(
-    os.tmpdir(),
-    "aic-edited-files-" + String(key).replace(/[^a-zA-Z0-9_-]/g, "_") + ".json",
-  );
-  let existing = [];
-  if (fs.existsSync(tmpPath)) {
-    try {
-      const data = JSON.parse(fs.readFileSync(tmpPath, "utf8"));
-      existing = Array.isArray(data) ? data : [];
-    } catch {
-      existing = [];
-    }
-  }
-  const merged = [...new Set([...existing, ...newPaths])].filter(
-    (p) => typeof p === "string" && p.length > 0,
-  );
-  fs.writeFileSync(tmpPath, JSON.stringify(merged), "utf8");
+  writeEditedFiles("cursor", key, newPaths);
   process.stdout.write("{}");
 } catch {
   process.stdout.write("{}");
