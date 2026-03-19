@@ -30,6 +30,8 @@
     "integrations/shared/__tests__/edited-files-cache.test.cjs",
     "integrations/shared/session-markers.cjs",
     "integrations/shared/__tests__/session-markers.test.cjs",
+    "integrations/shared/session-log.cjs",
+    "integrations/shared/__tests__/session-log.test.cjs",
     "mcp/scripts/**",
     "shared/src/core/errors/budget-exceeded-error.ts",
     "shared/src/core/errors/guard-blocked-all-error.ts",
