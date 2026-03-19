@@ -27,3 +27,18 @@ export function isValidTimestamp(s: string): boolean {
   if (typeof s !== "string") return false;
   return s.length >= 1 && s.length <= 32 && PRINTABLE_ASCII.test(s);
 }
+
+export function isValidPromptLogTitle(s: string): boolean {
+  if (typeof s !== "string") return false;
+  return s.length <= 200 && PRINTABLE_ASCII.test(s);
+}
+
+export function isValidPromptLogReason(s: string): boolean {
+  if (typeof s !== "string") return false;
+  return s.length <= 256 && PRINTABLE_ASCII.test(s);
+}
+
+export function isValidGenerationId(s: string): boolean {
+  if (typeof s !== "string") return false;
+  return s.length <= 128 && PRINTABLE_ASCII.test(s);
+}

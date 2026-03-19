@@ -27,9 +27,27 @@ function isValidTimestamp(s) {
   return s.length >= 1 && s.length <= 32 && PRINTABLE_ASCII.test(s);
 }
 
+function isValidPromptLogTitle(s) {
+  if (typeof s !== "string") return false;
+  return s.length <= 200 && PRINTABLE_ASCII.test(s);
+}
+
+function isValidPromptLogReason(s) {
+  if (typeof s !== "string") return false;
+  return s.length <= 256 && PRINTABLE_ASCII.test(s);
+}
+
+function isValidGenerationId(s) {
+  if (typeof s !== "string") return false;
+  return s.length <= 128 && PRINTABLE_ASCII.test(s);
+}
+
 module.exports = {
   isValidModelId,
   isValidConversationId,
   isValidEditorId,
   isValidTimestamp,
+  isValidPromptLogTitle,
+  isValidPromptLogReason,
+  isValidGenerationId,
 };
