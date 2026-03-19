@@ -4,6 +4,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { isSessionAlreadyInjected } = require("../../shared/session-markers.cjs");
 
 async function run(stdinStr) {
   const { callAicCompile } = require("./aic-compile-helper.cjs");
@@ -46,12 +47,7 @@ async function run(stdinStr) {
       ? rawModel.trim()
       : undefined;
 
-  const INJECTED_MARKER = path.join(projectRoot, ".aic", ".session-context-injected");
-  const markerContent = fs.existsSync(INJECTED_MARKER)
-    ? fs.readFileSync(INJECTED_MARKER, "utf8").trim()
-    : "";
-  const alreadyInjected =
-    fs.existsSync(INJECTED_MARKER) && sessionId != null && markerContent === sessionId;
+  const alreadyInjected = isSessionAlreadyInjected(projectRoot, sessionId);
 
   let invariantsBlock = "";
   if (!alreadyInjected) {

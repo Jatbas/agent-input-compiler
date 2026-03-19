@@ -6,6 +6,10 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
+const {
+  clearSessionMarker,
+  releaseSessionLock,
+} = require("../../shared/session-markers.cjs");
 const { appendPromptLog } = require("../../shared/prompt-log.cjs");
 
 function run(stdinStr) {
@@ -24,7 +28,6 @@ function run(stdinStr) {
     ? cwdRaw.trim()
     : process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
-  const markerPath = path.join(projectRoot, ".aic", ".session-context-injected");
   const sanitized = String(sessionId).replace(/[^a-zA-Z0-9*-]/g, "_");
   const tempPath = path.join(os.tmpdir(), "aic-cc-edited-" + sanitized + ".json");
 
@@ -36,17 +39,8 @@ function run(stdinStr) {
     timestamp: new Date().toISOString(),
   });
 
-  try {
-    fs.unlinkSync(markerPath);
-  } catch {
-    // ignore ENOENT and other errors
-  }
-
-  try {
-    fs.unlinkSync(path.join(projectRoot, ".aic", ".session-start-lock"));
-  } catch {
-    // ignore
-  }
+  clearSessionMarker(projectRoot);
+  releaseSessionLock(projectRoot);
 
   try {
     fs.unlinkSync(tempPath);

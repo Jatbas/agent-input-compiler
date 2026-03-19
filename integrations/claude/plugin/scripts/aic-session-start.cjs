@@ -4,6 +4,11 @@
 
 const fs = require("fs");
 const path = require("path");
+const {
+  acquireSessionLock,
+  releaseSessionLock,
+  writeSessionMarker,
+} = require("../../../shared/session-markers.cjs");
 const { callAicCompile } = require("./aic-compile-helper.cjs");
 
 async function run(stdinStr) {
@@ -37,31 +42,7 @@ async function run(stdinStr) {
     ? cwdRaw.trim()
     : process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
-  const aicDir = path.join(projectRoot, ".aic");
-  const markerPath = path.join(projectRoot, ".aic", ".session-context-injected");
-  const lockPath = path.join(aicDir, ".session-start-lock");
-
-  fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
-
-  // Atomic lock — prevent concurrent SessionStart invocations
-  let lockFd;
-  try {
-    lockFd = fs.openSync(lockPath, "wx");
-    fs.closeSync(lockFd);
-  } catch {
-    // Lock exists — check if a prior run already succeeded
-    const markerContent = fs.existsSync(markerPath)
-      ? fs.readFileSync(markerPath, "utf8").trim()
-      : "";
-    if (markerContent.length > 0) {
-      try {
-        fs.unlinkSync(lockPath);
-      } catch {
-        /* stale lock cleanup */
-      }
-    }
-    return null;
-  }
+  if (!acquireSessionLock(projectRoot)) return null;
 
   try {
     const text = await callAicCompile(
@@ -73,7 +54,7 @@ async function run(stdinStr) {
       modelArg,
     );
     if (text == null) return null;
-    fs.writeFileSync(markerPath, sessionId ?? "", "utf8");
+    writeSessionMarker(projectRoot, sessionId);
     return {
       hookSpecificOutput: {
         hookEventName: "SessionStart",
@@ -83,11 +64,7 @@ async function run(stdinStr) {
   } catch {
     return null;
   } finally {
-    try {
-      fs.unlinkSync(lockPath);
-    } catch {
-      /* ignore */
-    }
+    releaseSessionLock(projectRoot);
   }
 }
 

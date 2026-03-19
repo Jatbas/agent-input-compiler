@@ -7,6 +7,8 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
+const { appendSessionLog } = require("../../shared/session-log.cjs");
+
 const GATE_PREFIX = "aic-gate-";
 const DENY_PREFIX = "aic-deny-";
 const PROMPT_PREFIX = "aic-prompt-";
@@ -34,25 +36,6 @@ function cleanupTempFiles() {
   }
 }
 
-function appendSessionLog(projectRoot, sessionId, reason, durationMs) {
-  const aicDir = path.join(projectRoot, ".aic");
-  try {
-    if (!fs.existsSync(aicDir) || !fs.statSync(aicDir).isDirectory()) return;
-    const logPath = path.join(aicDir, "session-log.jsonl");
-    const timestamp = new Date(Date.now()).toISOString();
-    const line =
-      JSON.stringify({
-        session_id: sessionId,
-        reason,
-        duration_ms: durationMs,
-        timestamp,
-      }) + "\n";
-    fs.appendFileSync(logPath, line, "utf8");
-  } catch {
-    // ignore; optional log
-  }
-}
-
 function main() {
   let raw = "";
   try {
@@ -76,7 +59,12 @@ function main() {
   cleanupTempFiles();
 
   const projectRoot = process.env.CURSOR_PROJECT_DIR || process.cwd();
-  appendSessionLog(projectRoot, sessionId, reason, durationMs);
+  appendSessionLog(projectRoot, {
+    session_id: sessionId,
+    reason,
+    duration_ms: durationMs,
+    timestamp: new Date().toISOString(),
+  });
 
   process.exit(0);
 }

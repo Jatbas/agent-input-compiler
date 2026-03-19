@@ -4,27 +4,9 @@
 
 const fs = require("fs");
 const path = require("path");
-const os = require("os");
 const { execSync } = require("child_process");
-
-function readStdinSync() {
-  const chunks = [];
-  let size = 0;
-  const buf = Buffer.alloc(64 * 1024);
-  let n;
-  while ((n = fs.readSync(0, buf, 0, buf.length, null)) > 0) {
-    chunks.push(buf.slice(0, n));
-    size += n;
-  }
-  return Buffer.concat(chunks, size).toString("utf8");
-}
-
-function getTempPath(sessionId) {
-  return path.join(
-    os.tmpdir(),
-    "aic-cc-edited-" + String(sessionId).replace(/[^a-zA-Z0-9*-]/g, "_") + ".json",
-  );
-}
+const { readStdinSync } = require("../../../shared/read-stdin-sync.cjs");
+const { readEditedFiles } = require("../../../shared/edited-files-cache.cjs");
 
 function runEslint(paths, cwd) {
   if (paths.length === 0) return { exitCode: 0, stderr: "" };
@@ -80,23 +62,15 @@ function run(stdinStr) {
     const sessionId = parsed.session_id ?? parsed.input?.session_id ?? "default";
     const cwdRaw = (parsed.cwd ?? parsed.input?.cwd ?? "").trim();
     const projectRoot = cwdRaw ? cwdRaw : process.env.CLAUDE_PROJECT_DIR || process.cwd();
-    const tmpPath = getTempPath(sessionId);
-    if (!fs.existsSync(tmpPath)) return "";
-    let paths = [];
-    try {
-      const data = JSON.parse(fs.readFileSync(tmpPath, "utf8"));
-      paths = Array.isArray(data) ? data : [];
-    } catch {
-      return "";
-    }
-    paths = paths.filter(
+    const paths = readEditedFiles("claude_code", sessionId);
+    const filtered = paths.filter(
       (p) =>
         typeof p === "string" &&
         fs.existsSync(p) &&
         (p.endsWith(".ts") || p.endsWith(".js")),
     );
-    if (paths.length === 0) return "";
-    const eslintResult = runEslint(paths, projectRoot);
+    if (filtered.length === 0) return "";
+    const eslintResult = runEslint(filtered, projectRoot);
     const tscResult = runTsc(projectRoot);
     if (eslintResult.exitCode !== 0 || tscResult.exitCode !== 0) {
       const parts = [];
