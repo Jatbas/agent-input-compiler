@@ -10,8 +10,8 @@ type DetectFn = (hints: ModelEnvHints) => string | null;
 
 const DETECT_STRATEGIES: Record<EditorId, DetectFn> = {
   [EDITOR_ID.CURSOR]: (hints) => hints.cursorModel ?? null,
-  [EDITOR_ID.CURSOR_CLAUDE_CODE]: (hints) => hints.cursorModel ?? null,
-  [EDITOR_ID.CLAUDE_CODE]: (hints) => hints.anthropicModel ?? null,
+  [EDITOR_ID.CURSOR_CLAUDE_CODE]: (hints) => hints.anthropicModel ?? "sonnet",
+  [EDITOR_ID.CLAUDE_CODE]: (hints) => hints.anthropicModel ?? "sonnet",
   [EDITOR_ID.GENERIC]: () => null,
 };
 

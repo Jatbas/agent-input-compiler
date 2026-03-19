@@ -13,9 +13,9 @@ describe("ModelDetectorDispatch", () => {
     expect(detector.detect(EDITOR_ID.CLAUDE_CODE)).toBe("claude-sonnet-4-20250514");
   });
 
-  it("returns null for claude-code when anthropicModel is absent", () => {
+  it("returns sonnet default for claude-code when anthropicModel is absent", () => {
     const detector = new ModelDetectorDispatch({});
-    expect(detector.detect(EDITOR_ID.CLAUDE_CODE)).toBeNull();
+    expect(detector.detect(EDITOR_ID.CLAUDE_CODE)).toBe("sonnet");
   });
 
   it("returns cursorModel for cursor editor", () => {
@@ -25,11 +25,18 @@ describe("ModelDetectorDispatch", () => {
     expect(detector.detect(EDITOR_ID.CURSOR)).toBe("gpt-4o");
   });
 
-  it("model_detector_cursor_claude_code returns cursorModel for CURSOR_CLAUDE_CODE", () => {
+  it("returns anthropicModel for cursor-claude-code editor", () => {
     const detector = new ModelDetectorDispatch({
-      cursorModel: "gpt-4o",
+      anthropicModel: "claude-sonnet-4-20250514",
     });
-    expect(detector.detect(EDITOR_ID.CURSOR_CLAUDE_CODE)).toBe("gpt-4o");
+    expect(detector.detect(EDITOR_ID.CURSOR_CLAUDE_CODE)).toBe(
+      "claude-sonnet-4-20250514",
+    );
+  });
+
+  it("returns sonnet default for cursor-claude-code when anthropicModel is absent", () => {
+    const detector = new ModelDetectorDispatch({});
+    expect(detector.detect(EDITOR_ID.CURSOR_CLAUDE_CODE)).toBe("sonnet");
   });
 
   it("returns null for cursor when cursorModel is absent", () => {
@@ -45,10 +52,11 @@ describe("ModelDetectorDispatch", () => {
     expect(detector.detect(EDITOR_ID.GENERIC)).toBeNull();
   });
 
-  it("returns null when no hints provided", () => {
+  it("returns defaults when no hints provided", () => {
     const detector = new ModelDetectorDispatch({});
     expect(detector.detect(EDITOR_ID.CURSOR)).toBeNull();
-    expect(detector.detect(EDITOR_ID.CLAUDE_CODE)).toBeNull();
+    expect(detector.detect(EDITOR_ID.CLAUDE_CODE)).toBe("sonnet");
+    expect(detector.detect(EDITOR_ID.CURSOR_CLAUDE_CODE)).toBe("sonnet");
     expect(detector.detect(EDITOR_ID.GENERIC)).toBeNull();
   });
 
