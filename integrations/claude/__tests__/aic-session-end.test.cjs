@@ -6,6 +6,9 @@ const path = require("path");
 const os = require("os");
 
 const { run } = require(path.join(__dirname, "..", "hooks", "aic-session-end.cjs"));
+const { run: runPlugin } = require(
+  path.join(__dirname, "..", "plugin", "scripts", "aic-session-end.cjs"),
+);
 
 function tempPath(sessionId) {
   return path.join(
@@ -64,7 +67,23 @@ function exit_0_always() {
   console.log("exit_0_always: pass");
 }
 
+function plugin_session_end_removes_session_start_lock() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-session-end-test-"));
+  const aicDir = path.join(tmpDir, ".aic");
+  const lockPath = path.join(aicDir, ".session-start-lock");
+  fs.mkdirSync(aicDir, { recursive: true });
+  fs.writeFileSync(lockPath, "", "utf8");
+  runPlugin(JSON.stringify({ session_id: "s1", reason: "test", cwd: tmpDir }));
+  if (fs.existsSync(lockPath)) {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    throw new Error("Expected .session-start-lock to be removed by plugin session-end");
+  }
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+  console.log("plugin_session_end_removes_session_start_lock: pass");
+}
+
 marker_and_temp_deleted_after_run();
+plugin_session_end_removes_session_start_lock();
 prompt_log_jsonl_appended();
 exit_0_always();
 console.log("All tests passed.");

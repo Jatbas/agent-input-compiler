@@ -33,7 +33,7 @@ Claude Code has two deployment paths (hooks and plugin); each has its own copy o
 
 1. **PostToolUse (Edit|Write)** — `aic-after-file-edit-tracker.cjs` reads stdin, gets `session_id` and `tool_input.path`, sanitizes the key, reads existing temp array (or `[]`), appends the resolved path, deduplicates, writes to `os.tmpdir()/aic-cc-edited-<sanitized>.json`. Stdout: `{}`.
 2. **Stop** — `aic-stop-quality-check.cjs` reads stdin, gets `session_id` and project root (`cwd` or `CLAUDE_PROJECT_DIR`), reads the temp file, filters to existing paths with `.ts` or `.js` extension, runs eslint and tsc. On failure, stdout: `{ "decision": "block", "reason": "..." }`; on success: empty string.
-3. **SessionEnd** — `aic-session-end.cjs` (hooks and plugin) builds the same temp path from `session_id` and calls `fs.unlinkSync(tempPath)` so the edited-files temp file is removed. Hooks version also deletes `.aic/.session-start-lock`; plugin version deletes `.aic/.current-conversation-id`.
+3. **SessionEnd** — `aic-session-end.cjs` (hooks and plugin) builds the same temp path from `session_id` and calls `fs.unlinkSync(tempPath)` so the edited-files temp file is removed. Both hooks and plugin delete `.aic/.session-start-lock`.
 
 ## File inventory
 

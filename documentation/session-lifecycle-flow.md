@@ -50,12 +50,7 @@ sequenceDiagram
 
 **UserPromptSubmit (prompt-compile):** The hook reads `.session-context-injected`. If the file exists and its trimmed content equals the current `sessionId`, it treats context as already injected and skips prepending invariants. Otherwise it calls `aic_compile` and prepends the invariants.
 
-**SessionEnd:** The hook appends one JSONL line to `.aic/prompt-log.jsonl` (fields: `sessionId`, `reason`, `timestamp`), then deletes `.session-context-injected` and a temp edited-files path. Cleanup of the lock file differs by deployment:
-
-- **Hooks deployment** (`integrations/claude/hooks/aic-session-end.cjs`): deletes `.aic/.session-start-lock`.
-- **Plugin deployment** (`integrations/claude/plugin/scripts/aic-session-end.cjs`): deletes `.aic/.current-conversation-id` instead of `.session-start-lock`.
-
-For integration maintainers: this divergence is unresolved; the intended behavior is under investigation.
+**SessionEnd:** The hook appends one JSONL line to `.aic/prompt-log.jsonl` (fields: `sessionId`, `reason`, `timestamp`), then deletes `.session-context-injected`, then `.aic/.session-start-lock`, then the temp edited-files path. Both hooks and plugin deployments delete `.aic/.session-start-lock`. The previous divergence (plugin had deleted `.current-conversation-id` instead) was a bug: the plugin was not updated when `.current-conversation-id` was removed from the design; both deployments now delete `.session-start-lock`.
 
 ```mermaid
 sequenceDiagram
@@ -89,7 +84,7 @@ sequenceDiagram
   Editor->>End: SessionEnd (stdin)
   End->>End: append .aic/prompt-log.jsonl
   End->>End: unlink .session-context-injected
-  End->>End: unlink .session-start-lock (hooks) or .current-conversation-id (plugin)
+  End->>End: unlink .session-start-lock
   End->>End: unlink temp edited-files
 ```
 

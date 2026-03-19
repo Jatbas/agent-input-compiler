@@ -48,7 +48,7 @@ function run(stdinStr) {
   }
 
   try {
-    fs.unlinkSync(path.join(projectRoot, ".aic", ".current-conversation-id"));
+    fs.unlinkSync(path.join(projectRoot, ".aic", ".session-start-lock"));
   } catch {
     // ignore
   }
