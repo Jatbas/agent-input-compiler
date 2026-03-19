@@ -2,22 +2,10 @@
 // Copyright (c) 2025 AIC Contributors
 // PreToolUse (Bash) — blocks git commands with --no-verify or -n so agents cannot bypass pre-commit hooks.
 
-const fs = require("fs");
+const { readStdinSync } = require("../../shared/read-stdin-sync.cjs");
 
 function stripQuoted(str) {
   return str.replace(/"[^"]*"/g, '""').replace(/'[^']*'/g, "''");
-}
-
-function readStdinSync() {
-  const chunks = [];
-  let size = 0;
-  const buf = Buffer.alloc(64 * 1024);
-  let n;
-  while ((n = fs.readSync(0, buf, 0, buf.length, null)) > 0) {
-    chunks.push(buf.slice(0, n));
-    size += n;
-  }
-  return Buffer.concat(chunks, size).toString("utf8");
 }
 
 function run(stdinStr) {
