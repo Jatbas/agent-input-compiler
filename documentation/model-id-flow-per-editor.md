@@ -18,11 +18,10 @@ This document describes the **current** model ID lifecycle: where each editor ca
 The compile handler resolves the model ID in this order:
 
 1. `args.modelId` (from the `aic_compile` tool arguments)
-2. `modelIdOverride` (from project config `model.id`, if set)
-3. `readSessionModelCache(projectRoot, conversationId, editorId)` — last matching line by `e` and optionally `c`
-4. `getModelId(editorId)` — default from editor detector (e.g. `mcp/src/detect-editor-id.ts`, config, env)
+2. `readSessionModelCache(projectRoot, conversationId, editorId)` — last matching line by `e` and optionally `c`
+3. `getModelId(editorId)` — config `model.id` when set, else the editor detector default (e.g. `mcp/src/detect-editor-id.ts`, env)
 
-The resolved value is normalized; if non-null, it is written back to the cache. Implementation: `resolveAndCacheModelId` in `mcp/src/handlers/compile-handler.ts`.
+The resolved value is normalized. The server does not write to the cache; hooks write on capture. Implementation: `resolveAndCacheModelId` in `mcp/src/handlers/compile-handler.ts`.
 
 ## Cursor (editorId `cursor`)
 

@@ -312,7 +312,7 @@ export function createMcpServer(
     });
   const getSessionId = (): SessionId => sessionContext.getSessionId();
   const getModelId = (editorId: EditorId): string | null =>
-    modelDetector.detect(editorId);
+    configModelId ?? modelDetector.detect(editorId);
   const lastConversationIdRef: { current: string | null } = { current: null };
   const setLastConversationId = (id: string | null): void => {
     lastConversationIdRef.current = id;
@@ -397,7 +397,6 @@ export function createMcpServer(
     getSessionId,
     getEditorId,
     getModelId,
-    configModelId,
     installScopeWarnings,
     configLoader,
     setLastConversationId,

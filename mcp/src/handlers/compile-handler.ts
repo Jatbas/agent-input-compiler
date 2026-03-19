@@ -100,7 +100,7 @@ function readSessionModelCache(
   }
 }
 
-function writeSessionModelCache(
+function _writeSessionModelCache(
   projectRoot: AbsolutePath,
   modelId: string,
   conversationId: string | null,
@@ -124,23 +124,17 @@ function writeSessionModelCache(
 
 function resolveAndCacheModelId(
   argsModelId: string | null,
-  modelIdOverride: string | null,
   getModelId: (editorId: EditorId) => string | null,
   editorId: EditorId,
   projectRoot: AbsolutePath,
   conversationId: string | null,
-  timestamp: string,
+  _timestamp: string,
 ): string | null {
   const raw: string | null =
     argsModelId ??
-    modelIdOverride ??
     readSessionModelCache(projectRoot, conversationId, editorId) ??
     getModelId(editorId);
-  const resolved = raw !== null ? normalizeModelId(raw) : null;
-  if (resolved !== null) {
-    writeSessionModelCache(projectRoot, resolved, conversationId, editorId, timestamp);
-  }
-  return resolved;
+  return raw !== null ? normalizeModelId(raw) : null;
 }
 
 function rejectAfter(ms: number): Promise<never> {
@@ -236,7 +230,6 @@ export function createCompileHandler(
   getSessionId: () => SessionId,
   getEditorId: () => EditorId,
   getModelId: (editorId: EditorId) => string | null,
-  modelIdOverride: string | null,
   installScopeWarnings: readonly string[],
   configLoader: ConfigLoader,
   setLastConversationId: (id: string | null) => void,
@@ -309,7 +302,6 @@ export function createCompileHandler(
       const intent = args.intent.replace(/[\x00-\x08\x0b-\x1f]/g, "");
       const resolvedModelId = resolveAndCacheModelId(
         args.modelId,
-        modelIdOverride,
         getModelId,
         resolvedEditorId,
         projectRoot,
