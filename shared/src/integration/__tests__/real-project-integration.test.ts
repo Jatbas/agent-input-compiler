@@ -59,7 +59,7 @@ function createRunner(): CompilationRunner {
   const scope = lastScope;
   const sha256Adapter = new Sha256Adapter();
   const configResult = new LoadConfigFromFile().load(projectRoot, null);
-  const { budgetConfig, heuristicConfig } = applyConfigResult(
+  const { budgetConfig, heuristicConfig, guardAllowPatterns } = applyConfigResult(
     configResult,
     scope.configStore,
     sha256Adapter,
@@ -72,6 +72,7 @@ function createRunner(): CompilationRunner {
     budgetConfig,
     providers,
     heuristicConfig,
+    guardAllowPatterns,
   );
   const repoMapSupplier = new FileSystemRepoMapSupplier(
     new FastGlobAdapter(),

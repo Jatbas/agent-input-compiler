@@ -19,7 +19,8 @@ function pathAllowed(path: string, allowPatterns: readonly GlobPattern[]): boole
 
 export class ContextGuard implements IContextGuard {
   constructor(
-    private readonly scanners: readonly GuardScanner[],
+    private readonly exclusionScanner: GuardScanner,
+    private readonly contentScanners: readonly GuardScanner[],
     private readonly fileContentReader: FileContentReader,
     private readonly allowPatterns: readonly GlobPattern[],
   ) {}
@@ -34,10 +35,11 @@ export class ContextGuard implements IContextGuard {
     const contentByPath = new Map(files.map((file, i) => [file.path, contents[i] ?? ""]));
     const allFindings = files.flatMap((file): GuardFinding[] => {
       const path = file.path;
-      if (pathAllowed(path, this.allowPatterns)) return [];
-
       const content = contentByPath.get(path) ?? "";
-      return this.scanners.flatMap((scanner) => scanner.scan(file, content));
+      const exclusionFindings = this.exclusionScanner.scan(file, content);
+      if (exclusionFindings.length > 0) return [...exclusionFindings];
+      if (pathAllowed(path, this.allowPatterns)) return [];
+      return this.contentScanners.flatMap((scanner) => scanner.scan(file, content));
     });
 
     const blockedPaths = [

@@ -88,7 +88,7 @@ describe("selection quality benchmarks", () => {
     scope = createProjectScope(fixtureRoot, new NodePathAdapter(), db, clock);
     const sha256Adapter = new Sha256Adapter();
     const configResult = new LoadConfigFromFile().load(fixtureRoot, null);
-    const { budgetConfig, heuristicConfig } = applyConfigResult(
+    const { budgetConfig, heuristicConfig, guardAllowPatterns } = applyConfigResult(
       configResult,
       scope.configStore,
       sha256Adapter,
@@ -101,6 +101,7 @@ describe("selection quality benchmarks", () => {
       budgetConfig,
       providers,
       heuristicConfig,
+      guardAllowPatterns,
     );
     const runner = new InspectRunner(deps, scope.clock);
     const request = {
@@ -150,7 +151,7 @@ describe("selection quality benchmarks", () => {
       scope = createProjectScope(fixtureRoot, new NodePathAdapter(), db, clock);
       const sha256Adapter = new Sha256Adapter();
       const configResult = new LoadConfigFromFile().load(fixtureRoot, null);
-      const { budgetConfig, heuristicConfig } = applyConfigResult(
+      const { budgetConfig, heuristicConfig, guardAllowPatterns } = applyConfigResult(
         configResult,
         scope.configStore,
         sha256Adapter,
@@ -163,6 +164,7 @@ describe("selection quality benchmarks", () => {
         budgetConfig,
         providers,
         heuristicConfig,
+        guardAllowPatterns,
       );
       const runner = new InspectRunner(deps, scope.clock);
       const baselinePath = path.join(

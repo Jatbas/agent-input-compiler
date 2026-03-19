@@ -129,7 +129,7 @@ All defaults apply when no config file exists or a field is omitted.
 | Telemetry anonymous usage    | `false` (opt-in)                                      | `aic.config.json` only              | Config only       |
 | Guard enabled                | `true`                                                | `aic.config.json` only              | Config only       |
 | Guard additional exclusions  | `[]` (empty — built-in patterns always active)        | `aic.config.json` only              | Config only       |
-| Guard allow patterns         | `[]` effective at runtime (config field ignored)      | `aic.config.json` (reserved)        | Not yet wired     |
+| Guard allow patterns         | `[]`                                                  | `aic.config.json`                   | Config only       |
 | Content transformers enabled | `true`                                                | `aic.config.json` only              | Config only       |
 | Strip comments               | `true`                                                | `aic.config.json` only              | Config only       |
 | Normalize whitespace         | `true`                                                | `aic.config.json` only              | Config only       |
@@ -265,11 +265,9 @@ Full scoring detail with normalisation methods: [Project Plan §8](project-plan.
 - `GuardResult` is attached to `CompilationMeta.guard`; the editor can surface a warning to the developer
 - If all selected files are excluded, the pipeline returns an empty context with a `guard.passed: false` indicator
 
-**Guard allow patterns (reserved; not yet applied):**
+**Guard allow patterns (shipped):**
 
-The config schema includes `guard.allowPatterns`, but **`create-pipeline-deps` constructs `ContextGuard` with an empty allow list** — entries in `aic.config.json` do not affect compilation yet.
-
-**When wired:** Files matching those globs would skip all scanners except built-in never-include paths (`.env`, `*.pem`, etc.), which stay excluded regardless.
+`guard.allowPatterns` in `aic.config.json` is a list of repo-relative glob patterns. Matching is done via the same logic as `matchesGlob` (see `shared/src/pipeline/glob-match.ts`). Files whose path matches any allow pattern skip content scanners (Secret, PromptInjection, etc.); **never-include path patterns** (`.env`, `*.pem`, etc.) run first and always block regardless of allow list. Default is `[]`.
 
 ```json
 {
@@ -278,8 +276,6 @@ The config schema includes `guard.allowPatterns`, but **`create-pipeline-deps` c
   }
 }
 ```
-
-- Intended shape: glob array; empty default in schema; runtime currently equivalent to empty
 
 **Output:** `{ result: GuardResult, safeFiles: SelectedFile[] }`
 

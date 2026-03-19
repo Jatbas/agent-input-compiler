@@ -169,8 +169,13 @@ function createRunner(fixtureRoot: ReturnType<typeof toAbsolutePath>): Compilati
   const exclusionScanner = new ExclusionScanner();
   const secretScanner = new SecretScanner();
   const promptInjectionScanner = new PromptInjectionScanner();
-  const scanners = [exclusionScanner, secretScanner, promptInjectionScanner] as const;
-  const contextGuard = new ContextGuard(scanners, fileContentReader, []);
+  const contentScanners = [secretScanner, promptInjectionScanner] as const;
+  const contextGuard = new ContextGuard(
+    exclusionScanner,
+    contentScanners,
+    fileContentReader,
+    [],
+  );
   const whitespaceNormalizer = new WhitespaceNormalizer();
   const commentStripper = new CommentStripper();
   const jsonCompactor = new JsonCompactor();

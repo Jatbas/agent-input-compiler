@@ -5,8 +5,12 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { z } from "zod";
 import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
-import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
-import type { FilePath } from "@jatbas/aic-core/core/types/paths.js";
+import type {
+  AbsolutePath,
+  FilePath,
+  GlobPattern,
+} from "@jatbas/aic-core/core/types/paths.js";
+import { toGlobPattern } from "@jatbas/aic-core/core/types/paths.js";
 import type { ResolvedConfig } from "@jatbas/aic-core/core/types/resolved-config.js";
 import { defaultResolvedConfig } from "@jatbas/aic-core/core/types/resolved-config.js";
 import type { TokenCount } from "@jatbas/aic-core/core/types/units.js";
@@ -33,6 +37,11 @@ const AicConfigSchema = z.object({
     .optional(),
   model: z.object({ id: z.string().optional() }).optional(),
   enabled: z.boolean().optional(),
+  guard: z
+    .object({
+      allowPatterns: z.array(z.string().min(1).max(512)).max(64).default([]),
+    })
+    .optional(),
 });
 
 type AicConfigParsed = z.infer<typeof AicConfigSchema>;
@@ -82,6 +91,7 @@ function buildResolvedConfig(parsed: AicConfigParsed): ResolvedConfig {
   const maxTokens = toTokenCount(parsed.contextBudget?.maxTokens ?? 8000);
   const perTaskClass = buildPerTaskClass(parsed.contextBudget?.perTaskClass);
   const maxFiles = parsed.contextSelector?.heuristic?.maxFiles ?? 20;
+  const guardAllowPatterns = parsed.guard?.allowPatterns ?? [];
   return {
     contextBudget: { maxTokens, perTaskClass },
     heuristic: { maxFiles },
@@ -89,6 +99,7 @@ function buildResolvedConfig(parsed: AicConfigParsed): ResolvedConfig {
       model: parsed.model.id !== undefined ? { id: parsed.model.id } : {},
     }),
     enabled: parsed.enabled ?? true,
+    guardAllowPatterns,
   };
 }
 
@@ -126,12 +137,17 @@ export function applyConfigResult(
   budgetConfig: BudgetConfig;
   heuristicConfig: HeuristicSelectorConfig;
   modelId: string | null;
+  guardAllowPatterns: readonly GlobPattern[];
 } {
   const content = result.rawJson ?? DEFAULT_CONFIG_JSON;
   configStore.writeSnapshot(stringHasher.hash(content), content);
+  const guardAllowPatterns = result.config.guardAllowPatterns.map((s) =>
+    toGlobPattern(s),
+  );
   return {
     budgetConfig: createBudgetConfigFromResolved(result.config),
     heuristicConfig: { maxFiles: result.config.heuristic.maxFiles },
     modelId: result.config.model?.id ?? null,
+    guardAllowPatterns,
   };
 }

@@ -5,11 +5,14 @@ import { describe, it, expect, afterEach } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
+import type { ConfigStore } from "@jatbas/aic-core/core/interfaces/config-store.interface.js";
+import type { StringHasher } from "@jatbas/aic-core/core/interfaces/string-hasher.interface.js";
 import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toFilePath } from "@jatbas/aic-core/core/types/paths.js";
+import { matchesGlob } from "@jatbas/aic-core/pipeline/glob-match.js";
 import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
-import { LoadConfigFromFile } from "../load-config-from-file.js";
+import { LoadConfigFromFile, applyConfigResult } from "../load-config-from-file.js";
 
 describe("LoadConfigFromFile", () => {
   let tmpDir: string;
@@ -112,6 +115,27 @@ describe("LoadConfigFromFile", () => {
     const result = loader.load(projectRoot, null);
     expect(result.config.contextBudget.maxTokens).toBe(toTokenCount(6000));
     // rulePacks, guard, cache are ignored; contextBudget is applied
+  });
+
+  it("load_config_guard_allow_patterns", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-config-test-"));
+    fs.writeFileSync(
+      path.join(tmpDir, "aic.config.json"),
+      '{"guard":{"allowPatterns":["src/**","lib/**"]}}',
+      "utf8",
+    );
+    const projectRoot = toAbsolutePath(tmpDir);
+    const loader = new LoadConfigFromFile();
+    const result = loader.load(projectRoot, null);
+    const mockStore: ConfigStore = {
+      getLatestHash: () => null,
+      writeSnapshot: () => {},
+    };
+    const mockHasher: StringHasher = { hash: () => "h" };
+    const applied = applyConfigResult(result, mockStore, mockHasher);
+    expect(applied.guardAllowPatterns.length).toBe(2);
+    expect(matchesGlob("src/foo.ts", applied.guardAllowPatterns[0] ?? "")).toBe(true);
+    expect(matchesGlob("lib/bar.ts", applied.guardAllowPatterns[1] ?? "")).toBe(true);
   });
 
   it("load_explicit_config_path_uses_that_file", () => {

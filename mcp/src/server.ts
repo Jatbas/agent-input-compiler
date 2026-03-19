@@ -234,6 +234,7 @@ export function createMcpServer(
     budgetConfig,
     heuristicConfig,
     modelId: configModelId,
+    guardAllowPatterns,
   } = applyConfigResult(configResult, startupScope.configStore, sha256Adapter);
   const fileContentReader = createCachingFileContentReader(projectRoot);
   const rulePackProvider = createRulePackProvider(projectRoot);
@@ -243,6 +244,7 @@ export function createMcpServer(
     budgetConfig,
     additionalProviders,
     heuristicConfig,
+    guardAllowPatterns,
   );
   const toolInvocationLogStore = new SqliteToolInvocationLogStore(
     startupScope.projectId,
@@ -254,8 +256,11 @@ export function createMcpServer(
     const cached = runnerCache.get(key);
     if (cached !== undefined) return cached.runner;
     const scopeConfigResult = configLoader.load(scope.projectRoot, null);
-    const { budgetConfig: scopeBudgetConfig, heuristicConfig: scopeHeuristicConfig } =
-      applyConfigResult(scopeConfigResult, scope.configStore, sha256Adapter);
+    const {
+      budgetConfig: scopeBudgetConfig,
+      heuristicConfig: scopeHeuristicConfig,
+      guardAllowPatterns: scopeGuardAllowPatterns,
+    } = applyConfigResult(scopeConfigResult, scope.configStore, sha256Adapter);
     const scopeFileContentReader = createCachingFileContentReader(scope.projectRoot);
     const scopeRulePackProvider = createRulePackProvider(scope.projectRoot);
     const partial = createPipelineDeps(
@@ -264,6 +269,7 @@ export function createMcpServer(
       scopeBudgetConfig,
       additionalProviders,
       scopeHeuristicConfig,
+      scopeGuardAllowPatterns,
     );
     const ignoreAdapter = new IgnoreAdapter();
     const inner = new FileSystemRepoMapSupplier(new FastGlobAdapter(), ignoreAdapter);

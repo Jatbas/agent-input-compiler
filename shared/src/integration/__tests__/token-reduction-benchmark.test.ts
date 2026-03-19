@@ -84,7 +84,7 @@ describe("token reduction benchmarks", () => {
     scope = createProjectScope(fixtureRoot, new NodePathAdapter(), db, clock);
     const sha256Adapter = new Sha256Adapter();
     const configResult = new LoadConfigFromFile().load(fixtureRoot, null);
-    const { budgetConfig, heuristicConfig } = applyConfigResult(
+    const { budgetConfig, heuristicConfig, guardAllowPatterns } = applyConfigResult(
       configResult,
       scope.configStore,
       sha256Adapter,
@@ -97,6 +97,7 @@ describe("token reduction benchmarks", () => {
       budgetConfig,
       providers,
       heuristicConfig,
+      guardAllowPatterns,
     );
     const runner = new CompilationRunner(
       deps,

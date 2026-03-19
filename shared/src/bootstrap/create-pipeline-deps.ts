@@ -7,7 +7,7 @@ import type { BudgetConfig } from "@jatbas/aic-core/core/interfaces/budget-confi
 import type { HeuristicSelectorConfig } from "@jatbas/aic-core/core/interfaces/heuristic-selector-config.interface.js";
 import type { LanguageProvider } from "@jatbas/aic-core/core/interfaces/language-provider.interface.js";
 import type { PipelineStepsDeps } from "@jatbas/aic-core/core/run-pipeline-steps.js";
-import type { FileExtension } from "@jatbas/aic-core/core/types/paths.js";
+import type { FileExtension, GlobPattern } from "@jatbas/aic-core/core/types/paths.js";
 import type { TokenCount } from "@jatbas/aic-core/core/types/units.js";
 import { toFileExtension } from "@jatbas/aic-core/core/types/paths.js";
 import { IntentClassifier } from "@jatbas/aic-core/pipeline/intent-classifier.js";
@@ -75,6 +75,7 @@ export function createPipelineDeps(
   budgetConfig: BudgetConfig,
   additionalProviders?: readonly LanguageProvider[],
   heuristicSelectorConfig?: HeuristicSelectorConfig,
+  guardAllowPatterns?: readonly GlobPattern[],
 ): PipelineDepsWithoutRepoMap {
   const tiktokenAdapter = new TiktokenAdapter();
   const tokenCounter = (text: string): TokenCount => tiktokenAdapter.countTokens(text);
@@ -111,14 +112,18 @@ export function createPipelineDeps(
   const promptInjectionScanner = new PromptInjectionScanner();
   const markdownInstructionScanner = new MarkdownInstructionScanner();
   const commandInjectionScanner = new CommandInjectionScanner();
-  const scanners = [
-    exclusionScanner,
+  const contentScanners = [
     secretScanner,
     promptInjectionScanner,
     markdownInstructionScanner,
     commandInjectionScanner,
   ] as const;
-  const contextGuard = new ContextGuard(scanners, fileContentReader, []);
+  const contextGuard = new ContextGuard(
+    exclusionScanner,
+    contentScanners,
+    fileContentReader,
+    guardAllowPatterns ?? [],
+  );
   const whitespaceNormalizer = new WhitespaceNormalizer(WHITESPACE_EXCLUDED_EXTENSIONS);
   const testStructureExtractor = new TestStructureExtractor();
   const commentStripper = new CommentStripper();
@@ -199,6 +204,7 @@ export function createFullPipelineDeps(
   budgetConfig: BudgetConfig,
   additionalProviders?: readonly LanguageProvider[],
   heuristicSelectorConfig?: HeuristicSelectorConfig,
+  guardAllowPatterns?: readonly GlobPattern[],
 ): PipelineStepsDeps {
   const partial = createPipelineDeps(
     fileContentReader,
@@ -206,6 +212,7 @@ export function createFullPipelineDeps(
     budgetConfig,
     additionalProviders,
     heuristicSelectorConfig,
+    guardAllowPatterns,
   );
   const ignoreAdapter = new IgnoreAdapter();
   const inner = new FileSystemRepoMapSupplier(new FastGlobAdapter(), ignoreAdapter);
