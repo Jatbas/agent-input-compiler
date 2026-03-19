@@ -35,6 +35,11 @@ import { ensureProjectInit } from "../init-project.js";
 import { installTriggerRule } from "../install-trigger-rule.js";
 import { runEditorBootstrapIfNeeded } from "../editor-integration-dispatch.js";
 import { validateProjectRoot, validateConfigPath } from "../validate-project-root.js";
+import {
+  isValidModelId,
+  isValidConversationId,
+  isValidEditorId,
+} from "@jatbas/aic-core/maintenance/cache-field-validators.js";
 
 const SESSION_MODELS_FILE = "session-models.jsonl";
 
@@ -43,11 +48,6 @@ interface SessionModelEntry {
   readonly m: string;
   readonly e?: string;
   readonly timestamp: string;
-}
-
-function isValidModelId(s: string): boolean {
-  const t = s.trim();
-  return t.length >= 1 && t.length <= 256 && /^[\x20-\x7E]+$/.test(t);
 }
 
 function normalizeModelId(raw: string): string {
@@ -73,13 +73,18 @@ function readSessionModelCache(
       try {
         const entry = JSON.parse(line) as SessionModelEntry;
         if (
-          typeof entry.m === "string" &&
-          isValidModelId(entry.m) &&
-          entry.e === editorId
+          typeof entry.m !== "string" ||
+          !isValidModelId(entry.m) ||
+          typeof entry.c !== "string" ||
+          !isValidConversationId(entry.c) ||
+          typeof entry.e !== "string" ||
+          !isValidEditorId(entry.e) ||
+          entry.e !== editorId
         ) {
-          lastAny = entry.m;
-          if (cid.length > 0 && entry.c === cid) lastMatch = entry.m;
+          continue;
         }
+        lastAny = entry.m;
+        if (cid.length > 0 && entry.c === cid) lastMatch = entry.m;
       } catch {
         // skip malformed lines
       }

@@ -5,13 +5,16 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
+import { isValidTimestamp } from "./cache-field-validators.js";
 
 const RETENTION_MINUTES = 24 * 60;
 
 function parseTimestamp(line: string): string | null {
   try {
     const obj = JSON.parse(line) as { timestamp?: string };
-    return typeof obj.timestamp === "string" ? obj.timestamp : null;
+    if (typeof obj.timestamp !== "string") return null;
+    if (!isValidTimestamp(obj.timestamp)) return null;
+    return obj.timestamp;
   } catch {
     return null;
   }

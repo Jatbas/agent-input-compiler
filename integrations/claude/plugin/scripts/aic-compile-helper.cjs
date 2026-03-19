@@ -7,14 +7,14 @@
 const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const {
+  isValidModelId,
+  isValidConversationId,
+  isValidEditorId,
+} = require("../../../shared/cache-field-validators.cjs");
 
 // conversationId must be conversation-scoped (not session_id) for correct chat summary attribution.
 // modelId: string with content, or null, or undefined; undefined: resolve from sixth param first; if empty, read projectRoot/.aic/session-models.jsonl
-function isValidModelId(s) {
-  if (typeof s !== "string") return false;
-  const trimmed = s.trim();
-  return trimmed.length >= 1 && trimmed.length <= 256 && /^[\x20-\x7E]+$/.test(trimmed);
-}
 
 function normalizeModelId(raw) {
   return raw.toLowerCase() === "default" ? "auto" : raw;
@@ -46,10 +46,19 @@ function readSessionModelCache(root, convId, eid) {
     for (const line of lines) {
       try {
         const entry = JSON.parse(line);
-        if (typeof entry.m === "string" && isValidModelId(entry.m) && entry.e === eid) {
-          lastAny = entry.m;
-          if (cid.length > 0 && entry.c === cid) lastMatch = entry.m;
+        if (
+          typeof entry.m !== "string" ||
+          !isValidModelId(entry.m) ||
+          typeof entry.c !== "string" ||
+          !isValidConversationId(entry.c) ||
+          typeof entry.e !== "string" ||
+          !isValidEditorId(entry.e) ||
+          entry.e !== eid
+        ) {
+          continue;
         }
+        lastAny = entry.m;
+        if (cid.length > 0 && entry.c === cid) lastMatch = entry.m;
       } catch {
         // skip malformed
       }

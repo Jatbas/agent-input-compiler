@@ -4,12 +4,11 @@
 
 const fs = require("fs");
 const path = require("path");
-
-function isValidModelId(s) {
-  if (typeof s !== "string") return false;
-  const t = s.trim();
-  return t.length >= 1 && t.length <= 256 && /^[\x20-\x7E]+$/.test(t);
-}
+const {
+  isValidModelId,
+  isValidConversationId,
+  isValidEditorId,
+} = require("../../shared/cache-field-validators.cjs");
 
 function normalizeModelId(raw) {
   return raw.toLowerCase() === "default" ? "auto" : raw;
@@ -25,10 +24,19 @@ function readSessionModelCache(root, convId, eid) {
     for (const line of lines) {
       try {
         const entry = JSON.parse(line);
-        if (typeof entry.m === "string" && isValidModelId(entry.m) && entry.e === eid) {
-          lastAny = entry.m;
-          if (cid.length > 0 && entry.c === cid) lastMatch = entry.m;
+        if (
+          typeof entry.m !== "string" ||
+          !isValidModelId(entry.m) ||
+          typeof entry.c !== "string" ||
+          !isValidConversationId(entry.c) ||
+          typeof entry.e !== "string" ||
+          !isValidEditorId(entry.e) ||
+          entry.e !== eid
+        ) {
+          continue;
         }
+        lastAny = entry.m;
+        if (cid.length > 0 && entry.c === cid) lastMatch = entry.m;
       } catch {
         // skip malformed
       }

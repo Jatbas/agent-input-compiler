@@ -10,6 +10,11 @@ const fs = require("fs");
 const path = require("path");
 
 const { modelIdFromSubagentStartPayload } = require("./subagent-start-model-id.cjs");
+const {
+  isValidModelId,
+  isValidConversationId,
+  isValidEditorId,
+} = require("../../shared/cache-field-validators.cjs");
 
 let hookInput = {};
 try {
@@ -39,12 +44,6 @@ const compileArgs = {
 };
 if (conversationId) compileArgs.conversationId = conversationId;
 
-function isValidModelId(s) {
-  if (typeof s !== "string") return false;
-  const t = s.trim();
-  return t.length >= 1 && t.length <= 256 && /^[\x20-\x7E]+$/.test(t);
-}
-
 function writeSessionModelCache(root, modelId, convId) {
   try {
     const filePath = path.join(root, ".aic", "session-models.jsonl");
@@ -72,13 +71,18 @@ function readSessionModelCache(root, convId) {
       try {
         const entry = JSON.parse(line);
         if (
-          typeof entry.m === "string" &&
-          isValidModelId(entry.m) &&
-          entry.e === "cursor"
+          typeof entry.m !== "string" ||
+          !isValidModelId(entry.m) ||
+          typeof entry.c !== "string" ||
+          !isValidConversationId(entry.c) ||
+          typeof entry.e !== "string" ||
+          !isValidEditorId(entry.e) ||
+          entry.e !== "cursor"
         ) {
-          lastAny = entry.m;
-          if (cid.length > 0 && entry.c === cid) lastMatch = entry.m;
+          continue;
         }
+        lastAny = entry.m;
+        if (cid.length > 0 && entry.c === cid) lastMatch = entry.m;
       } catch {
         // skip malformed
       }
