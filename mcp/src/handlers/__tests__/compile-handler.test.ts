@@ -13,6 +13,7 @@ import {
   toISOTimestamp,
   toUUIDv7,
   toProjectId,
+  toConversationId,
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
 import {
@@ -26,7 +27,10 @@ import {
   GUARD_SEVERITY,
   GUARD_FINDING_TYPE,
 } from "@jatbas/aic-core/core/types/enums.js";
-import type { CompilationMeta } from "@jatbas/aic-core/core/types/compilation-types.js";
+import type {
+  CompilationMeta,
+  CompilationRequest,
+} from "@jatbas/aic-core/core/types/compilation-types.js";
 import { defaultResolvedConfig } from "@jatbas/aic-core/core/types/resolved-config.js";
 import type { ConfigLoader } from "@jatbas/aic-core/core/interfaces/config-loader.interface.js";
 import { NodePathAdapter } from "@jatbas/aic-core/adapters/node-path-adapter.js";
@@ -448,6 +452,147 @@ describe("compile-handler", () => {
       );
       expect(fs.existsSync(path.join(tmpDir, "aic.config.json"))).toBe(true);
       expect(fs.existsSync(path.join(tmpDir, ".aic"))).toBe(true);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("sanitise_overlong_modelId", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+    try {
+      const runCalls: CompilationRequest[] = [];
+      const captureRunner = {
+        run: (req: CompilationRequest) => {
+          runCalls.push(req);
+          return Promise.resolve({
+            compiledPrompt: "ok",
+            meta: STUB_COMPILATION_META,
+            compilationId: toUUIDv7("00000000-0000-7000-8000-000000000099"),
+          });
+        },
+      };
+      const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
+      const handler = createCompileHandler(
+        getScope,
+        (_scope: ProjectScope) => captureRunner,
+        { hash: (): string => "" },
+        getSessionId,
+        getEditorId,
+        getModelId,
+        null,
+        [],
+        enabledConfigLoader,
+        () => {},
+        () => null,
+        () => false,
+      );
+      await handler(
+        {
+          intent: "test",
+          projectRoot: tmpDir,
+          modelId: "a".repeat(257),
+          configPath: null,
+        },
+        undefined,
+      );
+      expect(runCalls).toHaveLength(1);
+      expect(runCalls[0]!.modelId).toBeNull();
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("sanitise_invalid_editorId", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+    try {
+      const runCalls: CompilationRequest[] = [];
+      const captureRunner = {
+        run: (req: CompilationRequest) => {
+          runCalls.push(req);
+          return Promise.resolve({
+            compiledPrompt: "ok",
+            meta: STUB_COMPILATION_META,
+            compilationId: toUUIDv7("00000000-0000-7000-8000-000000000099"),
+          });
+        },
+      };
+      const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
+      const handler = createCompileHandler(
+        getScope,
+        (_scope: ProjectScope) => captureRunner,
+        { hash: (): string => "" },
+        getSessionId,
+        getEditorId,
+        getModelId,
+        null,
+        [],
+        enabledConfigLoader,
+        () => {},
+        () => null,
+        () => false,
+      );
+      await handler(
+        {
+          intent: "test",
+          projectRoot: tmpDir,
+          modelId: null,
+          configPath: null,
+          editorId: "unknown",
+        },
+        undefined,
+      );
+      expect(runCalls).toHaveLength(1);
+      expect(runCalls[0]!.editorId).toBe(EDITOR_ID.GENERIC);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("sanitise_valid_passthrough", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+    try {
+      const runCalls: CompilationRequest[] = [];
+      const captureRunner = {
+        run: (req: CompilationRequest) => {
+          runCalls.push(req);
+          return Promise.resolve({
+            compiledPrompt: "ok",
+            meta: STUB_COMPILATION_META,
+            compilationId: toUUIDv7("00000000-0000-7000-8000-000000000099"),
+          });
+        },
+      };
+      const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
+      const handler = createCompileHandler(
+        getScope,
+        (_scope: ProjectScope) => captureRunner,
+        { hash: (): string => "" },
+        getSessionId,
+        getEditorId,
+        getModelId,
+        null,
+        [],
+        enabledConfigLoader,
+        () => {},
+        () => null,
+        () => false,
+      );
+      await handler(
+        {
+          intent: "test",
+          projectRoot: tmpDir,
+          modelId: "claude-3-5-sonnet",
+          configPath: null,
+          conversationId: "valid-cid",
+          editorId: "cursor",
+        },
+        undefined,
+      );
+      expect(runCalls).toHaveLength(1);
+      const req = runCalls[0]!;
+      expect(req.modelId).toBe("claude-3-5-sonnet");
+      expect(req.editorId).toBe(EDITOR_ID.CURSOR);
+      expect(req.conversationId).toBe(toConversationId("valid-cid"));
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

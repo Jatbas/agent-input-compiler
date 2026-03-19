@@ -293,7 +293,7 @@ Validate all `.aic/` JSONL cache files against injection attacks. Cache entries 
 | -------------------------------------------------- | ------- | -------------------------------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | AE01: Audit all cache file read sites              | Done    | integrations/ + mcp/src/handlers/            | —    | Inventory every read/write site for all 3 JSONL cache files; document the expected schema per file; identify which reads currently lack validation (most do — only `isValidModelId` exists for `m`)   |
 | AE02: Strict field validation on cache reads       | Done    | integrations/ + mcp/src/handlers/            | AE01 | Add per-field validation at every read site: type check (`typeof === "string"`), max length (256 for modelId, 128 for conversationId, 20 for editorId), printable-ASCII regex; silently skip bad rows |
-| AE03: Sanitise cache values before pipeline use    | Pending | mcp/src/handlers/                            | AE02 | On the server side, pass cache-derived `modelId`/`conversationId`/`editorId` through the same Zod schema constraints used in `compilation-request.ts` before using them in SQL or tool responses      |
+| AE03: Sanitise cache values before pipeline use    | Done    | mcp/src/schemas/ + mcp/src/handlers/         | AE02 | On the server side, pass cache-derived `modelId`/`conversationId`/`editorId` through the same Zod schema constraints used in `compilation-request.ts` before using them in SQL or tool responses      |
 | AE04: Integration tests for malicious cache inputs | Pending | integrations/**tests**/ + mcp/src/**tests**/ | AE03 | Test vectors: overlong strings (>256 chars), control characters (`\x00`-`\x1f`), nested JSON objects as field values, empty strings, missing fields, duplicate keys; verify all are silently rejected |
 
 ### Phase AF — Model ID Resolution Simplification
@@ -568,11 +568,12 @@ CLI package removed. User questions ("Is it working?", "What just happened?", "H
 
 ### 2026-03-19
 
-**Components:** Task 196 Cursor subagent compilation_log model_id, Task 199 strict field validation on cache reads (AE02)
+**Components:** Task 196 Cursor subagent compilation_log model_id, Task 199 strict field validation on cache reads (AE02), Task 200 sanitise cache values before pipeline use (AE03)
 **Completed:**
 
 - Task 199 (AE02 Strict field validation on cache reads): shared `cache-field-validators.ts` (isValidModelId, isValidConversationId, isValidEditorId, isValidTimestamp) with bounds and printable-ASCII; CJS copy in `integrations/shared/cache-field-validators.cjs` for hooks; compile-handler, prune-jsonl-by-timestamp, and four CJS hooks validate m/c/e (and timestamp in prune) and skip invalid rows. Lint, typecheck, test, knip, lint:clones 0.
 - Task 196 (subagentStart model_id): `subagent-start-model-id.cjs` validates `subagent_model` (trim, 1–256, printable ASCII); `AIC-subagent-compile.cjs` passes `modelId` and writes `.aic/.claude-session-model`; 12 hook scripts in manifest + install tests (`install_twelve_scripts`); `AIC-subagent-model-id.test.cjs` chained in `pnpm test`; `cursor-integration-layer.md` §7.10 documents `subagent_model` → `modelId`. `compile-handler.ts` audited — Claude cache branch retained, no broad Cursor cache. Lint, typecheck, test, knip, lint:clones 0.
+- Task 200 (AE03 Sanitise cache values before pipeline use): `SanitisedCacheIdsSchema` in compilation-request.ts (modelId/conversationId/editorId Zod constraints, editorId default "generic"); compile-handler sanitises resolved IDs via safeParse, builds request and setLastConversationId from safe values only; tests sanitise_overlong_modelId, sanitise_invalid_editorId, sanitise_valid_passthrough. Lint, typecheck, test, knip, lint:clones 0.
 
 ### 2026-03-18
 

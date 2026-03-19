@@ -19,6 +19,7 @@ import { TimeoutError } from "@jatbas/aic-core/core/errors/timeout-error.js";
 import { sanitizeError } from "@jatbas/aic-core/core/errors/sanitize-error.js";
 import {
   type EditorId,
+  EDITOR_ID,
   type TriggerSource,
   TRIGGER_SOURCE,
 } from "@jatbas/aic-core/core/types/enums.js";
@@ -40,6 +41,10 @@ import {
   isValidConversationId,
   isValidEditorId,
 } from "@jatbas/aic-core/maintenance/cache-field-validators.js";
+import {
+  SanitisedCacheIdsSchema,
+  type SanitisedCacheIds,
+} from "../schemas/compilation-request.js";
 
 const SESSION_MODELS_FILE = "session-models.jsonl";
 
@@ -312,19 +317,40 @@ export function createCompileHandler(
         scope.clock.now(),
       );
       const resolvedConversationId = resolveConversationId(args.conversationId);
+      const parsed = SanitisedCacheIdsSchema.safeParse({
+        modelId: resolvedModelId,
+        conversationId: resolvedConversationId,
+        editorId: resolvedEditorId,
+      });
+      const safe:
+        | SanitisedCacheIds
+        | {
+            modelId: string | null;
+            conversationId: string | null;
+            editorId: EditorId;
+          } =
+        parsed.success === true
+          ? parsed.data
+          : {
+              modelId: null as string | null,
+              conversationId: null as string | null,
+              editorId: EDITOR_ID.GENERIC as EditorId,
+            };
       const request: CompilationRequest = {
         intent,
         projectRoot,
-        modelId: resolvedModelId,
-        editorId: resolvedEditorId,
+        modelId: safe.modelId,
+        editorId: safe.editorId,
         configPath,
         sessionId: getSessionId(),
         triggerSource: args.triggerSource ?? TRIGGER_SOURCE.TOOL_GATE,
-        ...(resolvedConversationId !== null
-          ? { conversationId: toConversationId(resolvedConversationId) }
+        ...(safe.conversationId !== null &&
+        safe.conversationId !== undefined &&
+        safe.conversationId !== ""
+          ? { conversationId: toConversationId(safe.conversationId) }
           : {}),
       };
-      setLastConversationId(resolvedConversationId ?? null);
+      setLastConversationId(safe.conversationId ?? null);
       recordToolInvocation(
         toolInvocationLogStore,
         scope.clock,

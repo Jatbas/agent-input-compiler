@@ -47,5 +47,24 @@ const compilationRequestShape = {
     .optional(),
 } as const;
 
+export const SanitisedCacheIdsSchema = z.object({
+  modelId: z
+    .string()
+    .max(256)
+    .regex(/^[\x20-\x7E]+$/)
+    .nullable()
+    .default(null),
+  conversationId: z
+    .string()
+    .max(128)
+    .regex(/^[\x20-\x7E]+$/)
+    .nullable()
+    .optional(),
+  editorId: z
+    .enum(["cursor", "cursor-claude-code", "claude-code", "generic"])
+    .default("generic"),
+});
+export type SanitisedCacheIds = z.infer<typeof SanitisedCacheIdsSchema>;
+
 export const CompilationRequestSchema: typeof compilationRequestShape =
   compilationRequestShape;
