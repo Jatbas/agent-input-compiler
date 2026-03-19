@@ -226,6 +226,8 @@ Hooks run as Cursor spawns them — they are independent processes, not part of 
 
 Key point: hooks and the MCP server are **separate execution paths**. The MCP server does not control when hooks run. Cursor does.
 
+For the full edited-files flow (tracker → stop → cleanup and temp file behavior), see [edited-files flow](edited-files-flow.md).
+
 ### How Hooks Are Delivered
 
 Hook scripts are authored in `integrations/cursor/hooks/` and deployed to each project's
@@ -304,6 +306,8 @@ Claude Code provides a richer hook lifecycle than Cursor, including the critical
 Hooks run as Claude Code spawns them — they are independent processes, not part of the MCP server. Claude Code reads the active settings (plugin-provided or `~/.claude/settings.json`) and invokes the registered commands at the relevant lifecycle events.
 
 Key point: hooks and the MCP server are **separate execution paths**. The MCP server does not control when hooks run. Claude Code does.
+
+For the full edited-files flow (tracker → stop → cleanup and temp file behavior), see [edited-files flow](edited-files-flow.md).
 
 ### How Hooks Are Delivered
 

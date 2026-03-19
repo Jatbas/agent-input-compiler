@@ -91,6 +91,8 @@ Deliver a working **MCP server** that compiles optimal context for AI coding too
 | `aic_last` (MCP tool)                             | Most recent compilation breakdown with prompt summary                                |
 | Bootstrap (automatic on connect or first compile) | Scaffold config, trigger rule, hooks, `.aic/` directory                              |
 
+The integration layer runs quality checks on edited files at stop time; see [edited-files flow](edited-files-flow.md) for the full flow per editor.
+
 ### Excluded (deferred) ❌
 
 | Feature                             | Phase    |

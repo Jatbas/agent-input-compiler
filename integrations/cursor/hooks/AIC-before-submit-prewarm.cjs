@@ -11,6 +11,12 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
+const {
+  isValidModelId,
+  normalizeModelId,
+  writeSessionModelCache,
+} = require("../../shared/session-model-cache.cjs");
+
 const projectRoot = process.env.CURSOR_PROJECT_DIR || process.cwd();
 const LOG_FILE = path.join(projectRoot, ".aic", "prompt-log.jsonl");
 
@@ -53,21 +59,14 @@ process.stdin.on("end", () => {
         timestamp: ts,
       });
 
-      if (model.length >= 1 && model.length <= 256 && /^[\x20-\x7E]+$/.test(model)) {
-        const normalized = model.toLowerCase() === "default" ? "auto" : model;
-        try {
-          const smPath = path.join(projectRoot, ".aic", "session-models.jsonl");
-          fs.mkdirSync(path.dirname(smPath), { recursive: true, mode: 0o700 });
-          const entry = JSON.stringify({
-            c: conversationId,
-            m: normalized,
-            e: "cursor",
-            timestamp: ts,
-          });
-          fs.appendFileSync(smPath, entry + "\n", "utf8");
-        } catch {
-          // non-fatal
-        }
+      if (isValidModelId(model)) {
+        writeSessionModelCache(
+          projectRoot,
+          normalizeModelId(model.trim()),
+          conversationId,
+          "cursor",
+          ts,
+        );
       }
     }
   } catch {

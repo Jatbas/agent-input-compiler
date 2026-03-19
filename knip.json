@@ -20,6 +20,8 @@
     "integrations/claude/plugin/**",
     "integrations/claude/__tests__/**",
     "integrations/shared/cache-field-validators.cjs",
+    "integrations/shared/session-model-cache.cjs",
+    "integrations/shared/__tests__/session-model-cache.test.cjs",
     "mcp/scripts/**",
     "shared/src/core/errors/budget-exceeded-error.ts",
     "shared/src/core/errors/guard-blocked-all-error.ts",

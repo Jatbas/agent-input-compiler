@@ -417,6 +417,8 @@ This gives the model a clear signal that the compilation result is available and
 
 **File:** `.cursor/hooks/AIC-after-file-edit-tracker.cjs`
 
+For the full edited-files flow (tracker → stop → cleanup) and file list, see [edited-files flow](edited-files-flow.md).
+
 ---
 
 ### 7.8 stop — quality gate (ESLint + typecheck)
@@ -443,6 +445,8 @@ The model then sees this as a new prompt, fixes the errors, and tries to stop ag
 - If neither ESLint nor `tsc --noEmit` are available → allow stop (no `tsconfig.json`)
 
 **File:** `.cursor/hooks/AIC-stop-quality-check.cjs`
+
+For the full edited-files flow and file list, see [edited-files flow](edited-files-flow.md).
 
 ---
 

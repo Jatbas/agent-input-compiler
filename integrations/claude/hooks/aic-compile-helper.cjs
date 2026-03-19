@@ -9,66 +9,13 @@ const fs = require("fs");
 const path = require("path");
 const {
   isValidModelId,
-  isValidConversationId,
-  isValidEditorId,
-} = require("../../shared/cache-field-validators.cjs");
+  normalizeModelId,
+  readSessionModelCache,
+  writeSessionModelCache,
+} = require("../../shared/session-model-cache.cjs");
 
 // conversationId must be conversation-scoped (not session_id) for correct chat summary attribution.
 // modelId: string with content, or null, or undefined; undefined: resolve from sixth param first; if empty, read projectRoot/.aic/session-models.jsonl
-
-function normalizeModelId(raw) {
-  return raw.toLowerCase() === "default" ? "auto" : raw;
-}
-
-function writeSessionModelCache(root, modelId, convId, eid) {
-  try {
-    const filePath = path.join(root, ".aic", "session-models.jsonl");
-    fs.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
-    const entry = JSON.stringify({
-      c: typeof convId === "string" ? convId.trim() : "",
-      m: modelId,
-      e: eid,
-      timestamp: new Date().toISOString(),
-    });
-    fs.appendFileSync(filePath, entry + "\n", "utf8");
-  } catch {
-    // non-fatal
-  }
-}
-
-function readSessionModelCache(root, convId, eid) {
-  try {
-    const raw = fs.readFileSync(path.join(root, ".aic", "session-models.jsonl"), "utf8");
-    const lines = raw.split("\n").filter((l) => l.trim().length > 0);
-    const cid = typeof convId === "string" ? convId.trim() : "";
-    let lastMatch = null;
-    let lastAny = null;
-    for (const line of lines) {
-      try {
-        const entry = JSON.parse(line);
-        if (
-          typeof entry.m !== "string" ||
-          !isValidModelId(entry.m) ||
-          typeof entry.c !== "string" ||
-          !isValidConversationId(entry.c) ||
-          typeof entry.e !== "string" ||
-          !isValidEditorId(entry.e) ||
-          entry.e !== eid
-        ) {
-          continue;
-        }
-        lastAny = entry.m;
-        if (cid.length > 0 && entry.c === cid) lastMatch = entry.m;
-      } catch {
-        // skip malformed
-      }
-    }
-    return lastMatch !== null ? lastMatch : lastAny;
-  } catch {
-    // no cache
-  }
-  return null;
-}
 
 function detectEditorId() {
   if (process.env.CURSOR_TRACE_ID && String(process.env.CURSOR_TRACE_ID).trim() !== "") {
@@ -100,7 +47,7 @@ function callAicCompile(
   let resolved = null;
   if (isValidModelId(modelId)) {
     resolved = normalizeModelId(String(modelId).trim());
-    writeSessionModelCache(projectRoot, resolved, conversationId, editorId);
+    writeSessionModelCache(projectRoot, resolved, conversationId || "", editorId);
   } else {
     const cached = readSessionModelCache(projectRoot, conversationId, editorId);
     if (cached !== null) resolved = normalizeModelId(cached);

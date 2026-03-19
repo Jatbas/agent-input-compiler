@@ -5,8 +5,11 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 
-const { modelIdFromSubagentStartPayload, normalizeModelId } = require(
+const { modelIdFromSubagentStartPayload } = require(
   path.join(__dirname, "..", "hooks", "subagent-start-model-id.cjs"),
+);
+const { normalizeModelId } = require(
+  path.join(__dirname, "..", "..", "shared", "session-model-cache.cjs"),
 );
 
 function modelId_trim() {

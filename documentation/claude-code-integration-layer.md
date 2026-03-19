@@ -364,6 +364,8 @@ The marker is scoped by `session_id` so multiple concurrent sessions don't inter
 
 **File:** `.claude/hooks/aic-after-file-edit-tracker.cjs`
 
+For the full edited-files flow (tracker → stop → cleanup) and file list, see [edited-files flow](edited-files-flow.md).
+
 ---
 
 ### 7.6 Stop — quality gate (ESLint + typecheck)
@@ -379,6 +381,8 @@ The marker is scoped by `session_id` so multiple concurrent sessions don't inter
 **Implementation note:** If the temp file for this `session_id` does not exist (no files were edited, or the tracker missed it), exit 0 immediately — do not block.
 
 **File:** `.claude/hooks/aic-stop-quality-check.cjs`
+
+For the full edited-files flow and file list, see [edited-files flow](edited-files-flow.md).
 
 ---
 
@@ -407,6 +411,8 @@ The marker is scoped by `session_id` so multiple concurrent sessions don't inter
 **Additional responsibility:** Delete the `.aic/.session-context-injected` marker for this `session_id` (see the dual-path workaround in §7.2) so it doesn't persist across sessions.
 
 **File:** `.claude/hooks/aic-session-end.cjs`
+
+For the full edited-files flow and cleanup behavior, see [edited-files flow](edited-files-flow.md).
 
 ---
 

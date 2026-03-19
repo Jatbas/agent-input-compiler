@@ -3,9 +3,7 @@
 
 // Validates Cursor subagentStart `subagent_model` for aic_compile modelId (aligned with AIC-compile-context.cjs).
 
-function normalizeModelId(raw) {
-  return raw.toLowerCase() === "default" ? "auto" : raw;
-}
+const { normalizeModelId } = require("../../shared/session-model-cache.cjs");
 
 function modelIdFromSubagentStartPayload(payload) {
   if (!payload || typeof payload !== "object") return null;
@@ -17,4 +15,4 @@ function modelIdFromSubagentStartPayload(payload) {
   return normalizeModelId(trimmed);
 }
 
-module.exports = { modelIdFromSubagentStartPayload, normalizeModelId };
+module.exports = { modelIdFromSubagentStartPayload };

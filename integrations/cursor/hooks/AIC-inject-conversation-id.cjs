@@ -7,6 +7,12 @@
 const fs = require("fs");
 const path = require("path");
 
+const {
+  isValidModelId,
+  normalizeModelId,
+  writeSessionModelCache,
+} = require("../../shared/session-model-cache.cjs");
+
 let raw = "";
 process.stdin.setEncoding("utf8");
 process.stdin.on("data", (chunk) => {
@@ -59,30 +65,18 @@ process.stdin.on("end", () => {
     if (idStr) updated.conversationId = idStr;
     if (typeof input.model === "string") {
       const trimmed = input.model.trim();
-      if (
-        trimmed.length >= 1 &&
-        trimmed.length <= 256 &&
-        /^[\x20-\x7E]+$/.test(trimmed)
-      ) {
-        const normalized = trimmed.toLowerCase() === "default" ? "auto" : trimmed;
-        updated.modelId = normalized;
+      if (isValidModelId(trimmed)) {
+        updated.modelId = normalizeModelId(trimmed);
         const projectRoot =
           (toolInput && toolInput.projectRoot) ||
           process.env.CURSOR_PROJECT_DIR ||
           process.cwd();
-        try {
-          const filePath = path.join(projectRoot, ".aic", "session-models.jsonl");
-          fs.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
-          const entry = JSON.stringify({
-            c: idStr || "",
-            m: normalized,
-            e: "cursor",
-            timestamp: new Date().toISOString(),
-          });
-          fs.appendFileSync(filePath, entry + "\n", "utf8");
-        } catch {
-          // non-fatal
-        }
+        writeSessionModelCache(
+          projectRoot,
+          normalizeModelId(trimmed),
+          idStr || "",
+          "cursor",
+        );
       }
     }
     if (updated.conversationId !== undefined || updated.modelId !== undefined) {

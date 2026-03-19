@@ -64,7 +64,7 @@ See [cursor-integration-layer](cursor-integration-layer.md) and [claude-code-int
 | Pre-compaction                     | Hook available (observational) | Integrated  |
 | Trigger rule                       | Integrated                     | Integrated  |
 
-Cursor exposes sessionEnd, preCompact, subagentStart (gating only — no context injection), stop, afterFileEdit, and others; see [Cursor agent hooks](https://cursor.com/docs/agent/hooks). AIC uses sessionEnd, stop, and afterFileEdit where the editor exposes them. Claude Code's hook system covers all 7 capabilities, and AIC's integration layer is built for them.
+Cursor exposes sessionEnd, preCompact, subagentStart (gating only — no context injection), stop, afterFileEdit, and others; see [Cursor agent hooks](https://cursor.com/docs/agent/hooks). AIC uses sessionEnd, stop, and afterFileEdit where the editor exposes them (see [edited-files flow](edited-files-flow.md) for the full flow). Claude Code's hook system covers all 7 capabilities, and AIC's integration layer is built for them.
 
 ---
 

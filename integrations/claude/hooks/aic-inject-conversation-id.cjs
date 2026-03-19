@@ -5,49 +5,9 @@
 const fs = require("fs");
 const path = require("path");
 const {
-  isValidModelId,
-  isValidConversationId,
-  isValidEditorId,
-} = require("../../shared/cache-field-validators.cjs");
-
-function normalizeModelId(raw) {
-  return raw.toLowerCase() === "default" ? "auto" : raw;
-}
-
-function readSessionModelCache(root, convId, eid) {
-  try {
-    const raw = fs.readFileSync(path.join(root, ".aic", "session-models.jsonl"), "utf8");
-    const lines = raw.split("\n").filter((l) => l.trim().length > 0);
-    const cid = typeof convId === "string" ? convId.trim() : "";
-    let lastMatch = null;
-    let lastAny = null;
-    for (const line of lines) {
-      try {
-        const entry = JSON.parse(line);
-        if (
-          typeof entry.m !== "string" ||
-          !isValidModelId(entry.m) ||
-          typeof entry.c !== "string" ||
-          !isValidConversationId(entry.c) ||
-          typeof entry.e !== "string" ||
-          !isValidEditorId(entry.e) ||
-          entry.e !== eid
-        ) {
-          continue;
-        }
-        lastAny = entry.m;
-        if (cid.length > 0 && entry.c === cid) lastMatch = entry.m;
-      } catch {
-        // skip malformed
-      }
-    }
-    const result = lastMatch !== null ? lastMatch : lastAny;
-    return result !== null ? normalizeModelId(result) : null;
-  } catch {
-    // no cache
-  }
-  return null;
-}
+  readSessionModelCache,
+  normalizeModelId,
+} = require("../../shared/session-model-cache.cjs");
 
 function run(stdinStr) {
   let parsed;
@@ -81,7 +41,8 @@ function run(stdinStr) {
     process.env.CURSOR_TRACE_ID && String(process.env.CURSOR_TRACE_ID).trim() !== ""
       ? "cursor-claude-code"
       : "claude-code";
-  const cachedModelId = readSessionModelCache(projectRoot, conversationId, eid);
+  const result = readSessionModelCache(projectRoot, conversationId, eid);
+  const cachedModelId = result !== null ? normalizeModelId(result) : null;
   const updatedInput = {
     ...toolInput,
     editorId: eid,

@@ -11,10 +11,9 @@ const path = require("path");
 
 const { modelIdFromSubagentStartPayload } = require("./subagent-start-model-id.cjs");
 const {
-  isValidModelId,
-  isValidConversationId,
-  isValidEditorId,
-} = require("../../shared/cache-field-validators.cjs");
+  writeSessionModelCache,
+  readSessionModelCache,
+} = require("../../shared/session-model-cache.cjs");
 
 let hookInput = {};
 try {
@@ -44,62 +43,12 @@ const compileArgs = {
 };
 if (conversationId) compileArgs.conversationId = conversationId;
 
-function writeSessionModelCache(root, modelId, convId) {
-  try {
-    const filePath = path.join(root, ".aic", "session-models.jsonl");
-    fs.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
-    const entry = JSON.stringify({
-      c: typeof convId === "string" ? convId.trim() : "",
-      m: modelId,
-      e: "cursor",
-      timestamp: new Date().toISOString(),
-    });
-    fs.appendFileSync(filePath, entry + "\n", "utf8");
-  } catch {
-    // non-fatal
-  }
-}
-
-function readSessionModelCache(root, convId) {
-  try {
-    const raw = fs.readFileSync(path.join(root, ".aic", "session-models.jsonl"), "utf8");
-    const lines = raw.split("\n").filter((l) => l.trim().length > 0);
-    const cid = typeof convId === "string" ? convId.trim() : "";
-    let lastMatch = null;
-    let lastAny = null;
-    for (const line of lines) {
-      try {
-        const entry = JSON.parse(line);
-        if (
-          typeof entry.m !== "string" ||
-          !isValidModelId(entry.m) ||
-          typeof entry.c !== "string" ||
-          !isValidConversationId(entry.c) ||
-          typeof entry.e !== "string" ||
-          !isValidEditorId(entry.e) ||
-          entry.e !== "cursor"
-        ) {
-          continue;
-        }
-        lastAny = entry.m;
-        if (cid.length > 0 && entry.c === cid) lastMatch = entry.m;
-      } catch {
-        // skip malformed
-      }
-    }
-    return lastMatch !== null ? lastMatch : lastAny;
-  } catch {
-    // no cache
-  }
-  return null;
-}
-
 const mid = modelIdFromSubagentStartPayload(hookInput);
 if (mid !== null) {
   compileArgs.modelId = mid;
-  writeSessionModelCache(projectRoot, mid, conversationId);
+  writeSessionModelCache(projectRoot, mid, conversationId, "cursor");
 } else {
-  const cached = readSessionModelCache(projectRoot, conversationId);
+  const cached = readSessionModelCache(projectRoot, conversationId, "cursor");
   if (cached !== null) compileArgs.modelId = cached;
 }
 
