@@ -28,6 +28,8 @@
     "integrations/shared/__tests__/read-stdin-sync.test.cjs",
     "integrations/shared/resolve-project-root.cjs",
     "integrations/shared/__tests__/resolve-project-root.test.cjs",
+    "integrations/shared/conversation-id.cjs",
+    "integrations/shared/__tests__/conversation-id.test.cjs",
     "integrations/shared/edited-files-cache.cjs",
     "integrations/shared/__tests__/edited-files-cache.test.cjs",
     "integrations/shared/session-markers.cjs",
