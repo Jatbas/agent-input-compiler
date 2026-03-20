@@ -9,6 +9,9 @@ aic.config.json
 .cursor/rules/AIC.mdc
 .cursor/hooks.json
 .cursor/hooks/AIC-*.cjs
+documentation/future/
+documentation/notes/
+documentation/research/
 documentation/tasks/
 .env
 .claude/settings.json

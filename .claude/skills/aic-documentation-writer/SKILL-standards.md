@@ -94,6 +94,38 @@ Preserve the source document's line-break structure. Do not wrap prose onto mult
 
 Use fenced code blocks with language identifiers for all command examples and code snippets. Match the surrounding document's convention for code block usage (inline backticks vs fenced blocks).
 
+### CLI options and flags
+
+When a document lists 2+ CLI flags, environment variables, or configuration options, present them in a table — not inline prose or a bullet list. Tables let readers scan options, see defaults at a glance, and compare alternatives.
+
+**Required columns:**
+
+| Column     | Content                                                  |
+| ---------- | -------------------------------------------------------- |
+| Option     | Human-readable label describing what the option controls |
+| Flag / env | The literal flag forms and environment variable name     |
+| Default    | The behavior when the option is not specified            |
+
+One row per logical option. If a flag has an explicit "enable" form and an explicit "disable" form (e.g. `--keep-aic-database=0` vs `--keep-aic-database=1`), document them in a **single row** — not two rows for opposite values. State the default value so the reader knows which form they need.
+
+**When to use:** Any section that documents command-line arguments, environment variables, or configuration knobs. Inline prose is acceptable only for a single option with no alternatives.
+
+### Table row consolidation
+
+When two table rows describe opposite values of the same option (e.g. "Remove data" default=No and "Keep data" default=Yes), consolidate into one row. The reader needs to know: what does this option control, what are the flag forms, and what is the default. Two rows for one flag create the impression of two independent options and waste vertical space.
+
+### Prose-table anti-duplication
+
+When a table summarizes structured information (options, comparisons, artifacts), the surrounding prose should **introduce** the table or provide context — not restate the table's content. If a bullet list or paragraph preceding a table repeats the same flags, defaults, and values that the table contains, remove the duplication from the prose and keep the table as the single source.
+
+Signs of prose-table duplication:
+
+- A paragraph lists the same flag names and values that appear in the immediately following table
+- A bullet list enumerates options that the table already covers row by row
+- The prose adds no information beyond what the table columns show
+
+The fix: trim the prose to one sentence introducing the table (e.g. "The script accepts these options:"), then let the table carry the detail.
+
 ### Cross-reference instead of duplication
 
 When a topic is already covered by a dedicated document in `documentation/`, do NOT write the content inline. Instead:

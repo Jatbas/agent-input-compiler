@@ -82,9 +82,15 @@ Grep the full document for: 'GAP', 'TODO', 'FIXME', 'will be added', 'future tas
 **F. Intra-document description consistency:**
 When the same mechanism or behavior is described in two different sections of the document, verify the descriptions agree. Flag contradictions where sections use different verbs or descriptions for the same operation.
 
+**G. Redundant heading prefixes:**
+Check every subsection heading under a parent heading. If a subsection repeats the parent's name as a prefix (e.g. '### Uninstall: Cursor' under '## Uninstall', or '### Config: Database' under '## Config'), flag it. The parent context is already established by nesting — the prefix is noise. Report: the heading, its parent, and the redundant prefix.
+
+**H. Prose-table duplication:**
+For every table in the document, read the 1-3 paragraphs or bullet lists immediately preceding it. If the prose restates the same information the table contains (same flags, same values, same options), flag the duplication. See SKILL-standards.md §Prose-table anti-duplication. Report: the table location, the duplicating prose, and which content overlaps.
+
 **Evidence format:** For each finding, cite the exact heading, line content, or grep result.
 
-**Output:** Return structured findings grouped by check (A through F). End with: 'Structural issues: N. Consistency issues: M. Stale markers: K.'"
+**Output:** Return structured findings grouped by check (A through H). End with: 'Structural issues: N. Consistency issues: M. Stale markers: K.'"
 
 ---
 
@@ -230,6 +236,9 @@ For every gap identified in checks A and C (UNDOCUMENTED items and UNANSWERED qu
 - Content parity: equivalent topics covered?
 - Information density: comparable word counts per subsection?
 
+11. **Redundant heading prefixes:** Check subsection headings under their parent. Flag headings that repeat the parent section's name as a prefix (e.g. '### Uninstall: Cursor' under '## Uninstall'). The parent context is already established by nesting.
+12. **Prose-table duplication:** For every table in the edited sections, check whether the 1-3 paragraphs or bullet lists immediately before it restate the same information. Flag duplications where prose and table carry identical content. See SKILL-standards.md §Prose-table anti-duplication.
+
 **Anti-agreement mandate:** If you find zero issues, describe the strongest possible concern for each section. If you genuinely cannot find a concern after exhaustive analysis, explain exactly what you checked and why the writing is sound. A review that says 'all good' without this justification will be rejected.
 
 **Output:** Report each issue with the exact line or paragraph where it occurs. Format: `[section/line] — [issue type] — [description]. Suggested fix: [specific suggestion].' End with: 'Editorial issues found: N.'"
@@ -365,7 +374,9 @@ Use these templates instead of the standard critic templates when mode = Audit. 
 - Content parity: equivalent topics covered?
 - Information density: comparable word counts per subsection?
 
-9. **Formatting consistency:** Bullet style, code block usage, bold/italic conventions, table formatting — consistent throughout?
+11. **Formatting consistency:** Bullet style, code block usage, bold/italic conventions, table formatting — consistent throughout?
+12. **Redundant heading prefixes:** Check every subsection heading under its parent. Flag headings that repeat the parent section's name as a prefix (e.g. '### Uninstall: Cursor' under '## Uninstall'). The parent context is already established by nesting. Check every heading in the document.
+13. **Prose-table duplication:** For every table in the document, check whether the 1-3 paragraphs or bullet lists immediately before it restate the same information. Flag duplications where prose and table carry identical content. See SKILL-standards.md §Prose-table anti-duplication. Check every table in the document.
 
 **Anti-agreement mandate:** You are reviewing a full document. Finding zero issues is NOT credible. For each major section, describe the strongest concern. If you genuinely cannot find a concern in a section after exhaustive analysis, explain exactly what you checked.
 

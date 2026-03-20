@@ -84,27 +84,30 @@ Last = most recent compilation.
 
 ## Quick start
 
-Requirements: Node.js 18+
+Requirements: Node.js 20+
 
-### 1. Install the MCP server
+### Cursor
 
-[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://jatbas.github.io/agent-input-compiler/install/cursor-install.html)
+1. **Install the MCP server** — use the one-click link or copy the URL into your browser:
 
-Or copy this URL into your browser:
+   [![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://jatbas.github.io/agent-input-compiler/install/cursor-install.html)
 
-```text
-cursor://anysphere.cursor-deeplink/mcp/install?name=aic&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqYXRiYXMvYWljQGxhdGVzdCJdfQ==
-```
+   Or copy this URL:
 
-Cursor will prompt to add the server to your global MCP config (`~/.cursor/mcp.json`); confirm and you're done. AIC is now available in every workspace — no per-project setup needed.
+   ```text
+   cursor://anysphere.cursor-deeplink/mcp/install?name=aic&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsIkBqYXRiYXMvYWljQGxhdGVzdCJdfQ==
+   ```
 
-### 2. Start prompting
+   Cursor will prompt to add the server to your global MCP config (`~/.cursor/mcp.json`). Confirm and you're done. AIC is now available in every workspace — no per-project setup needed.
 
-Approve the tools when prompted and start coding. AIC creates its config file, hooks, and local data directory the first time it runs in a project. All projects share a single database at `~/.aic/aic.sqlite`; per-project files remain in each project directory. Nothing else to install or configure.
+2. **Start prompting** — approve the tools when prompted and start coding. AIC creates its config file, hooks, and local data directory the first time it runs in a project. All projects share a single database at `~/.aic/aic.sqlite`; per-project files remain in each project directory. Nothing else to install or configure.
 
-### Uninstall
+### Claude Code
 
-To uninstall AIC, see [Uninstall](documentation/installation.md#uninstall).
+1. Add the AIC marketplace: `/plugin marketplace add Jatbas/agent-input-compiler`
+2. Install the plugin: `/plugin install aic@aic-tools`
+
+The plugin starts the MCP server and registers hooks so every project gets compiled context automatically. Nothing else to install or configure. For prerequisites, direct installer, and troubleshooting, see [Installation — Claude Code](documentation/installation.md#claude-code).
 
 ### Disabling AIC for a specific project
 
@@ -114,7 +117,7 @@ For the full list of available configuration options, see [§6 Configuration in 
 
 ### Other editors
 
-Claude Code and other MCP-compatible editors can connect directly by adding AIC to their MCP config (`"command": "npx", "args": ["-y", "@jatbas/aic@latest"]`). A dedicated integration layer for Claude Code is planned; without it, the model calls AIC tools voluntarily rather than being guided automatically. [Open an issue](https://github.com/Jatbas/agent-input-compiler/issues) to request support for your editor or contribute an integration layer.
+Other MCP-compatible editors can connect by adding AIC to their MCP config (`"command": "npx", "args": ["-y", "@jatbas/aic@latest"]`). To request support for your editor or contribute an integration layer, [open an issue](https://github.com/Jatbas/agent-input-compiler/issues).
 
 ---
 
@@ -200,7 +203,6 @@ Use the README for orientation. Use the docs below for implementation detail.
 | [`best-practices.md`](documentation/best-practices.md)           | Practical usage guidance                                  |
 | [`security.md`](documentation/security.md)                       | Security model and hardening details                      |
 | [`implementation-spec.md`](documentation/implementation-spec.md) | Detailed pipeline and implementation behavior             |
-| [`mvp-progress.md`](documentation/mvp-progress.md)               | Current progress and OSS release work                     |
 
 ---
 
