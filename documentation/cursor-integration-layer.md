@@ -230,7 +230,7 @@ process.stdout.write(
 process.stdout.write(JSON.stringify({}));
 ```
 
-The `followup_message` causes Cursor to auto-submit the text as a follow-up prompt, allowing the model to fix errors before the session ends. The `loop_limit` field in `hooks.json` prevents infinite retry loops.
+> The `followup_message` causes Cursor to auto-submit the text as a follow-up prompt, allowing the model to fix errors before the session ends. The `loop_limit` field in `hooks.json` prevents infinite retry loops.
 
 ### 6.8 sessionEnd — no stdout
 

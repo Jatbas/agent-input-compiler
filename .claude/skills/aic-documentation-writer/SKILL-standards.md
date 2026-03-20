@@ -90,6 +90,95 @@ This pattern applies wherever content diverges by editor, environment, or platfo
 
 Preserve the source document's line-break structure. Do not wrap prose onto multiple lines unless the surrounding text does. If the current text uses single-line sentences, the target text must remain single-line. If the current text wraps at a column width, match the wrap point.
 
+### Notes and asides
+
+Supplementary information that is not part of the main instructional flow — caveats, clarifications, scope boundaries, background context — MUST be formatted as a markdown blockquote using the `>` prefix. This renders with a vertical bar on the left, visually separating the note from the surrounding content.
+
+**What qualifies as a note:**
+
+- Scope or applicability caveats ("these files are gitignored", "this applies only to X")
+- Clarifications that prevent misunderstanding but are not the section's primary content
+- Background context a reader may need but that would interrupt the main flow
+- Warnings or important constraints that are secondary to the section's purpose
+- Meta-information about the document structure or conventions
+
+**Single note:**
+
+```
+> Task files under `documentation/tasks/` are **gitignored** (local to your machine). They are not part of the published tree; the planner and executor skills define how to create and use them.
+```
+
+**Sequential notes form a unified block.** When two or more notes appear in sequence, join them into a single blockquote with a `>` blank line between each note. This renders as one continuous block with the vertical bar running the full height:
+
+```
+> Task files under `documentation/tasks/` are **gitignored** (local to your machine).
+>
+> The planner and executor skills define how to create and use them.
+```
+
+Never place sequential notes as separate blockquotes with a plain blank line between them — that renders as disconnected blocks:
+
+```
+> First note.
+
+> Second note.
+```
+
+**Note density limit.** A section where most paragraphs are blockquotes is a sign the content is miscategorized — if everything is a note, nothing is a note. Follow these limits:
+
+- Maximum 1 note block per section (a unified block of sequential notes counts as 1 block)
+- If a section needs more than 1 note block, the extra content is likely primary content that belongs in the section body, or it belongs in a different section altogether
+- When reviewing a document that has too many notes, consolidate: merge related notes into one unified block, or promote notes that carry essential information back to regular paragraphs
+
+**Do not use blockquotes for:**
+
+- Document introductions — the first substantive paragraph(s) after the title heading (`#`). These are the primary orienting text: taglines, mission statements, product descriptions. They are the most important content on the page, not supplementary asides. Write them as plain paragraphs. Badges, shields, and image-only lines between the title and the introduction are decorative — they do not count as substantive content. A blockquote that follows only badges is still the introduction.
+- Section openers that frame the content that follows — the first sentence of a section that sets the context for everything below it. If the reader needs this sentence before they can understand the section, it is primary content, not a note.
+- Primary instructional content (steps, definitions, descriptions that carry the section's main message)
+- Code examples (use fenced code blocks)
+- Emphasis on regular content (use **bold** or restructure the sentence)
+- Labels, commands, or short introductory lines that precede a code block, table, or screenshot — these are structural elements of the section, not asides. Use a subheading (`###` or `####`), bold text (`**label**`), or a plain sentence instead.
+
+**Misclassified blockquotes.** A common error is wrapping short labels or command names in `>` because they are standalone lines. The test: _Does this line introduce or label content that follows it (a code block, a table, an example)?_ If yes, it is a structural label — never a blockquote. Only lines that provide supplementary context unrelated to the content flow qualify as notes.
+
+**Subheading vs bold for labels.** When converting a misclassified blockquote label, choose between a subheading and bold text using this heuristic:
+
+- **Subheading** (`####` or the next level below the parent) — when the label introduces a distinct, self-contained block: a code block, a multi-row table, a multi-line example, or a group of content that a reader might want to scan or skip to. Multiple labels at the same level in a section (e.g. several command examples) reinforce the subheading choice — they form parallel subsections.
+- **Bold text** (`**label**`) — when the label is a short inline annotation within a paragraph or a single-line description that does not warrant its own navigable section.
+
+This is the same principle as §Bold labels vs subheadings: if the labeled content runs longer than one sentence, use a subheading.
+
+Incorrect (label misclassified as note):
+
+````
+> `show aic status`
+
+\```text
+Status = project-level AIC status.
+...
+\```
+````
+
+Correct (label as subheading — introduces a code block):
+
+````
+#### `show aic status`
+
+\```text
+Status = project-level AIC status.
+...
+\```
+````
+
+**Note classification checklist.** Before formatting any paragraph as a blockquote, it must pass ALL four tests. If any test fails, the paragraph is not a note.
+
+1. **Removal test:** If you delete this paragraph entirely, does the section still deliver its primary message? If removing it would leave a gap in the section's purpose → not a note.
+2. **Position test:** Is this the first substantive content after a `#` title or `##`/`###` heading? Badges, shields, and horizontal rules are decorative and do not count. If yes → not a note. First substantive content orients the reader and is always primary.
+3. **Label test:** Does this paragraph introduce, name, or frame what immediately follows it (a code block, table, example, or subsection)? If yes → not a note; use a subheading, bold text, or plain sentence.
+4. **Content test:** Is this paragraph a caveat, scope boundary, clarification, warning, or background context that a reader could skip without losing the section's main message? If yes → note. If the paragraph teaches, instructs, defines, or explains something the reader came to this section to learn → not a note.
+
+A true note is something the reader benefits from knowing but does not need in order to follow the section. When in doubt, leave the paragraph as plain text — false negatives (a note left as plain text) are harmless; false positives (primary content blockquoted as a note) damage readability.
+
 ### Code blocks
 
 Use fenced code blocks with language identifiers for all command examples and code snippets. Match the surrounding document's convention for code block usage (inline backticks vs fenced blocks).
@@ -385,7 +474,7 @@ Critic 4 (reader simulation) must find zero "undefined term" or "dead end" findi
 
 All applicable dimensions from the executor's 4-doc-c table must pass. This is the final mechanical sweep — grep/glob-based checks that catch issues the critics may have missed.
 
-**Threshold:** Dimensions 1-7, 10, and 12 clean. Dimensions 8-9 informational. Dimension 11 blocking within scope.
+**Threshold:** Dimensions 1-7, 10, 12, and 13 clean. Dimensions 8-9 informational. Dimension 11 blocking within scope.
 
 ### Gate 7: Double-blind reconciliation
 
@@ -425,6 +514,7 @@ These dimensions are run during Phase 4 (direct invocation) or by the executor's
 | 10  | Content format compliance       | Tables for 3+ definitions, ToC entries for new sections, section placement logic | Yes               |
 | 11  | Cross-doc term ripple           | Grep `documentation/` for old terms that were replaced                           | Blocking in scope |
 | 12  | Intra-document consistency      | Grep full document for same-mechanism descriptions, verify agreement             | Yes               |
+| 13  | Blockquote integrity            | Grep for disconnected blockquotes and note density violations                    | Yes               |
 
 ### Dimension details
 
@@ -451,3 +541,15 @@ These dimensions are run during Phase 4 (direct invocation) or by the executor's
 **Dimension 11 — Cross-doc term ripple:** For every term that was replaced (old value to new value), grep ALL files in `documentation/` for the old value. Classify each match as non-historical (should use new value) or historical (leave as-is). Non-historical matches within the task's scoped files must be fixed. Out-of-scope matches are reported as follow-up items.
 
 **Dimension 12 — Intra-document consistency:** For each concept described in the edited sections, grep the FULL document for other sections describing the same concept. Verify they agree. Flag contradictions where sections use different verbs or descriptions for the same mechanism.
+
+**Dimension 13 — Blockquote integrity:** Scan the FULL document for blockquote formatting violations. This is a mechanical grep — not an LLM judgment call. Check these patterns:
+
+(a) **Disconnected blockquotes:** Find any line starting with `>` followed by a bare blank line (no `>` prefix) followed by another line starting with `>`. This creates two separate blockquote blocks instead of one unified block. The bare blank line must be replaced with `>` to join them. Regex pattern: a `> ` line, then one or more blank lines without `>`, then another `> ` line. Report: `[line numbers] — DISCONNECTED BLOCKQUOTE — bare blank line breaks block`.
+
+(b) **Note density:** Count blockquote blocks per `##` section. A blockquote block is a contiguous group of `>` lines (including `>` blank separator lines). If a section has more than 1 blockquote block, report: `[section heading] — NOTE DENSITY VIOLATION — [N] note blocks (max 1)`.
+
+(c) **Orphan blockquote lines:** Find single `>` lines surrounded by non-blockquote content on both sides (a blockquote that is just one short line). These are usually formatting artifacts, not intentional notes. Report for manual review: `[line number] — ORPHAN BLOCKQUOTE — single-line blockquote, verify intent`.
+
+(d) **Misclassified label blockquotes:** Find any `>` line that is immediately followed (within 1-2 lines) by a fenced code block opening (` ``` `), a table header (`| `), or an image (`![`). These are structural labels misclassified as notes — the `>` prefix must be removed. Convert to a subheading when the label introduces a distinct content block (code block, multi-row table, multi-line example); convert to bold text only when the label is a short inline annotation. If multiple labels at the same level exist in the section, they are parallel subsections — use subheadings for all of them. Report: `[line number] — MISCLASSIFIED LABEL — blockquote precedes [code block / table / image], convert to [subheading / bold]`.
+
+(e) **Blockquoted introductions:** Find any `>` line that is the first substantive content after the document title (`#` heading) or the first substantive content after a `##` section heading. Badges, shields (`![...](...)` lines), and horizontal rules (`---`) between the heading and the blockquote are decorative and do not count as substantive content — a blockquote following only decorative lines is still the introduction. Document introductions and section openers are primary content — never notes. Report: `[line number] — BLOCKQUOTED INTRODUCTION — first substantive content after [title / section heading], convert to plain paragraph`.

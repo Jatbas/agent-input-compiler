@@ -252,6 +252,7 @@ For each identified change, write all three parts:
 - Follow content format conventions: tables for 3+ definitions, numbered lists for procedures, proper heading hierarchy
 - Paragraph density: one idea per paragraph — split paragraphs that cover multiple distinct points, editors, or contexts (see SKILL-standards.md §Paragraph density)
 - Editor-specific formatting: when content diverges by editor, give each editor its own paragraph with a bold label prefix like `**Cursor:**` — never inline multiple editors in one paragraph (see SKILL-standards.md §Editor-specific content formatting)
+- Notes and asides: supplementary information must use markdown blockquote format (`>`); every candidate must pass all 4 tests (removal, position, label, content) before blockquoting — when in doubt, leave as plain text; sequential notes join into one unified block with `>` blank lines; maximum 1 note block per section (see SKILL-standards.md §Notes and asides)
 - No temporal references (phase names, task numbers, "recently added"); no task references — do not mention that a task existed; describe what was implemented directly
 - Line-break preservation: match the source document's structure
 - Every technical claim in target text must be traceable to an Explorer 1 finding
@@ -408,7 +409,7 @@ For each change in the Change Specification:
 
 #### 4b. Run mechanical verification
 
-Run all 12 dimensions from the executor's `4-doc-c` table:
+Run all 13 dimensions from the executor's `4-doc-c` table:
 
 | #   | Dimension                       | Method                                               |
 | --- | ------------------------------- | ---------------------------------------------------- |
@@ -424,8 +425,9 @@ Run all 12 dimensions from the executor's `4-doc-c` table:
 | 10  | Content format compliance       | Tables for definitions, ToC entries for new sections |
 | 11  | Cross-doc term ripple           | Grep all documentation/ for old terms replaced       |
 | 12  | Intra-document consistency      | Grep full document for same-mechanism descriptions   |
+| 13  | Blockquote integrity            | Grep for disconnected blockquotes and note density   |
 
-Dimensions 1-7, 10, and 12 must be clean. Dimensions 8-9 are informational. Dimension 11 is blocking within scoped files only.
+Dimensions 1-7, 10, 12, and 13 must be clean. Dimensions 8-9 are informational. Dimension 11 is blocking within scoped files only.
 
 #### 4c. Present results
 
@@ -458,7 +460,7 @@ After presenting the report:
 
 1. Apply all corrections from the Corrections Required section. If the user requests selective application, apply only the approved subset.
 2. For each applied correction, re-read the edited section plus 5 lines before and after to verify correct application.
-3. Run mechanical verification (dimensions 1-7, 10, 12 from 4b) on the applied corrections only.
+3. Run mechanical verification (dimensions 1-7, 10, 12, 13 from 4b) on the applied corrections only.
 
 #### 4f. Re-present with applied status
 

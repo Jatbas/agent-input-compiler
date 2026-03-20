@@ -220,6 +220,7 @@ Complete every item. Each produces evidence for the report. Items are organized 
 5. **Check recipe fit** — walk the decision tree below top-to-bottom. Stop at the **first** YES. Each question must be answered with evidence (file path, interface name, or concrete observation) — not assumption.
 
    **Recipe decision tree (evaluate in this order):**
+   - Is the task fixing a bug, correcting a broken pattern, patching incorrect behavior, or changing deployment/installation behavior WITHOUT creating a new component? → **fix/patch**. Evidence: existing code is broken or incorrect, task description uses "fix", "patch", "correct", "repair", "broken", "bug", or describes wrong behavior that needs to change. **Sub-check:** If the fix requires creating a new adapter/storage/pipeline class, use that specialized recipe instead and incorporate the fix-specific exploration items (pattern exhaustiveness, test impact analysis, fix-verification test) as additional checks.
    - Does the component wrap an external library (npm package) behind a core interface? → **adapter**. Evidence: interface in `core/interfaces/`, library in `package.json`, ESLint restriction needed.
    - Does the component implement a `*Store` interface and execute SQL against `ExecutableDb`? → **storage**. Evidence: store interface, migration file, SQL queries.
    - Does the component implement `ContentTransformer` and wire into `ContentTransformerPipeline`? → **pipeline transformer**. Evidence: implements `ContentTransformer`, has `id`, `fileExtensions`, `transform()`.
@@ -239,6 +240,12 @@ Complete every item. Each produces evidence for the report. Items are organized 
 7. **Cross-package duplication check** (conditional — if the task creates a new utility, helper, or factory function) — Grep the entire codebase for functionally equivalent code. Check `mcp/src/` and `shared/src/` — not just the target layer. If equivalent logic already exists in another package, the task must either (a) extract the shared logic to `shared/` and modify both consumers, or (b) justify the duplication in Architecture Notes. Record in the EXISTING SOLUTIONS field.
 8. **Wiring completeness check** (conditional — composition root tasks) — For every function called in the wiring steps, verify that its return value is either (a) consumed by a subsequent step, or (b) the function is explicitly called for side effects only (document which side effects). If a function returns a rich object and only side effects are needed, note this in Architecture Notes as a follow-up to wire the return value when consumers are ready.
    8b. **Stale marker detection** (mandatory — all task types) — for every file in the Files table (both Create and Modify), grep for `TODO`, `FIXME`, `HACK` comments. Also grep for phase references (`Phase [A-Z]`) and cross-reference against `documentation/tasks/progress/mvp-progress.md` (main workspace) to check if the phase is complete while the comment uses future tense. Record each finding as: `[marker] at [file:line] — ACTIONABLE (phase done, work can be done now) / INFORMATIONAL (future work, not yet relevant)`. If an actionable marker is in a file the task modifies, consider adding it to the task scope (present via scope expansion in A.4c). If outside the task's files, report as follow-up.
+   8c. **Change-impact pattern scan** (mandatory — all task types) — identify the core change pattern of the task: what structural or behavioral change does it introduce? Then grep the ENTIRE codebase for all instances of the same pattern or assumption. This applies to every task type:
+   - **Fix/patch tasks:** Define the broken pattern (e.g., `require("../../shared/")`). Grep for ALL files containing that pattern, not just the files the user mentioned or the first few matches. The fix must cover every instance.
+   - **Greenfield tasks:** When creating a new file, adding an entry to a config, or wiring into an existing system — grep for all places that enumerate, count, or assert on the set being changed (e.g., a new hook file added to a directory means finding all tests/scripts that count files in that directory).
+   - **Refactoring tasks:** Define the old pattern being replaced. Grep for all occurrences, including test files, scripts, configuration, and documentation.
+   - **Any task modifying a directory's contents** (adding/removing files): grep test files for assertions on directory listings, file counts, or glob patterns that match that directory.
+     Record every instance found with file path and line number. If the task's scope covers only a subset, Architecture Notes must justify the partial scope. Record in the CHANGE-PATTERN INSTANCES field of the Exploration Report.
 
 **Batch B — fire in one parallel round after Batch A completes** (depends on interfaces, types, and library APIs discovered in Batch A):
 
@@ -250,10 +257,24 @@ Complete every item. Each produces evidence for the report. Items are organized 
 14. **Trace consumers of modified types** (conditional — if any file in the Files table is "Modify" and touches an interface or type) — Grep for all importers of the modified interface/type. Classify each as "will break" (uses removed/changed members) or "compatible" (unaffected). If breakage is expected, add "Modify" rows to the Files table for each broken consumer. Record findings in the CONSUMER ANALYSIS field of the Exploration Report.
     14b. **Scope-adjacent string reference scan** (conditional — if any file in the Files table is "Modify") — for every function name, type name, interface name, or constant name being modified or renamed: grep the full codebase for string-literal occurrences beyond import statements. Check: dispatch tables using string keys (e.g. `Record<string, Handler>` entries), error messages referencing the name, log statements, test descriptions (`it("should ... [name] ...")`, `describe("[name]"...)`), comments in other files, and documentation. Flag any that would become stale after the modification. Classify each as: "in-scope fix" (add to task scope) or "follow-up" (report to user). Record in the SCOPE-ADJACENT REFERENCES field of the Exploration Report. This catches references that consumer analysis (item 14) misses because they are string-based, not import-based.
 
+15. **Existing test impact analysis** (mandatory — all task types) — for every file the task creates, modifies, or deletes, AND for every observable side effect of the proposed changes (file count changes in a directory, altered output format, changed config structure, new entries in a list/array, modified wiring):
+    - Grep `**/*.test.ts`, `**/*.test.js`, and `**/__tests__/**` for references to the affected files, directories, or behaviors.
+    - Read each matching test file. Identify every assertion that depends on state the task will change: hardcoded counts (`=== 12`, `.length === N`), specific file listings, expected output strings, directory snapshots, config shape assertions.
+    - For each invalidated assertion: record the test file, line number, current asserted value, and the correct value after the task's changes.
+    - Add affected test files as "Modify" rows in the Files table with a description of what changes (e.g., "update file count assertion from 12 to 19").
+    - Record all findings in the TEST IMPACT field of the Exploration Report.
+      This prevents the classic failure mode: a task's acceptance criteria say "existing tests pass" while the proposed changes silently break hardcoded assertions in those same tests.
+      15b. **Quantitative change scan** (mandatory sub-item — triggers whenever item 15 or item 8c identifies a change that alters a countable quantity) — when the task changes how many files exist in a directory, how many entries are in a list, how many columns in a table, or any other enumerable quantity:
+    - Determine the old count and the new count.
+    - Grep the entire codebase for the old count as a literal number in test files, scripts, and configuration (e.g., `=== 12`, `length === 12`, `expect(12)`, `"12 scripts"`).
+    - Grep for variable names, function names, test names, and comments that encode the count in natural language (e.g., `twelve_scripts`, `five_columns`, `TEN_ITEMS`).
+    - Each match is a candidate for update. Classify as: "in-scope fix" (add to task) or "cosmetic follow-up" (suggest but don't block).
+      Record in the TEST IMPACT field alongside item 15 findings.
+
 **Pre-read items** (already in context from §1 — extract findings, do not re-read):
 
-15. **`shared/package.json`** — record dependencies and pinned versions.
-16. **`eslint.config.mjs`** — record restricted-import rules for the target layer. If ESLint changes are needed, determine the exact structural change.
+17. **`shared/package.json`** — record dependencies and pinned versions.
+18. **`eslint.config.mjs`** — record restricted-import rules for the target layer. If ESLint changes are needed, determine the exact structural change.
 
 ### A.2 Produce the Exploration Report
 
@@ -265,7 +286,7 @@ Every field must be filled. Every field with pasted code must include a `Source:
 EXPLORATION REPORT
 
 LAYER: [adapter | storage | pipeline | core | mcp | cli]
-RECIPE: [adapter | storage | pipeline | composition-root | benchmark | release-pipeline | general-purpose]
+RECIPE: [adapter | storage | pipeline | composition-root | benchmark | release-pipeline | fix-patch | general-purpose]
 
 COMPONENT CHARACTERIZATION (general-purpose recipe only — omit for specialized recipes):
 - Primary concern: [pure domain logic | bootstrap/factory | integration/orchestration | configuration | type/interface definition | refactoring | test infrastructure]
@@ -391,6 +412,26 @@ CONSUMER ANALYSIS (conditional — only if checklist item 14 triggered):
   Source: [verified via Grep for import statements]
 - Or: Not applicable — no existing interfaces or types are modified.
 
+CHANGE-PATTERN INSTANCES (mandatory — all task types, from item 8c):
+- Core change pattern: [exact pattern or structural change description]
+- Instances found:
+  - [file path]:[line] — [pattern match or assumption] — IN SCOPE / PARTIAL SCOPE (justified) / FOLLOW-UP
+- Total instances: [N] — task covers: [M of N] — justification for partial scope: [reason or "full coverage"]
+  Source: [verified via Grep — show the grep pattern used]
+- Or: No codebase-wide pattern — change is isolated to the target file(s).
+
+TEST IMPACT (mandatory — all task types, from items 15 and 15b):
+- Observable side effects of proposed changes:
+  - [side effect description, e.g. "hooks directory will contain 19 files instead of 12"]
+- Affected test assertions:
+  - [test file]:[line] — current: [assertion] — required: [new assertion] — reason: [why it breaks]
+  - [test file]:[line] — function name `[name]` encodes stale count — rename to `[new name]`
+- Quantitative changes:
+  - Old count: [N] → New count: [M] — grep for literal `[N]` in test files: [results]
+  - Names encoding old count: [list or "none found"]
+- Files table impact: [N test files added as "Modify" rows]
+- Or: No test impact — proposed changes do not alter any observable state that tests assert on.
+
 APPROACH EVALUATION (conditional — only if recipe fit required deliberation OR component is a composition root):
 - Approach A: [description] — files: [count], new artifacts: [count]
 - Approach B: [description] — files: [count], new artifacts: [count]
@@ -401,7 +442,7 @@ LAYER BLOCKERS:
 - Storage needs node:fs/node:path? [YES → STOP | NO]
 - Core/pipeline imports external package? [YES → STOP | NO]
 - Adapter imports better-sqlite3 or zod? [YES → STOP | NO]
-- Recipe fit? [adapter | storage | pipeline | composition-root | benchmark | release-pipeline | general-purpose]
+- Recipe fit? [adapter | storage | pipeline | composition-root | benchmark | release-pipeline | fix-patch | general-purpose]
 
 LIBRARY API CALLS (exact function chain, no "or equivalent"):
 - [step]: call [exact function]([args]) → [return type]
@@ -482,6 +523,16 @@ If unsure whether a parameter is needed, **ask the user**.
 
 **Dispatch pattern:** If any logic in the component has 3+ branches — whether dispatching on an enum, a type discriminator, or ordered predicate matching (path prefix tiers, conditional scoring maps, node-type checks) — choose `Record<Enum, Handler>` for exhaustive enum dispatch or a handler array for predicate-based dispatch. Write the chosen pattern and show the data structure in the step instructions. Review the algorithm sketch from A.0/A.1: any list of "X => value, Y => value, Z => value, else => default" with 3+ entries is a dispatch pattern that needs this treatment.
 
+**Forward effect simulation (mandatory — all task types):** For every proposed change in the task, trace the causal chain forward: "What observable state changes after this task is executed?" Then trace who observes that state. This catches impacts that item-specific checks miss because they look backward (who imports this type?) rather than forward (who asserts on this directory's file count?).
+
+Walk through each change:
+
+1. **What changes:** new file created, file modified, file deleted, directory contents altered, config entry added/removed, wiring changed, output format altered.
+2. **Who observes the change:** tests that assert on the affected state, scripts that enumerate the affected directory, config consumers that parse the affected format, downstream components that depend on the changed wiring.
+3. **What breaks:** hardcoded counts, expected output strings, directory snapshots, config shape assertions, function names that encode assumptions.
+
+Cross-reference findings against the TEST IMPACT and CHANGE-PATTERN INSTANCES fields from the Exploration Report. If forward simulation reveals impacts not already captured by items 8c, 15, and 15b, update those fields. If the TEST IMPACT field says "No test impact" but forward simulation finds observers of the changed state, re-run item 15 with the newly discovered observers.
+
 **Research delegation (optional depth boost):** At any point during A.4, if the planner encounters a question that its exploration checklist cannot answer — an approach evaluation with 2+ viable candidates, a sibling analysis for a first-of-kind component where shared code prediction is speculative, or a cross-package duplication check that requires understanding intent — it can delegate to the `aic-researcher` skill protocol. Read `.claude/skills/aic-researcher/SKILL.md` and run the appropriate protocol (codebase analysis or gap/improvement analysis). Use the research findings to make the decision. This is optional — only when the planner judges it needs deeper investigation than its checklist provides.
 
 ### A.4b Simplicity sweep
@@ -498,7 +549,7 @@ Record any simplifications made. If simplification changes the STEP PLAN or FILE
 
 ### A.4c Scope expansion recommendation (all task types)
 
-After exploration completes (A.1 through A.4b), if the exploration discovered issues beyond the original task scope — stale markers in modified files (item 8b), scope-adjacent string references that would go stale (item 14b), consumer breakage beyond the minimum fix (item 14), sibling improvements, actionable TODOs in touched files, or for documentation tasks: parallel section asymmetry, structural mismatches, scope-adjacent inconsistencies, mirror document divergences (items 5b-5e, item 11) — present three scope tiers to the user before proceeding to the user checkpoint:
+After exploration completes (A.1 through A.4b), if the exploration discovered issues beyond the original task scope — stale markers in modified files (item 8b), change-pattern instances not in original scope (item 8c), scope-adjacent string references that would go stale (item 14b), consumer breakage beyond the minimum fix (item 14), test assertions invalidated by the changes (items 15, 15b), sibling improvements, actionable TODOs in touched files, or for documentation tasks: parallel section asymmetry, structural mismatches, scope-adjacent inconsistencies, mirror document divergences (items 5b-5e, item 11) — present three scope tiers to the user before proceeding to the user checkpoint:
 
 > **Exploration found issues beyond the original scope.** Choose a scope tier:
 >
@@ -567,24 +618,26 @@ The Exploration Report is on disk at `documentation/tasks/.exploration-$EPOCH.md
 
 Mechanically map the Exploration Report to the template:
 
-| Report field                   | Template section                                                                |
-| ------------------------------ | ------------------------------------------------------------------------------- |
-| EXISTING FILES                 | Files table (only "Create" for DOES NOT EXIST)                                  |
-| EXISTING SOLUTIONS             | Architecture Notes (reuse decisions)                                            |
-| SIBLING PATTERN                | Architecture Notes (reuse mandate) + Interface / Signature (structural pattern) |
-| CONSUMER ANALYSIS              | Files table ("Modify" rows for broken consumers)                                |
-| APPROACH EVALUATION            | Architecture Notes (chosen approach + rationale)                                |
-| INTERFACES                     | Interface / Signature (first code block)                                        |
-| CONSTRUCTOR + METHOD BEHAVIORS | Interface / Signature (second code block — class)                               |
-| DEPENDENT TYPES                | Dependent Types (tiered: T0 verbatim, T1 table, T2 table)                       |
-| DEPENDENCIES + ESLINT CHANGES  | Config Changes                                                                  |
-| DESIGN DECISIONS               | Architecture Notes                                                              |
-| SYNC/ASYNC                     | Steps (implementation step must state this)                                     |
-| LIBRARY API CALLS              | Steps (exact function calls in implementation)                                  |
-| SCHEMA                         | Steps (SQL step references exact columns)                                       |
-| STEP PLAN                      | Steps (method-to-step assignment)                                               |
-| TEST STRATEGY                  | Steps (test step specifies exact mocking)                                       |
-| RESEARCH DOCUMENT              | Header `> **Research:**` line (path to `documentation/research/` file)          |
+| Report field                   | Template section                                                                 |
+| ------------------------------ | -------------------------------------------------------------------------------- |
+| EXISTING FILES                 | Files table (only "Create" for DOES NOT EXIST)                                   |
+| EXISTING SOLUTIONS             | Architecture Notes (reuse decisions)                                             |
+| SIBLING PATTERN                | Architecture Notes (reuse mandate) + Interface / Signature (structural pattern)  |
+| CONSUMER ANALYSIS              | Files table ("Modify" rows for broken consumers)                                 |
+| APPROACH EVALUATION            | Architecture Notes (chosen approach + rationale)                                 |
+| INTERFACES                     | Interface / Signature (first code block)                                         |
+| CONSTRUCTOR + METHOD BEHAVIORS | Interface / Signature (second code block — class)                                |
+| DEPENDENT TYPES                | Dependent Types (tiered: T0 verbatim, T1 table, T2 table)                        |
+| DEPENDENCIES + ESLINT CHANGES  | Config Changes                                                                   |
+| DESIGN DECISIONS               | Architecture Notes                                                               |
+| SYNC/ASYNC                     | Steps (implementation step must state this)                                      |
+| LIBRARY API CALLS              | Steps (exact function calls in implementation)                                   |
+| SCHEMA                         | Steps (SQL step references exact columns)                                        |
+| STEP PLAN                      | Steps (method-to-step assignment)                                                |
+| TEST STRATEGY                  | Steps (test step specifies exact mocking)                                        |
+| CHANGE-PATTERN INSTANCES       | Architecture Notes (blast radius summary) + Steps (ensure all instances covered) |
+| TEST IMPACT                    | Files table ("Modify" rows for affected tests) + Steps (assertion updates)       |
+| RESEARCH DOCUMENT              | Header `> **Research:**` line (path to `documentation/research/` file)           |
 
 **Research auto-reference rule:** If the planner produced or used a research document during this planning session (from §0b delegation or user-provided), the `> **Research:**` line MUST appear in the task header with the exact path. If no research document exists, omit the line entirely. Never write the line with an empty value.
 
@@ -697,6 +750,20 @@ T. **DATABASE NORMALIZATION (conditional — tasks that create or modify a migra
 **(T5) No redundant/derivable columns:** Check if any column's value can be computed from other columns in the same table or via a JOIN. Stored computed values without justification = fail.
 If the task does not create or modify a migration, this check passes automatically.
 
+U. **ACCEPTANCE CRITERIA ACHIEVABILITY (mandatory — all task types):** For each acceptance criterion in the task file:
+
+- If the criterion references an existing test (e.g., "install.test.js passes"), read that test file and verify that the task's proposed changes do not invalidate any assertion in it. If the changes break the test AND the task does not include steps to update the test = fail (self-contradicting acceptance criteria).
+- If the criterion references a command (e.g., "pnpm lint passes"), verify no proposed changes introduce patterns that would fail that command.
+- If the criterion says "all existing tests pass," cross-reference against the TEST IMPACT field in the Exploration Report. If TEST IMPACT lists affected tests that are NOT updated in the Files table = fail.
+- If the criterion is structurally unreachable (e.g., asserts a count that the changes make impossible) = fail.
+
+V. **EXISTING TEST COMPATIBILITY (mandatory — all task types):** Cross-reference the Exploration Report's TEST IMPACT and CHANGE-PATTERN INSTANCES fields against the task file:
+
+- For every test file listed in TEST IMPACT as having invalidated assertions: verify it appears as a "Modify" row in the Files table, and verify the Steps section includes instructions to update the specific assertions. Missing test file = fail. Present in Files table but no step instructions for the specific assertion update = fail.
+- For every quantitative change in TEST IMPACT (old count → new count): verify the task includes the correct new count in its step instructions. Wrong new count = fail.
+- For every name encoding a stale assumption (from item 15b): verify the task renames it or the exploration report justifies keeping it. Stale name without justification = fail.
+- If the Exploration Report's TEST IMPACT says "No test impact," verify the CHANGE-PATTERN INSTANCES field does not reveal untested impacts. Contradictory fields = fail (re-run item 15).
+
 **Step 2: Score the rubric.** Score each dimension 0 (fail) or 1 (pass):
 
 1. Interface accuracy (check B)
@@ -719,6 +786,8 @@ If the task does not create or modify a migration, this check passes automatical
 18. Transformer safety tests — conditional (check R)
 19. Code block API accuracy (check S)
 20. Database normalization — conditional (check T)
+21. Acceptance criteria achievability (check U)
+22. Existing test compatibility (check V)
 
 ### C.5b Independent verification agent
 
@@ -730,12 +799,13 @@ After the self-check (C.5 Steps 1–2) passes with all applicable checks at 100%
 
 2. **Inputs:** Provide the task file path and every source file path the task references (interfaces, types, migrations, `.d.ts` files, modified files). List these explicitly — the subagent must read them fresh.
 
-3. **Instructions — four checks:**
+3. **Instructions — six checks:**
    - **API calls:** Read the task file. For every TypeScript code block, extract every `.methodName(` call and every `new ClassName(` call. For each, Grep the corresponding interface or `.d.ts` file for that name. Report: `[name] — [source file] — FOUND / NOT FOUND`.
    - **SQL columns:** For every SQL statement in the task file, read the migration file. Verify every column name in the SQL appears in the `CREATE TABLE`. Report: `[column] in [table] — FOUND / NOT FOUND`.
    - **SQL normalization (if task creates/modifies a migration):** For each CREATE TABLE, check: (a) no column stores comma-separated or multi-value data (1NF), (b) no partial key dependencies in composite PKs (2NF), (c) no non-key column that determines another non-key column without a lookup table (3NF), (d) repeated string-domain columns have a reference table or documented justification. Report: `[table] — [NF level] PASS / VIOLATION ([detail])`.
    - **File paths:** For every "Modify" row in the Files table, Glob for the path. Report: `[path] — EXISTS / DOES NOT EXIST`.
    - **Signature match:** For each method in the class code block, read the interface source file. Verify parameter names, types, and return types match exactly. Report: `[method] — MATCH / MISMATCH ([detail])`.
+   - **Acceptance criteria vs test assertions:** For each acceptance criterion that references an existing test file (e.g., "X.test.ts passes"), read that test file. For each hardcoded count, expected string, or directory assertion in the test, check whether the task's proposed changes would invalidate it. If the task modifies a directory's contents but the test asserts on file count — verify the task updates that count. Report: `[test file] — [assertion at line N] — COMPATIBLE / INVALIDATED ([detail])`.
 
 4. **Output format:** Return a structured list of findings: each finding has type (api/sql/path/signature), name, source file, and status (FOUND/NOT_FOUND or MATCH/MISMATCH). End with a summary: "PASS — all N findings confirmed" or "FAIL — M of N findings have errors" with the specific errors listed.
 

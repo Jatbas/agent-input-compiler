@@ -498,21 +498,7 @@ Present:
 
 The main workspace is already on `main` — no checkout needed.
 
-**Step 0 — Handle dirty working tree on main (data-safe stash).**
-
-The user may have uncommitted changes on main (from other work, the planner, or editor activity). These must be preserved — never discarded.
-
-```
-git status --porcelain
-```
-
-If the output is non-empty (dirty working tree), stash the changes before merging:
-
-```
-git stash
-```
-
-**Store a flag** (`stashedBeforeMerge = true`) so you remember to restore them after the merge. If the working tree is clean, set `stashedBeforeMerge = false` and proceed directly to the merge.
+**CRITICAL — No stash.** Never run `git stash` before merging. The user (or another agent) may be actively editing files on main. A stash would reset those files to HEAD, causing edits-in-progress to be silently lost — a race condition that cannot be recovered. Instead, let `git merge --squash` handle dirty working trees natively: git succeeds when dirty files don't overlap with the merge, and refuses when they do. This is safe by design.
 
 **Step 1 — Squash merge.**
 
@@ -520,15 +506,23 @@ git stash
 git merge --squash <branch>
 ```
 
-**If the merge succeeds without conflicts:**
+**If the merge succeeds (exit 0):**
 
 ```
 git commit -m "feat(<scope>): <what was built>"
 ```
 
-The squash merge produces a single clean commit on main. Use the same commit message from 5c (or the user's adjusted version).
+The squash merge produces a single clean commit on main. Use the same commit message from 5c (or the user's adjusted version). Uncommitted changes to other files remain untouched in the working tree — exactly as they were before the merge.
 
-**If the merge has conflicts:**
+**If the merge fails with "local changes would be overwritten":**
+
+Git refused the merge because uncommitted files on main overlap with files the merge would modify. Do NOT stash. Instead:
+
+1. Read the git error output — it lists the conflicting files.
+2. Report to the user: "Cannot merge — these files have uncommitted changes that conflict with the merge: [list]. Please commit or stash them manually, then ask me to retry the merge."
+3. Do NOT proceed. Do NOT delete the worktree. Wait for the user to resolve and re-request.
+
+**If the merge succeeds but has content conflicts:**
 
 1. List conflicted files: `git diff --name-only --diff-filter=U`
 2. For each conflicted file, read it, resolve the conflict markers — prefer the feature branch changes and integrate main's additions where they don't overlap.
@@ -547,37 +541,6 @@ git branch -D <branch>
 ```
 
 Note: `git worktree remove` may not be available on all git versions. The `rm -rf` + `git worktree prune` sequence is universally safe and equivalent.
-
-**Step 3 — Restore stashed changes (if stashedBeforeMerge).**
-
-Skip this step if `stashedBeforeMerge = false`.
-
-Lint-staged runs during the commit hook and may hold `index.lock` briefly. Remove it if stale before restoring:
-
-```
-rm -f .git/index.lock
-```
-
-Then restore the stashed changes:
-
-```
-git stash pop
-```
-
-Three possible outcomes:
-
-a. **Clean pop (exit 0, no conflicts):** Done. The user's changes are back exactly as they were. The stash is auto-dropped.
-
-b. **Pop with conflicts:** The stash was applied but not dropped (git keeps it as insurance). Resolve the conflicts:
-
-1.  Run `git diff --name-only --diff-filter=U` to list conflicted files.
-2.  For each file, read it, resolve the conflict markers — keep both the merged task changes and the stashed user changes where they don't overlap.
-3.  Stage resolved files: `git add <resolved files>`.
-4.  Verify no conflict markers remain: Grep for `<<<<<<<` (expect 0 matches).
-5.  Do NOT commit — the resolved files stay staged/unstaged in the working tree, matching the user's original pre-stash state (uncommitted changes).
-6.  Drop the stash now that it's safely applied: `git stash drop`.
-
-c. **Pop fails entirely (rare):** Do NOT drop the stash. Report to the user: "Your pre-merge changes are preserved in `git stash list` (stash@{0}). Run `git stash pop` manually when ready." The stash is the safety net — it is never dropped until changes are confirmed restored.
 
 **6c — If the user says "discard":**
 

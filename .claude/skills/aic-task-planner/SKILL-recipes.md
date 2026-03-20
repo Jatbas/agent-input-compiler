@@ -415,6 +415,97 @@ Fill these fields instead: EXISTING FILES, DEPENDENCIES, ESLINT CHANGES (typical
 
 ---
 
+## Fix/patch recipe (correcting bugs, broken patterns, or deployment behavior)
+
+**When to use:** The task's primary goal is fixing a bug, correcting a broken pattern, changing deployment/installation behavior, or patching incorrect logic in existing code. The key distinction: the task does NOT create a new component — it repairs or adjusts existing components. If the task creates a new adapter/storage/pipeline class as the fix, use the corresponding specialized recipe instead and incorporate the fix-specific checks from this recipe as additional exploration items.
+
+**Identifying a fix/patch task:** If the task description contains "fix", "patch", "correct", "repair", "broken", "bug", or describes an existing behavior that is wrong and needs to change — it is a fix/patch task. Also applies when the task changes deployment scripts, installation behavior, or hook wiring without adding new components.
+
+**Files pattern (derived from the fix scope):**
+
+| Action | Path                                                  |
+| ------ | ----------------------------------------------------- |
+| Modify | `exact/path/to/broken-file.ts` (what changes)         |
+| Modify | `exact/path/to/test-file.test.ts` (assertion updates) |
+| Modify | Additional files containing the same broken pattern   |
+
+Fix/patch tasks typically have zero "Create" rows — they modify existing files. If the fix requires creating a new file (e.g., a shared utility extracted during the fix), justify it in Architecture Notes.
+
+### Exploration emphasis: blast radius over design
+
+The primary exploration activity for fix/patch tasks is understanding the **blast radius** of the change — every file, test, config, and script that is affected. This contrasts with build-oriented recipes where the primary activity is designing interfaces and constructors.
+
+**Mandatory exploration items (in addition to the universal checklist):**
+
+1. **Root cause identification:** Read the broken code. Trace the execution path that leads to the bug. Identify the exact line(s) where the behavior diverges from the intended behavior. Record the root cause with file:line citations.
+
+2. **Pattern exhaustiveness (elevated priority for fix tasks — reinforces item 8c):** The broken pattern is the fix task's equivalent of an interface — it defines the scope. After identifying the root cause:
+   - Define the exact broken pattern as a regex or structural description.
+   - Grep the ENTIRE codebase for all instances. Not just the files the user mentioned. Not just the first few matches.
+   - List every instance: `[file]:[line] — [pattern match]`.
+   - Classify each: "same root cause" (fix applies) / "different issue" (exclude with justification) / "already correct" (no action needed).
+   - The fix MUST cover every "same root cause" instance. Partial fixes are only acceptable when Architecture Notes justify it (e.g., "fixing in deployment script covers all hooks at install time — no per-file fix needed").
+
+3. **Test impact analysis (elevated priority — reinforces items 15 and 15b):** Fix tasks are the highest-risk category for breaking existing tests because they change existing behavior:
+   - For every file being modified, grep all test files for references to that file.
+   - For every observable side effect of the fix (changed output, different file count, altered directory contents), grep tests for assertions on that state.
+   - Compute the new expected values. If a test asserts `=== 12` and the fix changes the count to 19, the task must update the assertion.
+   - Function names and test names that encode stale assumptions (e.g., `install_twelve_scripts` when the count is now 19) must be renamed.
+
+4. **Fix verification test:** Design at least one test assertion that:
+   - Would FAIL on the current (broken) code
+   - Would PASS after the fix is applied
+   - Specifically asserts the corrected state, not just "the test suite passes"
+     Example: "Read an installed hook file and assert it does not contain `../../shared/`." This catches future regressions against the specific fix.
+
+5. **Idempotency check:** Verify the fix is idempotent — applying it to code that is already fixed produces no change. This is especially important for fixes to deployment/installation scripts where the script may run multiple times.
+
+### Template section applicability
+
+Fix/patch tasks use the standard template with these adjustments:
+
+- **Goal:** One sentence stating what is broken and what the fix achieves. Example: "Fix Cursor hook installation so `require("../../shared/...")` paths are rewritten to `require("./...")` when shared modules are copied to `.cursor/hooks/`."
+- **Architecture Notes:** Must include: (a) root cause with file:line citation, (b) why the fix is correct (not just "it works" — why this approach over alternatives), (c) blast radius summary (N files affected, M tests updated).
+- **Interface / Signature:** Not always needed. If the fix changes a function signature or adds a new function, include the before/after signatures. If the fix is purely behavioral (same API, different implementation), this section can be replaced with a **Before/After Behavior** section showing the exact input/output change.
+- **Dependent Types:** Include only if the fix changes or adds type dependencies.
+- **Files table:** Every file with the broken pattern gets a "Modify" row. Every test file with assertions that become invalid gets a "Modify" row. Zero "Create" rows unless justified.
+- **Steps:** Ordered as: (1) fix the code, (2) update affected tests, (3) add fix-verification test assertion, (4) final verification.
+- **Tests table:** Must include the fix-verification test case (from exploration item 4 above) in addition to any updated existing test cases.
+- **Acceptance criteria:** Must include: "Fix-verification test passes (test that would fail without the fix)." Must NOT include "existing tests pass" without also including test-update steps for every test identified in the TEST IMPACT field.
+
+### Mechanical review applicability
+
+All universal checks apply. Fix-specific check emphasis:
+
+| Check                                 | Fix-specific notes                                                                                                   |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| U (Acceptance criteria achievability) | **Critical for fix tasks.** The most common failure: acceptance criteria reference tests that the fix itself breaks. |
+| V (Existing test compatibility)       | **Critical for fix tasks.** Verify every invalidated assertion is addressed in the Files table and Steps.            |
+| A (Ambiguity scan)                    | Fix steps must be precise — "fix the pattern" is ambiguous; show the exact regex and replacement.                    |
+| F (Files table)                       | No "Create" rows without justification. Fix tasks modify, not create.                                                |
+| G (Self-contained)                    | Fix tasks must include the root cause — never "see issue #123" or "as discussed."                                    |
+| N (Consumer completeness)             | If the fix changes an interface or type, all consumers must be covered.                                              |
+| S (Code block API extraction)         | Every method/constructor call in fix code blocks verified against source.                                            |
+
+Checks B (signature), C (dependent types), H (branded types), K (library API), L (wiring) are conditional on whether the fix touches those artifacts.
+
+### Auto-mode resilience for fix tasks
+
+Fix tasks are where auto-mode models fail most characteristically — they find the first instance of a problem, write a narrow fix, and declare victory. The pattern exhaustiveness scan (exploration item 2) and test impact analysis (item 3) are the primary countermeasures. Both are mandatory and enforced by mechanical checks U and V.
+
+**Common auto-mode failure modes for fix tasks:**
+
+| Failure mode                           | What goes wrong                                              | Countermeasure                                            |
+| -------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------------- |
+| Narrow scope                           | Fixes 2 of 8 affected files                                  | Item 8c + fix exploration item 2 (pattern exhaustiveness) |
+| Self-contradicting acceptance criteria | Says "tests pass" while fix breaks tests                     | Check U (acceptance criteria achievability)               |
+| Missing test updates                   | Doesn't update hardcoded counts/assertions in existing tests | Items 15 + 15b + check V (existing test compatibility)    |
+| No fix verification                    | No test that would fail if the fix were reverted             | Fix exploration item 4 + behavioral change guardrail      |
+| Magic number blindness                 | Doesn't grep for the old count or names encoding the count   | Item 15b (quantitative change scan)                       |
+| Forward effect blindness               | Doesn't trace who observes the state being changed           | A.4 forward effect simulation                             |
+
+---
+
 ## General-purpose recipe (structured fallback when no specialized recipe fits)
 
 Use this recipe when a component does not fit any of the six specialized recipes (adapter, storage, pipeline transformer, composition root, benchmark, release-pipeline). This recipe replaces the previous hard-stop behavior — instead of blocking, the planner follows a more rigorous analysis process that derives the task structure from first principles.

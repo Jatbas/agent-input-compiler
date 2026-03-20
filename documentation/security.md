@@ -71,7 +71,7 @@ AIC classifies vulnerabilities using the following scheme, aligned with [CVSS v3
 | **Medium**   |  4.0–6.9   | Requires specific conditions or user misconfiguration; leads to information disclosure, denial of service, or weakened security posture                           | Fix within **90 days**                            | Telemetry payload containing unintended metadata; RepoMap cache poisoning via symlink; crash on malformed config             |
 | **Low**      |  0.1–3.9   | Minimal impact; defence-in-depth hardening opportunity; requires unlikely conditions                                                                              | Fix in next scheduled release                     | Timing side-channel in cache lookup; verbose error message revealing internal path; minor false-negative in secret scanner   |
 
-When a report does not include a CVSS score, the AIC maintainers assign one during the assessment phase and share it with the reporter.
+> When a report does not include a CVSS score, the AIC maintainers assign one during the assessment phase and share it with the reporter.
 
 ### Safe Harbor
 
@@ -163,7 +163,7 @@ For the full architectural specification, see [Project Plan §12](project-plan.m
 
 Context Guard (pipeline Step 5) scans every selected file **before** it reaches the Content Transformer (Step 5.5) or the prompt assembler. It excludes secrets, credentials, excluded paths, and prompt injection patterns from the compiled context that AIC returns to the editor.
 
-> **Scope of protection:** Context Guard controls what AIC includes in its compiled prompt. It does not control what the model or editor does independently — models can still read files directly through editor-provided tools (e.g. `read_file`, `Shell`). AIC's role is to ensure that bulk context injection does not carry sensitive content; direct file access is governed by the editor's own permission model (e.g. `.cursorignore`).
+**Scope of protection:** Context Guard controls what AIC includes in its compiled prompt. It does not control what the model or editor does independently — models can still read files directly through editor-provided tools (e.g. `read_file`, `Shell`). AIC's role is to ensure that bulk context injection does not carry sensitive content; direct file access is governed by the editor's own permission model (e.g. `.cursorignore`).
 
 | Scanner                      | Finding type        | What it detects                                                                |
 | ---------------------------- | ------------------- | ------------------------------------------------------------------------------ |
@@ -318,7 +318,7 @@ AIC can optionally send anonymous usage statistics to help improve the product. 
 sqlite3 ~/.aic/aic.sqlite "SELECT created_at, status, payload_json FROM anonymous_telemetry_log ORDER BY created_at DESC LIMIT 5;"
 ```
 
-**Batching:** Payloads are queued locally and sent in a single HTTPS request at most once per 5 minutes. The endpoint stores received payloads in a cloud database. After a payload is successfully sent, the local row is removed so the queue does not grow unbounded. If the endpoint is unreachable, payloads are silently dropped (not retried, not stored on the server).
+> **Batching:** Payloads are queued locally and sent in a single HTTPS request at most once per 5 minutes. The endpoint stores received payloads in a cloud database. After a payload is successfully sent, the local row is removed so the queue does not grow unbounded. If the endpoint is unreachable, payloads are silently dropped (not retried, not stored on the server).
 
 Full payload schema and audit log spec: [MVP Spec §4d](implementation-spec.md#4d-mvp-additions).
 
@@ -388,13 +388,9 @@ Both Cursor and Claude Code require explicit user approval before MCP tools run.
 | **Cursor**      | MCP indicator shows an approval prompt on first invocation. User clicks "Always allow" per tool. Reviewable in Settings → MCP. | Tool calls silently fail. Trigger rule detects this and notifies the user. |
 | **Claude Code** | Runtime permission prompt, `--allowedTools` CLI flag, or `.mcp.json` permissions configuration.                                | Tool calls rejected. Trigger rule detects this and notifies the user.      |
 
-**Risk:** If the user denies or never approves **`aic_compile`**, the MCP server may still run but the model gets no compiled context — no file selection, no Context Guard on that path, no token reduction.
-
-**Mitigation:**
-
-- The trigger rule (`.cursor/rules/AIC.mdc` or equivalent) includes a fallback: if `aic_compile` is unavailable, the model tells the user how to enable it in MCP settings.
-- [Installation](installation.md) and [Best practices](best-practices.md) describe approving **`aic_compile`** and **`aic_inspect`** during setup.
-- The MCP server process is unaffected; the block is at the editor between the model and the server.
+> **Risk:** If the user denies or never approves **`aic_compile`**, the MCP server may still run but the model gets no compiled context — no file selection, no Context Guard on that path, no token reduction.
+>
+> **Mitigation:** The trigger rule (`.cursor/rules/AIC.mdc` or equivalent) includes a fallback: if `aic_compile` is unavailable, the model tells the user how to enable it in MCP settings. [Installation](installation.md) and [Best practices](best-practices.md) describe approving **`aic_compile`** and **`aic_inspect`** during setup. The MCP server process is unaffected; the block is at the editor between the model and the server.
 
 ---
 

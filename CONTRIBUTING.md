@@ -1,6 +1,8 @@
 # Contributing
 
-Contributions are welcome. This guide is for people **developing the AIC codebase** (not only installing and using AIC as an end user). The architecture is deliberate; small, focused changes are more likely to be reviewed and merged quickly.
+Contributions are welcome. This guide is for people **developing the AIC codebase** (not only installing and using AIC as an end user).
+
+> The architecture is deliberate; small, focused changes are more likely to be reviewed and merged quickly.
 
 ## Table of contents
 
@@ -34,7 +36,9 @@ pnpm install
 
 ### 2. Install the AIC MCP server for your editor
 
-Follow [documentation/installation.md](documentation/installation.md). AIC creates per-project files (`aic.config.json`, hooks, trigger rules) on first use; you do not need to create them manually.
+Follow [documentation/installation.md](documentation/installation.md).
+
+> AIC creates per-project files (`aic.config.json`, hooks, trigger rules) on first use; you do not need to create them manually.
 
 ### 3. Dev mode
 
@@ -55,7 +59,7 @@ For optional Agent Skill workflows in this repo (planning, execution, documentat
 
 ### Other useful commands
 
-Husky already runs checks on commit and push: **lint-staged** on commit (ESLint with fix on staged TypeScript under `shared/` and `mcp/`; Prettier on staged files matched by the project config). Staged `*.ts` files at the repository root get Prettier only, not ESLint. **commitlint** runs on the commit message; **typecheck**, **tests**, and **lint:clones** run on push. You can still run the commands below locally before committing or when debugging CI:
+Husky already runs checks on commit and push: **lint-staged** on commit (ESLint with fix on staged TypeScript under `shared/` and `mcp/`; Prettier on staged files matched by the project config). Staged `*.ts` files at the repository root get Prettier only, not ESLint. **commitlint** runs on the commit message; **typecheck**, **tests**, and **lint:clones** run on push. You can still run the commands below locally before committing or when debugging CI.
 
 | Command              | Purpose                                              |
 | -------------------- | ---------------------------------------------------- |
@@ -88,7 +92,7 @@ To run the MCP server from your clone instead of the published package:
    }
    ```
 
-   Use the real absolute path to your clone for `cwd`. If your editor does not support `cwd`, start the editor from the AIC repo root.
+   > Use the real absolute path to your clone for `cwd`. If your editor does not support `cwd`, start the editor from the AIC repo root.
 
 3. Restart your editor or reload MCP so it picks up the local server. Restore the published entry when done: `"command": "npx", "args": ["-y", "@jatbas/aic@latest"]`.
 
@@ -103,9 +107,7 @@ To run the MCP server from your clone instead of the published package:
 | **MCP server code** (`mcp/src/**`)                         | Restart the AIC dev server.                                                                                                       |
 | **Core / pipeline / adapters / storage** (`shared/src/**`) | Restart the AIC dev server. `tsx` picks up changes at next start — no separate build needed.                                      |
 
-Restart the dev MCP process (reload MCP or restart the editor — whichever your setup uses) so the server is respawned.
-
-A full `pnpm build` is only needed before publishing or running the compiled MCP server (`mcp/dist/server.js`).
+> Restart the dev MCP process (reload MCP or restart the editor — whichever your setup uses) so the server is respawned. A full `pnpm build` is only needed before publishing or running the compiled MCP server (`mcp/dist/server.js`).
 
 ## Branches and RFC
 

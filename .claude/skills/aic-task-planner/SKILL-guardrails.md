@@ -202,6 +202,25 @@ When a task modifies an existing function in a composition root (e.g. `initLangu
 - Incremental tasks show the **new entry** as a code block plus the **updated return statement**
 - The code block respects project conventions (immutability: ternary-spread, no `.push()`)
 
+## Behavioral change verification
+
+When a task changes existing behavior — whether fixing a bug, refactoring code, modifying wiring, adding entries to a config, or altering the contents of a directory — the test strategy must include at least one assertion that verifies the intended change took effect. This is distinct from "existing tests still pass" (regression testing) — this asserts the new state is correct.
+
+**Applies to ALL task types that modify behavior, not just fix tasks:**
+
+- **Fix/patch:** Assert the broken state is gone (e.g., "installed hook file does not contain `../../shared/`").
+- **Greenfield with wiring:** Assert the new component is wired correctly (e.g., "tool list includes the new handler").
+- **Refactoring:** Assert the refactored code produces identical output (e.g., "shared utility returns same result as the inlined code it replaced").
+- **Config changes:** Assert the new config is loaded correctly (e.g., "ESLint reports error when forbidden import is used in non-exempt file").
+
+**Red flags:**
+
+- The Tests table only lists unit tests for the new code but no test verifying the change's effect on the existing system
+- The acceptance criteria say "existing tests pass" but no test actually verifies the intended behavioral change
+- A fix task has no test that would fail if the fix were reverted
+
+**Enforced by:** Mechanical checks U (acceptance criteria achievability) and V (existing test compatibility), plus the fix/patch recipe's mandatory fix-verification test case.
+
 ## Sync vs async for adapters
 
 When a task wraps an external library, the step that implements the adapter must state whether to use the library's **sync** or **async** API. The interface return type determines this: if the interface returns `T`, the adapter must use the sync API; if `Promise<T>`, the async API. Never leave this implicit.

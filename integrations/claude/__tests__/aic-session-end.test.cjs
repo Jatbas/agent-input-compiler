@@ -9,13 +9,7 @@ const { run } = require(path.join(__dirname, "..", "hooks", "aic-session-end.cjs
 const { run: runPlugin } = require(
   path.join(__dirname, "..", "plugin", "scripts", "aic-session-end.cjs"),
 );
-
-function tempPath(sessionId) {
-  return path.join(
-    os.tmpdir(),
-    "aic-cc-edited-" + String(sessionId).replace(/[^a-zA-Z0-9*-]/g, "_") + ".json",
-  );
-}
+const { getTempPath } = require("../../shared/edited-files-cache.cjs");
 
 function marker_and_temp_deleted_after_run() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-session-end-test-"));
@@ -23,12 +17,13 @@ function marker_and_temp_deleted_after_run() {
   const markerPath = path.join(aicDir, ".session-context-injected");
   fs.mkdirSync(aicDir, { recursive: true });
   fs.writeFileSync(markerPath, "sid-del", "utf8");
-  fs.writeFileSync(tempPath("sid-del"), "[]", "utf8");
+  const tempPath = getTempPath("claude_code", "sid-del");
+  fs.writeFileSync(tempPath, "[]", "utf8");
   run(JSON.stringify({ session_id: "sid-del", reason: "test", cwd: tmpDir }));
   if (fs.existsSync(markerPath)) {
     throw new Error("Expected marker file deleted");
   }
-  if (fs.existsSync(tempPath("sid-del"))) {
+  if (fs.existsSync(tempPath)) {
     throw new Error("Expected temp file deleted");
   }
   fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -48,13 +43,13 @@ function prompt_log_jsonl_appended() {
   const last = lines[lines.length - 1];
   const obj = JSON.parse(last);
   if (
-    obj.sessionId !== "s1" ||
+    obj.conversationId !== "s1" ||
     obj.reason !== "end" ||
     typeof obj.timestamp !== "string"
   ) {
     fs.rmSync(tmpDir, { recursive: true, force: true });
     throw new Error(
-      `Expected { sessionId: 's1', reason: 'end', timestamp }, got ${last}`,
+      `Expected { conversationId: 's1', reason: 'end', timestamp }, got ${last}`,
     );
   }
   fs.rmSync(tmpDir, { recursive: true, force: true });

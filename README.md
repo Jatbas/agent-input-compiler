@@ -6,8 +6,7 @@
 ![Telemetry](https://img.shields.io/badge/telemetry-opt--in-lightgrey)
 ![MCP Compatible](https://img.shields.io/badge/MCP-compatible-purple)
 
-> Deterministic context compiler for AI coding tools.
-> AIC is a local-first MCP server that selects relevant files, removes noise, and returns a smaller context package before it reaches the model.
+Deterministic context compiler for AI coding tools. AIC is a local-first MCP server that selects relevant files, removes noise, and returns a smaller context package before it reaches the model.
 
 AIC does **not** replace your editor. It runs alongside MCP-compatible editors and improves the context they send to the model.
 
@@ -42,7 +41,7 @@ The result is a smaller, more relevant, and more inspectable input.
 
 The example below is **real captured output from AIC's own development usage**. It is useful as a concrete datapoint, not as a universal benchmark for every repository.
 
-> `show aic status`
+#### `show aic status`
 
 ```text
 Status = project-level AIC status.
@@ -65,7 +64,7 @@ Status = project-level AIC status.
 | Installation notes             | (none)                                        |
 ```
 
-> `show aic last`
+#### `show aic last`
 
 ```text
 Last = most recent compilation.
@@ -138,7 +137,7 @@ What to look for:
 - selected file count, compiled tokens, and reduction figures that make sense for the task
 - AIC blocking sensitive or excluded content
 
-If there is no recent compilation, the model may not be calling AIC automatically. Check that the AIC tools are approved in your editor's MCP settings and try starting a new chat.
+> If there is no recent compilation, the model may not be calling AIC automatically. Check that the AIC tools are approved in your editor's MCP settings and try starting a new chat.
 
 ---
 
@@ -175,9 +174,9 @@ AIC's Context Guard excludes the following from compiled context before it reach
 - excluded paths such as `.env`, keys, and similar sensitive files
 - suspicious prompt-injection strings in selected content
 
-This prevents sensitive content from being included in bulk context. It does not prevent the model from reading files directly through editor tools — that is the editor's responsibility. For details, see [`security.md`](documentation/security.md).
-
-Telemetry is local by default. AIC stores compilation metadata locally and does not need an AIC account or API key.
+> This prevents sensitive content from being included in bulk context. It does not prevent the model from reading files directly through editor tools — that is the editor's responsibility. For details, see [`security.md`](documentation/security.md).
+>
+> Telemetry is local by default. AIC stores compilation metadata locally and does not need an AIC account or API key.
 
 ---
 
@@ -208,7 +207,9 @@ Use the README for orientation. Use the docs below for implementation detail.
 
 ## Contributing
 
-Contributions are welcome. This is a structured codebase with a defined architecture; small, focused changes are more likely to be reviewed and merged quickly than broad refactors.
+Contributions are welcome.
+
+> This is a structured codebase with a defined architecture; small, focused changes are more likely to be reviewed and merged quickly than broad refactors.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, local MCP testing, RFC requirements, and the PR checklist.
 

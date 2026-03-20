@@ -1,6 +1,8 @@
 # Best Practices for AI-Assisted Coding with AIC
 
-These are best practices for getting the most out of AI-assisted coding. **AIC** (AI Context Compiler) amplifies them by supplying task-focused context — files and rules chosen for the current task. This doc assumes AIC is installed and enabled; see [Installation](installation.md) for setup, MCP approval, and troubleshooting. Terms are in the [Glossary](#glossary).
+These are best practices for getting the most out of AI-assisted coding. **AIC** (AI Context Compiler) amplifies them by supplying task-focused context — files and rules chosen for the current task.
+
+> This doc assumes AIC is installed and enabled; see [Installation](installation.md) for setup, MCP approval, and troubleshooting. Terms are in the [Glossary](#glossary).
 
 ---
 
@@ -101,11 +103,11 @@ Better context reduces the frequency of hallucinations but cannot eliminate them
 
 AIC tightens the hallucination surface by surfacing relevant project code in compiled context.
 
-Context Guard keeps secrets and excluded paths out of that compiled bulk only; the assistant can still read files through editor tools. See [Security](security.md).
+> Context Guard keeps secrets and excluded paths out of that compiled bulk only; the assistant can still read files through editor tools. See [Security](security.md).
 
 ### Still required
 
-Verify generated changes — run tests, read diffs, and use your team's review process before merging.
+> Verify generated changes — run tests, read diffs, and use your team's review process before merging.
 
 ---
 

@@ -3,14 +3,13 @@
 // SessionEnd hook — append telemetry line, delete dual-path marker and temp edited-files list. Exit 0 always.
 
 const fs = require("fs");
-const path = require("path");
-const os = require("os");
 
 const {
   clearSessionMarker,
   releaseSessionLock,
 } = require("../../../shared/session-markers.cjs");
 const { appendPromptLog } = require("../../../shared/prompt-log.cjs");
+const { cleanupEditedFiles } = require("../../../shared/edited-files-cache.cjs");
 
 function run(stdinStr) {
   const parsed = (() => {
@@ -28,9 +27,6 @@ function run(stdinStr) {
     ? cwdRaw.trim()
     : process.env.CLAUDE_PROJECT_DIR || process.cwd();
 
-  const sanitized = String(sessionId).replace(/[^a-zA-Z0-9*-]/g, "_");
-  const tempPath = path.join(os.tmpdir(), "aic-cc-edited-" + sanitized + ".json");
-
   appendPromptLog(projectRoot, {
     type: "session_end",
     editorId: "claude-code",
@@ -42,11 +38,7 @@ function run(stdinStr) {
   clearSessionMarker(projectRoot);
   releaseSessionLock(projectRoot);
 
-  try {
-    fs.unlinkSync(tempPath);
-  } catch {
-    // ignore
-  }
+  cleanupEditedFiles("claude_code", sessionId);
 }
 
 if (require.main === module) {

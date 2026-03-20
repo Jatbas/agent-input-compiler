@@ -96,7 +96,9 @@ When run from a project directory that is not the user home, it also removes leg
 | `input.transcript_path`                   | `conversationId` (via `path.basename(transcriptPath, ".jsonl")`)                                                          |
 | `input.model` (SessionStart when present) | `modelId`; SessionStart passes it; other hooks use cached value from `.aic/.claude-session-model` written on SessionStart |
 
-**`conversationId` must always be passed** from `transcript_path` so `compilation_log` rows are attributed to the correct conversation. Claude Code includes `transcript_path` in _every_ hook input ([common input fields](https://code.claude.com/docs/en/hooks#common-input-fields)). The UUID in the transcript filename (`path.basename(transcriptPath, ".jsonl")`) uniquely identifies the conversation and is stable across all hooks in the same chat. The `aic-compile-helper` accepts and forwards it. Note: `session_id` is per-hook-invocation and is NOT suitable for conversation attribution.
+**`conversationId` must always be passed** from `transcript_path` so `compilation_log` rows are attributed to the correct conversation. Claude Code includes `transcript_path` in _every_ hook input ([common input fields](https://code.claude.com/docs/en/hooks#common-input-fields)). The UUID in the transcript filename (`path.basename(transcriptPath, ".jsonl")`) uniquely identifies the conversation and is stable across all hooks in the same chat. The `aic-compile-helper` accepts and forwards it.
+
+> Note: `session_id` is per-hook-invocation and is NOT suitable for conversation attribution.
 
 ---
 
@@ -174,8 +176,7 @@ process.stdout.write(
 );
 ```
 
-Note: issue [#10373](https://github.com/anthropics/claude-code/issues/10373) (**open** since
-Oct 2025) means this hook's output is silently discarded for _brand new_ interactive sessions in CLI mode. The format is not the problem — the hook fires but its output is dropped at the session-init path. Workaround: dual-path injection via `UserPromptSubmit` (see §7.2).
+> Note: issue [#10373](https://github.com/anthropics/claude-code/issues/10373) (**open** since Oct 2025) means this hook's output is silently discarded for _brand new_ interactive sessions in CLI mode. The format is not the problem — the hook fires but its output is dropped at the session-init path. Workaround: dual-path injection via `UserPromptSubmit` (see §7.2).
 
 ### 6.3 SubagentStart — use `hookSpecificOutput` JSON
 

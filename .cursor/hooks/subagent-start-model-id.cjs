@@ -3,7 +3,7 @@
 
 // Validates Cursor subagentStart `subagent_model` for aic_compile modelId (aligned with AIC-compile-context.cjs).
 
-const { normalizeModelId } = require("../../shared/session-model-cache.cjs");
+const { normalizeModelId } = require("./session-model-cache.cjs");
 
 function modelIdFromSubagentStartPayload(payload) {
   if (!payload || typeof payload !== "object") return null;

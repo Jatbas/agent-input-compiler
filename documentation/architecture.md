@@ -6,7 +6,7 @@ AIC has two distinct layers:
 
 **2. Integration Layer (per-editor)** — Thin adapters that ensure the core pipeline runs at the right time and delivers its output to the model. Each editor exposes different hook capabilities, so each integration layer calls `aic_compile` at different points in the editor's lifecycle.
 
-**What this means:** AIC's compilation capabilities are complete. Any perceived limitation in what AIC "can do" is actually a limitation of the editor's hook system — whether the editor gives AIC the opportunity to run at a given moment. Because AIC follows SOLID principles (dependency injection, interface segregation), adding a new integration layer for a new editor means writing thin hook scripts that call the same core pipeline. No core changes needed.
+> **What this means:** AIC's compilation capabilities are complete. Any perceived limitation in what AIC "can do" is actually a limitation of the editor's hook system — whether the editor gives AIC the opportunity to run at a given moment. Because AIC follows SOLID principles (dependency injection, interface segregation), adding a new integration layer for a new editor means writing thin hook scripts that call the same core pipeline. No core changes needed.
 
 ---
 
@@ -24,7 +24,7 @@ For full AIC integration, an editor should expose these hook capabilities:
 | **Pre-compaction**                     | Re-compile before context window compaction. Preserves quality during long sessions.   | Nice to have |
 | **Trigger rule**                       | Text instruction asking the model to call `aic_compile`. Minimum viable integration.   | Minimum      |
 
-No editor currently has a complete AIC integration for all of these. But the core pipeline is ready for all of them — the only variable is which hooks the editor provides and whether AIC's integration layer has been built for them.
+> No editor currently has a complete AIC integration for all of these. But the core pipeline is ready for all of them — the only variable is which hooks the editor provides and whether AIC's integration layer has been built for them.
 
 ---
 
@@ -37,21 +37,13 @@ When AIC compiles context (at session start or per-prompt), it selects the most 
 - Security scanning (Context Guard) runs before any code reaches the model
 - Fewer tokens mean the context window fills more slowly, so compaction happens less often
 
-Even when the editor compiles only at session start (e.g. Cursor), that initial compilation provides a foundation that benefits every turn.
+> Even when the editor compiles only at session start (e.g. Cursor), that initial compilation provides a foundation that benefits every turn.
 
 ---
 
 ## Editor hook coverage and integration status
 
-**Integrated** — The editor exposes the hook, and AIC's integration is built.
-
-**Hook available** — The editor exposes the hook, but AIC does not register it or build integration for it.
-
-**Hook available (observational)** — The editor exposes the hook; AIC does not register it or inject context (e.g. Cursor preCompact).
-
-**—** — The editor does not expose this hook.
-
-See [cursor-integration-layer](cursor-integration-layer.md) and [claude-code-integration-layer](claude-code-integration-layer.md) for hook-by-hook detail.
+**Integrated** — The editor exposes the hook, and AIC's integration is built. **Hook available** — The editor exposes the hook, but AIC does not register it or build integration for it. **Hook available (observational)** — The editor exposes the hook; AIC does not register it or inject context (e.g. Cursor preCompact). **—** — The editor does not expose this hook. See [cursor-integration-layer](cursor-integration-layer.md) and [claude-code-integration-layer](claude-code-integration-layer.md) for hook-by-hook detail.
 
 | Capability                         | Cursor                         | Claude Code |
 | ---------------------------------- | ------------------------------ | ----------- |
