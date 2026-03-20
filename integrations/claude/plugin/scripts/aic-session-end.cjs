@@ -10,6 +10,7 @@ const {
 } = require("../../../shared/session-markers.cjs");
 const { appendPromptLog } = require("../../../shared/prompt-log.cjs");
 const { cleanupEditedFiles } = require("../../../shared/edited-files-cache.cjs");
+const { resolveProjectRoot } = require("../../../shared/resolve-project-root.cjs");
 
 function run(stdinStr) {
   const parsed = (() => {
@@ -22,10 +23,7 @@ function run(stdinStr) {
   const sessionId =
     parsed.session_id != null ? parsed.session_id : (parsed.input?.session_id ?? "");
   const reason = parsed.reason != null ? parsed.reason : (parsed.input?.reason ?? "");
-  const cwdRaw = parsed.cwd ?? parsed.input?.cwd ?? "";
-  const projectRoot = cwdRaw.trim()
-    ? cwdRaw.trim()
-    : process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  const projectRoot = resolveProjectRoot(parsed);
 
   appendPromptLog(projectRoot, {
     type: "session_end",

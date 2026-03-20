@@ -12,6 +12,7 @@ const {
   normalizeModelId,
   writeSessionModelCache,
 } = require("../../shared/session-model-cache.cjs");
+const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 
 let raw = "";
 process.stdin.setEncoding("utf8");
@@ -67,10 +68,10 @@ process.stdin.on("end", () => {
       const trimmed = input.model.trim();
       if (isValidModelId(trimmed)) {
         updated.modelId = normalizeModelId(trimmed);
-        const projectRoot =
-          (toolInput && toolInput.projectRoot) ||
-          process.env.CURSOR_PROJECT_DIR ||
-          process.cwd();
+        const projectRoot = resolveProjectRoot(null, {
+          env: process.env,
+          toolInputOverride: toolInput?.projectRoot,
+        });
         writeSessionModelCache(
           projectRoot,
           normalizeModelId(trimmed),

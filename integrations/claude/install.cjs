@@ -5,6 +5,8 @@ const path = require("node:path");
 const fs = require("node:fs");
 const os = require("node:os");
 
+const { resolveProjectRoot } = require("../shared/resolve-project-root.cjs");
+
 const AIC_SCRIPT_NAMES = JSON.parse(
   fs.readFileSync(path.join(__dirname, "aic-hook-scripts.json"), "utf8"),
 ).hookScriptNames;
@@ -280,7 +282,7 @@ try {
   }
 
   const triggerContent = CLAUDE_MD_TEMPLATE.replace("{{VERSION}}", version);
-  const projectRoot = process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  const projectRoot = resolveProjectRoot({ cwd: "" }, { env: process.env });
   const projectClaudeDir = path.join(projectRoot, ".claude");
 
   let projectRootResolved;

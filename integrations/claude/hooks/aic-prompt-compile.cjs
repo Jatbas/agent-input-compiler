@@ -5,6 +5,8 @@
 const fs = require("fs");
 const path = require("path");
 const { isSessionAlreadyInjected } = require("../../shared/session-markers.cjs");
+const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
+const { conversationIdFromTranscriptPath } = require("../../shared/conversation-id.cjs");
 
 async function run(stdinStr) {
   const { callAicCompile } = require("./aic-compile-helper.cjs");
@@ -30,13 +32,8 @@ async function run(stdinStr) {
       : input.session_id != null
         ? input.session_id
         : null;
-  const cwdRaw = top.cwd || input.cwd || "";
-  const projectRoot =
-    cwdRaw && cwdRaw.trim()
-      ? cwdRaw.trim()
-      : process.env.CLAUDE_PROJECT_DIR || process.cwd();
-  const transcriptPath = parsed.transcript_path ?? parsed.input?.transcript_path ?? null;
-  const conversationId = transcriptPath ? path.basename(transcriptPath, ".jsonl") : null;
+  const projectRoot = resolveProjectRoot(parsed);
+  const conversationId = conversationIdFromTranscriptPath(parsed);
   const rawModel =
     top.model != null ? top.model : input.model != null ? input.model : null;
   const modelArg =

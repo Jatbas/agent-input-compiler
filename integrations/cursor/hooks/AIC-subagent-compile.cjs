@@ -14,6 +14,7 @@ const {
   writeSessionModelCache,
   readSessionModelCache,
 } = require("../../shared/session-model-cache.cjs");
+const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 
 let hookInput = {};
 try {
@@ -23,7 +24,7 @@ try {
   // Non-fatal — proceed with default intent
 }
 
-const projectRoot = process.env.CURSOR_PROJECT_DIR || process.cwd();
+const projectRoot = resolveProjectRoot(null, { env: process.env });
 const intent =
   typeof hookInput.task === "string" && hookInput.task.trim().length > 0
     ? String(hookInput.task).slice(0, 200)

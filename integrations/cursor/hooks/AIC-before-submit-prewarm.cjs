@@ -17,8 +17,9 @@ const {
   normalizeModelId,
   writeSessionModelCache,
 } = require("../../shared/session-model-cache.cjs");
+const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 
-const projectRoot = process.env.CURSOR_PROJECT_DIR || process.cwd();
+const projectRoot = resolveProjectRoot(null, { env: process.env });
 
 function promptFile(generationId) {
   return path.join(os.tmpdir(), `aic-prompt-${generationId}`);

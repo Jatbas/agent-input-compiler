@@ -3,11 +3,12 @@
 // PreToolUse hook — inject conversationId, editorId, and modelId (from cache) into aic_compile MCP calls.
 
 const fs = require("fs");
-const path = require("path");
 const {
   readSessionModelCache,
   normalizeModelId,
 } = require("../../shared/session-model-cache.cjs");
+const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
+const { conversationIdFromTranscriptPath } = require("../../shared/conversation-id.cjs");
 
 function run(stdinStr) {
   let parsed;
@@ -20,12 +21,10 @@ function run(stdinStr) {
   const input = top.input || {};
   const toolName = top.tool_name ?? input.tool_name ?? "";
   const toolInput = top.tool_input ?? input.tool_input ?? {};
-  const cwdRaw = top.cwd ?? input.cwd ?? "";
-  const projectRoot = (toolInput.projectRoot || cwdRaw || "").trim()
-    ? (toolInput.projectRoot || cwdRaw).trim()
-    : process.env.CLAUDE_PROJECT_DIR || process.cwd();
-  const transcriptPath = top.transcript_path ?? input.transcript_path ?? null;
-  const conversationId = transcriptPath ? path.basename(transcriptPath, ".jsonl") : null;
+  const projectRoot = resolveProjectRoot(parsed, {
+    toolInputOverride: toolInput?.projectRoot,
+  });
+  const conversationId = conversationIdFromTranscriptPath(parsed);
   const isAicCompile =
     /aic_compile/i.test(toolName) ||
     (toolInput.intent != null && toolInput.projectRoot != null);

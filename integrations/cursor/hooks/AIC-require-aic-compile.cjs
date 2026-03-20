@@ -7,12 +7,13 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 
 // Skip enforcement when developing AIC (set AIC_DEV_MODE=1 in env or .env).
 // The hook process may not inherit .env, so load it from the project root.
 if (process.env.AIC_DEV_MODE !== "1") {
   try {
-    const projectRoot = process.env.CURSOR_PROJECT_DIR || process.cwd();
+    const projectRoot = resolveProjectRoot(null, { env: process.env });
     const envFile = fs.readFileSync(path.join(projectRoot, ".env"), "utf8");
     const match = envFile.match(/^AIC_DEV_MODE\s*=\s*(.+)$/m);
     if (match && match[1].trim() === "1") {
@@ -108,7 +109,7 @@ process.stdin.on("end", () => {
         ? stripped.replace(/"/g, '\\"')
         : "<summarise the user message>";
 
-    const projectRoot = process.env.CURSOR_PROJECT_DIR || process.cwd();
+    const projectRoot = resolveProjectRoot(null, { env: process.env });
     const denyMsg = `BLOCKED: You must call the aic_compile MCP tool FIRST before using any other tool. Call it now with { "intent": "${intentArg}", "projectRoot": "${projectRoot}" }`;
     process.stdout.write(
       JSON.stringify({

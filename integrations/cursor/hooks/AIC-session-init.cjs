@@ -11,6 +11,7 @@
  */
 const fs = require("fs");
 const path = require("path");
+const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 
 let hookInput = {};
 try {
@@ -47,8 +48,10 @@ try {
     const conversationLine = conversationId
       ? `\nAIC_CONVERSATION_ID=${conversationId}`
       : "";
-    const projectRoot =
-      process.env.CURSOR_PROJECT_DIR || process.env.AIC_PROJECT_ROOT || process.cwd();
+    const projectRoot = resolveProjectRoot(null, {
+      env: process.env,
+      useAicProjectRoot: true,
+    });
     const updatePath = path.join(projectRoot, ".aic", "update-available.txt");
     let updateSuffix = "";
     try {

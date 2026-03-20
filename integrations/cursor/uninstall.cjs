@@ -9,6 +9,9 @@ const {
   parseKeepAicDatabase,
   tryCleanGlobalAicDir,
 } = require("../clean-global-aic-dir.cjs");
+const {
+  resolveProjectRoot: resolveProjectRootShared,
+} = require("../shared/resolve-project-root.cjs");
 
 const manifestPath = path.join(__dirname, "aic-hook-scripts.json");
 const AIC_SCRIPT_NAMES = JSON.parse(
@@ -114,27 +117,31 @@ function tryCleanProjectHooks(projectRoot) {
   return removed;
 }
 
-function resolveProjectRoot() {
-  const env = process.env.AIC_UNINSTALL_PROJECT_ROOT;
-  if (env !== undefined && String(env).trim() !== "") {
-    return path.resolve(String(env).trim());
-  }
+function projectRootFromArgv() {
   const argv = process.argv;
   const idx = argv.findIndex(
     (a) => a === "--project-root" || a.startsWith("--project-root="),
   );
-  if (idx === -1) return process.cwd();
+  if (idx === -1) return null;
   const arg = argv[idx];
   const eq = arg.indexOf("=");
   if (eq !== -1) return path.resolve(arg.slice(eq + 1));
   if (idx + 1 < argv.length) return path.resolve(argv[idx + 1]);
-  return process.cwd();
+  return null;
 }
 
 function run() {
   const home = os.homedir();
   const globalMcpPath = path.join(home, ".cursor", "mcp.json");
-  const projectRoot = resolveProjectRoot();
+  const envRoot =
+    process.env.AIC_UNINSTALL_PROJECT_ROOT != null &&
+    String(process.env.AIC_UNINSTALL_PROJECT_ROOT).trim() !== ""
+      ? path.resolve(String(process.env.AIC_UNINSTALL_PROJECT_ROOT).trim())
+      : null;
+  const projectRoot =
+    projectRootFromArgv() ??
+    envRoot ??
+    resolveProjectRootShared(null, { env: process.env, useAicProjectRoot: true });
   const projectMcpPath = path.join(projectRoot, ".cursor", "mcp.json");
   const removedGlobalMcp = tryStripMcp(globalMcpPath);
   const removedProjectMcp = tryStripMcp(projectMcpPath);

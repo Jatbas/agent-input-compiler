@@ -7,6 +7,7 @@ const path = require("path");
 const { execSync } = require("child_process");
 const { readStdinSync } = require("../../shared/read-stdin-sync.cjs");
 const { readEditedFiles } = require("../../shared/edited-files-cache.cjs");
+const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 
 function runEslint(paths, cwd) {
   if (paths.length === 0) return { exitCode: 0, stderr: "" };
@@ -60,8 +61,7 @@ function run(stdinStr) {
       return "";
     }
     const sessionId = parsed.session_id ?? parsed.input?.session_id ?? "default";
-    const cwdRaw = (parsed.cwd ?? parsed.input?.cwd ?? "").trim();
-    const projectRoot = cwdRaw ? cwdRaw : process.env.CLAUDE_PROJECT_DIR || process.cwd();
+    const projectRoot = resolveProjectRoot(parsed);
     const paths = readEditedFiles("claude_code", sessionId);
     const filtered = paths.filter(
       (p) =>

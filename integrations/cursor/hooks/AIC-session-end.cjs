@@ -9,6 +9,7 @@ const os = require("os");
 
 const { appendSessionLog } = require("../../shared/session-log.cjs");
 const { cleanupEditedFiles } = require("../../shared/edited-files-cache.cjs");
+const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 
 const GATE_PREFIX = "aic-gate-";
 const DENY_PREFIX = "aic-deny-";
@@ -68,7 +69,7 @@ function main() {
   cleanupTempFiles();
   cleanupEditedFiles("cursor", key);
 
-  const projectRoot = process.env.CURSOR_PROJECT_DIR || process.cwd();
+  const projectRoot = resolveProjectRoot(null, { env: process.env });
   appendSessionLog(projectRoot, {
     session_id: sessionId,
     reason,

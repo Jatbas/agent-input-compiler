@@ -9,6 +9,10 @@ const {
   releaseSessionLock,
   writeSessionMarker,
 } = require("../../../shared/session-markers.cjs");
+const { resolveProjectRoot } = require("../../../shared/resolve-project-root.cjs");
+const {
+  conversationIdFromTranscriptPath,
+} = require("../../../shared/conversation-id.cjs");
 const { callAicCompile } = require("./aic-compile-helper.cjs");
 
 async function run(stdinStr) {
@@ -20,8 +24,7 @@ async function run(stdinStr) {
   }
   const sessionId =
     parsed.session_id != null ? parsed.session_id : (parsed.input?.session_id ?? null);
-  const transcriptPath = parsed.transcript_path ?? parsed.input?.transcript_path ?? null;
-  const conversationId = transcriptPath ? path.basename(transcriptPath, ".jsonl") : null;
+  const conversationId = conversationIdFromTranscriptPath(parsed);
   const rawModel =
     parsed.model != null
       ? parsed.model
@@ -37,10 +40,7 @@ async function run(stdinStr) {
             : undefined;
         })()
       : undefined;
-  const cwdRaw = parsed.cwd ?? parsed.input?.cwd ?? "";
-  const projectRoot = cwdRaw.trim()
-    ? cwdRaw.trim()
-    : process.env.CLAUDE_PROJECT_DIR || process.cwd();
+  const projectRoot = resolveProjectRoot(parsed);
 
   if (!acquireSessionLock(projectRoot)) return null;
 

@@ -5,6 +5,8 @@ const path = require("node:path");
 const fs = require("node:fs");
 const os = require("node:os");
 
+const { resolveProjectRoot } = require("../shared/resolve-project-root.cjs");
+
 const AIC_SCRIPT_NAMES = JSON.parse(
   fs.readFileSync(path.join(__dirname, "aic-hook-scripts.json"), "utf8"),
 ).hookScriptNames;
@@ -36,7 +38,7 @@ Prompt commands (call the MCP tool; do not use resource URIs or server identifie
 - "show aic projects" → call \`aic_projects\` (no arguments). Same formatting.
 `;
 
-const projectRoot = process.cwd();
+const projectRoot = resolveProjectRoot(null, { env: process.env });
 const sourceHooksDir = path.join(__dirname, "hooks");
 const templatePath = path.join(__dirname, "hooks.json.template");
 

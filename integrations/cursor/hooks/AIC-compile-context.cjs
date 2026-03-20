@@ -15,8 +15,9 @@ const {
   normalizeModelId,
   writeSessionModelCache,
 } = require("../../shared/session-model-cache.cjs");
+const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 
-const projectRoot = process.env.CURSOR_PROJECT_DIR || process.cwd();
+const projectRoot = resolveProjectRoot(null, { env: process.env });
 const INTENT = "understand project structure, architecture, and recent changes";
 const TIMEOUT_MS = 20000;
 

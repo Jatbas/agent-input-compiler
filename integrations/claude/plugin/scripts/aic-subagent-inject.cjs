@@ -2,7 +2,10 @@
 // Copyright (c) 2025 AIC Contributors
 // SubagentStart hook — hookSpecificOutput JSON per CC §6.3; no marker file.
 
-const path = require("path");
+const { resolveProjectRoot } = require("../../../shared/resolve-project-root.cjs");
+const {
+  conversationIdFromTranscriptPath,
+} = require("../../../shared/conversation-id.cjs");
 const { callAicCompile } = require("./aic-compile-helper.cjs");
 
 async function run(stdinStr) {
@@ -13,12 +16,8 @@ async function run(stdinStr) {
     parsed = {};
   }
   const agentType = parsed.agent_type ?? parsed.input?.agent_type ?? "unknown";
-  const cwdRaw = parsed.cwd ?? parsed.input?.cwd ?? "";
-  const projectRoot = cwdRaw.trim()
-    ? cwdRaw.trim()
-    : process.env.CLAUDE_PROJECT_DIR || process.cwd();
-  const transcriptPath = parsed.transcript_path ?? parsed.input?.transcript_path ?? null;
-  const conversationId = transcriptPath ? path.basename(transcriptPath, ".jsonl") : null;
+  const projectRoot = resolveProjectRoot(parsed);
+  const conversationId = conversationIdFromTranscriptPath(parsed);
 
   const rawPrompt = parsed.prompt ?? parsed.input?.prompt ?? null;
   const intent = rawPrompt
