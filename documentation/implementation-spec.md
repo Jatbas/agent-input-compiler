@@ -256,9 +256,9 @@ Full scoring detail with normalisation methods: [Project Plan §8](project-plan.
 **Never-include path patterns (MVP):**
 `.env`, `.env.*`, `*.pem`, `*.key`, `*.pfx`, `*.p12`, `*secret*`, `*credential*`, `*password*`, `*.cert`
 
-**Secret patterns (MVP):** 6 regex patterns covering AWS keys, GitHub tokens, Stripe keys, generic named API keys, JWTs, and SSH/TLS private key headers. See [Project Plan §8.4](project-plan.md) for the full pattern table.
+**Secret patterns (MVP):** 6 regex patterns covering AWS keys, GitHub tokens, Stripe keys, generic named API keys, JWTs, and SSH/TLS private key headers. See [Project Plan §8.4](project-plan.md#84-contextguard-interface) for the full pattern table.
 
-**Prompt injection patterns (MVP):** 6 regex patterns covering instruction override, persona hijack, fake system prompt headers, constraint override, and model-specific special token injection (OpenAI chat markup, Llama/Mistral instruction tokens). See [Project Plan §8.4](project-plan.md) for the full pattern table and false-positive mitigation guidance.
+**Prompt injection patterns (MVP):** 6 regex patterns covering instruction override, persona hijack, fake system prompt headers, constraint override, and model-specific special token injection (OpenAI chat markup, Llama/Mistral instruction tokens). See [Project Plan §8.4](project-plan.md#84-contextguard-interface) for the full pattern table and false-positive mitigation guidance.
 
 **Behaviour on exclusion:**
 
@@ -269,7 +269,7 @@ Full scoring detail with normalisation methods: [Project Plan §8](project-plan.
 
 **Guard allow patterns (shipped):**
 
-`guard.allowPatterns` in `aic.config.json` is a list of repo-relative glob patterns. Matching is done via the same logic as `matchesGlob` (see `shared/src/pipeline/glob-match.ts`). Files whose path matches any allow pattern skip content scanners (Secret, PromptInjection, etc.); **never-include path patterns** (`.env`, `*.pem`, etc.) run first and always block regardless of allow list. Default is `[]`.
+`guard.allowPatterns` in `aic.config.json` is a list of repo-relative glob patterns (each pattern 1–512 characters, max 64 patterns; validated in `load-config-from-file.ts`). Matching is done via the same logic as `matchesGlob` (see `shared/src/pipeline/glob-match.ts`). Files whose path matches any allow pattern skip content scanners (Secret, PromptInjection, MarkdownInstruction, CommandInjection); **never-include path patterns** (`.env`, `*.pem`, etc.) run first and always block regardless of allow list. Default is `[]`.
 
 ```json
 {
@@ -1203,7 +1203,7 @@ const AicConfigSchema = z
       .object({
         enabled: z.boolean().default(true),
         additionalExclusions: z.array(z.string()).default([]),
-        allowPatterns: z.array(z.string()).default([]),
+        allowPatterns: z.array(z.string().min(1).max(512)).max(64).default([]),
       })
       .optional(),
     telemetry: z

@@ -365,7 +365,7 @@ No `aic.config.json` changes are needed. The `"enabled"` flag would disable both
 
 Uninstall stops AIC from running in your editor and removes the config and hooks the installers added. Optionally you can remove all AIC data (compilation history and cache) as described below.
 
-### Uninstall: Cursor
+### <a id="uninstall-cursor"></a>Cursor
 
 One run of the Cursor uninstall script does all of the following when it finds something to remove:
 
@@ -400,12 +400,12 @@ If you do not have the repo, copy **`integrations/cursor/uninstall.cjs`** and **
 
 Restart Cursor (or use **MCP: Reload Configurations**) after a successful uninstall so the editor picks up the change.
 
-### Uninstall: Claude Code (plugin)
+### <a id="uninstall-claude-code-plugin"></a>Claude Code (plugin)
 
 1. In Claude Code, run `/plugin` and uninstall the AIC plugin. No script is required.
 2. Restart or reload Claude Code if needed.
 
-### Uninstall: Claude Code (direct installer)
+### <a id="uninstall-claude-code-direct"></a>Claude Code (direct installer)
 
 The direct-installer uninstall removes AIC hook entries from **`~/.claude/settings.json`** and deletes the AIC scripts under **`~/.claude/hooks/`**. It applies the same **`~/.aic/`** cleanup rules as the Cursor uninstall (default: strip non-database files; optional full removal via `--keep-aic-database=0` / `AIC_UNINSTALL_KEEP_AIC_DATABASE=false`).
 
@@ -418,11 +418,11 @@ node integrations/claude/uninstall.cjs
 
 If the script is elsewhere, use the full path to `integrations/claude/uninstall.cjs` (it must sit next to **`integrations/claude/aic-hook-scripts.json`** in the tree). Restart Claude Code (or reload) after a successful uninstall.
 
-### Uninstall: Other editors
+### <a id="uninstall-other-editors"></a>Other editors
 
 Remove the `aic` entry from your editor’s global MCP config (the file and key name depend on the editor). Optionally delete the project’s `.aic/` directory for local metadata; compilation history for all projects still lives in **`~/.aic/aic.sqlite`** until you remove `~/.aic` (see [Optional: remove all data](#uninstall-optional--remove-all-data)).
 
-### Uninstall: Optional — remove all data
+### <a id="uninstall-optional--remove-all-data"></a>Optional — remove all data
 
 If you already ran an uninstall with **`--keep-aic-database=0`** (or `AIC_UNINSTALL_KEEP_AIC_DATABASE=false`), the global database is gone. Otherwise, to delete compilation history and cache (global DB and per-project rows), remove the data directory:
 

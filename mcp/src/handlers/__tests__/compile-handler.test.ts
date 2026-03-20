@@ -51,6 +51,7 @@ function mockScopeForHandler(
     exec: (): void => {},
     prepare: (_sql: string) => ({
       run: (): void => {},
+      get: (): unknown => undefined,
       all: (): unknown[] => [],
     }),
   };

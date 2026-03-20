@@ -2036,13 +2036,20 @@ interface GuardScanner {
 }
 ```
 
-### GuardConfig — constructor argument for the concrete `ContextGuard` class
+### ContextGuard constructor — dependencies
+
+The concrete `ContextGuard` class is constructed with four dependencies (provided by the composition root, e.g. `create-pipeline-deps`): an exclusion scanner, an array of content scanners, a file content reader, and the allow-pattern list. There is no single `GuardConfig` object.
 
 ```typescript
-interface GuardConfig {
-  enabled: boolean;
-  additionalExclusions: GlobPattern[];
-}
+// Constructor signature of the concrete ContextGuard class (not the interface).
+// exclusionScanner runs first (path-based); then pathAllowed(allowPatterns) skips content
+// scans for matching paths; then contentScanners run on file content.
+constructor(
+  exclusionScanner: GuardScanner,
+  contentScanners: readonly GuardScanner[],
+  fileContentReader: FileContentReader,
+  allowPatterns: readonly GlobPattern[],
+)
 ```
 
 ### ContextGuard — the orchestrator
@@ -2052,20 +2059,22 @@ interface ContextGuard {
   /** Read each file from disk, pass (file, content) to every registered GuardScanner,
    *  aggregate findings, and return the GuardResult alongside a filtered file list
    *  with blocked files removed. ContextGuard owns all I/O; scanners are pure functions. */
-  scan(files: SelectedFile[]): {
-    result: GuardResult;
-    safeFiles: SelectedFile[];
-  };
+  scan(files: readonly SelectedFile[]): Promise<{
+    readonly result: GuardResult;
+    readonly safeFiles: readonly SelectedFile[];
+  }>;
 }
 ```
 
 ### Scanners shipped in MVP
 
-| Scanner                  | Finding type       | Severity | Action                                                                                                                  |
-| ------------------------ | ------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `ExclusionScanner`       | `excluded-file`    | `block`  | File path matches a never-include pattern (`.env`, `*.pem`, `*secret*`, `*credential*`, `*password*`, `*.key`, `*.pfx`) |
-| `SecretScanner`          | `secret`           | `block`  | File content matches a known secret regex (see patterns below)                                                          |
-| `PromptInjectionScanner` | `prompt-injection` | `block`  | File content contains suspected instruction-override strings; file removed from context, finding logged                 |
+| Scanner                      | Finding type        | Severity | Action                                                                                                                  |
+| ---------------------------- | ------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `ExclusionScanner`           | `excluded-file`     | `block`  | File path matches a never-include pattern (`.env`, `*.pem`, `*secret*`, `*credential*`, `*password*`, `*.key`, `*.pfx`) |
+| `SecretScanner`              | `secret`            | `block`  | File content matches a known secret regex (see patterns below)                                                          |
+| `PromptInjectionScanner`     | `prompt-injection`  | `block`  | File content contains suspected instruction-override strings; file removed from context, finding logged                 |
+| `MarkdownInstructionScanner` | `prompt-injection`  | `block`  | File content contains markdown instruction patterns (e.g. `<!--`, directive-like blocks)                                |
+| `CommandInjectionScanner`    | `command-injection` | `block`  | File content contains suspected shell/command injection strings; file removed from context, finding logged              |
 
 **Secret patterns (MVP):**
 
@@ -2091,7 +2100,7 @@ New patterns are added by updating the `SecretScanner` pattern list — no inter
 | `(?i)<\|?(system\|im_start\|endofprompt)\|?>`                                             | `<                                                                 | system                                                 | >`, `< | im_start | >`, `< | endofprompt | >`  | Model-specific special token injection (OpenAI chat markup) |
 | `(?i)\[INST\].*\[/INST\]`                                                                 | `[INST] new instructions [/INST]`                                  | Llama/Mistral instruction token injection              |
 
-**False-positive mitigation:** These patterns target adversarial strings that have no legitimate reason to appear in source code. Config `guard.allowPatterns` is applied at runtime; matching paths skip content scanners. The scanner logs the matched pattern in `GuardFinding.pattern` so the developer can diagnose false positives.
+**False-positive mitigation:** These patterns target adversarial strings that have no legitimate reason to appear in source code. Config `guard.allowPatterns` is applied at runtime; matching paths skip content scanners. The scanner logs the matched pattern in `GuardFinding.pattern` so the developer can diagnose false positives. See [Implementation Spec — Step 5](implementation-spec.md#step-5-context-guard) for allow-pattern behaviour and schema.
 
 New scanner types (e.g. PII detector in Phase 2) are added by implementing `GuardScanner` and registering in the guard's scanner chain.
 

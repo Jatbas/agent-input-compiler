@@ -186,7 +186,7 @@ AWS keys, GitHub tokens, Stripe keys, generic named API keys (e.g. `api_key = ".
 - All findings are logged in `CompilationMeta.guard` and visible via `aic_inspect`
 - If all selected files are blocked, the pipeline returns empty context with `guard.passed: false`
 
-**False-positive handling:** The allow list is loaded from `aic.config.json` (`guard.allowPatterns`). Paths matching those globs skip content scanners; never-include paths (`.env`, `*.pem`, etc.) stay mandatory blocks and cannot be overridden. See [Implementation Spec — Step 5](implementation-spec.md#step-5-context-guard) and [Project Plan §8.4](project-plan.md#84-contextguard-interface).
+**False-positive mitigation:** The allow list is loaded from `aic.config.json` (`guard.allowPatterns`). Paths matching those globs skip content scanners; never-include paths (`.env`, `*.pem`, etc.) stay mandatory blocks and cannot be overridden. See [Implementation Spec — Step 5](implementation-spec.md#step-5-context-guard) and [Project Plan §8.4](project-plan.md#84-contextguard-interface).
 
 Full pattern tables: [Project Plan §8.4](project-plan.md#84-contextguard-interface).
 

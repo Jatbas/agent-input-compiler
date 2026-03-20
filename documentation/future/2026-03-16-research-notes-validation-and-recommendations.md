@@ -118,7 +118,7 @@ Finding 9 connects recommendations to the roadmap: they are architecturally comp
 - `documentation/future/research-notes.md` — base document
 - `documentation/project-plan.md` — RepoMap, Phase 2, roadmap, interfaces
 - `documentation/implementation-spec.md` — MVP pipeline, excluded features
-- `documentation/mvp-progress.md` — Phase P/Q, structural map, chunk-level inclusion
+- `documentation/tasks/progress/mvp-progress.md` — Phase P/Q, structural map, chunk-level inclusion
 - `shared/src/core/run-pipeline-steps.ts` — pipeline order and steps
 - `shared/src/core/types/repo-map.ts` — RepoMap type
 - `shared/src/pipeline/structural-map-builder.ts` — directory structural map

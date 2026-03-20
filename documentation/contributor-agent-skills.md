@@ -25,7 +25,7 @@ Shared investigation rules used by several skills are in `.claude/skills/shared/
 | `aic-task-executor`        | Implements work from those task files, or ad-hoc requests, using **Git worktree** isolation and mechanical verification. |
 | `aic-researcher`           | Evidence-backed investigation; writes notes under `documentation/research/`.                                             |
 | `aic-documentation-writer` | Documentation pipeline: exploration, change specifications, adversarial review.                                          |
-| `aic-update-mvp-progress`  | Updates `documentation/mvp-progress.md` after implementation work.                                                       |
+| `aic-update-mvp-progress`  | Updates `documentation/tasks/progress/mvp-progress.md` after implementation work.                                        |
 | `aic-update-changelog`     | Updates root `CHANGELOG.md` for user-facing releases and milestones.                                                     |
 
 Task files under `documentation/tasks/` are **gitignored** (local to your machine). They are not part of the published tree; the planner and executor skills define how to create and use them.
@@ -57,4 +57,4 @@ For documentation-heavy tasks, the task planner documentation recipe delegates t
 - [Claude Code integration layer](claude-code-integration-layer.md)
 - [CONTRIBUTING.md](../CONTRIBUTING.md) — clone, install, tests, PR expectations
 - [Best practices](best-practices.md) — session habits for people using AIC as a product
-- [MVP progress](mvp-progress.md) — includes notes on relocating skills to `.claude/skills/`
+- [MVP progress](documentation/tasks/progress/mvp-progress.md) — includes notes on relocating skills to `.claude/skills/`
