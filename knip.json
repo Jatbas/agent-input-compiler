@@ -34,6 +34,8 @@
     "integrations/shared/__tests__/edited-files-cache.test.cjs",
     "integrations/shared/session-markers.cjs",
     "integrations/shared/__tests__/session-markers.test.cjs",
+    "integrations/shared/aic-dir.cjs",
+    "integrations/shared/__tests__/aic-dir.test.cjs",
     "integrations/shared/session-log.cjs",
     "integrations/shared/__tests__/session-log.test.cjs",
     "mcp/scripts/**",
