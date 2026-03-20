@@ -45,10 +45,20 @@ function install_creates_all_artifacts() {
     const hooksDir = path.join(tmpDir, ".cursor", "hooks");
     assert(fs.existsSync(hooksDir), ".cursor/hooks exists");
     const names = fs.readdirSync(hooksDir);
-    assert(names.length === 12, "12 scripts in .cursor/hooks");
+    assert(names.length === 19, "19 files in .cursor/hooks");
     for (const name of AIC_SCRIPT_NAMES) {
       assert(names.includes(name), `script ${name} present`);
     }
+    const compileContextPath = path.join(hooksDir, "AIC-compile-context.cjs");
+    const compileContextContent = fs.readFileSync(compileContextPath, "utf8");
+    assert(
+      !compileContextContent.includes("../../shared/"),
+      "installed hook has no ../../shared/ require path",
+    );
+    assert(
+      compileContextContent.includes('require("./session-model-cache.cjs")'),
+      "installed hook uses local require for session-model-cache",
+    );
     const hooksJsonPath = path.join(tmpDir, ".cursor", "hooks.json");
     assert(fs.existsSync(hooksJsonPath), ".cursor/hooks.json exists");
     const hooksJson = JSON.parse(fs.readFileSync(hooksJsonPath, "utf8"));
@@ -75,13 +85,13 @@ function install_creates_all_artifacts() {
   }
 }
 
-function install_twelve_scripts() {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-install-twelve-"));
+function install_expected_scripts() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-install-expected-"));
   try {
     runInstaller(tmpDir);
     const hooksDir = path.join(tmpDir, ".cursor", "hooks");
     const names = fs.readdirSync(hooksDir);
-    assert(names.length === 12, "12 scripts in .cursor/hooks");
+    assert(names.length === 19, "19 files in .cursor/hooks");
     for (const name of AIC_SCRIPT_NAMES) {
       assert(names.includes(name), `script ${name} present`);
     }
@@ -95,16 +105,20 @@ function install_idempotent() {
   try {
     runInstaller(tmpDir);
     const scriptPath = path.join(tmpDir, ".cursor", "hooks", "AIC-session-init.cjs");
+    const sharedPath = path.join(tmpDir, ".cursor", "hooks", "session-model-cache.cjs");
     const hooksJsonPath = path.join(tmpDir, ".cursor", "hooks.json");
     const triggerPath = path.join(tmpDir, ".cursor", "rules", "AIC.mdc");
     const content1 = fs.readFileSync(scriptPath, "utf8");
+    const shared1 = fs.readFileSync(sharedPath, "utf8");
     const json1 = fs.readFileSync(hooksJsonPath, "utf8");
     const mdc1 = fs.readFileSync(triggerPath, "utf8");
     runInstaller(tmpDir);
     const content2 = fs.readFileSync(scriptPath, "utf8");
+    const shared2 = fs.readFileSync(sharedPath, "utf8");
     const json2 = fs.readFileSync(hooksJsonPath, "utf8");
     const mdc2 = fs.readFileSync(triggerPath, "utf8");
     assert(content1 === content2, "script content unchanged after second run");
+    assert(shared1 === shared2, "shared file content unchanged after second run");
     assert(json1 === json2, "hooks.json unchanged after second run");
     assert(mdc1 === mdc2, "AIC.mdc unchanged after second run");
   } finally {
@@ -238,7 +252,7 @@ function install_keeps_workspace_aic_when_global_has_no_aic() {
 
 const tests = [
   ["install_creates_all_artifacts", install_creates_all_artifacts],
-  ["install_twelve_scripts", install_twelve_scripts],
+  ["install_expected_scripts", install_expected_scripts],
   ["install_idempotent", install_idempotent],
   ["install_merges_hooks_json", install_merges_hooks_json],
   ["install_removes_stale_scripts", install_removes_stale_scripts],

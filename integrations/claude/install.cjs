@@ -206,19 +206,34 @@ try {
 
   fs.mkdirSync(globalHooksDir, { recursive: true });
 
+  const sharedDir = path.join(__dirname, "..", "shared");
+  const sharedEntries = fs.readdirSync(sharedDir);
+  for (const name of sharedEntries) {
+    if (name.endsWith(".cjs")) {
+      const src = path.join(sharedDir, name);
+      if (fs.statSync(src).isFile()) {
+        fs.copyFileSync(src, path.join(globalHooksDir, name));
+      }
+    }
+  }
+
   for (const name of AIC_SCRIPT_NAMES) {
     const srcPath = path.join(hooksSourceDir, name);
     const destPath = path.join(globalHooksDir, name);
     const sourceContent = fs.readFileSync(srcPath, "utf8");
+    const installedContent = sourceContent.replace(
+      /require\("\.\.\/\.\.\/shared\//g,
+      'require("./',
+    );
     let shouldWrite = true;
     try {
       const existing = fs.readFileSync(destPath, "utf8");
-      if (existing === sourceContent) shouldWrite = false;
+      if (existing === installedContent) shouldWrite = false;
     } catch {
       // dest missing
     }
     if (shouldWrite) {
-      fs.writeFileSync(destPath, sourceContent, "utf8");
+      fs.writeFileSync(destPath, installedContent, "utf8");
     }
   }
 
