@@ -295,7 +295,7 @@ parts.push(promptContext);
 
 The marker is scoped by `session_id` so multiple concurrent sessions don't interfere. Delete the marker in `SessionEnd`.
 
-Lock file layout (`.session-start-lock`), merge options, and ordering with this marker are recorded in [Marker file simplification evaluation](marker-file-simplification-evaluation.md).
+Lock file layout (`.session-start-lock`), merge options, and ordering with this marker are recorded in [Session start lock and session context marker](technical/session-start-lock-and-marker.md).
 
 **Output:** `hookSpecificOutput` JSON (see §6.2).
 
@@ -415,7 +415,7 @@ No context injection — this hook produces no stdout. Exit 0 always (telemetry 
 
 **Input fields used:** `input.session_id`, `input.reason`
 
-**Additional responsibility:** Delete the `.aic/.session-context-injected` marker for this `session_id` (see the dual-path workaround in §7.2) so it doesn't persist across sessions. The hook also calls `releaseSessionLock`; see [Marker file simplification evaluation](marker-file-simplification-evaluation.md) for lock and marker interaction.
+**Additional responsibility:** Delete the `.aic/.session-context-injected` marker for this `session_id` (see the dual-path workaround in §7.2) so it doesn't persist across sessions. The hook also calls `releaseSessionLock`; see [Session start lock and session context marker](technical/session-start-lock-and-marker.md) for lock and marker interaction.
 
 **File:** `.claude/hooks/aic-session-end.cjs`
 

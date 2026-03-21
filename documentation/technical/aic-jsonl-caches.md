@@ -1,4 +1,4 @@
-# JSONL cache unification evaluation
+# AIC JSONL caches under `.aic/`
 
 ## When to update this document
 
@@ -6,17 +6,17 @@ Update this document when:
 
 - You add another project-root JSONL log under `.aic/` that participates in the same append and prune story as `session-models.jsonl`, `prompt-log.jsonl`, or `session-log.jsonl`.
 - You change append implementation (`appendJsonl` in `integrations/shared/aic-dir.cjs`) or retention and prune wiring for those logs, including `shared/src/maintenance/` or scheduling in `mcp/src/server.ts`.
-- You change line shape, schema, or read semantics for those JSONL files in a way that affects whether a unified façade stays undesirable.
-- You introduce or redesign a shared JSONL façade across those logs; treat that as a full re-read of this decision record, not a cosmetic edit.
-- Inventory and caller details for shared modules belong in [Integrations shared modules reference](integrations-shared-modules.md); update that document when those change.
+- You change line shape, schema, or read semantics for those JSONL files.
+- You introduce or redesign a shared JSONL façade across those logs; rewrite this document to match the new shape.
+- Inventory and caller details for shared modules live in [Integrations shared modules reference](integrations-shared-modules.md); update that document when those change.
 
-## Scope and non-goals
+## Scope
 
-This document answers whether `session-models.jsonl`, `prompt-log.jsonl`, and `session-log.jsonl` under `.aic/` should share one generic `JsonlCache` abstraction across integration hooks and MCP maintenance code.
+This document describes how `session-models.jsonl`, `prompt-log.jsonl`, and `session-log.jsonl` under `.aic/` are written, pruned, and read from integration hooks and MCP maintenance code. It records why the repository does not use one generic `JsonlCache` abstraction across all three files.
 
-> Marker-file layout is decided in [Marker file simplification evaluation](marker-file-simplification-evaluation.md). This document does not re-evaluate that topic. It does not cover edited-files temp storage under `os.tmpdir()`.
+Marker-file layout under `.aic/` for Claude SessionStart is documented in [Session start lock and session context marker](session-start-lock-and-marker.md). Edited-files temp storage under `os.tmpdir()` is out of scope here.
 
-## Current architecture
+## Layout and wiring
 
 | File                        | Append path                                                       | Read API in shared CJS                      | Prune                                                                        |
 | --------------------------- | ----------------------------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------- |
@@ -26,11 +26,11 @@ This document answers whether `session-models.jsonl`, `prompt-log.jsonl`, and `s
 
 Pruning is scheduled from `mcp/src/server.ts` inside `createMcpServer` using `setImmediate` alongside cache purge. Implementation lives under `shared/src/maintenance/`.
 
-## Shared mechanisms today
+## Shared mechanisms
 
 - **Append:** All three files use `appendJsonl` from `integrations/shared/aic-dir.cjs`, which creates `.aic/` at mode `0o700` and appends one JSON object per line.
 - **Retention:** `shared/src/maintenance/prune-jsonl-by-timestamp.ts` removes lines whose `timestamp` field is older than twenty-four hours measured from the injected `Clock` at prune time. The same `RETENTION_MINUTES` value applies to every filename passed into this helper.
-- **Field validation:** CJS writers use `integrations/shared/cache-field-validators.cjs`. TypeScript maintenance uses `shared/src/maintenance/cache-field-validators.ts` with aligned rules, as summarized in [Integrations shared modules reference](integrations-shared-modules.md).
+- **Field validation:** CJS writers use `integrations/shared/cache-field-validators.cjs`. TypeScript maintenance uses `shared/src/maintenance/cache-field-validators.ts` with aligned rules, summarized in [Integrations shared modules reference](integrations-shared-modules.md).
 
 ## Schema comparison
 
@@ -44,41 +44,22 @@ All three schemas expose a `timestamp` string that `pruneJsonlByTimestamp` can p
 
 ## Read paths versus append-only writers
 
-Only `session-model-cache.cjs` implements integration-layer reads. It scans all lines to pick the latest model for an editor, preferring a line whose conversation id matches when the caller supplies one. Prompt and session logs are write-only from `integrations/shared/`; any historical analysis reads the JSONL file on disk outside these small modules.
+Only `session-model-cache.cjs` implements integration-layer reads. It scans all lines to pick the latest model for an editor, preferring a line whose conversation id matches when the caller supplies one. Prompt and session logs are write-only from `integrations/shared/`; historical analysis reads the JSONL files on disk outside these modules.
 
-## Assessment of a unified JsonlCache abstraction
+## Why there is no single JsonlCache type
 
-**Already centralized:** Append uses `fs.appendFileSync` in UTF-8 text mode with one JSON object serialized per line; age-based pruning is shared. A thin wrapper around `appendJsonl` alone would touch few call sites and mostly adds indirection.
+Append uses `fs.appendFileSync` in UTF-8 text mode with one JSON object serialized per line; age-based pruning is shared through `pruneJsonlByTimestamp`. A thin wrapper around `appendJsonl` alone would touch few call sites and mostly adds indirection.
 
-Structural mismatch for one generic type:
+**Schemas differ:** One shared class with a single record shape would need wide unions or would drop the per-file validation that runs before append.
 
-### Schemas differ
+**Read semantics differ:** Session models need full-file scan and last-match selection. A generic cache focused on append and prune still needs a dedicated reader for session models; uniform query APIs would misrepresent prompt and session logs, which have no shared read helper in shared CJS.
 
-One shared class with a single record shape would need wide unions or would drop the per-file validation that runs before append today.
+**Runtime split:** Hooks run CommonJS without the MCP `Clock`. Pruning uses `Clock` in TypeScript maintenance. One abstraction spanning both sides would blur the boundary between editor integration scripts and the MCP composition root unless split into thin adapters on each side.
 
-### Read semantics differ
-
-Session models need full-file scan and last-match selection. A generic cache focused on append and prune still needs a dedicated reader for session models; uniform "query" APIs would misrepresent prompt and session logs, which have no shared read helper.
-
-### Runtime split
-
-Hooks run CommonJS without the MCP `Clock`. Pruning uses `Clock` in TypeScript maintenance. One abstraction spanning both sides would fight the boundary between editor integration scripts and the MCP composition root unless split into thin adapters on each side.
-
-**Proportional middle ground:** Keep `appendJsonl` and `pruneJsonlByTimestamp` as the shared core. If small duplicated helpers appear, extract line-parse or timestamp-check utilities without claiming a single domain type for all three logs.
-
-## Recommendation
-
-**Do not introduce a single generic `JsonlCache` with unified typed schema, append, prune, and query across all three files.** Shared primitives already cover append and retention. Schema and read behavior diverge enough that a unified façade costs more clarity than it saves. Treat this document as the decision record unless a future JSONL file repeats the same shape and read pattern as an existing one.
-
-## Implementation prerequisites
-
-If a future refactor still merges code paths:
-
-- Keep validation at the append boundary in CJS hooks.
-- Keep pruning on the MCP side with `Clock` injection; follow repository determinism rules for TypeScript layers.
-- Mirror edits under `integrations/shared/` into `.cursor/hooks/` copies in the same commit per installer documentation.
+The shared core remains `appendJsonl` and `pruneJsonlByTimestamp`. Small duplicated helpers, if they appear, should stay line-parse or timestamp-check utilities without a single domain type for all three logs.
 
 ## Related documentation
 
-- [Server-side code sharing evaluation](server-side-code-sharing-evaluation.md)
+- [MCP server and shared CJS boundary](mcp-and-shared-cjs-boundary.md)
 - [Integrations shared modules reference](integrations-shared-modules.md)
+- [Session start lock and session context marker](session-start-lock-and-marker.md)

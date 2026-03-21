@@ -287,6 +287,8 @@ Cursor exposes sessionEnd, preCompact, subagentStart (gating only — no context
 
 **Current state:** The Cursor integration layer is built (session-start injection, tool gating, sessionEnd, stop quality check, afterFileEdit tracking, prompt logging). The Claude Code integration layer is implemented (plugin and direct installer; see [installation](documentation/installation.md)). For the edited-files flow (tracker → stop → cleanup) per editor, see [edited-files flow](edited-files-flow.md). Generic MCP editors have no hooks — they rely on the trigger rule.
 
+Deep-dive references for shared hook modules, `.aic/` JSONL logs, Claude session lock and marker files, and MCP-versus-shared-CJS boundaries: [Integrations shared modules reference](technical/integrations-shared-modules.md), [AIC JSONL caches under `.aic/`](technical/aic-jsonl-caches.md), [Session start lock and session context marker](technical/session-start-lock-and-marker.md), [MCP server and shared CJS boundary](technical/mcp-and-shared-cjs-boundary.md).
+
 **Key architectural insight:** Any perceived limitation in what AIC "can do" is a limitation of the editor's hook system, not of AIC's core pipeline. When an editor adds a new hook, AIC can immediately use it without core changes. This is why Claude Code — with its richer hook system — can enable per-prompt and subagent compilation that Cursor cannot.
 
 **Implementation note:** `CompilationRequest` includes an optional `triggerSource` field (e.g., `"session_start"`, `"prompt_submit"`, `"tool_gate"`, `"subagent_start"`, `"cli"`, `"model_initiated"`). This lets telemetry distinguish hook-initiated from model-initiated compilations without any core pipeline changes — the field is metadata, not pipeline logic.

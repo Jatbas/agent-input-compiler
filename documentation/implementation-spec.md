@@ -645,6 +645,7 @@ When the client lists workspace roots (e.g. when Cursor connects) or on first `a
 - If `aic.config.json` already exists → bootstrap merges or skips as needed; config is not overwritten. Edit `aic.config.json` directly to change settings.
 - Exit code 0 on success, 1 on `ConfigError`, 2 on internal error
 - Prints: `Created aic.config.json. Edit to customise, or run a compile to use defaults.`
+- **Integration artifact reference:** JSONL logs, session lock and marker files, shared CJS layout, and MCP-versus-hook code overlap are documented under `documentation/technical/` — [Integrations shared modules reference](technical/integrations-shared-modules.md), [AIC JSONL caches under `.aic/`](technical/aic-jsonl-caches.md), [Session start lock and session context marker](technical/session-start-lock-and-marker.md), [MCP server and shared CJS boundary](technical/mcp-and-shared-cjs-boundary.md).
 
 ---
 
