@@ -12,7 +12,7 @@ import {
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
 import { migration } from "../migrations/001-consolidated-schema.js";
-import { SqliteStatusStore } from "../sqlite-status-store.js";
+import { SqliteStatusStore, listProjectsFromDb } from "../sqlite-status-store.js";
 
 const stubClock: Clock = {
   now: () => toISOTimestamp("2025-06-15T12:00:00.000Z"),
@@ -584,6 +584,44 @@ describe("SqliteStatusStore", () => {
     const otherProj = list.find((p) => p.projectId === OTHER_PROJECT_ID);
     expect(testProj?.compilationCount).toBe(1);
     expect(otherProj?.compilationCount).toBe(2);
+  });
+
+  it("listProjectsFromDb_matches_listProjects", () => {
+    db = new Database(":memory:");
+    migration.up(db);
+    store = new SqliteStatusStore(
+      TEST_PROJECT_ID,
+      db as unknown as ExecutableDb,
+      stubClock,
+    );
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(
+      TEST_PROJECT_ID,
+      "/test/project",
+      "2026-01-01T00:00:00.000Z",
+      "2026-01-01T00:00:00.000Z",
+    );
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(
+      OTHER_PROJECT_ID,
+      "/other/project",
+      "2026-01-01T00:00:00.000Z",
+      "2026-01-01T00:00:00.000Z",
+    );
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-0000000000a1", {
+      project_id: TEST_PROJECT_ID,
+    });
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-0000000000a2", {
+      project_id: OTHER_PROJECT_ID,
+    });
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-0000000000a3", {
+      project_id: OTHER_PROJECT_ID,
+    });
+    const fromDb = listProjectsFromDb(db as unknown as ExecutableDb);
+    const fromMethod = store.listProjects();
+    expect(fromDb).toEqual(fromMethod);
   });
 
   it("sqlite_status_store_summary_and_conversation", () => {

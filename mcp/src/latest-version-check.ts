@@ -98,38 +98,43 @@ function readValidCache(
   }
 }
 
-async function fetchLatestAndWriteCache(
+async function fetchLatestVersionFromRegistry(
   packageName: string,
-  cachePath: string,
-  currentVersion: string,
-  now: ReturnType<Clock["now"]>,
-  _messagePath: string,
-): Promise<{ latest: string | null }> {
+): Promise<string | null> {
   const url = `${REGISTRY_BASE}/${encodeURIComponent(packageName)}`;
   const response = await fetch(url, {
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
-  if (!response.ok) return { latest: null };
+  if (!response.ok) return null;
   const contentType = response.headers.get("content-type");
   if (
     contentType === null ||
     contentType.toLowerCase().includes("application/json") === false
   ) {
-    return { latest: null };
+    return null;
   }
   const buffer = await response.arrayBuffer();
-  if (buffer.byteLength > MAX_BODY_BYTES) return { latest: null };
+  if (buffer.byteLength > MAX_BODY_BYTES) return null;
   const body = JSON.parse(new TextDecoder().decode(buffer)) as unknown;
   if (body === null || typeof body !== "object" || Array.isArray(body)) {
-    return { latest: null };
+    return null;
   }
   const distTags: unknown = (body as Record<string, unknown>)["dist-tags"];
   if (distTags === null || typeof distTags !== "object" || Array.isArray(distTags)) {
-    return { latest: null };
+    return null;
   }
   const rawLatest = (distTags as Record<string, unknown>)["latest"];
-  if (typeof rawLatest !== "string") return { latest: null };
-  const latest = isValidVersionString(rawLatest) ? rawLatest : null;
+  if (typeof rawLatest !== "string") return null;
+  return isValidVersionString(rawLatest) ? rawLatest : null;
+}
+
+async function fetchLatestAndWriteCache(
+  packageName: string,
+  cachePath: string,
+  currentVersion: string,
+  now: ReturnType<Clock["now"]>,
+): Promise<{ latest: string | null }> {
+  const latest = await fetchLatestVersionFromRegistry(packageName);
   if (latest === null) return { latest: null };
   fs.writeFileSync(
     cachePath,
@@ -139,43 +144,97 @@ async function fetchLatestAndWriteCache(
   return { latest };
 }
 
+async function fetchWhenCacheMiss(
+  persistSideEffects: boolean,
+  packageName: string,
+  cachePath: string,
+  currentVersion: string,
+  now: ReturnType<Clock["now"]>,
+): Promise<{ latest: string | null }> {
+  if (persistSideEffects) {
+    return fetchLatestAndWriteCache(packageName, cachePath, currentVersion, now);
+  }
+  return { latest: await fetchLatestVersionFromRegistry(packageName) };
+}
+
+function writeUpdateSideEffectFiles(
+  persistSideEffects: boolean,
+  messagePath: string,
+  hasUpdate: boolean,
+  latestVersion: string,
+): void {
+  if (!persistSideEffects) return;
+  if (hasUpdate) {
+    writeMessageFile(messagePath, formatUpdateMessage(latestVersion));
+  } else {
+    writeMessageFile(messagePath, "");
+  }
+}
+
+function cachePathsForProject(
+  projectRoot: AbsolutePath,
+  persistSideEffects: boolean,
+): { readonly cachePath: string; readonly messagePath: string } {
+  const cachePath = persistSideEffects
+    ? path.join(ensureAicDir(projectRoot), CACHE_FILENAME)
+    : path.join(projectRoot, ".aic", CACHE_FILENAME);
+  const messagePath = path.join(projectRoot, ".aic", MESSAGE_FILENAME);
+  return { cachePath, messagePath };
+}
+
+async function resolveRegistryLatest(
+  persistSideEffects: boolean,
+  packageName: string,
+  cachePath: string,
+  currentVersion: string,
+  now: ReturnType<Clock["now"]>,
+  clock: Clock,
+): Promise<string | null> {
+  const cached = readValidCache(cachePath, clock, now);
+  if (cached !== null) return cached;
+  const fetched = await fetchWhenCacheMiss(
+    persistSideEffects,
+    packageName,
+    cachePath,
+    currentVersion,
+    now,
+  );
+  return fetched.latest;
+}
+
 export async function getUpdateInfo(
   projectRoot: AbsolutePath,
   packageName: string,
   currentVersion: string,
   clock: Clock,
+  options?: { readonly persistSideEffects: boolean },
 ): Promise<UpdateInfo> {
+  const persistSideEffects = options === undefined || options.persistSideEffects;
   try {
-    const aicDir = ensureAicDir(projectRoot);
-    const cachePath = path.join(aicDir, CACHE_FILENAME);
-    const messagePath = path.join(aicDir, MESSAGE_FILENAME);
     const now = clock.now();
-
-    const cached = readValidCache(cachePath, clock, now);
-    const fetched =
-      cached !== null
-        ? { latest: cached }
-        : await fetchLatestAndWriteCache(
-            packageName,
-            cachePath,
-            currentVersion,
-            now,
-            messagePath,
-          );
-    const latestVersion = fetched.latest;
+    const { cachePath, messagePath } = cachePathsForProject(
+      projectRoot,
+      persistSideEffects,
+    );
+    const latestVersion = await resolveRegistryLatest(
+      persistSideEffects,
+      packageName,
+      cachePath,
+      currentVersion,
+      now,
+      clock,
+    );
 
     if (latestVersion === null) {
-      writeMessageFile(messagePath, "");
+      if (persistSideEffects) {
+        writeMessageFile(messagePath, "");
+      }
       return { updateAvailable: null, currentVersion, updateMessage: null };
     }
 
     const hasUpdate = compareVersions(latestVersion, currentVersion) > 0;
     const updateMessage = hasUpdate ? formatUpdateMessage(latestVersion) : null;
-    if (hasUpdate) {
-      writeMessageFile(messagePath, formatUpdateMessage(latestVersion));
-    } else {
-      writeMessageFile(messagePath, "");
-    }
+    writeUpdateSideEffectFiles(persistSideEffects, messagePath, hasUpdate, latestVersion);
 
     return {
       updateAvailable: hasUpdate ? latestVersion : null,
@@ -183,13 +242,15 @@ export async function getUpdateInfo(
       updateMessage,
     };
   } catch {
-    try {
-      const messagePath = path.join(projectRoot, ".aic", MESSAGE_FILENAME);
-      if (fs.existsSync(path.join(projectRoot, ".aic"))) {
-        writeMessageFile(messagePath, "");
+    if (persistSideEffects) {
+      try {
+        const messagePath = path.join(projectRoot, ".aic", MESSAGE_FILENAME);
+        if (fs.existsSync(path.join(projectRoot, ".aic"))) {
+          writeMessageFile(messagePath, "");
+        }
+      } catch {
+        // Ignore write failure on error path
       }
-    } catch {
-      // Ignore write failure on error path
     }
     return { updateAvailable: null, currentVersion, updateMessage: null };
   }

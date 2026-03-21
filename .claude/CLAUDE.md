@@ -115,13 +115,13 @@ Use these rules for all AIC prompt commands. Present data like a polished dashbo
 
 ---
 
-- **"show aic status"** — Call the MCP tool `aic_status` (no arguments). Start the reply with one short line: **Status = project-level AIC status.** Then display a formatted table with labels: Compilations (total), Compilations (today), Tokens: raw → compiled, Tokens excluded, Budget limit, Budget utilization (%), Cache hit rate (%), Avg token reduction (%), Guard findings, Top task classes, Last compilation, Installation, Notes, Project (Enabled/Disabled), Update available.
+- **"show aic status"** — Run Bash with `npx @jatbas/aic status` from the project directory, then relay stdout. Start the reply with one short line: **Status = project-level AIC status.** Then display a formatted table with labels: Compilations (total), Compilations (today), Tokens: raw → compiled, Tokens excluded, Budget limit, Budget utilization (%), Cache hit rate (%), Avg token reduction (%), Guard findings, Top task classes, Last compilation, Installation, Notes, Project (Enabled/Disabled), Update available.
 
-- **"show aic chat summary"** — Call the MCP tool `aic_chat_summary`. If `AIC_CONVERSATION_ID` is available in context (injected by hooks), pass it as `conversationId`. Start the reply with one short line: **Chat = this conversation's AIC compilations.** Then display a formatted table with labels: Project path, Compilations, Tokens (raw), Tokens (compiled), Tokens excluded, Cache hit rate (%), Avg token reduction (%), Last compilation, Top task classes.
+- **"show aic chat summary"** — Run Bash with `npx @jatbas/aic chat-summary --project <absolute workspace root>`, then relay stdout. Start the reply with one short line: **Chat = this conversation's AIC compilations.** Then display a formatted table with labels: Project path, Compilations, Tokens (raw), Tokens (compiled), Tokens excluded, Cache hit rate (%), Avg token reduction (%), Last compilation, Top task classes.
 
-- **"show aic last"** — Call the MCP tool `aic_last` (no arguments). Start the reply with one short line: **Last = most recent compilation.** Then display with labels: Intent, Files (N selected / M total), Tokens compiled, Token reduction (%), Compiled (relative time), Editor, Guard (Passed or N findings), Compiled prompt (Available N chars — ask to see it).
+- **"show aic last"** — Run Bash with `npx @jatbas/aic last` from the project directory, then relay stdout. Start the reply with one short line: **Last = most recent compilation.** Then display with labels: Intent, Files (N selected / M total), Tokens compiled, Token reduction (%), Compiled (relative time), Editor, Guard (Passed or N findings), Compiled prompt (Available N chars — ask to see it).
 
-- **"show aic projects"** — Call the MCP tool `aic_projects` (no arguments). Start the reply with one short line: **Projects = known AIC projects.** Display a formatted table with columns: Project ID, Path, Last seen, Compilation count.
+- **"show aic projects"** — Run Bash with `npx @jatbas/aic projects`, then relay stdout. Start the reply with one short line: **Projects = known AIC projects.** Display a formatted table with columns: Project ID, Path, Last seen, Compilation count.
 
 ## Tests
 
@@ -135,5 +135,5 @@ Use these rules for all AIC prompt commands. Present data like a polished dashbo
 This file (`.claude/CLAUDE.md`) and `.cursor/rules/AIC-architect.mdc` are the two canonical rule files for the project. They must stay in sync:
 
 - Architectural invariants, security rules, dependency rules, commit rules, ESLint rules, and test rules are **identical** across both files.
-- Only editor-specific mechanics differ: Claude Code uses hooks for `aic_compile`; Cursor requires manual `aic_compile` calls. Prompt commands use the same MCP tools but instructions differ slightly per editor.
+- Only editor-specific mechanics differ: Claude Code uses hooks for `aic_compile`; Cursor requires manual `aic_compile` calls. Prompt commands use the same shell diagnostics (`npx @jatbas/aic …`) but instructions differ slightly per editor.
 - When changing any shared rule, update all three files in the same commit: (1) this file, (2) `.cursor/rules/AIC-architect.mdc`, and (3) the `CLAUDE_MD_TEMPLATE` in `integrations/claude/install.cjs`. If you only see one file in context, flag that the other two need the same change.

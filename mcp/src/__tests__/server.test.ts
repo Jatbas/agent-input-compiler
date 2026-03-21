@@ -75,6 +75,35 @@ describe("MCP server", () => {
     expect(names).toContain("aic_last");
   });
 
+  it("server_tools_json_unchanged", async () => {
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
+    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+    await server.connect(transportServer);
+    const client = new Client({ name: "test", version: "1.0" });
+    await client.connect(transportClient);
+    const statusResult = await client.callTool({ name: "aic_status", arguments: {} });
+    const statusContent = (statusResult as { content?: { text?: string }[] }).content;
+    const statusText = Array.isArray(statusContent)
+      ? statusContent.map((c) => c?.text ?? "").join("")
+      : "";
+    expect(() => JSON.parse(statusText || "{}")).not.toThrow();
+    const lastResult = await client.callTool({ name: "aic_last", arguments: {} });
+    const lastContent = (lastResult as { content?: { text?: string }[] }).content;
+    const lastText = Array.isArray(lastContent)
+      ? lastContent.map((c) => c?.text ?? "").join("")
+      : "";
+    expect(() => JSON.parse(lastText || "{}")).not.toThrow();
+    const projectsResult = await client.callTool({ name: "aic_projects", arguments: {} });
+    const projectsContent = (projectsResult as { content?: { text?: string }[] }).content;
+    const projectsText = Array.isArray(projectsContent)
+      ? projectsContent.map((c) => c?.text ?? "").join("")
+      : "";
+    expect(() => JSON.parse(projectsText || "[]")).not.toThrow();
+  });
+
   it("aic_status_disabled_shows_projectEnabled_false", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     fs.writeFileSync(path.join(tmpDir, "aic.config.json"), '{"enabled": false}', "utf8");

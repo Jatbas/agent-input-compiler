@@ -8,10 +8,8 @@ import { fileURLToPath } from "node:url";
 import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { RulePack } from "@jatbas/aic-core/core/types/rule-pack.js";
 import type { RulePackProvider } from "@jatbas/aic-core/core/interfaces/rule-pack-provider.interface.js";
-import type { BudgetConfig } from "@jatbas/aic-core/core/interfaces/budget-config.interface.js";
 import type { LanguageProvider } from "@jatbas/aic-core/core/interfaces/language-provider.interface.js";
 import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
-import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 import type { TaskClass, EditorId } from "@jatbas/aic-core/core/types/enums.js";
 import { InspectRunner } from "@jatbas/aic-core/pipeline/inspect-runner.js";
 import { CompilationRequestSchema } from "./schemas/compilation-request.js";
@@ -29,7 +27,6 @@ import { NodePathAdapter } from "@jatbas/aic-core/adapters/node-path-adapter.js"
 import { SystemClock } from "@jatbas/aic-core/adapters/system-clock.js";
 import { ScopeRegistry } from "@jatbas/aic-core/storage/scope-registry.js";
 import { openDatabase, closeDatabase } from "@jatbas/aic-core/storage/open-database.js";
-import { SqliteStatusStore } from "@jatbas/aic-core/storage/sqlite-status-store.js";
 import type { CacheStore } from "@jatbas/aic-core/core/interfaces/cache-store.interface.js";
 import type { CompilationRunner } from "@jatbas/aic-core/core/interfaces/compilation-runner.interface.js";
 import type { SessionTracker } from "@jatbas/aic-core/core/interfaces/session-tracker.interface.js";
@@ -37,10 +34,7 @@ import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js"
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
 import type { ProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
 import type { SessionId } from "@jatbas/aic-core/core/types/identifiers.js";
-import {
-  toConversationId,
-  toSessionId,
-} from "@jatbas/aic-core/core/types/identifiers.js";
+import { toSessionId } from "@jatbas/aic-core/core/types/identifiers.js";
 import { z } from "zod";
 import { STOP_REASON } from "@jatbas/aic-core/core/types/enums.js";
 import {
@@ -80,6 +74,13 @@ import {
 } from "./editor-integration-dispatch.js";
 import { upgradeGlobalMcpConfigIfNeeded } from "./upgrade-global-mcp-config-if-needed.js";
 import { getUpdateInfo, type UpdateInfo } from "./latest-version-check.js";
+import { readPackageVersion, runCliDiagnosticsAndExit } from "./cli-diagnostics.js";
+import {
+  buildStatusPayload,
+  buildLastPayload,
+  buildChatSummaryToolPayload,
+  buildProjectsPayload,
+} from "./diagnostic-payloads.js";
 import { EditorModelConfigReaderAdapter } from "@jatbas/aic-core/adapters/editor-model-config-reader.js";
 import { ModelDetectorDispatch } from "@jatbas/aic-core/adapters/model-detector-dispatch.js";
 
@@ -130,31 +131,6 @@ export function registerShutdownHandler(
   process.on("SIGTERM", handler);
   process.on("SIGHUP", handler);
   return handler;
-}
-
-export function createDefaultBudgetConfig(): BudgetConfig {
-  return {
-    getMaxTokens(): ReturnType<typeof toTokenCount> {
-      return toTokenCount(8000);
-    },
-    getBudgetForTaskClass(_taskClass: TaskClass): ReturnType<typeof toTokenCount> | null {
-      return null;
-    },
-  };
-}
-
-function readPackageVersion(): { packageName: string; packageVersion: string } {
-  try {
-    const dir = path.dirname(fileURLToPath(import.meta.url));
-    const pkgPath = path.join(dir, "..", "package.json");
-    const raw = fs.readFileSync(pkgPath, "utf8");
-    const pkg = JSON.parse(raw) as { name?: string; version?: string };
-    const packageName = typeof pkg.name === "string" ? pkg.name : "@aic/mcp";
-    const packageVersion = typeof pkg.version === "string" ? pkg.version : "0.0.0";
-    return { packageName, packageVersion };
-  } catch {
-    return { packageName: "@aic/mcp", packageVersion: "0.0.0" };
-  }
 }
 
 export type BatchExitRef = { stdinEnded: boolean; pendingToolCalls: number };
@@ -320,76 +296,25 @@ export function createMcpServer(
   const getUpdateMessage = (): string | null =>
     updateInfoRef.current.updateMessage ?? null;
   const getConfigUpgraded = (): boolean => configUpgraded;
-  const getStatusPayload = (): Record<string, unknown> => {
-    const statusConfigResult = configLoader.load(startupScope.projectRoot, null);
-    const statusStore = new SqliteStatusStore(
-      startupScope.projectId,
-      startupScope.db,
-      startupScope.clock,
-    );
-    const summary = statusStore.getGlobalSummary();
-    const budgetMaxTokens = budgetConfig.getMaxTokens();
-    const budgetUtilizationPct =
-      summary.lastCompilation !== null
-        ? (summary.lastCompilation.tokensCompiled / budgetMaxTokens) * 100
-        : null;
-    return {
-      ...summary,
-      budgetMaxTokens,
-      budgetUtilizationPct,
-      updateAvailable: updateInfoRef.current.updateAvailable,
-      updateMessage: updateInfoRef.current.updateMessage,
+  const getStatusPayload = (): Record<string, unknown> =>
+    buildStatusPayload({
+      projectId: startupScope.projectId,
+      db: startupScope.db,
+      clock: startupScope.clock,
+      configLoader,
+      projectRoot: startupScope.projectRoot,
+      budgetConfig,
+      updateInfo: updateInfoRef.current,
       installScope,
       installScopeWarnings,
-      projectEnabled: statusConfigResult.config.enabled,
-    };
-  };
-  const getLastPayload = (): {
-    compilationCount: number;
-    lastCompilation: unknown;
-    promptSummary: { tokenCount: number | null; guardPassed: null };
-  } => {
-    const statusStore = new SqliteStatusStore(
-      startupScope.projectId,
-      startupScope.db,
-      startupScope.clock,
-    );
-    const lastConvId = lastConversationIdRef.current;
-    let summary: ReturnType<SqliteStatusStore["getSummary"]>;
-    if (lastConvId === null) {
-      summary = statusStore.getSummary();
-    } else {
-      const projectId = statusStore.getProjectIdForConversation(
-        toConversationId(lastConvId),
-      );
-      if (projectId === null) {
-        summary = statusStore.getSummary();
-      } else {
-        const scopedStore = new SqliteStatusStore(
-          projectId,
-          startupScope.db,
-          startupScope.clock,
-        );
-        summary = scopedStore.getSummary();
-      }
-    }
-    const last = summary.lastCompilation;
-    const lastPayload =
-      last === null
-        ? null
-        : {
-            ...last,
-            tokenReductionPct: Number(last.tokenReductionPct),
-          };
-    return {
-      compilationCount: summary.compilationsTotal,
-      lastCompilation: lastPayload,
-      promptSummary: {
-        tokenCount: last?.tokensCompiled ?? null,
-        guardPassed: null,
-      },
-    };
-  };
+    });
+  const getLastPayload = (): ReturnType<typeof buildLastPayload> =>
+    buildLastPayload({
+      projectId: startupScope.projectId,
+      db: startupScope.db,
+      clock: startupScope.clock,
+      conversationIdForLast: lastConversationIdRef.current,
+    });
   const compileHandler = createCompileHandler(
     (projectRootArg: AbsolutePath) => registry.getOrCreate(projectRootArg),
     getRunner,
@@ -437,12 +362,7 @@ export function createMcpServer(
     "List all known AIC projects (project ID, path, last seen, compilation count).",
     aicProjectsParams,
     () => {
-      const statusStore = new SqliteStatusStore(
-        startupScope.projectId,
-        startupScope.db,
-        startupScope.clock,
-      );
-      const list = statusStore.listProjects();
+      const list = buildProjectsPayload(startupScope.db);
       return Promise.resolve({
         content: [{ type: "text" as const, text: JSON.stringify(list) }],
       });
@@ -483,47 +403,12 @@ export function createMcpServer(
           "aic_chat_summary",
           parsed,
         );
-        const idRaw: string | null =
-          parsed.conversationId !== undefined &&
-          typeof parsed.conversationId === "string" &&
-          parsed.conversationId.trim().length > 0
-            ? parsed.conversationId.trim()
-            : null;
-        const idForPayload = idRaw ?? "";
-        const conversationId = idRaw !== null ? toConversationId(idRaw) : null;
-        const statusStore = new SqliteStatusStore(
-          startupScope.projectId,
-          startupScope.db,
-          startupScope.clock,
-        );
-        let summary: Awaited<ReturnType<SqliteStatusStore["getConversationSummary"]>> =
-          null;
-        let projectRootStr = "";
-        if (conversationId !== null) {
-          const projectId = statusStore.getProjectIdForConversation(conversationId);
-          if (projectId !== null) {
-            const root = statusStore.getProjectRoot(projectId);
-            projectRootStr = root ?? "";
-            const projectStore = new SqliteStatusStore(
-              projectId,
-              startupScope.db,
-              startupScope.clock,
-            );
-            summary = projectStore.getConversationSummary(conversationId);
-          }
-        }
-        const payload = summary ?? {
-          conversationId: idForPayload,
-          projectRoot: projectRootStr,
-          compilationsInConversation: 0,
-          cacheHitRatePct: null,
-          avgReductionPct: null,
-          totalTokensRaw: 0,
-          totalTokensCompiled: 0,
-          totalTokensSaved: null,
-          lastCompilationInConversation: null,
-          topTaskClasses: [],
-        };
+        const payload = buildChatSummaryToolPayload({
+          startupProjectId: startupScope.projectId,
+          db: startupScope.db,
+          clock: startupScope.clock,
+          conversationIdArg: parsed.conversationId,
+        });
         return Promise.resolve({
           content: [{ type: "text" as const, text: JSON.stringify(payload) }],
         });
@@ -617,18 +502,37 @@ const isEntry =
   fs.realpathSync(path.resolve(process.argv[1])) ===
     path.resolve(fileURLToPath(import.meta.url));
 
-if (isEntry && process.argv[2] === "init") {
-  try {
-    runInit(toAbsolutePath(process.cwd()));
-    process.exit(0);
-  } catch (err) {
-    process.stderr.write(err instanceof Error ? err.message : String(err));
-    const code = err instanceof ConfigError ? 1 : 2;
-    process.exit(code);
+const CLI_DIAGNOSTIC_HANDLERS: Record<string, () => void> = {
+  status: () => runCliDiagnosticsAndExit(process.argv.slice(2)),
+  last: () => runCliDiagnosticsAndExit(process.argv.slice(2)),
+  "chat-summary": () => runCliDiagnosticsAndExit(process.argv.slice(2)),
+  projects: () => runCliDiagnosticsAndExit(process.argv.slice(2)),
+};
+
+if (isEntry) {
+  const cmd = process.argv[2];
+  if (cmd === "init") {
+    try {
+      runInit(toAbsolutePath(process.cwd()));
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(err instanceof Error ? err.message : String(err));
+      const code = err instanceof ConfigError ? 1 : 2;
+      process.exit(code);
+    }
+  } else {
+    const diagnosticHandler =
+      cmd !== undefined &&
+      Object.prototype.hasOwnProperty.call(CLI_DIAGNOSTIC_HANDLERS, cmd)
+        ? CLI_DIAGNOSTIC_HANDLERS[cmd]
+        : undefined;
+    if (diagnosticHandler !== undefined) {
+      diagnosticHandler();
+    } else {
+      main().catch((err) => {
+        process.stderr.write(String(err));
+        process.exit(1);
+      });
+    }
   }
-} else if (isEntry) {
-  main().catch((err) => {
-    process.stderr.write(String(err));
-    process.exit(1);
-  });
 }

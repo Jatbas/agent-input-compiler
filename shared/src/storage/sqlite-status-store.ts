@@ -18,6 +18,28 @@ import { toProjectId } from "@jatbas/aic-core/core/types/identifiers.js";
 import { type AbsolutePath, toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import { TRIGGER_SOURCE } from "@jatbas/aic-core/core/types/enums.js";
 
+export function listProjectsFromDb(db: ExecutableDb): readonly ProjectListItem[] {
+  const rows = db
+    .prepare(
+      `SELECT p.project_id, p.project_root, p.last_seen_at, COUNT(cl.id) as compilation_count
+         FROM projects p
+         LEFT JOIN compilation_log cl ON cl.project_id = p.project_id AND (cl.trigger_source IS NULL OR cl.trigger_source != ?)
+         GROUP BY p.project_id`,
+    )
+    .all(TRIGGER_SOURCE.INTERNAL_TEST) as {
+    readonly project_id: string;
+    readonly project_root: string;
+    readonly last_seen_at: string;
+    readonly compilation_count: number;
+  }[];
+  return rows.map((row) => ({
+    projectId: toProjectId(row.project_id),
+    projectRoot: toAbsolutePath(row.project_root),
+    lastSeenAt: row.last_seen_at,
+    compilationCount: row.compilation_count,
+  }));
+}
+
 type LastCompilationRow = {
   intent: string;
   files_selected: number;
@@ -323,25 +345,7 @@ export class SqliteStatusStore implements StatusStore, GlobalStatusQueries {
   }
 
   listProjects(): readonly ProjectListItem[] {
-    const rows = this.db
-      .prepare(
-        `SELECT p.project_id, p.project_root, p.last_seen_at, COUNT(cl.id) as compilation_count
-         FROM projects p
-         LEFT JOIN compilation_log cl ON cl.project_id = p.project_id AND (cl.trigger_source IS NULL OR cl.trigger_source != ?)
-         GROUP BY p.project_id`,
-      )
-      .all(TRIGGER_SOURCE.INTERNAL_TEST) as {
-      project_id: string;
-      project_root: string;
-      last_seen_at: string;
-      compilation_count: number;
-    }[];
-    return rows.map((row) => ({
-      projectId: toProjectId(row.project_id),
-      projectRoot: toAbsolutePath(row.project_root),
-      lastSeenAt: row.last_seen_at,
-      compilationCount: row.compilation_count,
-    }));
+    return listProjectsFromDb(this.db);
   }
 
   getSummary(): StatusAggregates {

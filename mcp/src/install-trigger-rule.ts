@@ -43,11 +43,11 @@ If \`aic_compile\` is not available (tool not found, MCP server disabled, or too
 "AIC context compilation is not available. The \`aic_compile\` tool may be disabled or not approved. Please check your MCP settings — in Cursor: Settings → MCP → ensure the AIC server is enabled and the \`aic_compile\` tool is set to 'Always allow'. In Claude Code: ensure the AIC server is enabled in \`.mcp.json\` and the tool is permitted in your allowedTools configuration."
 Then continue responding normally without compiled context.
 
-Prompt commands (call the MCP tool; do not use resource URIs or server identifiers):
-- "show aic status" → call \`aic_status\` (no arguments). Format: human-readable labels, numbers with commas, percentages 1 decimal, relative timestamps.
-- "show aic last" → call \`aic_last\` (no arguments). Same formatting.
-- "show aic chat summary" → call \`aic_chat_summary\` with optional \`conversationId\` from the last \`aic_compile\` response. Same formatting.
-- "show aic projects" → call \`aic_projects\` (no arguments). Same formatting.
+Prompt commands (run Bash with \`npx @jatbas/aic …\`, then relay stdout; human-readable labels, commas for large numbers, percentages 1 decimal, relative timestamps, em dash for nulls):
+- "show aic status" → \`npx @jatbas/aic status\` from the project directory.
+- "show aic last" → \`npx @jatbas/aic last\` from the project directory.
+- "show aic chat summary" → \`npx @jatbas/aic chat-summary --project <absolute workspace root>\`.
+- "show aic projects" → \`npx @jatbas/aic projects\`.
 `;
 
 const CLAUDE_MD_TEMPLATE = `# AIC — Claude Code Rules

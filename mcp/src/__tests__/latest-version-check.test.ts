@@ -187,5 +187,32 @@ describe("latest-version-check", () => {
       );
       expect(result.updateAvailable).toBe(null);
     });
+
+    it("getUpdateInfo_no_persist_skips_cache_write", async () => {
+      const registryJson = JSON.stringify({ "dist-tags": { latest: "99.0.0" } });
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockResolvedValue({
+          ok: true,
+          headers: {
+            get: (name: string) =>
+              name.toLowerCase() === "content-type" ? "application/json" : null,
+          },
+          arrayBuffer: () => Promise.resolve(new TextEncoder().encode(registryJson)),
+        }),
+      );
+      const clock = createMockClock("2025-01-01T12:00:00.000Z", 25 * 60 * 60 * 1000);
+      const cachePath = path.join(tmpDir, ".aic", "version-check-cache.json");
+      expect(fs.existsSync(cachePath)).toBe(false);
+      const result = await getUpdateInfo(
+        toAbsolutePath(tmpDir),
+        "@aic/mcp",
+        "0.2.1",
+        clock,
+        { persistSideEffects: false },
+      );
+      expect(result.updateAvailable).toBe("99.0.0");
+      expect(fs.existsSync(cachePath)).toBe(false);
+    });
   });
 });

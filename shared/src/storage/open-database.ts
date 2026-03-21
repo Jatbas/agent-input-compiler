@@ -19,6 +19,13 @@ export function openDatabase(dbPath: string, clock: Clock): ExecutableDb {
   return db;
 }
 
+export function openDatabaseReadOnly(dbPath: string): ExecutableDb {
+  return new Database(dbPath, {
+    readonly: true,
+    fileMustExist: true,
+  }) as unknown as ExecutableDb;
+}
+
 interface Closeable {
   close(): void;
 }
