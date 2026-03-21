@@ -14,6 +14,7 @@ const PLUGIN_SCRIPT_NAMES = [
   "aic-session-end.cjs",
   "aic-session-start.cjs",
   "aic-prompt-compile.cjs",
+  "aic-inject-conversation-id.cjs",
 ];
 
 const claudeRoot = path.join(__dirname, "..");
@@ -33,6 +34,11 @@ for (const name of PLUGIN_SCRIPT_NAMES) {
 for (const name of PLUGIN_SCRIPT_NAMES) {
   const loaded = require(path.join(scriptsDir, name));
   assert.ok(loaded !== null && typeof loaded === "object");
+  if (name === "aic-compile-helper.cjs") {
+    assert.strictEqual(typeof loaded.callAicCompile, "function");
+  } else {
+    assert.strictEqual(typeof loaded.run, "function");
+  }
 }
 
 console.log("ok: plugin_scripts_reexport");

@@ -284,6 +284,7 @@ AIC registers **11** hook commands across **9** event types (some types run more
 
 1. **Prompt log:** Appends one JSON line per user message to `.aic/prompt-log.jsonl`
    (`conversationId`, `generationId`, first 200 chars as `title`, `model`, `timestamp`).
+   Age-based pruning of that file is not performed inside this hook; it runs when the AIC MCP server process starts, via `shared/src/maintenance/prune-jsonl-by-timestamp.ts` (same helper as `.aic/session-log.jsonl` and `.aic/session-models.jsonl`).
 
 2. **Gate prewarm:** Writes the full `prompt` text to a per-generation temp file so
    `AIC-require-aic-compile.cjs` can include the exact intent in its deny message. Without
@@ -465,7 +466,7 @@ For the full edited-files flow and file list, see [edited-files flow](edited-fil
 1. **Cleanup:** Delete `aic-gate-*`, `aic-deny-*`, and `aic-prompt-*` temp files from
    `os.tmpdir()` (gate, failed gate attempts, prewarm).
 2. **Session log:** Append one JSON line to `.aic/session-log.jsonl` with `session_id`,
-   `reason`, `duration_ms`, `timestamp`.
+   `reason`, `duration_ms`, `timestamp`. Age-based pruning uses the same MCP startup path and `shared/src/maintenance/prune-jsonl-by-timestamp.ts` helper as the other `.aic/*.jsonl` logs.
 
 **Must never block:** Exit 0 always. No stdout. If `appendSessionLog` fails, silently ignore.
 

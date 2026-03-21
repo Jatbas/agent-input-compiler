@@ -80,6 +80,14 @@
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/aic-block-no-verify.cjs\""
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/aic-inject-conversation-id.cjs\""
+          }
+        ]
       }
     ],
     "SessionEnd": [

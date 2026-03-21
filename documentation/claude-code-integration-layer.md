@@ -405,7 +405,11 @@ For the full edited-files flow and file list, see [edited-files flow](edited-fil
 
 **Reference:** [hooks#sessionend](https://code.claude.com/docs/en/hooks#sessionend)
 
-**Purpose:** Log session lifecycle data to `.aic/prompt-log.jsonl`. No context injection — this hook produces no stdout. Exit 0 always (telemetry must never block the session from ending).
+**Purpose:** Log session lifecycle data to `.aic/prompt-log.jsonl`. The hook appends lines only.
+
+Age-based pruning runs when the AIC MCP server starts (`shared/src/maintenance/prune-jsonl-by-timestamp.ts`).
+
+No context injection — this hook produces no stdout. Exit 0 always (telemetry must never block the session from ending).
 
 **Input fields used:** `input.session_id`, `input.reason`
 
