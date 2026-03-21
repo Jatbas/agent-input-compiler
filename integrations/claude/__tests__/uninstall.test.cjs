@@ -240,6 +240,32 @@ function claude_global_aic_no_keep_db_wipes_dir() {
   console.log("claude_global_aic_no_keep_db_wipes_dir: pass");
 }
 
+function claude_uninstall_removes_mcp_server() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-uninstall-mcp-"));
+  try {
+    const settingsPath = path.join(tmpDir, ".claude", "settings.json");
+    fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+    fs.writeFileSync(
+      settingsPath,
+      JSON.stringify(
+        { mcpServers: { aic: { command: "npx", args: ["-y", "@jatbas/aic@latest"] } } },
+        null,
+        2,
+      ) + "\n",
+      "utf8",
+    );
+    const out = runUninstall({ HOME: tmpDir }, tmpDir);
+    assert(out.includes("mcpServers"), "mentions mcpServers");
+    const data = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    const servers = data.mcpServers || {};
+    const aicKey = Object.keys(servers).find((k) => k.toLowerCase() === "aic");
+    assert(aicKey === undefined, "mcpServers.aic removed after uninstall");
+    console.log("claude_uninstall_removes_mcp_server: pass");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
 claude_uninstall_removes_hooks_and_files();
 claude_idempotent();
 claude_settings_only_no_scripts_line();
@@ -247,3 +273,4 @@ claude_files_only_no_settings_line();
 claude_strips_multiple_events();
 claude_global_aic_clean_preserves_sqlite();
 claude_global_aic_no_keep_db_wipes_dir();
+claude_uninstall_removes_mcp_server();

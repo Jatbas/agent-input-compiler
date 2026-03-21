@@ -177,6 +177,71 @@ function legacy_project_local_cleanup() {
   }
 }
 
+function fresh_install_writes_mcp_server() {
+  const tmpDir = fs.mkdtempSync(
+    path.join(require("node:os").tmpdir(), "aic-install-mcp-test-"),
+  );
+  try {
+    execFileSync("node", [installScript], {
+      cwd: tmpDir,
+      env: { ...process.env, HOME: tmpDir },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const settingsPath = path.join(tmpDir, ".claude", "settings.json");
+    const data = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    const servers = data.mcpServers;
+    if (!servers || typeof servers !== "object") {
+      throw new Error("Expected mcpServers to be present");
+    }
+    const aicKey = Object.keys(servers).find((k) => k.toLowerCase() === "aic");
+    if (aicKey === undefined) {
+      throw new Error("Expected mcpServers.aic to be present");
+    }
+    const entry = servers[aicKey];
+    if (entry.command !== "npx") {
+      throw new Error("Expected mcpServers.aic.command to be npx");
+    }
+    if (!Array.isArray(entry.args) || !entry.args.includes("@jatbas/aic@latest")) {
+      throw new Error("Expected mcpServers.aic.args to include @jatbas/aic@latest");
+    }
+    console.log("fresh_install_writes_mcp_server: pass");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+function merge_preserves_existing_custom_mcp_server() {
+  const tmpDir = fs.mkdtempSync(
+    path.join(require("node:os").tmpdir(), "aic-install-mcp-preserve-"),
+  );
+  try {
+    const globalClaudeDir = path.join(tmpDir, ".claude");
+    fs.mkdirSync(globalClaudeDir, { recursive: true });
+    const settingsPath = path.join(globalClaudeDir, "settings.json");
+    const customEntry = { command: "node", args: ["/custom/server.js"] };
+    fs.writeFileSync(
+      settingsPath,
+      JSON.stringify({ mcpServers: { aic: customEntry } }, null, 2) + "\n",
+      "utf8",
+    );
+    execFileSync("node", [installScript], {
+      cwd: tmpDir,
+      env: { ...process.env, HOME: tmpDir },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const data = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    const entry = data.mcpServers && data.mcpServers.aic;
+    if (!entry || entry.command !== "node") {
+      throw new Error("Expected existing custom aic entry to be preserved");
+    }
+    console.log("merge_preserves_existing_custom_mcp_server: pass");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
 fresh_install_creates_global_settings();
 merge_preserves_non_aic_entries();
 legacy_project_local_cleanup();
+fresh_install_writes_mcp_server();
+merge_preserves_existing_custom_mcp_server();

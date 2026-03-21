@@ -1,4 +1,10 @@
 {
+  "mcpServers": {
+    "aic": {
+      "command": "npx",
+      "args": ["-y", "@jatbas/aic@latest"]
+    }
+  },
   "hooks": {
     "SessionStart": [
       {

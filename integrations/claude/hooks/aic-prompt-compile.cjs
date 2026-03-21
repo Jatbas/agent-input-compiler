@@ -25,7 +25,8 @@ async function run(stdinStr) {
       : input.prompt != null
         ? String(input.prompt)
         : "";
-  const intent = rawIntent.replace(/<ide_selection>[\s\S]*?<\/ide_selection>/gi, "");
+  // strip all ide_* context tags injected by Claude Code (ide_selection, ide_opened_file, etc.)
+  const intent = rawIntent.replace(/<ide_[a-z_]+>[\s\S]*?<\/ide_[a-z_]+>/gi, "").trim();
   const sessionId =
     top.session_id != null
       ? top.session_id

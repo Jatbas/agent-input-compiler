@@ -49,6 +49,24 @@ function tryRemoveFromSettings(settingsPath) {
   }
 }
 
+function tryRemoveMcpServerFromSettings(settingsPath) {
+  try {
+    if (!fs.existsSync(settingsPath)) return false;
+    const data = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    const servers = data.mcpServers;
+    if (!servers || typeof servers !== "object") return false;
+    const aicKey = Object.keys(servers).find((k) => k.toLowerCase() === "aic");
+    if (aicKey === undefined) return false;
+    const nextServers = { ...servers };
+    delete nextServers[aicKey];
+    data.mcpServers = nextServers;
+    fs.writeFileSync(settingsPath, JSON.stringify(data, null, 2) + "\n", "utf8");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function tryRemoveHookFiles(globalHooksDir) {
   let removed = false;
   for (const name of AIC_SCRIPT_NAMES) {
@@ -71,10 +89,11 @@ function run() {
   const globalHooksDir = path.join(globalClaudeDir, "hooks");
   const settingsPath = path.join(globalClaudeDir, "settings.json");
   const removedSettings = tryRemoveFromSettings(settingsPath);
+  const removedMcp = tryRemoveMcpServerFromSettings(settingsPath);
   const removedFiles = tryRemoveHookFiles(globalHooksDir);
   const keepDb = parseKeepAicDatabase(process.argv, process.env);
   const globalAic = tryCleanGlobalAicDir(home, keepDb);
-  const changed = removedSettings || removedFiles || globalAic.changed;
+  const changed = removedSettings || removedMcp || removedFiles || globalAic.changed;
   if (!changed) {
     process.stdout.write("Nothing to remove. No need to restart Claude Code.\n");
     return;
@@ -82,6 +101,9 @@ function run() {
   const parts = [];
   if (removedSettings) {
     parts.push("Removed AIC hook entries from ~/.claude/settings.json.");
+  }
+  if (removedMcp) {
+    parts.push("Removed AIC from mcpServers in ~/.claude/settings.json.");
   }
   if (removedFiles) {
     parts.push("Removed AIC scripts from ~/.claude/hooks/.");

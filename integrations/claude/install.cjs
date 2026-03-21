@@ -186,6 +186,28 @@ function mergeHookArrays(existingArr, rewrittenArr) {
   return toAppend.length > 0 ? [...filtered, ...toAppend] : filtered;
 }
 
+function findAicMcpKey(servers) {
+  if (servers === undefined || typeof servers !== "object" || servers === null) {
+    return undefined;
+  }
+  return Object.keys(servers).find((k) => k.toLowerCase() === "aic");
+}
+
+function mergeMcpServers(existing, template) {
+  const templateServers = template.mcpServers;
+  if (!templateServers || typeof templateServers !== "object") return existing;
+  const result = { ...existing };
+  const existingServers = existing.mcpServers;
+  if (existingServers && typeof existingServers === "object") {
+    // do not overwrite a user-customised aic entry
+    if (findAicMcpKey(existingServers) !== undefined) return result;
+    result.mcpServers = { ...existingServers, ...templateServers };
+  } else {
+    result.mcpServers = { ...templateServers };
+  }
+  return result;
+}
+
 function mergeNestedHooksPayload(existing, template) {
   const result = { ...existing, hooks: { ...(existing.hooks || {}) } };
   const templateHooks = template.hooks || {};
@@ -264,6 +286,7 @@ try {
     existingRaw = fs.readFileSync(globalSettingsPath, "utf8");
     const existing = JSON.parse(existingRaw);
     merged = mergeNestedHooksPayload(existing, templateParsed);
+    merged = mergeMcpServers(merged, templateParsed);
   } else {
     merged = templateParsed;
   }

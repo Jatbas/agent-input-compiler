@@ -173,13 +173,14 @@ async function prompt_compile_includes_AIC_CONVERSATION_ID_when_conversationId_t
   }
 }
 
-async function intent_stripped_when_prompt_contains_ide_selection() {
+async function intent_stripped_when_prompt_contains_ide_tags() {
   const captured = { value: null };
   const key = mockHelperCaptureIntent(captured);
   delete require.cache[require.resolve(hookPath)];
   const { run } = require(hookPath);
   const stdin = JSON.stringify({
-    prompt: "fix bug <ide_selection>V8</ide_selection> end",
+    prompt:
+      "fix bug <ide_selection>V8</ide_selection> end\n<ide_opened_file>The user opened the file /tmp/foo.md in the IDE.</ide_opened_file>",
     cwd: "/tmp",
   });
   await run(stdin);
@@ -188,10 +189,8 @@ async function intent_stripped_when_prompt_contains_ide_selection() {
   if (intent == null) {
     throw new Error("callAicCompile was not called with intent");
   }
-  if (intent.includes("ide_selection")) {
-    throw new Error(
-      `Intent must not contain "ide_selection", got: ${JSON.stringify(intent)}`,
-    );
+  if (/<ide_[a-z_]+>/.test(intent)) {
+    throw new Error(`Intent must not contain ide_* tags, got: ${JSON.stringify(intent)}`);
   }
   if (!intent.includes("fix bug")) {
     throw new Error(`Intent must include "fix bug", got: ${JSON.stringify(intent)}`);
@@ -199,7 +198,7 @@ async function intent_stripped_when_prompt_contains_ide_selection() {
   if (!intent.includes("end")) {
     throw new Error(`Intent must include "end", got: ${JSON.stringify(intent)}`);
   }
-  console.log("intent_stripped_when_prompt_contains_ide_selection: pass");
+  console.log("intent_stripped_when_prompt_contains_ide_tags: pass");
 }
 
 async function prompt_compile_uses_transcript_path_as_conversationId() {
@@ -241,7 +240,7 @@ async function prompt_compile_uses_transcript_path_as_conversationId() {
   await dual_path_prepends_invariants_when_marker_missing();
   await prompt_compile_no_AIC_CONVERSATION_ID_when_conversationId_null();
   await prompt_compile_includes_AIC_CONVERSATION_ID_when_conversationId_truthy();
-  await intent_stripped_when_prompt_contains_ide_selection();
+  await intent_stripped_when_prompt_contains_ide_tags();
   await prompt_compile_uses_transcript_path_as_conversationId();
   console.log("All tests passed.");
 })();
