@@ -13,6 +13,8 @@ export const AIC_IGNORE_ENTRIES: readonly string[] = [
   ".cursor/rules/AIC.mdc",
   ".cursor/hooks.json",
   ".cursor/hooks/AIC-*.cjs",
+  // Git with core.ignorecase matches lowercase aic-dir.cjs to the AIC-*.cjs glob; negate so the hook stays trackable.
+  "!.cursor/hooks/aic-dir.cjs",
 ];
 
 function hasIgnoreEntry(content: string, entry: string): boolean {

@@ -3,6 +3,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { appendJsonl } = require("./aic-dir.cjs");
 const {
   isValidModelId,
   isValidConversationId,
@@ -55,20 +56,14 @@ function writeSessionModelCache(
   editorId,
   timestamp,
 ) {
-  const filePath = path.join(projectRoot, ".aic", "session-models.jsonl");
   const ts = timestamp !== undefined ? timestamp : new Date().toISOString();
-  try {
-    fs.mkdirSync(path.dirname(filePath), { recursive: true, mode: 0o700 });
-    const entry = JSON.stringify({
-      c: typeof conversationId === "string" ? conversationId.trim() : "",
-      m: modelId,
-      e: editorId,
-      timestamp: ts,
-    });
-    fs.appendFileSync(filePath, entry + "\n", "utf8");
-  } catch {
-    // non-fatal, do not throw
-  }
+  const entryObj = {
+    c: typeof conversationId === "string" ? conversationId.trim() : "",
+    m: modelId,
+    e: editorId,
+    timestamp: ts,
+  };
+  appendJsonl(projectRoot, "session-models.jsonl", entryObj);
 }
 
 module.exports = {

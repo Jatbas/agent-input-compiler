@@ -210,10 +210,12 @@ try {
 
   const sharedDir = path.join(__dirname, "..", "shared");
   const sharedEntries = fs.readdirSync(sharedDir);
+  const deployedSharedNames = new Set();
   for (const name of sharedEntries) {
     if (name.endsWith(".cjs")) {
       const src = path.join(sharedDir, name);
       if (fs.statSync(src).isFile()) {
+        deployedSharedNames.add(name);
         fs.copyFileSync(src, path.join(globalHooksDir, name));
       }
     }
@@ -241,7 +243,11 @@ try {
 
   const hookNames = fs.readdirSync(globalHooksDir);
   for (const name of hookNames) {
-    if (/^aic-[a-z0-9-]+\.cjs$/.test(name) && !AIC_SCRIPT_NAMES.includes(name)) {
+    if (
+      /^aic-[a-z0-9-]+\.cjs$/.test(name) &&
+      !AIC_SCRIPT_NAMES.includes(name) &&
+      !deployedSharedNames.has(name)
+    ) {
       fs.unlinkSync(path.join(globalHooksDir, name));
     }
   }
