@@ -127,9 +127,9 @@ Use these rules for all AIC prompt commands. Present data like a polished dashbo
 
 ---
 
-- **"show aic status"** — Call the MCP tool \`aic_status\` (no arguments). Start the reply with one short line: **Status = project-level AIC status.** Then display a formatted table with labels: Compilations (total), Compilations (today), Tokens: raw → compiled, Tokens saved, Budget limit, Budget utilization (%), Cache hit rate (%), Avg token reduction (%), Guard findings, Top task classes, Last compilation, Installation, Notes, Project (Enabled/Disabled), Update available.
+- **"show aic status"** — Call the MCP tool \`aic_status\` (no arguments). Start the reply with one short line: **Status = project-level AIC status.** Then display a formatted table with labels: Compilations (total), Compilations (today), Tokens: raw → compiled, Tokens excluded, Budget limit, Budget utilization (%), Cache hit rate (%), Avg token reduction (%), Guard findings, Top task classes, Last compilation, Installation, Notes, Project (Enabled/Disabled), Update available.
 
-- **"show aic chat summary"** — Call the MCP tool \`aic_chat_summary\`. If \`AIC_CONVERSATION_ID\` is available in context (injected by hooks), pass it as \`conversationId\`. Start the reply with one short line: **Chat = this conversation's AIC compilations.** Then display a formatted table with labels: Project path, Compilations, Tokens (raw), Tokens (compiled), Tokens saved, Cache hit rate (%), Avg token reduction (%), Last compilation, Top task classes.
+- **"show aic chat summary"** — Call the MCP tool \`aic_chat_summary\`. If \`AIC_CONVERSATION_ID\` is available in context (injected by hooks), pass it as \`conversationId\`. Start the reply with one short line: **Chat = this conversation's AIC compilations.** Then display a formatted table with labels: Project path, Compilations, Tokens (raw), Tokens (compiled), Tokens excluded, Cache hit rate (%), Avg token reduction (%), Last compilation, Top task classes.
 
 - **"show aic last"** — Call the MCP tool \`aic_last\` (no arguments). Start the reply with one short line: **Last = most recent compilation.** Then display with labels: Intent, Files (N selected / M total), Tokens compiled, Token reduction (%), Compiled (relative time), Editor, Guard (Passed or N findings), Compiled prompt (Available N chars — ask to see it).
 

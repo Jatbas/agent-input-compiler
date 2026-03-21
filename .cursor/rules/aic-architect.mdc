@@ -83,7 +83,7 @@ Use these rules for all three AIC prompt commands. Present data like a polished 
   | compilationsTotal                    | Compilations (total)   | number                                                                 |
   | compilationsToday                    | Compilations (today)   | number                                                                 |
   | totalTokensRaw → totalTokensCompiled | Tokens: raw → compiled | e.g. 8,484,717 → 15,739                                                |
-  | totalTokensSaved                     | Tokens saved           | formatted with commas                                                  |
+  | totalTokensSaved                     | Tokens excluded        | formatted with commas                                                  |
   | budgetMaxTokens                      | Budget limit           | formatted with commas                                                  |
   | budgetUtilizationPct                 | Budget utilization     | percentage, 1 decimal (e.g. 78.2%)                                     |
   | cacheHitRatePct                      | Cache hit rate         | percentage, 1 decimal                                                  |
@@ -104,7 +104,7 @@ Use these rules for all three AIC prompt commands. Present data like a polished 
   | compilationsInConversation    | Compilations        | number                                         |
   | totalTokensRaw                | Tokens (raw)        | formatted with commas                          |
   | totalTokensCompiled           | Tokens (compiled)   | formatted with commas                          |
-  | totalTokensSaved              | Tokens saved        | formatted with commas                          |
+  | totalTokensSaved              | Tokens excluded     | formatted with commas                          |
   | cacheHitRatePct               | Cache hit rate      | percentage, 1 decimal                          |
   | avgReductionPct               | Avg token reduction | percentage, 1 decimal                          |
   | lastCompilationInConversation | Last compilation    | intent text + relative time (e.g. "5 min ago") |

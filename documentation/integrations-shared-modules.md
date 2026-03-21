@@ -93,4 +93,5 @@ Each row lists files that `require("../shared/â€¦")` or `require("../../shared/â
 - [Cursor integration layer](cursor-integration-layer.md)
 - [Claude Code integration layer](claude-code-integration-layer.md)
 - [JSONL cache unification evaluation](jsonl-cache-unification-evaluation.md)
+- [Server-side code sharing evaluation](server-side-code-sharing-evaluation.md)
 

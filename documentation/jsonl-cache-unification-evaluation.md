@@ -20,7 +20,7 @@ Pruning is scheduled from `mcp/src/server.ts` inside `createMcpServer` using `se
 
 - **Append:** All three files use `appendJsonl` from `integrations/shared/aic-dir.cjs`, which creates `.aic/` at mode `0o700` and appends one JSON object per line.
 - **Retention:** `shared/src/maintenance/prune-jsonl-by-timestamp.ts` removes lines whose `timestamp` field is older than twenty-four hours measured from the injected `Clock` at prune time. The same `RETENTION_MINUTES` value applies to every filename passed into this helper.
-- **Field validation:** CJS writers use `integrations/shared/cache-field-validators.cjs`. TypeScript maintenance uses `shared/src/maintenance/cache-field-validators.ts` with aligned rules, as summarized in `documentation/integrations-shared-modules.md`.
+- **Field validation:** CJS writers use `integrations/shared/cache-field-validators.cjs`. TypeScript maintenance uses `shared/src/maintenance/cache-field-validators.ts` with aligned rules, as summarized in [Integrations shared modules reference](integrations-shared-modules.md).
 
 ## Schema comparison
 
@@ -67,3 +67,8 @@ If a future refactor still merges code paths:
 - Keep validation at the append boundary in CJS hooks.
 - Keep pruning on the MCP side with `Clock` injection; follow repository determinism rules for TypeScript layers.
 - Mirror edits under `integrations/shared/` into `.cursor/hooks/` copies in the same commit per installer documentation.
+
+## Related documentation
+
+- [Server-side code sharing evaluation](server-side-code-sharing-evaluation.md)
+- [Integrations shared modules reference](integrations-shared-modules.md)

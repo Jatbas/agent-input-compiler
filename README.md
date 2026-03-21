@@ -51,7 +51,7 @@ Status = project-level AIC status.
 | Compilations (total)           | 1,001                                         |
 | Compilations (today)           | 150                                           |
 | Total tokens (raw → compiled)  | 501.8M → 7.4M                                 |
-| Total tokens saved             | 494.4M                                        |
+| Tokens excluded                | 494.4M                                        |
 | Budget (max tokens)            | 8,000                                         |
 | Budget utilization             | 96.2%                                         |
 | Cache hit rate                 | 43.4%                                         |
