@@ -1,5 +1,15 @@
 # Server-side code sharing evaluation
 
+## When to update this document
+
+Update this document when:
+
+- You change `mcp/src/handlers/compile-handler.ts` or `mcp/src/latest-version-check.ts` in ways that affect session model reads, `.aic/` bootstrap, or overlap with `integrations/shared/`.
+- You change the TypeScript versus CommonJS duplication story (read loop, `ensureAicDir`, or validator alignment with `shared/src/maintenance/cache-field-validators.ts`).
+- You introduce, reject, or reconsider `createRequire` (or similar) from MCP into `integrations/shared/`; update the decision text explicitly.
+- You expand MCP scope beyond these two files; update the scope statement and comparison tables.
+- Inventory and caller details for shared modules belong in [Integrations shared modules reference](integrations-shared-modules.md); update that document when those change.
+
 ## Scope and non-goals
 
 This document answers whether the AIC MCP server TypeScript under `mcp/src/handlers/compile-handler.ts` and `mcp/src/latest-version-check.ts` duplicates logic from `integrations/shared/*.cjs`, and whether `createRequire` imports from that CommonJS tree into `mcp/src/` are warranted.

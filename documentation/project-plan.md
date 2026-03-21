@@ -63,7 +63,7 @@
 
 AIC is a **local-first context compilation layer** that runs as an **MCP server**. When invoked, it classifies intent, selects the right files, compresses intelligently, enforces constraints, and returns a leaner, better-scoped prompt that the editor uses as context. AIC's core pipeline is **editor-agnostic** — it works with any MCP-compatible tool. Effective delivery of that compiled context to the model depends on an **integration layer** that is specific to each editor (see [§2.2.1 Integration Layer](#221-integration-layer--enforcement)).
 
-**Key value proposition:** Significant token reduction via heuristic file selection and content transformation, deterministic outputs, and a pluggable architecture that requires zero configuration to start and zero refactoring to extend. The architecture is designed to scale from single-shot compilations to multi-step agentic workflows via an optional session layer (see [§2.7 Agentic Workflow Support](#27-agentic-workflow-support)).
+**Key value proposition:** Significant context compression via heuristic file selection and content transformation, deterministic outputs, and a pluggable architecture that requires zero configuration to start and zero refactoring to extend. The architecture is designed to scale from single-shot compilations to multi-step agentic workflows via an optional session layer (see [§2.7 Agentic Workflow Support](#27-agentic-workflow-support)).
 
 **Setup:** Add one entry to your editor's MCP config. That's it.
 

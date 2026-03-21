@@ -79,6 +79,8 @@ Before any investigation, classify the user's question into one of five types. T
 4. Does the question ask to evaluate a technology, compare options, or assess fit? → **Technology evaluation**
 5. Does the question ask to analyze documentation quality, accuracy, or consistency? → **Documentation analysis**
 
+**Tiebreaker (rules 2 and 3):** If the question matches both rule 2 ("how does X work") AND contains evaluative language ("what's wrong", "what could be improved", "where are the gaps", "is it correct", "how can we improve"), classify as **gap/improvement analysis**. Gap/improvement runs mandatory adversarial review (§5); codebase analysis may skip it — the tiebreaker ensures the stronger protocol runs when intent is ambiguous.
+
 **Announce the classification:** "Classification: [type]. [One sentence explaining why.]"
 
 | Classification           | Protocol depth                                                  | Subagents                      | Output                    |
@@ -89,7 +91,7 @@ Before any investigation, classify the user's question into one of five types. T
 | Technology evaluation    | All §1-§6                                                       | 3 explorers (1 web) + 1 critic | Research document         |
 | Documentation analysis   | All §1-§6                                                       | 3-4 explorers + 1 critic       | Research document         |
 
-**Factual lookup shortcut:** If classified as factual lookup, answer directly in chat using grep/glob/read. No document, no subagents. Cite the source. Done.
+**Factual lookup shortcut:** If the answer requires at most 1-2 specific files or 1 grep, answer directly in chat using those tools. No document, no subagents. Cite the source. Done. If mid-investigation you find that more than 2 files are needed, stop and re-classify.
 
 For all other classifications, proceed to §2.
 
@@ -193,7 +195,7 @@ Organize all findings from all explorers. Group by:
 
 ### 4b. Identify gaps
 
-Ask: "What aspects of the question did NO explorer investigate?" List them. If gaps exist and they are important to the answer, spawn one additional explorer for the uncovered area before proceeding. Add its findings to the merge.
+Ask: "What aspects of the question did NO explorer investigate?" List them. If gaps exist and they are important to the answer, spawn one additional explorer for the uncovered area before proceeding. This is a **sequential spawn** — wait for the result before proceeding to §4c draft synthesis. Add its findings to the merge.
 
 ### 4c. Draft synthesis
 
@@ -208,7 +210,7 @@ Write the draft research document using the template (see Research Document Temp
 
 Count evidence citations across all findings. If fewer than 1 citation per finding on average, the investigation was too shallow. Go back to §3 and re-spawn the weakest explorer with a more specific prompt.
 
-### 4e. Strategic implications pass (technology evaluation and gap/improvement only)
+### 4e. Strategic implications pass — REQUIRED for technology evaluation and gap/improvement (skip for all other classifications)
 
 For each finding, ask: **"What does this mean for AIC beyond the obvious first-order conclusion?"** Generate at least one second-order implication per finding. A second-order implication connects the finding to a project decision, timeline, or design choice that isn't directly stated in the evidence.
 
@@ -235,7 +237,7 @@ For each finding, ask: **"What does this mean for AIC beyond the obvious first-o
 2. **Input:** The original question + the draft synthesis (from §4c) + the evidence citations
 3. **NOT included:** The hypotheses, the investigation plan, or the explorer prompts. The critic must not be anchored by the investigation's framing.
 4. **Tasks:**
-   - For each finding: attempt to disprove it. Search the codebase for counter-evidence. If you cannot disprove it, explain what you searched for and why disproof was not possible.
+   - For each finding: attempt to disprove it. Search the codebase for counter-evidence. If you cannot disprove it, **state exactly what you searched for** (grep patterns, files read, directories checked) and why disproof was not possible. A finding marked "Unchallenged" without a search log will be treated as unevaluated.
    - Identify unstated assumptions in the analysis.
    - Propose at least one alternative explanation for the evidence presented.
    - Rate each finding: Strong (multiple independent evidence, survived challenge) / Moderate (single clear evidence, no counter-evidence found) / Weak (inferred, absence-based, or counter-evidence exists)
@@ -273,8 +275,8 @@ Before finalizing, verify all five gates pass:
 1. **Minimum evidence density:** Every finding has at least 1 evidence citation. If not → remove the finding or investigate further.
 2. **Adversarial coverage:** The critic challenged at least some findings. If all are "Unchallenged" → re-run §5 with stronger mandate.
 3. **Explicit gap acknowledgment:** Open Questions section is non-empty (unless factual lookup). If empty → re-examine: what aspects of the question remain uncertain?
-4. **Confidence calibration:** No more than 60% of findings are rated "High confidence" (unless factual lookup). If over 60% → count the High findings and apply this heuristic: a finding is High only if it is a **binary verifiable fact** (code does X, schema has field Y, API exists/doesn't exist). Findings that **characterize** priorities, intentions, timelines, or external project direction are Medium — they depend on interpretation or external actors. Downgrade the weakest characterization-type findings until the ratio is at or below 60%.
-5. **Cross-explorer convergence bonus:** Any finding independently discovered by 2+ explorers is upgraded to High confidence with note: "Independently confirmed by [N] explorers."
+4. **Confidence calibration:** No more than 60% of findings are rated "High confidence" (unless factual lookup). If over 60% → count the High findings and apply this heuristic: a finding is High only if it is a **binary verifiable fact** (code does X, schema has field Y, API exists/doesn't exist). Findings that **characterize** priorities, intentions, timelines, or external project direction are Medium — they depend on interpretation or external actors. Downgrade the weakest characterization-type findings until the ratio is at or below 60%. When in doubt, use these examples: _High_: "ESLint blocks `Date.now()` outside `system-clock.ts`" (grep confirms it — binary). _Medium_: "The project prioritizes hexagonal architecture" (interpretation of a pattern — characterization). _Borderline_: "Error handling is centralized in the config validator" — High if a single function proves it, Medium if you inferred it from a pattern across files.
+5. **Cross-explorer convergence bonus:** Any finding independently discovered by 2+ explorers is upgraded to High confidence with note: "Independently confirmed by [N] explorers." This upgrade applies only to findings **not downgraded by the critic in §6a** — a challenged finding retains the critic's assessment.
 
 ### 6c. Refine the document
 

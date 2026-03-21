@@ -35,7 +35,7 @@ When AIC compiles context (at session start or per-prompt), it selects the most 
 - The model starts or continues with a curated view of the codebase
 - File selection is algorithmic and deterministic, not dependent on the model's guesswork
 - Security scanning (Context Guard) runs before any code reaches the model
-- Fewer tokens mean the context window fills more slowly, so compaction happens less often
+- The compiled context is bounded by the token budget, so its contribution to context window fill is predictable and leaves stable headroom
 
 > Even when the editor compiles only at session start (e.g. Cursor), that initial compilation provides a foundation that benefits every turn.
 

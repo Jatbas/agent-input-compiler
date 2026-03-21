@@ -46,7 +46,7 @@
 
 Deliver a working **MCP server** that compiles optimal context for AI coding tools — with zero required configuration.
 
-**Success looks like:** A developer registers the MCP server (e.g. `npx -y @jatbas/aic@latest` in MCP config), opens a project, and their AI responses improve measurably — fewer tokens, better file selection, and deterministic, reproducible context compilation. Bootstrap runs automatically when the client lists roots or on first `aic_compile`. In editors with hook support (e.g. Cursor), the integration layer ensures compiled context is available from the first message of every session.
+**Success looks like:** A developer registers the MCP server (e.g. `npx -y @jatbas/aic@latest` in MCP config), opens a project, and their AI responses improve measurably — focused, bounded context, better file selection, and deterministic, reproducible compilation. Bootstrap runs automatically when the client lists roots or on first `aic_compile`. In editors with hook support (e.g. Cursor), the integration layer ensures compiled context is available from the first message of every session.
 
 > **AIC is model-agnostic and editor-agnostic by design.** It detects the active model automatically and adapts. It works with Cursor, Claude Code, and any MCP-compatible editor. No API key, no cloud account, and no config file are required to start.
 >
@@ -82,14 +82,14 @@ Deliver a working **MCP server** that compiles optimal context for AI coding too
 
 **User Interface (MCP-only — no separate CLI)**
 
-| Interface                                         | Purpose                                                                              |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `aic_compile` (MCP tool)                          | Compile intent into context; returns compiled prompt to the model                    |
-| `aic_inspect` (MCP tool)                          | Show full pipeline breakdown without executing                                       |
-| `aic_chat_summary` (MCP tool)                     | Compilation stats for the current conversation                                       |
-| `aic_status` (MCP tool)                           | Project-level summary: compilations, token savings, budget utilization, guard blocks |
-| `aic_last` (MCP tool)                             | Most recent compilation breakdown with prompt summary                                |
-| Bootstrap (automatic on connect or first compile) | Scaffold config, trigger rule, hooks, `.aic/` directory                              |
+| Interface                                         | Purpose                                                                                                      |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `aic_compile` (MCP tool)                          | Compile intent into context; returns compiled prompt to the model                                            |
+| `aic_inspect` (MCP tool)                          | Show full pipeline breakdown without executing                                                               |
+| `aic_chat_summary` (MCP tool)                     | Compilation stats for the current conversation                                                               |
+| `aic_status` (MCP tool)                           | Project-level summary: compilations, tokens excluded (context compression), budget utilization, guard blocks |
+| `aic_last` (MCP tool)                             | Most recent compilation breakdown with prompt summary                                                        |
+| Bootstrap (automatic on connect or first compile) | Scaffold config, trigger rule, hooks, `.aic/` directory                                                      |
 
 The integration layer runs quality checks on edited files at stop time; see [edited-files flow](edited-files-flow.md) for the full flow per editor.
 

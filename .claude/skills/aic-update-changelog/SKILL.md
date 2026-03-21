@@ -35,36 +35,36 @@ Do **not** run after every small internal task — that is the mvp-progress skil
 
 ### Normal update (add to `[Unreleased]`)
 
-1. **Read** `CHANGELOG.md`. If it does not exist, bootstrap it with the file header (see Format below) and an empty `[Unreleased]` section.
+1. **Read** `CHANGELOG.md`. If it does not exist, bootstrap it with the file header (see Format below) and an empty `[Unreleased]` section. If the file exists but has no `[Unreleased]` section, insert one immediately after the file header and before the first versioned section.
 
-2. **Read** `documentation/tasks/progress/mvp-progress.md` (main workspace) to identify recently completed work that is not yet reflected in the changelog.
+2. **Read** `documentation/tasks/progress/mvp-progress.md` from the **main workspace** (this file is gitignored and does not exist in worktrees). Look for components with `Done` in the Status column of Phase tables, and completed entries under `### YYYY-MM-DD` daily log headings. If the most recent daily log entry is older than the most recent git commit, warn the user that mvp-progress may be stale before proceeding. If mvp-progress does not exist or is empty (e.g., running in a worktree or after ad-hoc work), fall back to `git log <last-tag>..HEAD --oneline` and use that as the raw input for curation.
 
 3. **Curate entries for `[Unreleased]`:**
    - Collapse internal implementation detail into user-facing descriptions. Multiple related components become one line (e.g., three scan optimizations become "Compilation scan performance improvements").
    - Categorize each entry under the correct heading: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security`.
    - Only include headings that have entries — omit empty category headings.
-   - Write from the user's perspective, not the developer's.
+   - Write from the user's perspective, not the developer's. Translate developer language (phase names, component names, task IDs) into user-facing prose.
 
 4. **Rewrite the full `[Unreleased]` section** with the curated entries. The skill may freely reorganize, reword, merge, or remove items within `[Unreleased]` to keep it clean and readable.
 
 5. **Never modify released sections** (`[x.y.z] - date`) unless the user explicitly asks to reword them.
 
-5b. **No placeholder or future released versions.** Never add or leave a section like `## [x.y.z] - YYYY-MM-DD` where the date is a placeholder (e.g. `YYYY-MM-DD`) or where the version does not match the current version in `shared/package.json`. Released sections must only exist for versions that have actually been cut (with a real date). Work that is not yet released belongs under `[Unreleased]` only. If you find an existing released section with a placeholder date or a version ahead of the package, move its content into `[Unreleased]` and remove that section.
+6. **No placeholder or future released versions.** Never add or leave a section like `## [x.y.z] - YYYY-MM-DD` where the date is a placeholder (e.g. `YYYY-MM-DD`) or where the version does not match the current version in `shared/package.json`. Released sections must only exist for versions that have actually been cut (with a real date). Work that is not yet released belongs under `[Unreleased]` only. If you find an existing released section with a placeholder date or a version ahead of the package, move its content into `[Unreleased]` and remove that section.
 
-6. **Suggest a release if warranted.** After writing `[Unreleased]`, evaluate whether a new release makes sense:
+7. **Suggest a release if warranted.** After writing `[Unreleased]`, evaluate whether a new release makes sense:
 
    a. **Read** `shared/package.json` to get the current published version (e.g. `0.2.1`).
 
    b. **Classify** the unreleased entries by semver impact:
-   - `Added` or `Security` entries → **minor** bump candidate
+   - `Added` entries → **minor** bump candidate
+   - `Security` entries → **patch** bump candidate (a security fix is a patch; if it also appears under `Added`, the `Added` entry already drives minor)
    - `Changed`, `Fixed`, `Deprecated`, `Removed` entries only → **patch** bump candidate
    - Any entry explicitly described as a breaking change → **major** bump candidate
+   - The highest-impact category wins (major > minor > patch).
 
    c. **Compute the suggested version** by applying the highest-impact bump to the current version.
 
-   d. **Skip the suggestion** (say nothing) if:
-   - `[Unreleased]` is empty or has no new entries compared to what was already there before this run
-   - The current version already matches a released section in `CHANGELOG.md` with today's date (a release was already cut today)
+   d. **Skip the suggestion** (say nothing) if `[Unreleased]` is empty or has no new entries compared to what was already there before this run.
 
    e. **Ask the user:**
 
@@ -78,22 +78,35 @@ Do **not** run after every small internal task — that is the mvp-progress skil
 
 When the user approves a release suggestion above, or says "cut release x.y.z" directly:
 
+0. **Pre-flight checks** — run these before touching any file:
+
+   a. **Branch:** Run `git branch --show-current`. If the result is not `main`, stop and tell the user to switch to `main` before cutting a release.
+
+   b. **Clean tree:** Run `git status --porcelain`. If any files are staged or modified beyond the four files that will be committed (`CHANGELOG.md`, `package.json`, `shared/package.json`, `mcp/package.json`), surface a warning listing the unexpected changes and ask the user to stash or commit them first.
+
 1. **Rename** `[Unreleased]` to `[x.y.z] - YYYY-MM-DD` using today's date.
 2. **Create a fresh empty `[Unreleased]`** section above the new version entry.
 3. **Update comparison links** at the bottom of the file if they exist.
-4. **Bump versions** in `package.json` (root), `shared/package.json`, and `mcp/package.json` to `x.y.z`.
-5. **Commit:** `git add CHANGELOG.md package.json shared/package.json mcp/package.json && git commit -m "chore(release): x.y.z"`.
-6. **Tag:** `git tag vx.y.z`.
-7. **Push:** `git push && git push origin vx.y.z`.
-8. **Wait for CI to publish to npm.** The GitHub Actions workflow (`.github/workflows/publish.yml`) triggers automatically on `v*` tag pushes and handles building and publishing both packages via OIDC trusted publishing. Do **not** attempt to publish locally.
+4. **Bump versions** in `package.json` (root), `shared/package.json`, and `mcp/package.json` to `x.y.z`. All three must have the same version — verify before proceeding. Then run `pnpm install` to update `pnpm-lock.yaml` to reflect the bumped workspace dependency resolution.
+5. **Build gate:** Run `pnpm build && pnpm typecheck`. If either fails, stop and report the error. Do not proceed to commit or tag until the build is clean — a bad tag on the remote is difficult to retract and npm's immutability rule can permanently burn a version slot.
+6. **Commit:** `git add CHANGELOG.md package.json shared/package.json mcp/package.json pnpm-lock.yaml && git commit -m "chore(release): x.y.z"`.
+7. **Tag:** `git tag vx.y.z`.
+8. **Push:** `git push origin main && git push origin vx.y.z`.
+9. **Wait for CI to publish to npm.** The GitHub Actions workflow (`.github/workflows/publish.yml`) triggers automatically on `v*` tag pushes and handles building and publishing both packages via OIDC trusted publishing. Do **not** attempt to publish locally.
 
-   a. **Poll CI status:** Run `gh run list --repo Jatbas/agent-input-compiler --limit 3` to check if the Publish workflow for tag `vx.y.z` has completed. If it is still running, wait and poll again (sleep 15-30 seconds between checks).
+   a. **Poll CI status:** Run `gh run list --repo Jatbas/agent-input-compiler --workflow publish.yml --limit 5` and find the run whose triggering ref is `refs/tags/vx.y.z`. Poll up to 20 times (roughly 5–10 minutes at 15–30 second intervals). If the run has not completed after 20 polls, report the run URL to the user and ask them to monitor it manually before proceeding.
 
    b. **If CI fails:** Report the failure to the user with `gh run view <run-id> --log-failed` output. Do not proceed to GitHub Release with a broken npm package.
 
-9. **Verify npm publish:** Run `npm view @jatbas/aic@x.y.z dependencies --json` and confirm `@jatbas/aic-core` shows a real version number (not `workspace:*`). If the version is not yet visible on npm, wait a few seconds and retry. If it still shows `workspace:*`, the publish was incorrect — stop and report.
+10. **Verify npm publish:** Confirm both packages published successfully:
 
-10. **Create GitHub Release:**
+    a. Run `npm view @jatbas/aic dist-tags.latest` — it must equal `x.y.z`.
+
+    b. Run `npm view @jatbas/aic-core@x.y.z version` — it must return `x.y.z`.
+
+    If either check fails or the version is not yet visible, wait a few seconds and retry. If the version still does not appear after several retries, stop and report — do not create a GitHub Release for an unpublished version.
+
+11. **Create GitHub Release:**
 
     a. **Extract** the `[x.y.z]` section from `CHANGELOG.md`: from the line `## [x.y.z] - YYYY-MM-DD` through the last line before the next `## ` heading. This is the release notes body.
 
@@ -101,7 +114,7 @@ When the user approves a release suggestion above, or says "cut release x.y.z" d
 
     c. If `gh` is not installed, not authenticated, or the command fails: output the extracted notes in a markdown block and tell the user to create the release manually on GitHub (Releases → Create a new release → choose tag vx.y.z → paste the notes).
 
-11. **Report summary** to the user: version, npm package links, GitHub Release URL, and any issues encountered.
+12. **Report summary** to the user: version, npm package links, GitHub Release URL, and any issues encountered.
 
 ### Show releases
 
@@ -111,17 +124,17 @@ When the user says "show releases" (or similar):
 
 2. **Collect GitHub Releases:** Run `gh release list --limit 50` to get releases and their status (Latest, Pre-release, Draft).
 
-3. **Collect npm versions:** Run `npm view @jatbas/aic versions --json` to get all published versions. Then for each version, check deprecation status with `npm view @jatbas/aic@x.y.z deprecated` (returns the deprecation message, or empty if not deprecated).
+3. **Collect npm versions:** Run `npm view @jatbas/aic versions --json` to get all published versions. Then for each version, check deprecation status for both packages: `npm view @jatbas/aic@x.y.z deprecated` and `npm view @jatbas/aic-core@x.y.z deprecated` (returns the deprecation message, or empty if not deprecated). If the two packages have different deprecation states for the same version, flag that as an inconsistency.
 
 4. **Collect changelog status:** Read `CHANGELOG.md` and check which versions are marked as `(Deprecated)`.
 
 5. **Present a table** to the user:
 
-   | Version | GitHub Release           | npm        | Changelog                           |
-   | ------- | ------------------------ | ---------- | ----------------------------------- |
-   | 0.4.3   | Latest                   | published  | `[0.4.3] - 2026-03-10`              |
-   | 0.4.2   | Pre-release (Deprecated) | deprecated | `[0.4.2] - 2026-03-09 (Deprecated)` |
-   | 0.4.1   | —                        | —          | `[0.4.1] - 2026-03-09 (Deprecated)` |
+   | Version | GitHub Release           | npm (`aic`) | npm (`aic-core`) | Changelog                           |
+   | ------- | ------------------------ | ----------- | ---------------- | ----------------------------------- |
+   | 0.4.3   | Latest                   | published   | published        | `[0.4.3] - 2026-03-10`              |
+   | 0.4.2   | Pre-release (Deprecated) | deprecated  | deprecated       | `[0.4.2] - 2026-03-09 (Deprecated)` |
+   | 0.4.1   | —                        | —           | —                | `[0.4.1] - 2026-03-09 (Deprecated)` |
 
    Use "—" for missing entries. Show at most 20 versions.
 

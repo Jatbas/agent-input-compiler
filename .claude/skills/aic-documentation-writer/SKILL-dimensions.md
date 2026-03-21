@@ -88,9 +88,12 @@ Check every subsection heading under a parent heading. If a subsection repeats t
 **H. Prose-table duplication:**
 For every table in the document, read the 1-3 paragraphs or bullet lists immediately preceding it. If the prose restates the same information the table contains (same flags, same values, same options), flag the duplication. See SKILL-standards.md §Prose-table anti-duplication. Report: the table location, the duplicating prose, and which content overlaps.
 
+**I. Sibling coverage verification:**
+For every cross-reference in the document that points to a sibling document in `documentation/` as the source of truth for a topic, verify the sibling document actually covers the topic. Grep the sibling document for the key terms of the referenced topic; read the relevant section to confirm it addresses the topic at sufficient depth. Classify each cross-reference: CONFIRMED (sibling covers the topic as claimed), PARTIAL (sibling covers some but not all aspects — gap remains), MISSING (sibling does not cover the topic — the cross-reference is misleading). Report: `[cross-reference in target doc] — [sibling file] — CONFIRMED / PARTIAL / MISSING — [evidence]`.
+
 **Evidence format:** For each finding, cite the exact heading, line content, or grep result.
 
-**Output:** Return structured findings grouped by check (A through H). End with: 'Structural issues: N. Consistency issues: M. Stale markers: K.'"
+**Output:** Return structured findings grouped by check (A through I). End with: 'Structural issues: N. Consistency issues: M. Stale markers: K. Sibling coverage: A confirmed, B partial, C missing.'"
 
 ---
 
@@ -114,6 +117,8 @@ Determine the document's audience. Classify as:
 - Mixed: contains both user instructions and technical details
 
 Evidence: cite 2-3 representative sections that demonstrate the audience type.
+
+For **mixed documents**: list each `##` section by name and classify it as user-facing or developer-reference. This section-level map is used by Phase 3 to determine Critic 4's scope — include it in your output even if you think it is obvious.
 
 **B. Information placement review:**
 For each major section, ask: 'Does this content serve the stated audience?'
@@ -267,16 +272,20 @@ For every gap identified in checks A and C (UNDOCUMENTED items and UNANSWERED qu
    - VERIFIED: grep found matching evidence at specific file:line
    - NOT FOUND: grep returned 0 matches
    - CONTRADICTED: grep found contradicting evidence (document says X, code says Y)
+   - UNCERTAIN: grep returned partial or ambiguous results — multiple candidates, unclear match, or behavior differs between source and deployed state
 
 **Evidence format:**
 
 ```
-[claim] — [source file:line or grep result] — VERIFIED / NOT FOUND / CONTRADICTED
+[claim] — [source file:line or grep result] — VERIFIED / NOT FOUND / CONTRADICTED / UNCERTAIN
 ```
 
 If CONTRADICTED: `Document says: [X]. Code says: [Y].`
+If UNCERTAIN: `Ambiguity: [what makes this unclear — multiple candidates, unclear match, source vs deployed divergence].`
 
-**Output:** Return ALL findings. End with: 'N claims checked: X verified, Y not found, Z contradicted.'"
+**Escalation rule:** If 1+ claims are UNCERTAIN, include an escalation summary at the end of your output: `Escalation required: [claim] — [what was searched] — [why it is ambiguous]`. The main agent will route these to `aic-researcher` for deep investigation before the Change Specification is finalized.
+
+**Output:** Return ALL findings. End with: 'N claims checked: X verified, Y not found, Z contradicted, W uncertain.'"
 
 ---
 
@@ -320,7 +329,7 @@ For mirror document: `[section] — TARGET has [X] / MIRROR has [Y] — ALIGNED 
 
 **Subagent type:** `generalPurpose`
 
-**Condition:** Spawn ONLY for user-facing documents (installation guides, getting started docs, user-facing READMEs, any document whose audience includes non-developers or first-time users). Skip for developer references.
+**Condition:** Spawn for user-facing documents (installation guides, getting started docs, user-facing READMEs) and for mixed-audience documents (Explorer 3 classified as "Mixed"). Skip only for pure developer references (implementation specs, project plans, architecture docs). For mixed-audience documents, scope your review to the user-facing sections identified in Explorer 3's section-level classification — do not apply Reader Simulation to developer-reference sections.
 
 **Prompt template:**
 
@@ -407,16 +416,20 @@ Use these templates instead of the standard critic templates when mode = Audit. 
    - VERIFIED: grep found matching evidence at specific file:line
    - NOT FOUND: grep returned 0 matches
    - CONTRADICTED: grep found contradicting evidence (document says X, code says Y)
+   - UNCERTAIN: grep returned partial or ambiguous results — multiple candidates, unclear match, or behavior differs between source and deployed state
 
 **Evidence format:**
 
 ```
-[claim] — [source file:line or grep result] — VERIFIED / NOT FOUND / CONTRADICTED
+[claim] — [source file:line or grep result] — VERIFIED / NOT FOUND / CONTRADICTED / UNCERTAIN
 ```
 
 If CONTRADICTED: `Document says: [X]. Code says: [Y].`
+If UNCERTAIN: `Ambiguity: [what makes this unclear — multiple candidates, unclear match, source vs deployed divergence].`
 
-**Output:** Return ALL findings grouped by document section. End with: 'N claims checked across M sections: X verified, Y not found, Z contradicted.'"
+**Escalation rule:** If 1+ claims are UNCERTAIN, include an escalation summary at the end of your output: `Escalation required: [claim] — [what was searched] — [why it is ambiguous]`. The main agent will route these to `aic-researcher` for deep investigation.
+
+**Output:** Return ALL findings grouped by document section. End with: 'N claims checked across M sections: X verified, Y not found, Z contradicted, W uncertain.'"
 
 ---
 
@@ -459,7 +472,7 @@ For mirror document: `[section] — TARGET has [X] / MIRROR has [Y] — ALIGNED 
 
 **Subagent type:** `generalPurpose`
 
-**Condition:** Spawn ONLY for user-facing documents (installation guides, getting started docs, user-facing READMEs, any document whose audience includes non-developers or first-time users). Skip for developer references.
+**Condition:** Spawn for user-facing documents (installation guides, getting started docs, user-facing READMEs) and for mixed-audience documents (Explorer 3 classified as "Mixed"). Skip only for pure developer references (implementation specs, project plans, architecture docs). For mixed-audience documents, scope your review to the user-facing sections identified in Explorer 3's section-level classification.
 
 **Prompt template:**
 

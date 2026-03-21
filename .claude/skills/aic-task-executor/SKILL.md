@@ -106,6 +106,23 @@ Run with `working_directory` set to the worktree. Output must match the branch y
 
 Before writing any code, absorb these sections from the pre-read task file. Do not skip this step — it prevents rework caused by implementing without understanding the spec.
 
+**Quick doc-mode pre-check.** The task file's `Layer:` header field was in the §1 pre-read. If it says `documentation`, skip directly to §2b now — the code-specific internalization below does not apply.
+
+**Task quality gate — scan for ambiguity before absorbing design decisions:**
+
+Before internalizing any section, scan every non-code instruction sentence in the Steps section, Verify lines, and test descriptions. Flag any sentence containing patterns from these categories:
+
+- **Hedging:** "if needed", "if necessary", "as needed", "may be", "may want", "might", "you could", "could also", "should work", "probably", "likely", "possibly", "potentially", "perhaps", "try to", "ideally", "preferably", "feel free to"
+- **Examples-as-instructions:** "e.g.", "for example", "for instance", "such as", "something like", "along the lines of", "similar to", "or similar", "or equivalent", "or comparable", "some kind of", "some sort of"
+- **Delegation:** "decide whether", "choose between", "depending on", "up to you", "alternatively", "or alternatively", "whichever", "whatever works", "or optionally", "optionally"
+- **Vague qualifiers:** "appropriate" (unspecified), "suitable", "reasonable", "etc.", "and so on"
+- **State hedges:** "if not present", "if not already", "if it doesn't exist", "add if not present"
+- **Escape clauses:** "or skip", "or ignore", "or leave for later", "if possible", "where possible", "mock or skip"
+- **False alternatives:** " or " presenting two implementation choices, "or use", "or another"
+- **Parenthesized hedges:** any `(...)` containing the above patterns
+
+If you find any match: **stop and tell the user** that the task file contains unresolved decisions. List each ambiguous sentence and what decision it requires. Do not guess — the planner must resolve it. This prevents absorbing and acting on an ambiguous design.
+
 **Read the Interface / Signature section (or Wiring Specification for composition roots).** Memorize:
 
 - For interface-implementing components: the exact interface (first code block), class declaration, constructor parameters, and method signatures (second code block). Return types including `readonly` modifiers.
@@ -138,21 +155,6 @@ Note: `documentation/tasks/` is gitignored and never committed. This includes `d
 If any step mentions auto-ratcheting benchmark files (e.g. `test/benchmarks/baseline.json`), add those too. If Config Changes lists modifications to `shared/package.json` or `eslint.config.mjs`, add those.
 
 **This is your commit allowlist.** Only these files may be staged in §5c. Keep this list in mind throughout implementation — if you create or modify a file not on this list, either add it (with justification) or revert it before committing.
-
-**Task quality gate — scan for ambiguity before implementing:**
-
-Before writing any code, scan every non-code instruction sentence in the Steps section, Verify lines, and test descriptions. Flag any sentence containing patterns from these categories:
-
-- **Hedging:** "if needed", "if necessary", "as needed", "may be", "may want", "might", "you could", "could also", "should work", "probably", "likely", "possibly", "potentially", "perhaps", "try to", "ideally", "preferably", "feel free to"
-- **Examples-as-instructions:** "e.g.", "for example", "for instance", "such as", "something like", "along the lines of", "similar to", "or similar", "or equivalent", "or comparable", "some kind of", "some sort of"
-- **Delegation:** "decide whether", "choose between", "depending on", "up to you", "alternatively", "or alternatively", "whichever", "whatever works", "or optionally", "optionally"
-- **Vague qualifiers:** "appropriate" (unspecified), "suitable", "reasonable", "etc.", "and so on"
-- **State hedges:** "if not present", "if not already", "if it doesn't exist", "add if not present"
-- **Escape clauses:** "or skip", "or ignore", "or leave for later", "if possible", "where possible", "mock or skip"
-- **False alternatives:** " or " presenting two implementation choices, "or use", "or another"
-- **Parenthesized hedges:** any `(...)` containing the above patterns
-
-If you find any match: **stop and tell the user** that the task file contains unresolved decisions. List each ambiguous sentence and what decision it requires. Do not guess — the planner must resolve it. This prevents implementing the wrong approach and having to rewrite.
 
 ### 2.5. Verify external assumptions
 
@@ -327,7 +329,7 @@ For each step:
 2. Run the **Verify** command listed in that step.
 3. If verification fails, fix the issue before moving to the next step.
 4. If you cannot fix it after 2 attempts, go to **Blocked diagnostic** (see below).
-5. **Circuit breaker:** If you find yourself making 3+ workarounds or adaptations to make a step work (type casts, extra plumbing, output patching, wrapper functions not in the task), stop. The task's approach is likely wrong. Go to **Blocked diagnostic** — list the adaptations you made and report that the approach needs re-evaluation.
+5. **Circuit breaker:** If you find yourself introducing 3+ pieces of code not described in any step instruction or the Interface/Signature section to make the implementation compile or pass tests — type casts, adapter stubs, wrapper functions, or plumbing absent from every step instruction — stop. The task's approach is likely wrong. Go to **Blocked diagnostic** — list each piece of unlisted code you added and report that the approach needs re-evaluation.
 
 **Per-file quick check (after writing each production file).** Before moving to the next step, run these 4 Grep commands on the file you just wrote. This catches the most common first-pass violations immediately — 4 tool calls (~1 second) that prevent an entire §4b rework cycle. Skip this for test files.
 
@@ -364,7 +366,7 @@ This runs ONCE. Do not re-run unless you fix something. If the lint/typecheck/te
 
 **4b — Re-read all files + mechanical checks in one parallel batch.**
 
-Fire all of these in a single round of tool calls:
+Fire all of these in a single round of tool calls. All calls within a round are independent — do not batch a Grep that depends on a Read's output; if a check requires reading a file first, include the Read and the Grep in the same batch (they run in parallel, not sequentially):
 
 - Use the Read tool on every file created or modified. Do NOT rely on what you remember writing. This breaks the "I just wrote it so I know it's fine" shortcut.
 - Batch all Grep calls for the mechanical checks below. Use Grep on the created/modified files for each dimension.
@@ -474,8 +476,8 @@ Run these sequentially in one flow — no user gate between them:
 
    a. Run `git status --porcelain`. Filter the output against the touched-files list — only files on the list matter. If no touched files are dirty, skip to (e).
    b. Stage only the dirty touched files and amend: `git add <touched dirty files> && git commit --amend --no-edit`.
-   c. Run `pnpm lint && pnpm typecheck && pnpm test`. If any fail, fix the issues, then stage only the fixed touched files and amend again. Repeat at most twice — if still failing after 2 fix attempts, go to **Blocked diagnostic**.
-   d. Run `git status --porcelain` again. Filter against touched-files list. If touched files are still dirty (another lint-staged pass reformatted), repeat from (b). Cap at 3 iterations — if still dirty, something is structurally wrong; go to **Blocked diagnostic**.
+   c. Run `pnpm lint && pnpm typecheck && pnpm test`. If any fail, fix the issues, then stage only the fixed touched files and amend again (`git add <fixed files> && git commit --amend --no-edit`). This is the test-failure fix loop — run it at most twice (first retry + one more). If tests still fail after 2 fix-and-amend attempts, go to **Blocked diagnostic**.
+   d. Run `git status --porcelain` again. Filter against touched-files list. If touched files are still dirty (lint-staged reformatted again), repeat from (b). This outer loop (steps a–d) is separate from (c)'s test-failure fix loop — it caps at 3 total iterations of (a–d). If touched files remain dirty after 3 iterations, something is structurally wrong; go to **Blocked diagnostic**.
    e. Run `git diff main...HEAD --stat` to produce the final file list for the merge proposal. Verify that `git rev-parse --abbrev-ref HEAD` still shows the stored branch name.
 
 ### 6. Merge and Clean Up

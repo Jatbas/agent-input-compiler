@@ -69,7 +69,7 @@ In a short session, compiled context stays near the start of the window longer.
 
 **Cursor:** Does not re-inject compiled context on that path (see [Architecture](architecture.md)).
 
-Smaller compiled payloads leave more room in the window before compaction.
+The compiled payload has a hard token ceiling, so its contribution to context window fill is bounded and predictable.
 
 ---
 

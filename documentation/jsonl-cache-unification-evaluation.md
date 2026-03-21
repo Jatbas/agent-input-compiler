@@ -1,10 +1,20 @@
 # JSONL cache unification evaluation
 
+## When to update this document
+
+Update this document when:
+
+- You add another project-root JSONL log under `.aic/` that participates in the same append and prune story as `session-models.jsonl`, `prompt-log.jsonl`, or `session-log.jsonl`.
+- You change append implementation (`appendJsonl` in `integrations/shared/aic-dir.cjs`) or retention and prune wiring for those logs, including `shared/src/maintenance/` or scheduling in `mcp/src/server.ts`.
+- You change line shape, schema, or read semantics for those JSONL files in a way that affects whether a unified façade stays undesirable.
+- You introduce or redesign a shared JSONL façade across those logs; treat that as a full re-read of this decision record, not a cosmetic edit.
+- Inventory and caller details for shared modules belong in [Integrations shared modules reference](integrations-shared-modules.md); update that document when those change.
+
 ## Scope and non-goals
 
 This document answers whether `session-models.jsonl`, `prompt-log.jsonl`, and `session-log.jsonl` under `.aic/` should share one generic `JsonlCache` abstraction across integration hooks and MCP maintenance code.
 
-> It does not decide marker-file layout (`.session-start-lock`, `.session-context-injected`) or edited-files temp storage under `os.tmpdir()`.
+> Marker-file layout is decided in [Marker file simplification evaluation](marker-file-simplification-evaluation.md). This document does not re-evaluate that topic. It does not cover edited-files temp storage under `os.tmpdir()`.
 
 ## Current architecture
 

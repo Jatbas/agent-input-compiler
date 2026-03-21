@@ -466,7 +466,18 @@ Fix/patch tasks use the standard template with these adjustments:
 
 - **Goal:** One sentence stating what is broken and what the fix achieves. Example: "Fix Cursor hook installation so `require("../../shared/...")` paths are rewritten to `require("./...")` when shared modules are copied to `.cursor/hooks/`."
 - **Architecture Notes:** Must include: (a) root cause with file:line citation, (b) why the fix is correct (not just "it works" — why this approach over alternatives), (c) blast radius summary (N files affected, M tests updated).
-- **Interface / Signature:** Not always needed. If the fix changes a function signature or adds a new function, include the before/after signatures. If the fix is purely behavioral (same API, different implementation), this section can be replaced with a **Before/After Behavior** section showing the exact input/output change.
+- **Interface / Signature:** Not always needed. If the fix changes a function signature or adds a new function, include the before/after signatures. If the fix is purely behavioral (same API, different implementation), this section **must be replaced** with a **Behavior Change** section using this exact format:
+
+  ```markdown
+  ## Behavior Change
+
+  **Before (broken):** [exact input or trigger] → [exact wrong output or side effect]
+
+  **After (fixed):** [same input or trigger] → [exact correct output or side effect]
+  ```
+
+  Example: "Before: `install.cjs` runs on a project that already has `aic-dir.cjs` deployed → cleanup loop deletes `aic-dir.cjs` immediately after copying it. After: `install.cjs` runs on the same project → `aic-dir.cjs` persists because the cleanup loop skips files listed in the shared utilities manifest."
+
 - **Dependent Types:** Include only if the fix changes or adds type dependencies.
 - **Files table:** Every file with the broken pattern gets a "Modify" row. Every test file with assertions that become invalid gets a "Modify" row. Zero "Create" rows unless justified.
 - **Steps:** Ordered as: (1) fix the code, (2) update affected tests, (3) add fix-verification test assertion, (4) final verification.
@@ -784,6 +795,39 @@ These sentences are recorded in the Exploration Report. They serve as audit trai
 - The self-correction protocol reveals a possible recipe match but the fit is uncertain
 
 In each case, state what was found, what the uncertainty is, and what decision the user needs to make. A plan that stops once for user input is better than a plan that proceeds on a wrong assumption.
+
+### CJS integration domain notes (supplement — applies when layer is integration/hooks)
+
+When the general-purpose recipe is applied to a task that creates or modifies `.cjs` hook scripts, install scripts (`install.cjs`), or shared utilities in `integrations/`, apply these additional exploration and planning constraints. These do not replace the general-purpose recipe — they supplement it.
+
+**Identifying a CJS integration task:** The target files live in `integrations/claude/`, `integrations/cursor/`, `integrations/shared/`, `.cursor/hooks/`, or `~/.claude/hooks/`. The files are CommonJS (`.cjs`), not TypeScript. There is no core interface to implement and no branded types to use. The recipe is general-purpose with closest-recipe = fix/patch (if modifying behavior) or general-purpose (if adding capability).
+
+**Mandatory exploration items (in addition to the standard checklist):**
+
+1. **Deploy path verification:** For every `.cjs` file the task creates or modifies, determine its deployed path. Hook scripts copied to `~/.claude/hooks/` have a different `require()` depth than scripts in `integrations/claude/plugin/scripts/`. Record the exact resolved path for every `require()` call in each file. A `require("../../../shared/foo.cjs")` that resolves correctly in `integrations/` becomes a wrong path at `~/.claude/hooks/foo.cjs`.
+
+2. **Cleanup loop safety:** Read the cleanup loop in `install.cjs` (both Claude and Cursor installers). The loop deletes any hook file matching a pattern that is NOT in the `AIC_SCRIPT_NAMES` manifest. If the task adds a new `.cjs` file that will be deployed, verify: (a) does the file's name match the cleanup regex? (b) is the file's name in `AIC_SCRIPT_NAMES`? If (a) is YES and (b) is NO, the file will be deleted on every reinstall — this is the exact class of bug that caused the Phase AJ database registration failure.
+
+3. **Manifest registration:** Check `aic-hook-scripts.json` (or equivalent manifest). If the task adds a new hook entry-point script (not a shared utility), it must be added to the manifest. If the task adds a shared utility (deployed alongside hooks but not itself a hook), verify the cleanup loop excludes it — either by name pattern change or an explicit exclusion list.
+
+4. **Shared utility require depth:** Shared utilities (files in `integrations/shared/`) are copied to the deployment directory alongside hook scripts. After copying, they are `require()`d as `require("./utility.cjs")` (same directory). Any task that adds a shared utility must verify all consumers update their require paths from the development path (`require("../../../shared/utility.cjs")`) to the deployed path (`require("./utility.cjs")`). The install script handles the copy — the hooks must handle the require path.
+
+5. **Idempotency verification:** Install scripts run multiple times. Verify the task's changes produce identical end state on first and subsequent runs. Key invariants: files are copied not accumulated, manifests are not duplicated, cleanup loop leaves correct set.
+
+6. **Claude vs Cursor symmetry:** Most hook behavior must be mirrored in both editors. Before scoping a CJS task to one editor only, verify the other editor does not need the same change. If it does, the task must cover both. If the behavior genuinely differs by design (e.g., path conventions), Architecture Notes must document why.
+
+**Template section applicability for CJS integration tasks:**
+
+- **Interface / Signature:** Replace with **Module Exports** — list every `module.exports` assignment with the function signatures (name, parameters with types/shapes, return value). For behavioral fixes, use the **Behavior Change** section from the fix/patch recipe instead.
+- **Dependent Types:** Not applicable — CJS modules use plain JS objects, not branded types. Replace with **Data Shapes** — inline JSDoc-style shapes for any structured objects the module reads or writes.
+- **Config Changes:** Always check `aic-hook-scripts.json`, `hooks.json`, and any manifest that registers hook names.
+
+**Test strategy for CJS integration tasks:** Unit tests in Jest or equivalent are typically not present for hook scripts. Verification is behavioral:
+
+- Run the install script in a temp directory and verify the deployed file set matches expectations (correct files present, deleted files absent).
+- Run the hook script with a representative stdin payload and verify the output.
+- Verify idempotency by running install twice and checking state is identical.
+- Where a unit test is feasible (pure function extracted from the hook), add it to the test file referenced in the Files table.
 
 ---
 

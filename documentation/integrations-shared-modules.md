@@ -2,6 +2,16 @@
 
 This document lists every canonical CommonJS module under `integrations/shared/`, its exported API, filesystem artifacts, which other shared modules it imports, and which hook or install scripts in the repository load it. It supports integration-layer reviews of JSONL caches, session markers, and related hook state.
 
+## When to update this document
+
+Update this document when:
+
+- You add, remove, or rename a top-level module under `integrations/shared/*.cjs`.
+- You change exported names or the behavior summarized in the module inventory table.
+- You change non-test `require` edges from Cursor or Claude hooks or install scripts into shared modules (caller matrix).
+- You change filesystem artifacts under `.aic/`, temp patterns under `os.tmpdir()`, or the shared-internal `require` graph.
+- You add or remove a file under `.cursor/hooks/` that must stay a mirror of `integrations/shared/`.
+
 ## Canonical location
 
 Shared hook utilities live in:
@@ -93,5 +103,6 @@ Each row lists files that `require("../shared/â€¦")` or `require("../../shared/â
 - [Cursor integration layer](cursor-integration-layer.md)
 - [Claude Code integration layer](claude-code-integration-layer.md)
 - [JSONL cache unification evaluation](jsonl-cache-unification-evaluation.md)
+- [Marker file simplification evaluation](marker-file-simplification-evaluation.md)
 - [Server-side code sharing evaluation](server-side-code-sharing-evaluation.md)
 

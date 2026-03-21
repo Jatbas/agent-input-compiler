@@ -70,7 +70,9 @@ The process has **two passes** plus a presentation step. Each pass produces a co
 
 ---
 
-## §0. Worktree setup (mandatory — run before anything else)
+## §0. Worktree setup (run after §0b confirms task planning)
+
+**Skip this step entirely** if §0b classified the request as analysis-only (classification #2). Create the worktree only when task planning is confirmed — either from §0b classification #1, or after the user confirms research findings and wants to plan (§0b auto-delegation step 6).
 
 The planner operates in a dedicated worktree based on `main` so that task files and exploration reports reflect the current merged state. This enables **parallel operation**: the planner works in its own worktree, executors work in theirs, and the main workspace stays on `main`, untouched.
 
@@ -107,7 +109,7 @@ The planner operates in a dedicated worktree based on `main` so that task files 
 
 ---
 
-## §0b. Intent Classification (mandatory — run after §0, before §1)
+## §0b. Intent Classification (mandatory — run first, before worktree setup)
 
 Before planning, classify the user's request. The planner must auto-delegate to the `aic-researcher` skill when the request needs investigation, ensuring identical quality regardless of which skill the user invoked.
 
@@ -125,12 +127,12 @@ Before planning, classify the user's request. The planner must auto-delegate to 
 
 1. Announce: "This request needs investigation first. Running the research protocol."
 2. Read the `aic-researcher` skill's `SKILL.md` (at `.claude/skills/aic-researcher/SKILL.md`).
-3. Execute the FULL research skill protocol — same phases (Frame → Investigate → Synthesize → Adversarial Review → Final Synthesis), same quality gates, same subagent model choices. Do NOT use a simplified version.
+3. Spawn the `aic-researcher` skill as a subagent (Claude Code: Agent tool with `subagent_type: "general-purpose"` and the full research request; Cursor: Task tool with the `aic-researcher` skill). Do NOT execute the research protocol inline — the researcher skill requires its own multi-agent subagents that cannot be spawned from within the planner's context. Pass the full user request and relevant project context to the subagent.
 4. Save the research document to `documentation/research/`.
 5. Present findings and ask: "Research complete — see `documentation/research/YYYY-MM-DD-title.md`. Want me to plan tasks based on these findings, or do you want to review the research first?"
-6. If the user says proceed, continue to §1 with the research document as an additional input.
+6. If the user says proceed, create the worktree now (§0 worktree setup), then continue to §1 with the research document as an additional input.
 
-**The guarantee:** The research protocol that runs when auto-delegated is THE SAME protocol as the standalone research skill. Same explorers, same critic, same quality gates. Quality is identical regardless of entry point.
+**The guarantee:** When auto-delegation spawns the researcher as a subagent, the subagent runs the full research protocol — same phases, same quality gates, same multi-agent critics. The output research document is equivalent to what the standalone researcher skill produces.
 
 ### Runtime Verification Checklist
 
@@ -572,6 +574,8 @@ After exploration completes (A.1 through A.4b), if the exploration discovered is
 
 Wait for the user's response. Update the task scope accordingly before writing the task file in Pass 2. If the user picks Minimal, the deferred issues are listed in a `## Follow-up Items` section at the end of the task file for future planning.
 
+If the user picks Recommended or Comprehensive, re-run the A.4b simplicity sweep on all newly added files — those files were not present during the original A.4b run. If simplification reduces the newly added scope, present the change before proceeding to A.5.
+
 **When to skip this checkpoint:** If exploration found zero issues beyond the original scope (no stale markers, no scope-adjacent references, no consumer breakage beyond what the task already covers), skip A.4c entirely and proceed to A.5. Do not present empty tiers.
 
 This checkpoint prevents two failure modes: under-scoping (applying a change too narrowly, leaving stale references and broken consumers) and over-scoping (the planner expanding scope silently without user consent).
@@ -721,7 +725,7 @@ I. **VERIFY INSTRUCTIONS:** Read each step's "Verify:" line. Confirm the referen
 
 J. **TEST TABLE ↔ STEP CROSS-CHECK:** Grep each Tests table row name in the step instructions. Grep each test name from steps in the Tests table. Mismatches = fail.
 
-K. **LIBRARY API ACCURACY:** Re-read the `.d.ts` files and interface files. For every method call in the task file's code blocks (any `.methodName(` pattern), Grep the corresponding interface or `.d.ts` file for that exact method name — report the match count. 0 matches for any method = fail (training-data hallucination). Also cross-check class names, import paths, and constructor signatures against ground truth. If no `.d.ts` or interface file was re-read for a library/interface the task uses = fail.
+K. **LIBRARY API ACCURACY (scope: external npm packages only):** Re-read the `.d.ts` files for every external library the task uses. For every method or constructor call in the task file's code blocks that targets an npm package API, Grep the corresponding `.d.ts` file in `node_modules/` for that exact method name — report the match count. 0 matches = fail (training-data hallucination). Also cross-check class names, import paths, and constructor signatures against ground truth. If no `.d.ts` was re-read for an external library the task uses = fail. This check covers the npm package layer only — check S covers the project's internal interfaces.
 
 L. **WIRING ACCURACY (composition roots only):** Re-read each concrete class source file. Every `new ClassName(...)` call in the task must match actual constructor signature.
 
@@ -740,7 +744,7 @@ Q. **TRANSFORMER BENCHMARK STEP (conditional — pipeline transformer recipe onl
 
 R. **TRANSFORMER SAFETY TESTS (conditional — pipeline transformer recipe only):** Grep the Tests table and step instructions for test names matching `safety_` pattern. If the task adds a `ContentTransformer` with `fileExtensions = []` (non-format-specific), at least one safety test per sensitive file type (Python, YAML, JSX) must exist. If the task adds a format-specific transformer, at least one safety test per listed extension must exist. If no transformer is added, this check passes automatically.
 
-S. **CODE BLOCK API EXTRACTION (mandatory — all task types):** Extract every unique method call (`.methodName(` pattern) and constructor call (`new ClassName(` pattern) from ALL TypeScript code blocks in the task file (Interface/Signature, Steps, inline code). For each, Grep the corresponding source file (interface, type definition, or `.d.ts`) for the exact name. Report each name with its source file and Grep match count. Any name with 0 matches in its source file = fail. This check catches training-data contamination — where the planner writes API calls that exist in the underlying library (e.g. `better-sqlite3`'s `.get()`) but not in the project's interface wrapper (e.g. `ExecutableDb` which only has `.run()` and `.all()`).
+S. **CODE BLOCK API EXTRACTION (scope: internal project interfaces and types — mandatory, all task types):** Extract every unique method call (`.methodName(` pattern) and constructor call (`new ClassName(` pattern) from ALL TypeScript code blocks in the task file (Interface/Signature, Steps, inline code). For each call, identify whether it targets a project interface, type definition, or storage class in `shared/src/` — then Grep that source file for the exact name. Report each name with its source file and Grep match count. Any name with 0 matches = fail. This check catches the specific failure mode where a planner writes a method call that exists in an underlying npm library but not in the project's own wrapper (e.g. calling `.get()` on `ExecutableDb` when that interface only exposes `.run()` and `.all()`). Check K covers the npm package `.d.ts` layer; check S covers the project's own type system.
 
 T. **DATABASE NORMALIZATION (conditional — tasks that create or modify a migration):** Verify the NORMALIZATION ANALYSIS section in the exploration report is present and complete. For each SQL statement (CREATE TABLE, ALTER TABLE) in the task file's Steps section, check:
 **(T1) 1NF — atomic columns:** Grep for TEXT columns that store comma-separated lists, JSON arrays of queryable data, or multiple values. Pattern indicators: column comments mentioning "list", "array", "comma-separated", or INSERT statements that concatenate values with `||` or `','`. Any multi-value column without a junction table = fail.
@@ -806,8 +810,10 @@ After the self-check (C.5 Steps 1–2) passes with all applicable checks at 100%
    - **File paths:** For every "Modify" row in the Files table, Glob for the path. Report: `[path] — EXISTS / DOES NOT EXIST`.
    - **Signature match:** For each method in the class code block, read the interface source file. Verify parameter names, types, and return types match exactly. Report: `[method] — MATCH / MISMATCH ([detail])`.
    - **Acceptance criteria vs test assertions:** For each acceptance criterion that references an existing test file (e.g., "X.test.ts passes"), read that test file. For each hardcoded count, expected string, or directory assertion in the test, check whether the task's proposed changes would invalidate it. If the task modifies a directory's contents but the test asserts on file count — verify the task updates that count. Report: `[test file] — [assertion at line N] — COMPATIBLE / INVALIDATED ([detail])`.
+   - **Coverage completeness:** Read the Exploration Report's CHANGE-PATTERN INSTANCES field. For each instance marked "IN SCOPE," verify the corresponding file appears as a row in the task's Files table. Report: `[file] — IN SCOPE in report — IN FILES TABLE / MISSING`.
+   - **Test impact completeness:** Read the Exploration Report's TEST IMPACT field. For each test file listed as having invalidated assertions, verify it appears as a "Modify" row in the task's Files table. Report: `[test file] — IN TEST IMPACT — IN FILES TABLE / MISSING`.
 
-4. **Output format:** Return a structured list of findings: each finding has type (api/sql/path/signature), name, source file, and status (FOUND/NOT_FOUND or MATCH/MISMATCH). End with a summary: "PASS — all N findings confirmed" or "FAIL — M of N findings have errors" with the specific errors listed.
+4. **Output format:** Return a structured list of findings: each finding has type (api/sql/path/signature/coverage/test-impact), name, source file, and status (FOUND/NOT_FOUND or MATCH/MISMATCH or IN_FILES_TABLE/MISSING). End with a summary: "PASS — all N findings confirmed" or "FAIL — M of N findings have errors" with the specific errors listed.
 
 **If the subagent returns FAIL:** For each NOT_FOUND or MISMATCH finding, determine the root cause (wrong method name, training-data hallucination, outdated interface, typo). Fix the task file, re-run the specific C.5 check that corresponds to the finding, and re-spawn the subagent to confirm the fix. Do NOT proceed to C.6 until the independent review passes.
 
@@ -877,6 +883,8 @@ Triggered when the user asks to review one or more task files.
 - "review task 008" → single task
 - "review tasks" / "review all tasks" → all pending in `documentation/tasks/` (skip `done/`)
 
+**Step 7.0: Worktree setup.** Create a planning worktree from `main` using the same procedure as §0 steps 1–3. Store the epoch value. All subsequent §7 work — reading, rewriting, committing — happens in the worktree.
+
 **Step 7a: Check for codebase drift.** For each file referenced in the task's Files table (both "Create" and "Modify" paths), check if the file or its directory has changed since the task was written. Use `git log -1 --format='%ai' -- <path>` for modified files and Glob for created files that now exist. If drift is detected, flag the specific files and re-read them before proceeding.
 
 **Step 7b: Gather codebase state.** Run the Pass 1 exploration checklist once for the full batch. Use parallel Read calls. Cache the results.
@@ -910,6 +918,8 @@ Then announce: **"Task NNN rewritten. Score: N/M (X%). [Summary of changes]."**
 ## Task File Template
 
 For **release-pipeline** recipe, replace the "Interface / Signature" and "Dependent Types" sections with the single "Publish specification" section defined in SKILL-recipes.md (package(s), entry points, build, trigger, secrets). All other sections (Goal, Architecture Notes, Files, Config Changes, Steps, Tests, Acceptance Criteria) apply.
+
+For **fix/patch** recipe, when the fix is purely behavioral (same API, different implementation): replace the "Interface / Signature" section with a "Behavior Change" section (see SKILL-recipes.md for the required format), and omit "Dependent Types" when no type dependencies change. When the fix does change a function signature, keep "Interface / Signature" with before/after signatures.
 
 ````markdown
 # Task NNN: [Component Name]

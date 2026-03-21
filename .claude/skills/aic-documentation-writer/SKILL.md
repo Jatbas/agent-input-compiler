@@ -269,7 +269,7 @@ For each identified change, write all three parts:
 Before proceeding to Phase 3:
 
 - Grep all target text blocks for temporal references: phase names ("Phase [A-Z]"), task identifiers ("[A-Z][0-9]{2}:", "task [0-9]+", "task [A-Z][0-9]+"), task-existence phrases ("as per task", "implemented in task", "this task adds", "the task"), temporal phrases ("will be added", "in the next", "recently", "upcoming", "future task"). Rewrite any found — describe capabilities directly, never attribute to a task.
-- For each technical claim in target text, verify it appears in the Explorer 1 findings. If a claim has no backing evidence, investigate or remove it.
+- For each technical claim in target text, annotate it inline with the Explorer 1 finding that backs it (e.g. `[E1: InterfaceName at shared/src/core/interfaces/foo.interface.ts:12]`). Any claim you cannot annotate has no backing evidence — investigate further before including it in target text, or remove it. Strip these inline annotations before presenting the final Change Specification.
 
 ### 2e. Audit mode: Build the Structured Audit Report
 
@@ -322,12 +322,12 @@ Read `SKILL-dimensions.md` for the critic prompt templates. Use the **standard c
 
 **Critic 1 — Editorial quality** (`generalPurpose` subagent):
 
-- **Write/Modify scope:** Read the document with the target text applied. Check: voice/tone match with surrounding text, sentence structure variety (not monotonous), paragraph cohesion (one idea per paragraph, smooth transitions), detail level consistency with neighboring sections, ambiguous pronouns or dangling references, heading hierarchy. Parallel section symmetry: if the edited section has a structural sibling, compare ordering, naming, content parity, information density. Audience awareness: verify the text uses appropriate language for the document's audience. Report each issue with the exact line or paragraph. If no issues, state "No editorial issues found."
+- **Write/Modify scope:** Read the document with the target text applied. Check: voice/tone match with surrounding text, sentence structure variety (not monotonous), paragraph cohesion (one idea per paragraph, smooth transitions), detail level consistency with neighboring sections, ambiguous pronouns or dangling references, heading hierarchy. Parallel section symmetry: if the edited section has a structural sibling, compare ordering, naming, content parity, information density. Audience awareness: verify the text uses appropriate language for the document's audience. Report each issue with the exact line or paragraph. Apply the **anti-agreement mandate** from the Critic 1 template in `SKILL-dimensions.md` — "No editorial issues found" without exhaustive per-section justification will be rejected.
 - **Audit scope:** Read the ENTIRE document. Perform the same checks across ALL sections, not just edited ones. Use the audit-mode Critic 1 template from `SKILL-dimensions.md`. Report issues per section.
 
 **Critic 2 — Factual re-verification** (`explore` subagent, `fast` model):
 
-- **Write/Modify scope:** Read the target text. For every technical claim — interface names, type names, file paths, ADR references, component descriptions, commands, package names — grep the codebase to verify. This is INDEPENDENT of Explorer 1's work. The critic has NOT seen Explorer 1's findings. Return: `[claim] — [source file:line] — VERIFIED / NOT FOUND / CONTRADICTED`. Check every claim, not a sample.
+- **Write/Modify scope:** Read the target text. For every technical claim — interface names, type names, file paths, ADR references, component descriptions, commands, package names — grep the codebase to verify. This is INDEPENDENT of Explorer 1's work. The critic has NOT seen Explorer 1's findings. Return: `[claim] — [source file:line] — VERIFIED / NOT FOUND / CONTRADICTED / UNCERTAIN`. Check every claim, not a sample. If 1+ claims are UNCERTAIN (ambiguous grep results, multiple candidates, or source/deployed divergence), flag them for escalation — the main agent routes these to `aic-researcher` before finalizing the Change Specification.
 - **Audit scope:** Read the ENTIRE document. Verify every technical claim in ALL sections against the codebase. Use the audit-mode Critic 2 template from `SKILL-dimensions.md`. This is the double-blind pass against Explorer 1 — same principle, full-document scope.
 
 **Critic 3 — Cross-document consistency** (`explore` subagent, `fast` model):
@@ -337,7 +337,9 @@ Read `SKILL-dimensions.md` for the critic prompt templates. Use the **standard c
 
 **Critic 4 — Reader simulation** (`generalPurpose` subagent, **conditional**):
 
-Spawn ONLY for user-facing documents (installation guides, getting started docs, user-facing READMEs). Skip for developer references (implementation specs, project plans, architecture docs).
+Spawn for user-facing documents (installation guides, getting started docs, user-facing READMEs) and for **mixed-audience documents** (Explorer 3 classified as "Mixed"). Skip only for pure developer references (implementation specs, project plans, architecture docs).
+
+For mixed-audience documents, use Explorer 3's section-level classification to scope the review — focus Reader Simulation on the user-facing sections only, not developer-reference sections.
 
 - **Write/Modify scope:** Read the document from top to bottom as a first-time reader with zero project knowledge. Report: undefined terms (used without prior definition), unclear prerequisites (steps that assume prior context), missing context (points where the reader would ask "what does this mean?"), jargon without explanation (technical terms a first-time user would not know), dead ends (instructions that stop before the task is complete). Focus on the edited sections but note issues in surrounding context that affect comprehension.
 - **Audit scope:** Same checks, full-document scope. Read every section with equal attention. Use the audit-mode Critic 4 template.
@@ -389,7 +391,7 @@ If Phase 3 found issues that require rewriting target text (not just minor fixes
 
 1. Apply all fixes to the target text
 2. Re-run ONLY Critic 2 (factual re-verification) on the revised text — the other critics' concerns were addressed by the fixes
-3. Maximum 2 revision loops. If still failing after 2 loops, flag unresolvable issues in a Blocked section
+3. Maximum 2 revision loops. "Still failing" means Critic 2 reports 1+ NOT FOUND or CONTRADICTED claims after the revision. UNCERTAIN claims that existed before revision are not blocking — move them to Open Questions. If still failing after 2 loops, flag unresolvable issues in a Blocked section
 
 ---
 

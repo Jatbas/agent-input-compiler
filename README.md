@@ -28,14 +28,14 @@ The result is a smaller, more relevant, and more inspectable input.
 
 ### What it helps with
 
-| Problem                               | What AIC does                                                                                                                                             |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Too much irrelevant context           | Selects and compresses only the files that matter                                                                                                         |
-| Inconsistent context quality          | Produces deterministic compiled context for the same task and codebase                                                                                    |
-| Wasted tokens                         | Strips noise and progressively compresses content to stay within budget                                                                                   |
-| Secret exposure risk                  | Blocks secrets, excluded paths, and suspicious prompt injection strings locally                                                                           |
-| No visibility into what the model saw | Lets you inspect the latest compilation from inside the editor                                                                                            |
-| Editor lag from context compaction    | Sends fewer tokens so the context window fills less often; less summarization or compaction means a smoother experience where editors do heavy compaction |
+| Problem                               | What AIC does                                                                                                                                                                                                       |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Too much irrelevant context           | Selects and compresses only the files that matter                                                                                                                                                                   |
+| Inconsistent context quality          | Produces deterministic compiled context for the same task and codebase                                                                                                                                              |
+| Wasted tokens                         | Strips noise and progressively compresses content to stay within budget                                                                                                                                             |
+| Secret exposure risk                  | Blocks secrets, excluded paths, and suspicious prompt injection strings locally                                                                                                                                     |
+| No visibility into what the model saw | Lets you inspect the latest compilation from inside the editor                                                                                                                                                      |
+| Editor lag from context compaction    | Compiled context is bounded by a hard token budget, so its contribution to window fill is predictable regardless of repo size; this leaves stable headroom in the context window and reduces pressure on compaction |
 
 ### Real captured output
 
