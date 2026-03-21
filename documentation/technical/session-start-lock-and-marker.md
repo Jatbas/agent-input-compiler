@@ -31,7 +31,7 @@ Implementation: `integrations/shared/session-markers.cjs` (mirrored under `.curs
 - **UserPromptSubmit** (`aic-prompt-compile.cjs`): `isSessionAlreadyInjected` only; no lock acquire or release.
 - **SessionEnd** (`aic-session-end.cjs`): `clearSessionMarker`, then `releaseSessionLock`.
 
-Product rationale for the marker file when SessionStart output is dropped is in [Claude Code integration layer](../claude-code-integration-layer.md) §7.2.
+Product rationale for the marker file when SessionStart output is dropped is in [Claude Code integration layer](claude-code-integration-layer.md) §7.2.
 
 ## Mechanisms
 
@@ -44,7 +44,7 @@ When `acquireSessionLock` cannot create the lock (`wx` fails), the implementatio
 
 ## Cursor versus Claude paths
 
-`integrations/claude/hooks/` requires `session-markers.cjs` for SessionStart, SessionEnd, and prompt compile. `integrations/cursor/hooks/` does not import `session-markers.cjs`. Cursor uses per-generation files under `os.tmpdir()` for gate and prewarm; see [Cursor integration layer](../cursor-integration-layer.md) §7.2 and §7.3. The `.aic` marker pair belongs to the Claude Code integration path in this repository.
+`integrations/claude/hooks/` requires `session-markers.cjs` for SessionStart, SessionEnd, and prompt compile. `integrations/cursor/hooks/` does not import `session-markers.cjs`. Cursor uses per-generation files under `os.tmpdir()` for gate and prewarm; see [Cursor integration layer](cursor-integration-layer.md) §7.2 and §7.3. The `.aic` marker pair belongs to the Claude Code integration path in this repository.
 
 ## Constraints on merging into one file
 
@@ -61,7 +61,7 @@ The repository keeps two paths under `.aic/` for the lock and the session-contex
 ## Related documentation
 
 - [Integrations shared modules reference](integrations-shared-modules.md)
-- [Claude Code integration layer](../claude-code-integration-layer.md)
-- [Cursor integration layer](../cursor-integration-layer.md)
+- [Claude Code integration layer](claude-code-integration-layer.md)
+- [Cursor integration layer](cursor-integration-layer.md)
 - [AIC JSONL caches under `.aic/`](aic-jsonl-caches.md)
 - [MCP server and shared CJS boundary](mcp-and-shared-cjs-boundary.md)

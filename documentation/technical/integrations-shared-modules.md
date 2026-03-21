@@ -100,8 +100,8 @@ Each row lists files that `require("../shared/â€¦")` or `require("../../shared/â
 
 ## Related documentation
 
-- [Cursor integration layer](../cursor-integration-layer.md)
-- [Claude Code integration layer](../claude-code-integration-layer.md)
+- [Cursor integration layer](cursor-integration-layer.md)
+- [Claude Code integration layer](claude-code-integration-layer.md)
 - [AIC JSONL caches under `.aic/`](aic-jsonl-caches.md)
 - [Session start lock and session context marker](session-start-lock-and-marker.md)
 - [MCP server and shared CJS boundary](mcp-and-shared-cjs-boundary.md)

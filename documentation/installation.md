@@ -308,7 +308,7 @@ Hooks run as Claude Code spawns them — they are independent processes, not par
 - **Plugin path:** The plugin provides the 8 lifecycle hooks (and supporting scripts) and registers them with Claude Code; no per-project deployment.
 - **Direct installer path:** The installer copies hook scripts to `~/.claude/hooks/` and merges AIC hook entries into `~/.claude/settings.json`; bootstrap runs the installer on first use so every project gets compiled context.
 
-See [Claude Code integration layer](claude-code-integration-layer.md) for how hooks are packaged and delivered in each path.
+See [Claude Code integration layer](technical/claude-code-integration-layer.md) for how hooks are packaged and delivered in each path.
 
 ### Update Notifications
 

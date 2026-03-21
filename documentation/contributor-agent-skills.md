@@ -8,10 +8,10 @@ Procedures for repository development live under `.claude/skills/` as Agent Skil
 
 ## Glossary
 
-| Term         | Definition                                                                                                                                                                                                                                                                                             |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Task file    | Planner output under `documentation/tasks/`. Separate from the end-user habit “one task, one session” in [Best practices](best-practices.md).                                                                                                                                                          |
-| Git worktree | An extra working tree created with `git worktree` (used by the executor skill). Unrelated to Claude Code hook events `WorktreeCreate` and `WorktreeRemove` in [Claude Code integration layer](claude-code-integration-layer.md) (lifecycle hooks, currently out of scope for AIC — not Git worktrees). |
+| Term         | Definition                                                                                                                                                                                                                                                                                                       |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Task file    | Planner output under `documentation/tasks/`. Separate from the end-user habit “one task, one session” in [Best practices](best-practices.md).                                                                                                                                                                    |
+| Git worktree | An extra working tree created with `git worktree` (used by the executor skill). Unrelated to Claude Code hook events `WorktreeCreate` and `WorktreeRemove` in [Claude Code integration layer](technical/claude-code-integration-layer.md) (lifecycle hooks, currently out of scope for AIC — not Git worktrees). |
 
 ## Skill packages under `.claude/skills/`
 
@@ -57,8 +57,8 @@ For documentation-heavy tasks, the task planner documentation recipe delegates t
 ## See also
 
 - [Installation & delivery](installation.md) — MCP server, hooks, development environment
-- [Cursor integration layer](cursor-integration-layer.md)
-- [Claude Code integration layer](claude-code-integration-layer.md)
+- [Cursor integration layer](technical/cursor-integration-layer.md)
+- [Claude Code integration layer](technical/claude-code-integration-layer.md)
 - [CONTRIBUTING.md](../CONTRIBUTING.md) — clone, install, tests, PR expectations
 - [Best practices](best-practices.md) — session habits for people using AIC as a product
 - [MVP progress](documentation/tasks/progress/mvp-progress.md) — includes notes on relocating skills to `.claude/skills/`
