@@ -146,7 +146,7 @@ All defaults apply when no config file exists or a field is omitted.
 
 **Handler:** These steps run inside the `aic_compile` MCP tool handler. The handler builds a `CompilationRequest` (including `sessionId` from server session state when hooks run), executes Steps 1–10 in order (including Step 5.5), and returns `{ compiledPrompt: string, meta: CompilationMeta }`. The editor uses `compiledPrompt` as the full model context. Steps 1–8 always run in the shipped package; Step 9 (Executor) is a deferred design path; Step 10 (Telemetry) runs only when `telemetry.enabled: true`.
 
-**Agentic workflows:** The internal `CompilationRequest` type carries optional session fields (`sessionId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens`) plus `triggerSource` and `conversationId`. The MCP Zod schema validates only the wire subset; agentic fields are populated inside the server/hook path (see [Project Plan §2.7](project-plan.md#27-agentic-workflow-support)).
+**Agentic workflows:** The internal `CompilationRequest` type carries optional session fields (`sessionId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens`) plus `triggerSource` and `conversationId`. The MCP Zod schema in `mcp/src/schemas/compilation-request.ts` validates optional wire fields that map into these (`editorId`, `triggerSource`, `conversationId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens`). The compile handler maps them into `CompilationRequest`. `sessionId` is not an MCP client argument; the composition root sets it from MCP server session state when applicable. Hook integrations supply `conversationId` and related fields where the editor exposes them (see [Project Plan §2.7](project-plan.md#27-agentic-workflow-support)).
 
 ### Step 1: Task Classifier
 
@@ -1151,21 +1151,13 @@ All MCP handler, CLI parser, and config loader inputs are validated at the bound
 Validates `aic_compile` MCP tool arguments (see `mcp/src/schemas/compilation-request.ts`):
 
 ```typescript
-// intent, projectRoot (required); modelId, editorId, configPath, triggerSource, conversationId (optional)
-editorId: z.enum(["cursor", "cursor-claude-code", "claude-code", "generic"]).optional();
-triggerSource: z.enum([
-  "session_start",
-  "prompt_submit",
-  "tool_gate",
-  "subagent_start",
-  "cli",
-  "model_initiated",
-  "internal_test",
-]).optional();
-conversationId: z.string().max(128).nullable().optional();
+// Required: intent, projectRoot
+// Optional: modelId, editorId, configPath, triggerSource, conversationId,
+//   stepIndex, stepIntent, previousFiles, toolOutputs, conversationTokens
+// (see `mcp/src/schemas/compilation-request.ts` for exact Zod shapes and bounds)
 ```
 
-Phase 1+ agentic fields (sessionId, stepIndex, stepIntent, previousFiles, toolOutputs, conversationTokens) are defined in [Project Plan §2.7](project-plan.md); the current schema does not include them.
+Agentic field definitions and behaviour notes live in [Project Plan §2.7](project-plan.md). `sessionId` on `CompilationRequest` is not part of the MCP tool argument schema; the server supplies it when the MCP session context applies.
 
 On validation failure, the MCP handler returns error code `-32602` (Invalid params) with a sanitised message listing the failing field paths.
 

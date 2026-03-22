@@ -697,7 +697,7 @@ interface ToolOutput {
 }
 ```
 
-The `aic_compile` MCP tool schema will expose these optional fields once the Agentic MCP layer extends Zod validation and the compile handler forwards them from clients. As of Phase O, the internal `CompilationRequest` type already carries all fields and the pipeline handles them when present. The MCP Zod schema (`mcp/src/schemas/compilation-request.ts`) does not yet validate agentic session fields from clients. Any editor that passes them once exposed gets agentic-aware compilation; any editor that doesn't gets the same single-shot behaviour as today.
+The `aic_compile` MCP tool Zod schema (`mcp/src/schemas/compilation-request.ts`) validates the same optional agentic fields as the internal `CompilationRequest` shape on the wire: `editorId`, `triggerSource`, `conversationId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, and `conversationTokens`. The compile handler maps validated MCP arguments into `CompilationRequest`. Editors that omit these fields keep single-shot behaviour. When `conversationId` is present, it keys per-conversation session state (`session_state`), enabling deduplication, adaptive budget from prior steps, and the deterministic session context header. `toolOutputs` is recorded on each session step after a compile but is not yet passed into the pipeline object that drives file selection—failure-aware boosting from tool output content remains to be wired. Update this section again when that pipeline integration ships.
 
 ### Session Tracker
 
@@ -705,7 +705,7 @@ The `aic_compile` MCP tool schema will expose these optional fields once the Age
 
 - **Deduplication**: If `auth/service.ts` was shown at L0 in step 1, step 3 can reference it as "previously shown" rather than re-including 1,240 tokens of the same content — unless the file was modified between steps.
 - **Progressive discovery**: In early steps, the selector favours broad architecture files. In later steps, it narrows to the specific file being edited and its direct dependencies.
-- **Failure-aware selection**: If `toolOutputs` contains test failures referencing `auth.test.ts`, the selector boosts that file and its imports regardless of the original intent scoring.
+- **Failure-aware selection (intended; requires pipeline consumption of `toolOutputs`)**: If `toolOutputs` contains test failures referencing `auth.test.ts`, the selector should boost that file and its imports regardless of the original intent scoring once that signal is passed into selection steps.
 - **Session expiry**: Sessions expire after 30 minutes of inactivity (configurable). Expired sessions are cleaned up on the next compilation request. This prevents stale session state from accumulating.
 
 `SessionTracker` implements a new interface:

@@ -3,6 +3,8 @@ name: aic-update-changelog
 description: Maintains root CHANGELOG.md (Keep a Changelog) with curated user-facing release notes from completed work.
 ---
 
+> **Audience: Internal — developer workflow only. Do not invoke via agent delegation.**
+
 # Update Changelog
 
 ## Purpose

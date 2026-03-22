@@ -2,7 +2,7 @@
 
 This document is for developers working on AIC.
 
-Procedures for repository development live under `.claude/skills/` as Agent Skill packages (one folder per skill, each with a `SKILL.md` entry point).
+Procedures for repository development live under `.claude/skills/` as Agent Skill packages. Each skill package is a folder whose entry point is `SKILL.md`. The `shared/` folder is different: it holds `.claude/skills/shared/SKILL-investigation.md` for cross-skill rules and is not a standalone package with its own `SKILL.md`.
 
 > Using those skills is optional.
 
@@ -19,22 +19,24 @@ Use each skill for its intended role (see the table below) to get the best outpu
 
 Some skills add files beside `SKILL.md`: the task planner includes `SKILL-recipes.md` and `SKILL-guardrails.md`; the documentation-writer includes `SKILL-dimensions.md`, `SKILL-standards.md`, and `SKILL-policies.md`; the researcher includes `SKILL-protocols.md`.
 
-Shared investigation rules used by several skills are in `.claude/skills/shared/SKILL-investigation.md`.
+| Skill folder               | Type        | Role                                                                                                                                                                   |
+| -------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `aic-task-planner`         | Delegatable | Produces task files under `documentation/tasks/` with steps, tests, and acceptance criteria. Can be used for new features, bug fixes and questions about the codebase. |
+| `aic-task-executor`        | Delegatable | Implements work from those task files, or ad-hoc requests, using **Git worktree** isolation and mechanical verification.                                               |
+| `aic-researcher`           | Delegatable | Evidence-backed investigation; writes notes under `documentation/research/`.                                                                                           |
+| `aic-documentation-writer` | Delegatable | Documentation pipeline: exploration, change specifications, adversarial review. It is able to research documentation and the codebase.                                 |
+| `aic-update-mvp-progress`  | Internal    | Updates `documentation/tasks/progress/mvp-progress.md` after implementation work.                                                                                      |
+| `aic-update-changelog`     | Internal    | Updates root `CHANGELOG.md` for user-facing releases and milestones.                                                                                                   |
+| `aic-git-history-clean`    | Internal    | Squashes dev-noise commits in unpushed history with date preservation; rewrites published history on explicit request.                                                 |
+| `aic-release`              | Internal    | Full release orchestration: codebase validation, documentation audit, history check, roadmap update, changelog, and publish.                                           |
 
-| Skill folder               | Role                                                                                                                                                                   |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `aic-task-planner`         | Produces task files under `documentation/tasks/` with steps, tests, and acceptance criteria. Can be used for new features, bug fixes and questions about the codebase. |
-| `aic-task-executor`        | Implements work from those task files, or ad-hoc requests, using **Git worktree** isolation and mechanical verification.                                               |
-| `aic-researcher`           | Evidence-backed investigation; writes notes under `documentation/research/`.                                                                                           |
-| `aic-documentation-writer` | Documentation pipeline: exploration, change specifications, adversarial review. It is able to research documentation and the codebase.                                 |
-| `aic-update-mvp-progress`  | Updates `documentation/tasks/progress/mvp-progress.md` after implementation work.                                                                                      |
-| `aic-update-changelog`     | Updates root `CHANGELOG.md` for user-facing releases and milestones.                                                                                                   |
+Skills marked **Internal** are developer workflow tools — they require your judgment and must not be invoked autonomously by an agent. Skills marked **Delegatable** are safe to assign to agents as part of a planned task.
 
 > Task files under `documentation/tasks/` are **gitignored** (local to your machine). They are not part of the published tree; the planner and executor skills define how to create and use them.
 
 ## Why use them
 
-Each `SKILL.md` defines pre-reads, verification steps, and when to run parallel subagents via the Task or subagent mechanism instead of folding that work into one model response.
+Agent-oriented skills define pre-reads, verification steps, and when to run parallel subagents via the Task or subagent mechanism instead of folding that work into one model response. Internal-only skills document human-driven workflows with explicit confirmations; invoke them directly rather than chaining them from other skills (see the table and each skill’s audience note).
 
 > Ad-hoc work without these skills often omits Git worktree rules, doc and code parity checks, or multi-agent steps the repo authors rely on for consistent output.
 
@@ -54,6 +56,14 @@ For documentation-heavy tasks, the task planner documentation recipe delegates t
 
 > The executor runs a second documentation-writer review pass after applying doc edits.
 
+### Clean git history (optional)
+
+Use before a release or a first public push when recent commits are noisy (for example `wip`, `fixup!`, or short throwaway subjects). Prefer unpushed-only cleanup unless you are intentionally rewriting published history. Full steps and safety gates are in `.claude/skills/aic-git-history-clean/SKILL.md`.
+
+### Publish a release
+
+When you are ready to publish a new version, follow `.claude/skills/aic-release/SKILL.md` from the repository root on `main` with a clean working tree. Do not run it from a Git worktree. When a step reports a blocker, resolve it and start the skill again from the top; some steps ask for confirmation instead of failing the run. For noisy commit history, prefer **Clean git history (optional)** above first; `aic-release` still reviews recent subjects and can pause for cleanup.
+
 ## See also
 
 - [Installation & delivery](installation.md) — MCP server, hooks, development environment
@@ -61,4 +71,4 @@ For documentation-heavy tasks, the task planner documentation recipe delegates t
 - [Claude Code integration layer](technical/claude-code-integration-layer.md)
 - [CONTRIBUTING.md](../CONTRIBUTING.md) — clone, install, tests, PR expectations
 - [Best practices](best-practices.md) — session habits for people using AIC as a product
-- [MVP progress](documentation/tasks/progress/mvp-progress.md) — includes notes on relocating skills to `.claude/skills/`
+- [MVP progress](tasks/progress/mvp-progress.md) — includes notes on relocating skills to `.claude/skills/`

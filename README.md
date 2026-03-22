@@ -116,7 +116,7 @@ For the full list of available configuration options, see [§6 Configuration in 
 
 ### Other editors
 
-Other MCP-compatible editors can connect by adding AIC to their MCP config (`"command": "npx", "args": ["-y", "@jatbas/aic@latest"]`). To request support for your editor or contribute an integration layer, [open an issue](https://github.com/Jatbas/agent-input-compiler/issues).
+AIC requires a dedicated integration layer to compile context automatically. Cursor and Claude Code have first-class integration layers; other editors do not yet have one. To request support for your editor or contribute an integration layer, [open an issue](https://github.com/Jatbas/agent-input-compiler/issues).
 
 ---
 

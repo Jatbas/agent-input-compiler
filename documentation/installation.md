@@ -358,18 +358,9 @@ AIC checks for newer published versions during compilation. When a newer version
 
 ## Other Editors
 
-Any editor that supports the MCP protocol can run AIC. Register it as a global MCP server using the standard server entry:
+AIC requires a dedicated integration layer — hooks and a trigger rule — to compile context automatically on every message. Cursor and Claude Code have first-class integration layers; no integration layer exists yet for other editors.
 
-```json
-"aic": {
-  "command": "npx",
-  "args": ["-y", "@jatbas/aic@latest"]
-}
-```
-
-Add this to your editor's global MCP configuration file and restart the editor. The exact file path depends on your editor — consult its MCP documentation.
-
-> Once registered, AIC auto-bootstraps on the first `aic_compile` call: it creates `aic.config.json`, the `.aic/` data directory, and installs any available trigger rules and hooks for your editor. Editors without a dedicated integration layer still benefit from the MCP tools (`aic_compile`, `aic_status`, etc.) — lifecycle hooks are simply not available until a dedicated integration is added.
+To request support for your editor or contribute an integration layer, [open an issue](https://github.com/Jatbas/agent-input-compiler/issues).
 
 ---
 

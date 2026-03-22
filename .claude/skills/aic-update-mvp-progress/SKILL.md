@@ -3,6 +3,8 @@ name: aic-update-mvp-progress
 description: Updates documentation/tasks/progress/mvp-progress.md after tasks—component tables, daily log, and phase header metrics.
 ---
 
+> **Audience: Internal — developer workflow only. Do not invoke via agent delegation.**
+
 # Update MVP Progress
 
 ## Purpose
