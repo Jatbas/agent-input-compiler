@@ -55,8 +55,15 @@ export async function handleInspect(
 
   try {
     const result = await inspectRunner.inspect(request);
+    // strip file content to prevent response self-flooding
+    const sanitizedTrace = {
+      ...result,
+      selectedFiles: result.selectedFiles.map(
+        ({ resolvedContent: _content, ...rest }) => rest,
+      ),
+    };
     return {
-      content: [{ type: "text", text: JSON.stringify({ trace: result }) }],
+      content: [{ type: "text", text: JSON.stringify({ trace: sanitizedTrace }) }],
     };
   } catch (err) {
     const { code, message } = sanitizeError(err);
