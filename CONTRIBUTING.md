@@ -44,6 +44,18 @@ Follow [documentation/installation.md](documentation/installation.md).
 
 While working **in this repository**, some editor setups expect `aic_compile` before other tools run. Set **`AIC_DEV_MODE=1`** during development (for example in your shell, in a `.env` file at the repo root, or by starting your editor with that variable in the environment). See the installation doc for your editor.
 
+To verify CLI diagnostic subcommands against your local build (instead of the published npm package), use `pnpm aic` from the repo root after building:
+
+```bash
+pnpm build
+pnpm aic status
+pnpm aic last
+pnpm aic chat-summary --project $(pwd)
+pnpm aic projects
+```
+
+This routes through `node mcp/dist/server.js` directly, so you see the output of your local changes immediately without an npm release.
+
 ### 4. Verify the baseline
 
 ```bash
@@ -61,16 +73,19 @@ For optional Agent Skill workflows in this repo (planning, execution, documentat
 
 Husky already runs checks on commit and push: **lint-staged** on commit (ESLint with fix on staged TypeScript under `shared/` and `mcp/`; Prettier on staged files matched by the project config). Staged `*.ts` files at the repository root get Prettier only, not ESLint. **commitlint** runs on the commit message; **typecheck**, **tests**, and **lint:clones** run on push. You can still run the commands below locally before committing or when debugging CI.
 
-| Command              | Purpose                                              |
-| -------------------- | ---------------------------------------------------- |
-| `pnpm typecheck`     | Full TypeScript project build                        |
-| `pnpm test:watch`    | Tests in watch mode                                  |
-| `pnpm lint:fix`      | ESLint with auto-fix                                 |
-| `pnpm format`        | Prettier write                                       |
-| `pnpm format:check`  | Prettier check only                                  |
-| `pnpm knip`          | Unused files, exports, and dependencies              |
-| `pnpm check:headers` | SPDX license headers                                 |
-| `pnpm lint:clones`   | Duplicate-code scan (`jscpd`; also runs on pre-push) |
+| Command                 | Purpose                                                                                                                       |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm typecheck`        | Full TypeScript project build                                                                                                 |
+| `pnpm test:watch`       | Tests in watch mode                                                                                                           |
+| `pnpm lint:fix`         | ESLint with auto-fix                                                                                                          |
+| `pnpm format`           | Prettier write                                                                                                                |
+| `pnpm format:check`     | Prettier check only                                                                                                           |
+| `pnpm knip`             | Unused files, exports, and dependencies                                                                                       |
+| `pnpm check:headers`    | SPDX license headers                                                                                                          |
+| `pnpm lint:clones`      | Duplicate-code scan (`jscpd`; also runs on pre-push)                                                                          |
+| `pnpm aic <subcommand>` | CLI diagnostics against the local build (`status`, `last`, `chat-summary`, `projects`; see Local MCP testing for `--project`) |
+
+> `pnpm aic` requires a prior `pnpm build`. Use `pnpm run dev:mcp` for a live-reloading MCP server during development (no build step needed).
 
 ### Local MCP testing
 

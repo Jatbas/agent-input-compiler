@@ -113,7 +113,7 @@ AIC tightens the hallucination surface by surfacing relevant project code in com
 
 ## See also
 
-- [Installation & Delivery](installation.md) — install steps, prerequisites, verification (including the natural-language **prompt commands** that call MCP tools: status, last, chat summary, projects), and troubleshooting when hooks or MCP fail.
+- [Installation & Delivery](installation.md) — install steps, prerequisites, verification (including the natural-language **prompt commands** that invoke CLI subcommands: status, last, chat summary, projects), and troubleshooting when hooks or MCP fail.
 - [Architecture](architecture.md) — how AIC compiles context and how Cursor vs Claude Code differ.
 - [Security](security.md) — Context Guard scope, secrets, and telemetry.
 - [Cursor integration layer](technical/cursor-integration-layer.md) — session start, preToolUse gate, and Cursor-specific limits.

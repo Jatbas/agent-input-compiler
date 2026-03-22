@@ -77,3 +77,23 @@ Each editor exposes a different subset of the hook capabilities AIC can use. Gap
 - **Cursor** supports sessionEnd and preCompact as hooks (AIC uses sessionEnd; preCompact is observational only — no context injection). Cursor does not support per-prompt context injection or subagent context injection; subagentStart is gating only (no additional_context). AIC can inject compiled context at session start and enforce compilation via tool gating, but text-only turns and subagent spawns bypass AIC for context injection.
 - **Claude Code** supports all hook capabilities AIC needs (including per-prompt and subagent injection), and AIC's integration layer is built for them (session start, per-prompt, subagent inject, pre-compaction, session end, etc.). See [claude-code-integration-layer](technical/claude-code-integration-layer.md).
 - **Other editors** without hooks rely solely on the trigger rule, which is suggestive — the model may or may not call `aic_compile`.
+
+---
+
+## CLI Interface
+
+The `mcp/dist/server.js` binary has a dual interface:
+
+- **MCP server mode** (default) — when invoked without a recognized CLI subcommand, the process starts as a long-running MCP stdio server and accepts requests from editors.
+- **CLI mode** — when invoked with `status`, `last`, `chat-summary`, or `projects` as the first argument, the process opens the database read-only, prints formatted table output to stdout, and exits. No MCP transport is started.
+
+The dispatch happens at process entry via an `isEntry` check. CLI mode is always one-shot and read-only — it never mutates state.
+
+This dual interface means you can query AIC diagnostic data from a terminal using the same binary that serves as the MCP server, with or without an MCP-connected editor:
+
+```bash
+npx @jatbas/aic status     # published release
+pnpm aic status             # development (requires pnpm build; run from repo root)
+```
+
+For all four subcommands and their usage, see [installation.md — CLI Standalone Usage](installation.md#cli-standalone-usage).

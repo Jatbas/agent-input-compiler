@@ -80,7 +80,9 @@ Deliver a working **MCP server** that compiles optimal context for AI coding too
 | Output Caching       | Hash-based, TTL-configurable, auto-invalidating                                                                              |
 | Config System        | `aic.config.json` — all fields optional; zero-config works out of the box                                                    |
 
-**User Interface (MCP-only — no separate CLI)**
+**User interface (MCP tools; diagnostic CLI)**
+
+MCP is the primary interface when the model runs inside an editor. The same published entrypoint (`server.js`) also implements four read-only **CLI** subcommands (`status`, `last`, `chat-summary`, `projects`) that print formatted tables to stdout and exit; see [§8b](#8b-mcp-server-startup-sequence) and [installation.md — CLI Standalone Usage](installation.md#cli-standalone-usage).
 
 | Interface                                         | Purpose                                                                                                      |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
@@ -144,7 +146,7 @@ All defaults apply when no config file exists or a field is omitted.
 >
 > These steps run inside the `aic_compile` MCP tool handler on every AI request. The handler receives a `CompilationRequest`, executes Steps 1–10 in sequence (including Step 5.5), and returns `{ compiledPrompt: string, meta: CompilationMeta }`. The editor uses `compiledPrompt` as the full context for its model call, replacing the original unfiltered prompt. Steps 1–8 always run in the shipped MCP package; Step 9 (Executor) is a deferred design path; Step 10 (Telemetry) only runs when `telemetry.enabled: true`.
 >
-> **Phase 1+ (agentic workflows):** `CompilationRequest` gains optional session fields (`sessionId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens`) that enable multi-step agentic compilation with session tracking, file deduplication, and adaptive budgeting. The core pipeline is unchanged; a session layer enriches the input before the pipeline runs. See [Project Plan §2.7 — Agentic Workflow Support](project-plan.md#27-agentic-workflow-support) for full architecture and interfaces.
+> **Agentic workflows:** The internal `CompilationRequest` type carries optional session fields (`sessionId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens`) plus `triggerSource` and `conversationId`. They enable multi-step compilation with session tracking, file deduplication, adaptive budgeting, and deterministic step-list session context when hooks supply session identifiers. Steps 1–10 keep the same ordering; orchestration applies session-derived inputs before prompt assembly. The MCP Zod schema still validates only the wire subset today; extending it for agentic fields from clients is part of the Agentic MCP layer (see [Project Plan §2.7 — Agentic Workflow Support](project-plan.md#27-agentic-workflow-support)).
 
 ### Step 1: Task Classifier
 
@@ -501,7 +503,7 @@ Type: {taskClass} (confidence: {confidence})
 
 ### Step 9: Executor (deferred design)
 
-This section describes a future direct-execution path that is not part of the current MCP-only package. In that future mode, AIC would send compiled input to the configured model endpoint via the appropriate provider SDK.
+This section describes a future direct-execution path that is not part of the current release. In that future mode, AIC would send compiled input to the configured model endpoint via the appropriate provider SDK.
 
 **Supported providers (MVP):**
 
@@ -1064,9 +1066,20 @@ This section summarizes the test deliverables that ship with Phase 0. Full testi
 
 ## 8b. MCP Server Startup Sequence
 
-When the MCP server process starts (via `npx @jatbas/aic@latest` or equivalent), it executes the following steps in order before accepting requests:
+When the server process starts (via `npx @jatbas/aic@latest`, `pnpm aic`, or equivalent), it first checks whether a CLI subcommand was requested. If so, it runs the CLI handler and exits. Otherwise, it executes the following MCP server startup steps in order before accepting requests:
 
 ```
+0. CLI dispatch (isEntry check)
+   └─ If process.argv[1] resolves to server.js (isEntry = true):
+      └─ argv[2] === "init" → run init flow
+      └─ argv[2] in CLI_DIAGNOSTIC_HANDLERS (status, last, chat-summary, projects):
+            └─ Open database read-only (openDatabaseReadOnly)
+            └─ runCliDiagnosticsAndExit(process.argv.slice(2))
+            └─ process.exit(code) from runCliDiagnosticsAndExit
+      └─ No recognized CLI command → fall through to MCP server startup (step 1)
+   └─ If not isEntry (required/imported as a module): skip to step 1
+         │
+         ▼
 1. Parse process arguments
          │
          ▼
@@ -1600,12 +1613,12 @@ This approach significantly reduces the attack surface for executing untrusted g
 
 ## 9. Roadmap (aligned with Project Plan)
 
-| Phase                          | Version | Status     | Key Deliverables                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| ------------------------------ | ------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Phase 0: MCP Server**        | 0.7.x   | 🟡 Current | This specification — all features in Sections 2–4d, including anonymous telemetry. Shipped version aligns with package.json (e.g. 0.7.0).                                                                                                                                                                                                                                                                                                             |
-| **Phase 0.5: Quality Release** | `0.2.0` | ✅ Done    | GenericImportProvider (Python/Go/Rust/Java regex), intent-aware file discovery, `aic_status` tool, `aic_last` tool, `aic_chat_summary` tool, Guard `warn` severity, CSS/TypeDecl/test-structure transformers, **budget utilization** in `aic_status`, prompt commands                                                                                                                                                                                 |
-| Phase 1.0: OSS Release         | `1.0.0` | 🟡 Current | Public repo, docs, npm package, CI/CD, `postinstall` team deployment, auto-detected dependency constraints, reverse dependency walking, optional cost estimation in `aic_status` (model-specific pricing); **agentic support**: Session Tracker + extended `CompilationRequest` fields + **Adaptive Budget Allocator** + Specification Compiler (`aic_compile_spec` MCP tool) + session-aware cache keying (see [Project Plan §2.7](project-plan.md)) |
-| Phase 2: Semantic + Governance | `2.0.0` | ⬜ Planned | VectorSelector (Zvec integration), HybridSelector, governance adapters, policy engine, `extends` config for org-level deployment, centralised config server; **Sandboxed Extensibility**: Secure V8 isolates (`isolated-vm`) for executing custom JavaScript Governance Adapters and Context Scanners (TypeScript requires transpilation; see §8d); **agentic support**: Conversation Compressor + editor-specific conversation adapters              |
-| Phase 3: Enterprise            | `3.0.0` | ⬜ Planned | Control plane, RBAC, SSO, audit logs, fleet management via MDM, live enterprise dashboard, hosted option                                                                                                                                                                                                                                                                                                                                              |
+| Phase                          | Version | Status     | Key Deliverables                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------ | ------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Phase 0: MCP Server**        | 0.7.x   | 🟡 Current | This specification — all features in Sections 2–4d, including anonymous telemetry. Shipped version aligns with package.json (e.g. 0.7.0).                                                                                                                                                                                                                                                                                                                                                                   |
+| **Phase 0.5: Quality Release** | `0.2.0` | ✅ Done    | GenericImportProvider (Python/Go/Rust/Java regex), intent-aware file discovery, `aic_status` tool, `aic_last` tool, `aic_chat_summary` tool, Guard `warn` severity, CSS/TypeDecl/test-structure transformers, **budget utilization** in `aic_status`, prompt commands                                                                                                                                                                                                                                       |
+| Phase 1.0: OSS Release         | `1.0.0` | 🟡 Current | Public repo, docs, npm package, CI/CD, `postinstall` team deployment, auto-detected dependency constraints, reverse dependency walking, optional cost estimation in `aic_status` (model-specific pricing); **agentic support**: Session Tracker + extended `CompilationRequest` fields + **Adaptive Budget Allocator** + Specification Compiler (`aic_compile_spec` MCP tool) + session-aware cache keying (see [Project Plan §2.7](project-plan.md))                                                       |
+| Phase 2: Semantic + Governance | `2.0.0` | ⬜ Planned | VectorSelector (Zvec integration), HybridSelector, governance adapters, policy engine, `extends` config for org-level deployment, centralised config server; **Sandboxed Extensibility**: Secure V8 isolates (`isolated-vm`) for executing custom JavaScript Governance Adapters and Context Scanners (TypeScript requires transpilation; see §8d); **agentic support**: editor-specific conversation adapters and richer compression beyond the Phase O deterministic step list (`ConversationCompressor`) |
+| Phase 3: Enterprise            | `3.0.0` | ⬜ Planned | Control plane, RBAC, SSO, audit logs, fleet management via MDM, live enterprise dashboard, hosted option                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 Versioning policy: see [Project Plan §22](project-plan.md).

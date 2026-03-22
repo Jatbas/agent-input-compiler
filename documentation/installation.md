@@ -7,6 +7,7 @@ How AIC gets installed, what artifacts it creates, and how its components intera
 - [Glossary](#glossary)
 - [AIC Server](#aic-server)
   - [What Gets Published](#what-gets-published)
+  - [CLI Standalone Usage](#cli-standalone-usage)
   - [First-Compile Bootstrap](#first-compile-bootstrap)
   - [Per-Project Artifacts](#per-project-artifacts)
   - [Per-Project Disable](#per-project-disable)
@@ -71,7 +72,38 @@ The server is the primary interface. It exposes these MCP tools:
 | `aic_chat_summary` | Per-conversation compilation stats              |
 | `aic_projects`     | List all known AIC projects                     |
 
-The four prompt commands ("show aic status", "show aic last", "show aic chat summary", "show aic projects") map directly to tools. The AI calls them by name — no editor-specific server identifiers needed.
+The four prompt commands ("show aic status", "show aic last", "show aic chat summary", "show aic projects") invoke CLI subcommands via Bash. The AI runs `npx @jatbas/aic <subcommand>` (or `pnpm aic <subcommand>` when `AIC_DEV_MODE=1`) and relays stdout — no MCP tool call needed.
+
+### CLI Standalone Usage
+
+The same binary that runs as the MCP server also works as a standalone CLI tool. You can invoke the four diagnostic subcommands directly from a terminal — no editor required:
+
+| Subcommand                     | What it does                                                                 |
+| ------------------------------ | ---------------------------------------------------------------------------- |
+| `status`                       | Project-level AIC status (compilations, token stats, budget, guard findings) |
+| `last`                         | Most recent compilation details (intent, files, tokens, reduction)           |
+| `chat-summary --project <dir>` | Per-conversation compilation stats for the given project directory           |
+| `projects`                     | All known AIC projects (ID, path, last seen, compilation count)              |
+
+**Usage:**
+
+```bash
+# Published release — works from any directory
+npx @jatbas/aic status
+npx @jatbas/aic last
+npx @jatbas/aic chat-summary --project /path/to/project
+npx @jatbas/aic projects
+
+# Development mode — requires pnpm build; run from repo root
+pnpm aic status
+pnpm aic last
+pnpm aic chat-summary --project /path/to/project
+pnpm aic projects
+```
+
+If your shell working directory is not registered in the global AIC database (including some git worktree roots), pass `--project <absolute path>` to `status`, `last`, and `chat-summary` in addition to the `chat-summary` examples above. See [CONTRIBUTING.md — Local MCP testing](CONTRIBUTING.md#local-mcp-testing).
+
+Each subcommand opens the database read-only, prints formatted table output to stdout, and exits. The tables use the same human-readable labels as the four **show aic …** prompt commands (for example Compilations, Project path, Last compilation).
 
 ### First-Compile Bootstrap
 
