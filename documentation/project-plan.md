@@ -41,21 +41,26 @@
 11. [Caching](#11-caching)
 12. [Error Handling](#12-error-handling)
     - 12.1 [MCP Transport Error Handling](#121-mcp-transport-error-handling)
-13. [Security Considerations](#12-security-considerations)
-14. [Observability & Debugging](#13-observability--debugging)
-    - 13.1 [Worked Pipeline Example](#131-worked-pipeline-example)
-15. [Performance Constraints](#14-performance-constraints)
-16. [Sequence Diagrams](#15-sequence-diagrams)
-17. [Dependencies (MVP)](#16-dependencies-mvp)
-18. [Testing & Quality Strategy](#17-testing--quality-strategy)
-19. [User Stories](#18-user-stories)
-20. [Storage (MVP)](#19-storage-mvp)
-21. [Competitive Positioning](#20-competitive-positioning)
-22. [Licensing & Contribution (Phase 1 Prep)](#21-licensing--contribution-phase-1-prep)
-23. [Roadmap](#22-roadmap)
-24. [Enterprise Deployment Tiers](#23-enterprise-deployment-tiers)
-25. [Compliance Readiness](#24-compliance-readiness)
-26. [Data-Driven Feature Planning](#25-data-driven-feature-planning)
+13. [Security Considerations](#13-security-considerations)
+14. [Observability & Debugging](#14-observability--debugging)
+    - 14.1 [Worked Pipeline Example](#141-worked-pipeline-example)
+    - 14.2 [Server Lifecycle Tracking](#142-server-lifecycle-tracking)
+    - 14.3 [Startup Self-Check](#143-startup-self-check)
+15. [Performance Constraints](#15-performance-constraints)
+16. [Sequence Diagrams](#16-sequence-diagrams)
+    - 16.1 [Normal Flow (Cold Cache)](#161-normal-flow-cold-cache)
+    - 16.2 [Cache Hit Flow](#162-cache-hit-flow)
+    - 16.3 [Budget Exceeded Flow](#163-budget-exceeded-flow)
+17. [Dependencies (MVP)](#17-dependencies-mvp)
+18. [Testing & Quality Strategy](#18-testing--quality-strategy)
+19. [User Stories](#19-user-stories)
+20. [Storage (MVP)](#20-storage-mvp)
+21. [Competitive Positioning](#21-competitive-positioning)
+22. [Licensing & Contribution (Phase 1 Prep)](#22-licensing--contribution-phase-1-prep)
+23. [Roadmap](#23-roadmap)
+24. [Enterprise Deployment Tiers](#24-enterprise-deployment-tiers)
+25. [Compliance Readiness](#25-compliance-readiness)
+26. [Data-Driven Feature Planning](#26-data-driven-feature-planning)
 
 ---
 
@@ -71,7 +76,7 @@ AIC is a **local-first context compilation layer** that runs as an **MCP server*
 { "mcpServers": { "aic": { "command": "npx", "args": ["-y", "@jatbas/aic@latest"] } } }
 ```
 
-**Package:** `@jatbas/aic` — the MCP server. Single package; no separate CLI. See [installation](documentation/installation.md) for setup.
+**Package:** `@jatbas/aic` — the MCP server and a small read-only CLI (`status`, `last`, `chat-summary`, `projects`) on the same Node entrypoint. There is no separate CLI package. See [installation](installation.md) for setup.
 
 ### Non-Goals (Phase 0 / MVP)
 
@@ -122,7 +127,7 @@ Each class has exactly one reason to change. Every pipeline step is a single cla
 | Class                                          | Single responsibility                                                                                                               |
 | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | `RepoMapBuilder`                               | Scan project root and build file-tree snapshot → `RepoMap` (runs before Step 1; result cached in SQLite)                            |
-| `TaskClassifier`                               | Classify intent → `TaskClassification`                                                                                              |
+| `IntentClassifier`                             | Classify intent → `TaskClassification`                                                                                              |
 | `RulePackResolver`                             | Load and merge rule packs → `RulePack`                                                                                              |
 | `BudgetAllocator`                              | Resolve token budget → `number`                                                                                                     |
 | `HeuristicSelector`                            | Score and select files → `ContextResult`                                                                                            |
@@ -173,7 +178,7 @@ Interfaces are small and focused. No class is forced to implement methods it doe
 
 #### D — Dependency Inversion Principle
 
-All pipeline steps depend on abstractions, not concrete implementations. Concrete classes are wired at the composition root (`mcp/server.ts`), not inside pipeline logic.
+All pipeline steps depend on abstractions, not concrete implementations. Concrete classes are wired at the composition root (`mcp/src/server.ts`), not inside pipeline logic.
 
 ```typescript
 // ✅ Correct — step6 depends on the interface
@@ -187,7 +192,7 @@ class SummarisationLadder {
 }
 ```
 
-The MCP server handler (`mcp/server.ts`) is the only place where concrete classes are instantiated and injected.
+The MCP server handler (`mcp/src/server.ts`) is the only place where concrete classes are instantiated and injected.
 
 ---
 
@@ -283,9 +288,15 @@ The **integration layer** is a thin set of hook scripts, specific to each editor
 | Pre-compaction                     | Yes (`preCompact`, observational only)      | Yes (`PreCompact`)                              | No          |
 | Trigger rule                       | Yes (`.cursor/rules/AIC.mdc`)               | Yes (`.claude/CLAUDE.md`)                       | No          |
 
-Cursor exposes sessionEnd, preCompact, subagentStart (gating only — no context injection), stop, and others; the AIC integration layer is being updated (Tasks 109–111, 113).
+**Cursor:** Cursor exposes sessionEnd, preCompact, subagentStart (gating only — no context injection), stop, afterFileEdit, and other hooks the editor documents. The AIC integration layer consumes the subset in the table above.
 
-**Current state:** The Cursor integration layer is built (session-start injection, tool gating, sessionEnd, stop quality check, afterFileEdit tracking, prompt logging). The Claude Code integration layer is implemented (plugin and direct installer; see [installation](documentation/installation.md)). For the edited-files flow (tracker → stop → cleanup) per editor, see [edited-files flow](edited-files-flow.md). Generic MCP editors have no hooks — they rely on the trigger rule.
+**Current state — Cursor:** Session-start injection, tool gating, sessionEnd, stop quality check, afterFileEdit tracking, and prompt logging are implemented.
+
+**Claude Code:** The integration layer is implemented (plugin and direct installer; see [installation](installation.md)).
+
+For the edited-files flow (tracker → stop → cleanup) per editor, see [edited-files flow](edited-files-flow.md).
+
+**Generic MCP:** Editors without hooks rely on the trigger rule only.
 
 Deep-dive references for shared hook modules, `.aic/` JSONL logs, Claude session lock and marker files, and MCP-versus-shared-CJS boundaries: [Integrations shared modules reference](technical/integrations-shared-modules.md), [AIC JSONL caches under `.aic/`](technical/aic-jsonl-caches.md), [Session start lock and session context marker](technical/session-start-lock-and-marker.md), [MCP server and shared CJS boundary](technical/mcp-and-shared-cjs-boundary.md).
 
@@ -317,7 +328,7 @@ _Claude Code_ — add to `~/.claude/settings.json`:
 }
 ```
 
-**Step 2 — Bootstrap** (automatic): No manual init command. When Cursor advertises workspace roots on connect, AIC proactively bootstraps each root — creating `aic.config.json`, installing the trigger rule (`.cursor/rules/AIC.mdc`) and hooks, and creating `.aic/` with `0700` permissions before the first AI message. In editors without proactive-roots support, bootstrap runs on the first `aic_compile` call. See [installation](documentation/installation.md) for Cursor deeplink and Claude Code plugin/direct installer.
+**Step 2 — Bootstrap** (automatic): No manual init command. When Cursor advertises workspace roots on connect, AIC proactively bootstraps each root — creating `aic.config.json`, installing the trigger rule (`.cursor/rules/AIC.mdc`) and hooks, and creating `.aic/` with `0700` permissions before the first AI message. In editors without proactive-roots support, bootstrap runs on the first `aic_compile` call. See [installation](installation.md) for Cursor deeplink and Claude Code plugin/direct installer.
 
 ### Model Auto-detection
 
@@ -337,30 +348,31 @@ If neither mechanism resolves a model, `GenericModelAdapter` is used. This is sa
 
 ### MCP Server Interface
 
-AIC exposes three MCP tools and two MCP resources today, with one additional planned MCP resource:
+Six MCP tools are registered in `mcp/src/server.ts` today. Diagnostics (`aic_status`, `aic_last`, `aic_projects`, `aic_chat_summary`) are **tools** that return JSON as MCP text content — not MCP resource subscriptions.
 
 **Tools:**
 
-| Tool                            | Arguments                                                                                                                                                                                                                                                                                              | Returns                                               | Use                                                                     |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------- | ----------------------------------------------------------------------- |
-| `aic_compile`                   | MCP Zod validates `intent`, `projectRoot`, `modelId`, `editorId`, `configPath`, `triggerSource`, `conversationId` today; internal `CompilationRequest` and the pipeline accept agentic session fields when supplied — exposing them on the MCP wire is Phase AM ([§2.7](#27-agentic-workflow-support)) | `{ compiledPrompt: string, meta: CompilationMeta }`   | Primary — called by trigger rule or integration hooks                   |
-| `aic_inspect`                   | `{ intent: string }`                                                                                                                                                                                                                                                                                   | `{ trace: PipelineTrace }`                            | Debug — developer calls explicitly to see pipeline breakdown            |
-| `aic_chat_summary`              | `{ conversationId?: string }`                                                                                                                                                                                                                                                                          | Conversation-level compilation summary                | Prompt command support for "show aic chat summary"                      |
-| `aic_compile_spec` _(Phase 1+)_ | `{ spec: SpecificationInput, budget?: TokenCount }` (see [§2.7](#27-agentic-workflow-support))                                                                                                                                                                                                         | `{ compiledSpec: string, meta: SpecCompilationMeta }` | Agentic — compile a structured task specification within a token budget |
+| Tool                            | Arguments (MCP wire)                                                                                                                                                                                                                                                                                                                     | Returns                                               | Use                                         |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------- |
+| `aic_compile`                   | Zod validates `intent`, `projectRoot`, `modelId`, `editorId`, `configPath`, `triggerSource`, `conversationId` (see `mcp/src/schemas/compilation-request.ts`); internal `CompilationRequest` also carries agentic session fields when hooks populate them — exposing those on the wire is Phase AM ([§2.7](#27-agentic-workflow-support)) | `{ compiledPrompt: string, meta: CompilationMeta }`   | Primary — trigger rule or integration hooks |
+| `aic_inspect`                   | `intent`, `projectRoot`, optional `configPath`                                                                                                                                                                                                                                                                                           | `{ trace: PipelineTrace }`                            | Debug — pipeline breakdown                  |
+| `aic_projects`                  | _(none)_                                                                                                                                                                                                                                                                                                                                 | Project list JSON                                     | Diagnostics — known projects                |
+| `aic_status`                    | _(none)_                                                                                                                                                                                                                                                                                                                                 | Status JSON                                           | Diagnostics — project-level aggregates      |
+| `aic_last`                      | _(none)_                                                                                                                                                                                                                                                                                                                                 | Last compilation JSON                                 | Diagnostics — most recent run               |
+| `aic_chat_summary`              | optional `conversationId`                                                                                                                                                                                                                                                                                                                | Per-conversation summary JSON                         | Prompt command — "show aic chat summary"    |
+| `aic_compile_spec` _(Phase 1+)_ | `{ spec: SpecificationInput, budget?: TokenCount }` (see [§2.7](#27-agentic-workflow-support))                                                                                                                                                                                                                                           | `{ compiledSpec: string, meta: SpecCompilationMeta }` | Agentic — structured spec within a budget   |
 
-**Resources:**
+**Planned MCP resource:**
 
-| Resource URI                       | Format                       | Content                                                                       |
-| ---------------------------------- | ---------------------------- | ----------------------------------------------------------------------------- |
-| `aic_status` (MCP tool)            | JSON                         | Project-level summary: compilations, token savings, budget utilization, guard |
-| `aic_last` (MCP tool)              | JSON                         | Most recent compilation: meta, prompt summary, compilation count              |
-| `aic://rules-analysis` _(planned)_ | JSON (`RulesAnalysisResult`) | Latest findings from the Rules & Hooks Analyzer                               |
+| Resource URI                       | Format                       | Content                                         |
+| ---------------------------------- | ---------------------------- | ----------------------------------------------- |
+| `aic://rules-analysis` _(planned)_ | JSON (`RulesAnalysisResult`) | Latest findings from the Rules & Hooks Analyzer |
 
 ### Core MCP Types
 
 These types are shared across the MCP server, editor adapters, and model adapters. They are defined here before the interfaces that use them.
 
-All types below use branded types and string literal unions from `shared/src/core/types/` (ADR-010). See that module for definitions of `AbsolutePath`, `FilePath`, `TokenCount`, `Milliseconds`, `Percentage`, `ISOTimestamp`, `SessionId`, `StepIndex`, `TaskClass`, `EditorId`, `InclusionTier`, etc.
+All types below use branded types and string literal unions from `shared/src/core/types/` (ADR-010). See that module for definitions of `AbsolutePath`, `FilePath`, `TokenCount`, `Milliseconds`, `Percentage`, `Confidence`, `ISOTimestamp`, `SessionId`, `ConversationId`, `StepIndex`, `TaskClass`, `EditorId`, `InclusionTier`, `TriggerSource`, etc.
 
 ```typescript
 /** The normalised request AIC will receive from any editor, after EditorAdapter parsing. */
@@ -370,15 +382,14 @@ interface CompilationRequest {
   modelId: string | null;
   editorId: EditorId;
   configPath: FilePath | null;
-
-  // --- agentic session fields (all optional, Phase 1+) ---
-  // See §2.7 Agentic Workflow Support for full details and rationale.
   sessionId?: SessionId;
   stepIndex?: StepIndex;
   stepIntent?: string;
   previousFiles?: RelativePath[];
   toolOutputs?: ToolOutput[];
   conversationTokens?: TokenCount;
+  triggerSource?: TriggerSource;
+  conversationId?: ConversationId | null;
 }
 
 /** Metadata returned alongside every compiled prompt. */
@@ -397,6 +408,7 @@ interface CompilationMeta {
   transformTokensSaved: TokenCount;
   summarisationTiers: Record<InclusionTier, number>;
   guard: GuardResult | null;
+  contextCompleteness: Confidence;
 }
 
 /** MCP client handshake info provided by the editor on connection. */
@@ -559,84 +571,22 @@ AIC uses **manual constructor injection** with no DI framework. This keeps start
 
 Concrete classes are instantiated **only** in the composition root:
 
-1. **MCP server request handler** (`mcp/server.ts`) — the sole runtime entrypoint
+1. **MCP server request handler** (`mcp/src/server.ts`) — the sole runtime entrypoint
 
 All other files receive their dependencies through their constructor and never call `new` on anything except primitive value objects.
 
 ### Composition template
 
-The MCP server handler follows this wiring order:
+Runtime wiring lives in `mcp/src/server.ts` (global DB, `ScopeRegistry`, MCP tool registration) and `mcp/src/handlers/compile-handler.ts` (per-request `CompilationRunner`). Pipeline dependencies are built through `createPipelineDeps` / `createFullPipelineDeps` from `@jatbas/aic-core/bootstrap/create-pipeline-deps.js`; execution is `CompilationRunner` in `shared/src/pipeline/compilation-runner.ts`. The snippet below is illustrative — read those files for the authoritative call graph.
 
 ```typescript
-// mcp/server.ts  (composition root)
-// All pipeline/provider/storage classes live in @aic/shared; only edge-specific code lives here.
-import { TaskClassifier } from "@aic/shared/pipeline/step1-classifier/task-classifier";
-import { RulePackResolver } from "@aic/shared/pipeline/step2-rule-resolver/rule-pack-resolver";
-import { BudgetAllocator } from "@aic/shared/pipeline/step3-budget/budget-allocator";
-import { HeuristicSelector } from "@aic/shared/pipeline/step4-selector/heuristic-selector";
-import { ContextGuard } from "@aic/shared/pipeline/step5-guard/context-guard";
-import { ContentTransformerPipeline } from "@aic/shared/pipeline/step5-5-transformer/content-transformer-pipeline";
-import { SummarisationLadder } from "@aic/shared/pipeline/step6-ladder/summarisation-ladder";
-import { ConstraintInjector } from "@aic/shared/pipeline/step7-constraints/constraint-injector";
-import { PromptAssembler } from "@aic/shared/pipeline/step8-assembler/prompt-assembler";
-import { TypeScriptProvider } from "@aic/shared/providers/typescript.provider";
-import { GenericProvider } from "@aic/shared/providers/generic.provider";
-import { ProviderRegistry } from "@aic/shared/providers/provider-registry";
-import { SqliteCacheStore } from "@aic/shared/storage/sqlite-cache-store";
-import { SqliteTelemetryStore } from "@aic/shared/storage/sqlite-telemetry-store";
-import { SyncEventBus } from "@aic/shared/events/sync-event-bus";
-import { TelemetryLogger } from "@aic/shared/pipeline/step10-telemetry/telemetry-logger";
-import { Tokenizer } from "@aic/shared/tokenizer/tokenizer";
-import { loadConfig } from "@aic/shared/config/config-loader";
-import { RepoMapBuilder } from "@aic/shared/repo-map/repo-map-builder";
+// mcp/src/server.ts — composition root (illustrative)
+import { createCompileHandler } from "./handlers/compile-handler.js";
+import { CompilationRunner as CompilationRunnerImpl } from "@jatbas/aic-core/pipeline/compilation-runner.js";
+import { createPipelineDeps } from "@jatbas/aic-core/bootstrap/create-pipeline-deps.js";
 
-export function registerCompileCommand(program: Command): void {
-  program.command("compile <intent>").action(async (intent, opts) => {
-    // 1. Load config (must happen before any pipeline wiring that uses config values)
-    const config = await loadConfig(opts.config, opts.root);
-
-    // 2. Build shared infrastructure
-    const tokenizer = new Tokenizer();
-    const eventBus = new SyncEventBus();
-    const cacheStore = new SqliteCacheStore(opts.db ?? config.dbPath);
-    const telemetryStore = new SqliteTelemetryStore(opts.db ?? config.dbPath);
-
-    // 3. Register language providers
-    const registry = new ProviderRegistry();
-    registry.register(new TypeScriptProvider());
-    registry.register(new GenericProvider()); // fallback — must be last
-
-    // 4. Build RepoMap (runs before the pipeline; cached in repomap_cache SQLite table)
-    //    Receives the db path directly — repomap_cache is a separate table from the compilation cache.
-    const repoMapBuilder = new RepoMapBuilder(tokenizer, opts.db ?? config.dbPath);
-    const repoMap = await repoMapBuilder.build(opts.root);
-
-    // 5. Wire pipeline steps (each receives only what it needs)
-    const classifier = new TaskClassifier();
-    const resolver = new RulePackResolver(opts.root);
-    const allocator = new BudgetAllocator();
-    const selector = new HeuristicSelector(registry, tokenizer, config.contextSelector);
-    const guard = new ContextGuard(config.guard);
-    const transformer = new ContentTransformerPipeline(
-      tokenizer,
-      config.contentTransformers,
-    );
-    const ladder = new SummarisationLadder(registry, tokenizer);
-    const injector = new ConstraintInjector();
-    const assembler = new PromptAssembler(tokenizer);
-    // Note: Executor (Step 9) is not wired here — `aic_compile` stops at Step 8.
-
-    // 6. Attach telemetry observer (no-op if telemetry disabled)
-    const logger = new TelemetryLogger(
-      telemetryStore,
-      eventBus,
-      config.telemetry.enabled,
-    );
-
-    // 7. Run pipeline
-    // ...
-  });
-}
+// Handlers obtain a per-project CompilationRunner; steps are constructed inside
+// createPipelineDeps / CompilationRunnerImpl — not inlined in the server file.
 ```
 
 ### Conventions
@@ -644,7 +594,7 @@ export function registerCompileCommand(program: Command): void {
 | Rule                                                  | Detail                                                                                                                                        |
 | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | **One `new` per concrete class per composition root** | Never instantiate the same class twice in the same root                                                                                       |
-| **No `new` outside composition roots**                | Only `mcp/server.ts`; if a pipeline class needs a dependency, add a constructor parameter                                                     |
+| **No `new` outside composition roots**                | Only `mcp/src/server.ts`; if a pipeline class needs a dependency, add a constructor parameter                                                 |
 | **Infrastructure first, pipeline second**             | Always construct `Tokenizer`, `EventBus`, and stores before pipeline steps                                                                    |
 | **RepoMap built before pipeline invocation**          | `RepoMapBuilder.build()` must complete before the pipeline run starts (`HeuristicSelector.selectContext()` receives `repoMap` as a parameter) |
 | **Providers registered before selector**              | `ProviderRegistry` must be fully populated before `HeuristicSelector` or `SummarisationLadder` receive it                                     |
@@ -751,7 +701,7 @@ The `aic_compile` MCP tool schema will expose these optional fields once the Age
 
 ### Session Tracker
 
-`SessionTracker` stores per-session state in the `session_state` SQLite table (see [§19 Storage](#19-storage-mvp)). It tracks which files were selected in previous steps, what the model has already seen, cumulative token usage, and step history. This enables:
+`SessionTracker` stores per-session state in the `session_state` SQLite table (see [§20 Storage](#20-storage-mvp)). It tracks which files were selected in previous steps, what the model has already seen, cumulative token usage, and step history. This enables:
 
 - **Deduplication**: If `auth/service.ts` was shown at L0 in step 1, step 3 can reference it as "previously shown" rather than re-including 1,240 tokens of the same content — unless the file was modified between steps.
 - **Progressive discovery**: In early steps, the selector favours broad architecture files. In later steps, it narrows to the specific file being edited and its direct dependencies.
@@ -1125,9 +1075,9 @@ graph TB
         RulesAnalyzer["Rules & Hooks Analyzer"]
     end
 
-    subgraph shared ["@aic/shared — Core Library"]
+    subgraph shared ["@jatbas/aic-core — Core Library"]
         subgraph Pipeline ["Pipeline Steps 1–10"]
-            S1["1. TaskClassifier"]
+            S1["1. IntentClassifier"]
             S2["2. RulePackResolver"]
             S3["3. BudgetAllocator"]
             S4["4. HeuristicSelector"]
@@ -1337,7 +1287,7 @@ Core remains untouched; enterprise features wrap around it:
 - **Decision:** AIC's interface is an MCP server (`@jatbas/aic`). There is no separate CLI package — all user-facing functionality is delivered via MCP tools, resources, and prompt commands inside the editor.
 - **Context:** IDE plugins lock users into specific editors. A library requires integration work from each tool author. A CLI requires manual invocation, which creates friction that kills adoption. MCP is an open protocol supported by Cursor, Claude Code, and a growing ecosystem — it gives editor-native integration without locking to any one editor.
 - **Rationale:** MCP is the standard extension point for AI editors. The protocol is open, so supporting a new editor costs one `EditorAdapter` class, not a plugin rebuild. Effective enforcement of `aic_compile` usage requires an editor-specific integration layer (hooks, context injection), but the core pipeline works identically across all editors. Status and last-compilation data are served via MCP tools (`aic_status`, `aic_last`) and surfaced via prompt commands in the editor.
-- **Tradeoffs:** Requires the editor to support MCP (all primary targets do). One-time setup is registering the server in the editor's MCP config; bootstrap runs automatically when the client lists roots or on first `aic_compile`. See [installation](documentation/installation.md).
+- **Tradeoffs:** Requires the editor to support MCP (all primary targets do). One-time setup is registering the server in the editor's MCP config; bootstrap runs automatically when the client lists roots or on first `aic_compile`. See [installation](installation.md).
 
 #### ADR-002: SQLite for local storage (not LevelDB, not JSON files)
 
@@ -1438,142 +1388,27 @@ my-project/
 The following is the canonical layout for the AIC source repository itself:
 
 ```
-packages/
-├── mcp/                              # @jatbas/aic — PRIMARY package (MCP server)
-│   └── src/
-│       ├── server.ts                 # MCP server entry point + composition root
-│       ├── handlers/
-│       │   ├── compile-handler.ts    # Handles aic_compile tool requests
-│       │   └── inspect-handler.ts    # Handles aic_inspect tool requests
-│       ├── adapters/
-│       │   ├── editor/               # EditorAdapter implementations
-│       │   │   ├── interfaces/
-│       │   │   │   └── editor-adapter.interface.ts
-│       │   │   ├── cursor.adapter.ts
-│       │   │   ├── claude-code.adapter.ts
-│       │   │   ├── generic-mcp.adapter.ts
-│       │   │   └── editor-adapter.registry.ts
-│       │   └── model/                # ModelAdapter implementations
-│       │       ├── interfaces/
-│       │       │   └── model-adapter.interface.ts
-│       │       ├── openai.adapter.ts
-│       │       ├── anthropic.adapter.ts
-│       │       ├── ollama.adapter.ts
-│       │       ├── generic-model.adapter.ts
-│       │       └── model-adapter.registry.ts
-│       └── rules-analyzer/           # Rules & Hooks Analyzer (§2.4)
-│           ├── interfaces/
-│           │   └── rules-analyzer.interface.ts
-│           ├── cursorrules-analyzer.ts
-│           ├── cursor-rules-analyzer.ts
-│           └── rules-analyzer.registry.ts
-│
-└── shared/                           # @aic/shared — imported by mcp/; never duplicated
-    └── src/
-        ├── pipeline/                     # Steps 1–10 (one directory per step)
-        │   ├── step1-classifier/
-        │   │   └── task-classifier.ts
-        │   ├── step2-rule-resolver/
-        │   │   └── rule-pack-resolver.ts
-        │   ├── step3-budget/
-        │   │   └── budget-allocator.ts
-        │   ├── step4-selector/
-        │   │   ├── heuristic-selector.ts
-        │   │   └── interfaces/
-        │   │       └── context-selector.interface.ts
-        │   ├── step5-guard/
-        │   │   ├── context-guard.ts
-        │   │   ├── scanners/
-        │   │   │   ├── exclusion-scanner.ts
-        │   │   │   ├── secret-scanner.ts
-        │   │   │   └── prompt-injection-scanner.ts
-        │   │   └── interfaces/
-        │   │       └── guard-scanner.interface.ts
-        │   ├── step5-5-transformer/
-        │   │   ├── content-transformer-pipeline.ts
-        │   │   ├── transformers/
-        │   │   │   ├── whitespace-normalizer.ts
-        │   │   │   ├── comment-stripper.ts
-        │   │   │   ├── json-compactor.ts
-        │   │   │   ├── html-to-markdown.transformer.ts
-        │   │   │   ├── svg-describer.ts
-        │   │   │   ├── lock-file-skipper.ts
-        │   │   │   ├── minified-code-skipper.ts
-        │   │   │   ├── yaml-compactor.ts
-        │   │   │   ├── markdown-simplifier.ts
-        │   │   │   └── auto-generated-skipper.ts
-        │   │   └── interfaces/
-        │   │       └── content-transformer.interface.ts
-        │   ├── step6-ladder/
-        │   │   └── summarisation-ladder.ts
-        │   ├── step7-constraints/
-        │   │   └── constraint-injector.ts
-        │   ├── step8-assembler/
-        │   │   └── prompt-assembler.ts
-        │   ├── step9-executor/
-        │   │   └── executor.ts
-        │   ├── step10-telemetry/
-        │   │   └── telemetry-logger.ts
-        │   └── inspect-runner.ts         # InspectRunner — used by `aic_inspect`
-        │
-        ├── providers/                    # LanguageProvider implementations (§8.1)
-        │   ├── interfaces/
-        │   │   └── language-provider.interface.ts
-        │   ├── typescript.provider.ts
-        │   ├── generic.provider.ts
-        │   └── provider-registry.ts
-        │
-        ├── model-clients/                # ModelClient implementations (§8.2)
-        │   ├── interfaces/
-        │   │   └── model-client.interface.ts
-        │   ├── openai.model-client.ts
-        │   ├── anthropic.model-client.ts
-        │   ├── ollama.model-client.ts
-        │   └── model-client.factory.ts
-        │
-        ├── formatters/                   # OutputFormatter implementations (§8.3)
-        │   ├── interfaces/
-        │   │   └── output-formatter.interface.ts
-        │   ├── unified-diff.formatter.ts
-        │   ├── full-file.formatter.ts
-        │   ├── markdown.formatter.ts
-        │   ├── json.formatter.ts
-        │   ├── plain.formatter.ts
-        │   └── formatter.registry.ts
-        │
-        ├── events/                       # PipelineEventBus (§9.1)
-        │   ├── interfaces/
-        │   │   └── pipeline-event-bus.interface.ts
-        │   ├── pipeline-event.types.ts
-        │   └── sync-event-bus.ts         # MVP synchronous implementation
-        │
-        ├── storage/                      # SQLite access layer
-        │   ├── interfaces/
-        │   │   ├── cache-store.interface.ts
-        │   │   ├── telemetry-store.interface.ts
-        │   │   └── migration-runner.interface.ts
-        │   ├── sqlite-cache-store.ts
-        │   ├── sqlite-telemetry-store.ts
-        │   ├── sqlite-migration-runner.ts
-        │   └── migrations/
-        │       ├── 001-initial-schema.ts
-        │       └── 002_add_config_history.ts
-        │
-        ├── config/                       # Config loading + validation
-        │   ├── config-loader.ts
-        │   └── config-types.ts
-        │
-        ├── tokenizer/                    # tiktoken wrapper + fallback
-        │   └── tokenizer.ts
-        │
-        ├── repo-map/                     # RepoMapBuilder — scans project root; caches in repomap_cache SQLite table
-        │   └── repo-map-builder.ts
-        │
-        └── types/                        # Shared interfaces (RepoMap, CodeChunk, etc.)
-            └── index.ts
+mcp/                                 # @jatbas/aic — published MCP + CLI entrypoint
+└── src/
+    ├── server.ts                    # Composition root, tool registration, global DB
+    ├── handlers/                    # compile-handler, inspect-handler, …
+    ├── schemas/                     # Zod schemas for MCP tool arguments
+    ├── cli-diagnostics.ts           # read-only status / last / chat-summary / projects
+    └── …
+
+shared/                              # @jatbas/aic-core — imported by mcp; core never imports mcp
+└── src/
+    ├── pipeline/                    # CompilationRunner, intent-classifier, rule-pack-resolver, …
+    ├── core/                        # types, interfaces, errors, load-rule-pack
+    ├── storage/                     # SQLite stores + migrations/
+    ├── adapters/                    # Node, glob, tokenizer, repo-map suppliers, …
+    ├── bootstrap/                   # create-pipeline-deps
+    └── config/                      # load-config-from-file.ts (Zod at config boundary)
+
+integrations/                        # Cursor / Claude installers and hook scripts (deployment only)
 ```
 
-One file per class; no barrel re-exports at the pipeline step level to keep dependency graphs explicit. The `mcp/` package imports from `shared/` — the pipeline is never duplicated.
+One file per class at the leaf level; the pipeline is never duplicated. Published imports use the `@jatbas/aic-core` package name; paths above are repo layout.
 
 | Behavior             | Detail                                                                                                                        |
 | -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
@@ -1673,13 +1508,13 @@ All fields are optional. AIC works with an empty `{}` or no config file at all.
 | `cache.enabled`                             | `true`                               | Set to `false` or pass `--no-cache` to skip cache read/write                                                                                                                                               |
 | `cache.ttlMinutes`                          | `60`                                 | Cached compilations expire after this many minutes                                                                                                                                                         |
 | `cache.invalidateOn`                        | `["config-change", "file-change"]`   | Triggers that bust the cache; `"file-change"` detects via file-tree hash                                                                                                                                   |
-| `extends`                                   | `null`                               | URL or local path to a parent config. Local values override parent. Enables team/org config inheritance (see §23)                                                                                          |
+| `extends`                                   | `null`                               | URL or local path to a parent config. Local values override parent. Enables team/org config inheritance (see [§24 Enterprise Deployment Tiers](#24-enterprise-deployment-tiers))                           |
 
 ---
 
 ## 7. User Interface (MCP-Only)
 
-AIC has no separate CLI package. All user-facing functionality is delivered through MCP tools, resources, and prompt commands inside the editor. Project setup is automatic: when the editor connects (or on first `aic_compile`), the server bootstraps the project — creating `aic.config.json`, installing the trigger rule (e.g. `.cursor/rules/AIC.mdc`), installing editor hooks, and creating `.aic/` with `0700` permissions. See [installation](documentation/installation.md).
+There is no separate CLI package. Primary use is MCP tools plus prompt commands inside the editor. The same npm entrypoint also exposes read-only CLI subcommands (`status`, `last`, `chat-summary`, `projects`) for terminals and CI — see [installation](installation.md#cli-standalone-usage). Project setup is automatic: when the editor connects (or on first `aic_compile`), the server bootstraps the project — creating `aic.config.json`, installing the trigger rule (e.g. `.cursor/rules/AIC.mdc`), installing editor hooks, and creating `.aic/` with `0700` permissions.
 
 ### MCP Tools
 
@@ -1687,14 +1522,12 @@ AIC has no separate CLI package. All user-facing functionality is delivered thro
 | ------------------ | ------------------------------------------------------------------------------------ |
 | `aic_compile`      | Compiles intent into context; returns compiled prompt to the model                   |
 | `aic_inspect`      | Runs the pipeline and returns the full decision trail (JSON) without model execution |
-| `aic_chat_summary` | Returns compilation stats for the current conversation                               |
+| `aic_projects`     | Lists known projects (id, path, activity)                                            |
+| `aic_status`       | Project-level summary: compilations, token savings, budget utilization, guard        |
+| `aic_last`         | Most recent compilation: meta, prompt summary, compilation count                     |
+| `aic_chat_summary` | Per-conversation compilation stats                                                   |
 
-### MCP Resources
-
-| Resource     | Description                                                                                  |
-| ------------ | -------------------------------------------------------------------------------------------- |
-| `aic_status` | Project-level summary: compilations, token savings, budget utilization, guard blocks, config |
-| `aic_last`   | Most recent compilation: intent, task class, tokens, files, guard findings, prompt summary   |
+Diagnostics (`aic_status`, `aic_last`, `aic_projects`, `aic_chat_summary`) are MCP **tools** that return JSON text — not MCP resource subscriptions. A planned `aic://rules-analysis` resource is described in [§2.2](#22-mcp-server--primary-interface).
 
 ### Prompt Commands
 
@@ -2336,7 +2169,7 @@ This significantly reduces the attack surface for executing untrusted governance
 
 ---
 
-## 11. Error Handling
+## 12. Error Handling
 
 | Scenario                                                  | Behaviour                                                                                                                                                                                         |
 | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -2354,7 +2187,7 @@ This significantly reduces the attack surface for executing untrusted governance
 | **SQLite write failure**                                  | Warning only (telemetry is non-critical); continue execution                                                                                                                                      |
 | **Corrupt cache entry**                                   | Delete entry, recompute, warn user                                                                                                                                                                |
 
-### 11.1 MCP Transport Error Handling
+### 12.1 MCP Transport Error Handling
 
 The MCP server is AIC's primary interface. Its error modes differ from CLI errors because the server is long-lived, the editor may retry, and the developer does not see stderr directly.
 
@@ -2372,7 +2205,7 @@ The MCP server is AIC's primary interface. Its error modes differ from CLI error
 
 ---
 
-## 12. Security Considerations
+## 13. Security Considerations
 
 ### API Key Handling
 
@@ -2440,7 +2273,7 @@ The MCP server is AIC's primary interface. Its error modes differ from CLI error
 
 ---
 
-## 13. Observability & Debugging
+## 14. Observability & Debugging
 
 ### Log Levels
 
@@ -2534,7 +2367,7 @@ Constraints (5)
   - Include inline comments explaining non-obvious changes
 ```
 
-### 13.1 Worked Pipeline Example
+### 14.1 Worked Pipeline Example
 
 The following walkthrough traces a single compilation request through every pipeline step with concrete data. The scenario: a developer types `"fix null check in user service"` in Cursor, and the project has 142 files.
 
@@ -2616,9 +2449,9 @@ The following walkthrough traces a single compilation request through every pipe
 - `durationMs`: 280
 - `cacheHit`: false
 
-### 13.2 Server Lifecycle Tracking
+### 14.2 Server Lifecycle Tracking
 
-AIC tracks MCP server start and stop events in the `server_sessions` table ([§19](#19-storage-mvp)). This provides crash detection for individual developers and uptime visibility for enterprise fleet management — without requiring a heartbeat thread or background timer.
+AIC tracks MCP server start and stop events in the `server_sessions` table ([§20](#20-storage-mvp)). This provides crash detection for individual developers and uptime visibility for enterprise fleet management — without requiring a heartbeat thread or background timer.
 
 **What's recorded per server run:**
 
@@ -2639,7 +2472,7 @@ AIC tracks MCP server start and stop events in the `server_sessions` table ([§1
 
 No heartbeat thread or background timer is needed. The orphan-on-next-start pattern provides crash detection with zero runtime overhead.
 
-### 13.3 Startup Self-Check
+### 14.3 Startup Self-Check
 
 On every server startup, AIC verifies its own installation is healthy so it can surface configuration problems that would otherwise be invisible.
 
@@ -2657,16 +2490,16 @@ Results are stored in the `server_sessions` row (`installation_ok` boolean, `ins
 
 - The server always starts regardless of self-check results. Missing components produce helpful suggestions, never blocked workflows.
 - No heartbeat or gap detection. Telemetry reflects compilation events, not developer presence or activity.
-- Enterprise fleet dashboards ([§23](#23-enterprise-deployment-tiers)) report operational health — crash frequency, version drift, installation completeness.
+- Enterprise fleet dashboards ([§24](#24-enterprise-deployment-tiers)) report operational health — crash frequency, version drift, installation completeness.
 
 **Value by audience:**
 
 - **Individual developers:** Diagnose server crashes, verify AIC is running, and spot misconfiguration via the "show aic status" prompt command. When something goes wrong, the developer can check whether AIC was running and correctly installed at the time.
-- **Enterprise (Phase 2–3):** Fleet-wide operational dashboards: crash frequency, version drift, installation health per team. The `server_sessions` table is the local data source that enterprise sync layers ([§23](#23-enterprise-deployment-tiers)) query — no architectural change needed to scale from solo developer to fleet. Enterprise-deployed hooks via MDM (`/Library/Application Support/Cursor/hooks.json`) provide tamper-resistant installation at the system level.
+- **Enterprise (Phase 2–3):** Fleet-wide operational dashboards: crash frequency, version drift, installation health per team. The `server_sessions` table is the local data source that enterprise sync layers ([§24](#24-enterprise-deployment-tiers)) query — no architectural change needed to scale from solo developer to fleet. Enterprise-deployed hooks via MDM (`/Library/Application Support/Cursor/hooks.json`) provide tamper-resistant installation at the system level.
 
 ---
 
-## 14. Performance Constraints
+## 15. Performance Constraints
 
 | Metric                            | Target                                                  | Rationale                                                                             |
 | --------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------- |
@@ -2745,11 +2578,11 @@ The whole-prompt cache (§10) provides instant responses for identical inputs, b
 
 ---
 
-## 15. Sequence Diagrams
+## 16. Sequence Diagrams
 
 > **Format note:** Section 4.0 uses Mermaid for the component overview; the sequence diagrams below use ASCII art. ASCII is preferred for these diagrams because sequence diagrams with 10+ participants render poorly in Mermaid's horizontal layout, and the ASCII format is portable to non-Mermaid-aware renderers (terminal, plain-text viewers, PR diffs).
 
-### 15.1 Normal Flow (Cold Cache)
+### 16.1 Normal Flow (Cold Cache)
 
 ```
 Editor            MCP Server       Classifier     RuleResolver       Budget        HeuristicSel    CtxGuard       Transformer       Ladder         Assembler        Model
@@ -2776,7 +2609,7 @@ Editor            MCP Server       Classifier     RuleResolver       Budget     
     │◀── diff ───────│                   │               │               │               │               │               │               │               │               │
 ```
 
-### 15.2 Cache Hit Flow
+### 16.2 Cache Hit Flow
 
 ```
 Editor              MCP Server       Cache
@@ -2790,7 +2623,7 @@ Editor              MCP Server       Cache
     │                    │ (total: <100ms)│
 ```
 
-### 15.3 Budget Exceeded Flow
+### 16.3 Budget Exceeded Flow
 
 ```
 Editor            MCP Server     Selector        CtxGuard       Transformer       Ladder
@@ -2819,7 +2652,7 @@ Editor            MCP Server     Selector        CtxGuard       Transformer     
 
 ---
 
-## 16. Dependencies (MVP)
+## 17. Dependencies (MVP)
 
 | Package                  | Purpose                                                          | Why This One                                                               |
 | ------------------------ | ---------------------------------------------------------------- | -------------------------------------------------------------------------- |
@@ -2873,7 +2706,7 @@ All dependency versions are **pinned to exact versions** in `package.json` (no `
 
 ---
 
-## 17. Testing & Quality Strategy
+## 18. Testing & Quality Strategy
 
 ### Unit Tests
 
@@ -2903,7 +2736,7 @@ All dependency versions are **pinned to exact versions** in `package.json` (no `
 
 ---
 
-## 18. User Stories
+## 19. User Stories
 
 ### Persona 1: Solo Developer
 
@@ -2931,9 +2764,9 @@ Workflow: Planning agent calls `aic_compile_spec` with the exploration report an
 
 ---
 
-## 19. Storage (MVP)
+## 20. Storage (MVP)
 
-**SQLite** — single global file at `~/.aic/aic.sqlite`. Per-project data is isolated via `project_id`; see [installation](documentation/installation.md).
+**SQLite** — single global file at `~/.aic/aic.sqlite`. Per-project data is isolated via `project_id`; see [installation](installation.md).
 
 ### Tables
 
@@ -2947,7 +2780,7 @@ Workflow: Planning agent calls `aic_compile_spec` with the exploration report an
 | `repomap_cache`           | Serialised RepoMap (JSON blob), file_tree_hash, `built_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`); one row per project, replaced on invalidation                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `anonymous_telemetry_log` | One row per anonymous telemetry payload: `id` (TEXT PK, UUIDv7), `created_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`), `payload_json` (TEXT, exact JSON sent or queued), `status` (TEXT: `sent` / `dropped` / `queued`). Written only when `telemetry.anonymousUsage: true`. Rows are removed after successful send to the cloud database, so the table acts as a bounded send queue. See [MVP Spec §4d](implementation-spec.md) for the full payload schema                                                                                                                                                    |
 | `schema_migrations`       | `id` (TEXT PK, migration identifier e.g. `001_initial`), `applied_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`). Single source of truth for DB schema version                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `server_sessions`         | **(Phase 0.5)** One row per MCP server run: `session_id` (TEXT PK, UUIDv7), `started_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`), `stopped_at` (TEXT, nullable), `stop_reason` (TEXT, nullable: `graceful` / `crash`), `pid` (INTEGER), `version` (TEXT). Written on server startup; updated on graceful shutdown. Orphaned rows (`stopped_at IS NULL`) are backfilled as `stop_reason = 'crash'` on next startup. See [§13.2 Server Lifecycle Tracking](#132-server-lifecycle-tracking)                                                                                                                        |
+| `server_sessions`         | **(Phase 0.5)** One row per MCP server run: `session_id` (TEXT PK, UUIDv7), `started_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`), `stopped_at` (TEXT, nullable), `stop_reason` (TEXT, nullable: `graceful` / `crash`), `pid` (INTEGER), `version` (TEXT). Written on server startup; updated on graceful shutdown. Orphaned rows (`stopped_at IS NULL`) are backfilled as `stop_reason = 'crash'` on next startup. See [§14.2 Server Lifecycle Tracking](#142-server-lifecycle-tracking)                                                                                                                        |
 | `session_state`           | **(Phase 1+)** One row per active session: `session_id` (TEXT PK, UUIDv7 — generated by the caller or by AIC on first step), `task_intent` (TEXT, original intent that started the session), `steps_json` (TEXT, JSON array of `SessionStep` objects — see [§2.7](#27-agentic-workflow-support)), `created_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`), `last_activity_at` (TEXT, `YYYY-MM-DDTHH:mm:ss.sssZ`, updated on each step). Rows expire after 30 min of inactivity (configurable via `session.expiryMinutes`). Powers `SessionTracker`. Not created by the MVP migration; added by a Phase 1 migration |
 
 **Local table retention (Phase 1):** All of the above tables live in the global database (`~/.aic/aic.sqlite`). Phase 1 adds a retention policy: before purging, aggregated data for the period (e.g. compilations count, token totals, guard counts) is written to an `archive_*` table (exact name TBD, e.g. `archive_summary`), then rows in `compilation_log`, `telemetry_events`, `guard_findings`, and `server_sessions` older than 90 days (configurable) are removed. Detail is lost; a general picture of what happened is kept in the archive table so these tables stay bounded without losing all signal.
@@ -3060,7 +2893,7 @@ The on-disk file is only rewritten when the user explicitly runs a config upgrad
 
 ---
 
-## 20. Competitive Positioning
+## 21. Competitive Positioning
 
 | Tool              | Approach                                 | AIC Differentiator                                                                                          |
 | ----------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
@@ -3074,7 +2907,7 @@ The on-disk file is only rewritten when the user explicitly runs a config upgrad
 
 ---
 
-## 21. Licensing & Contribution (Phase 1 Prep)
+## 22. Licensing & Contribution (Phase 1 Prep)
 
 | Decision            | Current Direction                                                                           |
 | ------------------- | ------------------------------------------------------------------------------------------- |
@@ -3099,14 +2932,14 @@ This guide is intentionally written before the Phase 1 OSS release so new contri
 
 Every contribution must comply with the principles in §2.1. This is not optional and is checked in code review before any other criterion.
 
-| Rule                | What reviewers check                                                                                                                                  |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **SRP**             | Each class has one public method and one reason to change; no class mixes pipeline logic with storage or MCP handler concerns                         |
-| **OCP**             | New behaviour is added via a new class implementing an existing interface, not by editing an existing class                                           |
-| **LSP**             | Every interface implementation honours the full contract; no narrowing, no unexpected throws                                                          |
-| **ISP**             | New interfaces have ≤5 methods; existing interfaces are not extended with unrelated methods                                                           |
-| **DIP**             | Concrete classes are only instantiated at the composition root (`mcp/server.ts`); all pipeline classes receive abstractions via constructor injection |
-| **Design patterns** | Use the patterns from §2.1 where they apply; do not introduce ad-hoc abstractions that duplicate an established pattern                               |
+| Rule                | What reviewers check                                                                                                                                      |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **SRP**             | Each class has one public method and one reason to change; no class mixes pipeline logic with storage or MCP handler concerns                             |
+| **OCP**             | New behaviour is added via a new class implementing an existing interface, not by editing an existing class                                               |
+| **LSP**             | Every interface implementation honours the full contract; no narrowing, no unexpected throws                                                              |
+| **ISP**             | New interfaces have ≤5 methods; existing interfaces are not extended with unrelated methods                                                               |
+| **DIP**             | Concrete classes are only instantiated at the composition root (`mcp/src/server.ts`); all pipeline classes receive abstractions via constructor injection |
+| **Design patterns** | Use the patterns from §2.1 where they apply; do not introduce ad-hoc abstractions that duplicate an established pattern                                   |
 
 If a SOLID violation is identified in review, the PR is blocked until resolved — regardless of test coverage or functionality.
 
@@ -3172,11 +3005,11 @@ Add it automatically with `git commit -s`. By signing off, you certify that you 
 
 ---
 
-## 22. Roadmap
+## 23. Roadmap
 
 | Phase   | Name                  | Version | Deliverables                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Exit Criteria                                                                                     |
 | ------- | --------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| **0**   | MVP                   | `0.1.0` | MCP tools (`aic_compile`, `aic_inspect`); auto-bootstrap (trigger rule + hooks); HeuristicSelector; SQLite storage; default rule packs; Context Guard (full scanner chain; `guard.allowPatterns` wired from config); first-run message; formula-derived model budget profiles (`windowRatio`); trigger rule; anonymous telemetry (opt-in); full test suite                                                                                                                                                                                                 | MCP tools functional; benchmark suite passes; measurable token reduction on canonical tasks       |
+| **0**   | MVP                   | `0.1.0` | MCP tools (`aic_compile`, `aic_inspect`); auto-bootstrap (trigger rule + hooks); HeuristicSelector; SQLite storage; default rule packs; Context Guard (full scanner chain; `guard.allowPatterns` wired from config); formula-derived model budget profiles (`windowRatio`); trigger rule; anonymous telemetry (opt-in); full test suite                                                                                                                                                                                                                    | MCP tools functional; benchmark suite passes; measurable token reduction on canonical tasks       |
 | **0.5** | Quality Release       | `0.2.0` | Cursor integration layer (session-start hooks, tool gate, prompt logging); `GenericImportProvider` (Python/Go/Rust/Java regex imports); intent-aware file discovery; `aic_status` tool; `aic_last` tool; `aic_chat_summary` tool; Guard `warn` severity; CSS/TypeDecl/test-structure transformers; **budget utilization** in `aic_status`; prompt commands; **error telemetry**; **server lifecycle tracking** (`server_sessions` table)                                                                                                                   | Context selection quality improved for non-TypeScript repos; Cursor integration layer functional  |
 | **1**   | OSS Release           | `1.0.0` | Public repo; docs site; CI/CD; npm package; `postinstall` team deployment; auto-detected dependency constraints; reverse dependency walking; optional cost estimation in `aic_status` (model-specific pricing, deferred from MVP since AIC is model-agnostic); **Session Tracker** + extended `CompilationRequest` agentic fields + **Adaptive Budget Allocator** (conversation-length + utilization-based auto-tuning) + **Specification Compiler** (`aic_compile_spec` MCP tool) + session-aware cache keying (see [§2.7](#27-agentic-workflow-support)) | 10+ external contributors; 100+ GitHub stars; stable API (no breaking changes for 4 weeks)        |
 | **2**   | Semantic + Governance | `2.0.0` | VectorSelector (Zvec integration); HybridSelector; governance adapters; policy engine; `extends` config for org-level deployment; centralised config server; editor-specific conversation history adapters and richer context compression (beyond the Phase O deterministic step list shipped in 1.0.0)                                                                                                                                                                                                                                                    | Vector retrieval improves relevance by ≥15% over heuristic; policy engine passes compliance audit |
@@ -3200,7 +3033,7 @@ AIC follows **Semantic Versioning 2.0.0** (`MAJOR.MINOR.PATCH`).
 
 ---
 
-## 23. Enterprise Deployment Tiers
+## 24. Enterprise Deployment Tiers
 
 AIC’s deployment model scales from individual developer to fleet-managed enterprise without architectural changes. Each tier builds on the previous one.
 
@@ -3257,7 +3090,7 @@ Full enterprise management via MDM (JAMF, Intune, Kandji) and the AIC control pl
 | **Version pinning**    | Admin pins AIC version across fleet. Staged rollouts supported.                                                                                                                                                                                                           |
 | **Policy enforcement** | Guard and compilation policies pushed centrally. Cannot be overridden locally.                                                                                                                                                                                            |
 | **Compliance audit**   | All compilations logged to central store. Auditors verify no secrets leaked.                                                                                                                                                                                              |
-| **Uptime monitoring**  | `server_sessions` synced to central store. Crash frequency, uptime per developer, fleet health dashboards. Built on the Phase 0.5 lifecycle tracking ([§13.2](#132-server-lifecycle-tracking)) — no agent change required, only a sync layer reading existing local data. |
+| **Uptime monitoring**  | `server_sessions` synced to central store. Crash frequency, uptime per developer, fleet health dashboards. Built on the Phase 0.5 lifecycle tracking ([§14.2](#142-server-lifecycle-tracking)) — no agent change required, only a sync layer reading existing local data. |
 | **Usage dashboard**    | Fleet-wide metrics: adoption, savings, Guard effectiveness, per-team breakdown.                                                                                                                                                                                           |
 | **SSO integration**    | AIC authenticates via company SSO for enterprise features.                                                                                                                                                                                                                |
 
@@ -3299,7 +3132,7 @@ Each tier composes naturally via the `extends` config field and the `StorageAdap
 
 ---
 
-## 24. Compliance Readiness
+## 25. Compliance Readiness
 
 AIC is designed to be **technically compliant** with GDPR, SOC 2, and ISO 27001 from the start. Formal certifications are pursued when commercially justified — the architecture does not change.
 
@@ -3369,7 +3202,7 @@ AIC is designed to be **technically compliant** with GDPR, SOC 2, and ISO 27001 
 
 ---
 
-## 25. Data-Driven Feature Planning
+## 26. Data-Driven Feature Planning
 
 AIC roadmap prioritization is heavily informed by aggregated, anonymised telemetry data. Instead of guessing what users need, development focuses on the largest empirical bottlenecks in the system.
 

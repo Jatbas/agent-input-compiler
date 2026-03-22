@@ -155,7 +155,7 @@ AIC is a **local-first** tool. All compilation processing runs on the developer'
 | AIC → Model endpoint | Compiled prompt (Guard-filtered) | Only when a model adapter is configured. Context Guard excludes secrets and injections from the compiled context. `aic_compile` never contacts any external service. |
 | AIC → Telemetry      | Anonymous aggregate metrics      | Opt-in only. No code, paths, prompts, or PII. TLS only. See [Telemetry Endpoint Threat Model](#telemetry-endpoint-threat-model).                                     |
 
-For the full architectural specification, see [Project Plan §12](project-plan.md#12-security-considerations).
+For the full architectural specification, see [Project Plan §13](project-plan.md#13-security-considerations).
 
 ---
 
@@ -278,7 +278,7 @@ AIC treats all data received from external endpoints as untrusted. For every out
 | **Model endpoint receives code**     | `aic_compile` never contacts any external service. Context Guard excludes secrets and credentials from the compiled context AIC returns to the editor.                                                                     |
 | **SQLite database contains prompts** | MCP server uses global `~/.aic/aic.sqlite` (`0700` on `~/.aic/`). Stores per-project compilation rows (intents, counts, tokens). Project `.aic/` holds cache and `last-compiled-prompt.txt` — never pushed to AIC servers. |
 
-For the full threat/mitigation analysis, see [Project Plan §12 — Data Leakage Prevention](project-plan.md#data-leakage-prevention).
+For the full threat/mitigation analysis, see [Project Plan §13 — Data Leakage Prevention](project-plan.md#data-leakage-prevention).
 
 ---
 
@@ -338,7 +338,7 @@ The `https://telemetry.aic.dev` endpoint is designed as an append-only, anonymou
 
 **Design principle:** If the telemetry endpoint goes down, AIC continues working normally. If it's compromised, no user data is at risk.
 
-Full threat model: [Project Plan §12 — Telemetry Endpoint Security](project-plan.md#telemetry-endpoint-security).
+Full threat model: [Project Plan §13 — Telemetry Endpoint Security](project-plan.md#telemetry-endpoint-security).
 
 ---
 
@@ -472,4 +472,4 @@ AIC's architecture is designed to be **technically compliant** with GDPR, SOC 2,
 | **Phase 2** | SQLCipher optional encryption. Formal risk register. SOC 2 Type I prep. GDPR DPIA. Rule pack signature verification.      |
 | **Phase 3** | SOC 2 Type I audit. ISO 27001 gap assessment. Penetration test. Formal certifications when commercially justified.        |
 
-Full compliance readiness mapping (including ISO 27001): [Project Plan §24](project-plan.md#24-compliance-readiness).
+Full compliance readiness mapping (including ISO 27001): [Project Plan §25](project-plan.md#25-compliance-readiness).

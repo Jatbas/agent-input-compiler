@@ -20,7 +20,7 @@
 **Confidence:** High  
 **Adversarial status:** Challenged — incorporated: Transport/session evolution could still matter for multi-stdio instances or editor-managed restarts (session resumption) even without HTTP; relevance is "low for MVP" and "track for Phase 2+ and for session/resumption SEPs."
 
-AIC does not horizontally scale today; scaling is many one-per-device instances with a sync layer (project-plan §19, §23). Transport evolution becomes directly relevant if Phase 2+ adds HTTP.
+AIC does not horizontally scale today; scaling is many one-per-device instances with a sync layer (project-plan §20 Storage, §24 Enterprise Deployment Tiers). Transport evolution becomes directly relevant if Phase 2+ adds HTTP.
 
 ### Finding 2: AIC does not use MCP Tasks; agent communication (Tasks lifecycle) does not apply today
 

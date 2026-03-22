@@ -142,11 +142,11 @@ All defaults apply when no config file exists or a field is omitted.
 
 ## 4. Core Pipeline — MVP Implementation Detail
 
-> **Pre-step (before Step 1):** A **RepoMapSupplier** (implementations: `FileSystemRepoMapSupplier`, `WatchingRepoMapSupplier`) supplies the RepoMap: the project root is scanned (respecting `.gitignore`), per-file token estimates are computed via tiktoken, and the result is cached in the `repomap_cache` SQLite table. Step 4 (ContextSelector) consumes this RepoMap. Cache is re-used until the file-tree hash (SHA-256 of all in-scope paths + sizes + mtimes) changes.
->
-> These steps run inside the `aic_compile` MCP tool handler on every AI request. The handler receives a `CompilationRequest`, executes Steps 1–10 in sequence (including Step 5.5), and returns `{ compiledPrompt: string, meta: CompilationMeta }`. The editor uses `compiledPrompt` as the full context for its model call, replacing the original unfiltered prompt. Steps 1–8 always run in the shipped MCP package; Step 9 (Executor) is a deferred design path; Step 10 (Telemetry) only runs when `telemetry.enabled: true`.
->
-> **Agentic workflows:** The internal `CompilationRequest` type carries optional session fields (`sessionId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens`) plus `triggerSource` and `conversationId`. They enable multi-step compilation with session tracking, file deduplication, adaptive budgeting, and deterministic step-list session context when hooks supply session identifiers. Steps 1–10 keep the same ordering; orchestration applies session-derived inputs before prompt assembly. The MCP Zod schema still validates only the wire subset today; extending it for agentic fields from clients is part of the Agentic MCP layer (see [Project Plan §2.7 — Agentic Workflow Support](project-plan.md#27-agentic-workflow-support)).
+**Pre-step (before Step 1):** A **RepoMapSupplier** (`FileSystemRepoMapSupplier`, `WatchingRepoMapSupplier`) supplies the RepoMap. The project root is scanned (respecting `.gitignore`), per-file token estimates use tiktoken, and the result is cached in the `repomap_cache` SQLite table. Step 4 consumes this RepoMap. Cache is re-used until the file-tree hash (SHA-256 of in-scope paths + sizes + mtimes) changes.
+
+**Handler:** These steps run inside the `aic_compile` MCP tool handler. The handler builds a `CompilationRequest` (including `sessionId` from server session state when hooks run), executes Steps 1–10 in order (including Step 5.5), and returns `{ compiledPrompt: string, meta: CompilationMeta }`. The editor uses `compiledPrompt` as the full model context. Steps 1–8 always run in the shipped package; Step 9 (Executor) is a deferred design path; Step 10 (Telemetry) runs only when `telemetry.enabled: true`.
+
+**Agentic workflows:** The internal `CompilationRequest` type carries optional session fields (`sessionId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens`) plus `triggerSource` and `conversationId`. The MCP Zod schema validates only the wire subset; agentic fields are populated inside the server/hook path (see [Project Plan §2.7](project-plan.md#27-agentic-workflow-support)).
 
 ### Step 1: Task Classifier
 
@@ -189,7 +189,7 @@ All defaults apply when no config file exists or a field is omitted.
 
 See [Project Plan §3.1](project-plan.md) for the full annotated rule pack example and [Project Plan §3.2](project-plan.md) for the advanced authoring guide. Custom rule packs are an **opt-in power-user feature**. AIC works out of the box with zero configuration using its tuned built-in defaults. Most standard users will never need to author custom rule packs or create an `aic-rules/` directory. The key fields are: `constraints` (string array), `includePatterns` / `excludePatterns` (glob arrays), optional `budgetOverride` (number), and optional `heuristic.boostPatterns` / `heuristic.penalizePatterns` (glob arrays).
 
-**Merge behavior:** Arrays concatenated + deduplicated; scalar values (`budgetOverride`) use last-wins within the rule-pack layer only (project > task-specific > default). The `budgetOverride` in `CompilationRequest` is not part of this merge — it is applied later by the Budget Allocator and always takes highest precedence.
+**Merge behavior:** Arrays concatenated + deduplicated; scalar values (`budgetOverride`) use last-wins within the rule-pack layer only (project > task-specific > default). `CompilationRequest` has no budget field; the Budget Allocator reads `RulePack.budgetOverride` and config only (see `shared/src/pipeline/budget-allocator.ts`).
 
 **Edge cases:**
 
@@ -204,12 +204,13 @@ See [Project Plan §3.1](project-plan.md) for the full annotated rule pack examp
 
 **Resolution order (highest priority first):**
 
-1. `budgetOverride` in `CompilationRequest`
-2. `budgetOverride` in resolved RulePack
-3. `contextBudget.perTaskClass[taskClass]` in config
-4. `contextBudget.maxTokens` in config
-5. Formula-derived `suggestedBudget` from model profile (see [Model-Specific Budget Profiles](#model-specific-budget-profiles))
-6. Hard-coded default: 8,000 tokens
+1. `budgetOverride` in resolved RulePack (if present)
+2. `contextBudget.perTaskClass[taskClass]` in config
+3. `contextBudget.maxTokens` in config
+4. Formula-derived `suggestedBudget` from model profile (see [Model-Specific Budget Profiles](#model-specific-budget-profiles)), when that path applies
+5. Hard-coded default: 8,000 tokens
+
+When `conversationTokens` is set on the request, `BudgetAllocator.allocate` may clamp the resolved budget against remaining context window (see `shared/src/pipeline/budget-allocator.ts`).
 
 **Output:** `budget: TokenCount` (in tokens, counted via **tiktoken cl100k_base**)
 
@@ -661,7 +662,7 @@ Runs Steps 1–8 and shows the full decision trail without executing the model c
 - Does **not** write to `cache_metadata`; `repomap_cache` is still read/updated normally
 - Does **not** call the model
 
-Full spec with annotated output example: [Project Plan §13](project-plan.md).
+Full spec with annotated output example: [Project Plan §14](project-plan.md).
 
 ---
 
@@ -671,7 +672,7 @@ Returns project-level summary as JSON. Surfaced to the user via the "show aic st
 
 **Fields returned:** `compilationsTotal`, `compilationsToday`, `cacheHitRatePct`, `avgReductionPct`, `totalTokensRaw`, `totalTokensCompiled`, `totalTokensSaved`, `budgetMaxTokens`, `budgetUtilizationPct`, `telemetryDisabled`, `guardByType`, `topTaskClasses`, `lastCompilation`, `installationOk`, `installationNotes`.
 
-**Data source:** Reads from `compilation_log`, `cache_metadata`, `guard_findings`, and `telemetry_events` tables in `aic.sqlite` (see [Project Plan §19](project-plan.md) for the full table definitions). Does not run a compilation.
+**Data source:** Reads from `compilation_log`, `cache_metadata`, `guard_findings`, and `telemetry_events` tables in `aic.sqlite` (see [Project Plan §20](project-plan.md) for the full table definitions). Does not run a compilation.
 
 ### `aic_last` (MCP tool)
 
@@ -683,20 +684,9 @@ Returns the most recent compilation as JSON. Surfaced to the user via the "show 
 
 ## 4d. MVP Additions
 
-### First-Run Message
+### First-run UX (shipped surface)
 
-After the first successful compilation in a project (detected by checking `compilation_count` in `aic.sqlite`), AIC includes a `firstRun` field in `CompilationMeta`:
-
-```json
-{
-  "firstRun": true,
-  "firstRunMessage": "AIC compiled your first request: 142 files → 8 selected (7,200 tokens, 84% reduction). Use 'aic_inspect' or 'show aic last' for details."
-}
-```
-
-- `firstRun` is `true` only on the very first compilation per project
-- The editor can surface this via `aic_last` tool — making the value of AIC immediately visible
-- On subsequent compilations, `firstRun` is `false` and `firstRunMessage` is omitted
+`CompilationMeta` in `shared/src/core/types/compilation-types.ts` does not include `firstRun` or `firstRunMessage`. New users rely on `aic_last`, `aic_status`, and prompt commands to see compilation outcomes. A dedicated first-run payload remains a possible future enhancement.
 
 ---
 
@@ -731,7 +721,7 @@ suggestedBudget = clamp(maxContextWindow × windowRatio, floor, ceiling)
 
 > **Phase 1 — Auto-tuning.** The Adaptive Budget Allocator ([Project Plan §2.7](project-plan.md#27-agentic-workflow-support)) learns the optimal budget per project/model/task-class from compilation history and adjusts automatically — no manual tuning needed.
 
-**Resolution order:** `budgetOverride` in `CompilationRequest` > `budgetOverride` in rule pack > `contextBudget.perTaskClass` > `contextBudget.maxTokens` > formula-derived `suggestedBudget` from model profile > hard-coded 8,000.
+**Resolution order:** `budgetOverride` in rule pack > `contextBudget.perTaskClass` > `contextBudget.maxTokens` > formula-derived `suggestedBudget` from model profile > hard-coded 8,000 (then clamp when session conversation token counts are present).
 
 The formula-derived `suggestedBudget` slots in just above the hard-coded default — it is a smarter fallback, not a mandatory cap. Any explicit user configuration always wins. Users can also override `windowRatio` globally to tune the aggressiveness of the formula for their workflow.
 
@@ -852,7 +842,7 @@ There is currently no dedicated `aic telemetry log` command in the shipped MCP p
 
 **Why this matters:** Full transparency builds trust. Users can verify AIC's privacy claims by inspecting the actual payloads. If a user sees something they're uncomfortable with, they can disable anonymous telemetry and file a report. The audit log also serves as the local queue for batching — `status: 'queued'` entries are sent in the next batch.
 
-**Endpoint security:** The `https://telemetry.aic.dev` endpoint is protected by schema validation (reject malformed payloads), rate limiting (10 req/min per IP), and TLS-only transport. The endpoint is append-only and anonymous — if it goes down, AIC continues working normally. Full threat model: [Project Plan §12](project-plan.md#12-security-considerations).
+**Endpoint security:** The `https://telemetry.aic.dev` endpoint is protected by schema validation (reject malformed payloads), rate limiting (10 req/min per IP), and TLS-only transport. The endpoint is append-only and anonymous — if it goes down, AIC continues working normally. Full threat model: [Project Plan §13](project-plan.md#13-security-considerations).
 
 **What this data enables:**
 
@@ -879,11 +869,11 @@ There is currently no dedicated `aic telemetry log` command in the shipped MCP p
 
 ### Qualitative
 
-| Criteria              | Validation                                                                |
-| --------------------- | ------------------------------------------------------------------------- |
-| First-run experience  | New user: install → first successful `aic_compile` flow in <5 minutes     |
-| Zero-config usability | First compile works with no `aic.config.json` present                     |
-| Useful inspect output | `aic_inspect` clearly shows _why_ each file was selected and at what tier |
+| Criteria              | Validation                                                                                           |
+| --------------------- | ---------------------------------------------------------------------------------------------------- |
+| First-run experience  | New user: install → first successful `aic_compile` and visible outcome via status/last in <5 minutes |
+| Zero-config usability | First compile works with no `aic.config.json` present                                                |
+| Useful inspect output | `aic_inspect` clearly shows _why_ each file was selected and at what tier                            |
 
 ### Benchmark Suite
 
@@ -955,7 +945,7 @@ Exit codes: `0` = success (may include warnings); `1` = fatal error.
 
 These topics are specified in full in the [Project Plan](project-plan.md). Below are the MVP-critical highlights:
 
-### Security (see [Project Plan §12](project-plan.md#12-security-considerations))
+### Security (see [Project Plan §13](project-plan.md#13-security-considerations))
 
 - **Context Guard** scans every selected file and excludes secrets, credentials, excluded paths, and prompt injection patterns from the compiled context at Step 5 (note: this does not prevent the model from reading files directly through editor tools)
 - Guard findings are logged in `CompilationMeta.guard` and visible via `aic_inspect`; the pipeline never silently includes sensitive content
@@ -964,12 +954,12 @@ These topics are specified in full in the [Project Plan](project-plan.md). Below
 - `.aic/` auto-added to `.gitignore` during bootstrap; created with `0700` permissions
 - Telemetry stores metrics only — never file contents or prompt text
 
-### Observability (see [Project Plan §13](project-plan.md))
+### Observability (see [Project Plan §14](project-plan.md))
 
 - Four log levels: `error`, `warn`, `info`, `debug`
 - `aic_inspect` shows why each file was selected, at what tier, with what score — without executing
 
-### Performance (see [Project Plan §14](project-plan.md))
+### Performance (see [Project Plan §15](project-plan.md))
 
 - Cold cache compilation: <2s for repos <1,000 files
 - Cache hit: <100ms
@@ -985,9 +975,9 @@ Beyond the whole-prompt cache (cache hit <100ms), Phase P adds per-file incremen
 - **Per-file transformation cache:** `SqliteFileTransformStore` keyed by `(file_path, content_hash)` — `ContentTransformerPipeline` and `SummarisationLadder` skip unchanged files entirely. On typical recompiles (1–3 files changed), 95%+ of CPU work (tree-sitter parsing, transformer chains, tokenizer calls) is eliminated.
 - **Target:** After first compilation, intent-change-only recompiles (no file edits) complete in <500ms for repos <1,000 files. Recompiles with 1–3 file edits complete in <1s.
 
-See [Project Plan §14 — Incremental Compilation Performance](project-plan.md) for full design.
+See [Project Plan §15 — Incremental Compilation Performance](project-plan.md) for full design.
 
-### Dependencies (see [Project Plan §16](project-plan.md))
+### Dependencies (see [Project Plan §17](project-plan.md))
 
 - **Runtime:** `typescript`, `tiktoken`, `better-sqlite3`, `fast-glob`, `ignore`, `diff`
 - **Dev:** `vitest`, `tsx`, `eslint`, `prettier`
@@ -1019,15 +1009,15 @@ Project-A/              Project-B/
 
 ## 8a. MVP Test Plan
 
-This section summarizes the test deliverables that ship with Phase 0. Full testing strategy: [Project Plan §17](project-plan.md).
+This section summarizes the test deliverables that ship with Phase 0. Full testing strategy: [Project Plan §18](project-plan.md).
 
 ### Unit Tests (per pipeline step)
 
 | Step                         | Key assertions                                                                                                                     |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Step 1 (TaskClassifier)      | Correct task class for each keyword set; `general` fallback when no match; tie-breaking                                            |
+| Step 1 (IntentClassifier)    | Correct task class for each keyword set; `general` fallback when no match; tie-breaking                                            |
 | Step 2 (RulePackResolver)    | Built-in packs load; project packs merge correctly; malformed JSON produces error                                                  |
-| Step 3 (BudgetAllocator)     | Resolution order respected (request > rulePack > perTaskClass > config > default)                                                  |
+| Step 3 (BudgetAllocator)     | Resolution order respected (rulePack override > perTaskClass > maxTokens; clamp when session tokens present)                       |
 | Step 4 (HeuristicSelector)   | Scoring formula verified against fixture repos; `maxFiles` cap respected; include/exclude patterns applied                         |
 | Step 5 (ContextGuard)        | Each scanner (Exclusion, Secret, PromptInjection) tested with known-safe and known-flagged fixtures; all-blocked edge case handled |
 | Step 6 (SummarisationLadder) | Each tier produces expected compression; over-budget triggers next tier; lowest-score files compressed first                       |
@@ -1046,9 +1036,9 @@ This section summarizes the test deliverables that ship with Phase 0. Full testi
 | Multi-project isolation    | Two projects in same test run share no state                                |
 | Model context window guard | Prompt never exceeds model max; oversized budget clamped with warning       |
 
-### Benchmark Suite
+### Benchmark suite — CI regression gate
 
-10 canonical tasks (see [§5 Benchmark Suite](#benchmark-suite)) run on every CI build:
+10 canonical tasks (see [§5 — Benchmark Suite](#benchmark-suite)) run on every CI build:
 
 - **Pass:** No task shows >5% token increase vs. baseline
 - **Pass:** No task takes >2× baseline compilation time
@@ -1140,11 +1130,11 @@ When the server process starts (via `npx @jatbas/aic@latest`, `pnpm aic`, or equ
     └─ Bootstrap is idempotent — safe to re-run; skips when artifacts are already up to date
 ```
 
-**Timing target:** Steps 1–11 complete in <500ms (see [Project Plan §14](project-plan.md)).
+**Timing target:** Steps 1–11 complete in <500ms (see [Project Plan §15](project-plan.md)).
 
 **Error during startup:** If config is invalid → exit with error message. If SQLite cannot be opened → exit with error message. If a provider fails to register → log warning, continue without it. The server never starts in a partially broken state — it either fully initialises or exits with a clear error.
 
-**Runtime error handling:** Once running, the MCP server handles transport errors, malformed requests, and unhandled exceptions at the handler boundary — see [Project Plan §11.1](project-plan.md) for the full MCP transport error table. The server never crashes due to a single bad request.
+**Runtime error handling:** Once running, the MCP server handles transport errors, malformed requests, and unhandled exceptions at the handler boundary — see [Project Plan §12.1](project-plan.md#121-mcp-transport-error-handling) for the full MCP transport error table. The server never crashes due to a single bad request.
 
 **Concurrency:** The MCP server processes requests sequentially on a single thread. If the editor sends two `aic_compile` requests in rapid succession, the second is queued and processed after the first completes. See [Project Plan §2.6](project-plan.md) for the full concurrency model and determinism guarantees.
 
@@ -1191,56 +1181,15 @@ const InspectRequestSchema = z.object({
 
 ### `AicConfigSchema`
 
-Validates `aic.config.json` at config load time. All fields are optional (AIC works with an empty `{}`):
+`shared/src/config/load-config-from-file.ts` validates `aic.config.json` with a **minimal** Zod object (MVP subset). All top-level keys are optional; `{}` is valid. The schema currently allows:
 
-```typescript
-const AicConfigSchema = z
-  .object({
-    version: z.number().int().positive().default(1),
-    contextBudget: z
-      .object({
-        maxTokens: z.number().int().positive().default(8000),
-        windowRatio: z.number().positive().max(1).default(0.08),
-        perTaskClass: z.record(z.number().int().positive()).optional(),
-      })
-      .optional(),
-    rulePacks: z.array(z.string()).default(["built-in:default"]),
-    output: z
-      .object({
-        format: z
-          .enum(["unified-diff", "full-file", "markdown", "json", "plain"])
-          .default("unified-diff"),
-        includeExplanation: z.boolean().default(false),
-      })
-      .optional(),
-    guard: z
-      .object({
-        enabled: z.boolean().default(true),
-        additionalExclusions: z.array(z.string()).default([]),
-        allowPatterns: z.array(z.string().min(1).max(512)).max(64).default([]),
-      })
-      .optional(),
-    telemetry: z
-      .object({
-        enabled: z.boolean().default(false),
-        anonymousUsage: z.boolean().default(false),
-        storage: z.enum(["local"]).default("local"),
-      })
-      .optional(),
-    cache: z
-      .object({
-        enabled: z.boolean().default(true),
-        ttlMinutes: z.number().int().positive().default(60),
-        invalidateOn: z
-          .array(z.enum(["config-change", "file-change"]))
-          .default(["config-change", "file-change"]),
-      })
-      .optional(),
-  })
-  .strict();
-```
+- `contextBudget.maxTokens`, optional `contextBudget.perTaskClass`
+- `contextSelector.heuristic.maxFiles` (optional nesting)
+- `model.id` (optional)
+- `enabled` (boolean)
+- `guard.allowPatterns` (array of non-empty strings, max 64 entries)
 
-On validation failure, AIC exits with a clear error message listing the failing fields and expected types. Unknown fields are rejected (`.strict()`).
+Additional fields described in the Project Plan (telemetry, cache TTL, `rulePacks`, output format, etc.) may be accepted or ignored depending on loader evolution — see `load-config-from-file.ts` for the authoritative shape. On JSON parse failure, AIC throws `ConfigError` with a sanitised message.
 
 ### Rule pack validation
 
@@ -1252,30 +1201,15 @@ Outbound anonymous telemetry payload shape is enforced by the write path and typ
 
 ### Validation boundary enforcement
 
-Zod is imported only in boundary modules (`mcp/src/`, `shared/src/adapters/`). ESLint `no-restricted-imports` blocks Zod in `shared/src/core/` and `shared/src/pipeline/`. See [Project Plan ADR-009](project-plan.md) for the full rationale.
+Zod is imported at the MCP boundary (`mcp/src/`), in adapters, and in `shared/src/config/load-config-from-file.ts` for `aic.config.json`. ESLint `no-restricted-imports` blocks Zod in `shared/src/core/` and `shared/src/pipeline/`. See [Project Plan ADR-009](project-plan.md) for the full rationale.
 
 ---
 
 ### Phase W — Global Server & Per-Project Isolation
 
-Single global MCP server registered in `~/.cursor/mcp.json`. One server process handles all workspace folders. Each `aic_compile` call specifies its `projectRoot`; the server creates or reuses a `ProjectScope` per project. The database is global at `~/.aic/aic.sqlite`; per-project tables use a `project_id` FK to `projects(project_id)`. Per-project stores take `projectId: ProjectId` and filter with `WHERE project_id = ?`. Per-project files (`aic.config.json`, `.cursor/rules/AIC.mdc`, `.cursor/hooks/`) remain in each project directory. A stable project ID in `.aic/project-id` survives folder renames. The implementation is split into 14 tasks (W01–W14) with explicit dependencies; see `mvp-progress.md` §Phase W for the task table and dependency order.
+**Shipped behaviour:** A single MCP server process (e.g. registered in `~/.cursor/mcp.json`) opens a global database at `~/.aic/aic.sqlite`. Each `aic_compile` call passes `projectRoot`; `ScopeRegistry` lazily creates a `ProjectScope` per normalised root. Per-project data is isolated with `project_id`; per-project files (`aic.config.json`, `.cursor/rules/AIC.mdc`, `.cursor/hooks/`, `.aic/project-id`, cache files) remain in the project tree.
 
-**Current architecture (before Phase W):**
-
-- `main()` in `mcp/src/server.ts` calls `createProjectScope(toAbsolutePath(process.cwd()))` — a single scope bound to the process working directory.
-- Database lives at `{projectRoot}/.aic/aic.sqlite` — one DB per project directory.
-- All handlers, resources, and the `CompilationRunner` share the single startup scope.
-- `aic_status` and `aic_last` tools read from the startup scope's DB with no project filter.
-- `aic_chat_summary` requires `conversationId` from the caller.
-
-**Target architecture (after Phase W):**
-
-- `main()` opens one global database at `~/.aic/aic.sqlite`.
-- `createMcpServer` receives the global `ExecutableDb` and creates a `ScopeRegistry`.
-- The `ScopeRegistry` (backed by `Map<AbsolutePath, ProjectScope>`) lazily creates scopes per `projectRoot`. Each scope shares the global DB but tracks its own `projectRoot`.
-- Handlers call `scopeRegistry.getOrCreate(projectRoot)` to get the right scope.
-- Resources accept an optional `projectRoot` argument (or default to the most-recently-compiled project).
-- Per-project `.aic/` directories still hold `aic.config.json`, `project-id`, and `cache/`.
+The subsections below (W01 onward) retain detailed design notes for path normalisation, schema, and isolation — they describe the implemented model, not a future delta.
 
 **W01. Cross-platform path normalisation:**
 
@@ -1621,4 +1555,4 @@ This approach significantly reduces the attack surface for executing untrusted g
 | Phase 2: Semantic + Governance | `2.0.0` | ⬜ Planned | VectorSelector (Zvec integration), HybridSelector, governance adapters, policy engine, `extends` config for org-level deployment, centralised config server; **Sandboxed Extensibility**: Secure V8 isolates (`isolated-vm`) for executing custom JavaScript Governance Adapters and Context Scanners (TypeScript requires transpilation; see §8d); **agentic support**: editor-specific conversation adapters and richer compression beyond the Phase O deterministic step list (`ConversationCompressor`) |
 | Phase 3: Enterprise            | `3.0.0` | ⬜ Planned | Control plane, RBAC, SSO, audit logs, fleet management via MDM, live enterprise dashboard, hosted option                                                                                                                                                                                                                                                                                                                                                                                                    |
 
-Versioning policy: see [Project Plan §22](project-plan.md).
+Versioning policy: see [Project Plan §23](project-plan.md).

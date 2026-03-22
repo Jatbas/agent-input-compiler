@@ -30,6 +30,7 @@ import type {
   ConversationId,
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import type { ISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import { toSessionId } from "@jatbas/aic-core/core/types/identifiers.js";
 import type { InclusionTier } from "@jatbas/aic-core/core/types/enums.js";
 import { toTokenCount, toStepIndex } from "@jatbas/aic-core/core/types/units.js";
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
@@ -40,6 +41,15 @@ import {
   sumTransformTokens,
   buildSummarisationTiers,
 } from "@jatbas/aic-core/core/token-summary.js";
+
+// Uses conversationId as the session key when present so each editor conversation
+// gets its own session_state row instead of sharing the process-scoped sessionId.
+function resolveEffectiveSessionId(request: CompilationRequest): SessionId | null {
+  if (request.conversationId !== undefined && request.conversationId !== null) {
+    return toSessionId(request.conversationId);
+  }
+  return request.sessionId ?? null;
+}
 
 function serializeRepoMap(repoMap: RepoMap): string {
   const sorted = [...repoMap.files].toSorted((a, b) => a.path.localeCompare(b.path));
@@ -213,12 +223,13 @@ function recordSessionStepIfNeeded(
   r: PipelineStepsResult,
   clock: Clock,
 ): void {
-  if (!request.sessionId || !agenticSessionState) return;
+  const effectiveSessionId = resolveEffectiveSessionId(request);
+  if (!effectiveSessionId || !agenticSessionState) return;
   const stepIndex = request.stepIndex ?? toStepIndex(0);
   const tiers: Record<string, InclusionTier> = Object.fromEntries(
     r.prunedFiles.map((f) => [f.path, f.tier]),
   );
-  agenticSessionState.recordStep(request.sessionId, {
+  agenticSessionState.recordStep(effectiveSessionId, {
     stepIndex,
     stepIntent: request.stepIntent ?? null,
     filesSelected: r.prunedFiles.map((f) => f.path),
@@ -247,10 +258,11 @@ function runFreshPath(
 ): Promise<{ compiledPrompt: string; meta: CompilationMeta; compilationId: UUIDv7 }> {
   const start = clock.now();
   const depsWithSession = { ...deps, agenticSessionState };
+  const effectiveSessionId = resolveEffectiveSessionId(request);
   const pipelineRequest = {
     intent: request.intent,
     projectRoot: request.projectRoot,
-    ...(request.sessionId !== undefined ? { sessionId: request.sessionId } : {}),
+    ...(effectiveSessionId !== null ? { sessionId: effectiveSessionId } : {}),
     ...(request.stepIndex !== undefined ? { stepIndex: request.stepIndex } : {}),
     ...(request.stepIntent !== undefined ? { stepIntent: request.stepIntent } : {}),
     ...(request.conversationTokens !== undefined

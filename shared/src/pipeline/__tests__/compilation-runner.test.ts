@@ -747,6 +747,72 @@ describe("CompilationRunner", () => {
     expect(step.filesSelected.length).toBe(result.meta.filesSelected);
   }, 30_000);
 
+  it("compilation_runner_conversation_id_used_as_session_key", async () => {
+    const recordStepCalls: Array<[ReturnType<typeof toSessionId>, SessionStep]> = [];
+    const mockAgenticSessionState: AgenticSessionState = {
+      getPreviouslyShownFiles: () => [],
+      getSteps: () => [],
+      recordStep: (sessionId, step) => {
+        recordStepCalls.push([sessionId, step]);
+      },
+    };
+    const cacheStore = createInMemoryCacheStore();
+    const configStore: ConfigStore = {
+      getLatestHash: () => null,
+      writeSnapshot() {},
+    };
+    const stringHasher: StringHasher = {
+      hash(input: string) {
+        return `h-${input.length}`;
+      },
+    };
+    const { guardStore, compilationLogStore } = createGuardAndLogMocks();
+    const deps = {
+      intentClassifier,
+      rulePackResolver,
+      budgetAllocator,
+      contextSelector: heuristicSelector,
+      contextGuard,
+      contentTransformerPipeline,
+      summarisationLadder,
+      lineLevelPruner: new LineLevelPruner(tiktokenAdapter, fileContentReader),
+      promptAssembler,
+      intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
+      repoMapSupplier: mockRepoMapSupplier,
+      tokenCounter: tiktokenAdapter,
+      specFileDiscoverer: new SpecFileDiscoverer(),
+      conversationCompressor: new ConversationCompressorImpl(),
+      structuralMapBuilder: new StructuralMapBuilder(),
+    };
+    const runner = new CompilationRunner(
+      deps,
+      mockClock,
+      cacheStore,
+      configStore,
+      stringHasher,
+      guardStore,
+      compilationLogStore,
+      mockIdGenerator,
+      mockAgenticSessionState,
+    );
+    const processSessionId = toSessionId("process-session-uuid");
+    const convId = toConversationId("editor-conv-abc");
+    const request: CompilationRequest = {
+      ...makeRequest(fixtureRoot),
+      sessionId: processSessionId,
+      stepIndex: toStepIndex(1),
+      conversationId: convId,
+    };
+    await runner.run(request);
+    expect(recordStepCalls.length).toBe(1);
+    const firstCall = recordStepCalls[0];
+    expect(firstCall).toBeDefined();
+    if (firstCall === undefined) return;
+    const [calledSessionId] = firstCall;
+    expect(calledSessionId).toBe(toSessionId(convId));
+    expect(calledSessionId).not.toBe(processSessionId);
+  }, 30_000);
+
   it("compilation_runner_cache_key_includes_session_and_step", async () => {
     const cacheStore = createInMemoryCacheStore();
     const configStore: ConfigStore = {
