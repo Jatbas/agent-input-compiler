@@ -118,6 +118,8 @@ function deriveSessionContext(
   return undefined;
 }
 
+const RECENT_STEPS_LIMIT = 10;
+
 export async function runPipelineSteps(
   deps: PipelineStepsDeps,
   request: PipelineStepsRequest,
@@ -207,7 +209,7 @@ export async function runPipelineSteps(
   const sessionContextSummary =
     request.sessionId && deps.agenticSessionState
       ? deps.conversationCompressor.compress(
-          deps.agenticSessionState.getSteps(request.sessionId),
+          deps.agenticSessionState.getSteps(request.sessionId).slice(-RECENT_STEPS_LIMIT),
         )
       : "";
   const structuralMap = deps.structuralMapBuilder.build(repoMap);

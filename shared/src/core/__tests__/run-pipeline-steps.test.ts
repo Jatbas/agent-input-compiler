@@ -88,10 +88,13 @@ function sessionStep(tokensCompiled: number): SessionStep {
 
 function createDeps(overrides: {
   budgetAllocatorAllocate?: ReturnType<typeof vi.fn>;
+  conversationCompressorCompress?: ReturnType<typeof vi.fn>;
   agenticSessionState?: AgenticSessionState | null;
 }): PipelineStepsDeps {
   const allocateSpy =
     overrides.budgetAllocatorAllocate ?? vi.fn().mockReturnValue(toTokenCount(10000));
+  const compressSpy =
+    overrides.conversationCompressorCompress ?? vi.fn().mockReturnValue("");
   return {
     intentClassifier: { classify: vi.fn().mockReturnValue(minimalTask()) },
     rulePackResolver: { resolve: vi.fn().mockReturnValue(minimalRulePack()) },
@@ -129,7 +132,7 @@ function createDeps(overrides: {
       discover: vi.fn().mockReturnValue(minimalContextResult()),
     },
     conversationCompressor: {
-      compress: vi.fn().mockReturnValue(""),
+      compress: compressSpy,
     },
     structuralMapBuilder: {
       build: vi.fn().mockReturnValue(""),
@@ -246,5 +249,49 @@ describe("runPipelineSteps", () => {
     expect(sessionContext).toBeDefined();
     expect(sessionContext?.conversationTokens).toBeDefined();
     expect(Number(sessionContext?.conversationTokens)).toBe(0);
+  });
+
+  it("session_compressor_receives_only_last_n_steps_when_exceeds_limit", async () => {
+    const fifteenSteps = Array.from({ length: 15 }, (_, i) => sessionStep(i * 10));
+    const compressSpy = vi.fn().mockReturnValue("");
+    const agenticSessionState: AgenticSessionState = {
+      getPreviouslyShownFiles: vi.fn().mockReturnValue([]),
+      getSteps: vi.fn().mockReturnValue(fifteenSteps),
+      recordStep: vi.fn(),
+    };
+    const deps = createDeps({
+      agenticSessionState,
+      conversationCompressorCompress: compressSpy,
+    });
+    const request: PipelineStepsRequest = {
+      intent: "fix bug",
+      projectRoot: PROJECT_ROOT,
+      sessionId: toSessionId("00000000-0000-7000-8000-000000000010"),
+    };
+    await runPipelineSteps(deps, request);
+    expect(compressSpy).toHaveBeenCalledTimes(1);
+    expect(compressSpy).toHaveBeenCalledWith(fifteenSteps.slice(-10));
+  });
+
+  it("session_compressor_receives_all_steps_when_under_limit", async () => {
+    const fiveSteps = Array.from({ length: 5 }, (_, i) => sessionStep(i * 10));
+    const compressSpy = vi.fn().mockReturnValue("");
+    const agenticSessionState: AgenticSessionState = {
+      getPreviouslyShownFiles: vi.fn().mockReturnValue([]),
+      getSteps: vi.fn().mockReturnValue(fiveSteps),
+      recordStep: vi.fn(),
+    };
+    const deps = createDeps({
+      agenticSessionState,
+      conversationCompressorCompress: compressSpy,
+    });
+    const request: PipelineStepsRequest = {
+      intent: "fix bug",
+      projectRoot: PROJECT_ROOT,
+      sessionId: toSessionId("00000000-0000-7000-8000-000000000011"),
+    };
+    await runPipelineSteps(deps, request);
+    expect(compressSpy).toHaveBeenCalledTimes(1);
+    expect(compressSpy).toHaveBeenCalledWith(fiveSteps);
   });
 });

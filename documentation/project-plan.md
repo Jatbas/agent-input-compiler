@@ -746,7 +746,7 @@ interface PreviousFile {
 
 ### Conversation Compressor
 
-Phase O shipped `ConversationCompressor` as a deterministic formatter (no model call). When `sessionId` is present and agentic session state exists, it runs before prompt assembly and injects a fixed block: header `Steps completed:` plus one numbered line per recorded step (intent or fallback label, files selected count, tokens compiled). See `shared/src/pipeline/conversation-compressor.ts` and `shared/src/core/run-pipeline-steps.ts`. `conversationTokens` still informs the adaptive budget allocator below; it does not gate whether this formatter runs.
+Phase O shipped `ConversationCompressor` as a deterministic formatter (no model call). When `sessionId` is present and agentic session state exists, it runs before prompt assembly and injects a fixed block: header `Steps completed:` plus one numbered line per recent step (bounded to the last 10 steps to prevent unbounded session headers in long sessions) (intent or fallback label, files selected count, tokens compiled). See `shared/src/pipeline/conversation-compressor.ts` and `shared/src/core/run-pipeline-steps.ts`. `conversationTokens` still informs the adaptive budget allocator below; it does not gate whether this formatter runs.
 
 ### Adaptive Budget Allocator
 
