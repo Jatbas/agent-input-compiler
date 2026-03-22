@@ -1,9 +1,22 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { ProjectId } from "@jatbas/aic-core/core/types/identifiers.js";
+import type { Brand } from "@jatbas/aic-core/core/types/brand.js";
+import type { ISOTimestamp, ProjectId } from "@jatbas/aic-core/core/types/identifiers.js";
 import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { FilePath } from "@jatbas/aic-core/core/types/paths.js";
+
+export const STATUS_TIME_RANGE_DAYS_MAX = 3660;
+
+export type StatusTimeRangeDays = Brand<number, "StatusTimeRangeDays">;
+
+export function toStatusTimeRangeDays(raw: number): StatusTimeRangeDays {
+  return raw as StatusTimeRangeDays;
+}
+
+export interface StatusSummaryFilter {
+  readonly notBeforeInclusive: ISOTimestamp;
+}
 
 export interface StatusRequest {
   readonly projectRoot: AbsolutePath;

@@ -11,6 +11,7 @@ import type {
   ConversationSummary,
   LastCompilationSnapshot,
   StatusAggregates,
+  StatusTimeRangeDays,
 } from "@jatbas/aic-core/core/types/status-types.js";
 import {
   SqliteStatusStore,
@@ -30,10 +31,18 @@ export function buildStatusPayload(input: {
   readonly updateInfo: UpdateInfo;
   readonly installScope: InstallScope;
   readonly installScopeWarnings: readonly string[];
+  readonly timeRangeDays: StatusTimeRangeDays | null;
 }): Record<string, unknown> {
   const statusConfigResult = input.configLoader.load(input.projectRoot, null);
   const statusStore = new SqliteStatusStore(input.projectId, input.db, input.clock);
-  const summary = statusStore.getGlobalSummary();
+  const summary =
+    input.timeRangeDays === null
+      ? statusStore.getGlobalSummary()
+      : statusStore.getGlobalSummary({
+          notBeforeInclusive: input.clock.addMinutes(
+            -Number(input.timeRangeDays) * 24 * 60,
+          ),
+        });
   const budgetMaxTokens = input.budgetConfig.getMaxTokens();
   const budgetUtilizationPct =
     summary.lastCompilation !== null
@@ -48,6 +57,7 @@ export function buildStatusPayload(input: {
     installScope: input.installScope,
     installScopeWarnings: input.installScopeWarnings,
     projectEnabled: statusConfigResult.config.enabled,
+    timeRangeDays: input.timeRangeDays,
   };
 }
 

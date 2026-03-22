@@ -62,11 +62,11 @@ The planner's natural bias is toward comprehensiveness — more types, more file
 
 The process has **two passes** plus a presentation step. Each pass produces a concrete deliverable. One user gate between passes keeps oversight without unnecessary round-trips.
 
-| Step       | Deliverable                                             | User gate?          |
-| ---------- | ------------------------------------------------------- | ------------------- |
-| §1 Present | User picks a component                                  | Yes — wait for pick |
-| Pass 1     | Exploration Report + all decisions resolved             | Yes — user reviews  |
-| Pass 2     | Task file written + mechanically verified (score ≥ 75%) | No — self-check     |
+| Step       | Deliverable                                                                     | User gate?          |
+| ---------- | ------------------------------------------------------------------------------- | ------------------- |
+| §1 Present | User picks a component                                                          | Yes — wait for pick |
+| Pass 1     | Exploration Report + all decisions resolved                                     | Yes — user reviews  |
+| Pass 2     | Task file written + 4-stage verified (self → document → codebase → adversarial) | No — self-check     |
 
 ---
 
@@ -239,8 +239,9 @@ Complete every item. Each produces evidence for the report. Items are organized 
    **When a sibling exists but has NOT yet extracted shared utilities (second-of-its-kind):** This is the critical extraction moment. Compare the new component's needs against the sibling's inline code. Any function that is structurally identical but differs only in callbacks, predicates, or config values MUST be extracted to a shared utility file as a prerequisite step in the task. Add "Create" or "Modify" rows to the Files table for the shared utility file, and a "Modify" row for the first sibling (to refactor it to use the new shared utility). Signs of extractable code: traversal logic parameterized only by node-type predicates, factory/builder functions parameterized only by config objects, collection logic parameterized only by filter functions, import-extraction logic parameterized only by node-type identifiers.
    **When first of its kind (no siblings):** Predict which parts of the component are generic vs specific. Generic code is logic whose structure would be identical in a future sibling with different config/predicates — e.g., a tree walker that takes a node-type predicate, a factory that takes a config object, a collector that takes a filter function. If 2+ functions are identified as generic, extract them to a shared utility file from day one so future siblings reuse them without refactoring. If all logic is genuinely specific (no parameterizable structure), document why in the exploration report.
    Record all findings in the SIBLING PATTERN field of the Exploration Report. Additionally, check if any existing class already solves part of the problem or if an existing interface could gain a method. Record reuse findings in the EXISTING SOLUTIONS field.
+   **Multi-layer sibling analysis (mandatory when Files table spans 2+ source layers):** When the task modifies files across multiple code layers (e.g. both `shared/src/storage/` and `mcp/src/`), run sibling analysis independently at each layer where files are created or modified. At the MCP handler layer, the "closest sibling" is another tool handler in `server.ts` that has the same structural pattern (Zod arg parsing, try/catch, McpError mapping). At the storage layer, the closest sibling is another method on the same class or a peer store. At the adapter layer, the closest sibling is another adapter implementing a similar interface. Each layer's sibling pattern must be documented in the SIBLING PATTERN field and reflected in the task's step instructions — error handling patterns, argument validation patterns, and response formatting patterns from sibling handlers are as important as shared utility reuse.
 7. **Cross-package duplication check** (conditional — if the task creates a new utility, helper, or factory function) — Grep the entire codebase for functionally equivalent code. Check `mcp/src/` and `shared/src/` — not just the target layer. If equivalent logic already exists in another package, the task must either (a) extract the shared logic to `shared/` and modify both consumers, or (b) justify the duplication in Architecture Notes. Record in the EXISTING SOLUTIONS field.
-8. **Wiring completeness check** (conditional — composition root tasks) — For every function called in the wiring steps, verify that its return value is either (a) consumed by a subsequent step, or (b) the function is explicitly called for side effects only (document which side effects). If a function returns a rich object and only side effects are needed, note this in Architecture Notes as a follow-up to wire the return value when consumers are ready.
+8. **Wiring completeness check** (conditional — composition root tasks, OR any task whose Files table includes a Modify row for the composition root, OR any task that changes the signature of a function called by the composition root) — For every function called in the wiring steps, verify that its return value is either (a) consumed by a subsequent step, or (b) the function is explicitly called for side effects only (document which side effects). If a function returns a rich object and only side effects are needed, note this in Architecture Notes as a follow-up to wire the return value when consumers are ready. When a non-composition-root task changes the signature of a function that the composition root calls (directly or via a closure), verify that the composition root's call site and any intermediary closures or wrappers are updated in the task's Files table and Steps.
    8b. **Stale marker detection** (mandatory — all task types) — for every file in the Files table (both Create and Modify), grep for `TODO`, `FIXME`, `HACK` comments. Also grep for phase references (`Phase [A-Z]`) and cross-reference against `documentation/tasks/progress/mvp-progress.md` (main workspace) to check if the phase is complete while the comment uses future tense. Record each finding as: `[marker] at [file:line] — ACTIONABLE (phase done, work can be done now) / INFORMATIONAL (future work, not yet relevant)`. If an actionable marker is in a file the task modifies, consider adding it to the task scope (present via scope expansion in A.4c). If outside the task's files, report as follow-up.
    8c. **Change-impact pattern scan** (mandatory — all task types) — identify the core change pattern of the task: what structural or behavioral change does it introduce? Then grep the ENTIRE codebase for all instances of the same pattern or assumption. This applies to every task type:
    - **Fix/patch tasks:** Define the broken pattern (e.g., `require("../../shared/")`). Grep for ALL files containing that pattern, not just the files the user mentioned or the first few matches. The fix must cover every instance.
@@ -256,7 +257,9 @@ Complete every item. Each produces evidence for the report. Items are organized 
 11. **Check branded types** — for every parameter, verify the correct branded type from `core/types/`. Check factory function usage.
 12. **Plan the step breakdown** — count methods, assign to steps (max 2 per step, max 1 file per step). Record the mapping.
 13. **Verify module resolution** — if config changes are proposed, read the relevant `tsconfig.json` and record `moduleResolution`. If uncertain → state as blocker.
-14. **Trace consumers of modified types** (conditional — if any file in the Files table is "Modify" and touches an interface or type) — Grep for all importers of the modified interface/type. Classify each as "will break" (uses removed/changed members) or "compatible" (unaffected). If breakage is expected, add "Modify" rows to the Files table for each broken consumer. Record findings in the CONSUMER ANALYSIS field of the Exploration Report.
+14. **Trace consumers of modified types and function signatures** (conditional — if any file in the Files table is "Modify" and touches an interface, type, OR exported function signature) — Two sub-checks:
+    **(14a) Type/interface consumer trace:** Grep for all importers of any modified interface or type. Classify each as "will break" (uses removed/changed members) or "compatible" (unaffected). If breakage is expected, add "Modify" rows to the Files table for each broken consumer.
+    **(14c) Caller chain trace (mandatory when any exported function gains, removes, or changes a parameter, or changes its input object shape):** For every function whose signature changes, Grep the entire codebase for all direct callers (search for the function name followed by `(`). For each caller: (i) determine whether the caller needs updating to pass the new parameter through, (ii) if the caller is itself an exported function or closure that must change its own signature or capture to accommodate the new parameter, trace THAT function's callers recursively. Continue until reaching a system boundary (MCP handler, CLI entry point, test setup). Every file in the chain must appear as a "Modify" row in the Files table. Pay special attention to **closures and wrappers** — a zero-arg closure that wraps a function gaining a new parameter cannot remain zero-arg; either it must accept the parameter, or the closure must be inlined/removed in the handler. Record the full caller chain with file paths in the CALLER CHAIN ANALYSIS field of the Exploration Report. This check catches the specific failure mode where a function deep in the call stack gains a parameter but intermediate wrappers (closures in the composition root, helper functions in payload builders) are not updated.
     14b. **Scope-adjacent string reference scan** (conditional — if any file in the Files table is "Modify") — for every function name, type name, interface name, or constant name being modified or renamed: grep the full codebase for string-literal occurrences beyond import statements. Check: dispatch tables using string keys (e.g. `Record<string, Handler>` entries), error messages referencing the name, log statements, test descriptions (`it("should ... [name] ...")`, `describe("[name]"...)`), comments in other files, and documentation. Flag any that would become stale after the modification. Classify each as: "in-scope fix" (add to task scope) or "follow-up" (report to user). Record in the SCOPE-ADJACENT REFERENCES field of the Exploration Report. This catches references that consumer analysis (item 14) misses because they are string-based, not import-based.
 
 15. **Existing test impact analysis** (mandatory — all task types) — for every file the task creates, modifies, or deletes, AND for every observable side effect of the proposed changes (file count changes in a directory, altered output format, changed config structure, new entries in a list/array, modified wiring):
@@ -409,10 +412,20 @@ EXISTING SOLUTIONS (conditional — only if checklist item 6 triggered):
 - Or: No existing solutions — this is genuinely new.
 - Or: Not applicable — first component of this recipe type in this layer.
 
-CONSUMER ANALYSIS (conditional — only if checklist item 14 triggered):
+CONSUMER ANALYSIS (conditional — only if checklist item 14a triggered):
 - [importer file path]: [will break — uses changed member X | compatible — unaffected]
   Source: [verified via Grep for import statements]
 - Or: Not applicable — no existing interfaces or types are modified.
+
+CALLER CHAIN ANALYSIS (conditional — only if checklist item 14c triggered):
+- Changed function: [functionName] in [file path] — signature change: [describe]
+  Callers (recursive chain):
+  1. [caller file]:[line] — [callerFunction] calls [changedFunction] — NEEDS UPDATE: [what changes]
+     1a. [upstream caller file]:[line] — [upstreamFunction] calls [callerFunction] — NEEDS UPDATE / NO CHANGE
+  2. [another caller file]:[line] — [anotherCaller] — NEEDS UPDATE / NO CHANGE
+  Boundary reached: [MCP handler | CLI entry | test setup] at [file]:[line]
+  Files table impact: [N files added as "Modify" rows]
+- Or: Not applicable — no exported function signatures change.
 
 CHANGE-PATTERN INSTANCES (mandatory — all task types, from item 8c):
 - Core change pattern: [exact pattern or structural change description]
@@ -535,6 +548,8 @@ Walk through each change:
 
 Cross-reference findings against the TEST IMPACT and CHANGE-PATTERN INSTANCES fields from the Exploration Report. If forward simulation reveals impacts not already captured by items 8c, 15, and 15b, update those fields. If the TEST IMPACT field says "No test impact" but forward simulation finds observers of the changed state, re-run item 15 with the newly discovered observers.
 
+**Function signature chain simulation (mandatory sub-step when any exported function's signature changes):** For every function whose input type, parameter list, or return type changes: list every caller found by item 14c's caller chain trace. For each caller, answer: "Does this caller pass the new parameter through from its own caller, or does it originate the value?" If the caller originates the value, it is a **boundary** — verify it has access to the needed data (e.g., an MCP handler has access to parsed args; a CLI function has access to argv). If the caller passes through, verify its own signature or closure capture changes to accommodate the new parameter. If a caller is a zero-arg closure or wrapper that can no longer be zero-arg, the task must either (a) parameterize the closure, (b) inline the closure into the handler, or (c) restructure the call. The task file must specify which option, not leave it to the executor.
+
 **Research delegation (optional depth boost):** At any point during A.4, if the planner encounters a question that its exploration checklist cannot answer — an approach evaluation with 2+ viable candidates, a sibling analysis for a first-of-kind component where shared code prediction is speculative, or a cross-package duplication check that requires understanding intent — it can delegate to the `aic-researcher` skill protocol. Read `.claude/skills/aic-researcher/SKILL.md` and run the appropriate protocol (codebase analysis or gap/improvement analysis). Use the research findings to make the decision. This is optional — only when the planner judges it needs deeper investigation than its checklist provides.
 
 ### A.4b Simplicity sweep
@@ -622,26 +637,27 @@ The Exploration Report is on disk at `documentation/tasks/.exploration-$EPOCH.md
 
 Mechanically map the Exploration Report to the template:
 
-| Report field                   | Template section                                                                 |
-| ------------------------------ | -------------------------------------------------------------------------------- |
-| EXISTING FILES                 | Files table (only "Create" for DOES NOT EXIST)                                   |
-| EXISTING SOLUTIONS             | Architecture Notes (reuse decisions)                                             |
-| SIBLING PATTERN                | Architecture Notes (reuse mandate) + Interface / Signature (structural pattern)  |
-| CONSUMER ANALYSIS              | Files table ("Modify" rows for broken consumers)                                 |
-| APPROACH EVALUATION            | Architecture Notes (chosen approach + rationale)                                 |
-| INTERFACES                     | Interface / Signature (first code block)                                         |
-| CONSTRUCTOR + METHOD BEHAVIORS | Interface / Signature (second code block — class)                                |
-| DEPENDENT TYPES                | Dependent Types (tiered: T0 verbatim, T1 table, T2 table)                        |
-| DEPENDENCIES + ESLINT CHANGES  | Config Changes                                                                   |
-| DESIGN DECISIONS               | Architecture Notes                                                               |
-| SYNC/ASYNC                     | Steps (implementation step must state this)                                      |
-| LIBRARY API CALLS              | Steps (exact function calls in implementation)                                   |
-| SCHEMA                         | Steps (SQL step references exact columns)                                        |
-| STEP PLAN                      | Steps (method-to-step assignment)                                                |
-| TEST STRATEGY                  | Steps (test step specifies exact mocking)                                        |
-| CHANGE-PATTERN INSTANCES       | Architecture Notes (blast radius summary) + Steps (ensure all instances covered) |
-| TEST IMPACT                    | Files table ("Modify" rows for affected tests) + Steps (assertion updates)       |
-| RESEARCH DOCUMENT              | Header `> **Research:**` line (path to `documentation/research/` file)           |
+| Report field                   | Template section                                                                  |
+| ------------------------------ | --------------------------------------------------------------------------------- |
+| EXISTING FILES                 | Files table (only "Create" for DOES NOT EXIST)                                    |
+| EXISTING SOLUTIONS             | Architecture Notes (reuse decisions)                                              |
+| SIBLING PATTERN                | Architecture Notes (reuse mandate) + Interface / Signature (structural pattern)   |
+| CONSUMER ANALYSIS              | Files table ("Modify" rows for broken consumers)                                  |
+| CALLER CHAIN ANALYSIS          | Files table ("Modify" rows for every file in chain) + Steps (closure restructure) |
+| APPROACH EVALUATION            | Architecture Notes (chosen approach + rationale)                                  |
+| INTERFACES                     | Interface / Signature (first code block)                                          |
+| CONSTRUCTOR + METHOD BEHAVIORS | Interface / Signature (second code block — class)                                 |
+| DEPENDENT TYPES                | Dependent Types (tiered: T0 verbatim, T1 table, T2 table)                         |
+| DEPENDENCIES + ESLINT CHANGES  | Config Changes                                                                    |
+| DESIGN DECISIONS               | Architecture Notes                                                                |
+| SYNC/ASYNC                     | Steps (implementation step must state this)                                       |
+| LIBRARY API CALLS              | Steps (exact function calls in implementation)                                    |
+| SCHEMA                         | Steps (SQL step references exact columns)                                         |
+| STEP PLAN                      | Steps (method-to-step assignment)                                                 |
+| TEST STRATEGY                  | Steps (test step specifies exact mocking)                                         |
+| CHANGE-PATTERN INSTANCES       | Architecture Notes (blast radius summary) + Steps (ensure all instances covered)  |
+| TEST IMPACT                    | Files table ("Modify" rows for affected tests) + Steps (assertion updates)        |
+| RESEARCH DOCUMENT              | Header `> **Research:**` line (path to `documentation/research/` file)            |
 
 **Research auto-reference rule:** If the planner produced or used a research document during this planning session (from §0b delegation or user-provided), the `> **Research:**` line MUST appear in the task header with the exact path. If no research document exists, omit the line entirely. Never write the line with an empty value.
 
@@ -659,6 +675,7 @@ Violating any of these causes the mechanical review (C.5) to reject and force a 
 - Never write a manual class when the closest sibling uses a factory function for the same purpose — the Interface/Signature must use the same factory
 - Never reimplement logic that the sibling delegates to shared utility functions — import and call the existing shared utilities
 - Never produce a research document (via §0b or inline) without referencing it in the task's `> **Research:**` header line
+- Never describe SQL query modifications with prose only when the bind-parameter order changes — show the complete `.all(...)` or `.run(...)` argument list with all bound parameters in positional order, so the executor can verify placeholder-to-argument alignment mechanically
 
 ### C.4 Save the task file
 
@@ -674,7 +691,7 @@ Use the task file template below.
 
 Immediately after saving the task file, run every check below yourself using Grep and Read. Tool output is objective evidence — "0 matches = pass". After the self-check, an independent review agent (C.5b) provides a second pair of eyes to catch confirmation bias.
 
-**Step 1: Re-read ground truth + run mechanical checks A–N in one parallel batch.** Fire all of these in a single round of tool calls:
+**Step 1: Re-read ground truth + run mechanical checks A–W in one parallel batch.** Fire all of these in a single round of tool calls:
 
 - Re-read from disk every interface file, type file, and library `.d.ts` the task references (do NOT reuse what you remember — re-read the actual files).
 - Run Grep checks on the saved task file (ambiguity scan, self-contained check, step count, config changes, etc.).
@@ -711,7 +728,7 @@ B. **SIGNATURE CROSS-CHECK:** For each method in the class code block, compare a
 
 C. **DEPENDENT TYPES:** If the component reads/writes/returns any domain type, are type definitions present inline (Tier 0 verbatim, Tier 1 signature+path, Tier 2 path-only)? Never "see task NNN", never empty.
 
-D. **STEP COUNT:** Grep step headers. Count methods listed per step — any step with 3+ methods or 2+ files = fail.
+D. **STEP COUNT:** Grep step headers. For each step, count the number of distinct file paths mentioned in the step's instructions AND its verify line — any step with 3+ methods or 2+ distinct file paths = fail. Documentation-only steps are not exempt: a step updating 9 documentation files is 9 files and must be split into steps of 1 file each. The "1 file per step" rule exists so executors never context-switch mid-step.
 
 E. **CONFIG CHANGES:** Grep for "None" in Config Changes section. Must be either "None" with no caveats or exact diffs. Grep for "if not present" = fail.
 
@@ -731,7 +748,7 @@ L. **WIRING ACCURACY (composition roots only):** Re-read each concrete class sou
 
 M. **SIMPLICITY CHECK:** Count "Create" rows in the Files table. For a single-concern component (one interface, one class), more than 3 "Create" rows (source + test + one config/migration) requires justification in Architecture Notes. If no justification = fail.
 
-N. **CONSUMER COMPLETENESS (conditional — only if task modifies existing interfaces/types):** For each modified interface/type, Grep the codebase for importers. Every importer that will break must appear as a "Modify" row in the Files table. Missing consumers = fail. If no interfaces/types are modified, this check passes automatically.
+N. **CONSUMER COMPLETENESS (conditional — only if task modifies existing interfaces, types, OR exported function signatures):** For each modified interface/type, Grep the codebase for importers. Every importer that will break must appear as a "Modify" row in the Files table. For each modified function signature, verify every caller found by item 14c appears as a "Modify" row. Missing consumers or callers = fail. If no interfaces, types, or function signatures are modified, this check passes automatically.
 
 O. **CONDITIONAL DEPENDENCY LOADING (conditional — composition roots and bootstrap functions):** For each `new` or `await X.create()` call in the wiring steps, check: is this dependency always needed, or only when certain project characteristics hold (specific file extensions, config flags)? If the dependency is conditional but the task eagerly creates it inside a bootstrap function = fail. The task must accept it as an injected parameter and create it conditionally in `main()`. If no conditional dependencies exist, this check passes automatically.
 
@@ -760,6 +777,14 @@ U. **ACCEPTANCE CRITERIA ACHIEVABILITY (mandatory — all task types):** For eac
 - If the criterion references a command (e.g., "pnpm lint passes"), verify no proposed changes introduce patterns that would fail that command.
 - If the criterion says "all existing tests pass," cross-reference against the TEST IMPACT field in the Exploration Report. If TEST IMPACT lists affected tests that are NOT updated in the Files table = fail.
 - If the criterion is structurally unreachable (e.g., asserts a count that the changes make impossible) = fail.
+
+W. **CALLER CHAIN COMPLETENESS (conditional — only if the Exploration Report has a CALLER CHAIN ANALYSIS field):** For each function whose signature changes, verify the full caller chain from the Exploration Report is covered in the task:
+
+- Every file in the chain must appear as a "Modify" row in the Files table.
+- Every intermediate wrapper or closure that must change must have explicit step instructions for how it changes (parameterized, inlined, or restructured — not left to the executor).
+- The chain must terminate at a system boundary (MCP handler, CLI entry point, or test). If the chain does not reach a boundary, the trace is incomplete = fail.
+- Cross-check: for each file in the caller chain, Grep the Steps section for that file path. If a chain file is in the Files table but has no step instructions = fail.
+  If no CALLER CHAIN ANALYSIS field exists (no function signatures changed), this check passes automatically.
 
 V. **EXISTING TEST COMPATIBILITY (mandatory — all task types):** Cross-reference the Exploration Report's TEST IMPACT and CHANGE-PATTERN INSTANCES fields against the task file:
 
@@ -792,6 +817,7 @@ V. **EXISTING TEST COMPATIBILITY (mandatory — all task types):** Cross-referen
 20. Database normalization — conditional (check T)
 21. Acceptance criteria achievability (check U)
 22. Existing test compatibility (check V)
+23. Caller chain completeness — conditional (check W)
 
 ### C.5b Independent verification agent
 
@@ -812,6 +838,7 @@ After the self-check (C.5 Steps 1–2) passes with all applicable checks at 100%
    - **Acceptance criteria vs test assertions:** For each acceptance criterion that references an existing test file (e.g., "X.test.ts passes"), read that test file. For each hardcoded count, expected string, or directory assertion in the test, check whether the task's proposed changes would invalidate it. If the task modifies a directory's contents but the test asserts on file count — verify the task updates that count. Report: `[test file] — [assertion at line N] — COMPATIBLE / INVALIDATED ([detail])`.
    - **Coverage completeness:** Read the Exploration Report's CHANGE-PATTERN INSTANCES field. For each instance marked "IN SCOPE," verify the corresponding file appears as a row in the task's Files table. Report: `[file] — IN SCOPE in report — IN FILES TABLE / MISSING`.
    - **Test impact completeness:** Read the Exploration Report's TEST IMPACT field. For each test file listed as having invalidated assertions, verify it appears as a "Modify" row in the task's Files table. Report: `[test file] — IN TEST IMPACT — IN FILES TABLE / MISSING`.
+   - **Caller chain completeness:** Read the Exploration Report's CALLER CHAIN ANALYSIS field (if present). For each file in the caller chain, verify it appears as a "Modify" row in the task's Files table and has step instructions. For each intermediate closure or wrapper, verify the task specifies how it changes (parameterized, inlined, or restructured). Report: `[file] — IN CALLER CHAIN — IN FILES TABLE / MISSING` and `[closure/wrapper] — RESTRUCTURE SPECIFIED / UNSPECIFIED`.
 
 4. **Output format:** Return a structured list of findings: each finding has type (api/sql/path/signature/coverage/test-impact), name, source file, and status (FOUND/NOT_FOUND or MATCH/MISMATCH or IN_FILES_TABLE/MISSING). End with a summary: "PASS — all N findings confirmed" or "FAIL — M of N findings have errors" with the specific errors listed.
 
@@ -821,15 +848,104 @@ After the self-check (C.5 Steps 1–2) passes with all applicable checks at 100%
 
 **Cost justification:** One subagent spawn per task (~30s, minimal tokens). Compared to the cost of an executor implementing code based on a wrong API call, discovering it fails, blocking, replanning, and re-executing — the review agent pays for itself on the first error it catches.
 
+### C.5c Independent Codebase Verification
+
+After C.5b passes, spawn a verification agent that works **from the codebase outward** — independently discovering what the task _should_ contain, rather than checking what it _claims_. C.5b verifies the task's internal claims against source files; C.5c discovers external facts the task may have missed entirely. This is the structural fix for the "same context window" blind spot: the verifier has zero knowledge of the exploration report and derives its own findings.
+
+**Spawn a `generalPurpose` subagent** with these instructions. Provide only the task file path, the project root path, and the project's architectural rules file (`.cursor/rules/AIC-architect.mdc`). Do NOT provide the exploration report.
+
+**Category 1 — Dependency probes (run for every "Modify" row in the Files table where an exported function signature or interface changes):**
+
+1. **Caller discovery:** For every function whose signature changes in the task's code blocks, grep the ENTIRE codebase (`shared/src/`, `mcp/src/`, `integrations/`) for callers (pattern: `functionName(` in all `.ts` files excluding `node_modules/` and `*.test.ts`). List every caller file path. Compare against the task's Files table. Report each caller file that is NOT in the Files table as `MISSING_CALLER: [file]:[line] calls [function]`.
+
+2. **Consumer discovery:** For every interface that gains, removes, or changes a method, grep for all files that import that interface (pattern: `from.*[interface-file-stem]` or the interface name itself). For each importer, read the relevant lines and determine if it uses the changed member. Report each broken consumer NOT in the Files table as `MISSING_CONSUMER: [file] imports [interface] and uses [changed member]`.
+
+3. **Parameter origin trace:** For every new parameter added to a function, trace backward: read each caller found in probe 1 and determine whether it passes the value through from its own caller or originates it. Continue recursively until reaching a system boundary (MCP handler, CLI entry, test). Report any intermediate function that needs a signature change but is NOT in the Files table as `MISSING_INTERMEDIARY: [file]:[function] must pass [param] through but is not in Files table`.
+
+4. **Closure and wrapper detection:** For every function in the caller chain from probe 3, check whether it is called via a closure or wrapper (pattern: `const xxxFn = () => targetFunction(` or `const xxxFn = (args) => targetFunction(args`). A zero-arg closure wrapping a function that now requires a parameter cannot remain zero-arg. Report as `CLOSURE_BREAK: [file]:[line] — zero-arg closure wrapping [function] which now requires [param]`.
+
+**Category 2 — Convention probes (run for every "Create" row in the Files table):**
+
+5. **File naming:** Verify the filename is kebab-case. Interfaces must be `*.interface.ts`, tests `*.test.ts`, migrations `NNN-description.ts`. Report violations as `NAMING: [file] — expected [pattern]`.
+
+6. **Layer placement:** Verify the file is in the correct directory for its declared layer. Core types in `core/types/`, interfaces in `core/interfaces/`, storage in `storage/`, adapters in `adapters/`. Report misplacements as `LAYER: [file] — should be in [correct dir]`.
+
+7. **Interface design (ISP):** For every new interface, count methods in the code block. More than 5 methods = ISP violation. Report as `ISP: [interface] has [N] methods, max is 5`.
+
+8. **Storage completeness:** For every new storage class (implements a `*Store` interface or has SQL), verify the task includes a migration step. For every new table, verify it is created via a migration file, not inline DDL. Report as `MIGRATION: [class] has no migration step` or `DDL: [step N] runs DDL outside migration`.
+
+9. **Composition root wiring:** For every new class that implements a core interface and needs instantiation, verify the task includes a step to wire it in the composition root (`mcp/src/server.ts`). Report as `WIRING: [class] implements [interface] but no composition root step`.
+
+10. **Layer boundary (hexagonal):** For every import statement in the task's TypeScript code blocks, verify it does not cross hexagonal boundaries: `core/` and `pipeline/` must NOT import from `adapters/`, `storage/`, `mcp/`, or external packages. Report as `BOUNDARY: [import] in [layer] violates hexagonal rule`.
+
+11. **Branded types:** For every constructor parameter in the task's class code block that represents a domain value (path, ID, timestamp, token count, score, duration), verify it uses a branded type from `core/types/`, not raw `string` or `number`. Report as `BRANDED: [param] in [class] uses raw [type], should use [branded type]`.
+
+12. **Test coverage for new code:** For every new public class or exported function, verify the task includes a corresponding test case in the Tests table and a test step. Report as `UNTESTED: [class/function] has no test case`.
+
+13. **Directory impact:** For every new file being added to an existing directory, grep test files (`**/*.test.ts`) for assertions that reference that directory — file count assertions (pattern: `=== [number]`, `.length`), directory listings, glob patterns. Report as `DIR_IMPACT: [test file]:[line] asserts on [directory] contents — may break when [new file] is added`.
+
+**Output format:**
+
+```
+DEPENDENCY FINDINGS:
+- [MISSING_CALLER | MISSING_CONSUMER | MISSING_INTERMEDIARY | CLOSURE_BREAK]: [detail]
+
+CONVENTION FINDINGS:
+- [NAMING | LAYER | ISP | MIGRATION | DDL | WIRING | BOUNDARY | BRANDED | UNTESTED | DIR_IMPACT]: [detail]
+
+SUMMARY: PASS (0 findings) | FAIL (N dependency + M convention findings)
+```
+
+**If the agent returns FAIL:**
+
+- For each dependency finding: read the cited file and determine if it genuinely needs updating. If yes, add it to the Files table and create a corresponding Step. If the finding is a false positive (e.g., the caller already handles the case via optional chaining), document why it's safe to exclude.
+- For each convention finding: fix the violation in the task file.
+- Re-run C.5 checks on changed sections. Re-run C.5c to confirm all findings are resolved.
+
+**If the agent returns PASS:** Proceed to C.5d (if triggered) or C.6.
+
+### C.5d Adversarial Re-planning (complexity-gated)
+
+This step triggers ONLY when the task exceeds a complexity threshold. Most tasks skip it entirely.
+
+**Trigger condition (any one is sufficient):**
+
+- The Files table spans 3+ distinct source directories at the second path level (e.g., `shared/src/storage/`, `shared/src/core/interfaces/`, `mcp/src/` = 3 distinct)
+- 3+ exported function or interface signatures change (count from the task's code blocks)
+- The composition root (`mcp/src/server.ts`) appears as a "Modify" row AND the task modifies functions in 2+ other directories
+
+If none of these conditions are met, skip C.5d and proceed to C.6.
+
+**When triggered:** Spawn a `generalPurpose` subagent with:
+
+- The component name and goal (from the task's `## Goal` section)
+- The project root path
+- Paths to: `documentation/project-plan.md`, `documentation/implementation-spec.md`, `.cursor/rules/AIC-architect.mdc`
+- The instruction: "You are an independent planner. Given this goal, determine which files in the codebase need creating or modifying. Read the relevant interfaces, source files, and types. Produce a Files table (Action + Path + Description) and for each Modify row, state what changes. Do NOT read any existing task files — derive everything independently."
+
+**Comparison:** Diff the adversarial agent's Files table against the planner's:
+
+| Shadow finding       | Planner's table | Action                                                                                                                                                     |
+| -------------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| File in both         | —               | Confirmed — no action                                                                                                                                      |
+| File in shadow only  | Missing         | Investigate: read the file, determine if it genuinely needs changing. If yes = planner missed it → add to task. If no = shadow over-scoped → ignore        |
+| File in planner only | —               | Verify: the planner may have found something the shadow missed (e.g., test impact, stale markers). If justified → keep. If unjustified → consider removing |
+
+For each genuine miss found by the adversarial agent, add the file to the Files table, create a corresponding Step, and re-run the affected C.5 checks.
+
+**If no discrepancies:** Proceed to C.6.
+
 ### C.6 Score and act
 
 **Always fix to maximum score.** For every failing check, attempt a fix — regardless of the current score. Do not accept a less-than-perfect score just because it is "close enough." The goal is 100%.
 
-1. **For each failing check:** Determine the root cause, apply a targeted fix to the task file, and re-run that specific check to confirm resolution.
-2. **After all fixes:** Re-run the full rubric (C.5 Step 2). If new failures were introduced by the fixes, repeat.
-3. **Iterate** until the score is 100% or a check is genuinely unfixable for this component type.
+**Verification pipeline order:** C.5 (self-check) → C.5b (document review) → C.5c (codebase verification) → C.5d (adversarial re-planning, if triggered). Each stage must pass before the next begins. Findings from later stages feed back into earlier checks: if C.5c adds files to the task, re-run relevant C.5 checks (D, N, W) on the updated task before proceeding.
+
+1. **For each failing check or finding:** Determine the root cause, apply a targeted fix to the task file, and re-run that specific check to confirm resolution.
+2. **After all fixes within a stage:** Re-run the full rubric for that stage. If new failures were introduced by the fixes, repeat.
+3. **Iterate** until each stage reports PASS, then advance to the next.
 4. **Genuinely unfixable:** A check is unfixable only when the component structurally cannot satisfy it (e.g. "Wiring accuracy" for a non-composition-root task, or "Library API accuracy" for a task that uses no external library). In this case, mark the check as N/A and exclude it from the denominator. Never mark a check N/A to avoid doing work — only when the check's precondition is structurally unmet.
-5. **Proceed to §6** only when score = M/M (100%) with all applicable checks passing.
+5. **Proceed to §6** only when: C.5 score = M/M (100%), C.5b = PASS, C.5c = PASS, and C.5d = PASS or skipped.
 
 ---
 
@@ -889,7 +1005,7 @@ Triggered when the user asks to review one or more task files.
 
 **Step 7b: Gather codebase state.** Run the Pass 1 exploration checklist once for the full batch. Use parallel Read calls. Cache the results.
 
-**Step 7c: Evaluate each task.** Run the mechanical checks (C.5) on each task file yourself. Use parallel Grep + Read calls. For multiple tasks, batch the Grep calls — up to 4 task files in parallel.
+**Step 7c: Evaluate each task.** Run the full 4-stage verification pipeline: C.5 mechanical checks (self), C.5b independent document review, C.5c independent codebase verification, and C.5d adversarial re-planning (if triggered by complexity thresholds). Use parallel Grep + Read calls. For multiple tasks, batch the Grep calls — up to 4 task files in parallel.
 
 **Step 7d: Present findings.** For each task: score, guardrail violations table, specific fixes. If drift was detected in 7a, highlight affected sections. For multiple tasks: summary table first.
 
@@ -901,8 +1017,9 @@ When rewriting:
 - Write corrected task in place (same path, same NNN)
 - Do not change scope unless a guardrail requires it
 - Fix every failing check regardless of original score.
-- Re-run the full rubric after fixes. Iterate until 100% (all applicable checks pass).
+- Re-run the full 4-stage pipeline after fixes. Iterate until all stages pass.
 - Mark checks N/A only when the check's precondition is structurally unmet (see C.6 rule 4).
+- If the review discovers a failure class not covered by the current probe library, note it as a candidate for feedback-driven probe accumulation (see Conventions).
 
 After rewriting, commit in the worktree, merge to main, and clean up (same as §6 steps 3–5, but skip the renaming — rewritten tasks keep their existing NNN):
 
@@ -1045,3 +1162,4 @@ If during execution you encounter something unexpected:
 - Never list "Create" for a file that already exists
 - For detailed recipe patterns, read `SKILL-recipes.md`
 - For all guardrails to apply during writing, read `SKILL-guardrails.md`
+- **Feedback-driven probe accumulation:** When a task review (§7), task execution, or post-hoc validation discovers a failure that the 4-stage verification pipeline (C.5 → C.5b → C.5c → C.5d) did not catch, extract the _failure class_ (e.g., "composition-root closure wrapping", "test file-count assertion", "sibling error-handling pattern mismatch") and add a targeted probe to C.5c's probe list. Each new probe specifies: trigger condition, grep pattern, and what to report. Over time, C.5c's probe library grows to cover every failure pattern observed in this codebase. When adding a probe, also check if an existing C.5 or C.5b check should have caught it — if so, strengthen that check's wording rather than duplicating coverage in C.5c.

@@ -92,7 +92,8 @@ The dispatch happens at process entry via an `isEntry` check. CLI mode is always
 This dual interface means you can query AIC diagnostic data from a terminal using the same binary that serves as the MCP server, with or without an MCP-connected editor:
 
 ```bash
-npx @jatbas/aic status     # published release
+npx @jatbas/aic status      # published release
+npx @jatbas/aic status 14d  # optional rolling window: N days (N integer 1..3660)
 pnpm aic status             # development (requires pnpm build; run from repo root)
 ```
 

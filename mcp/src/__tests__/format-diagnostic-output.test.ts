@@ -61,6 +61,21 @@ describe("formatStatusTable", () => {
     expect(out).toContain(message);
   });
 
+  it("format_status_table_shows_time_range_row", () => {
+    const clock = new SystemClock();
+    const out = formatStatusTable(
+      {
+        ...baseStatusPayload,
+        timeRangeDays: 14,
+        installationOk: true,
+        projectEnabled: true,
+      },
+      clock,
+    );
+    expect(hasPaddedLabelRow(out, "Time range")).toBe(true);
+    expect(out).toContain("Last 14 days");
+  });
+
   it("status_table_no_project_row", () => {
     const clock = new SystemClock();
     const outTrue = formatStatusTable(

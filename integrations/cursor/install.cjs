@@ -35,7 +35,7 @@ Then continue responding normally without compiled context.
 > **Dev:** When developing the AIC repository with \`AIC_DEV_MODE=1\`, use \`pnpm aic\` from the repo root if you run shell diagnostics in a terminal. The prompt commands below use MCP tools in Cursor.
 
 Prompt commands (call the MCP tool; do not use resource URIs or server identifiers):
-- "show aic status" → call \`aic_status\` (no arguments). Format: human-readable labels, numbers with commas, percentages 1 decimal, relative timestamps.
+- "show aic status" → call \`aic_status\` with no arguments for all-time aggregates, or with \`{ "timeRangeDays": N }\` for a rolling **N**-day window (**N** integer 1..3660). Format: human-readable labels, numbers with commas, percentages 1 decimal, relative timestamps; when a window is active include **Time range** as **Last 1 day** (**N** === 1) or **Last N days**.
 - "show aic last" → call \`aic_last\` (no arguments). Same formatting.
 - "show aic chat summary" → call \`aic_chat_summary\` with optional \`conversationId\` from the last \`aic_compile\` response. Same formatting.
 - "show aic projects" → call \`aic_projects\` (no arguments). Same formatting.

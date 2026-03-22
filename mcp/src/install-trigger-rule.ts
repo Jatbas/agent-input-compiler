@@ -47,7 +47,7 @@ Then continue responding normally without compiled context.
 > **Dev:** When developing this repository with \`AIC_DEV_MODE=1\`, use \`pnpm aic\` from the repo root instead of \`npx @jatbas/aic\` for the shell commands below.
 
 Prompt commands (run Bash with \`npx @jatbas/aic …\`, then relay stdout; human-readable labels, commas for large numbers, percentages 1 decimal, relative timestamps, em dash for nulls):
-- "show aic status" → \`npx @jatbas/aic status\` from the project directory.
+- "show aic status" → \`npx @jatbas/aic status\` from the project directory, or \`npx @jatbas/aic status <N>d\` for a rolling **N**-day window (**N** integer 1..3660); table shows **Time range** as **Last 1 day** or **Last N days** when a window is used.
 - "show aic last" → \`npx @jatbas/aic last\` from the project directory.
 - "show aic chat summary" → \`npx @jatbas/aic chat-summary --project <absolute workspace root>\`.
 - "show aic projects" → \`npx @jatbas/aic projects\`.

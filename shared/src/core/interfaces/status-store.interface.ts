@@ -4,10 +4,11 @@
 import type {
   ConversationSummary,
   StatusAggregates,
+  StatusSummaryFilter,
 } from "@jatbas/aic-core/core/types/status-types.js";
 import type { ConversationId } from "@jatbas/aic-core/core/types/identifiers.js";
 
 export interface StatusStore {
-  getSummary(): StatusAggregates;
+  getSummary(filter?: StatusSummaryFilter): StatusAggregates;
   getConversationSummary(conversationId: ConversationId): ConversationSummary | null;
 }

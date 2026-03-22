@@ -124,6 +124,45 @@ describe("cli-diagnostics", () => {
     fs.rmSync(pathB, { recursive: true, force: true });
   });
 
+  it("cli_status_nd_window_ok", async () => {
+    const homeTmp = fs.mkdtempSync(path.join(os.tmpdir(), "aic-cli-home-"));
+    const aicDir = path.join(homeTmp, ".aic");
+    fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
+    const dbPath = path.join(aicDir, "aic.sqlite");
+    const clock = new SystemClock();
+    const db = openDatabase(dbPath, clock);
+    const pid = toProjectId("018f0000-0000-7000-8000-00000000aa04");
+    const pathA = fs.mkdtempSync(path.join(os.tmpdir(), "aic-cli-path-a-"));
+    const normalised = new NodePathAdapter().normalise(toAbsolutePath(pathA));
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(pid, normalised, "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z");
+    closeDatabase(db);
+    process.env["HOME"] = homeTmp;
+    process.chdir(pathA);
+    const chunks: string[] = [];
+    vi.spyOn(process.stdout, "write").mockImplementation((msg) => {
+      chunks.push(String(msg));
+      return true;
+    });
+    const exitMock = vi
+      .spyOn(process, "exit")
+      .mockImplementation(() => undefined as never);
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue({ ok: false }) as typeof globalThis.fetch;
+    runCliDiagnosticsAndExit(["status", "90d", "--project", pathA]);
+    await vi.waitFor(() => {
+      expect(exitMock).toHaveBeenCalledWith(0);
+    });
+    const joined = chunks.join("");
+    expect(joined).toContain("Time range");
+    expect(joined).toContain("Last 90 days");
+    fs.rmSync(homeTmp, { recursive: true, force: true });
+    fs.rmSync(pathA, { recursive: true, force: true });
+  });
+
   it("cli_last_respects_project_flag_when_cwd_unknown", async () => {
     const homeTmp = fs.mkdtempSync(path.join(os.tmpdir(), "aic-cli-home-"));
     const aicDir = path.join(homeTmp, ".aic");

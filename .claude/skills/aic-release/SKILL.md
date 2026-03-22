@@ -92,7 +92,7 @@ If any quick-scan issues found, show them and ask: "N quick-scan issues found. F
 
 1. Read `CHANGELOG.md`. Extract the most recent released version entry (the first `## [x.y.z]` section below `## [Unreleased]`) and its bullet points.
 2. Read `documentation/tasks/progress/mvp-progress.md` (gitignored, main workspace only). Find all components with status `Pending` or `Not started` in the current active phase — these are near-term planned items. Convert them to user-facing language (no phase letters, no task IDs, no status table values, no internal jargon).
-3. Read all files in `documentation/future/` (gitignored). List the document titles and one-line summaries of their contents.
+3. Check if `documentation/future/` exists (Glob). If it does, read all files in it and list the document titles and one-line summaries of their contents. If it does not exist, skip this input and omit the "Future direction candidates" section from the user presentation and the final roadmap.
 4. Show the user:
    - "**What's in the latest release:** [summarized bullet points from CHANGELOG section]"
    - "**Proposed near-term (from mvp-progress):** [user-facing bullet list]"
@@ -117,7 +117,7 @@ If any quick-scan issues found, show them and ask: "N quick-scan issues found. F
 [user-approved items from future/ docs, user-facing language]
 ```
 
-7. Show the diff of `documentation/roadmap.md` and ask: "Write this roadmap? (yes / edit)". On `edit`, ask what to change and re-show. On `yes`, write the file.
+7. Show the diff of `documentation/roadmap.md` and ask: "Write this roadmap? (yes / edit / skip)". On `edit`, ask what to change and re-show. On `skip`, proceed to Phase 5 without writing a roadmap. On `yes`, write the file and commit it: `git add documentation/roadmap.md && git commit -m "docs: update roadmap for vX.Y.Z"` (where X.Y.Z is the expected next version from the changelog — or use "next release" if the version is not yet confirmed). This separate commit keeps the roadmap update distinct from the version bump in Phase 6.
 
 ### Phase 5 — Changelog finalization
 

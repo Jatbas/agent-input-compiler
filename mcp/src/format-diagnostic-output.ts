@@ -2,9 +2,10 @@
 // Copyright (c) 2025 AIC Contributors
 
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
-import type {
-  ConversationSummary,
-  ProjectListItem,
+import {
+  STATUS_TIME_RANGE_DAYS_MAX,
+  type ConversationSummary,
+  type ProjectListItem,
 } from "@jatbas/aic-core/core/types/status-types.js";
 import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
 
@@ -31,6 +32,13 @@ function relIso(clock: Clock, iso: string): string {
 
 function padRow(label: string, value: string, width: number): string {
   return `${label.padEnd(width, " ")}  ${value}`;
+}
+
+function statusTimeRangeValue(n: number): string {
+  if (n === 1) {
+    return "Last 1 day";
+  }
+  return `Last ${String(n)} days`;
 }
 
 function guardByTypeStr(v: unknown): string {
@@ -90,8 +98,17 @@ export function formatStatusTable(
     instOk === false && typeof notes === "string" && notes.length > 0
       ? [padRow("Notes", notes, w)]
       : ([] as readonly string[]);
+  const n = payload["timeRangeDays"];
+  const timeRangeRows: readonly string[] =
+    typeof n === "number" &&
+    Number.isInteger(n) &&
+    n >= 1 &&
+    n <= STATUS_TIME_RANGE_DAYS_MAX
+      ? [padRow("Time range", statusTimeRangeValue(n), w)]
+      : [];
   const rows: readonly string[] = [
     "Status = project-level AIC status.",
+    ...timeRangeRows,
     padRow(
       "Compilations (total)",
       formatInt(Number(payload["compilationsTotal"] ?? 0)),

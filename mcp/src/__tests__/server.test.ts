@@ -104,6 +104,29 @@ describe("MCP server", () => {
     expect(() => JSON.parse(projectsText || "[]")).not.toThrow();
   });
 
+  it("aic_status_accepts_timeRangeDays", async () => {
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
+    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+    await server.connect(transportServer);
+    const client = new Client({ name: "test", version: "1.0" });
+    await client.connect(transportClient);
+    const result = await client.callTool({
+      name: "aic_status",
+      arguments: { timeRangeDays: 90 },
+    });
+    const content = (result as { content?: { text?: string }[] }).content;
+    const text = Array.isArray(content) ? content.map((c) => c?.text ?? "").join("") : "";
+    const parsed = JSON.parse(text || "{}") as {
+      timeRangeDays?: number;
+      compilationsTotal?: unknown;
+    };
+    expect(parsed.timeRangeDays).toBe(90);
+    expect(typeof parsed.compilationsTotal).toBe("number");
+  });
+
   it("aic_status_disabled_shows_projectEnabled_false", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     fs.writeFileSync(path.join(tmpDir, "aic.config.json"), '{"enabled": false}', "utf8");

@@ -8,6 +8,11 @@ import { fileURLToPath } from "node:url";
 import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { ProjectId } from "@jatbas/aic-core/core/types/identifiers.js";
+import {
+  STATUS_TIME_RANGE_DAYS_MAX,
+  toStatusTimeRangeDays,
+  type StatusTimeRangeDays,
+} from "@jatbas/aic-core/core/types/status-types.js";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
 import type { BudgetConfig } from "@jatbas/aic-core/core/interfaces/budget-config.interface.js";
 import type { TaskClass } from "@jatbas/aic-core/core/types/enums.js";
@@ -83,6 +88,40 @@ const scanArgvForProjectRoot: typeof parseOptionalProjectRoot = parseOptionalPro
 const scanArgvForProjectRootSame: typeof parseOptionalProjectRoot =
   scanArgvForProjectRoot;
 
+function parseStatusTimeRangeDaysFromArgv(
+  argv: readonly string[],
+):
+  | { readonly ok: true; readonly days: StatusTimeRangeDays | null }
+  | { readonly ok: false } {
+  const tokens = argv.reduce<string[]>((acc, a, idx) => {
+    if (a === "--project") {
+      return acc;
+    }
+    const prev = idx > 0 ? argv[idx - 1] : undefined;
+    if (prev === "--project") {
+      return acc;
+    }
+    return [...acc, a];
+  }, []);
+  const matches = tokens.filter((t) => /^\d+d$/.test(t));
+  if (matches.length === 0) {
+    return { ok: true, days: null };
+  }
+  if (matches.length > 1) {
+    return { ok: false };
+  }
+  const first = matches[0];
+  const m = first === undefined ? null : /^(\d+)d$/.exec(first);
+  if (m === null || m[1] === undefined) {
+    return { ok: false };
+  }
+  const n = Number.parseInt(m[1], 10);
+  if (!Number.isInteger(n) || n < 1 || n > STATUS_TIME_RANGE_DAYS_MAX) {
+    return { ok: false };
+  }
+  return { ok: true, days: toStatusTimeRangeDays(n) };
+}
+
 async function runCliDiagnosticsAsync(argv: readonly string[]): Promise<number> {
   const sub = argv[0];
   const handlers: Record<string, () => Promise<number>> = {
@@ -94,7 +133,7 @@ async function runCliDiagnosticsAsync(argv: readonly string[]): Promise<number> 
   const run = sub !== undefined ? handlers[sub] : undefined;
   if (run === undefined) {
     process.stderr.write(
-      "Usage: aic {status|last|chat-summary} [--project <dir>] | projects | init | serve\n",
+      `Usage: aic {status [<N>d]|last|chat-summary} [--project <dir>] | projects | init | serve (N integer 1..${String(STATUS_TIME_RANGE_DAYS_MAX)} for rolling window)\n`,
     );
     return 1;
   }
@@ -176,6 +215,13 @@ async function withGlobalReadonlyDb(
 }
 
 async function runStatusCli(argv: readonly string[]): Promise<number> {
+  const parsedWindow = parseStatusTimeRangeDaysFromArgv(argv);
+  if (!parsedWindow.ok) {
+    process.stderr.write(
+      `status: use at most one <N>d suffix (N integer 1..${String(STATUS_TIME_RANGE_DAYS_MAX)}) or omit for all-time aggregates\n`,
+    );
+    return 1;
+  }
   return withGlobalReadonlyDb(async (db) => {
     const step = runWithProjectFromArgv(
       db,
@@ -205,6 +251,7 @@ async function runStatusCli(argv: readonly string[]): Promise<number> {
           updateInfo,
           installScope,
           installScopeWarnings,
+          timeRangeDays: parsedWindow.days,
         });
         process.stdout.write(formatStatusTable(payload, clock));
         return 0;

@@ -63,14 +63,14 @@ The npm package `@jatbas/aic` ships only `dist/` — the compiled MCP server (`s
 
 The server is the primary interface. It exposes these MCP tools:
 
-| Tool               | Purpose                                         |
-| ------------------ | ----------------------------------------------- |
-| `aic_compile`      | Compile context for the current AI message      |
-| `aic_inspect`      | Inspect a previous compilation                  |
-| `aic_status`       | Project-level status and compilation aggregates |
-| `aic_last`         | Most recent compilation details                 |
-| `aic_chat_summary` | Per-conversation compilation stats              |
-| `aic_projects`     | List all known AIC projects                     |
+| Tool               | Purpose                                                                         |
+| ------------------ | ------------------------------------------------------------------------------- |
+| `aic_compile`      | Compile context for the current AI message                                      |
+| `aic_inspect`      | Inspect pipeline trace (JSON metadata; no per-file bodies in the tool response) |
+| `aic_status`       | Project-level status and compilation aggregates                                 |
+| `aic_last`         | Most recent compilation details                                                 |
+| `aic_chat_summary` | Per-conversation compilation stats                                              |
+| `aic_projects`     | List all known AIC projects                                                     |
 
 The four prompt commands ("show aic status", "show aic last", "show aic chat summary", "show aic projects") invoke CLI subcommands via Bash. The AI runs `npx @jatbas/aic <subcommand>` (or `pnpm aic <subcommand>` when `AIC_DEV_MODE=1`) and relays stdout — no MCP tool call needed.
 
@@ -78,18 +78,19 @@ The four prompt commands ("show aic status", "show aic last", "show aic chat sum
 
 The same binary that runs as the MCP server also works as a standalone CLI tool. You can invoke the four diagnostic subcommands directly from a terminal — no editor required:
 
-| Subcommand                     | What it does                                                                 |
-| ------------------------------ | ---------------------------------------------------------------------------- |
-| `status`                       | Project-level AIC status (compilations, token stats, budget, guard findings) |
-| `last`                         | Most recent compilation details (intent, files, tokens, reduction)           |
-| `chat-summary --project <dir>` | Per-conversation compilation stats for the given project directory           |
-| `projects`                     | All known AIC projects (ID, path, last seen, compilation count)              |
+| Subcommand                     | What it does                                                                                                                                                                                                                    |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `status`                       | Project-level AIC status (compilations, token stats, budget, guard findings). Optional rolling window: `status <N>d` with integer **N** from 1 through 3660 (for example `status 14d`); omit the suffix for all-time aggregates |
+| `last`                         | Most recent compilation details (intent, files, tokens, reduction)                                                                                                                                                              |
+| `chat-summary --project <dir>` | Per-conversation compilation stats for the given project directory                                                                                                                                                              |
+| `projects`                     | All known AIC projects (ID, path, last seen, compilation count)                                                                                                                                                                 |
 
 **Usage:**
 
 ```bash
 # Published release — works from any directory
 npx @jatbas/aic status
+npx @jatbas/aic status 14d
 npx @jatbas/aic last
 npx @jatbas/aic chat-summary --project /path/to/project
 npx @jatbas/aic projects

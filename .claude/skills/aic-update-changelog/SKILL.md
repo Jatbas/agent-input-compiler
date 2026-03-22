@@ -126,7 +126,7 @@ When the user says "show releases" (or similar):
 
 2. **Collect GitHub Releases:** Run `gh release list --limit 50` to get releases and their status (Latest, Pre-release, Draft).
 
-3. **Collect npm versions:** Run `npm view @jatbas/aic versions --json` to get all published versions. Then for each version, check deprecation status for both packages: `npm view @jatbas/aic@x.y.z deprecated` and `npm view @jatbas/aic-core@x.y.z deprecated` (returns the deprecation message, or empty if not deprecated). If the two packages have different deprecation states for the same version, flag that as an inconsistency.
+3. **Collect npm versions and deprecation status:** Run `npm view @jatbas/aic --json` and `npm view @jatbas/aic-core --json` (two calls total — each returns the full packument including all versions and their deprecation messages). Parse the `versions` object from each response to get version lists, and check each version's `deprecated` field for deprecation messages. If the two packages have different deprecation states for the same version, flag that as an inconsistency. Do **not** make per-version npm calls — the two packument fetches contain all the information needed.
 
 4. **Collect changelog status:** Read `CHANGELOG.md` and check which versions are marked as `(Deprecated)`.
 

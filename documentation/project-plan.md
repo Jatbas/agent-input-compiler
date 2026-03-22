@@ -82,19 +82,19 @@ AIC is a **local-first context compilation layer** that runs as an **MCP server*
 
 These are explicitly out of scope for the MVP. Documenting them here prevents scope creep and makes "no" easier to say.
 
-| Non-Goal                          | Rationale                                                                                                                                                                                                                                               |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Replacing your AI editor**      | AIC enhances the context going in; it never replaces Cursor, Claude Code, or any editor                                                                                                                                                                 |
-| **Calling models directly**       | AIC compiles context; the editor's configured model makes the actual call                                                                                                                                                                               |
-| **Cross-project shared database** | A single global DB at `~/.aic/aic.sqlite` is used; per-project isolation is preserved via `project_id` FK (ADR-005). No cross-project data leakage.                                                                                                     |
-| **Multi-model orchestration**     | Single model per session; routing/fallback is Phase 2+                                                                                                                                                                                                  |
-| **Cloud or SaaS deployment**      | Local-first by design; no server, no account, no internet required for AIC itself                                                                                                                                                                       |
-| **GUI or web dashboard**          | MCP integration is sufficient for MVP; dashboard is Phase 3 enterprise                                                                                                                                                                                  |
-| **Real-time file watching**       | Compilation is per-request; persistent file watching is Phase 1+                                                                                                                                                                                        |
-| **Windows support**               | Phase 0 targets macOS and Linux; Windows support tracked for Phase 1                                                                                                                                                                                    |
-| **Vector / semantic search**      | HeuristicSelector ships in MVP; VectorSelector is Phase 2 (ADR-004)                                                                                                                                                                                     |
-| **Policy engine / RBAC**          | Enterprise governance is Phase 2–3; core is intentionally identity-agnostic                                                                                                                                                                             |
-| **Agentic session management**    | Single-shot compilation in MVP; full session layer (tracker, deduplication, adaptive budget, `aic_compile_spec`) is Phase 1+; deterministic step-list session header (`ConversationCompressor`) ships in Phase O ([§2.7](#27-agentic-workflow-support)) |
+| Non-Goal                          | Rationale                                                                                                                                                                                                                                                                                                          |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Replacing your AI editor**      | AIC enhances the context going in; it never replaces Cursor, Claude Code, or any editor                                                                                                                                                                                                                            |
+| **Calling models directly**       | AIC compiles context; the editor's configured model makes the actual call                                                                                                                                                                                                                                          |
+| **Cross-project shared database** | A single global DB at `~/.aic/aic.sqlite` is used; per-project isolation is preserved via `project_id` FK (ADR-005). No cross-project data leakage.                                                                                                                                                                |
+| **Multi-model orchestration**     | Single model per session; routing/fallback is Phase 2+                                                                                                                                                                                                                                                             |
+| **Cloud or SaaS deployment**      | Local-first by design; no server, no account, no internet required for AIC itself                                                                                                                                                                                                                                  |
+| **GUI or web dashboard**          | MCP integration is sufficient for MVP; dashboard is Phase 3 enterprise                                                                                                                                                                                                                                             |
+| **Real-time file watching**       | Compilation is per-request; persistent file watching is Phase 1+                                                                                                                                                                                                                                                   |
+| **Windows support**               | Phase 0 targets macOS and Linux; Windows support tracked for Phase 1                                                                                                                                                                                                                                               |
+| **Vector / semantic search**      | HeuristicSelector ships in MVP; VectorSelector is Phase 2 (ADR-004)                                                                                                                                                                                                                                                |
+| **Policy engine / RBAC**          | Enterprise governance is Phase 2–3; core is intentionally identity-agnostic                                                                                                                                                                                                                                        |
+| **Agentic session management**    | Single-shot compilation in MVP; full session layer (tracker, deduplication, adaptive budget, `aic_compile_spec`) is Phase 1+; deterministic session header (`ConversationCompressor`) ships in Phase O — only the **last 10** recorded steps appear in the assembled prompt ([§2.7](#27-agentic-workflow-support)) |
 
 ---
 
@@ -124,24 +124,24 @@ SOLID and design patterns are **non-negotiable** in AIC. They are the primary me
 
 Each class has exactly one reason to change. Every pipeline step is a single class with a single public method.
 
-| Class                                          | Single responsibility                                                                                                               |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `RepoMapBuilder`                               | Scan project root and build file-tree snapshot → `RepoMap` (runs before Step 1; result cached in SQLite)                            |
-| `IntentClassifier`                             | Classify intent → `TaskClassification`                                                                                              |
-| `RulePackResolver`                             | Load and merge rule packs → `RulePack`                                                                                              |
-| `BudgetAllocator`                              | Resolve token budget → `number`                                                                                                     |
-| `HeuristicSelector`                            | Score and select files → `ContextResult`                                                                                            |
-| `ContextGuard`                                 | Scan selected files for secrets and exclusions → `GuardResult`                                                                      |
-| `ContentTransformerPipeline`                   | Transform file content for token efficiency → `TransformResult`                                                                     |
-| `SummarisationLadder`                          | Compress context to fit budget → annotated context                                                                                  |
-| `ConstraintInjector`                           | Deduplicate and format constraints → `string[]`                                                                                     |
-| `PromptAssembler`                              | Combine parts into final prompt → `string`                                                                                          |
-| `Executor`                                     | Send compiled prompt to model → response                                                                                            |
-| `TelemetryLogger`                              | Write telemetry event to SQLite → void                                                                                              |
-| `SessionTracker` _(Phase 1+)_                  | Track multi-step session state → `SessionState` (see [§2.7](#27-agentic-workflow-support))                                          |
-| `ConversationCompressor` _(Phase O — shipped)_ | Formats prior session steps as deterministic numbered list → `string` (see [§2.7](#27-agentic-workflow-support))                    |
-| `AdaptiveBudgetAllocator` _(Phase 1+)_         | Adjust token budget for conversation length and project utilization patterns → `number` (see [§2.7](#27-agentic-workflow-support))  |
-| `SpecificationCompiler` _(Phase 1+)_           | Compile structured specification context within a token budget → `SpecCompilationResult` (see [§2.7](#27-agentic-workflow-support)) |
+| Class                                          | Single responsibility                                                                                                                           |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `RepoMapBuilder`                               | Scan project root and build file-tree snapshot → `RepoMap` (runs before Step 1; result cached in SQLite)                                        |
+| `IntentClassifier`                             | Classify intent → `TaskClassification`                                                                                                          |
+| `RulePackResolver`                             | Load and merge rule packs → `RulePack`                                                                                                          |
+| `BudgetAllocator`                              | Resolve token budget → `number`                                                                                                                 |
+| `HeuristicSelector`                            | Score and select files → `ContextResult`                                                                                                        |
+| `ContextGuard`                                 | Scan selected files for secrets and exclusions → `GuardResult`                                                                                  |
+| `ContentTransformerPipeline`                   | Transform file content for token efficiency → `TransformResult`                                                                                 |
+| `SummarisationLadder`                          | Compress context to fit budget → annotated context                                                                                              |
+| `ConstraintInjector`                           | Deduplicate and format constraints → `string[]`                                                                                                 |
+| `PromptAssembler`                              | Combine parts into final prompt → `string`                                                                                                      |
+| `Executor`                                     | Send compiled prompt to model → response                                                                                                        |
+| `TelemetryLogger`                              | Write telemetry event to SQLite → void                                                                                                          |
+| `SessionTracker` _(Phase 1+)_                  | Track multi-step session state → `SessionState` (see [§2.7](#27-agentic-workflow-support))                                                      |
+| `ConversationCompressor` _(Phase O — shipped)_ | Formats **recent** session steps (last 10 in the prompt) as a deterministic numbered list → `string` (see [§2.7](#27-agentic-workflow-support)) |
+| `AdaptiveBudgetAllocator` _(Phase 1+)_         | Adjust token budget for conversation length and project utilization patterns → `number` (see [§2.7](#27-agentic-workflow-support))              |
+| `SpecificationCompiler` _(Phase 1+)_           | Compile structured specification context within a token budget → `SpecCompilationResult` (see [§2.7](#27-agentic-workflow-support))             |
 
 No pipeline class touches storage, no storage class touches prompt logic, no MCP handler contains business logic.
 
@@ -352,15 +352,15 @@ Six MCP tools are registered in `mcp/src/server.ts` today. Diagnostics (`aic_sta
 
 **Tools:**
 
-| Tool                            | Arguments (MCP wire)                                                                                                                                                                                                                                                                                                                     | Returns                                               | Use                                         |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------- |
-| `aic_compile`                   | Zod validates `intent`, `projectRoot`, `modelId`, `editorId`, `configPath`, `triggerSource`, `conversationId` (see `mcp/src/schemas/compilation-request.ts`); internal `CompilationRequest` also carries agentic session fields when hooks populate them — exposing those on the wire is Phase AM ([§2.7](#27-agentic-workflow-support)) | `{ compiledPrompt: string, meta: CompilationMeta }`   | Primary — trigger rule or integration hooks |
-| `aic_inspect`                   | `intent`, `projectRoot`, optional `configPath`                                                                                                                                                                                                                                                                                           | `{ trace: PipelineTrace }`                            | Debug — pipeline breakdown                  |
-| `aic_projects`                  | _(none)_                                                                                                                                                                                                                                                                                                                                 | Project list JSON                                     | Diagnostics — known projects                |
-| `aic_status`                    | _(none)_                                                                                                                                                                                                                                                                                                                                 | Status JSON                                           | Diagnostics — project-level aggregates      |
-| `aic_last`                      | _(none)_                                                                                                                                                                                                                                                                                                                                 | Last compilation JSON                                 | Diagnostics — most recent run               |
-| `aic_chat_summary`              | optional `conversationId`                                                                                                                                                                                                                                                                                                                | Per-conversation summary JSON                         | Prompt command — "show aic chat summary"    |
-| `aic_compile_spec` _(Phase 1+)_ | `{ spec: SpecificationInput, budget?: TokenCount }` (see [§2.7](#27-agentic-workflow-support))                                                                                                                                                                                                                                           | `{ compiledSpec: string, meta: SpecCompilationMeta }` | Agentic — structured spec within a budget   |
+| Tool                            | Arguments (MCP wire)                                                                                                                                                                                                                                                                                                                                                                      | Returns                                                                                                  | Use                                         |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `aic_compile`                   | Zod validates `intent`, `projectRoot`, `modelId`, `editorId`, `configPath`, plus optional wire fields `triggerSource`, `conversationId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens` (see `mcp/src/schemas/compilation-request.ts`). `sessionId` is applied server-side from MCP session state when applicable ([§2.7](#27-agentic-workflow-support)) | `{ compiledPrompt: string, meta: CompilationMeta }`                                                      | Primary — trigger rule or integration hooks |
+| `aic_inspect`                   | `intent`, `projectRoot`, optional `configPath`                                                                                                                                                                                                                                                                                                                                            | Sanitised `{ trace: PipelineTrace }` (no `resolvedContent` on `selectedFiles`; see `inspect-handler.ts`) | Debug — pipeline breakdown                  |
+| `aic_projects`                  | _(none)_                                                                                                                                                                                                                                                                                                                                                                                  | Project list JSON                                                                                        | Diagnostics — known projects                |
+| `aic_status`                    | _(none)_                                                                                                                                                                                                                                                                                                                                                                                  | Status JSON                                                                                              | Diagnostics — project-level aggregates      |
+| `aic_last`                      | _(none)_                                                                                                                                                                                                                                                                                                                                                                                  | Last compilation JSON                                                                                    | Diagnostics — most recent run               |
+| `aic_chat_summary`              | optional `conversationId`                                                                                                                                                                                                                                                                                                                                                                 | Per-conversation summary JSON                                                                            | Prompt command — "show aic chat summary"    |
+| `aic_compile_spec` _(Phase 1+)_ | `{ spec: SpecificationInput, budget?: TokenCount }` (see [§2.7](#27-agentic-workflow-support))                                                                                                                                                                                                                                                                                            | `{ compiledSpec: string, meta: SpecCompilationMeta }`                                                    | Agentic — structured spec within a budget   |
 
 **Planned MCP resource:**
 
@@ -456,7 +456,7 @@ interface GuardResult {
   filesRedacted: RelativePath[];
 }
 
-/** Structured trace returned by the aic_inspect MCP tool. One field per pipeline step. */
+/** Aggregated trace returned by the aic_inspect MCP tool (one object covering classification through assembly). The handler strips `resolvedContent` from each `selectedFiles` entry before JSON serialization. */
 interface PipelineTrace {
   intent: string;
   taskClass: TaskClassification;
@@ -473,6 +473,7 @@ interface PipelineTrace {
     afterGuard: TokenCount;
     afterTransforms: TokenCount;
     afterLadder: TokenCount;
+    afterPrune: TokenCount;
     promptTotal: TokenCount;
     reductionPct: Percentage;
   };
@@ -643,7 +644,7 @@ Step 4: Agent fixes 3 failing tests   → needs failing test files + error outpu
 Step 5: Agent verifies fix            → needs test output again
 ```
 
-Each step needs _different_ context, but `aic_compile("refactor auth to use JWT")` returns the same compilation every time (cache hit). The agent's evolving needs — tool outputs, discovered errors, files it has already seen — are invisible to AIC.
+Each step needs _different_ context, but `aic_compile("refactor auth to use JWT")` returns the same compilation every time (cache hit). The agent's evolving needs — tool outputs, discovered errors, files it has already seen — do not reach **file selection** unless session state and forwarded fields are in play; even then, the selector does not consume `toolOutputs` today ([§2.7](#27-agentic-workflow-support)).
 
 ### Architectural Approach: Session Layer
 
@@ -697,7 +698,7 @@ interface ToolOutput {
 }
 ```
 
-The `aic_compile` MCP tool Zod schema (`mcp/src/schemas/compilation-request.ts`) validates the same optional agentic fields as the internal `CompilationRequest` shape on the wire: `editorId`, `triggerSource`, `conversationId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, and `conversationTokens`. The compile handler maps validated MCP arguments into `CompilationRequest`. Editors that omit these fields keep single-shot behaviour. When `conversationId` is present, it keys per-conversation session state (`session_state`), enabling deduplication, adaptive budget from prior steps, and the deterministic session context header. `toolOutputs` is recorded on each session step after a compile but is not yet passed into the pipeline object that drives file selection—failure-aware boosting from tool output content remains to be wired. Update this section again when that pipeline integration ships.
+The `aic_compile` MCP tool Zod schema (`mcp/src/schemas/compilation-request.ts`) validates the same optional agentic fields as the internal `CompilationRequest` shape on the wire: `editorId`, `triggerSource`, `conversationId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, and `conversationTokens`. The compile handler maps validated MCP arguments into `CompilationRequest`. Editors that omit these fields keep single-shot behaviour. When `conversationId` is present, it keys per-conversation session state (`session_state`), enabling deduplication, adaptive budget from prior steps, and the deterministic session context header. Optional `toolOutputs` is forwarded on `PipelineStepsRequest` for each compile but `runPipelineSteps` does not read it for context selection (Steps 1–4): it does not change file scoring or boosting today. It is stored on the session step when the compile finishes and is summarised into the session header on **subsequent** compiles via `ConversationCompressor` (the header is built before the current step is recorded, so the current request's `toolOutputs` appear in the summary starting with the next compile in that session). `toolOutputs` is not part of the compilation cache key. Failure-aware boosting of files from tool-output content inside the selector remains future work.
 
 ### Session Tracker
 
@@ -705,7 +706,7 @@ The `aic_compile` MCP tool Zod schema (`mcp/src/schemas/compilation-request.ts`)
 
 - **Deduplication**: If `auth/service.ts` was shown at L0 in step 1, step 3 can reference it as "previously shown" rather than re-including 1,240 tokens of the same content — unless the file was modified between steps.
 - **Progressive discovery**: In early steps, the selector favours broad architecture files. In later steps, it narrows to the specific file being edited and its direct dependencies.
-- **Failure-aware selection (intended; requires pipeline consumption of `toolOutputs`)**: If `toolOutputs` contains test failures referencing `auth.test.ts`, the selector should boost that file and its imports regardless of the original intent scoring once that signal is passed into selection steps.
+- **Failure-aware selection (intended; not implemented)**: If `toolOutputs` contains test failures referencing `auth.test.ts`, the selector should boost that file and its imports regardless of the original intent scoring once selection steps read that signal (distinct from session-header summarisation of stored tool outputs).
 - **Session expiry**: Sessions expire after 30 minutes of inactivity (configurable). Expired sessions are cleaned up on the next compilation request. This prevents stale session state from accumulating.
 
 `SessionTracker` implements a new interface:
@@ -746,7 +747,9 @@ interface PreviousFile {
 
 ### Conversation Compressor
 
-Phase O shipped `ConversationCompressor` as a deterministic formatter (no model call). When `sessionId` is present and agentic session state exists, it runs before prompt assembly and injects a fixed block: header `Steps completed:` plus one numbered line per recent step (bounded to the last 10 steps to prevent unbounded session headers in long sessions) (intent or fallback label, files selected count, tokens compiled). See `shared/src/pipeline/conversation-compressor.ts` and `shared/src/core/run-pipeline-steps.ts`. `conversationTokens` still informs the adaptive budget allocator below; it does not gate whether this formatter runs.
+Phase O shipped `ConversationCompressor` as a deterministic formatter (no model call). When `sessionId` is present and agentic session state exists, it runs before prompt assembly and injects a fixed block: header `Steps completed:` plus one numbered line per recent step (bounded to the last 10 steps to prevent unbounded session headers in long sessions), each line giving intent or fallback label, files selected count, and tokens compiled. See `shared/src/pipeline/conversation-compressor.ts` and `shared/src/core/run-pipeline-steps.ts`. `conversationTokens` still informs the adaptive budget allocator below; it does not gate whether this formatter runs.
+
+For steps whose stored `toolOutputs` array is non-empty, the compressor appends indented lines after that step's main line: one aggregate per output `type`, summing `relatedFiles` lengths (raw `content` is never echoed). Budget allocation still uses the full step history from `getSteps` without the same slice; only the compressor input is capped at the last 10 steps.
 
 ### Adaptive Budget Allocator
 
@@ -1518,14 +1521,14 @@ There is no separate CLI package. Primary use is MCP tools plus prompt commands 
 
 ### MCP Tools
 
-| Tool               | Description                                                                          |
-| ------------------ | ------------------------------------------------------------------------------------ |
-| `aic_compile`      | Compiles intent into context; returns compiled prompt to the model                   |
-| `aic_inspect`      | Runs the pipeline and returns the full decision trail (JSON) without model execution |
-| `aic_projects`     | Lists known projects (id, path, activity)                                            |
-| `aic_status`       | Project-level summary: compilations, token savings, budget utilization, guard        |
-| `aic_last`         | Most recent compilation: meta, prompt summary, compilation count                     |
-| `aic_chat_summary` | Per-conversation compilation stats                                                   |
+| Tool               | Description                                                                                                                                                                        |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `aic_compile`      | Compiles intent into context; returns compiled prompt to the model                                                                                                                 |
+| `aic_inspect`      | Runs the pipeline and returns a sanitised decision trace (JSON) without model execution — metadata and token breakdown; per-file `resolvedContent` is stripped in the MCP response |
+| `aic_projects`     | Lists known projects (id, path, activity)                                                                                                                                          |
+| `aic_status`       | Project-level summary: compilations, token savings, budget utilization, guard                                                                                                      |
+| `aic_last`         | Most recent compilation: meta, prompt summary, compilation count                                                                                                                   |
+| `aic_chat_summary` | Per-conversation compilation stats                                                                                                                                                 |
 
 Diagnostics (`aic_status`, `aic_last`, `aic_projects`, `aic_chat_summary`) are MCP **tools** that return JSON text — not MCP resource subscriptions. A planned `aic://rules-analysis` resource is described in [§2.2](#22-mcp-server--primary-interface).
 
@@ -2035,9 +2038,9 @@ interface InspectRequest {
 }
 ```
 
-`PipelineTrace` is defined in [§2.2 Core MCP Types](#22-mcp-server--primary-interface) and contains one field per pipeline step: `taskClass`, `rulePacks`, `budget`, `selectedFiles`, `guard`, `transforms`, `summarisationTiers`, `constraints`, and `tokenSummary`.
+`PipelineTrace` is defined in [§2.2 Core MCP Types](#22-mcp-server--primary-interface): a single aggregated object with sections for classification, files, guard, transforms, tiers, constraints, and `tokenSummary` (multi-stage token roll-up). The in-memory trace built inside `shared/` may attach `resolvedContent` to `selectedFiles` for assembly; the `aic_inspect` handler maps `selectedFiles` to omit that field before `JSON.stringify` so the tool response cannot flood the caller with full file text.
 
-**Composition:** `InspectRunner` receives all pipeline steps and infrastructure via constructor injection, just like the compile handler. It is instantiated in the composition root (`mcp/handlers/inspect-handler.ts`).
+**Composition:** `InspectRunner` receives pipeline dependencies via constructor injection, like the compile path. It is constructed in the composition root (`mcp/src/server.ts`); `inspect-handler.ts` only invokes `inspect` on the shared instance.
 
 **Side effects:** `InspectRunner` must **not** write to `cache_metadata`, must **not** call the Executor (Step 9), and must **not** emit `compilation:complete` events to the `PipelineEventBus`. It **may** read and update `repomap_cache` (caching is orthogonal to inspection).
 
@@ -2316,7 +2319,7 @@ The four values in parentheses are **raw signal values** (`[0.0, 1.0]` each) bef
 
 ### `aic_inspect` Output
 
-`aic_inspect` provides the same information as `--verbose` but without executing the model call. It's designed for debugging context selection. The `aic_inspect` MCP tool invokes `InspectRunner` from the `shared/` package, which runs Steps 1–8 without writing to the **compilation cache** (`cache_metadata`) or calling the model. The `repomap_cache` is still read and updated normally for performance.
+`aic_inspect` mirrors the same pipeline breakdown as `--verbose` (classification, files, guard, tiers, token summary, constraints) but without executing the model call. The MCP JSON trace is not byte-identical to every in-memory field: each `selectedFiles` entry omits `resolvedContent` so the tool response stays bounded. It's designed for debugging context selection. The `aic_inspect` MCP tool invokes `InspectRunner` from the `shared/` package, which runs Steps 1–8 without writing to the **compilation cache** (`cache_metadata`) or calling the model. The `repomap_cache` is still read and updated normally for performance.
 
 ```
 aic_inspect "refactor auth module"
@@ -2732,7 +2735,7 @@ All dependency versions are **pinned to exact versions** in `package.json` (no `
 ### E2E Tests
 
 - `aic_compile` → verify MCP tool returns output with correct format and token count
-- `aic_inspect` → verify pipeline trace JSON structure and content
+- `aic_inspect` → verify pipeline trace JSON structure; assert `selectedFiles` entries have no `resolvedContent` and expected metadata fields are present
 
 ---
 

@@ -646,4 +646,52 @@ describe("SqliteStatusStore", () => {
     expect(summaryAfter.compilationsTotal).toBe(1);
     expect(summaryAfter.totalTokensRaw).toBe(1000);
   });
+
+  it("sqlite_status_store_window_filters_old_compilations", () => {
+    setup();
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-0000000000b1", {
+      created_at: "2025-06-14T12:00:00.000Z",
+    });
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-0000000000b2", {
+      created_at: "2025-06-01T12:00:00.000Z",
+    });
+    const summary = store.getSummary({
+      notBeforeInclusive: toISOTimestamp("2025-06-08T12:00:00.000Z"),
+    });
+    expect(summary.compilationsTotal).toBe(1);
+  });
+
+  it("sqlite_status_store_global_summary_window_gates_projects_breakdown", () => {
+    setup();
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-0000000000c1", {
+      created_at: "2025-06-14T12:00:00.000Z",
+    });
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-0000000000c2", {
+      project_id: OTHER_PROJECT_ID,
+      created_at: "2025-06-01T12:00:00.000Z",
+    });
+    const filter = {
+      notBeforeInclusive: toISOTimestamp("2025-06-10T12:00:00.000Z"),
+    };
+    const first = store.getGlobalSummary(filter);
+    expect(first.projectsBreakdown).toBeUndefined();
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-0000000000c3", {
+      project_id: OTHER_PROJECT_ID,
+      created_at: "2025-06-12T12:00:00.000Z",
+    });
+    const second = store.getGlobalSummary(filter);
+    expect(second.projectsBreakdown).toBeDefined();
+    if (second.projectsBreakdown === undefined) {
+      return;
+    }
+    expect(second.projectsBreakdown).toHaveLength(2);
+    const testEntry = second.projectsBreakdown.find(
+      (p) => p.projectId === TEST_PROJECT_ID,
+    );
+    const otherEntry = second.projectsBreakdown.find(
+      (p) => p.projectId === OTHER_PROJECT_ID,
+    );
+    expect(testEntry?.compilationCount).toBe(1);
+    expect(otherEntry?.compilationCount).toBe(1);
+  });
 });

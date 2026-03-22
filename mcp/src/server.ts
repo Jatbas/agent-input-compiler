@@ -13,6 +13,7 @@ import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { TaskClass, EditorId } from "@jatbas/aic-core/core/types/enums.js";
 import { InspectRunner } from "@jatbas/aic-core/pipeline/inspect-runner.js";
 import { CompilationRequestSchema } from "./schemas/compilation-request.js";
+import { StatusRequestSchema } from "./schemas/status-request.schema.js";
 import { ConversationSummaryRequestSchema } from "./schemas/conversation-summary-request.js";
 import { InspectRequestSchema } from "./schemas/inspect-request.schema.js";
 import { createCompileHandler } from "./handlers/compile-handler.js";
@@ -35,6 +36,7 @@ import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-d
 import type { ProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
 import type { SessionId } from "@jatbas/aic-core/core/types/identifiers.js";
 import { toSessionId } from "@jatbas/aic-core/core/types/identifiers.js";
+import { toStatusTimeRangeDays } from "@jatbas/aic-core/core/types/status-types.js";
 import { z } from "zod";
 import { STOP_REASON } from "@jatbas/aic-core/core/types/enums.js";
 import {
@@ -296,18 +298,6 @@ export function createMcpServer(
   const getUpdateMessage = (): string | null =>
     updateInfoRef.current.updateMessage ?? null;
   const getConfigUpgraded = (): boolean => configUpgraded;
-  const getStatusPayload = (): Record<string, unknown> =>
-    buildStatusPayload({
-      projectId: startupScope.projectId,
-      db: startupScope.db,
-      clock: startupScope.clock,
-      configLoader,
-      projectRoot: startupScope.projectRoot,
-      budgetConfig,
-      updateInfo: updateInfoRef.current,
-      installScope,
-      installScopeWarnings,
-    });
   const getLastPayload = (): ReturnType<typeof buildLastPayload> =>
     buildLastPayload({
       projectId: startupScope.projectId,
@@ -368,14 +358,34 @@ export function createMcpServer(
       });
     },
   );
-  const aicStatusParams: z.ZodRawShape = {};
   server.tool(
     "aic_status",
     "Project-level AIC status: compilations, token savings, budget utilization, guard findings, top task classes.",
-    aicStatusParams,
-    () =>
+    StatusRequestSchema,
+    (args) =>
       Promise.resolve({
-        content: [{ type: "text" as const, text: JSON.stringify(getStatusPayload()) }],
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify(
+              buildStatusPayload({
+                projectId: startupScope.projectId,
+                db: startupScope.db,
+                clock: startupScope.clock,
+                configLoader,
+                projectRoot: startupScope.projectRoot,
+                budgetConfig,
+                updateInfo: updateInfoRef.current,
+                installScope,
+                installScopeWarnings,
+                timeRangeDays:
+                  args.timeRangeDays === undefined
+                    ? null
+                    : toStatusTimeRangeDays(args.timeRangeDays),
+              }),
+            ),
+          },
+        ],
       }),
   );
   const aicLastParams: z.ZodRawShape = {};
