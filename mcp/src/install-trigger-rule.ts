@@ -43,6 +43,9 @@ If \`aic_compile\` is not available (tool not found, MCP server disabled, or too
 "AIC context compilation is not available. The \`aic_compile\` tool may be disabled or not approved. Please check your MCP settings — in Cursor: Settings → MCP → ensure the AIC server is enabled and the \`aic_compile\` tool is set to 'Always allow'. In Claude Code: ensure the AIC server is enabled in \`.mcp.json\` and the tool is permitted in your allowedTools configuration."
 Then continue responding normally without compiled context.
 
+
+> **Dev:** When developing this repository with \`AIC_DEV_MODE=1\`, use \`pnpm aic\` from the repo root instead of \`npx @jatbas/aic\` for the shell commands below.
+
 Prompt commands (run Bash with \`npx @jatbas/aic …\`, then relay stdout; human-readable labels, commas for large numbers, percentages 1 decimal, relative timestamps, em dash for nulls):
 - "show aic status" → \`npx @jatbas/aic status\` from the project directory.
 - "show aic last" → \`npx @jatbas/aic last\` from the project directory.

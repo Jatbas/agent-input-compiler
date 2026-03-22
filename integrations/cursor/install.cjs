@@ -31,6 +31,9 @@ If \`aic_compile\` is not available (tool not found, MCP server disabled, or too
 "AIC context compilation is not available. The \`aic_compile\` tool may be disabled or not approved. Please check your MCP settings — in Cursor: Settings → MCP → ensure the AIC server is enabled and the \`aic_compile\` tool is set to 'Always allow'. In Claude Code: ensure the AIC server is enabled in \`.mcp.json\` and the tool is permitted in your allowedTools configuration."
 Then continue responding normally without compiled context.
 
+
+> **Dev:** When developing the AIC repository with \`AIC_DEV_MODE=1\`, use \`pnpm aic\` from the repo root if you run shell diagnostics in a terminal. The prompt commands below use MCP tools in Cursor.
+
 Prompt commands (call the MCP tool; do not use resource URIs or server identifiers):
 - "show aic status" → call \`aic_status\` (no arguments). Format: human-readable labels, numbers with commas, percentages 1 decimal, relative timestamps.
 - "show aic last" → call \`aic_last\` (no arguments). Same formatting.

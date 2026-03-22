@@ -39,6 +39,7 @@ describe("installTriggerRule", () => {
     expect(fs.existsSync(triggerPath)).toBe(true);
     const content = fs.readFileSync(triggerPath, "utf8");
     expect(content).toContain("aic_compile");
+    expect(content).toContain("pnpm aic");
     expect(content).toContain(tmpDir);
   });
 

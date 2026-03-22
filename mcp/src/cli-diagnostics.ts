@@ -67,26 +67,34 @@ export function createDefaultBudgetConfig(): BudgetConfig {
   };
 }
 
-function parseChatSummaryProjectRoot(argv: readonly string[]): AbsolutePath {
-  const idx = argv.indexOf("--project");
+function parseOptionalProjectRoot(argv: readonly string[]): AbsolutePath {
+  const idx = argv.findIndex((arg) => arg === "--project");
   if (idx === -1 || idx + 1 >= argv.length) {
     return toAbsolutePath(process.cwd());
   }
-  return toAbsolutePath(argv[idx + 1] ?? process.cwd());
+  const next = argv[idx + 1];
+  if (next === undefined || next.length === 0) {
+    return toAbsolutePath(process.cwd());
+  }
+  return toAbsolutePath(next);
 }
+
+const scanArgvForProjectRoot: typeof parseOptionalProjectRoot = parseOptionalProjectRoot;
+const scanArgvForProjectRootSame: typeof parseOptionalProjectRoot =
+  scanArgvForProjectRoot;
 
 async function runCliDiagnosticsAsync(argv: readonly string[]): Promise<number> {
   const sub = argv[0];
   const handlers: Record<string, () => Promise<number>> = {
-    status: async () => runStatusCli(),
-    last: async () => runLastCli(),
+    status: async () => runStatusCli(argv),
+    last: async () => runLastCli(argv),
     "chat-summary": async () => runChatSummaryCli(argv),
     projects: async () => runProjectsCli(),
   };
   const run = sub !== undefined ? handlers[sub] : undefined;
   if (run === undefined) {
     process.stderr.write(
-      "Usage: aic {status|last|chat-summary [--project <dir>]|projects|init|serve}\n",
+      "Usage: aic {status|last|chat-summary} [--project <dir>] | projects | init | serve\n",
     );
     return 1;
   }
@@ -119,6 +127,41 @@ function resolveProjectIdForAbsoluteRoot(
   return projectId;
 }
 
+function projectIdFromArgvOrUnavailable(
+  db: ExecutableDb,
+  argv: readonly string[],
+): { readonly projectRoot: AbsolutePath; readonly projectId: ProjectId } | null {
+  const projectRoot = scanArgvForProjectRootSame(argv);
+  const projectId = resolveProjectIdForAbsoluteRoot(db, projectRoot);
+  if (projectId === null) {
+    return null;
+  }
+  return { projectRoot, projectId };
+}
+
+function runWithProjectFromArgv(
+  db: ExecutableDb,
+  argv: readonly string[],
+  run: (ctx: {
+    readonly clock: SystemClock;
+    readonly db: ExecutableDb;
+    readonly projectId: ProjectId;
+    readonly projectRoot: AbsolutePath;
+  }) => number | Promise<number>,
+): number | Promise<number> {
+  const clock = new SystemClock();
+  const scoped = projectIdFromArgvOrUnavailable(db, argv);
+  if (scoped === null) {
+    return 1;
+  }
+  return run({
+    clock,
+    db,
+    projectId: scoped.projectId,
+    projectRoot: scoped.projectRoot,
+  });
+}
+
 async function withGlobalReadonlyDb(
   fn: (db: ExecutableDb) => number | Promise<number>,
 ): Promise<number> {
@@ -132,77 +175,70 @@ async function withGlobalReadonlyDb(
   }
 }
 
-async function runStatusCli(): Promise<number> {
+async function runStatusCli(argv: readonly string[]): Promise<number> {
   return withGlobalReadonlyDb(async (db) => {
-    const clock = new SystemClock();
-    const projectRoot = toAbsolutePath(process.cwd());
-    const projectId = resolveProjectIdForAbsoluteRoot(db, projectRoot);
-    if (projectId === null) {
-      return 1;
-    }
-    const { packageName, packageVersion } = readPackageVersion();
-    const updateInfo = await getUpdateInfo(
-      projectRoot,
-      packageName,
-      packageVersion,
-      clock,
-      {
-        persistSideEffects: false,
+    const step = runWithProjectFromArgv(
+      db,
+      argv,
+      async ({ clock, projectId, projectRoot, db: storeDb }) => {
+        const { packageName, packageVersion } = readPackageVersion();
+        const updateInfo = await getUpdateInfo(
+          projectRoot,
+          packageName,
+          packageVersion,
+          clock,
+          {
+            persistSideEffects: false,
+          },
+        );
+        const installScope = detectInstallScope(os.homedir(), projectRoot);
+        const installScopeWarnings = getInstallScopeWarnings(installScope);
+        const configLoader = new LoadConfigFromFile();
+        const budgetConfig = createDefaultBudgetConfig();
+        const payload = buildStatusPayload({
+          projectId,
+          db: storeDb,
+          clock,
+          configLoader,
+          projectRoot,
+          budgetConfig,
+          updateInfo,
+          installScope,
+          installScopeWarnings,
+        });
+        process.stdout.write(formatStatusTable(payload, clock));
+        return 0;
       },
     );
-    const installScope = detectInstallScope(os.homedir(), projectRoot);
-    const installScopeWarnings = getInstallScopeWarnings(installScope);
-    const configLoader = new LoadConfigFromFile();
-    const budgetConfig = createDefaultBudgetConfig();
-    const payload = buildStatusPayload({
-      projectId,
-      db,
-      clock,
-      configLoader,
-      projectRoot,
-      budgetConfig,
-      updateInfo,
-      installScope,
-      installScopeWarnings,
-    });
-    process.stdout.write(formatStatusTable(payload, clock));
-    return 0;
+    return await Promise.resolve(step);
   });
 }
 
-async function runLastCli(): Promise<number> {
-  return withGlobalReadonlyDb((db) => {
-    const clock = new SystemClock();
-    const projectRoot = toAbsolutePath(process.cwd());
-    const projectId = resolveProjectIdForAbsoluteRoot(db, projectRoot);
-    if (projectId === null) {
-      return 1;
-    }
-    const payload = buildLastPayload({
-      projectId,
-      db,
-      clock,
-      conversationIdForLast: null,
-    });
-    process.stdout.write(formatLastTable(payload, clock));
-    return 0;
-  });
+async function runLastCli(argv: readonly string[]): Promise<number> {
+  return withGlobalReadonlyDb((db) =>
+    runWithProjectFromArgv(db, argv, ({ clock, projectId, db: storeDb }) => {
+      const payload = buildLastPayload({
+        projectId,
+        db: storeDb,
+        clock,
+        conversationIdForLast: null,
+      });
+      process.stdout.write(formatLastTable(payload, clock));
+      return 0;
+    }),
+  );
 }
 
 async function runChatSummaryCli(argv: readonly string[]): Promise<number> {
-  return withGlobalReadonlyDb((db) => {
-    const clock = new SystemClock();
-    const projectRoot = parseChatSummaryProjectRoot(argv);
-    const projectId = resolveProjectIdForAbsoluteRoot(db, projectRoot);
-    if (projectId === null) {
-      return 1;
-    }
-    const store = new SqliteStatusStore(projectId, db, clock);
-    const summary = store.getSummary();
-    const row = buildProjectScopedChatSummaryCliRow(String(projectRoot), summary);
-    process.stdout.write(formatChatSummaryTable(row, clock));
-    return 0;
-  });
+  return withGlobalReadonlyDb((db) =>
+    runWithProjectFromArgv(db, argv, ({ clock, projectId, projectRoot, db: storeDb }) => {
+      const store = new SqliteStatusStore(projectId, storeDb, clock);
+      const summary = store.getSummary();
+      const row = buildProjectScopedChatSummaryCliRow(String(projectRoot), summary);
+      process.stdout.write(formatChatSummaryTable(row, clock));
+      return 0;
+    }),
+  );
 }
 
 async function runProjectsCli(): Promise<number> {

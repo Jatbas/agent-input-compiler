@@ -96,6 +96,8 @@ To run the MCP server from your clone instead of the published package:
 
 3. Restart your editor or reload MCP so it picks up the local server. Restore the published entry when done: `"command": "npx", "args": ["-y", "@jatbas/aic@latest"]`.
 
+4. From the repo root, run `pnpm build`, then run `pnpm aic status`, `pnpm aic projects`, `pnpm aic last`, and `pnpm aic chat-summary --project <absolute workspace root>` to exercise the compiled diagnostic CLI. When your shell cwd is not registered in the global AIC database—including a git worktree root that has no `projects` row—pass `--project <absolute path to a registered clone>` to `status`, `last`, and `chat-summary`.
+
 ### Reflecting code changes during development
 
 `pnpm run dev:mcp` runs the server via `tsx` (on-the-fly TypeScript), so no build step is needed during development. The server process must be restarted to pick up changes:

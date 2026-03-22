@@ -114,7 +114,7 @@ Prefer \`npx eslint\` for targeted checks. Run \`pnpm lint\` before declaring wo
 
 ## Prompt Commands
 
-Use these rules for all AIC prompt commands. Present data like a polished dashboard, not raw JSON.
+Use these rules for all four AIC prompt commands. Present data like a polished dashboard, not raw JSON.
 
 **General formatting (all commands):**
 
