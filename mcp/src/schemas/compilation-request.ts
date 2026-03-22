@@ -45,6 +45,20 @@ const compilationRequestShape = {
     .regex(/^[\x20-\x7E]+$/)
     .nullable()
     .optional(),
+  stepIndex: z.number().int().min(0).max(10_000).optional(),
+  stepIntent: z.string().max(10_000).optional(),
+  previousFiles: z.array(z.string().min(1).max(4096)).max(500).optional(),
+  toolOutputs: z
+    .array(
+      z.object({
+        type: z.enum(["test-result", "lint-error", "build-output", "command-output"]),
+        content: z.string().max(50_000),
+        relatedFiles: z.array(z.string().min(1).max(4096)).max(100).optional(),
+      }),
+    )
+    .max(20)
+    .optional(),
+  conversationTokens: z.number().int().min(0).max(2_000_000).optional(),
 } as const;
 
 export const SanitisedCacheIdsSchema = z.object({

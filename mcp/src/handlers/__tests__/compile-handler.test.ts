@@ -1388,5 +1388,71 @@ describe("compile-handler", () => {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
     });
+
+    it("agentic_fields_forwarded_to_runner", async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+      try {
+        const capturedRequests: CompilationRequest[] = [];
+        const capturingRunner = {
+          run: (req: CompilationRequest) => {
+            capturedRequests.push(req);
+            return Promise.resolve({
+              compiledPrompt: "ok",
+              meta: STUB_COMPILATION_META,
+              compilationId: toUUIDv7("00000000-0000-7000-8000-000000000099"),
+            });
+          },
+        };
+        const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
+        const handler = createCompileHandler(
+          getScope,
+          (_scope: ProjectScope) => capturingRunner,
+          { hash: (): string => "" },
+          getSessionId,
+          getEditorId,
+          getModelId,
+          [],
+          enabledConfigLoader,
+          () => {},
+          () => null,
+          () => false,
+        );
+        await handler(
+          {
+            intent: "fix tests",
+            projectRoot: tmpDir,
+            modelId: null,
+            configPath: null,
+            stepIndex: 2,
+            stepIntent: "fix failing auth tests",
+            conversationTokens: 4096,
+            previousFiles: ["src/auth/service.ts"],
+            toolOutputs: [
+              {
+                type: "test-result" as const,
+                content: "3 failures in auth.test.ts",
+                relatedFiles: ["src/auth/service.ts"],
+              },
+            ],
+          },
+          undefined,
+        );
+        expect(capturedRequests.length).toBe(1);
+        const req = capturedRequests[0];
+        expect(req).toBeDefined();
+        if (req === undefined) return;
+        expect(req.stepIndex).toBe(2);
+        expect(req.stepIntent).toBe("fix failing auth tests");
+        expect(req.conversationTokens).toBe(4096);
+        expect(req.previousFiles).toEqual(["src/auth/service.ts"]);
+        expect(req.toolOutputs).toHaveLength(1);
+        const output = req.toolOutputs?.[0];
+        expect(output?.type).toBe("test-result");
+        expect(output?.content).toBe("3 failures in auth.test.ts");
+        expect(output?.relatedFiles).toEqual(["src/auth/service.ts"]);
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
   });
 });

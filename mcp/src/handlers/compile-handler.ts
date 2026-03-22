@@ -27,9 +27,13 @@ import {
   type SessionId,
   toConversationId,
 } from "@jatbas/aic-core/core/types/identifiers.js";
-import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import { type AbsolutePath, toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toStepIndex, toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 import type { GuardResult } from "@jatbas/aic-core/core/types/guard-types.js";
-import type { CompilationRequest } from "@jatbas/aic-core/core/types/compilation-types.js";
+import type {
+  CompilationRequest,
+  ToolOutput,
+} from "@jatbas/aic-core/core/types/compilation-types.js";
 import { writeCompilationTelemetry } from "@jatbas/aic-core/core/write-compilation-telemetry.js";
 import { recordToolInvocation } from "../record-tool-invocation.js";
 import { ensureProjectInit } from "../init-project.js";
@@ -194,6 +198,42 @@ function resolveConversationId(argsValue: string | null | undefined): string | n
   return null;
 }
 
+type McpCompileToolOutputArg = {
+  readonly type: "test-result" | "lint-error" | "build-output" | "command-output";
+  readonly content: string;
+  readonly relatedFiles?: readonly string[] | undefined;
+};
+
+function mapMcpToolOutputsToCore(
+  outputs: readonly McpCompileToolOutputArg[],
+): readonly ToolOutput[] {
+  return outputs.map((o) => {
+    if (o.relatedFiles !== undefined) {
+      return {
+        type: o.type,
+        content: o.content,
+        relatedFiles: o.relatedFiles.map((p) => toRelativePath(p)),
+      };
+    }
+    return { type: o.type, content: o.content };
+  });
+}
+
+type CompileHandlerArgs = {
+  intent: string;
+  projectRoot: string;
+  modelId: string | null;
+  editorId?: string | undefined;
+  configPath: string | null;
+  triggerSource?: TriggerSource | undefined;
+  conversationId?: string | null | undefined;
+  stepIndex?: number | undefined;
+  stepIntent?: string | undefined;
+  previousFiles?: readonly string[] | undefined;
+  toolOutputs?: readonly McpCompileToolOutputArg[] | undefined;
+  conversationTokens?: number | undefined;
+};
+
 export function createCompileHandler(
   getScope: (projectRoot: AbsolutePath) => ProjectScope,
   getRunner: (scope: ProjectScope) => CompilationRunner,
@@ -206,19 +246,130 @@ export function createCompileHandler(
   setLastConversationId: (id: string | null) => void,
   getUpdateMessage: () => string | null,
   getConfigUpgraded: () => boolean,
-): (
-  args: {
-    intent: string;
-    projectRoot: string;
-    modelId: string | null;
-    editorId?: string | undefined;
-    configPath: string | null;
-    triggerSource?: TriggerSource | undefined;
-    conversationId?: string | null | undefined;
-  },
-  _extra: unknown,
-) => Promise<CallToolResult> {
+): (args: CompileHandlerArgs, _extra: unknown) => Promise<CallToolResult> {
   const initDoneForProject = new Set<string>();
+  const runWhenEnabled = async (
+    args: CompileHandlerArgs,
+    projectRoot: AbsolutePath,
+    scope: ProjectScope,
+    configPath: ReturnType<typeof validateConfigPath> | null,
+  ): Promise<CallToolResult> => {
+    const runner = getRunner(scope);
+    const telemetryDeps = {
+      telemetryStore: scope.telemetryStore,
+      clock: scope.clock,
+      idGenerator: scope.idGenerator,
+      stringHasher: sha256Adapter,
+    };
+    const toolInvocationLogStore = new SqliteToolInvocationLogStore(
+      scope.projectId,
+      scope.db,
+    );
+    const key = scope.normaliser.normalise(projectRoot);
+    const resolvedEditorId: EditorId =
+      args.editorId !== undefined ? (args.editorId as EditorId) : getEditorId();
+    if (!initDoneForProject.has(key)) {
+      ensureProjectInit(projectRoot, scope.clock, scope.idGenerator);
+      reconcileProjectId(
+        projectRoot,
+        scope.db,
+        scope.clock,
+        scope.idGenerator,
+        scope.normaliser,
+      );
+      installTriggerRule(projectRoot, resolvedEditorId);
+      runEditorBootstrapIfNeeded(projectRoot);
+      initDoneForProject.add(key);
+    }
+    const intent = args.intent.replace(/[\x00-\x08\x0b-\x1f]/g, "");
+    const resolvedModelId = resolveAndCacheModelId(
+      args.modelId,
+      getModelId,
+      resolvedEditorId,
+      projectRoot,
+      args.conversationId ?? null,
+      scope.clock.now(),
+    );
+    const resolvedConversationId = resolveConversationId(args.conversationId);
+    const parsed = SanitisedCacheIdsSchema.safeParse({
+      modelId: resolvedModelId,
+      conversationId: resolvedConversationId,
+      editorId: resolvedEditorId,
+    });
+    const safe:
+      | SanitisedCacheIds
+      | {
+          modelId: string | null;
+          conversationId: string | null;
+          editorId: EditorId;
+        } =
+      parsed.success === true
+        ? parsed.data
+        : {
+            modelId: null as string | null,
+            conversationId: null as string | null,
+            editorId: EDITOR_ID.GENERIC as EditorId,
+          };
+    const request: CompilationRequest = {
+      intent,
+      projectRoot,
+      modelId: safe.modelId,
+      editorId: safe.editorId,
+      configPath,
+      sessionId: getSessionId(),
+      triggerSource: args.triggerSource ?? TRIGGER_SOURCE.TOOL_GATE,
+      ...(safe.conversationId !== null &&
+      safe.conversationId !== undefined &&
+      safe.conversationId !== ""
+        ? { conversationId: toConversationId(safe.conversationId) }
+        : {}),
+      ...(args.stepIndex !== undefined ? { stepIndex: toStepIndex(args.stepIndex) } : {}),
+      ...(args.stepIntent !== undefined ? { stepIntent: args.stepIntent } : {}),
+      ...(args.previousFiles !== undefined
+        ? { previousFiles: args.previousFiles.map((p) => toRelativePath(p)) }
+        : {}),
+      ...(args.toolOutputs !== undefined
+        ? { toolOutputs: mapMcpToolOutputsToCore(args.toolOutputs) }
+        : {}),
+      ...(args.conversationTokens !== undefined
+        ? { conversationTokens: toTokenCount(args.conversationTokens) }
+        : {}),
+    };
+    setLastConversationId(safe.conversationId ?? null);
+    recordToolInvocation(
+      toolInvocationLogStore,
+      scope.clock,
+      scope.idGenerator,
+      getSessionId,
+      "aic_compile",
+      args,
+    );
+    const result = await Promise.race([runner.run(request), rejectAfter(30_000)]);
+    writeCompilationTelemetry(
+      result.meta,
+      request,
+      result.compilationId,
+      telemetryDeps,
+      (msg) => process.stderr.write(msg),
+    );
+    const lastPromptPath = path.join(
+      request.projectRoot,
+      ".aic",
+      "last-compiled-prompt.txt",
+    );
+    try {
+      await fs.promises.writeFile(lastPromptPath, result.compiledPrompt, "utf8");
+    } catch {
+      // Non-fatal — do not fail the request
+    }
+    return buildSuccessResponse(
+      result,
+      request,
+      installScopeWarnings,
+      getUpdateMessage,
+      getConfigUpgraded,
+    );
+  };
   return async (args, _extra): Promise<CallToolResult> => {
     try {
       const projectRoot = validateProjectRoot(args.projectRoot);
@@ -243,110 +394,7 @@ export function createCompileHandler(
           ],
         };
       }
-      const runner = getRunner(scope);
-      const telemetryDeps = {
-        telemetryStore: scope.telemetryStore,
-        clock: scope.clock,
-        idGenerator: scope.idGenerator,
-        stringHasher: sha256Adapter,
-      };
-      const toolInvocationLogStore = new SqliteToolInvocationLogStore(
-        scope.projectId,
-        scope.db,
-      );
-      const key = scope.normaliser.normalise(projectRoot);
-      const resolvedEditorId: EditorId =
-        args.editorId !== undefined ? (args.editorId as EditorId) : getEditorId();
-      if (!initDoneForProject.has(key)) {
-        ensureProjectInit(projectRoot, scope.clock, scope.idGenerator);
-        reconcileProjectId(
-          projectRoot,
-          scope.db,
-          scope.clock,
-          scope.idGenerator,
-          scope.normaliser,
-        );
-        installTriggerRule(projectRoot, resolvedEditorId);
-        runEditorBootstrapIfNeeded(projectRoot);
-        initDoneForProject.add(key);
-      }
-      const intent = args.intent.replace(/[\x00-\x08\x0b-\x1f]/g, "");
-      const resolvedModelId = resolveAndCacheModelId(
-        args.modelId,
-        getModelId,
-        resolvedEditorId,
-        projectRoot,
-        args.conversationId ?? null,
-        scope.clock.now(),
-      );
-      const resolvedConversationId = resolveConversationId(args.conversationId);
-      const parsed = SanitisedCacheIdsSchema.safeParse({
-        modelId: resolvedModelId,
-        conversationId: resolvedConversationId,
-        editorId: resolvedEditorId,
-      });
-      const safe:
-        | SanitisedCacheIds
-        | {
-            modelId: string | null;
-            conversationId: string | null;
-            editorId: EditorId;
-          } =
-        parsed.success === true
-          ? parsed.data
-          : {
-              modelId: null as string | null,
-              conversationId: null as string | null,
-              editorId: EDITOR_ID.GENERIC as EditorId,
-            };
-      const request: CompilationRequest = {
-        intent,
-        projectRoot,
-        modelId: safe.modelId,
-        editorId: safe.editorId,
-        configPath,
-        sessionId: getSessionId(),
-        triggerSource: args.triggerSource ?? TRIGGER_SOURCE.TOOL_GATE,
-        ...(safe.conversationId !== null &&
-        safe.conversationId !== undefined &&
-        safe.conversationId !== ""
-          ? { conversationId: toConversationId(safe.conversationId) }
-          : {}),
-      };
-      setLastConversationId(safe.conversationId ?? null);
-      recordToolInvocation(
-        toolInvocationLogStore,
-        scope.clock,
-        scope.idGenerator,
-        getSessionId,
-        "aic_compile",
-        args,
-      );
-      const result = await Promise.race([runner.run(request), rejectAfter(30_000)]);
-      writeCompilationTelemetry(
-        result.meta,
-        request,
-        result.compilationId,
-        telemetryDeps,
-        (msg) => process.stderr.write(msg),
-      );
-      const lastPromptPath = path.join(
-        request.projectRoot,
-        ".aic",
-        "last-compiled-prompt.txt",
-      );
-      try {
-        await fs.promises.writeFile(lastPromptPath, result.compiledPrompt, "utf8");
-      } catch {
-        // Non-fatal — do not fail the request
-      }
-      return buildSuccessResponse(
-        result,
-        request,
-        installScopeWarnings,
-        getUpdateMessage,
-        getConfigUpgraded,
-      );
+      return await runWhenEnabled(args, projectRoot, scope, configPath);
     } catch (err) {
       if (err instanceof TimeoutError) {
         throw new McpError(ErrorCode.InternalError, "Compilation timed out after 30s");
