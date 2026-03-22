@@ -43,7 +43,7 @@ import {
 } from "@jatbas/aic-core/core/token-summary.js";
 
 // Uses conversationId as the session key when present so each editor conversation
-// gets its own session_state row instead of sharing the process-scoped sessionId.
+// gets its own session_state rows and cache entries instead of sharing by process sessionId.
 function resolveEffectiveSessionId(request: CompilationRequest): SessionId | null {
   if (request.conversationId !== undefined && request.conversationId !== null) {
     return toSessionId(request.conversationId);
@@ -335,7 +335,7 @@ export class CompilationRunner implements ICompilationRunner {
       fileTreeHash,
       configHash,
       this.stringHasher,
-      request.sessionId,
+      resolveEffectiveSessionId(request),
       request.stepIndex,
     );
     const cached = this.cacheStore.get(key);
