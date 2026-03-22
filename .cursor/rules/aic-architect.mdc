@@ -63,7 +63,9 @@ When in doubt, open the specific rule file listed above for the full text.
 
 ## Prompt Commands
 
-Use these rules for all three AIC prompt commands. Present data like a polished dashboard, not raw JSON.
+> **Dev:** When `AIC_DEV_MODE=1`, substitute `pnpm aic` for `npx @jatbas/aic` in every command below (run from the repo root).
+
+Use these rules for all four AIC prompt commands. Present data like a polished dashboard, not raw JSON.
 
 **General formatting (all commands):**
 
