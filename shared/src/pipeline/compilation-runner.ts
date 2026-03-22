@@ -268,6 +268,7 @@ function runFreshPath(
     ...(request.conversationTokens !== undefined
       ? { conversationTokens: request.conversationTokens }
       : {}),
+    ...(request.toolOutputs !== undefined ? { toolOutputs: request.toolOutputs } : {}),
   };
   return runPipelineSteps(depsWithSession, pipelineRequest, repoMap).then((r) => {
     const durationMs = clock.durationMs(start, clock.now());

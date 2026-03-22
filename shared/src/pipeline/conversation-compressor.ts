@@ -15,7 +15,16 @@ export class ConversationCompressorImpl implements ConversationCompressor {
         step.stepIntent !== null && step.stepIntent.trim() !== ""
           ? step.stepIntent.trim()
           : `Step ${i + 1}`;
-      return `${i + 1}) ${trimmed} — ${step.filesSelected.length} files, ${step.tokensCompiled} tokens`;
+      const stepLine = `${i + 1}) ${trimmed} — ${step.filesSelected.length} files, ${step.tokensCompiled} tokens`;
+      if (step.toolOutputs.length === 0) return stepLine;
+      const byType = step.toolOutputs.reduce<Record<string, number>>((acc, o) => {
+        const fileCount = o.relatedFiles?.length ?? 0;
+        return { ...acc, [o.type]: (acc[o.type] ?? 0) + fileCount };
+      }, {});
+      const outputLines = Object.entries(byType).map(
+        ([type, count]) => `  → ${type}: ${count} files`,
+      );
+      return [stepLine, ...outputLines].join("\n");
     });
     return header + lines.join("\n");
   }

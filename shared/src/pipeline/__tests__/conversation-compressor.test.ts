@@ -69,4 +69,46 @@ describe("ConversationCompressorImpl", () => {
     const b = compressor.compress(steps);
     expect(a).toBe(b);
   });
+
+  it("conversation_compressor_tooloutputs_empty_no_extra_lines", () => {
+    const step = makeStep({ toolOutputs: [] });
+    const result = new ConversationCompressorImpl().compress([step]);
+    expect(result).not.toContain("→");
+  });
+
+  it("conversation_compressor_tooloutputs_single_type_appended", () => {
+    const step = makeStep({
+      toolOutputs: [
+        {
+          type: "test-result",
+          content: "ok",
+          relatedFiles: [toRelativePath("a.ts"), toRelativePath("b.ts")],
+        },
+      ],
+    });
+    const result = new ConversationCompressorImpl().compress([step]);
+    expect(result).toContain("test-result");
+    expect(result).toContain("2 files");
+  });
+
+  it("conversation_compressor_tooloutputs_multiple_types_grouped", () => {
+    const step = makeStep({
+      toolOutputs: [
+        { type: "lint-error", content: "x", relatedFiles: [toRelativePath("x.ts")] },
+        { type: "build-output", content: "y" },
+      ],
+    });
+    const result = new ConversationCompressorImpl().compress([step]);
+    expect(result).toContain("lint-error");
+    expect(result).toContain("build-output");
+  });
+
+  it("conversation_compressor_tooloutputs_no_related_files", () => {
+    const step = makeStep({
+      toolOutputs: [{ type: "command-output", content: "done" }],
+    });
+    const result = new ConversationCompressorImpl().compress([step]);
+    expect(result).toContain("command-output");
+    expect(result).toContain("0 files");
+  });
 });

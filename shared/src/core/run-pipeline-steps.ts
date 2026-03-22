@@ -28,6 +28,7 @@ import type { TransformResult } from "@jatbas/aic-core/core/types/transform-type
 import type { SelectedFile } from "@jatbas/aic-core/core/types/selected-file.js";
 import type { TokenCount, StepIndex } from "@jatbas/aic-core/core/types/units.js";
 import type { SessionId, ISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import type { ToolOutput } from "@jatbas/aic-core/core/types/compilation-types.js";
 import type { SessionBudgetContext } from "@jatbas/aic-core/core/types/session-budget-context.js";
 import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 import { OUTPUT_FORMAT } from "@jatbas/aic-core/core/types/enums.js";
@@ -58,6 +59,7 @@ export interface PipelineStepsRequest {
   readonly stepIndex?: StepIndex;
   readonly stepIntent?: string;
   readonly conversationTokens?: TokenCount;
+  readonly toolOutputs?: readonly ToolOutput[];
 }
 
 export interface PipelineStepsResult {
