@@ -672,6 +672,8 @@ Returns project-level summary as JSON. Surfaced to the user via the "show aic st
 
 **Fields returned:** `compilationsTotal`, `compilationsToday`, `cacheHitRatePct`, `avgReductionPct`, `totalTokensRaw`, `totalTokensCompiled`, `totalTokensSaved`, `budgetMaxTokens`, `budgetUtilizationPct`, `telemetryDisabled`, `guardByType`, `topTaskClasses`, `lastCompilation`, `installationOk`, `installationNotes`.
 
+The human-facing status table (CLI and "show aic status" prompt command) does not show **Project**; **Notes** appears only when `installationOk` is false and `installationNotes` is non-empty; MCP JSON is unchanged.
+
 **Data source:** Reads from `compilation_log`, `cache_metadata`, `guard_findings`, and `telemetry_events` tables in `aic.sqlite` (see [Project Plan §20](project-plan.md) for the full table definitions). Does not run a compilation.
 
 ### `aic_last` (MCP tool)

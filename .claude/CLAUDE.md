@@ -117,7 +117,7 @@ Use these rules for all four AIC prompt commands. Present data like a polished d
 
 ---
 
-- **"show aic status"** — Run Bash with `npx @jatbas/aic status` from the project directory, then relay stdout. Start the reply with one short line: **Status = project-level AIC status.** Then display a formatted table with labels: Compilations (total), Compilations (today), Tokens: raw → compiled, Tokens excluded, Budget limit, Budget utilization (%), Cache hit rate (%), Avg token reduction (%), Guard findings, Top task classes, Last compilation, Installation, Notes, Project (Enabled/Disabled), Update available.
+- **"show aic status"** — Run Bash with `npx @jatbas/aic status` from the project directory, then relay stdout. Start the reply with one short line: **Status = project-level AIC status.** Then display a formatted table with labels: Compilations (total), Compilations (today), Tokens: raw → compiled, Tokens excluded, Budget limit, Budget utilization (%), Cache hit rate (%), Avg token reduction (%), Guard findings, Top task classes, Last compilation, Installation, Update available. When installation has issues (`installationOk` false), include a **Notes** row from `installationNotes`; omit **Notes** when installation is OK. Omit **Project** (still present in JSON as `projectEnabled`).
 
 - **"show aic chat summary"** — Run Bash with `npx @jatbas/aic chat-summary --project <absolute workspace root>`, then relay stdout. Start the reply with one short line: **Chat = this conversation's AIC compilations.** Then display a formatted table with labels: Project path, Compilations, Tokens (raw), Tokens (compiled), Tokens excluded, Cache hit rate (%), Avg token reduction (%), Last compilation, Top task classes.
 

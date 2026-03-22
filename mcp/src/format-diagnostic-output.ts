@@ -46,12 +46,6 @@ function installationLabel(instOk: unknown): string {
   return "—";
 }
 
-function projectEnabledLabel(enabled: unknown): string {
-  if (enabled === true) return "Enabled";
-  if (enabled === false) return "Disabled";
-  return "—";
-}
-
 function tokensExcludedLabel(saved: unknown): string {
   if (saved === null || saved === undefined) return "—";
   return formatInt(Number(saved));
@@ -91,8 +85,9 @@ export function formatStatusTable(
   const w = 28;
   const last = payload["lastCompilation"] as Record<string, unknown> | null | undefined;
   const notes = payload["installationNotes"];
+  const instOk = payload["installationOk"];
   const notesRows =
-    typeof notes === "string" && notes.length > 0
+    instOk === false && typeof notes === "string" && notes.length > 0
       ? [padRow("Notes", notes, w)]
       : ([] as readonly string[]);
   const rows: readonly string[] = [
@@ -130,7 +125,6 @@ export function formatStatusTable(
     padRow("Last compilation", lastCompilationSummary(clock, last), w),
     padRow("Installation", installationLabel(payload["installationOk"]), w),
     ...notesRows,
-    padRow("Project", projectEnabledLabel(payload["projectEnabled"]), w),
     padRow(
       "Update available",
       payload["updateAvailable"] === null || payload["updateAvailable"] === undefined
