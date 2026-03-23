@@ -61,31 +61,33 @@ A commit is **sanitizable** if its description (after stripping prefix) contains
 
 ## Squash grouping rules
 
-The goal is feature-centric history: each group represents one logical feature or fix as a developer would describe it. "We added X" or "We fixed Y" — not a list of individual commits. Apply these rules in two phases.
+The goal is feature-centric history: each commit in the final log represents one logical feature or fix as a developer would describe it. "We added language provider support" — not 6 separate provider commits. Features are the organizing principle; commit types, scopes, and version tags are secondary artifacts.
 
 ### Phase 1 — Feature grouping
 
-Build groups around features. A **feature anchor** is a `feat:` commit, or a significant `fix:`/`refactor:`/`perf:` commit (description > 20 chars) that is not itself a follow-up to a preceding feature with the same scope.
+Build groups around features. A **feature anchor** is a `feat:` commit, or a significant `fix:`/`refactor:`/`perf:` commit (description > 20 chars) that is not itself a follow-up to a preceding feature.
 
-1. **Feature continuation.** After each feature anchor, scan forward within a window of 10 commits (not crossing a version tag boundary). Absorb any commit with the **same scope** that is a `fix:`, `refactor:`, `test:`, `style:`, or `docs:` — these are follow-ups to the feature (fixing, cleaning up, testing, or documenting it). The `feat:` is the anchor. A `fix(mcp): handle null roots in bootstrap` three commits after `feat(mcp): add proactive bootstrap` is part of the same feature. Stop absorbing if you hit another `feat:` with the same scope (that starts a new feature).
+1. **Same-scope continuation.** After each feature anchor, scan forward within a window of 20 commits. Absorb any commit with the **same scope** that is a `fix:`, `refactor:`, `test:`, `style:`, or `docs:` — these are follow-ups to the feature. The `feat:` is the anchor. Stop absorbing if you hit another `feat:` with the same scope (that starts a new feature). Version tag boundaries do **not** block this — a feature started before a release and fixed after it is still one feature.
 
-2. **Fixup/squash targets.** A `fixup!` or `squash!` commit joins the nearest preceding commit whose subject matches the text after the prefix.
+2. **Cross-scope continuation.** After same-scope grouping, scan forward again within the same 20-commit window. Absorb any commit whose description shares **2+ significant keywords** with the anchor's description, regardless of scope. Significant keywords are nouns and verbs extracted from the description after removing stop words (a, the, in, on, at, to, for, and, or, with, from, of, is, are, was, be, by, this, that, it, as, an). Example: `feat(adapters): add Python language provider` shares "Python" and "provider" with `fix(pipeline): handle Python provider import edge case` → same feature group. Do not absorb another `feat:` via keyword matching (that starts a new feature).
+
+3. **Fixup/squash targets.** A `fixup!` or `squash!` commit joins the nearest preceding commit whose subject matches the text after the prefix.
 
 ### Phase 2 — Artifact absorption
 
 After feature groups are built, absorb remaining noise into the nearest group.
 
-3. **Workflow artifacts.** Squashable commits (task planning, removal, progress, generic `docs(tasks)`, bare version strings, wip, short-subject — categories 2–9 from noise criteria) are absorbed into the nearest feature anchor within a window of 5 commits in either direction, preferring scope match. If no scope match, absorb into the nearest preceding anchor.
+4. **Workflow artifacts.** Squashable commits (task planning, removal, progress, generic `docs(tasks)`, bare version strings, wip, short-subject — categories 2–9 from noise criteria) are absorbed into the nearest feature anchor within a window of 10 commits in either direction, preferring scope match. If no scope match, absorb into the nearest preceding anchor.
 
-4. **Release-commit absorption.** A non-narrative `chore(release):` is absorbed into the immediately preceding anchor (i-1 only). A **narrative release** (see noise criteria) is kept standalone and retyped. If no preceding anchor exists, keep standalone.
+5. **Release-commit absorption.** A non-narrative `chore(release):` is absorbed into the immediately preceding anchor (i-1 only). A **narrative release** (see noise criteria) is kept standalone and retyped. If no preceding anchor exists, keep standalone.
 
-5. **Scope-duplicate grouping.** Consecutive commits with identical scope where at least one is squashable and not yet grouped are merged. The first non-squashable commit is the anchor.
+6. **Scope-duplicate grouping.** Consecutive commits with identical scope where at least one is squashable and not yet grouped are merged. The first non-squashable commit is the anchor.
 
 ### Phase 3 — Standalone commits
 
-6. **Ungrouped commits** remain standalone — their messages are sanitized but they stay as individual commits.
+7. **Ungrouped commits** remain standalone — their messages are sanitized but they stay as individual commits.
 
-7. **Anchor-less groups.** If a group from phases 1–2 contains no non-squashable anchor, use the commit with the longest description as the proposed anchor and mark the row `[REVIEW]`.
+8. **Anchor-less groups.** If a group from phases 1–2 contains no non-squashable anchor, use the commit with the longest description as the proposed anchor and mark the row `[REVIEW]`.
 
 The anchor of each group provides the proposed message. Absorbed commits disappear.
 
