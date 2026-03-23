@@ -296,7 +296,7 @@ AIC uses **`~/.aic/`** for the global SQLite database (`aic.sqlite`) and **`<pro
 
 AIC can optionally send anonymous usage statistics to help improve the product. This is **disabled by default** and requires explicit opt-in via `aic.config.json`.
 
-**What is sent:** AIC version, OS, Node version, task class (enum), primary language (enum), token reduction percentage, file counts, Guard block counts, cache hit rate, duration, model family (enum), editor (enum), heuristic signal averages.
+**What is sent:** AIC version, OS, Node version, task class (enum), primary language (enum), exclusion rate percentage, file counts, Guard block counts, cache hit rate, duration, model family (enum), editor (enum), heuristic signal averages.
 
 **What is NEVER sent:** File paths, file content, prompts, intents, project names, API keys, user identifiers, or any personally identifiable information.
 
@@ -388,7 +388,7 @@ Both Cursor and Claude Code require explicit user approval before MCP tools run.
 | **Cursor**      | MCP indicator shows an approval prompt on first invocation. User clicks "Always allow" per tool. Reviewable in Settings → MCP. | Tool calls silently fail. Trigger rule detects this and notifies the user. |
 | **Claude Code** | Runtime permission prompt, `--allowedTools` CLI flag, or `.mcp.json` permissions configuration.                                | Tool calls rejected. Trigger rule detects this and notifies the user.      |
 
-> **Risk:** If the user denies or never approves **`aic_compile`**, the MCP server may still run but the model gets no compiled context — no file selection, no Context Guard on that path, no token reduction.
+> **Risk:** If the user denies or never approves **`aic_compile`**, the MCP server may still run but the model gets no compiled context — no file selection, no Context Guard on that path, no context compilation.
 >
 > **Mitigation:** The trigger rule (`.cursor/rules/AIC.mdc` or equivalent) includes a fallback: if `aic_compile` is unavailable, the model tells the user how to enable it in MCP settings. [Installation](installation.md) and [Best practices](best-practices.md) describe approving **`aic_compile`** and **`aic_inspect`** during setup. The MCP server process is unaffected; the block is at the editor between the model and the server.
 

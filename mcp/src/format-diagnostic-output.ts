@@ -9,6 +9,9 @@ import {
 } from "@jatbas/aic-core/core/types/status-types.js";
 import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
 
+const METRIC_FOOTNOTE =
+  "Exclusion rate: % of total repo tokens not included in the compiled prompt.\nBudget utilization: % of token budget filled.";
+
 function formatInt(n: number): string {
   return n.toLocaleString("en-US");
 }
@@ -133,7 +136,7 @@ export function formatStatusTable(
     ),
     padRow("Cache hit rate", formatPct1(payload["cacheHitRatePct"] as number | null), w),
     padRow(
-      "Avg token reduction",
+      "Avg exclusion rate",
       formatPct1(payload["avgReductionPct"] as number | null),
       w,
     ),
@@ -150,21 +153,25 @@ export function formatStatusTable(
       w,
     ),
   ];
-  return `${rows.join("\n")}\n`;
+  return `${rows.join("\n")}\n\n${METRIC_FOOTNOTE}\n`;
 }
 
 function lastRowsWhenPresent(
   last: Record<string, unknown>,
   clock: Clock,
   w: number,
+  budgetMaxTokens: number,
 ): readonly string[] {
   const fs_ = Number(last["filesSelected"] ?? 0);
   const ft = Number(last["filesTotal"] ?? 0);
+  const compiled = Number(last["tokensCompiled"] ?? 0);
+  const budgetPct = budgetMaxTokens > 0 ? (compiled / budgetMaxTokens) * 100 : null;
   return [
     padRow("Intent", String(last["intent"] ?? "—"), w),
     padRow("Files", `${formatInt(fs_)} selected / ${formatInt(ft)} total`, w),
-    padRow("Tokens compiled", formatInt(Number(last["tokensCompiled"] ?? 0)), w),
-    padRow("Token reduction", formatPct1(Number(last["tokenReductionPct"] ?? 0)), w),
+    padRow("Tokens compiled", formatInt(compiled), w),
+    padRow("Budget utilization", formatPct1(budgetPct), w),
+    padRow("Exclusion rate", formatPct1(Number(last["tokenReductionPct"] ?? 0)), w),
     padRow("Compiled", relIso(clock, String(last["created_at"] ?? "")), w),
     padRow("Editor", String(last["editorId"] ?? "—"), w),
   ];
@@ -174,7 +181,8 @@ const LAST_EMPTY_DETAIL: readonly string[] = [
   "Intent",
   "Files",
   "Tokens compiled",
-  "Token reduction",
+  "Budget utilization",
+  "Exclusion rate",
   "Compiled",
   "Editor",
 ].map((label) => padRow(label, "—", 22));
@@ -189,11 +197,14 @@ export function formatLastTable(
     };
   },
   clock: Clock,
+  budgetMaxTokens: number,
 ): string {
   const w = 22;
   const last = payload.lastCompilation;
   const detailRows =
-    last === null ? LAST_EMPTY_DETAIL : lastRowsWhenPresent(last, clock, w);
+    last === null
+      ? LAST_EMPTY_DETAIL
+      : lastRowsWhenPresent(last, clock, w, budgetMaxTokens);
   const tc = payload.promptSummary.tokenCount;
   const promptRow = padRow(
     "Compiled prompt",
@@ -207,14 +218,22 @@ export function formatLastTable(
     padRow("Guard", "—", w),
     promptRow,
   ];
-  return `${rows.join("\n")}\n`;
+  return `${rows.join("\n")}\n\n${METRIC_FOOTNOTE}\n`;
 }
 
-export function formatChatSummaryTable(row: ConversationSummary, clock: Clock): string {
+export function formatChatSummaryTable(
+  row: ConversationSummary,
+  clock: Clock,
+  budgetMaxTokens: number,
+): string {
   const w = 30;
   const last = row.lastCompilationInConversation;
   const lastLine =
     last === null ? "—" : `${last.intent} · ${relIso(clock, last.created_at)}`;
+  const budgetPct =
+    last !== null && budgetMaxTokens > 0
+      ? (last.tokensCompiled / budgetMaxTokens) * 100
+      : null;
   const rows: readonly string[] = [
     "Chat = this conversation's AIC compilations.",
     padRow("Project path", row.projectRoot.length > 0 ? row.projectRoot : "—", w),
@@ -226,12 +245,13 @@ export function formatChatSummaryTable(row: ConversationSummary, clock: Clock): 
       row.totalTokensSaved === null ? "—" : formatInt(row.totalTokensSaved),
       w,
     ),
+    padRow("Budget utilization", formatPct1(budgetPct), w),
     padRow("Cache hit rate", formatPct1(row.cacheHitRatePct), w),
-    padRow("Avg token reduction", formatPct1(row.avgReductionPct), w),
+    padRow("Avg exclusion rate", formatPct1(row.avgReductionPct), w),
     padRow("Last compilation", lastLine, w),
     padRow("Top task classes", topTaskStr(row.topTaskClasses), w),
   ];
-  return `${rows.join("\n")}\n`;
+  return `${rows.join("\n")}\n\n${METRIC_FOOTNOTE}\n`;
 }
 
 export function formatProjectsTable(

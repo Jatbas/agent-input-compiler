@@ -270,7 +270,8 @@ async function runLastCli(argv: readonly string[]): Promise<number> {
         clock,
         conversationIdForLast: null,
       });
-      process.stdout.write(formatLastTable(payload, clock));
+      const budget = createDefaultBudgetConfig();
+      process.stdout.write(formatLastTable(payload, clock, budget.getMaxTokens()));
       return 0;
     }),
   );
@@ -282,7 +283,8 @@ async function runChatSummaryCli(argv: readonly string[]): Promise<number> {
       const store = new SqliteStatusStore(projectId, storeDb, clock);
       const summary = store.getSummary();
       const row = buildProjectScopedChatSummaryCliRow(String(projectRoot), summary);
-      process.stdout.write(formatChatSummaryTable(row, clock));
+      const budget = createDefaultBudgetConfig();
+      process.stdout.write(formatChatSummaryTable(row, clock, budget.getMaxTokens()));
       return 0;
     }),
   );

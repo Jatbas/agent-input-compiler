@@ -391,7 +391,7 @@ export function createMcpServer(
   const aicLastParams: z.ZodRawShape = {};
   server.tool(
     "aic_last",
-    "Most recent AIC compilation: intent, files selected, tokens compiled, reduction percentage, guard status.",
+    "Most recent AIC compilation: intent, files selected, tokens compiled, budget utilization, exclusion rate, guard status.",
     aicLastParams,
     () =>
       Promise.resolve({

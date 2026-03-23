@@ -111,7 +111,7 @@ Technical documentation states facts. Marketing language ("powerful," "seamless,
 ### Permitted alternatives
 
 - Describe what happens: "AIC selects files based on intent classification" — not "AIC powerfully selects the right files"
-- Describe measurable outcomes: "reduces token count by 90%+" — not "dramatically reduces tokens"
+- Describe measurable outcomes: "achieves 8.5% budget utilization on a 470-file repo" — not "dramatically reduces tokens"
 - State capabilities directly: "supports 8 hook events" — not "provides robust hook support"
 
 ---

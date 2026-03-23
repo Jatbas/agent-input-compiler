@@ -850,7 +850,7 @@ There is currently no dedicated `aic telemetry log` command in the shipped MCP p
 
 **What this data enables:**
 
-- Token reduction benchmarks across real-world usage
+- Exclusion rate benchmarks across real-world usage
 - Guard effectiveness metrics for the security story
 - Heuristic signal analysis to improve context selection
 - Error rate monitoring to detect regressions
@@ -864,12 +864,12 @@ There is currently no dedicated `aic telemetry log` command in the shipped MCP p
 
 ### Quantitative
 
-| Metric            | Target                                      | Measurement                                    |
-| ----------------- | ------------------------------------------- | ---------------------------------------------- |
-| Token reduction   | Measurable reduction across canonical tasks | `(tokens_raw - tokens_compiled) / tokens_raw`  |
-| Compilation time  | <2 seconds for repos <1,000 files           | Wall clock, cold cache                         |
-| Cache hit speedup | <100ms for cached compilations              | Wall clock                                     |
-| Stable outputs    | Identical output for identical input        | Byte-for-byte comparison, 100 consecutive runs |
+| Metric            | Target                                           | Measurement                                    |
+| ----------------- | ------------------------------------------------ | ---------------------------------------------- |
+| Exclusion rate    | Measurable exclusion rate across canonical tasks | `(tokens_raw - tokens_compiled) / tokens_raw`  |
+| Compilation time  | <2 seconds for repos <1,000 files                | Wall clock, cold cache                         |
+| Cache hit speedup | <100ms for cached compilations                   | Wall clock                                     |
+| Stable outputs    | Identical output for identical input             | Byte-for-byte comparison, 100 consecutive runs |
 
 ### Qualitative
 

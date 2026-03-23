@@ -94,7 +94,7 @@ The `.aic/` directory stores AIC's local database, cache, and metadata. It is se
 Telemetry is opt-in, anonymous, and privacy-first. When writing telemetry code:
 
 - **Never include:** file paths, file content, prompts, intents, project names, user identifiers, or PII
-- **Allowed fields:** AIC version, OS, Node version, task class (enum), primary language (enum), token reduction %, file counts, Guard block counts, cache hit rate, duration, model family (enum), editor (enum), heuristic signal averages
+- **Allowed fields:** AIC version, OS, Node version, task class (enum), primary language (enum), exclusion rate %, file counts, Guard block counts, cache hit rate, duration, model family (enum), editor (enum), heuristic signal averages
 - **Typed schema enforcement:** The `TelemetryPayload` type defines the exact shape. No free-text string fields for anything that could leak code or paths. Compile-time enforcement.
 - **No persistent user ID:** Each payload is independent — no session tracking across payloads
 - **`repo_id`:** Always a SHA-256 hash of the absolute path — irreversible, cannot identify the project

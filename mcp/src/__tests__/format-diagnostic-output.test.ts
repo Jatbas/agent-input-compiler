@@ -89,4 +89,14 @@ describe("formatStatusTable", () => {
     expect(hasPaddedLabelRow(outTrue, "Project")).toBe(false);
     expect(hasPaddedLabelRow(outFalse, "Project")).toBe(false);
   });
+
+  it("status_table_includes_metric_footnote", () => {
+    const clock = new SystemClock();
+    const out = formatStatusTable(
+      { ...baseStatusPayload, installationOk: true, projectEnabled: true },
+      clock,
+    );
+    expect(out).toContain("Exclusion rate: % of total repo tokens");
+    expect(out).toContain("Budget utilization: % of token budget filled.");
+  });
 });

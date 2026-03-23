@@ -55,7 +55,7 @@ Status = project-level AIC status.
 | Budget (max tokens)            | 8,000                                         |
 | Budget utilization             | 96.2%                                         |
 | Cache hit rate                 | 43.4%                                         |
-| Avg reduction                  | 98.5%                                         |
+| Avg exclusion rate             | 98.5%                                         |
 | Guard by type                  | prompt-injection: 40, secret: 20              |
 | Top task classes               | general 422, refactor 313, bugfix 91          |
 | Last compilation               | Execute task 089… — 10 of 405 files,          |
@@ -74,7 +74,8 @@ Last = most recent compilation.
 | Intent           | Update the README example with the real show aic last  |
 | Selected         | 1 of 405 files                                         |
 | Tokens compiled  | 2,842                                                  |
-| Reduction        | 99.5%                                                  |
+| Budget utilization | 35.5%                                                |
+| Exclusion rate   | 99.5%                                                  |
 | Created          | 2026-03-04T21:38:50Z (recent)                          |
 | Editor           | cursor                                                 |
 ```
@@ -134,7 +135,7 @@ What to look for:
 
 - **Installation: OK** in `show aic status`
 - a recent compilation in `show aic last`
-- selected file count, compiled tokens, and reduction figures that make sense for the task
+- selected file count, compiled tokens, and exclusion rate figures that make sense for the task
 - AIC blocking sensitive or excluded content
 
 > If there is no recent compilation, the model may not be calling AIC automatically. Check that the AIC tools are approved in your editor's MCP settings and try starting a new chat.
