@@ -63,19 +63,56 @@ A commit is **sanitizable** if its description (after stripping prefix) contains
 
 The goal is feature-centric history: each commit in the final log represents one logical feature or fix as a developer would describe it. "We added language provider support" — not 6 separate provider commits. Features are the organizing principle; commit types, scopes, and version tags are secondary artifacts.
 
-### Phase 1 — Feature grouping
+### Phase 0 — Feature context (primary grouping signal)
 
-Build groups around features. A **feature anchor** is a `feat:` commit, or a significant `fix:`/`refactor:`/`perf:` commit (description > 20 chars) that is not itself a follow-up to a preceding feature.
+When a **feature context file** is available, use it as the primary grouping signal. This produces dramatically better results than commit-level heuristics because it knows what features were actually built.
 
-1. **Same-scope continuation.** After each feature anchor, scan forward within a window of 20 commits. Absorb any commit with the **same scope** that is a `fix:`, `refactor:`, `test:`, `style:`, or `docs:` — these are follow-ups to the feature. The `feat:` is the anchor. Stop absorbing if you hit another `feat:` with the same scope (that starts a new feature). Version tag boundaries do **not** block this — a feature started before a release and fixed after it is still one feature.
+**Specifying the file.** The user names the file in the prompt (e.g., "using `documentation/tasks/progress/mvp-progress.md` for context"). If not specified, check for common progress files: `CHANGELOG.md`, `documentation/tasks/progress/*.md`, `docs/progress.md`. If nothing is found, skip Phase 0 and go straight to Phase 1.
 
-2. **Cross-scope continuation.** After same-scope grouping, scan forward again within the same 20-commit window. Absorb any commit whose description shares **2+ significant keywords** with the anchor's description, regardless of scope. Significant keywords are nouns and verbs extracted from the description after removing stop words (a, the, in, on, at, to, for, and, or, with, from, of, is, are, was, be, by, this, that, it, as, an). Example: `feat(adapters): add Python language provider` shares "Python" and "provider" with `fix(pipeline): handle Python provider import edge case` → same feature group. Do not absorb another `feat:` via keyword matching (that starts a new feature).
+**Parsing the file.** Read the file and extract dated entries. The expected structure is dated sections (e.g., `### YYYY-MM-DD`) each containing:
+
+- A **Components** or **Features** line listing the feature groups for that day (comma-separated or parenthesized).
+- A **Completed** section listing specific items, optionally with task numbers.
+
+Example from a progress file:
+
+```
+### 2026-03-01
+**Components:** Language providers (Go, Rust, Java, Ruby, PHP), model detection, editor detection
+**Completed:**
+- GoProvider (task 043): tree-sitter parsing for .go
+- RustProvider (task 044): tree-sitter for .rs
+- ModelDetectorDispatch (task 048): dispatch table per editor/env
+```
+
+This gives 3 feature groups for 2026-03-01: "Language providers", "model detection", "editor detection."
+
+**Grouping commits by feature context.**
+
+1. For each commit in the range, determine its author date (`%aI` truncated to `YYYY-MM-DD`).
+2. Find the matching daily entry in the context file for that date.
+3. Match the commit to a feature group by checking (in order):
+   a. **Task number match.** If the commit description or any absorbed constituent references `task N` and the context file's Completed section mentions that task number under a specific component group → that group.
+   b. **Keyword match.** Extract keywords from each component group label (e.g., "Language providers" → ["language", "provider"]). If the commit's scope or description shares 2+ keywords with a component group → that group.
+   c. **Scope match.** If a component group label mentions a scope-like word (e.g., "model detection" → `model`, "session management" → `session`/`storage`) and the commit scope contains it → that group.
+4. All commits matching the same (date, component group) become one squash group. The `feat:` with the longest description is the anchor. If no `feat:`, the commit with the longest description is the anchor.
+5. Commits that match no component group, or whose date has no entry in the context file, fall through to Phase 1.
+
+This typically produces **2-5 commits per development day** instead of 10-20. A day that added 6 language providers + model detection + editor fixes becomes 3 commits, each representing a coherent feature.
+
+### Phase 1 — Heuristic feature grouping (fallback)
+
+For commits not grouped by Phase 0, build groups using commit-level heuristics. A **feature anchor** is a `feat:` commit, or a significant `fix:`/`refactor:`/`perf:` commit (description > 20 chars) that is not itself a follow-up to a preceding feature.
+
+1. **Same-scope continuation.** After each feature anchor, scan forward within a window of 20 commits. Absorb any commit with the **same scope** that is a `fix:`, `refactor:`, `test:`, `style:`, or `docs:` — these are follow-ups to the feature. The `feat:` is the anchor. Stop absorbing if you hit another `feat:` with the same scope (that starts a new feature). Version tag boundaries do **not** block this.
+
+2. **Cross-scope continuation.** After same-scope grouping, scan forward within the same 20-commit window. Absorb any commit whose description shares **2+ significant keywords** with the anchor's description, regardless of scope. Significant keywords = nouns and verbs after removing stop words. Do not absorb another `feat:` via keyword matching.
 
 3. **Fixup/squash targets.** A `fixup!` or `squash!` commit joins the nearest preceding commit whose subject matches the text after the prefix.
 
 ### Phase 2 — Artifact absorption
 
-After feature groups are built, absorb remaining noise into the nearest group.
+After feature groups are built (from Phase 0 and/or Phase 1), absorb remaining noise into the nearest group.
 
 4. **Workflow artifacts.** Squashable commits (task planning, removal, progress, generic `docs(tasks)`, bare version strings, wip, short-subject — categories 2–9 from noise criteria) are absorbed into the nearest feature anchor within a window of 10 commits in either direction, preferring scope match. If no scope match, absorb into the nearest preceding anchor.
 
@@ -87,7 +124,7 @@ After feature groups are built, absorb remaining noise into the nearest group.
 
 7. **Ungrouped commits** remain standalone — their messages are sanitized but they stay as individual commits.
 
-8. **Anchor-less groups.** If a group from phases 1–2 contains no non-squashable anchor, use the commit with the longest description as the proposed anchor and mark the row `[REVIEW]`.
+8. **Anchor-less groups.** If a group from phases 0–2 contains no non-squashable anchor, use the commit with the longest description as the proposed anchor and mark the row `[REVIEW]`.
 
 The anchor of each group provides the proposed message. Absorbed commits disappear.
 
