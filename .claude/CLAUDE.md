@@ -103,6 +103,8 @@ Prefer `npx eslint` for targeted checks. Run `pnpm lint` before declaring work c
 
 ## Prompt Commands
 
+> **Dev:** When `AIC_DEV_MODE=1`, substitute `pnpm aic` for `npx @jatbas/aic` in every command below (run from the repo root).
+
 Use these rules for all four AIC prompt commands. Present data like a polished dashboard, not raw JSON.
 
 **General formatting (all commands):**

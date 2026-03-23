@@ -280,6 +280,7 @@ Complete every item. Each produces evidence for the report. Items are organized 
 
 17. **`shared/package.json`** — record dependencies and pinned versions.
 18. **`eslint.config.mjs`** — record restricted-import rules for the target layer. If ESLint changes are needed, determine the exact structural change.
+19. **Installer-managed content sync** (conditional — if any file in the Files table touches `.cursor/rules/AIC-architect.mdc`, `.claude/CLAUDE.md`, `integrations/claude/install.cjs` (`CLAUDE_MD_TEMPLATE`), `integrations/cursor/install.cjs` (`TRIGGER_RULE_TEMPLATE`), or `mcp/src/install-trigger-rule.ts`) — these files contain duplicated rule content that the installers write to user projects. Changes to shared sections in one file must propagate to the others. Diff the shared sections (architectural invariants, security, dependencies, commits, ESLint, tests, prompt commands) across the affected files. If any section has drifted, add "Modify" rows to the Files table for every file that needs updating. Record all findings in the INSTALLER SYNC field of the Exploration Report. The Cursor installer does NOT write `AIC-architect.mdc` (it is git-committed), so it is never at risk of being overwritten — but it IS the source of truth that templates must match.
 
 ### A.2 Produce the Exploration Report
 
@@ -479,6 +480,16 @@ TRANSFORMER DETAILS (conditional — pipeline transformer recipe only):
 - Current baseline (test/benchmarks/baseline.json entry "1"):
   token_count: [N], duration_ms: [N]
 
+INSTALLER SYNC (conditional — only if checklist item 19 triggered):
+- Source of truth: `.cursor/rules/AIC-architect.mdc`
+- Template files checked:
+  - `integrations/claude/install.cjs` (`CLAUDE_MD_TEMPLATE`): [IN SYNC | DRIFT — section X differs]
+  - `integrations/cursor/install.cjs` (`TRIGGER_RULE_TEMPLATE`): [IN SYNC | DRIFT — section X differs]
+  - `mcp/src/install-trigger-rule.ts`: [IN SYNC | DRIFT — section X differs]
+  - `.claude/CLAUDE.md`: [IN SYNC | DRIFT — section X differs]
+- Files table impact: [N files added as "Modify" rows]
+- Or: Not applicable — task does not touch installer-managed content.
+
 DESIGN DECISIONS:
 - [decision]: [chosen option] — [why]
 ```
@@ -494,6 +505,7 @@ Before presenting to the user, verify the Exploration Report yourself using obje
 3. **Grep for branded type usage** — for each constructor parameter, Grep `core/types/` to confirm the branded type exists and the factory function is correct.
 4. **Grep for existing files** — for each file in EXISTING FILES, use Glob to confirm EXISTS/DOES NOT EXIST claims.
 5. **Cross-check library .d.ts** — re-read each cited `node_modules/` path, Grep for the class/method name, confirm signatures match.
+6. **Installer sync check** (conditional — only if INSTALLER SYNC section is present) — for each template file listed, read both the source-of-truth file and the template, and confirm the shared sections match. If drift is found and the exploration report says "IN SYNC," fix the report and add the drifted files to the Files table.
 
 For every discrepancy found, fix the exploration file (use targeted edits on `documentation/tasks/.exploration-$EPOCH.md`) before proceeding. Do NOT present unchecked claims to the user.
 
