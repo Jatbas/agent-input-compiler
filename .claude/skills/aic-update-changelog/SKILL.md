@@ -37,6 +37,8 @@ Do **not** run after every small internal task — that is the mvp-progress skil
 
 ### Normal update (add to `[Unreleased]`)
 
+0. **Backup** — before touching any file, run `mkdir -p documentation/bck && cp CHANGELOG.md "documentation/bck/CHANGELOG.bck.$(date +%Y%m%d-%H%M%S).md"`. If `CHANGELOG.md` does not exist yet (bootstrapping), skip this step.
+
 1. **Read** `CHANGELOG.md`. If it does not exist, bootstrap it with the file header (see Format below) and an empty `[Unreleased]` section. If the file exists but has no `[Unreleased]` section, insert one immediately after the file header and before the first versioned section.
 
 2. **Read** `documentation/tasks/progress/mvp-progress.md` from the **main workspace** (this file is gitignored and does not exist in worktrees). Look for components with `Done` in the Status column of Phase tables, and completed entries under `### YYYY-MM-DD` daily log headings. If the most recent daily log entry is older than the most recent git commit, warn the user that mvp-progress may be stale before proceeding. If mvp-progress does not exist or is empty (e.g., running in a worktree or after ad-hoc work), fall back to `git log <last-tag>..HEAD --oneline` and use that as the raw input for curation.
@@ -47,7 +49,13 @@ Do **not** run after every small internal task — that is the mvp-progress skil
    - Only include headings that have entries — omit empty category headings.
    - Write from the user's perspective, not the developer's. Translate developer language (phase names, component names, task IDs) into user-facing prose.
 
-4. **Rewrite the full `[Unreleased]` section** with the curated entries. The skill may freely reorganize, reword, merge, or remove items within `[Unreleased]` to keep it clean and readable.
+3a. **Git log cross-check** — run `git log $(git describe --tags --abbrev=0 2>/dev/null || git rev-list --max-parents=0 HEAD)..HEAD --oneline`. Scan each commit for user-visible work — ignore `chore(deps):`, `style:`, `refactor:`, `test:`, `docs:`, and fixup commits that are already absorbed by a feature entry. For every significant `feat:`, `fix:`, or `security:` commit not yet represented in the curated entries, add a changelog entry or flag the gap to the user. Zero uncovered user-visible changes is the goal.
+
+3b. **Spawn a critic agent** — before writing to the file, spawn a separate agent with the proposed `[Unreleased]` entries and these instructions: (a) verify every entry follows the Curation Rules (no task IDs, no phase letters, no internal jargon, imperative fragments, no prohibited language patterns); (b) identify entries that should be merged; (c) verify each entry would be meaningful and self-contained to a user who did not build the feature. Incorporate the critic's feedback before proceeding to step 4.
+
+4. **Rewrite the full `[Unreleased]` section** with the curated and critic-reviewed entries. The skill may freely reorganize, reword, merge, or remove items within `[Unreleased]` to keep it clean and readable.
+
+4a. **Format verification** — after writing, verify the `[Unreleased]` section: (a) only headings `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed`, `Security` are present; (b) each is a `###` heading; (c) every entry is a single bullet with an imperative fragment; (d) no empty category headings exist; (e) no sub-bullets. A malformed section will break the release skill's parser. If all checks pass, remove the backup created in step 0 (it is named with the timestamp from that step). If any check fails, keep the backup and report the issue before proceeding.
 
 5. **Never modify released sections** (`[x.y.z] - date`) unless the user explicitly asks to reword them.
 
@@ -204,6 +212,10 @@ This project follows [Semantic Versioning](https://semver.org/).
 - **No internal jargon.** Write for someone installing and using the tool, not developing it.
 - **Keep it short.** Prefer one strong line over three weak ones. If two entries say nearly the same thing, merge them.
 - **Use imperative fragments** for consistency (e.g., "Add session deduplication", not "Added session deduplication" or "Session deduplication was added").
+- **No hedging language.** Never write: "if needed", "might", "possibly", "potentially", "perhaps", "e.g.", "for example", "such as", "something like", "or similar", "etc.", "and so on", "consider", "you could", "you might want", "should" (when implying optionality), "able to", "appropriate", "suitable", or "reasonable" without a specific qualifier. Each signals an unresolved decision — decide, then write the definitive entry. Exception: "may" is acceptable only in security or behavior-dependency statements where the condition is real ("requests may fail if the token is expired") — never to hedge scope.
+- **No temporal references.** Never write "recently added", "just added", "new in this release" (redundant — it is in `[Unreleased]`), "now supports", "currently", "still", or "will be available". Describe capability, not transition: "Supports X" not "Now supports X". Entries are timeless — they describe what the software does, not when it changed.
+- **User-visible effect, not implementation mechanism.** Translate every capability to its user-observable outcome: "Reduce token usage for large repositories" not "Implement LRU eviction in the file scorer".
+- **Professional register.** Write for someone installing and running the tool. Use technical documentation language: "verify" not "make sure", "files under X/" not "stuff under X/", state the quantity rather than "a bunch of". Avoid casual constructions. See `aic-documentation-writer/SKILL-standards.md` §Professional register for the complete list.
 
 ## Conventions
 

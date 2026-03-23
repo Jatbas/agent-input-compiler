@@ -338,7 +338,7 @@ The plan must have **zero `[NEEDS-FIX]`** items before the user is asked to appr
 
 15. **Require double confirmation.** "This will rewrite published history on `$(git branch --show-current)` and force-push to `origin`. Backup branch: `backup/<name>`. Type **yes, rewrite** to confirm or anything else to cancel." Wait for exact string `yes, rewrite`. Any other response → stop.
 
-16. **Execute rebase.** Write the todo file (same format as Mode A step 11) and run: `GIT_SEQUENCE_EDITOR='cp <temp-path>' git rebase -i --committer-date-is-author-date <base-ref>`. Remove temp file after. On failure, stop immediately, show full error and `git status`, tell user to run `git rebase --abort`.
+16. **Execute rebase.** Write the todo file (same format as Mode A step 11). **CRITICAL: the `--committer-date-is-author-date` flag is mandatory** — without it, git sets every committer date to the rebase time and the entire history appears to land on one day. Run exactly: `GIT_SEQUENCE_EDITOR='cp <temp-path>' git rebase -i --root --committer-date-is-author-date`. For non-root rewrites replace `--root` with `<base-ref>`. Remove temp file after. On failure, stop immediately, show full error and `git status`, tell user to run `git rebase --abort`. **After the rebase, verify dates:** run `git log --format="%h %aI %cI" -5` and confirm author and committer dates match (not all set to the rebase timestamp).
 
 17. **Re-apply version tags.** For each recorded tag in chronological order:
     a. Delete old tag: `git tag -d <tag_name>`

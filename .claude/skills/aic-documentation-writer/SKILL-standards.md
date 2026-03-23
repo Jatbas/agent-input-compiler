@@ -96,7 +96,7 @@ Supplementary information that is not part of the main instructional flow — ca
 
 **What qualifies as a note:**
 
-- Scope or applicability caveats ("these files are gitignored", "this applies only to X")
+- Scope or applicability caveats ("these files are local to your machine", "this applies only to X")
 - Clarifications that prevent misunderstanding but are not the section's primary content
 - Background context a reader may need but that would interrupt the main flow
 - Warnings or important constraints that are secondary to the section's purpose
@@ -105,13 +105,13 @@ Supplementary information that is not part of the main instructional flow — ca
 **Single note:**
 
 ```
-> Task files under `documentation/tasks/` are **gitignored** (local to your machine). They are not part of the published tree; the planner and executor skills define how to create and use them.
+> Task files under `documentation/tasks/` are local to your machine and not part of the published repository. The planner and executor skills define how to create and use them.
 ```
 
 **Sequential notes form a unified block.** When two or more notes appear in sequence, join them into a single blockquote with a `>` blank line between each note. This renders as one continuous block with the vertical bar running the full height:
 
 ```
-> Task files under `documentation/tasks/` are **gitignored** (local to your machine).
+> Task files under `documentation/tasks/` are local to your machine.
 >
 > The planner and executor skills define how to create and use them.
 ```
