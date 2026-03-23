@@ -1,6 +1,6 @@
 ---
 name: aic-git-history-clean
-description: Squashes dev-noise and internal-workflow commits in unpushed or published history. Sanitizes internal references from commit messages, preserves author dates, creates backup branches, and re-applies version tags after rewrite. Includes automated plan validation.
+description: Produces feature-centric git history by grouping related commits (feat + follow-up fixes = one unit). Absorbs dev-noise, sanitizes internal references, places version tags on significant feature commits, preserves author dates, and validates every message before rewrite.
 ---
 
 > **Audience: Internal — developer workflow only. Do not invoke via agent delegation.**
@@ -9,7 +9,7 @@ description: Squashes dev-noise and internal-workflow commits in unpushed or pub
 
 ## Purpose
 
-Squash dev-noise and internal-workflow commits into clean commits that match the project's conventional commit format and look natural to an experienced developer reviewing `git log`. Removes internal task numbers, phase codes, and planning artifacts from commit messages. Preserves original author dates so no commit appears to have landed on the cleanup date. Creates a backup branch before any rebase for safe rollback. Validates every proposed message before presenting the plan.
+Produce feature-centric git history where each commit tells a story: "we added X", "we fixed Y." Groups related commits by feature — a `feat:` and the `fix:` that follows it are one unit, not two entries. Absorbs dev-noise, task planning, and release artifacts into the features they belong to. Removes internal task numbers, phase codes, and planning artifacts from commit messages. Places version tags on the most significant commit in each release range so `git log v0.6.3` shows the feature that shipped, not a version bump. Preserves original author dates. Creates a backup branch before any rebase for safe rollback. Validates every proposed message before presenting the plan.
 
 Two modes: Mode A (unpushed commits only, safe default) and Mode B (explicit rewrite of pushed history, destructive).
 
@@ -45,7 +45,7 @@ A commit is **squashable** if any of the following match:
 9. Subject matches `docs(tasks):` with any suffix not already caught by rules 4–6.
 10. Subject is a merge commit (`^Merge branch`) whose branch name contains `task-\d+` — strip the task number from the branch name during sanitization.
 
-**Exception — release commits.** A `chore(release): ...` commit is squashable (absorbed into the preceding implementation commit) UNLESS it is the only commit that a version tag can land on. If removing it would leave its version tag with no target commit, keep it standalone. Back-to-back `chore(release):` commits: absorb the first into its predecessor, keep the second standalone.
+**Release commits** are squashable with one exception. A `chore(release): ...` commit is absorbed into the preceding implementation commit UNLESS it is a **narrative release** — its description (after stripping leading `v?\d+\.\d+\.\d+[-\s]*` prefix and punctuation) is ≥ 20 characters and contains an action verb (add, rename, drop, fix, migrate, rewrite, overhaul, redesign, introduce, remove, implement, refactor, move, upgrade, support, merge, split, unify, replace). A narrative release is kept standalone and retyped to match its content: `feat:` if it adds/renames/introduces, `refactor:` if it restructures, `fix:` if it corrects. Example: `chore(release): rename packages to @jatbas/aic and @jatbas/aic-core` → kept standalone as `refactor(release): rename packages to @jatbas/aic and @jatbas/aic-core`. Non-narrative releases (bare version bumps like `chore(release): 0.6.3`) are absorbed normally. Back-to-back `chore(release):` commits: each evaluated independently.
 
 ### Soft noise (squashed only when grouped with squashable neighbors)
 
@@ -61,19 +61,33 @@ A commit is **sanitizable** if its description (after stripping prefix) contains
 
 ## Squash grouping rules
 
-After classifying all commits, build squash groups using these rules in priority order:
+The goal is feature-centric history: each group represents one logical feature or fix as a developer would describe it. "We added X" or "We fixed Y" — not a list of individual commits. Apply these rules in two phases.
 
-1. **Fixup/squash targets.** A `fixup!` or `squash!` commit joins the nearest preceding non-squashable commit whose subject matches the text after the `fixup! ` or `squash! ` prefix.
-2. **Workflow-pair absorption.** A squashable Category 4/5/6/9 commit (task planning, removal, progress, or generic `docs(tasks)`) is absorbed into the nearest non-squashable commit within a window of 5 commits in either direction that shares the same scope or has overlapping keywords in its description. If no match is found within the window, absorb into the nearest non-squashable predecessor.
-3. **Version-bump absorption.** A Category 7 commit (bare version string) is absorbed into the immediately preceding non-squashable commit.
-4. **Release-commit absorption.** A `chore(release):` commit is absorbed into the immediately preceding non-squashable commit (i-1 only, not a wider search). Exception: if the commit carries the only version tag for that release, keep it standalone.
-5. **Short-subject absorption.** A Category 8 commit (description < 12 chars) is absorbed into the nearest non-squashable commit with matching scope, or if no scope match, into the nearest non-squashable predecessor.
-6. **Scope-duplicate grouping.** Consecutive commits with identical scope where at least one is squashable are grouped together. The first non-squashable commit in the run is the anchor. Exception: do not merge runs that are exclusively `chore(release):` commits.
-7. **Isolated wip.** A `wip` commit with no match from rules 1–6 is grouped with its nearest non-squashable predecessor.
-8. **Non-squashable commits** with no squashable neighbors remain ungrouped (kept as-is).
-9. **All-squashable groups.** If a group formed by rules 1–7 contains no non-squashable anchor, use the commit with the longest description as the proposed anchor and mark the row `[REVIEW]` in the plan table.
+### Phase 1 — Feature grouping
 
-The anchor commit of each group provides the proposed message. Absorbed commits disappear.
+Build groups around features. A **feature anchor** is a `feat:` commit, or a significant `fix:`/`refactor:`/`perf:` commit (description > 20 chars) that is not itself a follow-up to a preceding feature with the same scope.
+
+1. **Feature continuation.** After each feature anchor, scan forward within a window of 10 commits (not crossing a version tag boundary). Absorb any commit with the **same scope** that is a `fix:`, `refactor:`, `test:`, `style:`, or `docs:` — these are follow-ups to the feature (fixing, cleaning up, testing, or documenting it). The `feat:` is the anchor. A `fix(mcp): handle null roots in bootstrap` three commits after `feat(mcp): add proactive bootstrap` is part of the same feature. Stop absorbing if you hit another `feat:` with the same scope (that starts a new feature).
+
+2. **Fixup/squash targets.** A `fixup!` or `squash!` commit joins the nearest preceding commit whose subject matches the text after the prefix.
+
+### Phase 2 — Artifact absorption
+
+After feature groups are built, absorb remaining noise into the nearest group.
+
+3. **Workflow artifacts.** Squashable commits (task planning, removal, progress, generic `docs(tasks)`, bare version strings, wip, short-subject — categories 2–9 from noise criteria) are absorbed into the nearest feature anchor within a window of 5 commits in either direction, preferring scope match. If no scope match, absorb into the nearest preceding anchor.
+
+4. **Release-commit absorption.** A non-narrative `chore(release):` is absorbed into the immediately preceding anchor (i-1 only). A **narrative release** (see noise criteria) is kept standalone and retyped. If no preceding anchor exists, keep standalone.
+
+5. **Scope-duplicate grouping.** Consecutive commits with identical scope where at least one is squashable and not yet grouped are merged. The first non-squashable commit is the anchor.
+
+### Phase 3 — Standalone commits
+
+6. **Ungrouped commits** remain standalone — their messages are sanitized but they stay as individual commits.
+
+7. **Anchor-less groups.** If a group from phases 1–2 contains no non-squashable anchor, use the commit with the longest description as the proposed anchor and mark the row `[REVIEW]`.
+
+The anchor of each group provides the proposed message. Absorbed commits disappear.
 
 ## Message sanitization
 
@@ -140,6 +154,35 @@ After sanitization, verify:
 
 Mark any message that was changed from the original with `[SANITIZED]` in the plan table.
 
+## Tag anchor selection
+
+After building groups and sanitizing messages, assign each version tag to the group anchor that best tells the story of that release. This step is separate from group absorption — it decides WHERE a tag lands, not whether a commit is squashed.
+
+For each version tag (in chronological order):
+
+1. **Define the release range.** All group anchors (and standalone commits) between the previous version tag (exclusive) and this tag's original position (inclusive). If this is the first tag, the range starts at the base ref.
+
+2. **Score every group anchor in the range.** Use the highest-matching signal:
+
+| Priority | Signal                                                                                                                    | Score |
+| -------- | ------------------------------------------------------------------------------------------------------------------------- | ----- |
+| 1        | `feat:` with description > 30 chars                                                                                       | 90    |
+| 2        | `fix:` or `perf:` with description > 30 chars                                                                             | 80    |
+| 3        | `refactor:` with impact keywords (overhaul, rewrite, migrate, drop, redesign, rename, restructure, unify, replace, split) | 75    |
+| 4        | Narrative release commit (retyped — see grouping rule 4)                                                                  | 70    |
+| 5        | `feat:` with any description length                                                                                       | 60    |
+| 6        | `fix:` or `perf:` with any description length                                                                             | 50    |
+| 7        | `refactor:` or `build:`                                                                                                   | 40    |
+| 8        | Any other implementation type (`test:`, `ci:`, `chore:` non-release)                                                      | 30    |
+| 9        | `docs:` (discouraged — validation check 8 warns)                                                                          | 10    |
+| 10       | `chore(release):` standalone, bare bump (last resort)                                                                     | 5     |
+
+3. **Tiebreaker.** When multiple anchors share the same score, prefer the one closest to the tag's original chronological position (the commit the tag was on before rewrite).
+
+4. **Place the tag.** The tag lands on the highest-scoring anchor in the range.
+
+This scoring naturally produces storytelling tags: `v0.6.3` → `fix(perf): prevent OOM on large projects` (score 80) rather than a bare release bump (score 5). A narrative release like `refactor(release): rename packages to @jatbas/aic` (score 70) wins over a nearby minor fix (score 50) but yields to a major feature (score 90) if one exists in the same range.
+
 ## Plan validation
 
 **This step is mandatory.** Before presenting the plan to the user (both modes), run every proposed message through these automated checks. Fix violations automatically where possible. Any violation that cannot be auto-fixed must be marked `[NEEDS-FIX]` in the plan table.
@@ -153,7 +196,7 @@ Mark any message that was changed from the original with `[SANITIZED]` in the pl
 5. **No internal scopes remaining.** Scope must not be in the remap table (step 2) or match `^[a-z]{1,2}$` when it looks like a phase code. Auto-fix: re-run scope remap.
 6. **Minimum description length.** Description must be at least 12 characters. Auto-fix: fall back to longest constituent description.
 7. **No merge task numbers.** Merge commit branch names must not contain `task-\d+`. Auto-fix: strip.
-8. **Version tag sanity.** If a version tag lands on a `docs:` commit (any scope), warn: this looks unusual. Prefer keeping the `chore(release):` as a standalone commit for that tag instead. Auto-fix: un-absorb the release commit and keep it standalone for the tag.
+8. **Version tag storytelling.** Verify the tag anchor selection scoring was applied correctly. Tags should land on the highest-scoring anchor in their release range (see § Tag anchor selection). A tag on `docs:` (score 10) or bare `chore(release):` (score 5) triggers a warning — re-run scoring for that range. A tag on `chore(release):` is acceptable only as a last resort when no implementation commit exists in the range.
 9. **Conventional format.** Message must match `^[a-z]+(\([a-z0-9/-]+\))?: .{12,}$` (allowing for scoped or unscoped). Mark `[NEEDS-FIX]` if not.
 
 ### Reporting
@@ -244,13 +287,13 @@ The plan must have **zero `[NEEDS-FIX]`** items before the user is asked to appr
 
 9. **Sanitize proposed messages** using the message sanitization rules above (steps 1–4).
 
-10. **Assign tags to groups.** For each recorded tag, find which group (or kept commit) contains the tag's original commit. Record the mapping. If a tag's commit was absorbed into a group, the tag will be re-applied to the group's anchor commit after rebase. **Version tag sanity check:** if a tag would land on a `docs:` commit, check whether the absorbed `chore(release):` can be kept standalone instead (see validation check 8).
+10. **Select tag anchors.** Apply the tag anchor selection scoring (see § Tag anchor selection). For each tag, score all group anchors in the release range and place the tag on the highest-scoring one. The tag does NOT automatically follow absorption — it is placed independently based on which commit best tells the release story. Validation check 8 will verify scoring was applied.
 
 11. **Validate the plan** using the plan validation checks above. Auto-fix what can be fixed, mark remainder `[NEEDS-FIX]`.
 
 12. **Present the plan.** Show a table with columns: `Group`, `Before (commits being squashed)`, `After (proposed message)`, `Tags`. Mark `[REVIEW]`, `[SANITIZED]`, and `[NEEDS-FIX]` as applicable. Show tags in the rightmost column for groups/commits that carry a version tag.
 
-13. **Show validation summary and tag assignments.** Report auto-fixes and `[NEEDS-FIX]` items. Show the tag → anchor message mapping table. Show commit count before → after and date range.
+13. **Show validation summary and tag assignments.** Report auto-fixes and `[NEEDS-FIX]` items. Show the tag → anchor message mapping table with the score for each placement. Most tags should land on `feat:` (score 60–90) or `fix:`/`perf:` (score 50–80) commits. If any tag scores below 40, flag it for user review. Show commit count before → after and date range.
 
 14. **Resolve all `[NEEDS-FIX]` items.** If any exist, present them and ask the user for replacement messages. Do not proceed until zero `[NEEDS-FIX]` remain.
 
@@ -260,7 +303,7 @@ The plan must have **zero `[NEEDS-FIX]`** items before the user is asked to appr
 
 17. **Re-apply version tags.** For each recorded tag in chronological order:
     a. Delete old tag: `git tag -d <tag_name>`
-    b. Find the new commit: search `git log --oneline <base-ref>..HEAD` for the commit whose subject matches the group's proposed (sanitized) message for the group that contained the tag. Use the first match.
+    b. Find the new commit: search `git log --oneline <base-ref>..HEAD` for the commit whose subject matches the **selected tag anchor message** (from step 10 scoring — not necessarily the group that originally contained the release commit). Use the first match.
     c. Re-create: `git tag <tag_name> <new_commit_hash>`
     d. If a match cannot be found, warn: "Could not find target commit for tag `<tag_name>`. Skipping — re-apply manually."
 
@@ -282,6 +325,7 @@ After the first public release (`v1.0.0` or equivalent) is pushed and the reposi
 
 ## Conventions
 
+- **Feature-centric thinking.** The guiding question is "what features were built and what problems were solved?" — not "what commit types exist?" Each group in the final history should read like a changelog entry: "added X", "fixed Y", "refactored Z." Follow-up fixes to a feature are part of the feature, not separate entries.
 - Always present the squash plan before executing — never squash silently.
 - Proposed commit messages come from existing non-squashable commits in the group, not from generated text. Sanitization modifies existing messages (removing internal references) but does not invent new descriptions.
 - Date preservation is non-negotiable. Every squashed commit inherits the earliest author date in its group. The `--committer-date-is-author-date` flag ensures committer dates match.
