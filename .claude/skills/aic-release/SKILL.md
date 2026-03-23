@@ -81,7 +81,7 @@ If any quick-scan issues found, show them and ask: "N quick-scan issues found. F
 
 ### Phase 3 — History noise check
 
-1. Run `git tag -l "v*" --sort=-v:refname | head -1` to get the latest version tag. If no tag exists (first release), run `git log --oneline` to list all commits. Otherwise run `git log <last-tag>..HEAD --oneline` to list commits since that tag.
+1. Run `git ls-remote --tags origin "v*" | sed 's|.*refs/tags/||' | sort -V | tail -1` to get the latest version tag from the remote. If no tag exists (first release), run `git log --oneline` to list all commits. Otherwise run `git log <last-tag>..HEAD --oneline` to list commits since that tag.
 2. Check each subject for noise patterns: length < 30 chars (excluding conventional prefix), contains `wip` (case-insensitive), starts with `fixup!` or `squash!`, duplicate scope as the immediately preceding commit, subject is blank or punctuation-only.
 3. If any noise commits are found, show: "Found N noise commits since the last tag: [list]. Run `/aic-git-history-clean` to squash them before releasing? (yes to pause / no to continue)"
    - `yes` → stop: "Pausing. Run `/aic-git-history-clean` and then re-run `/aic-release`."
@@ -140,8 +140,7 @@ The release cut steps cover:
 - Run `pnpm install` to update `pnpm-lock.yaml`
 - Run `pnpm build && pnpm typecheck` (build gate)
 - Commit: `git add CHANGELOG.md package.json shared/package.json mcp/package.json pnpm-lock.yaml && git commit -m "chore(release): X.Y.Z"`
-- Tag: `git tag vX.Y.Z`
-- Push: `git push origin main && git push origin vX.Y.Z`
+- Push and tag remotely: `git push origin main && git push origin HEAD:refs/tags/vX.Y.Z` (no local tag — keeps the branch picker clean)
 - Poll CI: `gh run list --repo Jatbas/agent-input-compiler --workflow publish.yml --limit 5` — find the run triggered by `refs/tags/vX.Y.Z`, poll up to 20 times until complete
 - Verify npm: `npm view @jatbas/aic dist-tags.latest` must equal `X.Y.Z`; `npm view @jatbas/aic-core@X.Y.Z version` must return `X.Y.Z`
 - Create GitHub Release: `gh release create vX.Y.Z --notes "$(cat <<'EOF'\n[extracted changelog section]\nEOF\n)"`

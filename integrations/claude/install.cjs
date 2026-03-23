@@ -153,6 +153,87 @@ This file (\`.claude/CLAUDE.md\`) and \`.cursor/rules/AIC-architect.mdc\` are th
 - When changing any shared rule, update all three files in the same commit: (1) this file, (2) \`.cursor/rules/AIC-architect.mdc\`, and (3) the \`CLAUDE_MD_TEMPLATE\` in \`integrations/claude/install.cjs\`. If you only see one file in context, flag that the other two need the same change.
 `;
 
+const CLAUDE_MD_OPENING_LINE =
+  "<!-- BEGIN AIC MANAGED SECTION — do not edit between these markers -->";
+const CLAUDE_MD_CLOSING_LINE = "<!-- END AIC MANAGED SECTION -->";
+const CLAUDE_MD_OPENING_LINE_RE = new RegExp(
+  "^\\s*<!--\\s*BEGIN AIC MANAGED SECTION — do not edit between these markers\\s*-->\\s*$",
+);
+const CLAUDE_MD_CLOSING_LINE_RE = new RegExp(
+  "^\\s*<!--\\s*END AIC MANAGED SECTION\\s*-->\\s*$",
+);
+
+function normalizeClaudeMdNewlines(text) {
+  return String(text).replaceAll("\r\n", "\n").replaceAll("\r", "\n");
+}
+
+function buildClaudeMdManagedFileContent(version) {
+  let inner = CLAUDE_MD_TEMPLATE.replace("{{VERSION}}", version);
+  if (!inner.endsWith("\n")) inner += "\n";
+  return `${CLAUDE_MD_OPENING_LINE}\n${inner}${CLAUDE_MD_CLOSING_LINE}\n`;
+}
+
+function findValidManagedPairLines(lines) {
+  let openIdx = -1;
+  for (let i = 0; i < lines.length; i += 1) {
+    if (CLAUDE_MD_OPENING_LINE_RE.test(lines[i])) {
+      openIdx = i;
+      break;
+    }
+  }
+  if (openIdx < 0) return { valid: false };
+  let closeIdx = -1;
+  for (let j = openIdx + 1; j < lines.length; j += 1) {
+    if (CLAUDE_MD_CLOSING_LINE_RE.test(lines[j])) {
+      closeIdx = j;
+      break;
+    }
+  }
+  if (closeIdx < 0) return { valid: false };
+  return { valid: true, openIdx, closeIdx };
+}
+
+function charOffsetForLineIndex(lines, lineIndex) {
+  let offset = 0;
+  for (let k = 0; k < lineIndex; k += 1) offset += lines[k].length + 1;
+  return offset;
+}
+
+function planProjectClaudeMdWrite(version, existingNormalized) {
+  const managed = buildClaudeMdManagedFileContent(version);
+  if (existingNormalized === null) {
+    return { skipWrite: false, nextContent: managed };
+  }
+  if (/^[\t \n]*$/.test(existingNormalized)) {
+    return { skipWrite: false, nextContent: managed };
+  }
+  const lines = existingNormalized.split("\n");
+  const pair = findValidManagedPairLines(lines);
+  if (!pair.valid) {
+    const base = existingNormalized.replace(/\n+$/, "");
+    return { skipWrite: false, nextContent: `${base}\n\n${managed}` };
+  }
+  const openLineStart = charOffsetForLineIndex(lines, pair.openIdx);
+  const afterOpenLine = openLineStart + lines[pair.openIdx].length + 1;
+  const closeLineStart = charOffsetForLineIndex(lines, pair.closeIdx);
+  let afterCloseLine = closeLineStart + lines[pair.closeIdx].length;
+  if (
+    afterCloseLine < existingNormalized.length &&
+    existingNormalized[afterCloseLine] === "\n"
+  ) {
+    afterCloseLine += 1;
+  }
+  const interior = existingNormalized.slice(afterOpenLine, closeLineStart);
+  const versionMatch = interior.match(/AIC rule version:\s*(\S+)/);
+  const innerVersion = versionMatch ? versionMatch[1] : null;
+  if (innerVersion === version) {
+    return { skipWrite: true, nextContent: null };
+  }
+  const prefix = existingNormalized.slice(0, openLineStart);
+  const suffix = existingNormalized.slice(afterCloseLine);
+  return { skipWrite: false, nextContent: `${prefix}${managed}${suffix}` };
+}
+
 function isAicCommand(command) {
   const m = String(command || "").match(/aic-[a-z0-9-]+\.cjs/);
   return m ? AIC_SCRIPT_NAMES.includes(m[0]) : false;
@@ -312,7 +393,6 @@ try {
     // keep 0.0.0
   }
 
-  const triggerContent = CLAUDE_MD_TEMPLATE.replace("{{VERSION}}", version);
   const projectRoot = resolveProjectRoot({ cwd: "" }, { env: process.env });
   const projectClaudeDir = path.join(projectRoot, ".claude");
 
@@ -366,18 +446,21 @@ try {
   }
 
   const claudeMdPath = path.join(projectClaudeDir, "CLAUDE.md");
-  let skipTriggerWrite = false;
+  let existingClaudeMd = null;
   try {
-    const existing = fs.readFileSync(claudeMdPath, "utf8");
-    const match = existing.match(/AIC rule version:\s*(\S+)/);
-    if (match !== null && match[1] === version) skipTriggerWrite = true;
+    existingClaudeMd = fs.readFileSync(claudeMdPath, "utf8");
   } catch {
-    // file missing
+    // file missing or unreadable
   }
-  if (!skipTriggerWrite) {
+  const existingNorm =
+    existingClaudeMd === null ? null : normalizeClaudeMdNewlines(existingClaudeMd);
+  const claudeMdPlan = planProjectClaudeMdWrite(version, existingNorm);
+  if (!claudeMdPlan.skipWrite) {
     try {
-      fs.mkdirSync(projectClaudeDir, { recursive: true });
-      fs.writeFileSync(claudeMdPath, triggerContent, "utf8");
+      if (claudeMdPlan.nextContent !== existingNorm) {
+        fs.mkdirSync(projectClaudeDir, { recursive: true });
+        fs.writeFileSync(claudeMdPath, claudeMdPlan.nextContent, "utf8");
+      }
     } catch {
       // optional: ignore if project dir not writable
     }
