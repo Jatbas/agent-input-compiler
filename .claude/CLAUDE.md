@@ -1,3 +1,4 @@
+<!-- BEGIN AIC MANAGED SECTION — do not edit between these markers -->
 <!-- AIC rule version: 0.7.0 -->
 
 # AIC — Claude Code Rules
@@ -102,8 +103,6 @@ Prefer `npx eslint` for targeted checks. Run `pnpm lint` before declaring work c
 
 ## Prompt Commands
 
-> **Dev:** When `AIC_DEV_MODE=1`, substitute `pnpm aic` for `npx @jatbas/aic` in every command below (run from the repo root).
-
 Use these rules for all four AIC prompt commands. Present data like a polished dashboard, not raw JSON.
 
 **General formatting (all commands):**
@@ -141,3 +140,4 @@ This file (`.claude/CLAUDE.md`) and `.cursor/rules/AIC-architect.mdc` are the tw
 - Architectural invariants, security rules, dependency rules, commit rules, ESLint rules, and test rules are **identical** across both files.
 - Only editor-specific mechanics differ: Claude Code uses hooks for `aic_compile`; Cursor requires manual `aic_compile` calls. Prompt commands use the same shell diagnostics (`npx @jatbas/aic …`) but instructions differ slightly per editor.
 - When changing any shared rule, update all three files in the same commit: (1) this file, (2) `.cursor/rules/AIC-architect.mdc`, and (3) the `CLAUDE_MD_TEMPLATE` in `integrations/claude/install.cjs`. If you only see one file in context, flag that the other two need the same change.
+<!-- END AIC MANAGED SECTION -->
