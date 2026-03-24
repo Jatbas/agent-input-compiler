@@ -23,7 +23,7 @@
     "knip": "knip",
     "check:headers": "node scripts/check-license-headers.cjs",
     "lint:clones": "jscpd shared/src mcp/src",
-    "bench": "echo 'No benchmarks configured yet (Phase 0.5+)'",
+    "bench": "echo 'No benchmarks configured yet'",
     "prepare": "husky"
   },
   "pnpm": {

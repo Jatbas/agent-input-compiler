@@ -14,6 +14,7 @@ documentation/future/
 documentation/notes/
 documentation/research/
 documentation/tasks/
+documentation/bck/
 .env
 .claude/settings.json
 .claude/settings.local.json
