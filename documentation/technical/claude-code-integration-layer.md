@@ -87,14 +87,14 @@ When run from a project directory that is not the user home, it also removes leg
 
 ### 4.3 Input field mapping
 
-| Claude Code hook input field              | AIC `aic_compile` argument                                                                                                |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `input.prompt` (UserPromptSubmit)         | `intent`                                                                                                                  |
-| `input.agent_type` (SubagentStart)        | part of `intent` string                                                                                                   |
-| Generic for session events                | fixed intent string `"understand project structure, architecture, and recent changes"`                                    |
-| `input.cwd`                               | `projectRoot` (fallback to `$CLAUDE_PROJECT_DIR` → `process.cwd()`)                                                       |
-| `input.transcript_path`                   | `conversationId` (via `path.basename(transcriptPath, ".jsonl")`)                                                          |
-| `input.model` (SessionStart when present) | `modelId`; SessionStart passes it; other hooks use cached value from `.aic/.claude-session-model` written on SessionStart |
+| Claude Code hook input field              | AIC `aic_compile` argument                                                                                                                                                |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `input.prompt` (UserPromptSubmit)         | `intent`                                                                                                                                                                  |
+| `input.agent_type` (SubagentStart)        | part of `intent` string                                                                                                                                                   |
+| Generic for session events                | fixed intent string `"understand project structure, architecture, and recent changes"`                                                                                    |
+| `input.cwd`                               | `projectRoot` (fallback to `$CLAUDE_PROJECT_DIR` → `process.cwd()`)                                                                                                       |
+| `input.transcript_path`                   | `conversationId` (via `path.basename(transcriptPath, ".jsonl")`)                                                                                                          |
+| `input.model` (SessionStart when present) | `modelId`; SessionStart passes it; other hooks use `readSessionModelCache` on `.aic/session-models.jsonl` (written when SessionStart or other hooks record a valid model) |
 
 **`conversationId` must always be passed** from `transcript_path` so `compilation_log` rows are attributed to the correct conversation. Claude Code includes `transcript_path` in _every_ hook input ([common input fields](https://code.claude.com/docs/en/hooks#common-input-fields)). The UUID in the transcript filename (`path.basename(transcriptPath, ".jsonl")`) uniquely identifies the conversation and is stable across all hooks in the same chat. The `aic-compile-helper` accepts and forwards it.
 
@@ -263,7 +263,7 @@ AIC uses eight of them. Known product bugs and workarounds are called out per ho
 
 **Reference:** [hooks#sessionstart](https://code.claude.com/docs/en/hooks#sessionstart)
 
-**Purpose:** Inject architectural invariants and a broad project context snapshot at the start of a session. `model` from hook input is passed as `modelId` to `aic_compile`; other hooks that call the helper use the cached value from `.aic/.claude-session-model` written when SessionStart provided a valid model. Also fires on `compact` — re-injecting context after compaction is the primary reliable use case.
+**Purpose:** Inject architectural invariants and a broad project context snapshot at the start of a session. `model` from hook input is passed as `modelId` to `aic_compile`; other hooks that call the helper resolve model id via `readSessionModelCache` on `.aic/session-models.jsonl` when SessionStart (or another hook) has recorded a valid model. Also fires on `compact` — re-injecting context after compaction is the primary reliable use case.
 
 **Matcher values:** `startup`, `resume`, `clear`, `compact`
 ([matcher reference](https://code.claude.com/docs/en/hooks#matcher-patterns)).
@@ -295,7 +295,7 @@ parts.push(promptContext);
 
 The marker is scoped by `session_id` so multiple concurrent sessions don't interfere. Delete the marker in `SessionEnd`.
 
-Lock file layout (`.session-start-lock`), merge options, and ordering with this marker are recorded in [Session start lock and session context marker](technical/session-start-lock-and-marker.md).
+Lock file layout (`.session-start-lock`), merge options, and ordering with this marker are recorded in [Session start lock and session context marker](session-start-lock-and-marker.md).
 
 **Output:** `hookSpecificOutput` JSON (see §6.2).
 
@@ -342,7 +342,7 @@ Lock file layout (`.session-start-lock`), merge options, and ordering with this 
 
 **MCP matcher — `conversationId` injection**
 
-**Purpose:** Ensure `aic_compile` and `aic_chat_summary` receive `conversationId` in tool arguments when the model omits it. Matcher `mcp__.*__aic_compile` (and parallel for chat summary) runs `aic-inject-conversation-id.cjs`.
+**Purpose:** Ensure `aic_compile` receives `conversationId` (and related fields) in tool arguments when the model omits them. `settings.json.template` registers `aic-inject-conversation-id.cjs` only for matcher `mcp__.*__aic_compile` (there is no separate PreToolUse matcher for `aic_chat_summary`; chat-summary attribution relies on hooks passing `conversationId` from `transcript_path` and related paths).
 
 **File:** `.claude/hooks/aic-inject-conversation-id.cjs` (see §10 for registration)
 
@@ -367,8 +367,6 @@ Lock file layout (`.session-start-lock`), merge options, and ordering with this 
 
 **File:** `.claude/hooks/aic-after-file-edit-tracker.cjs`
 
-For the full edited-files flow (tracker → stop → cleanup) and file list, see [edited-files flow](edited-files-flow.md).
-
 ---
 
 ### 7.6 Stop — quality gate (ESLint + typecheck)
@@ -384,8 +382,6 @@ For the full edited-files flow (tracker → stop → cleanup) and file list, see
 **Implementation note:** If the temp file for this `session_id` does not exist (no files were edited, or the tracker missed it), exit 0 immediately — do not block.
 
 **File:** `.claude/hooks/aic-stop-quality-check.cjs`
-
-For the full edited-files flow and file list, see [edited-files flow](edited-files-flow.md).
 
 ---
 
@@ -415,11 +411,9 @@ No context injection — this hook produces no stdout. Exit 0 always (telemetry 
 
 **Input fields used:** `input.session_id`, `input.reason`
 
-**Additional responsibility:** Delete the `.aic/.session-context-injected` marker for this `session_id` (see the dual-path workaround in §7.2) so it doesn't persist across sessions. The hook also calls `releaseSessionLock`; see [Session start lock and session context marker](technical/session-start-lock-and-marker.md) for lock and marker interaction.
+**Additional responsibility:** Delete the `.aic/.session-context-injected` marker for this `session_id` (see the dual-path workaround in §7.2) so it doesn't persist across sessions. The hook also calls `releaseSessionLock`; see [Session start lock and session context marker](session-start-lock-and-marker.md) for lock and marker interaction.
 
 **File:** `.claude/hooks/aic-session-end.cjs`
-
-For the full edited-files flow and cleanup behavior, see [edited-files flow](edited-files-flow.md).
 
 ---
 
@@ -446,7 +440,7 @@ For the full edited-files flow and cleanup behavior, see [edited-files flow](edi
 | `ConfigChange`                      | skipped | No AIC policy triggered by config changes.                                                                                                                                |
 | `TeammateIdle`                      | skipped | Agent teams feature, out of scope.                                                                                                                                        |
 | `TaskCompleted`                     | skipped | Agent teams feature, out of scope.                                                                                                                                        |
-| `WorktreeCreate` / `WorktreeRemove` | skipped | Out of scope for current phase.                                                                                                                                           |
+| `WorktreeCreate` / `WorktreeRemove` | skipped | Out of scope for the current AIC integration (lifecycle hooks only; not Git worktrees).                                                                                   |
 
 ---
 
@@ -454,10 +448,10 @@ For the full edited-files flow and cleanup behavior, see [edited-files flow](edi
 
 ### 9.1 Shared helper — `aic-compile-helper.cjs`
 
-The shared helper mediates between a hook script and the AIC MCP server via MCP stdio. Its signature must be:
+The shared helper mediates between a hook script and the AIC MCP server via MCP stdio. Its signature in `integrations/claude/hooks/aic-compile-helper.cjs` is:
 
 ```js
-callAicCompile(intent, projectRoot, conversationId, timeoutMs);
+callAicCompile(intent, projectRoot, conversationId, timeoutMs, triggerSource, modelId);
 ```
 
 The `compileRequest` arguments object must include `conversationId` derived from
@@ -467,16 +461,17 @@ The `compileRequest` arguments object must include `conversationId` derived from
 const transcriptPath = parsed.transcript_path ?? parsed.input?.transcript_path ?? null;
 const conversationId = transcriptPath ? path.basename(transcriptPath, ".jsonl") : null;
 // ...
-{
+JSON.stringify({
   method: "tools/call",
   params: {
     name: "aic_compile",
     arguments: {
-    intent,
-    projectRoot,
-    ...(conversationId ? { conversationId } : {})
-  }
-}
+      intent,
+      projectRoot,
+      ...(conversationId ? { conversationId } : {}),
+    },
+  },
+});
 ```
 
 Without `conversationId`, `compilation_log` rows from Claude Code hooks have null `conversation_id`, and `aic_chat_summary` cannot aggregate them. The `session_id` field is per-hook-invocation and must NOT be used for conversation attribution.
@@ -497,7 +492,7 @@ Without `conversationId`, `compilation_log` rows from Claude Code hooks have nul
         "hooks": [
           {
             "type": "command",
-            "command": "node \"~/.claude/hooks/aic-session-start.cjs\"",
+            "command": "node \"$HOME/.claude/hooks/aic-session-start.cjs\"",
             "timeout": 30,
             "statusMessage": "Compiling AIC project context..."
           }
@@ -509,7 +504,7 @@ Without `conversationId`, `compilation_log` rows from Claude Code hooks have nul
         "hooks": [
           {
             "type": "command",
-            "command": "node \"~/.claude/hooks/aic-prompt-compile.cjs\"",
+            "command": "node \"$HOME/.claude/hooks/aic-prompt-compile.cjs\"",
             "timeout": 30,
             "statusMessage": "Compiling intent-specific context..."
           }
@@ -521,7 +516,7 @@ Without `conversationId`, `compilation_log` rows from Claude Code hooks have nul
         "hooks": [
           {
             "type": "command",
-            "command": "node \"~/.claude/hooks/aic-subagent-inject.cjs\"",
+            "command": "node \"$HOME/.claude/hooks/aic-subagent-inject.cjs\"",
             "timeout": 30,
             "statusMessage": "Compiling subagent context..."
           }
@@ -533,7 +528,7 @@ Without `conversationId`, `compilation_log` rows from Claude Code hooks have nul
         "hooks": [
           {
             "type": "command",
-            "command": "node \"~/.claude/hooks/aic-pre-compact.cjs\"",
+            "command": "node \"$HOME/.claude/hooks/aic-pre-compact.cjs\"",
             "timeout": 30,
             "statusMessage": "Compiling pre-compaction context..."
           }
@@ -546,7 +541,7 @@ Without `conversationId`, `compilation_log` rows from Claude Code hooks have nul
         "hooks": [
           {
             "type": "command",
-            "command": "node \"~/.claude/hooks/aic-after-file-edit-tracker.cjs\""
+            "command": "node \"$HOME/.claude/hooks/aic-after-file-edit-tracker.cjs\""
           }
         ]
       }
@@ -556,7 +551,7 @@ Without `conversationId`, `compilation_log` rows from Claude Code hooks have nul
         "hooks": [
           {
             "type": "command",
-            "command": "node \"~/.claude/hooks/aic-stop-quality-check.cjs\"",
+            "command": "node \"$HOME/.claude/hooks/aic-stop-quality-check.cjs\"",
             "timeout": 60,
             "statusMessage": "Running lint and typecheck..."
           }
@@ -569,7 +564,7 @@ Without `conversationId`, `compilation_log` rows from Claude Code hooks have nul
         "hooks": [
           {
             "type": "command",
-            "command": "node \"~/.claude/hooks/aic-block-no-verify.cjs\""
+            "command": "node \"$HOME/.claude/hooks/aic-block-no-verify.cjs\""
           }
         ]
       },
@@ -578,7 +573,7 @@ Without `conversationId`, `compilation_log` rows from Claude Code hooks have nul
         "hooks": [
           {
             "type": "command",
-            "command": "node \"~/.claude/hooks/aic-inject-conversation-id.cjs\""
+            "command": "node \"$HOME/.claude/hooks/aic-inject-conversation-id.cjs\""
           }
         ]
       }
@@ -588,7 +583,7 @@ Without `conversationId`, `compilation_log` rows from Claude Code hooks have nul
         "hooks": [
           {
             "type": "command",
-            "command": "node \"~/.claude/hooks/aic-session-end.cjs\""
+            "command": "node \"$HOME/.claude/hooks/aic-session-end.cjs\""
           }
         ]
       }
@@ -629,7 +624,7 @@ This is a future optimization, not a blocker. Command hooks work correctly and t
 
 ## 12. Plugin distribution
 
-**Claude Code:** A plugin exists — AIC ships as a native Claude Code Plugin (`integrations/claude/plugin/`) via the Plugin Marketplace. See §13 when developing from source.
+**Claude Code:** A plugin exists — AIC ships as a native Claude Code Plugin (`integrations/claude/plugin/`) via the Plugin Marketplace. For manual install, `install.cjs`, and MCP bootstrap, see §13.
 
 ---
 
@@ -661,7 +656,7 @@ The installer:
 
 The MCP server runs this installer when it detects a Claude Code context and the script exists:
 on workspace root listing (if the client supports roots) or on the first `aic_compile` for
-that project. See `documentation/installation.md` for the user-facing path.
+that project. See [installation.md](../installation.md) for the user-facing path.
 
 For end-user distribution, AIC is also packaged as a native Claude Code Plugin (`integrations/claude/plugin/`) installable via the Plugin Marketplace. See `integrations/claude/plugin/` for the plugin structure.
 
@@ -713,5 +708,5 @@ Plugin and direct-install:
 
 Temp file and marker conventions:
 
-- [ ] Temp file `aic-cc-edited-<session_id>.json` (in temp directory): written by PostToolUse (Edit|Write), read by Stop, cleaned by SessionEnd
+- [ ] Temp file `aic-edited-claude_code-<session_id>.json` under `os.tmpdir()` (sanitized key): written by PostToolUse (Edit|Write), read by Stop, cleaned by SessionEnd (`integrations/shared/edited-files-cache.cjs`)
 - [ ] `.aic/.session-context-injected`: written by SessionStart (dual-path workaround), read by UserPromptSubmit, deleted by SessionEnd (§7.2)

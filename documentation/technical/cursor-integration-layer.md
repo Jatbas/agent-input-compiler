@@ -23,7 +23,7 @@ What this means concretely:
   the gate). Triggers: workspace roots listed (if the client supports roots) or **first**
   `aic_compile` for that project. No copy/merge logic duplicated in `mcp/src/`. Projects
   without `integrations/cursor/install.cjs` in the root need a manual run from an AIC checkout
-  (see [installation.md](installation.md#first-compile-bootstrap)).
+  (see [installation.md](../installation.md#first-compile-bootstrap)).
 
 - **The `aic_compile` MCP tool is neutral.** It accepts `intent`, `projectRoot`, and
   `conversationId`. It does not know who called it. The hook adapter in `integrations/cursor/hooks/`
@@ -43,9 +43,9 @@ What this means concretely:
 that path exists under the opened root and the bootstrap gate in
 `editor-integration-dispatch.ts` passes — on root listing (if supported) or on the first
 `aic_compile` for the project. Otherwise run `node integrations/cursor/install.cjs` manually
-from an AIC checkout (see [installation.md](installation.md#first-compile-bootstrap)).
+from an AIC checkout (see [installation.md](../installation.md#first-compile-bootstrap)).
 
-The installer is idempotent: it merges `hooks.json` and copies all **11** `AIC-*.cjs` scripts from `integrations/cursor/hooks/`.
+The installer is idempotent: it merges `hooks.json` and copies every script name in `integrations/cursor/aic-hook-scripts.json` from `integrations/cursor/hooks/` to `.cursor/hooks/` (currently 12 files: eleven `AIC-*.cjs` plus `subagent-start-model-id.cjs`).
 
 **Optional: commit hooks to the repo.** Teams can commit `.cursor/hooks.json` and `.cursor/hooks/AIC-*.cjs` so every clone gets hooks without re-running the installer.
 
@@ -94,18 +94,18 @@ blockers, telemetry).
 
 ### 4.3 Input field mapping
 
-| Cursor hook input field                         | How AIC uses it                                                                     |
-| ----------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `input.conversation_id`                         | → `conversationId` for `aic_compile` (sessionStart hook and preToolUse)             |
-| `input.model`                                   | → `modelId` on `aic_compile` (sessionStart and preToolUse inject)                   |
-| `input.generation_id`                           | temp file key for per-generation state (`aic-gate-<id>`, `aic-prompt-<id>`)         |
-| `input.prompt`                                  | saved to temp file by `beforeSubmitPrompt` for gate deny message                    |
-| `input.command`                                 | inspected by `beforeShellExecution` for `--no-verify`                               |
-| `input.files` / `input.file` / `input.filePath` | edited file paths, recorded by `afterFileEdit`                                      |
-| `input.reason` / `input.duration_ms`            | session end telemetry                                                               |
-| `CURSOR_PROJECT_DIR` env var                    | project root for hooks that need it                                                 |
-| `AIC_PROJECT_ROOT` env var                      | injected by sessionStart hook via `env:` output field                               |
-| `AIC_CONVERSATION_ID` env var                   | injected by sessionStart hook; fallback for hooks where `conversation_id` is absent |
+| Cursor hook input field                         | How AIC uses it                                                                                                                                                     |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `input.conversation_id`                         | → `conversationId` for `aic_compile` (sessionStart hook and preToolUse)                                                                                             |
+| `input.model`                                   | → `modelId` on `aic_compile` (sessionStart and preToolUse inject)                                                                                                   |
+| `input.generation_id`                           | temp file key for per-generation state (`aic-gate-<id>`, `aic-prompt-<id>`)                                                                                         |
+| `input.prompt`                                  | saved to temp file by `beforeSubmitPrompt` for gate deny message                                                                                                    |
+| `input.command`                                 | inspected by `beforeShellExecution` for `--no-verify`                                                                                                               |
+| `input.files` / `input.file` / `input.filePath` | edited file paths, recorded by `afterFileEdit`                                                                                                                      |
+| `input.reason` / `input.duration_ms`            | session end telemetry                                                                                                                                               |
+| `CURSOR_PROJECT_DIR` env var                    | project root for hooks that need it                                                                                                                                 |
+| `AIC_PROJECT_ROOT` env var                      | injected via `env:` when `AIC-compile-context.cjs` completes a successful `aic_compile` (§7.1); not emitted by `AIC-session-init.cjs`                               |
+| `AIC_CONVERSATION_ID` env var                   | same `env:` path as `AIC_PROJECT_ROOT`; `AIC-inject-conversation-id.cjs` also falls back to `process.env.AIC_CONVERSATION_ID`; stdin `conversation_id` when present |
 
 ---
 
@@ -117,7 +117,7 @@ Nothing in `mcp/` or `shared/` changes.
 ```
 integrations/cursor/               ← SOURCE (authored here)
   hooks/
-    AIC-session-init.cjs           # sessionStart — architectural invariants + env setup
+    AIC-session-init.cjs           # sessionStart — architectural invariants (additional_context only)
     AIC-compile-context.cjs        # sessionStart — calls aic_compile, injects compiled context
     AIC-before-submit-prewarm.cjs  # beforeSubmitPrompt — prompt logging + gate prewarm
     AIC-require-aic-compile.cjs    # preToolUse — blocks all tools until aic_compile called
@@ -147,18 +147,24 @@ integrations/cursor/               ← SOURCE (authored here)
 Cursor hooks communicate results by writing JSON to stdout. Each event has a specific schema.
 Getting the schema wrong causes the hook to be silently ignored or to error.
 
-### 6.1 sessionStart — `additional_context` + `env`
+### 6.1 sessionStart — two hooks (`additional_context`; `env` only after successful compile)
+
+`sessionStart` runs two commands in order (see `hooks.json.template`).
+
+**`AIC-session-init.cjs`** writes JSON with **`additional_context` only** — architectural invariant bullets and optional `AIC_CONVERSATION_ID=…` text for the model. It does **not** emit an `env` object.
+
+**`AIC-compile-context.cjs`** calls `aic_compile`. On success it may write JSON that includes both `env` and `additional_context`:
 
 ```js
 process.stdout.write(
   JSON.stringify({
-    additional_context: "...",
     env: { AIC_PROJECT_ROOT: "...", AIC_CONVERSATION_ID: "..." },
+    additional_context: ["...", compiledPrompt].join("\n"),
   }),
 );
 ```
 
-The `env` field sets environment variables for the session scope — all subsequent hooks in this session receive these values via `process.env`. This is the only mechanism available to propagate `conversationId` to hooks that don't receive `conversation_id` in their own stdin input.
+When present, the `env` field sets environment variables for subsequent hooks in the session via `process.env`. If this hook times out or exits without a successful compile response, `env` is not set until a later successful compile path sets it.
 
 ### 6.2 beforeSubmitPrompt — `{ continue: true }`
 
@@ -241,7 +247,7 @@ Side-effect only. Exit 0 always. Must never block.
 ## 7. Hook events — details
 
 Cursor's hook system is documented at [docs.cursor.com/context/rules](https://docs.cursor.com/context/rules).
-AIC registers **11** hook commands across **9** event types (some types run more than one command). Limitations and workarounds are per hook below.
+AIC registers **12** hook commands across **9** event types (some types run more than one command). Limitations and workarounds are per hook below.
 
 ### 7.1 sessionStart — two hooks (architectural invariants + compiled context)
 
@@ -251,16 +257,15 @@ AIC registers **11** hook commands across **9** event types (some types run more
 
 **AIC-session-init.cjs:**
 
-- Reads the `## Critical reminders` section from `.cursor/rules/AIC-architect.mdc`
+- Reads the `## Critical reminders` section from `.cursor/rules/AIC-architect.mdc` (path resolved as `../rules/` from `.cursor/hooks/`; on case-sensitive volumes the filename must match the hook’s expected name)
 - Extracts bullet points and outputs them as `additional_context`
-- Injects `AIC_CONVERSATION_ID=${conversationId}` into the context text so the model is aware
-- Sets `env: { AIC_PROJECT_ROOT, AIC_CONVERSATION_ID }` for downstream hooks
+- Injects `AIC_CONVERSATION_ID=${conversationId}` into that text for the model when `conversation_id` is present in stdin — not as an `env` payload
 
 **AIC-compile-context.cjs:**
 
 - Reads `conversation_id` from stdin → passes as `conversationId` to `aic_compile`
 - Calls `aic_compile` with intent `"understand project structure, architecture, and recent changes"`
-- Outputs `additional_context` with the compiled project snapshot
+- On success, outputs `additional_context` with the compiled project snapshot and **`env`** with `AIC_PROJECT_ROOT` and `AIC_CONVERSATION_ID` for downstream hooks
 - **If this hook times out (20s), it exits 0 silently** — session creation is never blocked
 
 **Known limitation — `aic_compile` from sessionStart is best-effort:** The compiled context from `AIC-compile-context.cjs` is broad and intent-agnostic (project structure only). The primary per-intent context delivery in Cursor relies on the model calling `aic_compile` itself (enforced by the `preToolUse` gate). There is **no per-prompt context injection hook** in Cursor — `beforeSubmitPrompt` does not support `additional_context` output (see §7.2).
@@ -334,7 +339,7 @@ AIC registers **11** hook commands across **9** event types (some types run more
 **Input fields used:**
 
 - `input.conversation_id` → preferred source
-- `AIC_CONVERSATION_ID` env var → fallback (set by sessionStart)
+- `AIC_CONVERSATION_ID` env var → fallback when `AIC-compile-context` has set `env` after a successful compile, else `process.env` may be unset until then
 - `input.tool_name` → to scope injection to `aic_compile` and `aic_chat_summary`
 - `input.tool_input` → the arguments object to augment
 
@@ -410,15 +415,13 @@ This gives the model a clear signal that the compilation result is available and
 - `input.edit` / `input.edits` → nested object with path field
 - `input.conversation_id` / `input.conversationId` / `input.session_id` / `AIC_CONVERSATION_ID` → temp file key
 
-**Purpose:** Maintain a cumulative list of file paths the agent edited during the current conversation. Written to `os.tmpdir()/aic-edited-files-<key>.json`. The `stop` hook reads this list to run lint and typecheck on only the touched files.
+**Purpose:** Maintain a cumulative list of file paths the agent edited during the current conversation. Written under `os.tmpdir()` using `integrations/shared/edited-files-cache.cjs` as `aic-edited-cursor-<conversation_key>.json` (sanitized key). The `stop` hook reads this list to run lint and typecheck on only the touched files.
 
 **Why flexible extraction:** Cursor's `afterFileEdit` input schema is not fully stable (v2 vs. earlier field names). The hook tries multiple field names to accommodate schema changes.
 
 **Output:** `{}` always — side-effect only.
 
 **File:** `.cursor/hooks/AIC-after-file-edit-tracker.cjs`
-
-For the full edited-files flow (tracker → stop → cleanup) and file list, see [edited-files flow](edited-files-flow.md).
 
 ---
 
@@ -446,8 +449,6 @@ The model then sees this as a new prompt, fixes the errors, and tries to stop ag
 - If neither ESLint nor `tsc --noEmit` are available → allow stop (no `tsconfig.json`)
 
 **File:** `.cursor/hooks/AIC-stop-quality-check.cjs`
-
-For the full edited-files flow and file list, see [edited-files flow](edited-files-flow.md).
 
 ---
 
@@ -482,8 +483,8 @@ For the full edited-files flow and file list, see [edited-files flow](edited-fil
 
 - `input.task` → truncated to 200 chars as `intent` for `aic_compile` (or `"provide context for subagent"` when missing)
 - `input.parent_conversation_id` → passed as `conversationId` so the compile is attributed to the parent conversation
-- `input.subagent_model` → when valid (trimmed length 1–256, printable ASCII), passed as `modelId` on the `aic_compile` JSON-RPC `arguments` for `compilation_log.model_id`; also written to `.aic/.claude-session-model` like sessionStart
-- **Cache fallback:** when `input.subagent_model` is missing or invalid, the hook reads `.aic/.claude-session-model` (written by the sessionStart hook) and uses its value as `modelId` if valid (same trimmed-length and printable-ASCII checks). This ensures `compilation_log.model_id` is populated even when Cursor omits `subagent_model` from the payload.
+- `input.subagent_model` → when valid (trimmed length 1–256, printable ASCII), passed as `modelId` on the `aic_compile` JSON-RPC `arguments` for `compilation_log.model_id`; also appended to `.aic/session-models.jsonl` via `writeSessionModelCache` (same as other hooks that record model id)
+- **Cache fallback:** when `input.subagent_model` is missing or invalid, the hook uses `readSessionModelCache` on `.aic/session-models.jsonl` for this conversation and editor `cursor`, and uses that value as `modelId` if valid (same trimmed-length and printable-ASCII checks). This ensures `compilation_log.model_id` is populated even when Cursor omits `subagent_model` from the payload.
 
 **Purpose:** When a subagent (Task tool) is about to start, the hook calls `aic_compile` with `triggerSource: "subagent_start"` and the parent conversation ID. Cursor's subagentStart output schema does not support `additional_context`, so the hook does not inject context; it always returns `permission: "allow"`. The sole purpose is so `compilation_log` has one row per subagent start with valid token data for telemetry.
 
@@ -495,7 +496,7 @@ For the full edited-files flow and file list, see [edited-files flow](edited-fil
 
 ## 8. Full event coverage
 
-**Cursor:** Nine documented event types get AIC registrations; **eleven** hook command entries total (some types run two commands). Unused events are listed after the table.
+**Cursor:** Nine documented event types get AIC registrations; **twelve** hook command entries total (some types run two commands). Unused events are listed after the table.
 
 | Event                        | AIC use | Notes                                                                    |
 | ---------------------------- | ------- | ------------------------------------------------------------------------ |
@@ -506,9 +507,9 @@ For the full edited-files flow and file list, see [edited-files flow](edited-fil
 | `postToolUse` (MCP)          | §7.5    | Compile confirmation                                                     |
 | `beforeShellExecution` (git) | §7.6    | --no-verify blocker                                                      |
 | `afterFileEdit`              | §7.7    | File edit tracker                                                        |
+| `stop`                       | §7.8    | Quality gate                                                             |
 | `sessionEnd`                 | §7.9    | Cleanup + telemetry                                                      |
 | `subagentStart`              | §7.10   | Telemetry compile per subagent start                                     |
-| `stop`                       | §7.8    | Quality gate                                                             |
 
 **Not registered:** `preCompact` and any other Cursor event without a row above — no entry in
 `hooks.json.template`. `subagentStart` cannot inject context; it exists for `compilation_log`
@@ -636,7 +637,7 @@ runEditorBootstrapIfNeeded → integrations/cursor/install.cjs
 .cursor/hooks/ + hooks.json merged
 ```
 
-Without `integrations/cursor/install.cjs` at the project root, use a manual run — [installation.md](installation.md#first-compile-bootstrap).
+Without `integrations/cursor/install.cjs` at the project root, use a manual run — [installation.md](../installation.md#first-compile-bootstrap).
 
 The installer (`integrations/cursor/install.cjs`):
 
@@ -700,15 +701,15 @@ Quality gate (Cursor-specific):
 
 Settings:
 
-- [ ] `hooks.json` matches template: 11 command entries across nine event keys, including `subagentStart` (§10)
+- [ ] `hooks.json` matches template: 12 command entries across nine event keys, including `subagentStart` (§10)
 
 Init behaviour:
 
-- [ ] Bootstrap: `install.cjs` runs when present under project root (§2–§3); otherwise manual run ([installation.md#first-compile-bootstrap](installation.md#first-compile-bootstrap))
+- [ ] Bootstrap: `install.cjs` runs when present under project root (§2–§3); otherwise manual run ([installation.md#first-compile-bootstrap](../installation.md#first-compile-bootstrap))
 
 Temp file conventions:
 
 - [ ] `aic-gate-<generation_id>`: written by preToolUse gate, deleted by sessionEnd
 - [ ] `aic-prompt-<generation_id>`: written by beforeSubmitPrompt, deleted by sessionEnd
 - [ ] `aic-deny-*`: optional leftovers from gate deny path, deleted by sessionEnd
-- [ ] `aic-edited-files-<conversation_key>.json`: written by afterFileEdit, read by stop (not removed by sessionEnd; overwritten per session key)
+- [ ] `aic-edited-cursor-<conversation_key>.json` under `os.tmpdir()`: written by afterFileEdit, read by stop (not removed by sessionEnd; overwritten per session key)

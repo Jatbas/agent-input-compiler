@@ -1,7 +1,7 @@
 # Agent Input Compiler (AIC)
 
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
-![Status](https://img.shields.io/badge/status-0.3.0-brightgreen)
+![Status](https://img.shields.io/badge/status-0.7.0-brightgreen)
 ![Local-first](https://img.shields.io/badge/local--first-yes-brightgreen)
 ![Telemetry](https://img.shields.io/badge/telemetry-opt--in-lightgrey)
 ![MCP Compatible](https://img.shields.io/badge/MCP-compatible-purple)
@@ -46,22 +46,24 @@ The example below is **real captured output from AIC's own development usage**. 
 ```text
 Status = project-level AIC status.
 
-| Field                          | Value                                         |
-| ------------------------------ | --------------------------------------------- |
-| Compilations (total)           | 1,001                                         |
-| Compilations (today)           | 150                                           |
-| Total tokens (raw → compiled)  | 501.8M → 7.4M                                 |
-| Tokens excluded                | 494.4M                                        |
-| Budget (max tokens)            | 8,000                                         |
-| Budget utilization             | 96.2%                                         |
-| Cache hit rate                 | 43.4%                                         |
-| Avg exclusion rate             | 98.5%                                         |
-| Guard by type                  | prompt-injection: 40, secret: 20              |
-| Top task classes               | general 422, refactor 313, bugfix 91          |
-| Last compilation               | Execute task 089… — 10 of 405 files,          |
-|                                | 7,692 tokens (98.8%), cursor                  |
-| Installation                   | OK                                            |
-| Installation notes             | (none)                                        |
+| Field                    | Value                                         |
+| ------------------------ | --------------------------------------------- |
+| Compilations (total)     | 1,001                                         |
+| Compilations (today)     | 150                                           |
+| Tokens: raw → compiled   | 501,800,000 → 7,400,000                       |
+| Tokens excluded          | 494,400,000                                   |
+| Budget limit             | 8,000                                         |
+| Budget utilization       | 96.2%                                         |
+| Cache hit rate           | 43.4%                                         |
+| Avg exclusion rate       | 98.5%                                         |
+| Guard findings           | prompt-injection: 40, secret: 20              |
+| Top task classes         | general 422, refactor 313, bugfix 91          |
+| Last compilation         | Execute task 089… · 2 min ago                 |
+| Installation             | OK                                            |
+| Update available         | —                                             |
+
+Exclusion rate: % of total repo tokens not included in the compiled prompt.
+Budget utilization: % of token budget filled.
 ```
 
 #### `show aic last`
@@ -69,15 +71,21 @@ Status = project-level AIC status.
 ```text
 Last = most recent compilation.
 
-| Field            | Value                                                  |
-| ---------------- | ------------------------------------------------------ |
-| Intent           | Update the README example with the real show aic last  |
-| Selected         | 1 of 405 files                                         |
-| Tokens compiled  | 2,842                                                  |
+| Field              | Value                                                  |
+| ------------------ | ------------------------------------------------------ |
+| Compilations       | 1,001                                                  |
+| Intent             | Update the README example with the real show aic last  |
+| Files              | 1 selected / 405 total                                 |
+| Tokens compiled    | 2,842                                                  |
 | Budget utilization | 35.5%                                                |
-| Exclusion rate   | 99.5%                                                  |
-| Created          | 2026-03-04T21:38:50Z (recent)                          |
-| Editor           | cursor                                                 |
+| Exclusion rate     | 99.5%                                                  |
+| Compiled           | 2 min ago                                              |
+| Editor             | cursor                                                 |
+| Guard              | —                                                      |
+| Compiled prompt    | Available (12,450 tokens) — ask to see it              |
+
+Exclusion rate: % of total repo tokens not included in the compiled prompt.
+Budget utilization: % of token budget filled.
 ```
 
 ---
@@ -100,7 +108,9 @@ Requirements: Node.js 20+
 
    Cursor will prompt to add the server to your global MCP config (`~/.cursor/mcp.json`). Confirm and you're done. AIC is now available in every workspace — no per-project setup needed.
 
-2. **Start prompting** — approve the tools when prompted and start coding. AIC creates its config file, hooks, and local data directory the first time it runs in a project. All projects share a single database at `~/.aic/aic.sqlite`; per-project files remain in each project directory. Nothing else to install or configure.
+2. **Start prompting** — approve the tools when prompted and start coding. On the first `aic_compile` for the project (or when the server first sees the project via workspace roots), AIC writes `aic.config.json`, the `.aic/` directory, ignore-file entries, and the Cursor trigger rule. All projects share one database at `~/.aic/aic.sqlite`; other per-project files stay in the project directory.
+
+   **Cursor lifecycle hooks** (`.cursor/hooks.json` and the `AIC-*.cjs` scripts) are optional: the published npm package does not install them into arbitrary projects. With your project as the current working directory, run `node` on `integrations/cursor/install.cjs` either inside the project (if you copied that tree from the repository) or using the absolute path to that file in an AIC checkout — see [Installation — Cursor](documentation/installation.md#cursor). Bootstrap also runs that installer when `integrations/cursor/install.cjs` is already present in the workspace.
 
 ### Claude Code
 
@@ -121,22 +131,31 @@ AIC requires a dedicated integration layer to compile context automatically. Cur
 
 ---
 
-## Verify your setup
+## Commands
 
-Ask the model in your editor:
+These are natural-language prompts for your editor's AI, not terminal commands. Use only the words before `#` on each line; everything after `#` is a reminder for you, not part of the prompt.
 
 ```text
-show aic status
-show aic last
-show aic chat summary
+show aic status        # project-level status and lifetime stats
+show aic last          # most recent compilation
+show aic chat summary  # per-conversation compilation stats for this workspace
+show aic projects      # known AIC projects (IDs, paths, last seen, compilation counts)
 ```
+
+---
+
+## Verify your setup
+
+Run the phrases in [Commands](#commands) above, then check the following.
 
 What to look for:
 
 - **Installation: OK** in `show aic status`
-- a recent compilation in `show aic last`
+- a recent compilation in `show aic last` (send a normal coding message first if nothing has compiled yet)
+- per-conversation compilation stats in `show aic chat summary` after AIC has recorded at least one compilation for the current editor conversation
 - selected file count, compiled tokens, and exclusion rate figures that make sense for the task
 - AIC blocking sensitive or excluded content
+- your project path listed in `show aic projects` after AIC has seen the workspace
 
 > If there is no recent compilation, the model may not be calling AIC automatically. Check that the AIC tools are approved in your editor's MCP settings and try starting a new chat.
 
@@ -147,7 +166,7 @@ What to look for:
 For team use, the practical split is simple:
 
 - each developer installs the MCP server on their machine
-- `aic.config.json` and editor rule files are committed to the repo so the whole team compiles against the same settings
+- commit shared `aic.config.json` and editor rule files when you want the whole team on the same settings — bootstrap adds `aic.config.json` to ignore files by default, so remove that ignore entry (or add an exception) if the file should live in git; see [Per-Project Artifacts](documentation/installation.md#per-project-artifacts)
 - `.aic/` (local cache and runtime data) stays on each developer's machine and should not be committed
 
 AIC is useful for individuals, but it becomes more valuable when teams want more consistent context quality across the same codebase.
@@ -156,7 +175,7 @@ AIC is useful for individuals, but it becomes more valuable when teams want more
 
 ## How AIC fits into the workflow
 
-1. Your editor automatically calls `aic_compile` at the start of each AI session
+1. Your editor integration (hooks and/or the trigger rule) is set up to call `aic_compile` before or as part of handling each user message — see [installation.md](documentation/installation.md) for how that differs by editor
 2. AIC classifies the task, selects relevant files, applies guardrails, and compresses content
 3. AIC returns a bounded context package
 4. The editor continues the normal model workflow using that compiled context
@@ -181,28 +200,20 @@ AIC's Context Guard excludes the following from compiled context before it reach
 
 ---
 
-## Commands
-
-```text
-show aic status        # project-level status and lifetime stats
-show aic last          # most recent compilation
-show aic chat summary  # current conversation summary
-```
-
----
-
 ## Documentation
 
 Use the README for orientation. Use the docs below for implementation detail.
 
-| Document                                                         | Description                                               |
-| ---------------------------------------------------------------- | --------------------------------------------------------- |
-| [`installation.md`](documentation/installation.md)               | Installation, delivery, bootstrap, and per-editor details |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md)                             | Development setup, run from source, contribution process  |
-| [`architecture.md`](documentation/architecture.md)               | Core pipeline, integration layer, editor capability model |
-| [`best-practices.md`](documentation/best-practices.md)           | Practical usage guidance                                  |
-| [`security.md`](documentation/security.md)                       | Security model and hardening details                      |
-| [`implementation-spec.md`](documentation/implementation-spec.md) | Detailed pipeline and implementation behavior             |
+| Document                                                                   | Description                                                        |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| [`installation.md`](documentation/installation.md)                         | Installation, delivery, bootstrap, and per-editor details          |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md)                                       | Development setup, run from source, contribution process           |
+| [`architecture.md`](documentation/architecture.md)                         | Core pipeline, integration layer, editor capability model          |
+| [`best-practices.md`](documentation/best-practices.md)                     | Practical usage guidance                                           |
+| [`security.md`](documentation/security.md)                                 | Security model and hardening details                               |
+| [`implementation-spec.md`](documentation/implementation-spec.md)           | Detailed pipeline and implementation behavior                      |
+| [`project-plan.md`](documentation/project-plan.md)                         | Product architecture, ADRs, and full configuration reference       |
+| [`contributor-agent-skills.md`](documentation/contributor-agent-skills.md) | Contributors: optional Claude Code agent skills for repo workflows |
 
 ---
 

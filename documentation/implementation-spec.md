@@ -1,8 +1,8 @@
-# Agent Input Compiler — MVP Specification
+# Agent Input Compiler — Implementation specification
 
-## Phase 0: MCP Server + Developer Utilities
+## Current release focus (MCP server and developer utilities)
 
-> This document defines what ships in Phase 0 (MVP). It inherits architecture and definitions from the [Project Plan](project-plan.md). Refer to the Project Plan for the full glossary, enterprise roadmap, and strategic context.
+> This document defines what ships in the current MVP scope. It inherits architecture and definitions from the [Project Plan](project-plan.md). Refer to the Project Plan for the full glossary, enterprise roadmap, and strategic context.
 >
 > **All implementation must comply with the SOLID principles and design patterns defined in [Project Plan §2.1](project-plan.md).** This is non-negotiable and checked in code review before any other criterion.
 
@@ -10,10 +10,13 @@
 
 ## Table of Contents
 
+- [Current release focus](#current-release-focus-mcp-server-and-developer-utilities)
+
 1. [MVP Goal](#1-mvp-goal)
 2. [What Ships in MVP](#2-what-ships-in-mvp)
 3. [Defaults](#3-defaults)
 4. [Core Pipeline — MVP Implementation Detail](#4-core-pipeline--mvp-implementation-detail)
+   - [Pipeline orchestration (`runPipelineSteps`)](#pipeline-orchestration-runpipelinesteps)
    - [Step 1: Task Classifier](#step-1-task-classifier)
    - [Step 2: Rule Pack Resolver](#step-2-rule-pack-resolver)
    - [Step 3: Budget Allocator](#step-3-budget-allocator)
@@ -27,18 +30,28 @@
    - [Step 9: Executor (deferred design)](#step-9-executor-deferred-design)
    - [Model Context Window Guard](#model-context-window-guard)
    - [Step 10: Telemetry Logger](#step-10-telemetry-logger)
-   - 4b. [Rules & Hooks Analyzer — Deferred Design Note](#4b-rules--hooks-analyzer--deferred-design-note)
-   - 4c. [Init, Inspect, and Status](#4c-init-inspect-and-status)
-   - 4d. [MVP Additions](#4d-mvp-additions)
+   - [Rules & Hooks Analyzer — deferred design note](#4b-rules--hooks-analyzer--deferred-design-note)
+   - [Init, inspect, and status](#4c-init-inspect-and-status)
+   - [MVP additions](#4d-mvp-additions)
 5. [Success Criteria](#5-success-criteria)
 6. [Error Handling (MVP)](#6-error-handling-mvp)
 7. [Security, Observability & Performance (MVP)](#7-security-observability--performance-mvp)
+   - [Security](#security)
+   - [Observability](#observability)
+   - [Performance](#performance)
+   - [Incremental compilation performance](#incremental-compilation-performance)
+   - [Dependencies](#dependencies)
 8. [Multi-Project Behaviour (MVP)](#8-multi-project-behaviour-mvp)
    - 8a. [MVP Test Plan](#8a-mvp-test-plan)
    - 8b. [MCP Server Startup Sequence](#8b-mcp-server-startup-sequence)
    - 8c. [Input Validation (Zod Schemas)](#8c-input-validation-zod-schemas)
-   - 8d. [Deferred: Sandboxed Extensibility (V8 Isolates)](#8d-deferred-sandboxed-extensibility-v8-isolates)
+   - 8d. [Global database & per-project isolation](#8d-global-database--per-project-isolation)
+   - 8e. [Deferred: Sandboxed Extensibility (V8 Isolates)](#8e-deferred-sandboxed-extensibility-v8-isolates)
 9. [Roadmap](#9-roadmap-aligned-with-project-plan)
+
+> **ToC scope:** Numbered sections (`## 1`–`## 9`) and lettered blocks (`## 4b`–`## 4d`, `## 8a`–`## 8e`) match the list above.
+>
+> Pipeline stages under §4 are additional `###` headings; only their titles appear in the ToC. Deeper `###` blocks (e.g. §4c tool docs, §8a tests, §8c schemas) are omitted — use the editor outline or in-page search.
 
 ---
 
@@ -91,21 +104,22 @@ MCP is the primary interface when the model runs inside an editor. The same publ
 | `aic_chat_summary` (MCP tool)                     | Compilation stats for the current conversation                                                               |
 | `aic_status` (MCP tool)                           | Project-level summary: compilations, tokens excluded (context compression), budget utilization, guard blocks |
 | `aic_last` (MCP tool)                             | Most recent compilation breakdown with prompt summary                                                        |
+| `aic_projects` (MCP tool)                         | Lists known projects from the global database (path, last seen, compilation count)                           |
 | Bootstrap (automatic on connect or first compile) | Scaffold config, trigger rule, hooks, `.aic/` directory                                                      |
 
-The integration layer runs quality checks on edited files at stop time; see [edited-files flow](edited-files-flow.md) for the full flow per editor.
+The integration layer runs quality checks on edited files at stop time; see [Cursor integration layer](technical/cursor-integration-layer.md) and [Claude Code integration layer](technical/claude-code-integration-layer.md) for the full flow per editor.
 
 ### Excluded (deferred) ❌
 
-| Feature                             | Phase    |
-| ----------------------------------- | -------- |
-| VectorSelector / HybridSelector     | Phase 2  |
-| Rules auto-fix (`aic fix-rules`)    | Phase 1  |
-| Sandboxed Extensibility (V8)        | Phase 2  |
-| Enterprise: RBAC, SSO, audit        | Phase 3  |
-| Policy engine / governance adapters | Phase 2  |
-| GUI / web dashboard                 | Phase 3  |
-| Multi-model orchestration           | Phase 2+ |
+| Feature                             | Target  |
+| ----------------------------------- | ------- |
+| VectorSelector / HybridSelector     | v2.0.0  |
+| Rules auto-fix (`aic fix-rules`)    | v1.0.0  |
+| Sandboxed Extensibility (V8)        | v2.0.0  |
+| Enterprise: RBAC, SSO, audit        | v3.0.0  |
+| Policy engine / governance adapters | v2.0.0  |
+| GUI / web dashboard                 | v3.0.0  |
+| Multi-model orchestration           | v2.0.0+ |
 
 > For the full non-goals list (including Windows support, real-time file watching, cloud/SaaS deployment), see [Project Plan §1 Non-Goals](project-plan.md).
 
@@ -115,40 +129,65 @@ The integration layer runs quality checks on edited files at stop time; see [edi
 
 All defaults apply when no config file exists or a field is omitted.
 
-| Setting                      | Default                                               | MCP override                        | CLI flag override |
-| ---------------------------- | ----------------------------------------------------- | ----------------------------------- | ----------------- |
-| Project root                 | Git root (walk up from CWD)                           | Auto-detected per request           | `--root`          |
-| Config file                  | Auto-discovered (walk up from project root)           | Auto-discovered                     | `--config`        |
-| Database                     | `~/.aic/aic.sqlite` (global)                          | Auto-resolved                       | `--db`            |
-| Context budget               | 8,000 tokens                                          | `aic.config.json` only              | `--budget`        |
-| Output format                | `unified-diff`                                        | `aic.config.json` only              | `--format`        |
-| Context selector             | `heuristic`                                           | `aic.config.json` only              | Config only       |
-| Model id                     | Auto-detected from editor                             | `aic.config.json` → `model.id` wins | Config only       |
-| Model provider               | `null` (required only for the deferred executor path) | `aic.config.json` only              | Config only       |
-| Model endpoint               | `null` (provider default)                             | `aic.config.json` only              | Config only       |
-| Model API key env            | `null` (env var name, not the key)                    | `aic.config.json` only              | Config only       |
-| Cache enabled                | `true`                                                | `aic.config.json` only              | `--no-cache`      |
-| Cache TTL                    | 60 minutes                                            | `aic.config.json` only              | Config only       |
-| Telemetry                    | `false` (opt-in)                                      | `aic.config.json` only              | Config only       |
-| Telemetry anonymous usage    | `false` (opt-in)                                      | `aic.config.json` only              | Config only       |
-| Guard enabled                | `true`                                                | `aic.config.json` only              | Config only       |
-| Guard additional exclusions  | `[]` (empty — built-in patterns always active)        | `aic.config.json` only              | Config only       |
-| Guard allow patterns         | `[]`                                                  | `aic.config.json`                   | Config only       |
-| Content transformers enabled | `true`                                                | `aic.config.json` only              | Config only       |
-| Strip comments               | `true`                                                | `aic.config.json` only              | Config only       |
-| Normalize whitespace         | `true`                                                | `aic.config.json` only              | Config only       |
+> **Loader truth:** Runtime validation for `aic.config.json` is the minimal Zod object in `load-config-from-file.ts` — see [§8c — `AicConfigSchema`](#aicconfigschema). Rows in the table below include product-level defaults and Project Plan fields that may not yet be read by that schema; use §8c when you need to know which keys are guaranteed to parse today.
+
+| Setting                                  | Default                                                                                                                                  | MCP override                                               | CLI flag override |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ----------------- |
+| Project root                             | Git root (walk up from CWD)                                                                                                              | Auto-detected per request                                  | `--root`          |
+| Config file                              | Auto-discovered (walk up from project root)                                                                                              | Auto-discovered                                            | `--config`        |
+| Database                                 | `~/.aic/aic.sqlite` (global)                                                                                                             | Auto-resolved                                              | `--db`            |
+| Context budget                           | 8,000 tokens                                                                                                                             | `aic.config.json` only                                     | `--budget`        |
+| Output format                            | `unified-diff`                                                                                                                           | `aic.config.json` only                                     | `--format`        |
+| Context selector                         | `heuristic`                                                                                                                              | `aic.config.json` only                                     | Config only       |
+| Model id                                 | Auto-detected from editor                                                                                                                | `aic.config.json` → `model.id` wins                        | Config only       |
+| Model provider                           | `null` (required only for the deferred executor path)                                                                                    | `aic.config.json` only                                     | Config only       |
+| Model endpoint                           | `null` (provider default)                                                                                                                | `aic.config.json` only                                     | Config only       |
+| Model API key env                        | `null` (env var name, not the key)                                                                                                       | `aic.config.json` only                                     | Config only       |
+| Cache enabled                            | `true`                                                                                                                                   | `aic.config.json` only                                     | `--no-cache`      |
+| Cache TTL                                | 60 minutes                                                                                                                               | `aic.config.json` only                                     | Config only       |
+| Compilation metrics (`telemetry_events`) | Persisted after a successful `runner.run` when the project is not disabled (`enabled !== false` in resolved config)                      | Not gated in minimal `load-config-from-file.ts` Zod schema | Config only       |
+| Anonymous aggregate telemetry queue      | `anonymous_telemetry_log` table exists in schema (`001-consolidated-schema.ts`); no writer or HTTPS client in shipped TypeScript sources | —                                                          | —                 |
+| Guard enabled                            | `true`                                                                                                                                   | `aic.config.json` only                                     | Config only       |
+| Guard additional exclusions              | `[]` (empty — built-in patterns always active)                                                                                           | `aic.config.json` only                                     | Config only       |
+| Guard allow patterns                     | `[]`                                                                                                                                     | `aic.config.json`                                          | Config only       |
+| Content transformers enabled             | `true`                                                                                                                                   | `aic.config.json` only                                     | Config only       |
+| Strip comments                           | `true`                                                                                                                                   | `aic.config.json` only                                     | Config only       |
+| Normalize whitespace                     | `true`                                                                                                                                   | `aic.config.json` only                                     | Config only       |
 
 ---
 
 ## 4. Core Pipeline — MVP Implementation Detail
 
-**Pre-step (before Step 1):** A **RepoMapSupplier** (`FileSystemRepoMapSupplier`, `WatchingRepoMapSupplier`) supplies the RepoMap. The project root is scanned (respecting `.gitignore`), per-file token estimates use tiktoken, and the result is cached in the `repomap_cache` SQLite table. Step 4 consumes this RepoMap. Cache is re-used until the file-tree hash (SHA-256 of in-scope paths + sizes + mtimes) changes.
+> **Audience:** Sections §1–§3 are readable by integrators and curious users. From the pipeline orchestration subsection onward, this document is a developer reference: it names types, file paths, and behaviour tied to `shared/src/core/run-pipeline-steps.ts` and `shared/src/bootstrap/create-pipeline-deps.ts`.
 
-**Handler:** These steps run inside the `aic_compile` MCP tool handler. The handler builds a `CompilationRequest` (including `sessionId` from server session state when hooks run), executes Steps 1–10 in order (including Step 5.5), and returns `{ compiledPrompt: string, meta: CompilationMeta }`. The editor uses `compiledPrompt` as the full model context. Steps 1–8 always run in the shipped package; Step 9 (Executor) is a deferred design path; Step 10 (Telemetry) runs only when `telemetry.enabled: true`.
+**Pre-step (before Step 1):** A **RepoMapSupplier** (`FileSystemRepoMapSupplier`, `WatchingRepoMapSupplier`) supplies the RepoMap. The project root is scanned (respecting `.gitignore`), per-file token estimates use tiktoken, and the result is cached in the `repomap_cache` SQLite table. The heuristic selector consumes a **discovered** RepoMap (after intent-aware file discovery). Cache is re-used until the file-tree hash (SHA-256 of in-scope paths + sizes + mtimes) changes.
+
+**Handler:** These stages run inside the `aic_compile` MCP tool handler (`mcp/src/handlers/compile-handler.ts`). The handler builds a `CompilationRequest` (including `sessionId` from server session state when hooks run), runs `runPipelineSteps`, and returns `{ compiledPrompt: string, meta: CompilationMeta }`. The editor uses `compiledPrompt` as the full model context. Step 9 (Executor) in this document is a deferred design path only. When the project is enabled and the run succeeds, the handler calls `writeCompilationTelemetry` (see Step 10).
+
+### Pipeline orchestration (`runPipelineSteps`)
+
+The numbered steps below explain the main concepts. The **authoritative execution order** is `runPipelineSteps` in `shared/src/core/run-pipeline-steps.ts`:
+
+1. **IntentClassifier** (Step 1) — task class + subject tokens.
+2. **RulePackResolver** (Step 2) — merged `RulePack`.
+3. **BudgetAllocator** (Step 3) — token budget for this compile.
+4. **RepoMap** — from `repoMapSupplier.getRepoMap` (pre-step above).
+5. **IntentAwareFileDiscoverer** — extends the RepoMap with intent-scored files before selection.
+6. **HeuristicSelector** (Step 4) — chooses context files within budget.
+7. **SpecFileDiscoverer** — parallel branch over a **filtered copy of the supplier `RepoMap`** (paths under `documentation/`, `.cursor/rules/`, `.claude/skills/`, or `adr-` prefixes — see `isSpecPath` in `run-pipeline-steps.ts`), not the post–intent-aware map. If non-empty, that set runs **Context Guard → Content Transformer → Summarisation Ladder** with a cap of ~20% of the main budget, then feeds **PromptAssembler** as `specLadderFiles`.
+8. **Context Guard** (Step 5) on the main selected set — then **Content Transformer** (Step 5.5) — then **Summarisation Ladder** (Step 6).
+9. **LineLevelPruner** — when `subjectTokens` is non-empty, prunes line-level detail on ladder output.
+10. **ConversationCompressor** — when agentic session state is present, builds the `Steps completed:` header snippet from recent steps.
+11. **StructuralMapBuilder** — builds structural map metadata for assembly.
+12. **PromptAssembler** (Step 8) — final prompt string.
+
+Constraint injection and output-format blocks are part of assembly (Step 8), not separate `runPipelineSteps` calls. Steps 7 (Constraint Injector) and 8 (Prompt Assembler) in the subsections below map to that assembly stage.
 
 **Agentic workflows:** The internal `CompilationRequest` type carries optional session fields (`sessionId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens`) plus `triggerSource` and `conversationId`. The MCP Zod schema in `mcp/src/schemas/compilation-request.ts` validates optional wire fields that map into these (`editorId`, `triggerSource`, `conversationId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens`). The compile handler maps them into `CompilationRequest`. `sessionId` is not an MCP client argument; the composition root sets it from MCP server session state when applicable. Hook integrations supply `conversationId` and related fields where the editor exposes them (see [Project Plan §2.7](project-plan.md#27-agentic-workflow-support)). Optional `toolOutputs` is forwarded on the pipeline request but does not affect file selection today; stored tool outputs are summarised into the deterministic `Steps completed:` header on later compiles (last 10 steps in the prompt; see Project Plan §2.7).
 
 ### Step 1: Task Classifier
+
+**Implementation:** `IntentClassifier` in `shared/src/pipeline/step1-classify/intent-classifier.ts` (this section uses the product name “task class” for the enum `TaskClass`).
 
 **Input:** Raw intent string (e.g., `"refactor auth module to use JWT"`)
 
@@ -224,7 +263,7 @@ When `conversationTokens` is set on the request, `BudgetAllocator.allocate` may 
 
 **Heuristic scoring algorithm:**
 
-Final score = weighted sum of four normalised signals (path relevance × 0.4 + import proximity × 0.3 + recency × 0.2 + size penalty × 0.1), always in range `[0.0, 1.0]`. Rule-pack `boostPatterns` add +0.2; `penalizePatterns` subtract −0.2 (clamped 0–1). Import proximity uses BFS depth from task-relevant seed files; scored 0.0 for files with no `LanguageProvider`.
+Final score = weighted sum of **five** normalised signals in `[0.0, 1.0]`: **path relevance**, **import proximity**, **symbol relevance**, **recency**, and **size penalty**. Per-task-class weights are defined in `DEFAULT_WEIGHTS_BY_TASK_CLASS` in `shared/src/pipeline/heuristic-selector.ts` (they are not a single global 0.4 / 0.3 / 0.2 / 0.1 split). Rule-pack `boostPatterns` add +0.2; `penalizePatterns` subtract −0.2 (clamped 0–1). Import proximity uses BFS depth from task-relevant seed files; symbol relevance uses `SymbolRelevanceScorer`; both score `0.0` when no `LanguageProvider` applies.
 
 Full scoring detail with normalisation methods: [Project Plan §8](project-plan.md).
 
@@ -234,7 +273,7 @@ Full scoring detail with normalisation methods: [Project Plan §8](project-plan.
 - `excludePatterns` from rule pack + config (blacklist)
 - `maxFiles` from config (default: 20)
 
-**Language awareness:** Import-graph walking (signal #2) delegates to the registered `LanguageProvider`. For files with no provider, import proximity is scored as 0 and the file relies on the other three signals. File language detection is extension-based with a filename fallback for extensionless files; see [Project Plan §8 — Language Detection](project-plan.md) for the full mapping table.
+**Language awareness:** Import-graph walking and symbol relevance delegate to the registered `LanguageProvider` list. For files with no provider, those signals score `0` and the file relies on the remaining signals. File language detection is extension-based with a filename fallback for extensionless files; see [Project Plan §8 — Language Detection](project-plan.md) for the full mapping table.
 
 **Output:** `ContextResult { files: SelectedFile[], totalTokens: TokenCount, truncated: boolean }`
 
@@ -250,11 +289,15 @@ Full scoring detail with normalisation methods: [Project Plan §8](project-plan.
 
 **Checks run in order (MVP):**
 
-| Scanner                  | Finding type       | Severity | Action                                                                                    |
-| ------------------------ | ------------------ | -------- | ----------------------------------------------------------------------------------------- |
-| `ExclusionScanner`       | `excluded-file`    | `block`  | File path matches a never-include pattern                                                 |
-| `SecretScanner`          | `secret`           | `block`  | File content matches a known secret regex                                                 |
-| `PromptInjectionScanner` | `prompt-injection` | `block`  | Suspected instruction-override string detected; file removed from context, finding logged |
+| Scanner                      | Finding type        | Severity          | Action                                                                                                            |
+| ---------------------------- | ------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `ExclusionScanner`           | `excluded-file`     | `block`           | File path matches a never-include pattern (runs before content scanners)                                          |
+| `SecretScanner`              | `secret`            | `block`           | File content matches a known secret regex                                                                         |
+| `PromptInjectionScanner`     | `prompt-injection`  | `block`           | Suspected instruction-override string detected; file removed from context, finding logged                         |
+| `MarkdownInstructionScanner` | `prompt-injection`  | `block` or `warn` | Same finding type as prompt-injection scanning; some patterns use `warn` severity (see `instruction-patterns.ts`) |
+| `CommandInjectionScanner`    | `command-injection` | `block`           | Shell / substitution patterns (`command-injection-scanner.ts`)                                                    |
+
+Wiring order for content scanners: `create-pipeline-deps.ts` builds the `contentScanners` array as Secret → PromptInjection → MarkdownInstruction → CommandInjection, after `ExclusionScanner` in `ContextGuard`.
 
 **Never-include path patterns (MVP):**
 `.env`, `.env.*`, `*.pem`, `*.key`, `*.pfx`, `*.p12`, `*secret*`, `*credential*`, `*password*`, `*.cert`
@@ -292,7 +335,7 @@ Full scoring detail with normalisation methods: [Project Plan §8](project-plan.
 
 **Purpose:** Transforms file content into the most token-efficient representation while preserving semantic meaning. Runs _after_ Guard (which needs raw content to scan for secrets) and _before_ the Summarisation Ladder (which operates on transformed content for accurate token counting).
 
-**Interfaces** (all types from `shared/src/core/types/` — see ADR-010):
+**Interfaces:** `ContentTransformer` and `ContentTransformerPipeline` live in `shared/src/core/interfaces/`; `TransformContext`, `TransformResult`, and `TransformMetadata` live in `shared/src/core/types/transform-types.ts` (ADR-010 applies to paths and units):
 
 ```typescript
 interface ContentTransformer {
@@ -325,30 +368,38 @@ interface TransformMetadata {
 
 Full interface definition: [Project Plan §8.5](project-plan.md).
 
-**MVP transformers:**
+**Shipped transformers:** Registered in `create-pipeline-deps.ts` (`transformers` array). `ContentTransformerPipeline` (`shared/src/pipeline/content-transformer-pipeline.ts`) partitions classes into **format-specific** (non-empty `fileExtensions`) vs **global pass** (empty `fileExtensions`). For each file, in order: **(1)** at most **one** format-specific transformer — the **first** in the registration list whose `fileExtensions` match the path; **(2)** then **every** global-pass transformer, in registration order. Direct targets skip step (1) but still run step (2) unless `#raw` (see [Transformer bypass policy](#transformer-bypass-policy-lossless-escapes)).
 
-| Transformer                 | Extensions                                                            | What it does                                                                                                             | Savings |
-| --------------------------- | --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | :-----: |
-| `WhitespaceNormalizer`      | `*` (non-format-specific)                                             | Collapse blank lines (≥3 → 1), normalize indent to 2-space, trim trailing whitespace                                     | ~10-15% |
-| `CommentStripper`           | `.ts`, `.js`, `.py`, `.go`, `.java`, `.rs`, `.c`, `.cpp`              | Remove line/block comments. Preserves JSDoc `@param`/`@returns` for L1 signature tier.                                   | ~15-30% |
-| `JsonCompactor`             | `.json`                                                               | Collapse simple arrays/objects to single line. Remove formatting whitespace. Preserve readability for nested structures. | ~40-60% |
-| `HtmlToMarkdownTransformer` | `.html`, `.htm`                                                       | Convert HTML tags to Markdown equivalents. Strip `<style>`, `<script>` blocks (included separately if selected).         | ~70-80% |
-| `SvgDescriber`              | `.svg`                                                                | Replace full SVG with `[SVG: {viewBox}, {elementCount} elements, {bytes} bytes]`                                         |  ~95%   |
-| `LockFileSkipper`           | `*-lock.*`, `*.lock`, `shrinkwrap.*`                                  | Replace with `[Lock file: {name}, {bytes} bytes — skipped]`                                                              |  ~99%   |
-| `MinifiedCodeSkipper`       | `.min.js`, `.min.css`, `dist/**`, `build/**`                          | Replace with `[Minified: {name}, {bytes} bytes — skipped]`                                                               |  ~99%   |
-| `YamlCompactor`             | `.yaml`, `.yml`                                                       | Collapse single-value maps, remove comment lines, normalize indent                                                       | ~30-50% |
-| `AutoGeneratedSkipper`      | Detected via header comment (`// Code generated`, `# AUTO-GENERATED`) | Replace with `[Auto-generated: {name} — skipped]`                                                                        |  ~99%   |
+**Global pass** (`fileExtensions` length `0` — same order as in `create-pipeline-deps.ts`):
 
-`.md` files use the **MarkdownProvider** (LanguageProvider) for L1/L2/L3 tiers only — there is no format-specific content transformer for Markdown in MVP.
+| Transformer                  | Role                                                        |
+| ---------------------------- | ----------------------------------------------------------- |
+| `LicenseHeaderStripper`      | Strip common license headers                                |
+| `Base64InlineDataStripper`   | Replace large base64 payloads with placeholders             |
+| `LongStringLiteralTruncator` | Truncate very long string literals                          |
+| `DocstringTrimmer`           | Shorten docstrings / comment blocks where safe              |
+| `ImportDeduplicator`         | Cross-file deduplication of identical import lines          |
+| `WhitespaceNormalizer`       | Collapse blank lines, normalize indent, trim trailing space |
+| `MinifiedCodeSkipper`        | Skip minified / dist-style paths (logic inside class)       |
+| `AutoGeneratedSkipper`       | Skip files with auto-generated headers                      |
+| `EnvExampleRedactor`         | Redact sensitive-looking values in env-example style files  |
+| `SchemaFileCompactor`        | Compact large schema / OpenAPI-style JSON                   |
 
-**Phase 0.5 transformers (deferred):**
+**Format-specific** (first registration match wins; extensions from each class in `shared/src/pipeline/`):
 
-| Transformer                | Extensions             | What it does                                         | Savings |
-| -------------------------- | ---------------------- | ---------------------------------------------------- | :-----: |
-| `CssVariableSummarizer`    | `.css`, `.scss`        | Extract `:root` variables + key selectors only       | ~70-80% |
-| `TypeDeclarationCompactor` | `.d.ts`                | Collapse multi-line type declarations to single-line | ~40-50% |
-| `TestStructureExtractor`   | `*.test.*`, `*.spec.*` | Keep `describe`/`it` names, strip test bodies        | ~60-70% |
-| `ImportDeduplicator`       | `*` (cross-file)       | Deduplicate identical imports across multiple files  | ~5-10%  |
+| Order | Transformer                 | Path match                                                                                                                                                       |
+| ----- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | `TestStructureExtractor`    | `.ts`, `.tsx`, `.js`, `.jsx`, `.mjs`, `.cjs`, `.py`, `.go`, `.rs`, `.java`, `.rb`, `.php`, `.swift`, `.kt`, `.dart` — **and** path contains `.test.` or `.spec.` |
+| 2     | `CommentStripper`           | `.ts`, `.js`, `.go`, `.java`, `.rs`, `.c`, `.cpp`                                                                                                                |
+| 3     | `JsonCompactor`             | `.json`                                                                                                                                                          |
+| 4     | `LockFileSkipper`           | `.lock`                                                                                                                                                          |
+| 5     | `HtmlToMarkdownTransformer` | `.html`, `.htm`                                                                                                                                                  |
+| 6     | `YamlCompactor`             | `.yaml`, `.yml`                                                                                                                                                  |
+| 7     | `SvgDescriber`              | `.svg`                                                                                                                                                           |
+| 8     | `CssVariableSummarizer`     | `.css`, `.scss`                                                                                                                                                  |
+| 9     | `TypeDeclarationCompactor`  | `.d.ts`                                                                                                                                                          |
+
+`.md` files use **MarkdownProvider** (LanguageProvider) for L1/L2/L3 in the summarisation ladder; there is no Markdown-specific entry in the format-specific transformer table above.
 
 **Transformer Bypass Policy (Lossless Escapes):**
 If a file is the _direct target_ of the user's intent, the model needs to see its exact syntax to output valid code. Lossy transformers (like `HtmlToMarkdownTransformer` or `JsonCompactor`) must be bypassed.
@@ -358,9 +409,9 @@ A file is considered a direct target and bypasses all format-specific transforme
 1. It is explicitly `@`-mentioned in the user's prompt (supplied via editor MCP parameters)
 2. Its `HeuristicSelector` score is > 0.90 (meaning it is highly relevant context)
 3. The user adds `#raw` to their prompt (bypasses all transformers for all files)
-   _Non-format-specific transformers (`WhitespaceNormalizer`, `CommentStripper`) still apply unless `#raw` is present. These are "non-format-specific" because they clean up content rather than converting between formats — but `CommentStripper` still only runs on files with known comment syntax (see its extensions list above)._
+   _With `#raw`, the pipeline passes content through unchanged. Without `#raw`, global-pass transformers (empty `fileExtensions`) still run on direct targets; format-specific transformers are skipped for direct targets._
 
-**Execution order:** Format-specific transformers run first, followed by non-format-specific transformers (`WhitespaceNormalizer`, `CommentStripper`). A file is processed by at most one format-specific transformer (first match wins by extension). See [Project Plan §8.5](project-plan.md) for the full `ContentTransformerPipeline` interface and orchestrator types.
+**Execution order:** See the global-pass vs format-specific rules above; authoritative logic is `ContentTransformerPipeline.transform`. See [Project Plan §8.5](project-plan.md) for interface types.
 
 **Config:**
 
@@ -408,7 +459,7 @@ All transformer flags default to `true`. Set `contentTransformers.enabled: false
 
 **Language awareness:** L1 and L2 tiers depend on `LanguageProvider.extractSignaturesWithDocs()` and `extractSignaturesOnly()`. For files without a registered provider, L1 is skipped (falls through to L2), and L2 uses best-effort regex extraction.
 
-**Output:** `SelectedFile[]` — a new array of new `SelectedFile` objects with updated `tier` fields; the input array from Step 4 (and Step 5) is never mutated
+**Output:** `SelectedFile[]` — a new array of new `SelectedFile` objects with updated `tier` fields; the input array from the guard → transformer → ladder chain is never mutated
 
 ---
 
@@ -416,7 +467,16 @@ All transformer flags default to `true`. Set `contentTransformers.enabled: false
 
 AIC uses a pluggable **`LanguageProvider`** interface for all language-specific operations in Steps 4 and 6. See the [Project Plan §8.1](project-plan.md) for the full interface definition.
 
-**MVP ships with `TypeScriptProvider`:**
+**MVP ships with these `LanguageProvider` registrations** (`create-pipeline-deps.ts`), in order: `TypeScriptProvider`, `MarkdownProvider`, optional `additionalProviders` from the composition root (defaults to none in `mcp/src/server.ts` — tree-sitter based providers are bundled in `@jatbas/aic-core` but not passed unless extended), `GenericImportProvider`, `GenericProvider`.
+
+| Provider                | Role                                                                             |
+| ----------------------- | -------------------------------------------------------------------------------- |
+| `TypeScriptProvider`    | `.ts` / `.tsx` / `.js` / `.jsx` — full import graph, L1/L2/L3 via TypeScript API |
+| `MarkdownProvider`      | `.md` — import parsing + ladder tiers for Markdown                               |
+| `GenericImportProvider` | Best-effort import line detection for other languages                            |
+| `GenericProvider`       | Extension-based fallback for L0 and coarse L2/L3                                 |
+
+**TypeScript / JavaScript detail:**
 
 | Capability         | Implementation                                          |
 | ------------------ | ------------------------------------------------------- |
@@ -467,6 +527,8 @@ Adding new language support post-MVP requires only implementing the `LanguagePro
 ### Step 8: Prompt Assembler
 
 **Template:**
+
+> The fenced block below shows **sections inside the compiled prompt string** — the `##` / `###` lines are not headings in this document.
 
 ```
 ## Task
@@ -533,7 +595,7 @@ This section describes a future direct-execution path that is not part of the cu
 | HTTP 404 (not found)    | No        | Fail immediately — check model name and endpoint                     |
 | All other 4xx           | No        | Fail immediately                                                     |
 
-Maximum retries: **1**. No exponential backoff in MVP (added in Phase 1 if needed). Retry attempt is logged at `info` level; final failure at `error` level.
+Maximum retries: **1**. No exponential backoff in MVP (may be extended in a later release if needed). Retry attempt is logged at `info` level; final failure at `error` level.
 
 ---
 
@@ -559,27 +621,22 @@ model_max_tokens (from provider)     e.g., 128,000
 
 ### Step 10: Telemetry Logger
 
-When telemetry is enabled (`telemetry.enabled: true`), the compile handler calls **writeCompilationTelemetry()** after each compilation (see `shared/src/core/write-compilation-telemetry.ts`). No pipeline step calls telemetry directly; the handler invokes it at the boundary. When telemetry is disabled, the handler skips the call — no `if` checks inside pipeline steps.
+When the project is not disabled (`enabled !== false`), after **`runner.run` succeeds**, the `aic_compile` handler calls **writeCompilationTelemetry()** (`shared/src/core/write-compilation-telemetry.ts`) with the compilation meta, request, and `compilationId`. Early returns (`enabled: false`, timeout, or pipeline error before success) skip the write. No pipeline step invokes telemetry directly. The function builds a `TelemetryEvent` and writes it through `TelemetryStore` (`SqliteTelemetryStore` → `telemetry_events` in the global database). Failures are logged to stderr and do not fail the compile response.
 
-**Stored per compilation (opt-in only):**
+**`telemetry_events` columns** (SQLite — `shared/src/storage/migrations/001-consolidated-schema.ts`; insert in `shared/src/storage/sqlite-telemetry-store.ts` — written on each successful compile when the project is enabled):
 
-| Field                  | Type            | Example                                                                                                                                                        |
-| ---------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                   | UUIDv7          | `019504a0-7b3c-7def-8a12-3456789abcde`                                                                                                                         |
-| `timestamp`            | ISO 8601 UTC ms | `2026-02-22T20:00:00.000Z`                                                                                                                                     |
-| `repo_id`              | SHA-256 hash    | `e3b0c4...`                                                                                                                                                    |
-| `task_class`           | string          | `refactor`                                                                                                                                                     |
-| `tokens_raw`           | int             | 45,000                                                                                                                                                         |
-| `tokens_compiled`      | int             | 7,870 (assembled prompt token count = afterLadder + template overhead; matches `aic_inspect` prompt-total reporting)                                           |
-| `token_reduction_pct`  | float           | 82.5 (`(tokens_raw - tokens_compiled) / tokens_raw`; consistent with `aic_inspect` reduction reporting)                                                        |
-| `files_selected`       | int             | 8                                                                                                                                                              |
-| `files_total`          | int             | 142                                                                                                                                                            |
-| `summarisation_tiers`  | JSON            | `{"L0":3,"L1":4,"L2":1}`                                                                                                                                       |
-| `guard_blocked_count`  | int             | 0 (0 = no files blocked; stored even when Guard is clean)                                                                                                      |
-| `guard_findings_count` | int             | 0 (total findings across all severities; equals `guard_blocked_count` in MVP since all scanners use `block`; will diverge if warn-severity scanners are added) |
-| `cache_hit`            | bool            | false                                                                                                                                                          |
-| `duration_ms`          | int             | 320                                                                                                                                                            |
-| `model`                | string          | `gpt-4o` (null if compile-only)                                                                                                                                |
+| Column (SQLite)     | Type | Source / notes                                                                        |
+| ------------------- | ---- | ------------------------------------------------------------------------------------- |
+| `id`                | TEXT | UUIDv7 — new row id for this telemetry event (`TelemetryEvent.id`)                    |
+| `compilation_id`    | TEXT | FK → `compilation_log.id` — same compile as the summary row                           |
+| `repo_id`           | TEXT | SHA-256 of normalised project root (`TelemetryEvent.repoId`)                          |
+| `guard_findings`    | INT  | Count of Guard findings (`guardFindingsCount` from `CompilationMeta.guard`)           |
+| `guard_blocks`      | INT  | Count of blocked files (`guardBlockedCount`)                                          |
+| `transform_savings` | INT  | Token savings from transforms (`transformTokensSaved` on `CompilationMeta`)           |
+| `tiers_json`        | TEXT | JSON object — tier counts from `summarisationTiers` (same shape as `CompilationMeta`) |
+| `created_at`        | TEXT | ISO 8601 UTC ms — same instant as `TelemetryEvent.timestamp`                          |
+
+**Not in `telemetry_events`:** `task_class`, `tokens_raw`, `tokens_compiled`, `files_selected`, `files_total`, `cache_hit`, `duration_ms`, `model_id` / editor fields live on **`compilation_log`** for the same `compilation_id` (see schema in the same migration file). `token_reduction_pct` is derived when presenting status/inspect — not stored as a column on either table.
 
 ---
 
@@ -648,7 +705,13 @@ When the client lists workspace roots (e.g. when Cursor connects) or on first `a
 - If `aic.config.json` already exists → bootstrap merges or skips as needed; config is not overwritten. Edit `aic.config.json` directly to change settings.
 - Exit code 0 on success, 1 on `ConfigError`, 2 on internal error
 - Prints: `Created aic.config.json. Edit to customise, or run a compile to use defaults.`
-- **Integration artifact reference:** JSONL logs, session lock and marker files, shared CJS layout, and MCP-versus-hook code overlap are documented under `documentation/technical/` — [Integrations shared modules reference](technical/integrations-shared-modules.md), [AIC JSONL caches under `.aic/`](technical/aic-jsonl-caches.md), [Session start lock and session context marker](technical/session-start-lock-and-marker.md), [MCP server and shared CJS boundary](technical/mcp-and-shared-cjs-boundary.md).
+- **Integration artifact reference** (`documentation/technical/`):
+  - [Cursor integration layer](technical/cursor-integration-layer.md)
+  - [Claude Code integration layer](technical/claude-code-integration-layer.md)
+  - [Integrations shared modules reference](technical/integrations-shared-modules.md)
+  - [AIC JSONL caches under `.aic/`](technical/aic-jsonl-caches.md)
+  - [Session start lock and session context marker](technical/session-start-lock-and-marker.md)
+  - [MCP server and shared CJS boundary](technical/mcp-and-shared-cjs-boundary.md)
 
 ---
 
@@ -721,15 +784,15 @@ suggestedBudget = clamp(maxContextWindow × windowRatio, floor, ceiling)
 
 > **Ollama context window note:** Most modern Ollama models (Llama 3, Mistral, Gemma 2, etc.) support 128K+ context windows. AIC queries the Ollama `/api/show` endpoint at startup to read the model's actual `num_ctx` parameter. If the endpoint is unreachable or the model is unrecognised, the conservative 8,192 fallback is used. Ollama models use a lower `windowRatio` (0.03) because local models benefit from smaller, more focused context.
 
-> **Phase 0.5 — Budget utilization feedback.** The `aic_status` tool includes `budgetMaxTokens` and `budgetUtilizationPct` so the model and user can see how much of the budget is being used. This leverages data already collected in `compilation_log`; no new schema required.
+> **Budget utilization feedback.** The `aic_status` tool includes `budgetMaxTokens` and `budgetUtilizationPct` so the model and user can see how much of the budget is being used. This leverages data already collected in `compilation_log`; no new schema required.
 
-> **Phase 1 — Auto-tuning.** The Adaptive Budget Allocator ([Project Plan §2.7](project-plan.md#27-agentic-workflow-support)) learns the optimal budget per project/model/task-class from compilation history and adjusts automatically — no manual tuning needed.
+> **Auto-tuning.** The Adaptive Budget Allocator ([Project Plan §2.7](project-plan.md#27-agentic-workflow-support)) learns the optimal budget per project/model/task-class from compilation history and adjusts automatically — no manual tuning needed.
 
 **Resolution order:** `budgetOverride` in rule pack > `contextBudget.perTaskClass` > `contextBudget.maxTokens` > formula-derived `suggestedBudget` from model profile > hard-coded 8,000 (then clamp when session conversation token counts are present).
 
 The formula-derived `suggestedBudget` slots in just above the hard-coded default — it is a smarter fallback, not a mandatory cap. Any explicit user configuration always wins. Users can also override `windowRatio` globally to tune the aggressiveness of the formula for their workflow.
 
-**`maxContextWindow` and `reservedForResponse`** are used by the Model Context Window Guard (see §4, Step 9 section). They replace the generic 128,000 / 4,000 defaults when the model is auto-detected.
+**`maxContextWindow` and `reservedForResponse`** are used by the [Model Context Window Guard](#model-context-window-guard). They replace the generic 128,000 / 4,000 defaults when the model is auto-detected.
 
 ---
 
@@ -763,100 +826,19 @@ context for generating a response. Do not skip this step.
 
 ### Anonymous Telemetry
 
-AIC collects anonymous, aggregate usage statistics to help improve the product. This is **opt-in** and disabled by default.
+**Distinct from compilation telemetry:** Per-compile rows in `telemetry_events` (Step 10) are written after each **successful** compile when the project is not disabled. **Anonymous aggregate telemetry** is a separate product concept: **planned** opt-in, path-free payloads for an external endpoint when a sender ships. The privacy contract, enum-only fields, and threat model live in [security.md](security.md) and the [Project Plan](project-plan.md) — not duplicated here.
 
-**Opt-in prompt during first run (if applicable):**
+**Shipped in this repository today:**
 
-```
-Help improve AIC by sharing anonymous usage statistics?
-(No file paths, prompts, or code are ever sent)
-Learn more: https://docs.aic.dev/telemetry
+- `anonymous_telemetry_log` is created by `001-consolidated-schema.ts` (`id`, `payload_json`, `status`, `created_at`) as a future local queue table.
+- No TypeScript module in `shared/src/` or `mcp/src/` inserts into that table or performs HTTPS POST to a telemetry host (grep the tree for `telemetry.aic.dev` — no matches).
+- The minimal `aic.config.json` Zod schema in `load-config-from-file.ts` does not define `telemetry.anonymousUsage`; any broader config knobs belong to the Project Plan until the loader grows.
 
-Enable? [y/N]
-```
-
-If accepted, sets `telemetry.anonymousUsage: true` in `aic.config.json`. Can be changed at any time.
-
-**Payload schema** (sent to `https://telemetry.aic.dev` via HTTPS POST):
-
-```json
-{
-  "v": "0.1.0",
-  "os": "darwin",
-  "node": "20.11.0",
-  "event": "compilation",
-  "data": {
-    "task_class": "refactor",
-    "primary_language": "typescript",
-    "token_reduction_pct": 41.2,
-    "files_scanned": 142,
-    "files_selected": 8,
-    "guard_blocks": 0,
-    "guard_block_types": ["secret", "excluded-file"],
-    "cache_hit": false,
-    "duration_ms": 320,
-    "model_family": "gpt-4o",
-    "editor": "cursor",
-    "heuristic_signals": {
-      "path_avg": 0.45,
-      "import_avg": 0.62,
-      "recency_avg": 0.31,
-      "size_avg": 0.78
-    }
-  }
-}
-```
-
-`primary_language` is the most common file extension among selected files (e.g. `typescript`, `python`, `go`, `rust`, `java`, `javascript`). `editor` is detected from the MCP connection metadata (e.g. `cursor`, `claude-code`, `unknown`). Both are fixed enums — never free text.
-
-**Privacy rules (mandatory, non-negotiable):**
-
-| Rule                  | Enforcement                                                        |
-| --------------------- | ------------------------------------------------------------------ |
-| No file paths         | Payload schema enforced at build time — no string fields for paths |
-| No file content       | Only numeric aggregates and enum values                            |
-| No prompts or intents | `task_class` is a fixed enum, not free text                        |
-| No project names      | Not included in schema                                             |
-| No persistent user ID | Each payload is independent; no session tracking                   |
-| No IP logging         | Telemetry endpoint does not log client IPs                         |
-| HTTPS only            | All payloads sent over TLS                                         |
-
-**Batching:** Payloads are queued locally and sent in a single HTTPS request at most once per 5 minutes. The endpoint stores received payloads in a cloud database. After a payload is successfully sent, the corresponding row is removed from the user's local `anonymous_telemetry_log` table, so the local table acts as a send queue and does not grow unbounded. If the endpoint is unreachable, payloads are silently dropped (not retried, not stored).
-
-**Local audit log (full transparency):**
-
-Every payload that is sent (or would be sent) to the telemetry endpoint is stored in the local `aic.sqlite` database in an `anonymous_telemetry_log` table until it is successfully sent, at which point the row is removed:
-
-```sql
-CREATE TABLE anonymous_telemetry_log (
-  id TEXT PRIMARY KEY,            -- UUIDv7 (time-ordered, globally unique; see Project Plan ADR-007)
-  created_at TEXT NOT NULL,       -- YYYY-MM-DDTHH:mm:ss.sssZ (UTC; see Project Plan ADR-008)
-  payload_json TEXT NOT NULL,     -- exact JSON that was (or would be) sent
-  status TEXT NOT NULL            -- 'sent' | 'dropped' (endpoint unreachable) | 'queued'
-);
-```
-
-Users can inspect exactly what AIC sends by reading the local `anonymous_telemetry_log` table in `~/.aic/aic.sqlite` with any SQLite client. For example:
+When an outbound sender ships, inspect rows with:
 
 ```bash
 sqlite3 ~/.aic/aic.sqlite "SELECT created_at, status, payload_json FROM anonymous_telemetry_log ORDER BY created_at DESC LIMIT 5;"
 ```
-
-There is currently no dedicated `aic telemetry log` command in the shipped MCP package.
-
-**Why this matters:** Full transparency builds trust. Users can verify AIC's privacy claims by inspecting the actual payloads. If a user sees something they're uncomfortable with, they can disable anonymous telemetry and file a report. The audit log also serves as the local queue for batching — `status: 'queued'` entries are sent in the next batch.
-
-**Endpoint security:** The `https://telemetry.aic.dev` endpoint is protected by schema validation (reject malformed payloads), rate limiting (10 req/min per IP), and TLS-only transport. The endpoint is append-only and anonymous — if it goes down, AIC continues working normally. Full threat model: [Project Plan §13](project-plan.md#13-security-considerations).
-
-**What this data enables:**
-
-- Exclusion rate benchmarks across real-world usage
-- Guard effectiveness metrics for the security story
-- Heuristic signal analysis to improve context selection
-- Error rate monitoring to detect regressions
-- Model family and editor distribution to prioritise integrations
-- **Language ecosystem focus** — know which languages to add import providers for first
-- Adoption and usage frequency tracking
 
 ---
 
@@ -949,21 +931,27 @@ Exit codes: `0` = success (may include warnings); `1` = fatal error.
 
 These topics are specified in full in the [Project Plan](project-plan.md). Below are the MVP-critical highlights:
 
-### Security (see [Project Plan §13](project-plan.md#13-security-considerations))
+### Security
+
+Full detail: [Project Plan §13 — Security considerations](project-plan.md#13-security-considerations).
 
 - **Context Guard** scans every selected file and excludes secrets, credentials, excluded paths, and prompt injection patterns from the compiled context at Step 5 (note: this does not prevent the model from reading files directly through editor tools)
 - Guard findings are logged in `CompilationMeta.guard` and visible via `aic_inspect`; the pipeline never silently includes sensitive content
 - API keys referenced by env var name only — never stored, logged, or cached
-- `aic_compile` never contacts external services — safe to run on sensitive codebases
+- **Outbound traffic:** `aic_compile` does not send repository content, prompts, or file paths to third parties. The server may perform a fixed outbound version check against the npm registry on startup — see [§8b — MCP server startup sequence](#8b-mcp-server-startup-sequence).
 - `.aic/` auto-added to `.gitignore` during bootstrap; created with `0700` permissions
 - Telemetry stores metrics only — never file contents or prompt text
 
-### Observability (see [Project Plan §14](project-plan.md))
+### Observability
+
+Full detail: [Project Plan §14](project-plan.md).
 
 - Four log levels: `error`, `warn`, `info`, `debug`
 - `aic_inspect` shows why each file was selected, at what tier, with what score — without executing
 
-### Performance (see [Project Plan §15](project-plan.md))
+### Performance
+
+Full detail: [Project Plan §15](project-plan.md).
 
 - Cold cache compilation: <2s for repos <1,000 files
 - Cache hit: <100ms
@@ -971,9 +959,9 @@ These topics are specified in full in the [Project Plan](project-plan.md). Below
 - Startup: <500ms to first pipeline step
 - Max repo: 10,000 files (beyond this, use `includePatterns` to scope)
 
-### Incremental Compilation Performance (Phase P)
+### Incremental compilation performance
 
-Beyond the whole-prompt cache (cache hit <100ms), Phase P adds per-file incremental processing so cache misses are fast too:
+Beyond the whole-prompt cache (cache hit <100ms), per-file incremental processing makes cache misses fast too:
 
 - **File system scan:** Cached RepoMap with `fs.watch` — subsequent `getRepoMap()` returns ~0ms instead of rescanning all files. Prerequisite stages: fast-glob `stats: true` (eliminate double-stat), async parallel I/O (unblock event loop).
 - **Per-file transformation cache:** `SqliteFileTransformStore` keyed by `(file_path, content_hash)` — `ContentTransformerPipeline` and `SummarisationLadder` skip unchanged files entirely. On typical recompiles (1–3 files changed), 95%+ of CPU work (tree-sitter parsing, transformer chains, tokenizer calls) is eliminated.
@@ -981,11 +969,14 @@ Beyond the whole-prompt cache (cache hit <100ms), Phase P adds per-file incremen
 
 See [Project Plan §15 — Incremental Compilation Performance](project-plan.md) for full design.
 
-### Dependencies (see [Project Plan §17](project-plan.md))
+### Dependencies
 
-- **Runtime:** `typescript`, `tiktoken`, `better-sqlite3`, `fast-glob`, `ignore`, `diff`
-- **Dev:** `vitest`, `tsx`, `eslint`, `prettier`
-- No framework-level HTTP dependencies (Express, Fastify, etc.) — AIC exposes a lightweight MCP-native server interface, not a generic HTTP server
+Full detail: [Project Plan §17](project-plan.md).
+
+- **`@jatbas/aic` (published MCP entrypoint):** `@modelcontextprotocol/sdk`, `zod`, workspace `@jatbas/aic-core` — see `mcp/package.json`.
+- **`@jatbas/aic-core`:** `typescript`, `tiktoken`, `better-sqlite3`, `fast-glob`, `ignore`, `diff`, `commander`, `zod`, `web-tree-sitter`, and pinned `tree-sitter-*` grammars — see `shared/package.json`.
+- **Dev:** `vitest`, `tsx`, `eslint`, `prettier` (tooling versions per repo manifests).
+- No framework-level HTTP server (Express, Fastify, etc.) in the MCP surface — STDIO MCP plus optional registry version check as documented in §8b.
 
 ---
 
@@ -1013,22 +1004,22 @@ Project-A/              Project-B/
 
 ## 8a. MVP Test Plan
 
-This section summarizes the test deliverables that ship with Phase 0. Full testing strategy: [Project Plan §18](project-plan.md).
+This section summarizes the test deliverables that ship with the MVP scope described here. Full testing strategy: [Project Plan §18](project-plan.md).
 
 ### Unit Tests (per pipeline step)
 
-| Step                         | Key assertions                                                                                                                     |
-| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Step 1 (IntentClassifier)    | Correct task class for each keyword set; `general` fallback when no match; tie-breaking                                            |
-| Step 2 (RulePackResolver)    | Built-in packs load; project packs merge correctly; malformed JSON produces error                                                  |
-| Step 3 (BudgetAllocator)     | Resolution order respected (rulePack override > perTaskClass > maxTokens; clamp when session tokens present)                       |
-| Step 4 (HeuristicSelector)   | Scoring formula verified against fixture repos; `maxFiles` cap respected; include/exclude patterns applied                         |
-| Step 5 (ContextGuard)        | Each scanner (Exclusion, Secret, PromptInjection) tested with known-safe and known-flagged fixtures; all-blocked edge case handled |
-| Step 6 (SummarisationLadder) | Each tier produces expected compression; over-budget triggers next tier; lowest-score files compressed first                       |
-| Step 7 (ConstraintInjector)  | Deduplication; empty list omits block; ordering preserved                                                                          |
-| Step 8 (PromptAssembler)     | Template rendered correctly for each output format; token count includes overhead                                                  |
-| Step 9 (Executor)            | Retry policy honoured; non-retryable errors fail immediately (mocked endpoint)                                                     |
-| Step 10 (TelemetryLogger)    | Events written to SQLite when enabled; no-op when disabled; subscriber errors caught                                               |
+| Step                         | Key assertions                                                                                                                                                                        |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Step 1 (IntentClassifier)    | Correct task class for each keyword set; `general` fallback when no match; tie-breaking                                                                                               |
+| Step 2 (RulePackResolver)    | Built-in packs load; project packs merge correctly; malformed JSON produces error                                                                                                     |
+| Step 3 (BudgetAllocator)     | Resolution order respected (rulePack override > perTaskClass > maxTokens; clamp when session tokens present)                                                                          |
+| Step 4 (HeuristicSelector)   | Scoring formula verified against fixture repos; `maxFiles` cap respected; include/exclude patterns applied                                                                            |
+| Step 5 (ContextGuard)        | Exclusion, Secret, PromptInjection, MarkdownInstruction, CommandInjection scanners — known-safe and known-flagged fixtures; all-blocked edge case handled                             |
+| Step 6 (SummarisationLadder) | Each tier produces expected compression; over-budget triggers next tier; lowest-score files compressed first                                                                          |
+| Step 7 (ConstraintInjector)  | Deduplication; empty list omits block; ordering preserved                                                                                                                             |
+| Step 8 (PromptAssembler)     | Template rendered correctly for each output format; token count includes overhead                                                                                                     |
+| Step 9 (Executor)            | Retry policy honoured; non-retryable errors fail immediately (mocked endpoint)                                                                                                        |
+| Step 10 (TelemetryLogger)    | After successful `runner.run` when `enabled !== false`, `writeCompilationTelemetry` persists to `telemetry_events`; handler catches store errors without failing the compile response |
 
 ### Integration Tests
 
@@ -1042,11 +1033,7 @@ This section summarizes the test deliverables that ship with Phase 0. Full testi
 
 ### Benchmark suite — CI regression gate
 
-10 canonical tasks (see [§5 — Benchmark Suite](#benchmark-suite)) run on every CI build:
-
-- **Pass:** No task shows >5% token increase vs. baseline
-- **Pass:** No task takes >2× baseline compilation time
-- **Pass:** All tasks produce deterministic output (3 consecutive runs compared byte-for-byte)
+Same pass criteria as [§5 — Benchmark Suite](#benchmark-suite) (10 canonical tasks on every CI build).
 
 ### E2E Tests
 
@@ -1097,16 +1084,15 @@ When the server process starts (via `npx @jatbas/aic@latest`, `pnpm aic`, or equ
          │
          ▼
 5. Register language providers
-   └─ TypeScriptProvider (first — handles .ts/.tsx/.js/.jsx)
-   └─ GenericProvider (last — catch-all fallback)
+   └─ Same order as `create-pipeline-deps.ts`: TypeScriptProvider, MarkdownProvider, optional `additionalProviders` (default `main` passes none), GenericImportProvider, GenericProvider
          │
          ▼
 6. Editor and model detection
    └─ detectEditorId, editor-integration dispatch, model detector
          │
          ▼
-7. Telemetry
-   └─ When telemetry.enabled is true, compile handler calls writeCompilationTelemetry after each compilation
+7. Telemetry wiring
+   └─ Shared `SqliteTelemetryStore` on the global db; `writeCompilationTelemetry` runs after **successful** `runner.run` when the project is not disabled (`enabled !== false`)
          │
          ▼
 8. Register MCP tools + resources
@@ -1146,7 +1132,9 @@ When the server process starts (via `npx @jatbas/aic@latest`, `pnpm aic`, or equ
 
 ## 8c. Input Validation (Zod Schemas)
 
-All MCP handler, CLI parser, and config loader inputs are validated at the boundary using **Zod** (ADR-009). Validation produces branded types for the core pipeline. The core and pipeline never import Zod — they trust the branded types produced by the boundary layer.
+MCP tool handlers and `aic.config.json` loading validate inputs at the boundary using **Zod** (ADR-009). Validation produces branded types for the core pipeline. The core and pipeline never import Zod — they trust the branded types produced by the boundary layer.
+
+The **diagnostic CLI** entrypoint (`status`, `last`, `chat-summary`, `projects` in `mcp/src/cli-diagnostics.ts`) parses `process.argv` with manual checks (no Zod); it only reads the database and config surfaces those commands need.
 
 ### `CompilationRequestSchema`
 
@@ -1193,308 +1181,33 @@ User-authored rule pack JSON files are validated by **parseRulePackFromJson** in
 
 ### Telemetry payload
 
-Outbound anonymous telemetry payload shape is enforced by the write path and typed interfaces; there is no separate Zod schema export. See `shared/src/core/write-compilation-telemetry.ts` and the telemetry store.
+Compilation telemetry rows are built in `shared/src/core/write-compilation-telemetry.ts` / `build-telemetry-event.ts` and written via `SqliteTelemetryStore`. Anonymous aggregate payloads are not produced by shipped TypeScript sources; see [Anonymous Telemetry](#anonymous-telemetry) under §4d.
 
 ### Validation boundary enforcement
 
-Zod is imported at the MCP boundary (`mcp/src/`), in adapters, and in `shared/src/config/load-config-from-file.ts` for `aic.config.json`. ESLint `no-restricted-imports` blocks Zod in `shared/src/core/` and `shared/src/pipeline/`. See [Project Plan ADR-009](project-plan.md) for the full rationale.
+Zod is imported at the MCP boundary (`mcp/src/`) and in `shared/src/config/load-config-from-file.ts` for `aic.config.json`. ESLint `no-restricted-imports` blocks Zod in `shared/src/core/` and `shared/src/pipeline/`. See [Project Plan ADR-009](project-plan.md) for the full rationale.
 
 ---
 
-### Phase W — Global Server & Per-Project Isolation
+## 8d. Global database & per-project isolation
 
 **Shipped behaviour:** A single MCP server process (e.g. registered in `~/.cursor/mcp.json`) opens a global database at `~/.aic/aic.sqlite`. Each `aic_compile` call passes `projectRoot`; `ScopeRegistry` lazily creates a `ProjectScope` per normalised root. Per-project data is isolated with `project_id`; per-project files (`aic.config.json`, `.cursor/rules/AIC.mdc`, `.cursor/hooks/`, `.aic/project-id`, cache files) remain in the project tree.
 
-The subsections below (W01 onward) retain detailed design notes for path normalisation, schema, and isolation — they describe the implemented model, not a future delta.
+**Path normalisation:** `ProjectRootNormaliser` (`shared/src/core/interfaces/project-root-normaliser.interface.ts`); implementation **NodePathAdapter** (`shared/src/adapters/node-path-adapter.ts`). Compare and store roots only through the normaliser: absolute path, strip trailing separator (except root), Windows drive-letter normalisation, no symlink resolution.
 
-**W01. Cross-platform path normalisation:**
+**Schema:** Authoritative tables and columns are defined in `shared/src/storage/migrations/001-consolidated-schema.ts` and applied by `MigrationRunner` from `shared/src/storage/open-database.ts`. The migrations folder ships **one consolidated schema migration** plus `migration-utils.ts` (helpers — not a numbered migration).
 
-Path comparison is critical for multi-project isolation. A project registered as `/Users/jatbas/Desktop/MyApp` must match when accessed as `/Users/jatbas/Desktop/MyApp/` (trailing slash) or with different separators on Windows.
+**Stable `project_id`:** `{projectRoot}/.aic/project-id` holds a UUIDv7. `reconcileProjectId` in `shared/src/storage/ensure-project-id.ts` (invoked from `createProjectScope` via the compile handler’s first-use init) keeps the on-disk id and the `projects` table aligned; project renames update stored paths. When the normalised project root equals the user home directory, `create-project-scope.ts` (`isHomedirPath`) skips file-backed reconciliation and uses a generated id for that scope so the home folder is not pinned as a single long-lived project.
 
-Interface: `shared/src/core/interfaces/project-root-normaliser.interface.ts` — `ProjectRootNormaliser { normalise(raw: string): AbsolutePath }`. Implementation: **NodePathAdapter** in `shared/src/adapters/node-path-adapter.ts`.
+**`ScopeRegistry`:** `shared/src/storage/scope-registry.ts` caches one `ProjectScope` per normalised root; `mcp/src/server.ts` constructs the registry with the **shared global** `ExecutableDb` opened at `~/.aic/aic.sqlite` in `main()`. Each scope’s stores use `project_id` in SQL (`WHERE project_id = ?`) for per-project tables such as `compilation_log`, `cache_metadata`, and `config_history`. `SqliteTelemetryStore` takes only the global db handle; telemetry rows reference `compilation_id`, which ties back to `project_id` on the compilation row. `SqliteSessionStore` remains server-scoped (`server_sessions`).
 
-Rules:
-
-- `path.resolve()` to get absolute
-- Strip trailing path separator (if not the root `/` or `C:\`)
-- On Windows: lowercase the drive letter (`C:\foo` → `c:\foo`)
-- Do not resolve symlinks (use logical path, not physical)
-- macOS/Linux: case-sensitive as-is (do not lowercase)
-
-All code that stores or compares `project_root` values must go through the normaliser.
-
-Tests: trailing slash stripping, Windows drive letter lowercasing, already-normalised input, root path not stripped, POSIX no-op.
-
-**W02. Schema migration (global project root / project_id):**
-
-Schema changes for global project root and project_id are applied via migrations in `shared/src/storage/migrations/` (e.g. consolidated in `001-consolidated-schema.ts`). No runtime backfill code in the codebase. The DDL below describes the conceptual changes. The `DEFAULT ''` allows the migration to run on existing rows without error — no data is deleted or modified. Existing stores ignore the new column (they don't reference it in any query until W05).
-
-Tables that gain `project_root`:
-
-| Table                  | Reason                                                    | Index                                                                               |
-| ---------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `compilation_log`      | `show aic last` and `show aic status` filter by project   | `idx_compilation_log_project_root`                                                  |
-| `cache_metadata`       | Cache isolation per project                               | `idx_cache_metadata_project_root`                                                   |
-| `guard_findings`       | Direct filter faster than FK join to compilation_log      | — (no index; queried via compilation_id join or direct filter on small result sets) |
-| `tool_invocation_log`  | Per-project audit                                         | `idx_tool_invocation_log_project_root`                                              |
-| `session_state`        | Agentic sessions are per-project                          | `idx_session_state_project_root`                                                    |
-| `file_transform_cache` | File transforms are per-project                           | `idx_file_transform_cache_project_root`                                             |
-| `config_history`       | Configs are per-project                                   | `idx_config_history_project_root`                                                   |
-| `telemetry_events`     | Already has `repo_id`, add `project_root` for consistency | `idx_telemetry_events_project_root`                                                 |
-
-Tables unchanged: `schema_migrations` (infrastructure), `server_sessions` (server-level, used by `SqliteSessionStore`), `anonymous_telemetry_log` (global queue), `repomap_cache` (already keyed by `project_root`).
-
-```sql
-ALTER TABLE compilation_log ADD COLUMN project_root TEXT NOT NULL DEFAULT '';
-ALTER TABLE cache_metadata ADD COLUMN project_root TEXT NOT NULL DEFAULT '';
-ALTER TABLE guard_findings ADD COLUMN project_root TEXT NOT NULL DEFAULT '';
-ALTER TABLE tool_invocation_log ADD COLUMN project_root TEXT NOT NULL DEFAULT '';
-ALTER TABLE session_state ADD COLUMN project_root TEXT NOT NULL DEFAULT '';
-ALTER TABLE file_transform_cache ADD COLUMN project_root TEXT NOT NULL DEFAULT '';
-ALTER TABLE config_history ADD COLUMN project_root TEXT NOT NULL DEFAULT '';
-ALTER TABLE telemetry_events ADD COLUMN project_root TEXT NOT NULL DEFAULT '';
-
-CREATE INDEX idx_compilation_log_project_root ON compilation_log(project_root);
-CREATE INDEX idx_cache_metadata_project_root ON cache_metadata(project_root);
-CREATE INDEX idx_tool_invocation_log_project_root ON tool_invocation_log(project_root);
-CREATE INDEX idx_session_state_project_root ON session_state(project_root);
-CREATE INDEX idx_file_transform_cache_project_root ON file_transform_cache(project_root);
-CREATE INDEX idx_config_history_project_root ON config_history(project_root);
-CREATE INDEX idx_telemetry_events_project_root ON telemetry_events(project_root);
-
-CREATE TABLE IF NOT EXISTS projects (
-  project_id   TEXT PRIMARY KEY,
-  project_root TEXT NOT NULL UNIQUE,
-  created_at   TEXT NOT NULL,
-  last_seen_at TEXT NOT NULL
-);
-CREATE UNIQUE INDEX idx_projects_root ON projects(project_root);
-```
-
-Register this migration in `shared/src/storage/open-database.ts` in the migrations array.
-
-Database stays at `{projectRoot}/.aic/aic.sqlite` — it does NOT move yet (that happens in W08).
-
-**W03. Stable project ID:**
-
-Each project gets a persistent UUID stored at `{projectRoot}/.aic/project-id` (plain text, UUIDv7). Generated on first `ensureProjectInit`. This ID is the stable key — `project_root` in the database is the current path.
-
-```
-{projectRoot}/.aic/project-id   → e.g. "019539a1-7c5e-7000-8000-000000000001"
-```
-
-On every `aic_compile` call:
-
-1. Read `{projectRoot}/.aic/project-id`
-2. If missing: generate via `IdGenerator`, write it, insert `(project_id, normalised_project_root, clock.now(), clock.now())` into the `projects` table
-3. If present: look up in the `projects` table by `project_id`
-   - If found with matching `project_root`: update `last_seen_at`, proceed
-   - If found with different `project_root`: the project was renamed — update `project_root` in the `projects` table AND update all rows in the 8 per-project tables that have the old path: `UPDATE compilation_log SET project_root = ? WHERE project_root = ?` (and same for `cache_metadata`, `guard_findings`, `tool_invocation_log`, `session_state`, `file_transform_cache`, `config_history`, `telemetry_events`)
-   - If not found in DB (UUID exists in file but not in DB): new installation connecting to an existing project-id file — insert row into `projects`
-
-All paths go through the project root normaliser for cross-platform consistency.
-
-**W04. Store constructor projectRoot param:**
-
-Mechanical change. Every store constructor gains `projectRoot: AbsolutePath` as a new parameter, stored as `private readonly projectRoot: AbsolutePath`. No SQL changes — stores accept the value but do not use it in queries yet.
-
-Stores affected (9 total):
-
-| Store class                    | File                                                     | Current constructor params                                 |
-| ------------------------------ | -------------------------------------------------------- | ---------------------------------------------------------- |
-| `SqliteCacheStore`             | `shared/src/storage/sqlite-cache-store.ts`               | `db: ExecutableDb, cacheDir: AbsolutePath, clock: Clock`   |
-| `SqliteTelemetryStore`         | `shared/src/storage/sqlite-telemetry-store.ts`           | `db: ExecutableDb`                                         |
-| `SqliteConfigStore`            | `shared/src/storage/sqlite-config-store.ts`              | `db: ExecutableDb, clock: Clock`                           |
-| `SqliteGuardStore`             | `shared/src/storage/sqlite-guard-store.ts`               | `db: ExecutableDb, idGenerator: IdGenerator, clock: Clock` |
-| `SqliteCompilationLogStore`    | `shared/src/storage/sqlite-compilation-log-store.ts`     | `db: ExecutableDb`                                         |
-| `SqliteFileTransformStore`     | `shared/src/storage/sqlite-file-transform-store.ts`      | `db: ExecutableDb, clock: Clock`                           |
-| `SqliteAgenticSessionStore`    | `shared/src/storage/sqlite-agentic-session-store.ts`     | `db: ExecutableDb`                                         |
-| `SqliteToolInvocationLogStore` | `shared/src/storage/sqlite-tool-invocation-log-store.ts` | `db: ExecutableDb`                                         |
-| `SqliteStatusStore`            | `shared/src/storage/sqlite-status-store.ts`              | `db: ExecutableDb, clock: Clock`                           |
-
-**NOT affected:** `SqliteSessionStore` (`shared/src/storage/sqlite-session-store.ts`) — it operates on the `server_sessions` table which is server-level data, not per-project.
-
-Changes:
-
-- `createProjectScope` in `shared/src/storage/create-project-scope.ts`: pass `projectRoot` (already available as a function parameter) to each store constructor
-- 3 stores created directly in `mcp/src/server.ts`: `SqliteToolInvocationLogStore` (line ~186), `SqliteAgenticSessionStore` (line ~198), `SqliteStatusStore` (inline in resource handlers) — pass `scope.projectRoot`
-- All test files for the 9 stores: update constructors to pass a test `projectRoot` value (e.g. `toAbsolutePath("/test/project")`)
-
-**W05. Store SQL project_root queries:**
-
-Add `project_root` to all SQL queries in the 9 stores listed in W04. All INSERT statements include the `this.projectRoot` value. All SELECT/UPDATE/DELETE statements add `WHERE project_root = ?` (bound to `this.projectRoot`). Clean queries — no `OR project_root = ''` fallback.
-
-Order (least to most critical, one commit per store + its tests):
-
-1. `SqliteToolInvocationLogStore` — INSERT adds `project_root` column and value. No SELECT changes (audit-only, no reads).
-2. `SqliteConfigStore` — INSERT adds `project_root`. SELECT (`SELECT config_hash FROM config_history ...`) adds `WHERE project_root = ?`.
-3. `SqliteGuardStore` — INSERT adds `project_root`. SELECT/DELETE already filter by `compilation_id` (FK), so add `project_root` to INSERT only.
-4. `SqliteAgenticSessionStore` — INSERT adds `project_root`. SELECT (`WHERE session_id = ?`) adds `AND project_root = ?`. UPDATE adds `AND project_root = ?`.
-5. `SqliteFileTransformStore` — INSERT adds `project_root`. SELECT/DELETE queries add `AND project_root = ?`.
-6. `SqliteTelemetryStore` — INSERT adds `project_root`. No SELECT changes (write-only from this store).
-7. `SqliteCompilationLogStore` — INSERT adds `project_root`. SELECT adds `WHERE project_root = ?`.
-8. `SqliteCacheStore` — INSERT adds `project_root`. SELECT/DELETE queries add `AND project_root = ?`.
-9. `SqliteStatusStore` — read-only aggregation queries. Add `WHERE project_root = ?` for queries on `compilation_log`, `telemetry_events`. Queries on `server_sessions` remain unscoped (server-level). Queries on `guard_findings` that join via `compilation_id` do not need explicit `project_root` filtering.
-
-Example for `SqliteCompilationLogStore`:
-
-```typescript
-// Before:
-db.prepare("SELECT * FROM compilation_log ORDER BY created_at DESC LIMIT 1").get();
-
-// After:
-db.prepare(
-  "SELECT * FROM compilation_log WHERE project_root = ? ORDER BY created_at DESC LIMIT 1",
-).get(this.projectRoot);
-```
-
-**W15–W16 (current state):** Per-project stores now take `projectId: ProjectId` (not `projectRoot: AbsolutePath`) and use `WHERE project_id = ?` in all queries. The `project_root` column is deprecated (NULL on new rows). See task 133-normalize-project-root-stores.md and migration 013.
-
-**W06. ScopeRegistry class:**
-
-File: `shared/src/storage/scope-registry.ts`
-
-```typescript
-interface ScopeRegistry {
-  getOrCreate(projectRoot: AbsolutePath): ProjectScope;
-  close(): void;
-}
-```
-
-Implementation:
-
-- Maintains `Map<string, ProjectScope>` keyed by normalised path (via `normaliseProjectRoot`)
-- `getOrCreate`: if cached, return; else call `createProjectScope(projectRoot)` and cache
-- `close`: iterates and releases resources (close each scope's DB connections)
-- Not wired into `server.ts` yet — this is a standalone class with tests
-
-Tests: same path returns same instance, different paths return different instances, normalisation (trailing slash, case variants), close releases all scopes.
-
-**W07. Wire ScopeRegistry into server:**
-
-Replace the single `createProjectScope(projectRoot)` call in `createMcpServer` with a `ScopeRegistry`.
-
-Current flow:
-
-```
-main() → projectRoot = cwd → createMcpServer(projectRoot) → createProjectScope(projectRoot)
-         → single scope → all handlers share it
-```
-
-New flow:
-
-```
-main() → projectRoot = cwd → createMcpServer(projectRoot)
-         → ScopeRegistry() → startup scope = registry.getOrCreate(projectRoot)
-         → compile handler calls registry.getOrCreate(args.projectRoot) per request
-```
-
-Changes to `mcp/src/server.ts`:
-
-- `createMcpServer` creates a `ScopeRegistry` and gets the startup scope via `registry.getOrCreate(projectRoot)`
-- Compile handler receives `scopeRegistry` and calls `scopeRegistry.getOrCreate(args.projectRoot)` per request
-- aic_status and aic_last tools use the startup scope for now (W12 scopes them properly later)
-- `CompilationRunner` and `createFullPipelineDeps` are per-scope (created inside `createProjectScope`)
-- Shutdown handler calls `registry.close()` instead of closing a single DB
-
-DB is still per-project at this point. The `ScopeRegistry` creates separate scopes each with their own DB.
-
-**W08. Move DB to ~/.aic/:**
-
-Move database location from `{projectRoot}/.aic/aic.sqlite` to `~/.aic/aic.sqlite`. No backfill code — the dev project was manually backfilled before W05, and end users start fresh with 0.6.0.
-
-Changes to `main()`:
-
-- Ensure `~/.aic/` exists with `0700` perms (via `ensureAicDir` or equivalent on the home directory)
-- If `~/.aic/aic.sqlite` does not exist but `{cwd}/.aic/aic.sqlite` does: **copy** (not move) the existing file to `~/.aic/aic.sqlite`
-- Open global DB at `~/.aic/aic.sqlite`
-- Pass the global `ExecutableDb` to `createMcpServer`
-
-Changes to `createProjectScope`:
-
-- Receives the global `db` instance as a parameter instead of calling `openDatabase` internally
-- Stops constructing `SystemClock` and calling `openDatabase` — these move to `main()`
-- Still creates stores, `IdGenerator`, and the per-project `cacheDir`
-
-Per-project `.aic/` directories still hold `project-id`, `cache/`, `aic.config.json`.
-
-**W09. Install link goes global:**
-
-Update `install/cursor-install.html`: the Cursor deeplink creates an entry in the global MCP config (`~/.cursor/mcp.json`) instead of the workspace config (`.cursor/mcp.json`).
-
-Update `README.md` install instructions to reflect global installation.
-
-Existing workspace entries in other projects keep working (server handles both scopes). AIC dev project keeps its workspace entry (`tsx mcp/src/server.ts`).
-
-**W10. Duplicate prevention (warn, not hard stop):**
-
-At server startup, `createMcpServer` detects if AIC is registered in both global and workspace configs via the existing `detectInstallScope` function.
-
-Behaviour:
-
-- If `"both"`: log a warning to stderr explaining the duplicate. Do NOT hard stop — allow coexistence when commands differ (required for AIC dev workspace running `tsx` alongside global `npx`).
-- If `"global"`: proceed normally.
-- If `"workspace"`: proceed normally.
-- Emit the warning in aic_status tool payload as well.
-
-**Note for AIC development:** The dev workspace uses `"workspace"` scope (running `tsx mcp/src/server.ts` locally). If a global production server is also running (via `npx`), `detectInstallScope` returns `"both"` but the commands differ (`tsx ...` vs `npx ...`), so the warning is informational only.
-
-**W11. Per-folder disable:**
-
-Add an `"enabled"` key to `aic.config.json`:
-
-```json
-{
-  "enabled": false
-}
-```
-
-Default: `true` (omitted means enabled). When `enabled` is `false`:
-
-- `aic_compile` handler returns early with a user-facing message: `"AIC is disabled for this project. Set \"enabled\": true in aic.config.json to re-enable."`
-- The hook still runs (it cannot know config state), but the compile call returns immediately
-- `show aic status` shows "Disabled" for this project
-- No data is written to the database for disabled projects
-
-Config schema validation in `mcp/src/schemas/` adds the `enabled` field. The `LoadConfigFromFile` function in `shared/src/config/` already reads `aic.config.json` — add the field to the config type.
-
-**W12. AIC commands scoped by project:**
-
-Resources and tools must scope their queries by project.
-
-| Command                   | Current behaviour           | Phase W behaviour                                                                                                                                |
-| ------------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `show aic status`         | Reads startup scope DB      | Aggregates across all projects in global DB (total compilations, global cache hit rate). Shows per-project breakdown if multiple projects exist. |
-| `show aic last`           | Reads startup scope DB      | Filters by the `projectRoot` from the most recent `aic_compile` call in the conversation (tracked via `conversationId`).                         |
-| `show aic chat summary`   | Filters by `conversationId` | Same, but also includes `projectRoot` in the response for clarity.                                                                               |
-| `show aic projects` (new) | N/A                         | Lists all known projects from the `projects` table: project ID, path, last seen, compilation count.                                              |
-
-The `aic_status` tool accepts an optional `timeRangeDays` argument (integer 1..3660) for a rolling N-day window on aggregates. Omit it for all-time aggregates. Startup scope still selects the project; the tool does not take `projectRoot` as a parameter.
-
-The new `show aic projects` command is a new MCP tool `aic_projects` that lists all projects. `SqliteStatusStore` gains project-scoped query methods alongside its existing global methods.
-
-Update `.cursor/rules/AIC-architect.mdc` prompt command formatting rules to include `show aic projects`.
-
-**W13. Documentation update for global server architecture:**
-
-Phase W changes a core architectural assumption. The following documentation files contain statements that contradict the global DB model and must be updated:
-
-| File                              | Location                         | Current text                                                                                                   | Required change                                                                                                                                                                                          |
-| --------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `implementation-spec.md`          | §8 (line ~1006)                  | "Each project is hermetically isolated" / "No shared state, no global database, no cross-project data leakage" | Replace with: single global DB at `~/.aic/aic.sqlite` with `project_id` FK for logical isolation. Per-project files remain local. No cross-project data leakage (queries always filter by `project_id`). |
-| `implementation-spec.md`          | §8b Startup Sequence             | Sequence shows: "Open SQLite database (.aic/aic.sqlite)" from CWD                                              | Update to: open global DB at `~/.aic/aic.sqlite`, create `ScopeRegistry`, per-project scope created lazily on first `aic_compile`                                                                        |
-| `project-plan.md`                 | Multi-project table (~line 1590) | "Projects never share state; no global database or config"                                                     | Update to: projects share a global database with column-level isolation; per-project config remains local                                                                                                |
-| `project-plan.md`                 | Non-goals table (~line 82)       | "Cross-project shared database — Per-project isolation is a core principle (ADR-005)"                          | Update: global DB is now a feature; ADR-005 isolation principle preserved via `project_root` column, not separate databases                                                                              |
-| `security.md`                     | Local-first table (~line 430)    | "Local-first, no shared state"                                                                                 | Update to: "Local-first, single global DB with project-level column isolation"                                                                                                                           |
-| `.cursor/rules/AIC-architect.mdc` | Database / storage rules         | References per-project DB assumptions                                                                          | Update storage rules to reference global DB path (`~/.aic/aic.sqlite`) and `project_id`-based isolation in store queries                                                                                 |
-
-This task depends on W07 (ScopeRegistry wired into server) and W16 (project_id normalization) being complete so all code references are accurate. The task executor should grep for "no global database", "hermetically isolated", "no shared state", "{projectRoot}/.aic/aic.sqlite", "per-project isolation", and "filter by project_root" (or "WHERE project_root") across all documentation to catch any additional references and update them to global DB and `project_id` as appropriate.
+**`anonymous_telemetry_log`:** Created by the consolidated migration; no TypeScript writer or HTTPS sender is present in this repository today — see [Anonymous Telemetry](#anonymous-telemetry) under §4d.
 
 ---
 
-## 8d. Deferred: Sandboxed Extensibility (V8 Isolates)
+## 8e. Deferred: Sandboxed Extensibility (V8 Isolates)
 
-To support advanced governance adapters and dynamic rule packs without compromising AIC's local-first security properties, Phase 2 implements a V8 isolation layer (via `isolated-vm`) for executing user-provided JavaScript governance scripts.
+To support advanced governance adapters and dynamic rule packs without compromising AIC's local-first security properties, the v2.0.0 semantic + governance track introduces a V8 isolation layer (via `isolated-vm`) for executing user-provided JavaScript governance scripts.
 
 **Threat model**
 
@@ -1506,20 +1219,20 @@ Enterprise teams need to write custom JavaScript to evaluate project state or en
 
 **Why not a declarative DSL first?**
 
-For most governance rules (pattern matching, file exclusion, budget overrides), a JSON/YAML declarative Rule Pack is safer — no code execution, no attack surface. V8 isolates are reserved for governance logic that genuinely requires imperative computation: AST traversal, internal API calls, or complex scoring formulas. The Phase 2 design document must define which extension points accept declarative config vs. sandboxed scripts.
+For most governance rules (pattern matching, file exclusion, budget overrides), a JSON/YAML declarative Rule Pack is safer — no code execution, no attack surface. V8 isolates are reserved for governance logic that genuinely requires imperative computation: AST traversal, internal API calls, or complex scoring formulas. The v2.0.0 design must define which extension points accept declarative config vs. sandboxed scripts.
 
 **Implementation constraints (required before implementation)**
 
-The following decisions must be resolved in a dedicated Phase 2 design document before any code is written:
+The following decisions must be resolved in a dedicated v2.0.0 design note before any code is written:
 
 - **Isolate lifecycle**: Each governance script invocation must create a fresh isolate — never reuse across invocations, scripts, or compilation requests. Pooled isolates allow cross-script state contamination via mutated globals.
-- **Bridge API specification**: The exact object shape passed into the isolate must be specified. Only serialized data via `ExternalCopy` is permitted — no `Reference` objects and no callable functions on the bridge, as these allow re-entry into the main process. The bridge API is the primary attack surface. **Design tension:** if async operations are required (see Execution limits), the `isolated-vm` async bridge relies on `Reference` objects — the exact mechanism banned here. The Phase 2 design must choose one of: (a) no async operations, enforcing the `Reference` ban and limiting scripts to synchronous computation over pre-supplied data; or (b) a strictly audited set of async bridge callbacks with schema-constrained inputs and outputs, treated as an expanded attack surface requiring dedicated threat modelling.
+- **Bridge API specification**: The exact object shape passed into the isolate must be specified. Only serialized data via `ExternalCopy` is permitted — no `Reference` objects and no callable functions on the bridge, as these allow re-entry into the main process. The bridge API is the primary attack surface. **Design tension:** if async operations are required (see Execution limits), the `isolated-vm` async bridge relies on `Reference` objects — the exact mechanism banned here. The v2.0.0 design must choose one of: (a) no async operations, enforcing the `Reference` ban and limiting scripts to synchronous computation over pre-supplied data; or (b) a strictly audited set of async bridge callbacks with schema-constrained inputs and outputs, treated as an expanded attack surface requiring dedicated threat modelling.
 - **Output validation**: The JSON returned from the isolate must be validated against a strict schema in the main process before use — never trusted as-is. Prototype pollution, unexpected keys, and type coercion must all be rejected at this boundary.
 - **Execution limits**: Memory (`<128MB` per isolate) and CPU timeout serve as anti-DoS controls, not functional guarantees. If async operations are permitted (see Bridge API specification), they require the `isolated-vm` async bridge, which has a larger attack surface and must be separately designed. The maximum number of concurrent isolates must be bounded (via semaphore or queue) to prevent resource exhaustion under parallel compilations. Isolate creation overhead (~5-15ms) must be benchmarked against the CPU timeout budget to determine whether the budget covers isolate setup or only user-script execution.
 - **TypeScript handling**: Scripts execute as JavaScript only. If users provide TypeScript, AIC must transpile it before injection — but transpiling untrusted TypeScript in the main process is itself an attack surface. The transpilation boundary, toolchain, and source map disposal must be explicitly specified.
-- **Content timing**: Governance adapters running at the `ContextGuard` step receive raw file content before built-in guard scanners have filtered it — by design, since custom scanners need raw content. This means the bridge may carry secrets. The Phase 2 design must document this explicitly and enforce that `GuardFinding` messages returned from the isolate never echo back file content verbatim.
-- **Serialization cost**: The bridge passes file content via `ExternalCopy`. For large files, serialization and deserialization add measurable latency. The Phase 2 design must specify a maximum content size per bridge invocation and define behaviour when the limit is exceeded (truncate, skip, or error).
-- **Script provenance**: Governance scripts distributed across an enterprise fleet (as described in the threat model) have no built-in provenance verification. The Phase 2 design should evaluate whether script signing, hash pinning, or authorship tracking is required to prevent supply-chain substitution of governance scripts.
+- **Content timing**: Governance adapters running at the `ContextGuard` step receive raw file content before built-in guard scanners have filtered it — by design, since custom scanners need raw content. This means the bridge may carry secrets. The v2.0.0 design must document this explicitly and enforce that `GuardFinding` messages returned from the isolate never echo back file content verbatim.
+- **Serialization cost**: The bridge passes file content via `ExternalCopy`. For large files, serialization and deserialization add measurable latency. The v2.0.0 design must specify a maximum content size per bridge invocation and define behaviour when the limit is exceeded (truncate, skip, or error).
+- **Script provenance**: Governance scripts distributed across an enterprise fleet (as described in the threat model) have no built-in provenance verification. The v2.0.0 design should evaluate whether script signing, hash pinning, or authorship tracking is required to prevent supply-chain substitution of governance scripts.
 - **`isolated-vm` dependency**: This is a native addon with historical sandbox-escape CVEs. It must be pinned to an exact version, covered by `pnpm audit` monitoring, and treated as a security-critical dependency requiring expedited patching.
 
 **What sandboxing protects against**
@@ -1543,12 +1256,8 @@ This approach significantly reduces the attack surface for executing untrusted g
 
 ## 9. Roadmap (aligned with Project Plan)
 
-| Phase                          | Version | Status     | Key Deliverables                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| ------------------------------ | ------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Phase 0: MCP Server**        | 0.7.x   | 🟡 Current | This specification — all features in Sections 2–4d, including anonymous telemetry. Shipped version aligns with package.json (e.g. 0.7.0).                                                                                                                                                                                                                                                                                                                                                                                                               |
-| **Phase 0.5: Quality Release** | `0.2.0` | ✅ Done    | GenericImportProvider (Python/Go/Rust/Java regex), intent-aware file discovery, `aic_status` tool, `aic_last` tool, `aic_chat_summary` tool, Guard `warn` severity, CSS/TypeDecl/test-structure transformers, **budget utilization** in `aic_status`, prompt commands                                                                                                                                                                                                                                                                                   |
-| Phase 1.0: OSS Release         | `1.0.0` | 🟡 Current | Public repo, docs, npm package, CI/CD, `postinstall` team deployment, auto-detected dependency constraints, reverse dependency walking, optional cost estimation in `aic_status` (model-specific pricing); **agentic support**: Session Tracker + extended `CompilationRequest` fields + **Adaptive Budget Allocator** + Specification Compiler (`aic_compile_spec` MCP tool) + session-aware cache keying (see [Project Plan §2.7](project-plan.md))                                                                                                   |
-| Phase 2: Semantic + Governance | `2.0.0` | ⬜ Planned | VectorSelector (Zvec integration), HybridSelector, governance adapters, policy engine, `extends` config for org-level deployment, centralised config server; **Sandboxed Extensibility**: Secure V8 isolates (`isolated-vm`) for executing custom JavaScript Governance Adapters and Context Scanners (TypeScript requires transpilation; see §8d); **agentic support**: editor-specific conversation adapters and richer compression beyond the Phase O deterministic recent-step header (`ConversationCompressor`; last 10 steps in the prompt today) |
-| Phase 3: Enterprise            | `3.0.0` | ⬜ Planned | Control plane, RBAC, SSO, audit logs, fleet management via MDM, live enterprise dashboard, hosted option                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+Sequenced milestones, version targets per milestone, and exit criteria live in the [Project Plan — Roadmap](project-plan.md#23-roadmap). That table is authoritative for planning; this specification does not duplicate it to avoid drift.
 
-Versioning policy: see [Project Plan §23](project-plan.md).
+Sections 2–8 of this document describe the implementation surface. Anonymous compile telemetry and the **design-only** `anonymous_telemetry_log` schema are covered in [4d. MVP Additions](#4d-mvp-additions) (no HTTPS telemetry client in this repository).
+
+Versioning rules: [Project Plan — Versioning Policy](project-plan.md#versioning-policy).

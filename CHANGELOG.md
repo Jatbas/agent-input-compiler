@@ -7,6 +7,37 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Add rolling time window for status aggregates in `aic status`
+- Add `--project` flag on `aic status` and `aic last` to target a workspace root
+- Add shell commands for status, last, chat-summary, and projects with MCP-matching payloads
+- Allow compile requests to include `toolOutputs` for prior tool results in compression
+- Limit session compressor to the last ten steps
+- Extend MCP compile parameters for multi-turn agent sessions with conversation linkage and tool output attachments
+- Install conversation id injection hook in the Claude Code plugin installer
+- Remove AIC state under the user home directory during uninstall
+
+### Changed
+
+- Simplify default `aic status` table layout for terminal reading
+- Merge MCP server entries on Claude Code install, strip them on uninstall, preserve manual `CLAUDE.md` edits outside the managed AIC block
+- Bundle shared Cursor hook helpers for project resolution, conversation id, session markers, logs, edited-file cache, and stdin reads
+- Refresh documentation and installation guides for the global database model and technical integration references
+- Align diagnostics and user-facing copy on exclusion rate terminology
+
+### Fixed
+
+- Omit resolved editor buffer content from `aic_inspect` traces
+- Key compile cache and session state by conversation when a conversation id is present
+- Honor allow patterns from configuration in the context guard
+- Clear session start lock on session end in the Claude Code plugin
+- Correct gitignore handling, install layout, and subagent model identification in integrations
+
+### Security
+
+- Validate cache rows on read and sanitize cache-derived identifiers before the compilation pipeline uses them
+
 ## [0.7.0] - 2026-03-18
 
 ### Added
@@ -143,7 +174,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Phase W (Global Server & Per-Project Isolation) tasks documented in `mvp-progress.md` and `implementation-spec.md` with full schema SQL, store changes, migration strategy, and dependency ordering
+- Global database at `~/.aic/aic.sqlite` with per-project isolation (`project_id`): schema, stores, migrations, and design notes documented in `implementation-spec.md` (global server model)
 
 ## [0.5.4] - 2026-03-10
 
