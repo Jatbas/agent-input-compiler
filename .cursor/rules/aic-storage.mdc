@@ -78,7 +78,7 @@ Creating a new adapter:
 - Never edit a migration that has been merged — create a new one
 - All tables use UUIDv7 text PKs except `config_history` (composite `(project_id, config_hash)`)
 - `down()` is required but best-effort for MVP (full rollback in Phase 1)
-- See Project Plan §19 for table descriptions; authoritative DDL lives in `shared/src/storage/migrations/001-initial-schema.ts`
+- See Project Plan §19 for table descriptions; authoritative DDL lives in `shared/src/storage/migrations/001-consolidated-schema.ts`
 
 ## `.aic/` Directory Security
 
