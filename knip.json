@@ -2,7 +2,6 @@
   "ignore": [
     "scripts/**",
     ".cursor/**",
-    ".claude/**",
     "test/benchmarks/**",
     "integrations/cursor/hooks/**",
     "integrations/cursor/install.cjs",
@@ -11,49 +10,17 @@
     "integrations/claude/uninstall.cjs",
     "integrations/clean-global-aic-dir.cjs",
     "integrations/cursor/__tests__/install.test.js",
-    "integrations/cursor/__tests__/uninstall.test.js",
-    "integrations/cursor/__tests__/uninstall-drift.test.cjs",
     "integrations/cursor/__tests__/AIC-require-aic-compile.test.cjs",
     "integrations/cursor/__tests__/AIC-inject-conversation-id.test.cjs",
-    "integrations/cursor/__tests__/AIC-subagent-model-id.test.cjs",
-    "integrations/cursor/__tests__/gitignore-aic-dir-tracked.test.cjs",
     "integrations/claude/hooks/**",
     "integrations/claude/plugin/**",
     "integrations/claude/__tests__/**",
-    "integrations/shared/cache-field-validators.cjs",
-    "integrations/shared/session-model-cache.cjs",
-    "integrations/shared/prompt-log.cjs",
-    "integrations/shared/__tests__/session-model-cache.test.cjs",
-    "integrations/shared/__tests__/prompt-log.test.cjs",
-    "integrations/shared/read-stdin-sync.cjs",
-    "integrations/shared/__tests__/read-stdin-sync.test.cjs",
-    "integrations/shared/resolve-project-root.cjs",
-    "integrations/shared/__tests__/resolve-project-root.test.cjs",
-    "integrations/shared/conversation-id.cjs",
-    "integrations/shared/__tests__/conversation-id.test.cjs",
-    "integrations/shared/edited-files-cache.cjs",
-    "integrations/shared/__tests__/edited-files-cache.test.cjs",
-    "integrations/shared/session-markers.cjs",
-    "integrations/shared/__tests__/session-markers.test.cjs",
-    "integrations/shared/aic-dir.cjs",
-    "integrations/shared/__tests__/aic-dir.test.cjs",
-    "integrations/shared/session-log.cjs",
-    "integrations/shared/__tests__/session-log.test.cjs",
-    "mcp/scripts/**",
-    "shared/src/core/errors/budget-exceeded-error.ts",
-    "shared/src/core/errors/guard-blocked-all-error.ts",
-    "shared/src/core/errors/index.ts",
-    "shared/src/core/errors/model-error.ts",
-    "shared/src/core/errors/no-files-selected-error.ts",
-    "shared/src/core/interfaces/status-runner.interface.ts",
-    "shared/src/core/errors/timeout-error.ts",
-    "shared/src/core/write-compilation-telemetry.ts",
-    "shared/src/testing/stub-compilation-meta.ts"
+    "integrations/shared/read-stdin-sync.cjs"
   ],
   "workspaces": {
     ".": {},
     "shared": {
-      "entry": ["src/index.ts", "src/storage/migrations/*.ts"],
+      "entry": ["src/storage/migrations/*.ts"],
       "ignoreDependencies": [
         "commander",
         "diff",
@@ -63,9 +30,7 @@
         "tree-sitter-java"
       ]
     },
-    "mcp": {
-      "ignoreDependencies": ["@jatbas/aic-core"]
-    }
+    "mcp": {}
   },
   "ignoreExportsUsedInFile": true,
   "ignoreIssues": {
