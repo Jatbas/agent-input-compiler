@@ -77,14 +77,27 @@ The distinction: describe **what each editor does**, not **how it compares** on 
 
 ## Document regime classification
 
-Documents fall into two regimes that affect how discrepancies between docs and code are handled. This policy is also codified in `SKILL.md` Cardinal Rule 7; it is repeated here for quick reference.
+Documents fall into three regimes. The regime controls (a) how code/doc disagreements are handled, and (b) whether phase-sequencing and roadmap language is treated as stale or as intentional content.
 
-### Prescriptive documents (docs are source of truth)
+### Planning documents (direction, not contract)
 
 - `documentation/project-plan.md`
+
+Planning documents carry intent, sequencing, and future targets — milestones, phased rollout, exit criteria, version goals, enterprise story. Phase names (`Phase 0`, `Phase 1+`, `Phase 2`) are **structural content** here, not internal process noise. The `Temporal robustness` rule in `SKILL-standards.md` (which bans phase references) does **not** apply to planning documents.
+
+Rules for this regime:
+
+- Do not change phase-sequencing language, phase-scoped headings, roadmap markers, or future-tense roadmap statements unless there is a concrete factual error (wrong class name, broken link, logically impossible claim).
+- Do not "modernize" phase labels into version numbers (`v2.x target`, `near-term`) unless the user explicitly requests it — that is editorial opinion, not a correction.
+- When code behavior disagrees with what the plan describes — a feature the plan calls future is already shipped, or a class name differs from what the plan specifies — STOP and ask the user. Do not update the plan unilaterally; the plan may be describing an intentional future target state, not the current release. Only change planning documents on explicit user instruction.
+
+### Prescriptive documents (current contract — docs are source of truth)
+
 - `documentation/implementation-spec.md`
 - `documentation/architecture.md`
 - `documentation/security.md`
+
+Prescriptive documents describe what the code is held to today, plus explicit deferred design notes. The `Temporal robustness` rule applies fully — phase references, task numbers, and temporal milestones are stale here.
 
 When these disagree with code: STOP and ask the user. Never change the document or the code without explicit direction.
 

@@ -274,6 +274,8 @@ Never reference phase names (Phase T, Phase U), task numbers (U06, T14, 192), or
 - If referencing project evolution: "As of the current release" not "After Phase U"
 - Explain what was implemented (behavior, feature, capability) without attributing it to any task
 
+**Exception — planning documents:** Before applying this rule, check the document regime (`SKILL-policies.md §Document regime classification`). If the document is `documentation/project-plan.md`, skip this rule entirely — all temporal and sequencing language there is intentional. This includes: phase names in headings (`Phase 2: Semantic + Governance`), phase labels in tables and body text (`Phase 1+`, `Phase 0`), and future-tense roadmap statements (`"will be added in Phase X"`, `"Phase 2+ target"`). None of these are stale markers; they are planning content. Replacing them with version numbers or "near-term" qualifiers without explicit user instruction destroys planning intent. See `SKILL-policies.md §Planning documents` for the full regime.
+
 ### Prohibited patterns
 
 Never use these in target text — they indicate unresolved decisions or hedging:
@@ -534,7 +536,7 @@ These dimensions are run during Phase 4 (direct invocation) or by the executor's
 
 **Dimension 8 — Scope-adjacent consistency:** For every key concept in the edited sections (package names, commands, component names), grep the FULL document for other occurrences. Verify they are consistent with the edited text. Report: `[concept] — [location] — CONSISTENT / STALE / CONTRADICTED`.
 
-**Dimension 9 — Pre-existing issue scan:** Grep the full document for: "GAP", "TODO", "FIXME", "will be added", "future task", "Phase [A-Z]", task references ("task [0-9]+", "task [A-Z][0-9]+", "as per task", "implemented in task", "this task adds") (cross-reference against `documentation/tasks/progress/mvp-progress.md` in main workspace). Report: `[marker] at [location] — IN TARGET (should fix) / OUTSIDE TARGET (informational)`.
+**Dimension 9 — Pre-existing issue scan:** Grep the full document for: "GAP", "TODO", "FIXME", "will be added", "future task", task references ("task [0-9]+", "task [A-Z][0-9]+", "as per task", "implemented in task", "this task adds") (cross-reference against `documentation/tasks/progress/mvp-progress.md` in main workspace). Also grep for "Phase [A-Z0-9]" — **but only flag these as stale for prescriptive and normal documents; for planning documents (`documentation/project-plan.md`), skip the phase-name grep only — still run all other Dimension 9 checks (GAP, TODO, FIXME, task numbers) on planning documents as normal.** Report: `[marker] at [location] — IN TARGET (should fix) / OUTSIDE TARGET (informational)`.
 
 **Dimension 10 — Content format compliance:** Verify: (a) any group of 3+ definitions uses a table; (b) any new section has a ToC entry; (c) new section placement follows document flow logic.
 

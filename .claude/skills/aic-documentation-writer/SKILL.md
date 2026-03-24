@@ -65,13 +65,12 @@ Documentation must never mention task numbers (e.g. 192, U06) or that a task exi
 
 The documentation-writer skill must NEVER modify source code (`.ts`, `.js`, `.cjs`, config files, or anything outside `.md` documentation files). It may only create or edit `.md` files. This rule has no exceptions — not even to "fix a bug" that would make the documentation correct.
 
-**When documentation and code disagree, two regimes apply:**
+**When documentation and code disagree, three regimes apply.** See `SKILL-policies.md §Document regime classification` for the authoritative definition and all regime-specific rules. Summary:
 
-**Normal documents** (guides, READMEs, best-practices, installation docs): Always change the documentation to match the code. The code is the source of truth. Even if the code appears to have a bug, the documentation-writer documents reality — what the code actually does — not what it should do. If a code bug is suspected, note it as a follow-up item but still update the documentation to match the codebase.
+**Planning documents** (`documentation/project-plan.md`): Carry intent, sequencing, and future targets. Phase names (`Phase 0`, `Phase 1+`, `Phase 2`) are structural content — do not treat them as stale. The `Temporal robustness` rule (no phase references) does not apply here. When code has diverged from what the plan says: STOP and ask — the plan may be describing a future target.
 
-**Prescriptive documents** — documents that specify or constrain implementation. These are the source of truth for what the code _should_ do:
+**Prescriptive documents** — current implementation contract (docs are source of truth):
 
-- `documentation/project-plan.md`
 - `documentation/implementation-spec.md`
 - `documentation/architecture.md`
 - `documentation/security.md`
@@ -83,6 +82,8 @@ For prescriptive documents, if an incongruence is detected between the codebase 
 3. Fix the bug in the code first, then update the documentation
 
 Only after the user has chosen may the skill proceed — and only by changing documentation (options 1 or 3 after a separate bugfix). If the user chose option 2, stop and hand off.
+
+**Normal documents** (guides, READMEs, best-practices, installation docs): Always change the documentation to match the code. The code is the source of truth. Even if the code appears to have a bug, the documentation-writer documents reality — what the code actually does — not what it should do. If a code bug is suspected, note it as a follow-up item but still update the documentation to match the codebase.
 
 ## When to Use
 
