@@ -9,6 +9,8 @@ import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-d
 
 export function openDatabase(dbPath: string, clock: Clock): ExecutableDb {
   const db = new Database(dbPath) as unknown as ExecutableDb;
+  // enforce FK constraints regardless of better-sqlite3 version defaults
+  db.prepare("PRAGMA foreign_keys = ON").run();
   if (dbPath !== ":memory:") {
     db.prepare("PRAGMA journal_mode = WAL").run();
     // Multiple MCP server instances share the database; wait instead of failing

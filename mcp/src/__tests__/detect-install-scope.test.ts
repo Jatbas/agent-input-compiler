@@ -85,6 +85,19 @@ describe("detectInstallScope", () => {
     expect(detectInstallScope(homeDir, projectDir)).toBe(INSTALL_SCOPE.WORKSPACE);
   });
 
+  it("returns_global_when_projectroot_equals_homedir_and_aic_in_global", () => {
+    homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-scope-home-"));
+    projectDir = homeDir;
+    setupGlobalConfig(homeDir);
+    expect(detectInstallScope(homeDir, projectDir)).toBe(INSTALL_SCOPE.GLOBAL);
+  });
+
+  it("returns_workspace_when_projectroot_equals_homedir_and_no_global_config", () => {
+    homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-scope-home-"));
+    projectDir = homeDir;
+    expect(detectInstallScope(homeDir, projectDir)).toBe(INSTALL_SCOPE.WORKSPACE);
+  });
+
   it("matches_aic_key_case_insensitively", () => {
     homeDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-scope-home-"));
     projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-scope-proj-"));

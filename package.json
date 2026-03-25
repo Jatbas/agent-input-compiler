@@ -1,6 +1,6 @@
 {
   "name": "aic",
-  "version": "0.7.0",
+  "version": "0.9.0",
   "private": true,
   "description": "Agent Input Compiler — local-first MCP server for context compilation",
   "type": "module",

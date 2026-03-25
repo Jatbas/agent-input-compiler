@@ -104,7 +104,7 @@ describe("ScopeRegistry", () => {
     closeDatabase(db);
   });
 
-  it("homedir_scope_does_not_insert_into_projects", () => {
+  it("homedir_scope_inserts_into_projects_for_fk_safety", () => {
     tmpDirA = makeTempDir();
     const pathTreatedAsHomedir = toAbsolutePath(tmpDirA);
     const normaliser: ProjectRootNormaliser = {
@@ -114,13 +114,11 @@ describe("ScopeRegistry", () => {
     };
     const clock = new SystemClock();
     const db = openDatabase(":memory:", clock);
-    createProjectScope(pathTreatedAsHomedir, normaliser, db, clock, {
-      getHomedir: () => tmpDirA,
-    });
+    createProjectScope(pathTreatedAsHomedir, normaliser, db, clock);
     const rows = db.prepare("SELECT COUNT(*) as n FROM projects").all() as {
       n: number;
     }[];
-    expect(rows[0]?.n).toBe(0);
+    expect(rows[0]?.n).toBe(1);
     closeDatabase(db);
   });
 

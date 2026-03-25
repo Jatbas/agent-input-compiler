@@ -31,6 +31,9 @@ export function detectInstallScope(homeDir: string, projectRoot: string): Instal
   const globalConfigPath = path.join(homeDir, ".cursor", "mcp.json");
   const workspaceConfigPath = path.join(projectRoot, ".cursor", "mcp.json");
   const inGlobal = hasAicEntry(globalConfigPath);
+  // when projectRoot === homeDir the workspace path resolves to the global config — not a real workspace install
+  if (globalConfigPath === workspaceConfigPath)
+    return inGlobal ? INSTALL_SCOPE.GLOBAL : INSTALL_SCOPE.WORKSPACE;
   const inWorkspace = hasAicEntry(workspaceConfigPath);
   if (inGlobal && inWorkspace) return INSTALL_SCOPE.BOTH;
   if (inGlobal) return INSTALL_SCOPE.GLOBAL;

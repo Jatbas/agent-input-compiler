@@ -7,6 +7,8 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-03-25
+
 ### Added
 
 - Add rolling time window for status aggregates in `aic status`
