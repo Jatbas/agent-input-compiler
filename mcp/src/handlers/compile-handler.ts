@@ -27,7 +27,11 @@ import {
   type SessionId,
   toConversationId,
 } from "@jatbas/aic-core/core/types/identifiers.js";
-import { type AbsolutePath, toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import {
+  type AbsolutePath,
+  type FilePath,
+  toRelativePath,
+} from "@jatbas/aic-core/core/types/paths.js";
 import { toStepIndex, toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 import type { GuardResult } from "@jatbas/aic-core/core/types/guard-types.js";
 import type {
@@ -236,7 +240,7 @@ type CompileHandlerArgs = {
 
 export function createCompileHandler(
   getScope: (projectRoot: AbsolutePath) => ProjectScope,
-  getRunner: (scope: ProjectScope) => CompilationRunner,
+  getRunner: (scope: ProjectScope, configPath: FilePath | null) => CompilationRunner,
   sha256Adapter: StringHasher,
   getSessionId: () => SessionId,
   getEditorId: () => EditorId,
@@ -254,7 +258,7 @@ export function createCompileHandler(
     scope: ProjectScope,
     configPath: ReturnType<typeof validateConfigPath> | null,
   ): Promise<CallToolResult> => {
-    const runner = getRunner(scope);
+    const runner = getRunner(scope, configPath);
     const telemetryDeps = {
       telemetryStore: scope.telemetryStore,
       clock: scope.clock,

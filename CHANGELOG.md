@@ -7,6 +7,13 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-03-25
+
+### Fixed
+
+- Enforce SQLite `foreign_keys` when opening the global database and register the homedir scope in the projects table so foreign-key rules stay satisfied
+- Forward config path into the MCP compilation runner so custom `aic.config.json` locations are honored
+
 ## [0.9.0] - 2026-03-25
 
 ### Added

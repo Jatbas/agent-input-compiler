@@ -5,7 +5,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import type { AbsolutePath, FilePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { RulePack } from "@jatbas/aic-core/core/types/rule-pack.js";
 import type { RulePackProvider } from "@jatbas/aic-core/core/interfaces/rule-pack-provider.interface.js";
 import type { LanguageProvider } from "@jatbas/aic-core/core/interfaces/language-provider.interface.js";
@@ -229,11 +229,14 @@ export function createMcpServer(
     startupScope.db,
   );
   const inspectRunner = new InspectRunner(deps, startupScope.clock);
-  const getRunner = (scope: ProjectScope): CompilationRunner => {
-    const key = normaliser.normalise(scope.projectRoot);
+  const getRunner = (
+    scope: ProjectScope,
+    configPath: FilePath | null,
+  ): CompilationRunner => {
+    const key = `${normaliser.normalise(scope.projectRoot)}::${configPath ?? ""}`;
     const cached = runnerCache.get(key);
     if (cached !== undefined) return cached.runner;
-    const scopeConfigResult = configLoader.load(scope.projectRoot, null);
+    const scopeConfigResult = configLoader.load(scope.projectRoot, configPath);
     const {
       budgetConfig: scopeBudgetConfig,
       heuristicConfig: scopeHeuristicConfig,

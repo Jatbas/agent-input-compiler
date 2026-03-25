@@ -1,17 +1,9 @@
 # Roadmap
 
-## What shipped in v0.9.0
+## What shipped in v0.9.1
 
-- Add rolling time windows for `aic status` aggregates and a `--project` flag on `aic status` and `aic last` so diagnostics can target a workspace root.
-- Ship shell commands for status, last, chat-summary, and projects with the same payloads as the MCP tools.
-- Accept `toolOutputs` on compile requests so prior tool results can feed session compression; cap the session compressor at the last ten steps.
-- Extend MCP compile parameters for multi-turn sessions (conversation linkage and tool attachments).
-- Install a conversation id injection hook with the Claude Code plugin; remove AIC state under the user home directory on uninstall.
-- Simplify the default `aic status` table for terminals; merge MCP server entries on Claude Code install, strip them on uninstall, and preserve manual `CLAUDE.md` edits outside the managed AIC block.
-- Bundle shared Cursor hook helpers (project resolution, conversation id, session markers, logs, edited-file cache, stdin reads).
-- Refresh documentation and installation guides for the global database model and technical integration references; align diagnostics copy on exclusion rate terminology.
-- Omit resolved editor buffer content from `aic_inspect` traces; key compile cache and session state by conversation when an id is present; honor guard allow patterns from configuration; clear the session start lock on session end in the Claude Code plugin; fix gitignore handling, install layout, and subagent model identification in integrations.
-- Validate cache rows on read and sanitize cache-derived identifiers before the pipeline uses them.
+- Enforce SQLite foreign keys when opening the global database and register the homedir scope in the projects catalog so project-scoped rows stay consistent with schema constraints.
+- Forward the configured AIC config path into the MCP compilation runner so custom `aic.config.json` locations are honored.
 
 ## What's next
 
