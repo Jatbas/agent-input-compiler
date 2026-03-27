@@ -108,9 +108,7 @@ Requirements: Node.js 20+
 
    Cursor will prompt to add the server to your global MCP config (`~/.cursor/mcp.json`). Confirm and you're done. AIC is now available in every workspace — no per-project setup needed.
 
-2. **Start prompting** — approve the tools when prompted and start coding. On the first `aic_compile` for the project (or when the server first sees the project via workspace roots), AIC writes `aic.config.json`, the `.aic/` directory, ignore-file entries, and the Cursor trigger rule. All projects share one database at `~/.aic/aic.sqlite`; other per-project files stay in the project directory.
-
-   **Cursor lifecycle hooks** (`.cursor/hooks.json` and the `AIC-*.cjs` scripts) are optional: the published npm package does not install them into arbitrary projects. With your project as the current working directory, run `node` on `integrations/cursor/install.cjs` either inside the project (if you copied that tree from the repository) or using the absolute path to that file in an AIC checkout — see [Installation — Cursor](documentation/installation.md#cursor). Bootstrap also runs that installer when `integrations/cursor/install.cjs` is already present in the workspace.
+2. **Start prompting** — approve the tools when prompted and start coding. On the first `aic_compile` for the project (or when the server first sees the project via workspace roots), AIC writes `aic.config.json`, the `.aic/` directory, ignore-file entries, and the Cursor trigger rule. When Cursor is in use, bootstrap also installs **Cursor lifecycle hooks** (`.cursor/hooks.json` and the `AIC-*.cjs` scripts) by running the installer bundled in `@jatbas/aic`, unless your project already contains `integrations/cursor/install.cjs` (that in-repo copy takes precedence). All projects share one database at `~/.aic/aic.sqlite`; other per-project files stay in the project directory. See [Installation — Cursor](documentation/installation.md#cursor) for full detail.
 
 ### Claude Code
 

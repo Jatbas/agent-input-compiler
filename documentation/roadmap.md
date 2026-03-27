@@ -1,9 +1,10 @@
 # Roadmap
 
-## What shipped in v0.9.1
+## What shipped in v0.9.2
 
-- Enforce SQLite foreign keys when opening the global database and register the homedir scope in the projects catalog so project-scoped rows stay consistent with schema constraints.
-- Forward the configured AIC config path into the MCP compilation runner so custom `aic.config.json` locations are honored.
+- Ship the Cursor integration installer inside the published `@jatbas/aic` package so bootstrap installs use the bundled script.
+- Refresh Cursor installation documentation and the Cursor integration-layer reference for bundled-install behavior.
+- Sync internal contributor rules and documentation tooling guidance (documentation-only).
 
 ## What's next
 

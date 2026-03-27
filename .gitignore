@@ -1,5 +1,6 @@
 node_modules/
 dist/
+mcp/integrations/
 *.tsbuildinfo
 .aic/
 .cursor/hooks/.edited-files-*

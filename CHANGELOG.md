@@ -7,6 +7,17 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-03-27
+
+### Added
+
+- Bundle the Cursor integration installer with the published `@jatbas/aic` package so installs can run the bundled bootstrap script
+
+### Changed
+
+- Update Cursor installation docs and the Cursor integration-layer reference for bundled-install flows
+- Align internal contributor rules and documentation tooling guidance with current practices
+
 ## [0.9.1] - 2026-03-25
 
 ### Fixed

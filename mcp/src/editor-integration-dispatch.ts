@@ -6,6 +6,7 @@
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { ModelEnvHints } from "@jatbas/aic-core/core/types/model-env-hints.js";
 import { EDITOR_ID } from "@jatbas/aic-core/core/types/enums.js";
@@ -78,6 +79,18 @@ export function getEditorEnvHints(): EditorEnvHints {
 const REL_INSTALL_SCRIPT = path.join("integrations", "cursor", "install.cjs");
 const REL_CC_INSTALL_SCRIPT = path.join("integrations", "claude", "install.cjs");
 
+function resolveBundledCursorInstallScript(): string | null {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const candidate = path.resolve(here, "..", "integrations", "cursor", "install.cjs");
+  return fs.existsSync(candidate) ? candidate : null;
+}
+
+function resolveCursorInstallScript(absRoot: AbsolutePath): string | null {
+  const inProject = path.join(absRoot, REL_INSTALL_SCRIPT);
+  if (fs.existsSync(inProject)) return inProject;
+  return resolveBundledCursorInstallScript();
+}
+
 export function runEditorBootstrapIfNeeded(absRoot: AbsolutePath): void {
   const cursorDetected =
     fs.existsSync(path.join(absRoot, ".cursor")) ||
@@ -88,9 +101,11 @@ export function runEditorBootstrapIfNeeded(absRoot: AbsolutePath): void {
     (process.env["CLAUDE_PROJECT_DIR"] !== undefined &&
       process.env["CLAUDE_PROJECT_DIR"] !== "");
   if (!cursorDetected && !claudeCodeDetected) return;
-  const installScript = path.join(absRoot, REL_INSTALL_SCRIPT);
-  if (fs.existsSync(installScript)) {
-    execFileSync("node", [installScript], { cwd: absRoot });
+  if (cursorDetected) {
+    const scriptPath = resolveCursorInstallScript(absRoot);
+    if (scriptPath !== null) {
+      execFileSync("node", [scriptPath], { cwd: absRoot });
+    }
   }
   if (claudeCodeDetected) {
     const ccScript = path.join(absRoot, REL_CC_INSTALL_SCRIPT);

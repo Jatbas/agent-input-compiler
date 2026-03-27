@@ -26,6 +26,22 @@ const AIC_SCRIPT_NAMES = [
 const repoRoot = path.resolve(__dirname, "..", "..", "..");
 const installScript = path.join(repoRoot, "integrations", "cursor", "install.cjs");
 
+const hookManifest = JSON.parse(
+  fs.readFileSync(
+    path.join(repoRoot, "integrations", "cursor", "aic-hook-scripts.json"),
+    "utf8",
+  ),
+);
+const sharedDirForCount = path.join(repoRoot, "integrations", "shared");
+const sharedEntriesForCount = fs.readdirSync(sharedDirForCount);
+const expectedHookFileCount =
+  hookManifest.hookScriptNames.length +
+  sharedEntriesForCount.reduce((acc, name) => {
+    if (!name.endsWith(".cjs")) return acc;
+    const src = path.join(sharedDirForCount, name);
+    return fs.statSync(src).isFile() ? acc + 1 : acc;
+  }, 0);
+
 function runInstaller(cwd, env = {}) {
   execFileSync("node", [installScript], {
     cwd,
@@ -45,7 +61,10 @@ function install_creates_all_artifacts() {
     const hooksDir = path.join(tmpDir, ".cursor", "hooks");
     assert(fs.existsSync(hooksDir), ".cursor/hooks exists");
     const names = fs.readdirSync(hooksDir);
-    assert(names.length === 19, "19 files in .cursor/hooks");
+    assert(
+      names.length === expectedHookFileCount,
+      `${expectedHookFileCount} files in .cursor/hooks`,
+    );
     for (const name of AIC_SCRIPT_NAMES) {
       assert(names.includes(name), `script ${name} present`);
     }
@@ -91,10 +110,28 @@ function install_expected_scripts() {
     runInstaller(tmpDir);
     const hooksDir = path.join(tmpDir, ".cursor", "hooks");
     const names = fs.readdirSync(hooksDir);
-    assert(names.length === 19, "19 files in .cursor/hooks");
+    assert(
+      names.length === expectedHookFileCount,
+      `${expectedHookFileCount} files in .cursor/hooks`,
+    );
     for (const name of AIC_SCRIPT_NAMES) {
       assert(names.includes(name), `script ${name} present`);
     }
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+function install_test_js_expected_hook_count_tracks_manifest() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-install-manifest-"));
+  try {
+    runInstaller(tmpDir);
+    const hooksDir = path.join(tmpDir, ".cursor", "hooks");
+    const names = fs.readdirSync(hooksDir);
+    assert(
+      names.length === expectedHookFileCount,
+      `${expectedHookFileCount} files in .cursor/hooks (manifest + shared *.cjs)`,
+    );
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
@@ -252,6 +289,10 @@ function install_keeps_workspace_aic_when_global_has_no_aic() {
 
 const tests = [
   ["install_creates_all_artifacts", install_creates_all_artifacts],
+  [
+    "install_test_js_expected_hook_count_tracks_manifest",
+    install_test_js_expected_hook_count_tracks_manifest,
+  ],
   ["install_expected_scripts", install_expected_scripts],
   ["install_idempotent", install_idempotent],
   ["install_merges_hooks_json", install_merges_hooks_json],

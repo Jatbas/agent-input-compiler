@@ -1,5 +1,5 @@
 <!-- BEGIN AIC MANAGED SECTION — do not edit between these markers -->
-<!-- AIC rule version: 0.9.0 -->
+<!-- AIC rule version: 0.9.1 -->
 
 # AIC — Claude Code Rules
 
@@ -77,6 +77,9 @@ Format: `type(scope): description` — max 72 chars, target 50-60, imperative, n
 - Use targeted edits on the minimum necessary lines. Do not read a file and write a new file when an in-place edit suffices.
 - Read only the file sections you need for this change; avoid full-file reads when not needed.
 - Verify before implementing: For any request — ad-hoc or skill-driven — investigate first: query the actual database, read the actual deployed file, check the actual API response, trace the actual bootstrap code path. Never implement based on assumptions about external system behavior. This rule applies to ALL skills (planner, executor, researcher) — each skill has its own reinforcement: planner §0b Runtime Verification Checklist, executor §2.5 Verify External Assumptions, researcher §3a Runtime Evidence Mandate.
+- Evidence before claims: Never claim work is complete, tests pass, or a bug is fixed without fresh verification evidence from the current message. Run the command, read the output, THEN make the claim. Words like "should", "probably", or "seems to" indicate missing evidence — run the verification instead.
+- Systematic debugging: When encountering any bug, test failure, or unexpected behavior, investigate root cause before proposing fixes. Reproduce consistently, form single hypotheses, create a failing test before fixing. If 3+ fix attempts fail, stop and question the architecture. Use the `aic-systematic-debugging` skill for the full process.
+- File size awareness: You reason best about code you can hold in context at once, and your edits are more reliable when files are focused. Prefer smaller, focused files over large ones. This reinforces SOLID and is a practical constraint of LLM context.
 
 ## Source Structure
 

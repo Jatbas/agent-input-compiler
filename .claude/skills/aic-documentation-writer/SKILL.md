@@ -576,6 +576,23 @@ The documentation-writer skill is designed so that auto-mode (cheaper model) pro
 
 ---
 
+## Common Rationalizations — STOP
+
+If you catch yourself thinking any of these, you are rationalizing. Stop and follow the process.
+
+| Thought                                                           | Reality                                                                                                                               |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| "I can write this section myself without explorers"               | Single-agent writing anchors on your own assumptions. Explorers find what you miss. Cardinal Rule 0.                                  |
+| "This section is straightforward, no exploration needed"          | Straightforward sections are where unchecked assumptions cause the most factual errors.                                               |
+| "I can be my own critic"                                          | Producer-critic separation IS the quality mechanism. Self-review is anchored. Cardinal Rule 2.                                        |
+| "The explorers found nothing interesting"                         | Check for tunnel vision. Did they search the right files? Spawn a gap-fill explorer for uncovered areas.                              |
+| "All critics agree — the writing is fine"                         | Zero-issue reports from critics violate the anti-agreement rule. Re-spawn with strengthened mandate.                                  |
+| "This claim is obviously true, no verification needed"            | Every factual claim needs a file:line citation. Cardinal Rule 1. Obvious claims are where hallucination hides.                        |
+| "The double-blind check is overkill for this document"            | Double-blind factual verification is non-negotiable. It catches the claims you are most confident about incorrectly. Cardinal Rule 3. |
+| "I will skip the deduplication check — this is new content"       | Dedicated documents for the same topic may already exist. Glob first, then write. Cardinal Rule 5.                                    |
+| "I will just do a quick inline edit instead of the full pipeline" | The full pipeline is what produces quality beyond single-model. Shortcuts produce single-model quality.                               |
+| "The target text is close enough to what the Change Spec says"    | Every sentence must be traceable to explorer findings. "Close enough" = unverified. Cardinal Rule 4.                                  |
+
 ## Conventions
 
 - The documentation-writer skill is the single source of truth for documentation quality protocols

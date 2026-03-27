@@ -9,7 +9,6 @@
     "integrations/claude/install.cjs",
     "integrations/claude/uninstall.cjs",
     "integrations/clean-global-aic-dir.cjs",
-    "integrations/cursor/__tests__/install.test.js",
     "integrations/cursor/__tests__/AIC-require-aic-compile.test.cjs",
     "integrations/cursor/__tests__/AIC-inject-conversation-id.test.cjs",
     "integrations/claude/hooks/**",

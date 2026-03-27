@@ -47,12 +47,12 @@ How AIC gets installed, what artifacts it creates, and how its components intera
 
 ## Glossary
 
-| Term             | Definition                                                                                                                                                                                                          |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **MCP**          | Model Context Protocol — how the editor talks to AIC. The editor runs an AIC server process and calls tools such as `aic_compile`.                                                                                  |
-| **Hooks**        | Scripts the editor runs at specific events (e.g. session start, before a message is sent). AIC uses them to inject context and enforce that compilation runs.                                                       |
-| **Bootstrap**    | One-time setup on first use: `.aic/`, `aic.config.json`, ignore files, trigger rule; Cursor hook files only after `integrations/cursor/install.cjs` runs (see [First-Compile Bootstrap](#first-compile-bootstrap)). |
-| **Trigger rule** | The file (e.g. `.cursor/rules/AIC.mdc` or `.claude/CLAUDE.md`) that instructs the AI to call `aic_compile` as its first action on every message.                                                                    |
+| Term             | Definition                                                                                                                                                                                                                                                                                                                              |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **MCP**          | Model Context Protocol — how the editor talks to AIC. The editor runs an AIC server process and calls tools such as `aic_compile`.                                                                                                                                                                                                      |
+| **Hooks**        | Scripts the editor runs at specific events (e.g. session start, before a message is sent). AIC uses them to inject context and enforce that compilation runs.                                                                                                                                                                           |
+| **Bootstrap**    | One-time setup on first use: `.aic/`, `aic.config.json`, ignore files, trigger rule; for Cursor, hook files after `runEditorBootstrapIfNeeded` runs the installer — in-project `integrations/cursor/install.cjs` if present, otherwise the copy bundled inside `@jatbas/aic` (see [First-Compile Bootstrap](#first-compile-bootstrap)). |
+| **Trigger rule** | The file (e.g. `.cursor/rules/AIC.mdc` or `.claude/CLAUDE.md`) that instructs the AI to call `aic_compile` as its first action on every message.                                                                                                                                                                                        |
 
 ---
 
@@ -94,14 +94,14 @@ The AIC MCP server must be runnable as `npx -y @jatbas/aic@latest` (Node 20+). E
 
 The deeplink writes the entry above into `~/.cursor/mcp.json`. That registers the global MCP server only.
 
-> On first connection or first `aic_compile`, the server creates `aic.config.json`, `.aic/`, ignore-file entries, and the Cursor trigger rule in the project. **Cursor lifecycle hooks** (`.cursor/hooks.json` and `AIC-*.cjs`) are **not** written by the npm package alone — run `node …/integrations/cursor/install.cjs` from an AIC repo checkout with cwd at your project (see [Troubleshooting (Cursor)](#troubleshooting-cursor)).
+> On first connection or first `aic_compile`, the server creates `aic.config.json`, `.aic/`, ignore-file entries, and the Cursor trigger rule in the project. When Cursor is detected (`.cursor/` exists or `CURSOR_PROJECT_DIR` is set), bootstrap also runs the Cursor installer: it prefers `<project>/integrations/cursor/install.cjs` when that file exists, otherwise the installer shipped inside the npm package at package-relative `integrations/cursor/install.cjs`. That run writes `.cursor/hooks.json` and the hook scripts into `.cursor/hooks/`.
 
 Typical flow:
 
 1. User opens a project in Cursor; Cursor spawns the server (`npx -y @jatbas/aic@latest`).
-2. With **roots** capability, init bootstraps each root (trigger rule, config, ignores); hook install runs only if `integrations/cursor/install.cjs` exists in that root.
+2. With **roots** capability, init bootstraps each root (trigger rule, config, ignores, and Cursor hooks when Cursor is in use).
 3. Without roots, the same steps run on the first `aic_compile`.
-4. After hooks are installed (if you ran the installer), enforcement and context injection match the tables below; otherwise the trigger rule alone asks the model to call `aic_compile`.
+4. After hooks are installed, enforcement and context injection match the tables below; until then the trigger rule alone asks the model to call `aic_compile`.
 
 No per-project MCP registration is needed. To verify the server: use `aic_status` or send a message so `aic_compile` runs.
 
@@ -138,19 +138,19 @@ Hooks run as Cursor spawns them — they are independent processes, not part of 
 ### How Hooks Are Delivered
 
 Hook scripts are authored in `integrations/cursor/hooks/` and deployed to each project's
-`.cursor/hooks/` by the Cursor installer (`integrations/cursor/install.cjs`). When you run `node integrations/cursor/install.cjs` (from the server init if that script exists in the project, or manually from a repo checkout):
+`.cursor/hooks/` by the Cursor installer (`integrations/cursor/install.cjs`). Bootstrap invokes that script automatically for Cursor users (bundled in `@jatbas/aic`, or the in-project copy when your team commits `integrations/cursor/`). You can also run `node integrations/cursor/install.cjs` manually with the project as cwd.
 
 1. **Registers hooks** — creates or merges `.cursor/hooks.json` with the hook definitions (event type, command, matcher, timeout, etc.)
 2. **Copies scripts** — copies the hook scripts from `integrations/cursor/hooks/` into the project's `.cursor/hooks/` directory (same file set as `integrations/cursor/aic-hook-scripts.json`)
 
 The `.cursor/` directory is a **deployment target** — hook scripts are never authored there directly.
-Re-running the installer merges any missing hook entries without overwriting user-added hooks and re-copies scripts from the repo copy you ran against.
+Re-running the installer merges any missing hook entries without overwriting user-added hooks and re-copies scripts from the installer source (in-project tree or bundled package copy).
 
 ### Troubleshooting (Cursor)
 
 **Hooks not firing**
 
-- Confirm `.cursor/hooks.json` and `.cursor/hooks/AIC-*.cjs` exist. The deeplink MCP install does not place them automatically — run from a clone: `cd /path/to/your-project && node /path/to/agent-input-compiler/integrations/cursor/install.cjs` (or copy `integrations/cursor/` from the repo and run `install.cjs` with cwd at your project). Then reload Cursor.
+- Confirm `.cursor/hooks.json` and `.cursor/hooks/AIC-*.cjs` exist. After the deeplink, opening the project in Cursor should run bootstrap and install hooks from the published package; if they are missing, ensure `.cursor/` exists so Cursor is detected, reload the window, or run `node path/to/integrations/cursor/install.cjs` with cwd at your project (checkout copy or vendored tree). Then reload Cursor.
 - If `npx` cannot reach the registry (proxy, offline), fix network or use an npm mirror before the MCP server can start.
 - Ensure the AIC MCP server is enabled in Cursor: Settings → MCP → AIC server on.
 
@@ -247,7 +247,7 @@ To request support for your editor or contribute an integration layer, [open an 
 
 ### What Gets Published
 
-The npm package `@jatbas/aic` ships only `dist/` — the compiled MCP server (`server.js` with shebang for `npx` execution). Cursor hook scripts live in the repository (`integrations/cursor/hooks/`) and are deployed by the Cursor installer when it runs (see [Cursor](#cursor)). Claude Code hooks are provided by the plugin or the direct installer (see [Claude Code](#claude-code)).
+The npm package `@jatbas/aic` ships `dist/` (the compiled MCP server with shebang for `npx` execution) and a bundled copy of `integrations/cursor/` plus `integrations/shared/` used by bootstrap. Source hook scripts remain in the repository (`integrations/cursor/hooks/`); the published installer deploys them when bootstrap or a manual run executes `install.cjs` (see [Cursor](#cursor)). Teams can still commit `integrations/cursor/` into a repo so that in-project copy overrides the bundled installer. Claude Code hooks are provided by the plugin or the direct installer (see [Claude Code](#claude-code)).
 
 The server is the primary interface. It exposes these MCP tools:
 
@@ -303,9 +303,9 @@ When `aic_compile` runs for a new project for the first time, `ensureProjectInit
 3. Writes `aic.config.json` with defaults (`contextBudget.maxTokens: 8000`)
 4. Appends missing lines to `.gitignore`, `.eslintignore`, and `.prettierignore` for `.aic/`, `aic.config.json`, `.cursor/rules/AIC.mdc`, `.cursor/hooks.json`, and `.cursor/hooks/AIC-*.cjs` (same list for all three files; existing entries are left unchanged)
 5. Installs the trigger rule (editor-specific — e.g., `.cursor/rules/AIC.mdc` for Cursor, `.claude/CLAUDE.md` for Claude Code)
-6. **Cursor:** If `<project>/integrations/cursor/install.cjs` exists (e.g. the AIC repo is the workspace, or that tree was copied in), the server runs that installer on init — it writes `.cursor/hooks.json` and copies every script listed in `integrations/cursor/aic-hook-scripts.json` into `.cursor/hooks/`. The published npm package does not ship that path inside arbitrary projects; for those, steps 1–5 still run, but **hooks are not written until** you run `node integrations/cursor/install.cjs` once from an AIC repo checkout with the shell cwd set to your project (see [Troubleshooting (Cursor)](#troubleshooting-cursor)). **Claude Code:** If `<project>/integrations/claude/install.cjs` exists, the server may run it to merge global hook entries; the **plugin** path installs hooks globally without per-project scripts (see [Claude Code](#claude-code)).
+6. **Cursor:** When Cursor is detected, the server runs the Cursor installer on init — `<project>/integrations/cursor/install.cjs` if present, otherwise the copy bundled in `@jatbas/aic` (`integrations/cursor/install.cjs` relative to the installed package). That run writes `.cursor/hooks.json` and copies every script listed in `integrations/cursor/aic-hook-scripts.json` plus top-level `integrations/shared/*.cjs` into `.cursor/hooks/`. **Claude Code:** If `<project>/integrations/claude/install.cjs` exists, the server may run it to merge global hook entries; the **plugin** path installs hooks globally without per-project scripts (see [Claude Code](#claude-code)).
 
-When the Cursor installer does run, it is idempotent: hook registrations merge (new entries added, user hooks preserved) and scripts are re-copied to match the checkout version. The trigger rule updates only when the installed rule version differs from the current package version. Init runs when the server lists workspace roots or on first `aic_compile`, depending on the client.
+When the Cursor installer does run, it is idempotent: hook registrations merge (new entries added, user hooks preserved) and scripts are re-copied to match the installer source (in-project tree or bundled package version). The trigger rule updates only when the installed rule version differs from the current package version. Init runs when the server lists workspace roots or on first `aic_compile`, depending on the client.
 
 After bootstrap, the server compiles context normally. Subsequent calls skip bootstrap entirely (guarded by a per-project once-flag in the compile handler).
 
@@ -320,7 +320,7 @@ After bootstrap, each project contains:
 | `.aic/project-id`                                             | Stable UUIDv7 — survives folder renames                                                                                                                                                                              | No                                                                                          |
 | `.cursor/rules/AIC.mdc`                                       | Trigger rule for Cursor — tells the AI to call `aic_compile`                                                                                                                                                         | Depends on team preference                                                                  |
 | `.cursor/hooks.json`                                          | Hook registrations for Cursor                                                                                                                                                                                        | Depends on team preference                                                                  |
-| `.cursor/hooks/AIC-*.cjs` (and `subagent-start-model-id.cjs`) | Cursor hook scripts — present only after the Cursor installer runs (see [First-Compile Bootstrap](#first-compile-bootstrap))                                                                                         | Depends on team preference                                                                  |
+| `.cursor/hooks/AIC-*.cjs` (and `subagent-start-model-id.cjs`) | Cursor hook scripts — present after bootstrap runs the Cursor installer (bundled or in-project; see [First-Compile Bootstrap](#first-compile-bootstrap))                                                             | Depends on team preference                                                                  |
 | `.claude/CLAUDE.md`                                           | Trigger rule for Claude Code                                                                                                                                                                                         | Depends on team preference                                                                  |
 
 > With the **plugin** path, the plugin provides hooks and MCP registration globally — no per-project hook files. With the **direct installer** path, the installer copies hook scripts to `~/.claude/hooks/` and merges AIC hook entries into `~/.claude/settings.json`, so every project gets compiled context with one install. Claude Code hook scripts and settings are global (`~/.claude/`); the only optional per-project artifact is `.claude/CLAUDE.md`.
@@ -364,7 +364,7 @@ The only workspace-scoped server is the AIC development environment, which runs 
 
 AIC is installed with `@latest`, so `npx` fetches the newest published version on each editor launch. When a new version includes updated hook scripts:
 
-- **Cursor:** After you re-run the Cursor installer (from a repo checkout, or when your project already contains `integrations/cursor/install.cjs` and init runs again), scripts in `.cursor/hooks/` are refreshed. Deeplink-only setups re-run the installer from the repo when you want updated hook files.
+- **Cursor:** After a package upgrade, the next bootstrap (workspace roots or first `aic_compile`) re-runs the Cursor installer — in-project `integrations/cursor/install.cjs` when present, otherwise the bundled copy — so `.cursor/hooks/` tracks the installed `@jatbas/aic` version. You can also run `node` on an installer path manually with cwd at the project.
 - **Claude Code (plugin):** With auto-update enabled (see [Plugin (Recommended)](#plugin-recommended)), the plugin updates automatically at startup. Otherwise, update via `/plugin` in the Installed tab.
 - **Claude Code (direct installer):** Re-run `node integrations/claude/install.cjs` (from the AIC repo or a directory that contains the script). The installer updates scripts in `~/.claude/hooks/` and re-merges hook entries in `~/.claude/settings.json`.
 

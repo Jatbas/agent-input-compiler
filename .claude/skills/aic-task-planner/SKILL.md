@@ -275,12 +275,44 @@ Complete every item. Each produces evidence for the report. Items are organized 
     - Grep for variable names, function names, test names, and comments that encode the count in natural language (e.g., `twelve_scripts`, `five_columns`, `TEN_ITEMS`).
     - Each match is a candidate for update. Classify as: "in-scope fix" (add to task) or "cosmetic follow-up" (suggest but don't block).
       Record in the TEST IMPACT field alongside item 15 findings.
+      15c. **Test assertion ground-truth audit** (mandatory sub-item — triggers whenever item 15 finds a hardcoded literal in a test assertion) — for every hardcoded numeric or string literal found in a test assertion (counts, file lists, expected outputs, version strings), verify that literal against the actual source it describes:
+    - Count the actual files on disk, query the actual database rows, read the actual config structure — whatever the literal claims to represent.
+    - If the literal is already wrong before the task runs (stale assertion), record this explicitly in the TEST IMPACT field: `[test file]:[line] — ALREADY STALE: asserts [literal] but actual value is [actual] — silently broken since [reason or "unknown"]`.
+    - When a test contains a stale literal, the task spec must state the pre-existing failure and ensure the step instructions fix it to the correct post-task value (not merely "replace old with new" where "old" is itself wrong).
+    - If the test file can be run directly (e.g., `node test.js`), run it and confirm whether it currently passes or fails. If it fails, record the failure output.
+      This catches the specific failure mode where a planner reads a hardcoded value from a test, assumes it is correct, and transcribes it into the task spec without independent verification.
+      15d. **Test runner wiring check** (mandatory sub-item — for every test file the task modifies or references in a "Verify:" line) — verify whether the test file is included in the project's test runner command (`pnpm test`):
+    - Read `package.json` `"test"` script and determine which test files it invokes (vitest config, explicit `node` invocations, glob patterns).
+    - For each test file the task modifies: classify as "IN TEST SUITE" (invoked by `pnpm test`) or "EXCLUDED" (not invoked — standalone only).
+    - Record findings in the TEST IMPACT field: `[test file] — [IN TEST SUITE | EXCLUDED from pnpm test — standalone invocation only]`.
+    - If a test is EXCLUDED, the task spec's "Verify:" line must note this: "Run `node [test file]` (not in `pnpm test` — standalone verification)." A verify step that says "pnpm test passes" is misleading if the specific test being modified is not part of `pnpm test`.
+    - If a test is EXCLUDED and was found to be silently broken (item 15c), flag this as a pre-existing gap: the test was broken and CI could not catch it.
+    - **Test infrastructure gap closure:** If a test file is EXCLUDED and the task modifies or fixes it, evaluate whether the exclusion is intentional (requires special setup, environment, fixtures, or long runtime not suitable for CI) or an oversight (test can run alongside other integration tests with no special requirements). If the exclusion is an oversight, add a step and a "Modify" row for `package.json` to register the test in the root test command. If the exclusion is intentional, document the reason in the task's Architecture Notes. A fixed test that remains EXCLUDED is a fixed test that will silently break again.
+
+16. **Copy/bundle target directory audit** (conditional — if any step uses `cpSync`, `copyFileSync`, `cp -r`, or any recursive directory copy/bundle operation) — for every source directory that will be copied or bundled:
+    - Glob the full source directory tree (including all subdirectories) and list every file and subdirectory that will be included.
+    - Flag `__tests__/`, `*.test.*`, `*.spec.*`, `node_modules/`, `.git/`, and other non-production content that the recursive operation would include.
+    - If unwanted content exists, the task spec must either: (a) specify a `filter` function for `cpSync` that excludes test/non-production files, (b) use selective file copying instead of recursive directory copy, or (c) explicitly justify including the test files (e.g., the bundle is a development tool that ships tests).
+    - Record findings in the COPY TARGET AUDIT field of the Exploration Report: list every subdirectory and its file count, flag non-production content, and state the chosen exclusion strategy.
+      This catches the specific failure mode where a planner writes a recursive copy command without verifying what subdirectories exist in the source, resulting in test files, fixtures, or development artifacts being included in production bundles.
+
+16b. **Modified file binding inventory** (mandatory — for every file in the Files table with action "Modify" where the task adds new code) — before writing implementation instructions: - Read the file and list all top-level `const`/`let`/`var` bindings, `import` statements, and function declarations that are relevant to the new code being added. - Identify the file's module type: CJS (`require`/`module.exports`) or ESM (`import`/`export`, `import.meta`). - For every value the new code needs (paths, references, config objects, helper functions): check if an existing binding already computes that value. If it does, the step instructions must say "use the existing `<bindingName>` (line N)" — never describe a new derivation for a value the file already computes. - If the new code introduces a binding name that shadows or duplicates an existing one, flag this as a conflict. - Record findings in the BINDING INVENTORY field of the Exploration Report: `[file] — module type: [CJS | ESM] — relevant bindings: [name (line N): description, ...]`.
+This catches the specific failure mode where a planner describes a computation (e.g., "derive repoRoot from \_\_dirname") without checking that the file already has that exact binding, leading an executor to introduce a duplicate or conflicting definition.
+
+17. **Behavior change analysis** (mandatory — for every file in the Files table with action "Modify" where the task changes the logic of an existing function, not just adds a new function/export to the file) — for each function being modified:
+    - Read the function in its current state.
+    - Identify every conditional branch, early return, guard clause, error handler, default value, and fallback in the function.
+    - Compare the pre-change behavior against the post-change behavior. An "observable behavioral difference" is any change in: conditions under which code runs or does not run, values returned in edge cases, side effects triggered or suppressed, error paths taken.
+    - Record each behavioral difference in a BEHAVIOR CHANGES field in the Exploration Report: `[file]:[function] — OLD: [what happened before] → NEW: [what happens now] — REASON: [why the change is correct]`.
+    - If any behavioral difference exists, the task's Architecture Notes must include a **Behavior change:** bullet explaining the old behavior, the new behavior, and why the change is correct or necessary.
+    - This is especially critical when: (a) a conditional is narrowed or widened (code that used to run in some cases no longer does, or vice versa), (b) a new always-available resource is introduced (bundled fallback, default config, injected dependency) that changes the function's effective reachability, (c) the combination of (a) and (b) creates a correctness requirement that did not exist before.
+    - If no "Modify" rows change existing function logic (all modifications are pure additions — new functions, new exports, new imports), record "No behavior changes — modifications are additive only" and move on.
 
 **Pre-read items** (already in context from §1 — extract findings, do not re-read):
 
-17. **`shared/package.json`** — record dependencies and pinned versions.
-18. **`eslint.config.mjs`** — record restricted-import rules for the target layer. If ESLint changes are needed, determine the exact structural change.
-19. **Installer-managed content sync** (conditional — if any file in the Files table touches `.cursor/rules/AIC-architect.mdc`, `.claude/CLAUDE.md`, `integrations/claude/install.cjs` (`CLAUDE_MD_TEMPLATE`), `integrations/cursor/install.cjs` (`TRIGGER_RULE_TEMPLATE`), or `mcp/src/install-trigger-rule.ts`) — these files contain duplicated rule content that the installers write to user projects. Changes to shared sections in one file must propagate to the others. Diff the shared sections (architectural invariants, security, dependencies, commits, ESLint, tests, prompt commands) across the affected files. If any section has drifted, add "Modify" rows to the Files table for every file that needs updating. Record all findings in the INSTALLER SYNC field of the Exploration Report. The Cursor installer does NOT write `AIC-architect.mdc` (it is git-committed), so it is never at risk of being overwritten — but it IS the source of truth that templates must match.
+18. **`shared/package.json`** — record dependencies and pinned versions.
+19. **`eslint.config.mjs`** — record restricted-import rules for the target layer. If ESLint changes are needed, determine the exact structural change.
+20. **Installer-managed content sync** (conditional — if any file in the Files table touches `.cursor/rules/AIC-architect.mdc`, `.claude/CLAUDE.md`, `integrations/claude/install.cjs` (`CLAUDE_MD_TEMPLATE`), `integrations/cursor/install.cjs` (`TRIGGER_RULE_TEMPLATE`), or `mcp/src/install-trigger-rule.ts`) — these files contain duplicated rule content that the installers write to user projects. Changes to shared sections in one file must propagate to the others. Diff the shared sections (architectural invariants, security, dependencies, commits, ESLint, tests, prompt commands) across the affected files. If any section has drifted, add "Modify" rows to the Files table for every file that needs updating. Record all findings in the INSTALLER SYNC field of the Exploration Report. The Cursor installer does NOT write `AIC-architect.mdc` (it is git-committed), so it is never at risk of being overwritten — but it IS the source of truth that templates must match.
 
 ### A.2 Produce the Exploration Report
 
@@ -436,17 +468,45 @@ CHANGE-PATTERN INSTANCES (mandatory — all task types, from item 8c):
   Source: [verified via Grep — show the grep pattern used]
 - Or: No codebase-wide pattern — change is isolated to the target file(s).
 
-TEST IMPACT (mandatory — all task types, from items 15 and 15b):
+TEST IMPACT (mandatory — all task types, from items 15, 15b, 15c, and 15d):
 - Observable side effects of proposed changes:
-  - [side effect description, e.g. "hooks directory will contain 19 files instead of 12"]
+  - [side effect description, e.g. "hooks directory will contain 22 files instead of 19"]
 - Affected test assertions:
   - [test file]:[line] — current: [assertion] — required: [new assertion] — reason: [why it breaks]
   - [test file]:[line] — function name `[name]` encodes stale count — rename to `[new name]`
 - Quantitative changes:
   - Old count: [N] → New count: [M] — grep for literal `[N]` in test files: [results]
   - Names encoding old count: [list or "none found"]
+- Ground-truth audit (from item 15c):
+  - [test file]:[line] — literal [value] — verified against [source]: [CORRECT | ALREADY STALE — actual is [actual value]]
+  - Test execution result: [PASS | FAIL — "[error message]" | NOT RUNNABLE — [reason]]
+- Test runner wiring (from item 15d):
+  - [test file] — [IN TEST SUITE | EXCLUDED from pnpm test — standalone invocation only]
+  - Pre-existing gap: [test was broken AND excluded from CI — silent failure | None]
 - Files table impact: [N test files added as "Modify" rows]
 - Or: No test impact — proposed changes do not alter any observable state that tests assert on.
+
+COPY TARGET AUDIT (conditional — from item 16, only if task includes recursive copy/bundle):
+- Source directory: [path]
+  - Subdirectories:
+    - [subdir] — [N files] — [PRODUCTION | NON-PRODUCTION: __tests__, test fixtures, etc.]
+  - Total files: [N production] + [M non-production]
+- Exclusion strategy: [filter function | selective copy | justified inclusion | N/A]
+- Or: Not applicable — task does not include recursive copy/bundle operations.
+
+BEHAVIOR CHANGES (conditional — from item 17, for every "Modify" file where existing function logic changes):
+- [file]:[function] — OLD: [what happened before] → NEW: [what happens now] — REASON: [why the change is correct]
+- [file]:[function] — OLD: [what happened before] → NEW: [what happens now] — REASON: [why the change is correct]
+- Or: No behavior changes — modifications are additive only (new functions, new exports, new imports).
+
+BINDING INVENTORY (conditional — from item 16b, for every "Modify" file where new code is added):
+- [file path] — module type: [CJS | ESM]
+  - Relevant bindings:
+    - `[name]` (line [N]): [brief description — e.g. "repo root path"]
+    - `[name]` (line [N]): [brief description]
+  - New code reuses: `[bindingName]` (line [N]) — task step must say "use existing"
+  - Conflicts: [none | `[newName]` would shadow existing `[existingName]` at line N]
+- Or: Not applicable — no modified files receive new code that could conflict with existing bindings.
 
 APPROACH EVALUATION (conditional — only if recipe fit required deliberation OR component is a composition root):
 - Approach A: [description] — files: [count], new artifacts: [count]
@@ -578,7 +638,7 @@ Record any simplifications made. If simplification changes the STEP PLAN or FILE
 
 ### A.4c Scope expansion recommendation (all task types)
 
-After exploration completes (A.1 through A.4b), if the exploration discovered issues beyond the original task scope — stale markers in modified files (item 8b), change-pattern instances not in original scope (item 8c), scope-adjacent string references that would go stale (item 14b), consumer breakage beyond the minimum fix (item 14), test assertions invalidated by the changes (items 15, 15b), sibling improvements, actionable TODOs in touched files, or for documentation tasks: parallel section asymmetry, structural mismatches, scope-adjacent inconsistencies, mirror document divergences (items 5b-5e, item 11) — present three scope tiers to the user before proceeding to the user checkpoint:
+After exploration completes (A.1 through A.4b), if the exploration discovered issues beyond the original task scope — stale markers in modified files (item 8b), change-pattern instances not in original scope (item 8c), scope-adjacent string references that would go stale (item 14b), consumer breakage beyond the minimum fix (item 14), test assertions invalidated by the changes (items 15, 15b), pre-existing stale test assertions (item 15c), tests excluded from the test runner (item 15d), sibling improvements, actionable TODOs in touched files, or for documentation tasks: parallel section asymmetry, structural mismatches, scope-adjacent inconsistencies, mirror document divergences (items 5b-5e, item 11) — present three scope tiers to the user before proceeding to the user checkpoint:
 
 > **Exploration found issues beyond the original scope.** Choose a scope tier:
 >
@@ -669,6 +729,9 @@ Mechanically map the Exploration Report to the template:
 | TEST STRATEGY                  | Steps (test step specifies exact mocking)                                         |
 | CHANGE-PATTERN INSTANCES       | Architecture Notes (blast radius summary) + Steps (ensure all instances covered)  |
 | TEST IMPACT                    | Files table ("Modify" rows for affected tests) + Steps (assertion updates)        |
+| COPY TARGET AUDIT              | Steps (exclusion strategy) + Architecture Notes (bundle contents justification)   |
+| BEHAVIOR CHANGES               | Architecture Notes ("Behavior change:" bullets for each observable difference)    |
+| BINDING INVENTORY              | Steps ("use existing `name` (line N)" directives for reused bindings)             |
 | RESEARCH DOCUMENT              | Header `> **Research:**` line (path to `documentation/research/` file)            |
 
 **Research auto-reference rule:** If the planner produced or used a research document during this planning session (from §0b delegation or user-provided), the `> **Research:**` line MUST appear in the task header with the exact path. If no research document exists, omit the line entirely. Never write the line with an empty value.
@@ -688,6 +751,8 @@ Violating any of these causes the mechanical review (C.5) to reject and force a 
 - Never reimplement logic that the sibling delegates to shared utility functions — import and call the existing shared utilities
 - Never produce a research document (via §0b or inline) without referencing it in the task's `> **Research:**` header line
 - Never describe SQL query modifications with prose only when the bind-parameter order changes — show the complete `.all(...)` or `.run(...)` argument list with all bound parameters in positional order, so the executor can verify placeholder-to-argument alignment mechanically
+- Never write a recursive copy command (`cpSync`, `cp -r`) for a directory without verifying the full directory tree in the Exploration Report — if the COPY TARGET AUDIT is absent or says "Not applicable" when the step uses recursive copy = fail
+- Never describe a new value derivation (e.g., "compute repoRoot from \_\_dirname") when the target file already has an existing binding for that value — the step must say "use the existing `<name>` (line N)" instead
 
 ### C.4 Save the task file
 
@@ -789,6 +854,8 @@ U. **ACCEPTANCE CRITERIA ACHIEVABILITY (mandatory — all task types):** For eac
 - If the criterion references a command (e.g., "pnpm lint passes"), verify no proposed changes introduce patterns that would fail that command.
 - If the criterion says "all existing tests pass," cross-reference against the TEST IMPACT field in the Exploration Report. If TEST IMPACT lists affected tests that are NOT updated in the Files table = fail.
 - If the criterion is structurally unreachable (e.g., asserts a count that the changes make impossible) = fail.
+- If a "Verify:" line invokes a test file (e.g., `node integrations/cursor/__tests__/install.test.js`), verify that test currently passes by running it or by auditing its hardcoded literals against actual source (item 15c). If the test is already broken before the task runs, the acceptance criterion must explicitly state this and scope verification to the post-fix state: "After applying steps 1–N, run [test] — expected: exits 0." A verify step that assumes the test passes pre-task when it does not = fail.
+- If a "Verify:" line invokes a test that is EXCLUDED from `pnpm test` (item 15d), the acceptance criterion must use the standalone invocation (`node [test]`) and note the exclusion. An acceptance criterion that says "pnpm test passes" does not verify an excluded test = misleading (warn, not hard fail — but the task must have a separate verify step for the excluded test).
 
 W. **CALLER CHAIN COMPLETENESS (conditional — only if the Exploration Report has a CALLER CHAIN ANALYSIS field):** For each function whose signature changes, verify the full caller chain from the Exploration Report is covered in the task:
 
@@ -804,6 +871,32 @@ V. **EXISTING TEST COMPATIBILITY (mandatory — all task types):** Cross-referen
 - For every quantitative change in TEST IMPACT (old count → new count): verify the task includes the correct new count in its step instructions. Wrong new count = fail.
 - For every name encoding a stale assumption (from item 15b): verify the task renames it or the exploration report justifies keeping it. Stale name without justification = fail.
 - If the Exploration Report's TEST IMPACT says "No test impact," verify the CHANGE-PATTERN INSTANCES field does not reveal untested impacts. Contradictory fields = fail (re-run item 15).
+- For every assertion marked "ALREADY STALE" in the ground-truth audit (item 15c): verify the task acknowledges the pre-existing failure and fixes the literal to the correct post-task value (not to the stale value). If the task transcribes a stale literal as if it were correct = fail.
+- For every test file marked "EXCLUDED from pnpm test" (item 15d): verify the task's "Verify:" lines use standalone invocation, not `pnpm test`. If a verify step implies `pnpm test` covers an excluded test = fail.
+- For every test file marked "EXCLUDED" that the task modifies or fixes: verify the task evaluates whether the exclusion is an oversight or intentional (item 15d gap closure). If the task fixes a broken EXCLUDED test but does not either (a) add a step to register it in `pnpm test`, or (b) document in Architecture Notes why the exclusion is intentional = fail.
+
+X. **COPY TARGET COMPLETENESS (conditional — only if any step uses `cpSync`, `copyFileSync`, `cp -r`, or recursive directory copy/bundle):** For every recursive copy operation in the task's Steps:
+
+- Verify the Exploration Report has a COPY TARGET AUDIT field for the source directory. If absent = fail.
+- Glob the source directory and verify the audit lists every subdirectory. If the audit is incomplete (subdirectories exist that are not listed) = fail.
+- If non-production content exists (`__tests__/`, `*.test.*`, `*.spec.*`, `node_modules/`), verify the task specifies an exclusion strategy (filter function, selective copy, or explicit justification). If the task uses recursive copy on a directory containing tests with no exclusion = fail.
+  If no recursive copy operations exist, this check passes automatically.
+
+Y. **BINDING REUSE (conditional — only if any step adds new code to an existing file):** For every "Modify" file where the task adds new code:
+
+- If the step instructions describe computing a value (path derivation, config lookup, helper result) that an existing binding in the file already provides, verify the step says "use the existing `<name>` (line N)." If the step describes a new derivation for an already-computed value = fail.
+- If the step introduces a new `const`/`let` binding, verify it does not duplicate or shadow an existing binding with the same name or semantics. Duplicate binding = fail.
+- Verify the Exploration Report has a BINDING INVENTORY field for the file. If the task adds code to the file but no binding inventory was recorded = fail.
+  If no modified files receive new code, this check passes automatically.
+
+Z. **BEHAVIOR CHANGE DOCUMENTATION (mandatory — all tasks with "Modify" rows that change existing function logic):** For every "Modify" row in the Files table where the task changes existing control flow (conditionals, early returns, guard clauses, error paths, default values, fallbacks) rather than only adding new functions or exports:
+
+- Re-read the function in its current state.
+- Identify each behavioral difference between current and proposed code: conditions narrowed or widened, fallbacks added or removed, error paths changed, side effects gated differently.
+- Verify Architecture Notes documents each behavioral difference with a "Behavior change:" bullet that states: old behavior, new behavior, and why the change is correct.
+- If the task changes a conditional, default, early return, or error path but Architecture Notes has no corresponding "Behavior change:" note = fail.
+- If no "Modify" rows change existing function logic (all modifications are pure additions), this check passes automatically.
+- Verify the Exploration Report has a BEHAVIOR CHANGES field. If "Modify" rows change function logic but no BEHAVIOR CHANGES field exists = fail.
 
 **Step 2: Score the rubric.** Score each dimension 0 (fail) or 1 (pass):
 
@@ -830,6 +923,9 @@ V. **EXISTING TEST COMPATIBILITY (mandatory — all task types):** Cross-referen
 21. Acceptance criteria achievability (check U)
 22. Existing test compatibility (check V)
 23. Caller chain completeness — conditional (check W)
+24. Copy target completeness — conditional (check X)
+25. Binding reuse — conditional (check Y)
+26. Behavior change documentation — conditional (check Z)
 
 ### C.5b Independent verification agent
 
@@ -848,11 +944,16 @@ After the self-check (C.5 Steps 1–2) passes with all applicable checks at 100%
    - **File paths:** For every "Modify" row in the Files table, Glob for the path. Report: `[path] — EXISTS / DOES NOT EXIST`.
    - **Signature match:** For each method in the class code block, read the interface source file. Verify parameter names, types, and return types match exactly. Report: `[method] — MATCH / MISMATCH ([detail])`.
    - **Acceptance criteria vs test assertions:** For each acceptance criterion that references an existing test file (e.g., "X.test.ts passes"), read that test file. For each hardcoded count, expected string, or directory assertion in the test, check whether the task's proposed changes would invalidate it. If the task modifies a directory's contents but the test asserts on file count — verify the task updates that count. Report: `[test file] — [assertion at line N] — COMPATIBLE / INVALIDATED ([detail])`.
+   - **Test assertion ground-truth:** For each hardcoded numeric literal in a test assertion that the task references or modifies, independently verify the literal against actual source (count files on disk, query actual data, read actual config). Report: `[test file]:[line] — asserts [value] — actual is [actual value] — CORRECT / STALE`.
+   - **Test runner wiring:** For each test file the task modifies or references in a "Verify:" line, check whether it appears in `package.json` `"test"` script (either as an explicit `node` invocation or covered by vitest/jest config). Report: `[test file] — IN TEST SUITE / EXCLUDED`.
    - **Coverage completeness:** Read the Exploration Report's CHANGE-PATTERN INSTANCES field. For each instance marked "IN SCOPE," verify the corresponding file appears as a row in the task's Files table. Report: `[file] — IN SCOPE in report — IN FILES TABLE / MISSING`.
    - **Test impact completeness:** Read the Exploration Report's TEST IMPACT field. For each test file listed as having invalidated assertions, verify it appears as a "Modify" row in the task's Files table. Report: `[test file] — IN TEST IMPACT — IN FILES TABLE / MISSING`.
    - **Caller chain completeness:** Read the Exploration Report's CALLER CHAIN ANALYSIS field (if present). For each file in the caller chain, verify it appears as a "Modify" row in the task's Files table and has step instructions. For each intermediate closure or wrapper, verify the task specifies how it changes (parameterized, inlined, or restructured). Report: `[file] — IN CALLER CHAIN — IN FILES TABLE / MISSING` and `[closure/wrapper] — RESTRUCTURE SPECIFIED / UNSPECIFIED`.
+   - **Copy target audit:** For each recursive copy operation in the Steps, glob the source directory and list all subdirectories. If `__tests__/` or test files exist and the task has no exclusion strategy, report: `[source dir] — contains [subdir] with [N] test files — NO EXCLUSION STRATEGY`.
+   - **Binding reuse:** For each "Modify" file where the task adds new code, read the file and list all top-level bindings. If the task's step instructions describe deriving a value that an existing binding already provides, report: `[file]:[line] — existing binding [name] provides [value] — task step describes redundant derivation`.
+   - **Behavior change completeness:** For each "Modify" file where the task changes existing function logic (not just adding new functions), read the current function. Identify every conditional, guard, early return, default value, and error path. Compare against the task's proposed changes. For each observable behavioral difference (conditions under which code runs/doesn't run, values returned, side effects triggered), check whether Architecture Notes documents it with a "Behavior change:" bullet. Report: `[file]:[function] — [behavioral difference] — DOCUMENTED / UNDOCUMENTED`.
 
-4. **Output format:** Return a structured list of findings: each finding has type (api/sql/path/signature/coverage/test-impact), name, source file, and status (FOUND/NOT_FOUND or MATCH/MISMATCH or IN_FILES_TABLE/MISSING). End with a summary: "PASS — all N findings confirmed" or "FAIL — M of N findings have errors" with the specific errors listed.
+4. **Output format:** Return a structured list of findings: each finding has type (api/sql/path/signature/coverage/test-impact/ground-truth/test-wiring/copy-target/binding-reuse/behavior-change), name, source file, and status (FOUND/NOT_FOUND or MATCH/MISMATCH or IN_FILES_TABLE/MISSING or CORRECT/STALE or IN_TEST_SUITE/EXCLUDED or REDUNDANT/OK or DOCUMENTED/UNDOCUMENTED). End with a summary: "PASS — all N findings confirmed" or "FAIL — M of N findings have errors" with the specific errors listed.
 
 **If the subagent returns FAIL:** For each NOT_FOUND or MISMATCH finding, determine the root cause (wrong method name, training-data hallucination, outdated interface, typo). Fix the task file, re-run the specific C.5 check that corresponds to the finding, and re-spawn the subagent to confirm the fix. Do NOT proceed to C.6 until the independent review passes.
 
@@ -894,7 +995,15 @@ After C.5b passes, spawn a verification agent that works **from the codebase out
 
 12. **Test coverage for new code:** For every new public class or exported function, verify the task includes a corresponding test case in the Tests table and a test step. Report as `UNTESTED: [class/function] has no test case`.
 
-13. **Directory impact:** For every new file being added to an existing directory, grep test files (`**/*.test.ts`) for assertions that reference that directory — file count assertions (pattern: `=== [number]`, `.length`), directory listings, glob patterns. Report as `DIR_IMPACT: [test file]:[line] asserts on [directory] contents — may break when [new file] is added`.
+13. **Directory impact:** For every new file being added to an existing directory, grep test files (`**/*.test.ts`, `**/*.test.js`) for assertions that reference that directory — file count assertions (pattern: `=== [number]`, `.length`), directory listings, glob patterns. Report as `DIR_IMPACT: [test file]:[line] asserts on [directory] contents — may break when [new file] is added`.
+
+14. **Test assertion ground-truth:** For every hardcoded numeric count assertion found via item 13 (or present in any test file the task modifies), independently count the actual items on disk (files in directory, entries in config, etc.) and compare against the asserted value. Report as `STALE_ASSERTION: [test file]:[line] asserts [value] but actual count is [actual]` when they differ.
+
+15. **Test runner wiring:** For every test file the task modifies or that a "Verify:" line invokes, check whether `package.json` `"test"` script includes it (search for the file name in the test command string). Report as `TEST_EXCLUDED: [test file] is not in pnpm test — standalone only` for files not found.
+
+16. **Copy target contents:** For every recursive copy command (`cpSync`, `cp -r`) in the task's Steps, glob the source directory including subdirectories. If `__tests__/`, `*.test.*`, or `*.spec.*` files exist in any subdirectory and the task has no exclusion strategy (filter function, selective copy), report as `BUNDLE_TESTS: [source dir]/__tests__/ contains [N] test files — recursive copy would include them in bundle`.
+
+17. **Binding conflicts:** For every "Modify" file where the task adds new const/let bindings or new value derivations, read the file and list its existing top-level bindings. If the task describes computing a value that an existing binding already provides (e.g., repoRoot, \_\_dirname, installScript), report as `REDUNDANT_BINDING: [file] already has [binding] at line [N] — task step describes redundant derivation`. If the task introduces a new binding with the same name as an existing one, report as `SHADOW_BINDING: [file] — new [name] shadows existing [name] at line [N]`.
 
 **Output format:**
 
@@ -903,7 +1012,7 @@ DEPENDENCY FINDINGS:
 - [MISSING_CALLER | MISSING_CONSUMER | MISSING_INTERMEDIARY | CLOSURE_BREAK]: [detail]
 
 CONVENTION FINDINGS:
-- [NAMING | LAYER | ISP | MIGRATION | DDL | WIRING | BOUNDARY | BRANDED | UNTESTED | DIR_IMPACT]: [detail]
+- [NAMING | LAYER | ISP | MIGRATION | DDL | WIRING | BOUNDARY | BRANDED | UNTESTED | DIR_IMPACT | STALE_ASSERTION | TEST_EXCLUDED | BUNDLE_TESTS | REDUNDANT_BINDING | SHADOW_BINDING]: [detail]
 
 SUMMARY: PASS (0 findings) | FAIL (N dependency + M convention findings)
 ```
@@ -1175,3 +1284,22 @@ If during execution you encounter something unexpected:
 - For detailed recipe patterns, read `SKILL-recipes.md`
 - For all guardrails to apply during writing, read `SKILL-guardrails.md`
 - **Feedback-driven probe accumulation:** When a task review (§7), task execution, or post-hoc validation discovers a failure that the 4-stage verification pipeline (C.5 → C.5b → C.5c → C.5d) did not catch, extract the _failure class_ (e.g., "composition-root closure wrapping", "test file-count assertion", "sibling error-handling pattern mismatch") and add a targeted probe to C.5c's probe list. Each new probe specifies: trigger condition, grep pattern, and what to report. Over time, C.5c's probe library grows to cover every failure pattern observed in this codebase. When adding a probe, also check if an existing C.5 or C.5b check should have caught it — if so, strengthen that check's wording rather than duplicating coverage in C.5c.
+
+## Common Rationalizations — STOP
+
+If you catch yourself thinking any of these, you are rationalizing. Stop and follow the process.
+
+| Thought                                                           | Reality                                                                                   |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| "This component is simple enough to plan from memory"             | Read the actual `.d.ts` files. Memory-based APIs are wrong 30%+ of the time.              |
+| "The interface probably has these methods"                        | "Probably" means you have not read it. Read it.                                           |
+| "I can skip the exploration report for this one"                  | The exploration report IS the plan's foundation. No shortcut.                             |
+| "This does not fit any recipe, I will improvise"                  | Use the general-purpose recipe. It exists for this case. Never improvise.                 |
+| "I will fill in the details later"                                | Every step must have exact code. "Later" means "never."                                   |
+| "Similar to Task N"                                               | The executor may read tasks out of order. Repeat the code.                                |
+| "Add appropriate error handling"                                  | Which errors? What handling? Be specific or the executor will guess wrong.                |
+| "The existing code probably works this way"                       | Read the actual source. Assumptions cause the most rework.                                |
+| "This is too complex to plan in detail"                           | Break it into smaller tasks. Complexity is not an excuse for vagueness.                   |
+| "I know what the user wants"                                      | Verify with the exploration report and user gate. Do not assume intent.                   |
+| "The planner does not need to verify, the executor will catch it" | The planner's verification prevents the executor from starting bad tasks. Catch it early. |
+| "One more file will not hurt"                                     | Apply the simplicity test. Every new file costs maintenance.                              |

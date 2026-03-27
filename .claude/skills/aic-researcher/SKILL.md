@@ -456,6 +456,23 @@ When the planner has a research document (from either mode):
 
 ---
 
+## Common Rationalizations — STOP
+
+If you catch yourself thinking any of these, you are rationalizing. Stop and follow the process.
+
+| Thought                                                         | Reality                                                                                                  |
+| --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| "I can investigate this myself without subagents"               | Single-agent investigation misses what parallel independent agents catch. Cardinal Rule 1.               |
+| "One explorer is enough for this"                               | Even simple questions benefit from 2+ perspectives. Minimum is 2 explorers.                              |
+| "I already know the answer from context"                        | You have anchoring bias. Subagents do not. Spawn them.                                                   |
+| "The findings all agree, so skip adversarial review"            | Agreement without challenge proves nothing. The critic exists to find what you missed.                   |
+| "The critic agrees with everything — good enough"               | A fully agreeable critic failed its job. Re-spawn with strengthened adversarial mandate.                 |
+| "This evidence is obvious, no citation needed"                  | Every finding requires a file:line or URL. No exceptions. Cardinal Rule 2.                               |
+| "This is just a factual lookup"                                 | Only if 1-2 files answer it. If you need 3+ files, re-classify upward.                                   |
+| "I will skip the gap check, the explorers covered everything"   | The gap check catches tunnel vision — the most common auto-mode failure. Run it.                         |
+| "The research is good enough without second-order implications" | First-order findings are fact reports. Second-order implications are what make research strategic.       |
+| "I do not need to verify the critic's challenges"               | Invalid challenges must be explicitly rejected with reasoning. Silently ignoring them is not evaluation. |
+
 ## Conventions
 
 - Research documents live in `documentation/research/` with date-prefixed filenames

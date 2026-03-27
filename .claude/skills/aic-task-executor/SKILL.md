@@ -342,6 +342,23 @@ If any match, fix in the same file before proceeding. Do NOT defer to §4b — f
 
 **Prefer direct implementation over subagent dispatch.** Subagents require full context re-assembly, which is token-expensive and introduces cold-start latency. Implement steps directly using parallel tool calls (Read + Write + Shell) in a single message where possible. The task file provides all the context you need — Interface/Signature, Dependent Types, Architecture Notes — so there is no exploration overhead.
 
+**Model selection (when subagents are used).** Use the least powerful model that can handle the work:
+
+- **Mechanical implementation** (isolated functions, clear specs, 1-2 files): use `fast` model. Most implementation tasks are mechanical when the plan is well-specified.
+- **Integration and judgment** (multi-file coordination, pattern matching, debugging): use default model.
+- **Architecture, design, and review**: use the most capable available model.
+
+Complexity signals: touches 1-2 files with a complete spec → `fast`. Touches multiple files with integration concerns → default. Requires design judgment or broad codebase understanding → most capable.
+
+**Subagent status protocol.** When dispatching subagents for implementation work, require them to report one of four statuses:
+
+- **DONE:** Proceed to verification.
+- **DONE_WITH_CONCERNS:** The subagent completed the work but flagged doubts. Read the concerns before proceeding. If concerns are about correctness or scope, address them before verification. If they are observations (e.g. "this file is getting large"), note them and proceed.
+- **NEEDS_CONTEXT:** The subagent needs information that was not provided. Provide the missing context and re-dispatch.
+- **BLOCKED:** The subagent cannot complete the task. Assess the blocker: (1) context problem → provide more context and re-dispatch with the same model, (2) task requires more reasoning → re-dispatch with a more capable model, (3) task is too large → break into smaller pieces, (4) plan itself is wrong → escalate to the user.
+
+Never ignore an escalation or force the same model to retry without changes. If the subagent said it is stuck, something needs to change.
+
 ### 4. Verify
 
 After completing all steps, run a single verification pass using tool output as objective evidence. No memory-based review — tool output does not lie.
@@ -599,3 +616,22 @@ Before declaring Blocked, check whether the failure is in your code or in the ta
 - Merge only when the user approves — present the diff and wait for confirmation
 - On discard, remove the worktree and delete the branch cleanly — main stays untouched
 - Multiple executors can run in parallel — each in its own worktree. The planner operates on main; executors operate in worktrees — no conflicts between concurrent tasks
+
+## Common Rationalizations — STOP
+
+If you catch yourself thinking any of these, you are rationalizing. Stop and follow the process.
+
+| Thought                                                         | Reality                                                                             |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| "This step is trivial, I can skip verification"                 | Trivial steps fail too. Verify everything.                                          |
+| "I just wrote it so I know it is correct"                       | Re-read from disk. Memory is unreliable after 10+ files.                            |
+| "Tests should pass now"                                         | "Should" means you have not run them. Run them.                                     |
+| "The task file is probably wrong, I will improvise"             | Stop and report to the user. Never improvise.                                       |
+| "I will fix this lint error later"                              | Fix it now. Deferred fixes compound.                                                |
+| "One more try without going to Blocked"                         | If you have tried 2+ times, go to Blocked. More attempts waste tokens.              |
+| "This workaround is fine, the task did not anticipate this"     | 3+ workarounds = circuit breaker. Report it.                                        |
+| "I can skip the worktree for this small change"                 | The worktree protects main. Size does not matter.                                   |
+| "Verification passed in §4a, no need for §4b mechanical checks" | §4a catches toolchain errors. §4b catches convention violations. Both are required. |
+| "I will commit and fix the remaining issue after"               | All dimensions must be clean before committing.                                     |
+| "The subagent said it succeeded"                                | Verify independently. Never trust subagent reports without evidence.                |
+| "This debugging attempt will work"                              | Follow the systematic debugging skill. No guessing.                                 |

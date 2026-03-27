@@ -625,19 +625,19 @@ This is a future optimization once Cursor exposes the HTTP hook type.
 
 ## 13. Direct installer path
 
-**Cursor:** `runEditorBootstrapIfNeeded` runs `node integrations/cursor/install.cjs` when the
-script exists under the project root and the bootstrap gate passes (see §2). Same triggers as
-§3: roots listed (if supported) or first `aic_compile` per project.
+**Cursor:** When the bootstrap gate passes (see §2) and Cursor is detected, `runEditorBootstrapIfNeeded` resolves the installer path: `<project>/integrations/cursor/install.cjs` if that file exists, otherwise the copy bundled in `@jatbas/aic` at `integrations/cursor/install.cjs` relative to the installed package, then runs `node` on that path with cwd at the project root. Same triggers as §3: roots listed (if supported) or first `aic_compile` per project.
 
 ```
 listRoots (if supported) or first aic_compile
   ↓
-runEditorBootstrapIfNeeded → integrations/cursor/install.cjs
+runEditorBootstrapIfNeeded → resolve installer (in-project overrides bundled)
+  ↓
+node <resolved>/integrations/cursor/install.cjs
   ↓
 .cursor/hooks/ + hooks.json merged
 ```
 
-Without `integrations/cursor/install.cjs` at the project root, use a manual run — [installation.md](../installation.md#first-compile-bootstrap).
+If bootstrap does not run (wrong editor detection) or you need a one-off refresh, run `node` on an installer path manually — [installation.md](../installation.md#first-compile-bootstrap).
 
 The installer (`integrations/cursor/install.cjs`):
 
@@ -705,7 +705,7 @@ Settings:
 
 Init behaviour:
 
-- [ ] Bootstrap: `install.cjs` runs when present under project root (§2–§3); otherwise manual run ([installation.md#first-compile-bootstrap](../installation.md#first-compile-bootstrap))
+- [ ] Bootstrap: `install.cjs` runs from in-project path when present, else bundled package copy (§2–§3); manual run if needed ([installation.md#first-compile-bootstrap](../installation.md#first-compile-bootstrap))
 
 Temp file conventions:
 
