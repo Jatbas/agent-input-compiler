@@ -1,6 +1,6 @@
 ---
 name: aic-release
-description: Orchestrates the complete release sequence — validation, documentation audit, roadmap update, changelog, and publish. The single entry point for cutting a release.
+description: Orchestrates the complete release sequence — validation, documentation audit, changelog, and publish. The single entry point for cutting a release.
 ---
 
 > **Audience: Internal — developer workflow only. Do not invoke via agent delegation.**
@@ -9,7 +9,7 @@ description: Orchestrates the complete release sequence — validation, document
 
 ## Purpose
 
-Run the full release sequence from a single invocation. Validates the codebase and repository state, audits documentation, checks for history noise, updates the public roadmap, finalizes the changelog, and publishes the new version. Each phase is a hard gate — failures stop the sequence and must be resolved before re-running.
+Run the full release sequence from a single invocation. Validates the codebase and repository state, audits documentation, checks for history noise, finalizes the changelog, and publishes the new version. Each phase is a hard gate — failures stop the sequence and must be resolved before re-running.
 
 ## Editors
 
@@ -73,7 +73,6 @@ If any blockers exist, stop: "Documentation audit found N blockers. Fix them and
 
 - All patterns from Phase 2 internal language scan (re-run on any files not yet checked).
 - Broken relative links: for every `[text](path)` in each file, check that the target path exists (Glob).
-- Missing cross-references: check that `documentation/roadmap.md` exists (if it has been created before) and is non-empty.
 
 If any quick-scan issues found, show them and ask: "N quick-scan issues found. Fix and re-run, or proceed?" Wait for response.
 
@@ -88,38 +87,7 @@ If any quick-scan issues found, show them and ask: "N quick-scan issues found. F
    - `no` → continue to Phase 4.
 4. If no noise commits found: "Phase 3 passed — history is clean."
 
-### Phase 4 — Roadmap update
-
-1. Read `CHANGELOG.md`. Extract the most recent released version entry (the first `## [x.y.z]` section below `## [Unreleased]`) and its bullet points.
-2. Read `documentation/tasks/progress/aic-progress.md` (gitignored, main workspace only). Find all components with status `Pending` or `Not started` in the current active phase — these are near-term planned items. Convert them to user-facing language (no phase letters, no task IDs, no status table values, no internal jargon).
-3. Check if `documentation/future/` exists (Glob). If it does, read all files in it and list the document titles and one-line summaries of their contents. If it does not exist, skip this input and omit the "Future direction candidates" section from the user presentation and the final roadmap.
-4. Show the user:
-   - "**What's in the latest release:** [summarized bullet points from CHANGELOG section]"
-   - "**Proposed near-term (from progress):** [user-facing bullet list]"
-   - "**Future direction candidates (from future/ docs):** [numbered list of titles + one-line summaries]"
-   - Ask: "Which future direction items do you want to surface publicly? (list numbers / none / all)"
-5. Wait for response. Build the roadmap content from the approved selections.
-6. Write `documentation/roadmap.md` with this structure:
-
-```markdown
-# Roadmap
-
-## What shipped in vX.Y.Z
-
-[bullet points from CHANGELOG, rewritten in present tense for a user audience]
-
-## What's next
-
-[near-term planned items, user-facing language, no internal implementation detail]
-
-## Future direction
-
-[user-approved items from future/ docs, user-facing language]
-```
-
-7. Show the diff of `documentation/roadmap.md` and ask: "Write this roadmap? (yes / edit / skip)". On `edit`, ask what to change and re-show. On `skip`, proceed to Phase 5 without writing a roadmap. On `yes`, write the file and commit it: `git add documentation/roadmap.md && git commit -m "docs: update roadmap for vX.Y.Z"` (where X.Y.Z is the expected next version from the changelog — or use "next release" if the version is not yet confirmed). This separate commit keeps the roadmap update distinct from the version bump in Phase 6.
-
-### Phase 5 — Changelog finalization
+### Phase 4 — Changelog finalization
 
 Read `.claude/skills/aic-update-changelog/SKILL.md`. Follow its **Normal update** steps to finalize the `[Unreleased]` section of `CHANGELOG.md`. Then follow its version suggestion logic to propose the next version.
 
@@ -127,11 +95,11 @@ Show the proposed version to the user: "Based on the unreleased entries, the nex
 
 - `not now` → stop: "Release paused at changelog. Re-run aic-release when ready."
 - `different version` → ask: "Enter the version:" and use the provided version.
-- `yes` → proceed to Phase 6 with the confirmed version.
+- `yes` → proceed to Phase 5 with the confirmed version.
 
-### Phase 6 — Release cut
+### Phase 5 — Release cut
 
-Read `.claude/skills/aic-update-changelog/SKILL.md` and follow its **Release cut** steps. Skip the branch check from step 0a (already confirmed in Pre-flight). Run step 0b explicitly before proceeding: run `git diff --cached --name-only` and verify no files other than `CHANGELOG.md`, `README.md`, `package.json`, `shared/package.json`, `mcp/package.json`, and `pnpm-lock.yaml` are staged. If unexpected staged files are found, stop: "Unexpected staged files: [list]. Unstage them before proceeding." Use the version confirmed in Phase 5.
+Read `.claude/skills/aic-update-changelog/SKILL.md` and follow its **Release cut** steps. Skip the branch check from step 0a (already confirmed in Pre-flight). Run step 0b explicitly before proceeding: run `git diff --cached --name-only` and verify no files other than `CHANGELOG.md`, `README.md`, `package.json`, `shared/package.json`, `mcp/package.json`, and `pnpm-lock.yaml` are staged. If unexpected staged files are found, stop: "Unexpected staged files: [list]. Unstage them before proceeding." Use the version confirmed in Phase 4.
 
 The release cut steps cover:
 
@@ -149,7 +117,7 @@ The release cut steps cover:
 ## Conventions
 
 - Phases run in order. A phase that produces blockers stops the skill — fix and re-run from the top.
-- Re-running is safe and idempotent for phases 1–3 and 2.5. Phase 4 asks before overwriting `roadmap.md`. Phase 5 and 6 follow aic-update-changelog conventions which guard against double-release.
-- Never bump versions or push tags manually — always go through Phase 6.
+- Re-running is safe and idempotent for phases 1–3 and 2.5. Phases 4 and 5 follow aic-update-changelog conventions which guard against double-release.
+- Never bump versions or push tags manually — always go through Phase 5.
 - Phase 2.5 `skip` is not recommended before first public release. Use `full` for major releases and `quick` for patch releases.
-- The progress file is read in Phases 1 and 4 — if it does not exist (e.g., in a fresh clone), those steps are skipped with a note.
+- The progress file is read in Phase 1 — if it does not exist (e.g., in a fresh clone), that step is skipped with a note.

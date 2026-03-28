@@ -36,7 +36,7 @@ The deliverable is a **draft phase proposal** — header, description, and compo
 ## When to Use
 
 - User says "what should we build next", "generate next phase", "plan Phase 2", "what's left", "forge roadmap"
-- After a release cut, when the progress file has no remaining `Not started` entries worth pursuing. Typically run immediately after `aic-release` completes — release Phase 4 generates the public `roadmap.md`; forge generates the next internal phase structure in `aic-progress.md`.
+- After a release cut, when the progress file has no remaining `Not started` entries worth pursuing. Typically run immediately after `aic-release` completes to generate the next internal phase structure in `aic-progress.md`.
 - When `aic-task-planner` is invoked but `aic-progress.md` has no `Not started` or `Pending` components — forge is the correct next step.
 - When the user provides a research document and says "generate phases from this"
 - When the user wants codebase optimization proposals added to the roadmap
