@@ -8,6 +8,8 @@ AIC has two distinct layers:
 
 > **What this means:** AIC's compilation capabilities are complete. Any perceived limitation in what AIC "can do" is actually a limitation of the editor's hook system — whether the editor gives AIC the opportunity to run at a given moment. Because AIC follows SOLID principles (dependency injection, interface segregation), adding a new integration layer for a new editor means writing thin hook scripts that call the same core pipeline. No core changes needed.
 
+**Composition root** — `mcp/src/server.ts` is the only place that wires concrete implementations (storage, adapters, pipeline runner) for the shipped server. Core and pipeline code depend on interfaces; hook scripts call `aic_compile` over MCP and do not import `shared/` or `mcp/src` TypeScript modules directly.
+
 ---
 
 ## What AIC needs from an editor
@@ -82,7 +84,7 @@ Each editor exposes a different subset of the hook capabilities AIC can use. Gap
 
 ## CLI Interface
 
-The `mcp/dist/server.js` binary has a dual interface:
+In this repository the built entrypoint is `mcp/dist/server.js`. In the published `@jatbas/aic` package the same program is exposed as `dist/server.js` at the package root (`bin` in `mcp/package.json`). It has a dual interface:
 
 - **MCP server mode** (default) — when invoked without a recognized CLI subcommand, the process starts as a long-running MCP stdio server and accepts requests from editors.
 - **CLI mode** — when invoked with `status`, `last`, `chat-summary`, or `projects` as the first argument, the process opens the database read-only, prints formatted table output to stdout, and exits. No MCP transport is started.

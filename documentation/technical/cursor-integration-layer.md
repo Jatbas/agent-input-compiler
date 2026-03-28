@@ -18,12 +18,7 @@ What this means concretely:
 
 - **All Cursor hook and hooks.json logic lives in `integrations/cursor/`.** The installer
   (`integrations/cursor/install.cjs`) is standalone. `mcp/src/editor-integration-dispatch.ts`
-  runs it with `execFileSync` when that script exists under the project root and the module’s
-  bootstrap gate passes (see that file — not only `.cursor/` / `CURSOR_PROJECT_DIR` may open
-  the gate). Triggers: workspace roots listed (if the client supports roots) or **first**
-  `aic_compile` for that project. No copy/merge logic duplicated in `mcp/src/`. Projects
-  without `integrations/cursor/install.cjs` in the root need a manual run from an AIC checkout
-  (see [installation.md](../installation.md#first-compile-bootstrap)).
+  runs it with `execFileSync` when the bootstrap gate passes (see that file — not only `.cursor/` / `CURSOR_PROJECT_DIR` may open the gate). Installer resolution matches [installation.md](../installation.md#first-compile-bootstrap): `<project>/integrations/cursor/install.cjs` when that file exists under the opened workspace root, otherwise the copy bundled inside the published `@jatbas/aic` package at package-relative `integrations/cursor/install.cjs`. Triggers: workspace roots listed (if the client supports roots) or **first** `aic_compile` for that project. No copy/merge logic duplicated in `mcp/src/`. For a one-off refresh, diagnostics, or nonstandard layouts, run `node` on the resolved installer path with cwd at the project root (see [installation.md](../installation.md#first-compile-bootstrap)).
 
 - **The `aic_compile` MCP tool is neutral.** It accepts `intent`, `projectRoot`, and
   `conversationId`. It does not know who called it. The hook adapter in `integrations/cursor/hooks/`
@@ -39,11 +34,7 @@ What this means concretely:
 
 **Cursor:** The AIC MCP server is global in Cursor (`~/.cursor/mcp.json`), but **Cursor does not support global hooks**. The hook configuration (`.cursor/hooks.json`) and scripts (`.cursor/hooks/AIC-*.cjs`) are per-project artifacts — they must exist inside each project directory.
 
-**How they get there:** The MCP server runs `integrations/cursor/install.cjs` automatically when
-that path exists under the opened root and the bootstrap gate in
-`editor-integration-dispatch.ts` passes — on root listing (if supported) or on the first
-`aic_compile` for the project. Otherwise run `node integrations/cursor/install.cjs` manually
-from an AIC checkout (see [installation.md](../installation.md#first-compile-bootstrap)).
+**How they get there:** The MCP server resolves the installer the same way as [installation.md](../installation.md#first-compile-bootstrap): in-project `integrations/cursor/install.cjs` when present under the workspace root, otherwise the bundled copy from `@jatbas/aic`, then runs it when the bootstrap gate in `editor-integration-dispatch.ts` passes — on workspace roots listing (if supported) or on the first `aic_compile` for the project. For a manual refresh or when bootstrap did not run, execute `node` on that resolved path with cwd at the project root (see [installation.md](../installation.md#first-compile-bootstrap)).
 
 The installer is idempotent: it merges `hooks.json` and copies every script name in `integrations/cursor/aic-hook-scripts.json` from `integrations/cursor/hooks/` to `.cursor/hooks/` (currently 12 files: eleven `AIC-*.cjs` plus `subagent-start-model-id.cjs`).
 

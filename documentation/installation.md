@@ -14,6 +14,7 @@ How AIC gets installed, what artifacts it creates, and how its components intera
   - [Hooks](#hooks)
   - [Hook Lifecycle](#hook-lifecycle)
   - [How Hooks Are Delivered](#how-hooks-are-delivered)
+  - [Cursor update notifications](#cursor-update-notifications)
   - [Troubleshooting](#troubleshooting-cursor)
 - [Claude Code](#claude-code)
   - [Plugin (Recommended)](#plugin-recommended)
@@ -29,6 +30,7 @@ How AIC gets installed, what artifacts it creates, and how its components intera
 - [AIC Server](#aic-server)
   - [What Gets Published](#what-gets-published)
   - [CLI Standalone Usage](#cli-standalone-usage)
+  - [Environment variables](#environment-variables)
   - [First-Compile Bootstrap](#first-compile-bootstrap)
   - [Per-Project Artifacts](#per-project-artifacts)
   - [Per-Project Disable](#per-project-disable)
@@ -146,6 +148,12 @@ Hook scripts are authored in `integrations/cursor/hooks/` and deployed to each p
 The `.cursor/` directory is a **deployment target** — hook scripts are never authored there directly.
 Re-running the installer merges any missing hook entries without overwriting user-added hooks and re-copies scripts from the installer source (in-project tree or bundled package copy).
 
+Hook-by-hook behavior, stdin/stdout contracts, and Cursor limitations are documented in [Cursor integration layer](technical/cursor-integration-layer.md).
+
+### Cursor update notifications
+
+AIC checks for newer published versions during compilation. When a newer version is available, the `aic_compile` response includes an `updateMessage` that the model can surface in chat. This matches the behavior described for Claude Code under [Update Notifications](#update-notifications).
+
 ### Troubleshooting (Cursor)
 
 **Hooks not firing**
@@ -187,7 +195,7 @@ Run `node integrations/claude/install.cjs` from the AIC repo (or from a path whe
 
 ### Prerequisite
 
-The AIC MCP server must be runnable as `npx -y @jatbas/aic@latest` (Node 20+), same as Cursor. Ensure the package is reachable from your network before relying on hooks or the compile flow. The plugin path uses this under the hood; the direct installer path assumes you are in the AIC repo or have the server on your path.
+The AIC MCP server must be runnable as `npx -y @jatbas/aic@latest` (Node 20+), same as Cursor. Ensure the package is reachable from your network before relying on hooks or the compile flow. The plugin path uses this under the hood; the direct installer path assumes you are in the AIC repo or have the server on your path. In minimal or remote setups where the process cwd is not the project root, `CLAUDE_PROJECT_DIR` may be set by the environment (see [Environment variables](#environment-variables)) — analogous to `CURSOR_PROJECT_DIR` for Cursor.
 
 ### Trigger Rule
 
@@ -293,6 +301,21 @@ pnpm aic projects
 If your shell working directory is not registered in the global AIC database (including some git worktree roots), pass `--project <absolute path>` to `status`, `last`, and `chat-summary` in addition to the `chat-summary` examples above. See [CONTRIBUTING.md — Local MCP testing](../CONTRIBUTING.md#local-mcp-testing).
 
 Each subcommand opens the database read-only, prints formatted table output to stdout, and exits. The tables use the same human-readable labels as the four **show aic …** prompt commands (for example Compilations, Project path, Last compilation).
+
+### Environment variables
+
+End users rarely need these; integrators and contributors use them for uninstall, CI, or repo development.
+
+| Variable                          | Where it matters                                         | Purpose                                                                                                                                                                                                                                        |
+| --------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AIC_BOOTSTRAP_INTEGRATION`       | MCP server startup                                       | Forces which editor installers run when auto-detection is wrong. Values: `auto`, `none`, `cursor`, `claude-code`, `cursor-claude-code`. See [Bootstrap integration override](#bootstrap-integration-override-remote--ci--nonstandard-layouts). |
+| `AIC_UNINSTALL_PROJECT_ROOT`      | `integrations/cursor/uninstall.cjs`                      | Non-empty value selects the project directory when you cannot `cd` there first.                                                                                                                                                                |
+| `AIC_UNINSTALL_KEEP_AIC_DATABASE` | `integrations/clean-global-aic-dir.cjs` / uninstall flow | When `false`, global cleanup can remove `aic.sqlite`; default keeps the database.                                                                                                                                                              |
+| `CURSOR_PROJECT_DIR`              | Cursor hooks                                             | Project root when Cursor runs hook processes (see [Cursor integration layer](technical/cursor-integration-layer.md)).                                                                                                                          |
+| `CLAUDE_PROJECT_DIR`              | Claude Code hooks / shared resolver                      | Project root in minimal or remote layouts when the cwd is not the repo root (see [implementation-spec.md](implementation-spec.md) and [Claude Code integration layer](technical/claude-code-integration-layer.md)).                            |
+| `AIC_PROJECT_ROOT`                | Cursor compile hooks                                     | Injected after a successful `aic_compile` so later hooks resolve the same project (see [Cursor integration layer](technical/cursor-integration-layer.md)).                                                                                     |
+| `AIC_CONVERSATION_ID`             | Hooks / `aic_compile`                                    | Stable conversation key for compile and chat-summary tooling.                                                                                                                                                                                  |
+| `AIC_DEV_MODE`                    | Cursor `preToolUse` gate hook                            | When set (see [CONTRIBUTING.md](../CONTRIBUTING.md)), relaxes dev-only gate behavior while working on this repository.                                                                                                                         |
 
 ### First-Compile Bootstrap
 

@@ -1,12 +1,12 @@
 # Agent Input Compiler (AIC)
 
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
-![Status](https://img.shields.io/badge/status-0.9.0-brightgreen)
+![Status](https://img.shields.io/badge/status-0.9.3-brightgreen)
 ![Local-first](https://img.shields.io/badge/local--first-yes-brightgreen)
 ![Telemetry](https://img.shields.io/badge/telemetry-opt--in-lightgrey)
 ![MCP Compatible](https://img.shields.io/badge/MCP-compatible-purple)
 
-Deterministic context compiler for AI coding tools. AIC is a local-first MCP server that selects relevant files, removes noise, and returns a smaller context package before it reaches the model.
+Deterministic context compiler for AI coding tools. AIC is a local-first MCP server (Model Context Protocol — see the [installation glossary](documentation/installation.md#glossary)) that selects relevant files, removes noise, and returns a smaller context package before it reaches the model.
 
 AIC does **not** replace your editor. It runs alongside MCP-compatible editors and improves the context they send to the model.
 
@@ -39,28 +39,28 @@ The result is a smaller, more relevant, and more inspectable input.
 
 ### Real captured output
 
-The example below is **real captured output from AIC's own development usage**. It is useful as a concrete datapoint, not as a universal benchmark for every repository.
+The example below is **real captured output from AIC's own development usage**. It is useful as a concrete datapoint, not as a universal benchmark for every repository. Totals and guard counts come from your **local** database (`~/.aic/aic.sqlite`) and the **current project**; they change on every compilation, so your table will not match these figures exactly.
 
 #### `show aic status`
 
 ```text
 Status = project-level AIC status.
 
-| Field                    | Value                                         |
-| ------------------------ | --------------------------------------------- |
-| Compilations (total)     | 1,001                                         |
-| Compilations (today)     | 150                                           |
-| Tokens: raw → compiled   | 501,800,000 → 7,400,000                       |
-| Tokens excluded          | 494,400,000                                   |
-| Budget limit             | 8,000                                         |
-| Budget utilization       | 96.2%                                         |
-| Cache hit rate           | 43.4%                                         |
-| Avg exclusion rate       | 98.5%                                         |
-| Guard findings           | prompt-injection: 40, secret: 20              |
-| Top task classes         | general 422, refactor 313, bugfix 91          |
-| Last compilation         | Execute task 089… · 2 min ago                 |
-| Installation             | OK                                            |
-| Update available         | —                                             |
+| Field                    | Value                                                                                     |
+| ------------------------ | ----------------------------------------------------------------------------------------- |
+| Compilations (total)     | 4,685                                                                                     |
+| Compilations (today)     | 146                                                                                       |
+| Tokens: raw → compiled   | 3,155,126,860 → 10,735,685                                                                |
+| Tokens excluded          | 3,144,391,175                                                                             |
+| Budget limit             | 8,000                                                                                     |
+| Budget utilization       | 24.9%                                                                                     |
+| Cache hit rate           | 35.2%                                                                                     |
+| Avg exclusion rate       | 99.7%                                                                                     |
+| Guard findings           | command-injection: 475,367, excluded-file: 59, prompt-injection: 121, secret: 12          |
+| Top task classes         | general (2,856), docs (550), bugfix (533)                                                 |
+| Last compilation         | Sync templates to improve...                                                              |
+| Installation             | OK                                                                                        |
+| Update available         | —                                                                                         |
 
 Exclusion rate: % of total repo tokens not included in the compiled prompt.
 Budget utilization: % of token budget filled.
@@ -71,18 +71,18 @@ Budget utilization: % of token budget filled.
 ```text
 Last = most recent compilation.
 
-| Field              | Value                                                  |
-| ------------------ | ------------------------------------------------------ |
-| Compilations       | 1,001                                                  |
-| Intent             | Update the README example with the real show aic last  |
-| Files              | 1 selected / 405 total                                 |
-| Tokens compiled    | 2,842                                                  |
-| Budget utilization | 35.5%                                                |
-| Exclusion rate     | 99.5%                                                  |
-| Compiled           | 2 min ago                                              |
-| Editor             | cursor                                                 |
-| Guard              | —                                                      |
-| Compiled prompt    | Available (12,450 tokens) — ask to see it              |
+| Field              | Value                                                                 |
+| ------------------ | --------------------------------------------------------------------- |
+| Compilations       | 4,673                                                                 |
+| Intent             | Validate inputs to detect...                                          |
+| Files              | 0 selected / 704 total                                                |
+| Tokens compiled    | 1,988                                                                 |
+| Budget utilization | 24.9%                                                                 |
+| Exclusion rate     | 99.8%                                                                 |
+| Compiled           | 4 sec ago                                                             |
+| Editor             | cursor                                                                |
+| Guard              | —                                                                     |
+| Compiled prompt    | Available (1,988 tokens) — ask to see it                              |
 
 Exclusion rate: % of total repo tokens not included in the compiled prompt.
 Budget utilization: % of token budget filled.
@@ -205,6 +205,7 @@ Use the README for orientation. Use the docs below for implementation detail.
 | Document                                                                   | Description                                                        |
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | [`installation.md`](documentation/installation.md)                         | Installation, delivery, bootstrap, and per-editor details          |
+| [`CHANGELOG.md`](CHANGELOG.md)                                             | Version history and release notes                                  |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md)                                       | Development setup, run from source, contribution process           |
 | [`architecture.md`](documentation/architecture.md)                         | Core pipeline, integration layer, editor capability model          |
 | [`best-practices.md`](documentation/best-practices.md)                     | Practical usage guidance                                           |
