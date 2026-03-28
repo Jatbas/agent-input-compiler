@@ -18,6 +18,9 @@
     "build": "tsc -b",
     "typecheck": "tsc --noEmit"
   },
+  "devDependencies": {
+    "@types/node": "22.19.15"
+  },
   "dependencies": {
     "better-sqlite3": "12.6.2",
     "commander": "13.1.0",

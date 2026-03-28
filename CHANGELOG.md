@@ -7,6 +7,8 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-03-29
+
 ### Added
 
 - Add `--aic-bootstrap-integration` and `AIC_BOOTSTRAP_INTEGRATION` to select editor integrations on MCP startup, with CLI overriding env and invalid values exiting before the server starts
@@ -14,6 +16,11 @@ This project follows [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - Update docs for bootstrap override precedence and wrapped dev MCP launch examples
+
+### Fixed
+
+- Set TypeScript `compilerOptions.target` to `ES2024` so workspace builds succeed on supported compiler targets
+- Declare `@types/node` on `@jatbas/aic-core` so clean installs resolve Node typings during `tsc -b`
 
 ## [0.9.2] - 2026-03-27
 
