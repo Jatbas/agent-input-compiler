@@ -19,17 +19,17 @@ Use each skill for its intended role (see the table below) to get the best outpu
 
 Some skills add files beside `SKILL.md`: the task planner includes `SKILL-recipes.md` and `SKILL-guardrails.md`; the `aic-documentation-writer` skill includes `SKILL-dimensions.md`, `SKILL-standards.md`, and `SKILL-policies.md`; the researcher includes `SKILL-protocols.md`.
 
-| Skill folder               | Type        | Role                                                                                                                                                                                          |
-| -------------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `aic-task-planner`         | Delegatable | Produces numbered task specifications with steps, tests, and acceptance criteria. Can be used for new features, bug fixes, and questions about the codebase.                                  |
-| `aic-task-executor`        | Delegatable | Implements work from those task files, or ad-hoc requests, using an **isolated working tree** and mechanical verification.                                                                    |
-| `aic-researcher`           | Delegatable | Evidence-backed investigation; writes notes under `documentation/research/`.                                                                                                                  |
-| `aic-documentation-writer` | Delegatable | Documentation pipeline: exploration, Change Specifications, adversarial review. It is able to research documentation and the codebase.                                                        |
-| `aic-update-mvp-progress`  | Internal    | Updates the maintainer-facing MVP progress tracker after implementation work.                                                                                                                 |
-| `aic-roadmap-forge`        | Internal    | Proposes new phases and component rows for the MVP progress tracker from documentation, the codebase, and optional external research; shows a draft for maintainer approval before any write. |
-| `aic-update-changelog`     | Internal    | Updates root `CHANGELOG.md` for user-facing releases and milestones.                                                                                                                          |
-| `aic-git-history-clean`    | Internal    | Squashes noisy or throwaway commits while preserving author dates; defaults to history that is not yet shared upstream, with explicit workflows when branches are already public.             |
-| `aic-release`              | Internal    | Full release orchestration: codebase validation, documentation audit, history check, roadmap update, changelog, and publish.                                                                  |
+| Skill folder               | Type        | Role                                                                                                                                                                                                     |
+| -------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `aic-task-planner`         | Delegatable | Produces numbered task specifications with steps, tests, and acceptance criteria. Can be used for new features, bug fixes, and questions about the codebase.                                             |
+| `aic-task-executor`        | Delegatable | Implements work from those task files, or ad-hoc requests, using an **isolated working tree** and mechanical verification.                                                                               |
+| `aic-researcher`           | Delegatable | Evidence-backed investigation; writes notes under `documentation/research/`.                                                                                                                             |
+| `aic-documentation-writer` | Delegatable | Documentation pipeline: exploration, Change Specifications, adversarial review. It is able to research documentation and the codebase.                                                                   |
+| `aic-update-progress`      | Internal    | Updates the maintainer-facing implementation progress tracker after implementation work.                                                                                                                 |
+| `aic-roadmap-forge`        | Internal    | Proposes new phases and component rows for the implementation progress tracker from documentation, the codebase, and optional external research; shows a draft for maintainer approval before any write. |
+| `aic-update-changelog`     | Internal    | Updates root `CHANGELOG.md` for user-facing releases and milestones.                                                                                                                                     |
+| `aic-git-history-clean`    | Internal    | Squashes noisy or throwaway commits while preserving author dates; defaults to history that is not yet shared upstream, with explicit workflows when branches are already public.                        |
+| `aic-release`              | Internal    | Full release orchestration: codebase validation, documentation audit, history check, roadmap update, changelog, and publish.                                                                             |
 
 Skills marked **Internal** are developer workflow tools — they require your judgment and must not be invoked autonomously by an agent. Skills marked **Delegatable** are safe to assign to agents as part of a planned task.
 
@@ -49,7 +49,7 @@ Run the task planner to produce a task file, then run the task executor on that 
 
 ### Refresh roadmap structure (optional)
 
-When `documentation/tasks/progress/mvp-progress.md` has no worthwhile `Not started` or `Pending` components to plan (including when the task planner runs but nothing in those statuses is available to rank), or after a release when you need the next internal phase layout, follow `.claude/skills/aic-roadmap-forge/SKILL.md`. The skill shows a draft for approval before it writes to `mvp-progress.md`.
+When `documentation/tasks/progress/aic-progress.md` has no worthwhile `Not started` or `Pending` components to plan (including when the task planner runs but nothing in those statuses is available to rank), or after a release when you need the next internal phase layout, follow `.claude/skills/aic-roadmap-forge/SKILL.md`. The skill shows a draft for approval before it writes to the progress file.
 
 ### Research then plan
 

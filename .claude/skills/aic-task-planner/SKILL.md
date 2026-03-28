@@ -46,12 +46,12 @@ The planner's natural bias is toward comprehensiveness — more types, more file
 
 - User says "plan next task", "what's next", or "create a task"
 - Before any multi-file implementation work
-- When the user picks a component from `documentation/tasks/progress/mvp-progress.md` — still run §1 ranking to validate the pick
+- When the user picks a component from `documentation/tasks/progress/aic-progress.md` — still run §1 ranking to validate the pick
 - User says "review task NNN", "review tasks", or "review all tasks" — triggers the **Review** process (see §7)
 
 ## Inputs (read these every time)
 
-1. `documentation/tasks/progress/mvp-progress.md` — what is done, what is next (main workspace only — gitignored)
+1. `documentation/tasks/progress/aic-progress.md` — what is done, what is next (main workspace only — gitignored)
 2. `documentation/project-plan.md` — architecture, ADRs, conventions
 3. `documentation/implementation-spec.md` — detailed component specs
 4. `documentation/security.md` — security constraints
@@ -115,7 +115,7 @@ Before planning, classify the user's request. The planner must auto-delegate to 
 
 **Classification decision tree (evaluate in order, stop at first match):**
 
-1. Does the user reference a specific component from `documentation/tasks/progress/mvp-progress.md`, say "plan next task", "what's next", or name a concrete component to plan? → **Task planning** — proceed to §1.
+1. Does the user reference a specific component from `documentation/tasks/progress/aic-progress.md`, say "plan next task", "what's next", or name a concrete component to plan? → **Task planning** — proceed to §1.
 2. Does the user ask to analyze, investigate, or debug something AND explicitly say not to plan or create a task (e.g., "do not create a task", "just analyze", "tell me what's wrong")? → **Analysis-only** — run the Runtime Verification Checklist (below), present findings, stop. No worktree, no task file.
 3. Does the request contain question words (how, why, where, what) directed at understanding the codebase? → **Research-then-plan** — delegate to researcher.
 4. Does the request contain improvement language (improve, optimize, fix, analyze, gaps, problems, weaknesses, issues)? → **Research-then-plan** — delegate to researcher.
@@ -148,7 +148,7 @@ Read `../shared/SKILL-investigation.md` and apply the **Runtime Evidence Checkli
 
 **Pre-read all inputs in one parallel batch** — these are needed in Pass 1 regardless of which component the user picks, and pre-reading eliminates a full round of tool calls later:
 
-- `documentation/tasks/progress/mvp-progress.md` (read from main workspace — gitignored)
+- `documentation/tasks/progress/aic-progress.md` (read from main workspace — gitignored)
 - `documentation/project-plan.md`
 - `documentation/implementation-spec.md`
 - `documentation/security.md`
@@ -159,13 +159,13 @@ Read `../shared/SKILL-investigation.md` and apply the **Runtime Evidence Checkli
 - `SKILL-guardrails.md` (this file's sibling — static reference)
 - Research document from `documentation/research/` (optional — include if §0b produced one, or if the user provided a path)
 
-From `documentation/tasks/progress/mvp-progress.md`, identify all components with status `Not started` whose dependencies are `Done`.
+From `documentation/tasks/progress/aic-progress.md`, identify all components with status `Not started` whose dependencies are `Done`.
 
 **Rank** the unblocked components using these criteria (in priority order):
 
 1. **Pattern-setter:** Is this the first component of its kind in the current phase? The first CLI command, first adapter, first storage class, etc. establishes the conventions that all subsequent siblings will follow. Pattern-setters always rank highest.
 2. **Implicit prerequisites:** Will other unblocked components import from or depend on this one? Schemas before commands, shared utilities before consumers, composition roots before feature handlers. Components that unblock the most downstream work rank higher.
-3. **Phase table order:** Within a phase, the row order in `documentation/tasks/progress/mvp-progress.md` reflects intended implementation sequence. Earlier rows rank higher than later rows when the above criteria do not differentiate.
+3. **Phase table order:** Within a phase, the row order in `documentation/tasks/progress/aic-progress.md` reflects intended implementation sequence. Earlier rows rank higher than later rows when the above criteria do not differentiate.
 
 **Present** the result:
 
@@ -207,7 +207,7 @@ Complete every item. Each produces evidence for the report. Items are organized 
 
 **Exploration scope principle:** The scope of a task and the scope of exploration are independent. A single-file task may require exploration of consumers, siblings, shared utilities, and configuration across the entire codebase. A single-section documentation edit may require full-document analysis. Never limit exploration to match task scope — always explore broadly enough to detect scope-adjacent issues, stale artifacts, and downstream impacts. Auto-mode models tend to narrow exploration to match the task; this principle counteracts that bias.
 
-**Batch A — fire in one parallel round** (no data dependencies; interface paths and library names come from the mvp-spec pre-read in §1):
+**Batch A — fire in one parallel round** (no data dependencies; interface paths and library names come from the spec pre-read in §1):
 
 1. **Read every interface the component implements** — copy the full interface verbatim.
 2. **Read the target database schema + normalization analysis** — if the component touches a table, read the migration file. Record exact columns. Then verify normalization to at least 3NF:
@@ -242,7 +242,7 @@ Complete every item. Each produces evidence for the report. Items are organized 
    **Multi-layer sibling analysis (mandatory when Files table spans 2+ source layers):** When the task modifies files across multiple code layers (e.g. both `shared/src/storage/` and `mcp/src/`), run sibling analysis independently at each layer where files are created or modified. At the MCP handler layer, the "closest sibling" is another tool handler in `server.ts` that has the same structural pattern (Zod arg parsing, try/catch, McpError mapping). At the storage layer, the closest sibling is another method on the same class or a peer store. At the adapter layer, the closest sibling is another adapter implementing a similar interface. Each layer's sibling pattern must be documented in the SIBLING PATTERN field and reflected in the task's step instructions — error handling patterns, argument validation patterns, and response formatting patterns from sibling handlers are as important as shared utility reuse.
 7. **Cross-package duplication check** (conditional — if the task creates a new utility, helper, or factory function) — Grep the entire codebase for functionally equivalent code. Check `mcp/src/` and `shared/src/` — not just the target layer. If equivalent logic already exists in another package, the task must either (a) extract the shared logic to `shared/` and modify both consumers, or (b) justify the duplication in Architecture Notes. Record in the EXISTING SOLUTIONS field.
 8. **Wiring completeness check** (conditional — composition root tasks, OR any task whose Files table includes a Modify row for the composition root, OR any task that changes the signature of a function called by the composition root) — For every function called in the wiring steps, verify that its return value is either (a) consumed by a subsequent step, or (b) the function is explicitly called for side effects only (document which side effects). If a function returns a rich object and only side effects are needed, note this in Architecture Notes as a follow-up to wire the return value when consumers are ready. When a non-composition-root task changes the signature of a function that the composition root calls (directly or via a closure), verify that the composition root's call site and any intermediary closures or wrappers are updated in the task's Files table and Steps.
-   8b. **Stale marker detection** (mandatory — all task types) — for every file in the Files table (both Create and Modify), grep for `TODO`, `FIXME`, `HACK` comments. Also grep for phase references (`Phase [A-Z]`) and cross-reference against `documentation/tasks/progress/mvp-progress.md` (main workspace) to check if the phase is complete while the comment uses future tense. Record each finding as: `[marker] at [file:line] — ACTIONABLE (phase done, work can be done now) / INFORMATIONAL (future work, not yet relevant)`. If an actionable marker is in a file the task modifies, consider adding it to the task scope (present via scope expansion in A.4c). If outside the task's files, report as follow-up.
+   8b. **Stale marker detection** (mandatory — all task types) — for every file in the Files table (both Create and Modify), grep for `TODO`, `FIXME`, `HACK` comments. Also grep for phase references (`Phase [A-Z]`) and cross-reference against `documentation/tasks/progress/aic-progress.md` (main workspace) to check if the phase is complete while the comment uses future tense. Record each finding as: `[marker] at [file:line] — ACTIONABLE (phase done, work can be done now) / INFORMATIONAL (future work, not yet relevant)`. If an actionable marker is in a file the task modifies, consider adding it to the task scope (present via scope expansion in A.4c). If outside the task's files, report as follow-up.
    8c. **Change-impact pattern scan** (mandatory — all task types) — identify the core change pattern of the task: what structural or behavioral change does it introduce? Then grep the ENTIRE codebase for all instances of the same pattern or assumption. This applies to every task type:
    - **Fix/patch tasks:** Define the broken pattern (e.g., `require("../../shared/")`). Grep for ALL files containing that pattern, not just the files the user mentioned or the first few matches. The fix must cover every instance.
    - **Greenfield tasks:** When creating a new file, adding an entry to a config, or wiring into an existing system — grep for all places that enumerate, count, or assert on the set being changed (e.g., a new hook file added to a directory means finding all tests/scripts that count files in that directory).

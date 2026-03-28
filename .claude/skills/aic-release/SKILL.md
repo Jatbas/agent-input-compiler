@@ -38,7 +38,7 @@ Run each command in sequence. Stop on any failure and report the exact error out
 2. Run `pnpm typecheck`. On failure: stop — "Typecheck failed. Fix type errors before proceeding."
 3. Run `pnpm lint`. On failure: stop — "Lint failed. Fix lint errors before proceeding."
 4. Run `pnpm knip`. Present findings to the user: "knip found N unused exports/files/dependencies. Review and remove or justify each." Wait for the user to confirm before proceeding. (knip findings are warnings, not hard stops — the user decides.)
-5. Read `documentation/tasks/progress/mvp-progress.md` (gitignored, main workspace only). Find all rows where Status is `In progress` or `Pending` in the phase tables for the current active phase. If any exist, show: "Warning: N components in the current phase are not Done: [list]. These will not be in this release. Proceed?" Wait for confirmation.
+5. Read `documentation/tasks/progress/aic-progress.md` (gitignored, main workspace only). Find all rows where Status is `In progress` or `Pending` in the phase tables for the current active phase. If any exist, show: "Warning: N components in the current phase are not Done: [list]. These will not be in this release. Proceed?" Wait for confirmation.
 
 ### Phase 2 — Repository state validation
 
@@ -91,11 +91,11 @@ If any quick-scan issues found, show them and ask: "N quick-scan issues found. F
 ### Phase 4 — Roadmap update
 
 1. Read `CHANGELOG.md`. Extract the most recent released version entry (the first `## [x.y.z]` section below `## [Unreleased]`) and its bullet points.
-2. Read `documentation/tasks/progress/mvp-progress.md` (gitignored, main workspace only). Find all components with status `Pending` or `Not started` in the current active phase — these are near-term planned items. Convert them to user-facing language (no phase letters, no task IDs, no status table values, no internal jargon).
+2. Read `documentation/tasks/progress/aic-progress.md` (gitignored, main workspace only). Find all components with status `Pending` or `Not started` in the current active phase — these are near-term planned items. Convert them to user-facing language (no phase letters, no task IDs, no status table values, no internal jargon).
 3. Check if `documentation/future/` exists (Glob). If it does, read all files in it and list the document titles and one-line summaries of their contents. If it does not exist, skip this input and omit the "Future direction candidates" section from the user presentation and the final roadmap.
 4. Show the user:
    - "**What's in the latest release:** [summarized bullet points from CHANGELOG section]"
-   - "**Proposed near-term (from mvp-progress):** [user-facing bullet list]"
+   - "**Proposed near-term (from progress):** [user-facing bullet list]"
    - "**Future direction candidates (from future/ docs):** [numbered list of titles + one-line summaries]"
    - Ask: "Which future direction items do you want to surface publicly? (list numbers / none / all)"
 5. Wait for response. Build the roadmap content from the approved selections.
@@ -131,7 +131,7 @@ Show the proposed version to the user: "Based on the unreleased entries, the nex
 
 ### Phase 6 — Release cut
 
-Read `.claude/skills/aic-update-changelog/SKILL.md` and follow its **Release cut** steps. Skip the branch check from step 0a (already confirmed in Pre-flight). Run step 0b explicitly before proceeding: run `git diff --cached --name-only` and verify no files other than `CHANGELOG.md`, `package.json`, `shared/package.json`, `mcp/package.json`, and `pnpm-lock.yaml` are staged. If unexpected staged files are found, stop: "Unexpected staged files: [list]. Unstage them before proceeding." Use the version confirmed in Phase 5.
+Read `.claude/skills/aic-update-changelog/SKILL.md` and follow its **Release cut** steps. Skip the branch check from step 0a (already confirmed in Pre-flight). Run step 0b explicitly before proceeding: run `git diff --cached --name-only` and verify no files other than `CHANGELOG.md`, `README.md`, `package.json`, `shared/package.json`, `mcp/package.json`, and `pnpm-lock.yaml` are staged. If unexpected staged files are found, stop: "Unexpected staged files: [list]. Unstage them before proceeding." Use the version confirmed in Phase 5.
 
 The release cut steps cover:
 
@@ -139,7 +139,7 @@ The release cut steps cover:
 - Bump version in `package.json`, `shared/package.json`, `mcp/package.json`
 - Run `pnpm install` to update `pnpm-lock.yaml`
 - Run `pnpm build && pnpm typecheck` (build gate)
-- Commit: `git add CHANGELOG.md package.json shared/package.json mcp/package.json pnpm-lock.yaml && git commit -m "chore(release): X.Y.Z"`
+- Commit: `git add CHANGELOG.md README.md package.json shared/package.json mcp/package.json pnpm-lock.yaml && git commit -m "chore(release): X.Y.Z"`
 - Push and tag remotely: `git push origin main && git push origin HEAD:refs/tags/vX.Y.Z` (no local tag — keeps the branch picker clean)
 - Poll CI: `gh run list --repo Jatbas/agent-input-compiler --workflow publish.yml --limit 5` — find the run triggered by `refs/tags/vX.Y.Z`, poll up to 20 times until complete
 - Verify npm: `npm view @jatbas/aic dist-tags.latest` must equal `X.Y.Z`; `npm view @jatbas/aic-core@X.Y.Z version` must return `X.Y.Z`
@@ -152,4 +152,4 @@ The release cut steps cover:
 - Re-running is safe and idempotent for phases 1–3 and 2.5. Phase 4 asks before overwriting `roadmap.md`. Phase 5 and 6 follow aic-update-changelog conventions which guard against double-release.
 - Never bump versions or push tags manually — always go through Phase 6.
 - Phase 2.5 `skip` is not recommended before first public release. Use `full` for major releases and `quick` for patch releases.
-- mvp-progress.md is read in Phases 1 and 4 — if it does not exist (e.g., in a fresh clone), those steps are skipped with a note.
+- The progress file is read in Phases 1 and 4 — if it does not exist (e.g., in a fresh clone), those steps are skipped with a note.

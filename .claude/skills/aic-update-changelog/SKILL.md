@@ -21,16 +21,16 @@ Maintain a curated, user-facing `CHANGELOG.md` at the project root. The changelo
 - When the user says "update changelog"
 - Before cutting a release (to finalize the `[Unreleased]` section into a versioned entry)
 - After completing a phase or significant user-facing milestone
-- When suggested by the `aic-update-mvp-progress` skill
+- When suggested by the `aic-update-progress` skill
 - When the user says "show releases" — to list all versions and their status
 - When the user says "deprecate x.y.z" — to deprecate a release on npm, GitHub, and in the changelog
 
-Do **not** run after every small internal task — that is the mvp-progress skill's job.
+Do **not** run after every small internal task — that is the progress-update skill's job.
 
 ## Inputs
 
 1. **`CHANGELOG.md`** (project root) — the current changelog, or absent if bootstrapping.
-2. **`documentation/tasks/progress/mvp-progress.md`** — source of truth for what has been implemented (main workspace only — gitignored). Read this to understand recent completions.
+2. **`documentation/tasks/progress/aic-progress.md`** — source of truth for what has been implemented (main workspace only — gitignored). Read this to understand recent completions.
 3. **The user's message** — may specify which changes to add, or request a release cut.
 
 ## Steps
@@ -41,7 +41,7 @@ Do **not** run after every small internal task — that is the mvp-progress skil
 
 1. **Read** `CHANGELOG.md`. If it does not exist, bootstrap it with the file header (see Format below) and an empty `[Unreleased]` section. If the file exists but has no `[Unreleased]` section, insert one immediately after the file header and before the first versioned section.
 
-2. **Read** `documentation/tasks/progress/mvp-progress.md` from the **main workspace** (this file is gitignored and does not exist in worktrees). Look for components with `Done` in the Status column of Phase tables, and completed entries under `### YYYY-MM-DD` daily log headings. If the most recent daily log entry is older than the most recent git commit, warn the user that mvp-progress may be stale before proceeding. If mvp-progress does not exist or is empty (e.g., running in a worktree or after ad-hoc work), fall back to `git log <last-tag>..HEAD --oneline` and use that as the raw input for curation.
+2. **Read** `documentation/tasks/progress/aic-progress.md` from the **main workspace** (this file is gitignored and does not exist in worktrees). Look for components with `Done` in the Status column of Phase tables, and completed entries under `### YYYY-MM-DD` daily log headings. If the most recent daily log entry is older than the most recent git commit, warn the user that the progress file may be stale before proceeding. If aic-progress.md does not exist or is empty (e.g., running in a worktree or after ad-hoc work), fall back to `git log <last-tag>..HEAD --oneline` and use that as the raw input for curation.
 
 3. **Curate entries for `[Unreleased]`:**
    - Collapse internal implementation detail into user-facing descriptions. Multiple related components become one line (e.g., three scan optimizations become "Compilation scan performance improvements").
@@ -92,14 +92,15 @@ When the user approves a release suggestion above, or says "cut release x.y.z" d
 
    a. **Branch:** Run `git branch --show-current`. If the result is not `main`, stop and tell the user to switch to `main` before cutting a release.
 
-   b. **Clean tree:** Run `git status --porcelain`. If any files are staged or modified beyond the four files that will be committed (`CHANGELOG.md`, `package.json`, `shared/package.json`, `mcp/package.json`), surface a warning listing the unexpected changes and ask the user to stash or commit them first.
+   b. **Clean tree:** Run `git status --porcelain`. If any files are staged or modified beyond the files that will be committed (`CHANGELOG.md`, `README.md`, `package.json`, `shared/package.json`, `mcp/package.json`), surface a warning listing the unexpected changes and ask the user to stash or commit them first.
 
 1. **Rename** `[Unreleased]` to `[x.y.z] - YYYY-MM-DD` using today's date.
 2. **Create a fresh empty `[Unreleased]`** section above the new version entry.
 3. **Update comparison links** at the bottom of the file if they exist.
 4. **Bump versions** in `package.json` (root), `shared/package.json`, and `mcp/package.json` to `x.y.z`. All three must have the same version — verify before proceeding. Then run `pnpm install` to update `pnpm-lock.yaml` to reflect the bumped workspace dependency resolution.
+   4b. **Update README status badge.** In `README.md`, find the status badge line (`![Status](https://img.shields.io/badge/status-...`) and replace the version in the URL with `x.y.z`. The badge format is `https://img.shields.io/badge/status-x.y.z-brightgreen`. Verify the replacement by re-reading the line.
 5. **Build gate:** Run `pnpm build && pnpm typecheck`. If either fails, stop and report the error. Do not proceed to commit or tag until the build is clean — a bad tag on the remote is difficult to retract and npm's immutability rule can permanently burn a version slot.
-6. **Commit:** `git add CHANGELOG.md package.json shared/package.json mcp/package.json pnpm-lock.yaml && git commit -m "chore(release): x.y.z"`.
+6. **Commit:** `git add CHANGELOG.md README.md package.json shared/package.json mcp/package.json pnpm-lock.yaml && git commit -m "chore(release): x.y.z"`.
 7. **Tag:** `git tag vx.y.z`.
 8. **Push:** `git push origin main && git push origin vx.y.z`.
 9. **Wait for CI to publish to npm.** The GitHub Actions workflow (`.github/workflows/publish.yml`) triggers automatically on `v*` tag pushes and handles building and publishing both packages via OIDC trusted publishing. Do **not** attempt to publish locally.

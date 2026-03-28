@@ -67,7 +67,7 @@ pnpm lint
 
 At minimum, read [architecture.md](documentation/architecture.md) and [implementation-spec.md](documentation/implementation-spec.md) so your changes match the project's design and rules.
 
-For optional Agent Skill workflows in this repo, including planning, execution, documentation, research, changelog and MVP progress updates, internal git history cleanup, and releasing, see [contributor-agent-skills.md](documentation/contributor-agent-skills.md).
+For optional Agent Skill workflows in this repo, including planning, execution, documentation, research, changelog and internal progress updates, internal git history cleanup, and releasing, see [contributor-agent-skills.md](documentation/contributor-agent-skills.md).
 
 ### Other useful commands
 

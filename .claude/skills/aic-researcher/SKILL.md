@@ -43,7 +43,7 @@ Read these reference files when the question involves the AIC codebase:
 
 1. `documentation/project-plan.md` — architecture, ADRs, conventions
 2. `documentation/implementation-spec.md` — detailed component specs
-3. `documentation/tasks/progress/mvp-progress.md` — what is done, what is next (main workspace only — gitignored)
+3. `documentation/tasks/progress/aic-progress.md` — what is done, what is next (main workspace only — gitignored)
 4. `documentation/security.md` — security constraints
 5. `.cursor/rules/AIC-architect.mdc` — active architectural rules
 6. `../shared/SKILL-investigation.md` — runtime evidence checklist and codebase investigation depth (include in explorer prompts)
@@ -216,7 +216,7 @@ For each finding, ask: **"What does this mean for AIC beyond the obvious first-o
 
 **Examples of first-order vs. second-order reasoning:**
 
-- Finding: "MCP is moving toward stateless transport." First-order: "Doesn't affect AIC's stdio MVP." Second-order: "MCP's cookie-like session mechanism could influence AIC's Phase 1 session tracking design — aligning early avoids rework."
+- Finding: "MCP is moving toward stateless transport." First-order: "Doesn't affect AIC's stdio transport." Second-order: "MCP's cookie-like session mechanism could influence AIC's Phase 1 session tracking design — aligning early avoids rework."
 - Finding: "Enterprise WG doesn't exist yet." First-order: "Track it." Second-order: "AIC's Phase 1 OSS release positions it to contribute requirements to the WG from day one, shaping the spec rather than reacting to it."
 
 **Process:** After writing the draft synthesis (§4c), re-read each finding and write one sentence starting with "This also means..." or "The non-obvious consequence is..." If no second-order implication exists after genuine effort, note "First-order only — no downstream project implications identified." Include the strongest implications in the Analysis section. This is what separates a fact-reporting exercise from strategic research.
@@ -293,8 +293,8 @@ Before finalizing, verify all five gates pass:
 
 **How to generate:**
 
-1. Read `documentation/tasks/progress/mvp-progress.md` (main workspace) to understand the current phase structure, categories, and entry format.
-2. For each recommendation, determine: (a) which phase it belongs to based on the evidence in the findings, (b) the closest category in mvp-progress, (c) a one-line entry matching the style of existing entries, (d) whether it's immediately plannable or deferred (and why).
+1. Read `documentation/tasks/progress/aic-progress.md` (main workspace) to understand the current phase structure, categories, and entry format.
+2. For each recommendation, determine: (a) which phase it belongs to based on the evidence in the findings, (b) the closest category in aic-progress, (c) a one-line entry matching the style of existing entries, (d) whether it's immediately plannable or deferred (and why).
 3. Write the Roadmap Mapping table in the research document using the template.
 4. Recommendations that are purely informational ("track this") get "No — tracking only" in the Immediate column. Recommendations that depend on external events ("when WG forms") get "No — depends on [event]". Recommendations that can be planned and executed now get "Yes — plannable now".
 
@@ -318,7 +318,7 @@ Use today's date. If a file with that name already exists, append a sequence num
 >
 > **Open questions:** [count] — [one-line summary of what's uncertain]
 >
-> Tell me which roadmap entries to add to `documentation/tasks/progress/mvp-progress.md`, or say "plan tasks based on this research".
+> Tell me which roadmap entries to add to `documentation/tasks/progress/aic-progress.md`, or say "plan tasks based on this research".
 
 ---
 
@@ -371,7 +371,7 @@ Use today's date. If a file with that name already exists, append a sequence num
 | --- | -------------- | ---------------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | [N] | [short name]   | [0 / 0.5 / 1 / 2 / 3 or "Current"] | [category from progress file — e.g. MCP Server, Documentation, Enterprise] | [one-line entry as it would appear in the progress table] | [Yes — plannable now / No — [reason: tracking only, depends on X, WG doesn't exist yet, etc.]] |
 
-> **To add these to the roadmap:** tell me which rows to add to `documentation/tasks/progress/mvp-progress.md` and I'll write them.
+> **To add these to the roadmap:** tell me which rows to add to `documentation/tasks/progress/aic-progress.md` and I'll write them.
 
 ## Open Questions
 

@@ -1,15 +1,15 @@
 ---
 name: aic-roadmap-forge
-description: Generates new phases and roadmap entries for mvp-progress.md by synthesizing documentation, codebase analysis, and external research through adversarial multi-agent review.
+description: Generates new phases and roadmap entries for the progress file by synthesizing documentation, codebase analysis, and external research through adversarial multi-agent review.
 ---
 
 # Roadmap Forge
 
 ## Purpose
 
-Synthesize what the project _should_ become next. Reads documentation, analyzes the codebase, and researches the external ecosystem to propose new phases and component entries for `documentation/tasks/progress/mvp-progress.md`.
+Synthesize what the project _should_ become next. Reads documentation, analyzes the codebase, and researches the external ecosystem to propose new phases and component entries for `documentation/tasks/progress/aic-progress.md`.
 
-The deliverable is a **draft phase proposal** — header, description, and component table rows in the exact format used by mvp-progress.md — shown to the user for approval before any write.
+The deliverable is a **draft phase proposal** — header, description, and component table rows in the exact format used by aic-progress.md — shown to the user for approval before any write.
 
 **Announce at start:** "Using the roadmap-forge skill."
 
@@ -31,13 +31,13 @@ The deliverable is a **draft phase proposal** — header, description, and compo
 | §5 Adversarial review     | Feasibility critic + strategic fit critic + adjudication         | No                          |
 | §5b Convergence detection | Re-spawn if explorers over-agreed or no disconfirmation found    | No                          |
 | §6 Present                | Draft phases displayed to user                                   | **Yes — wait for approval** |
-| §7 Write                  | Approved phases inserted into mvp-progress.md                    | No (post-approval)          |
+| §7 Write                  | Approved phases inserted into aic-progress.md                    | No (post-approval)          |
 
 ## When to Use
 
 - User says "what should we build next", "generate next phase", "plan Phase 2", "what's left", "forge roadmap"
-- After a release cut, when the progress file has no remaining `Not started` entries worth pursuing. Typically run immediately after `aic-release` completes — release Phase 4 generates the public `roadmap.md`; forge generates the next internal phase structure in `mvp-progress.md`.
-- When `aic-task-planner` is invoked but `mvp-progress.md` has no `Not started` or `Pending` components — forge is the correct next step.
+- After a release cut, when the progress file has no remaining `Not started` entries worth pursuing. Typically run immediately after `aic-release` completes — release Phase 4 generates the public `roadmap.md`; forge generates the next internal phase structure in `aic-progress.md`.
+- When `aic-task-planner` is invoked but `aic-progress.md` has no `Not started` or `Pending` components — forge is the correct next step.
 - When the user provides a research document and says "generate phases from this"
 - When the user wants codebase optimization proposals added to the roadmap
 
@@ -68,7 +68,7 @@ Use ONLY the specified document. Skip Tier 1 and Tier 2. If the document yields 
 
 ## §0. Strategic Framing
 
-**Run before reading any file — including mvp-progress.md.** This step exists to prevent the single greatest failure mode in auto mode: convergence on safe, obvious, predictable proposals that a developer could derive from a 60-second scan of the docs.
+**Run before reading any file — including aic-progress.md.** This step exists to prevent the single greatest failure mode in auto mode: convergence on safe, obvious, predictable proposals that a developer could derive from a 60-second scan of the docs.
 
 Generate **3-5 hypotheses** about where the project should go. Each hypothesis is a possible answer to: _"What should AIC become in the next 6-12 months?"_
 
@@ -90,10 +90,10 @@ Generate **3-5 hypotheses** about where the project should go. Each hypothesis i
 
 Read these files **before** spawning any explorer:
 
-1. `documentation/tasks/progress/mvp-progress.md` (main workspace only) — understand every phase, every component, every status. Build an inventory of what is already tracked (regardless of Done/Not started).
+1. `documentation/tasks/progress/aic-progress.md` (main workspace only) — understand every phase, every component, every status. Build an inventory of what is already tracked (regardless of Done/Not started).
 2. The resolved input source(s) from Input Routing above.
 
-**Gap identification:** The core question is: _"What appears in the input source(s) as planned, desired, or architecturally implied — but is absent from every phase table in mvp-progress.md?"_
+**Gap identification:** The core question is: _"What appears in the input source(s) as planned, desired, or architecturally implied — but is absent from every phase table in aic-progress.md?"_
 
 List candidates before proceeding. For each candidate, note that "absent from phase tables" is necessary but not sufficient — a component may be tracked under a different name, or already fully implemented in code. Explorer 1 will verify both.
 
@@ -137,7 +137,7 @@ If Explorer 1 disconfirmation count is 0, treat as convergence condition 2 in §
 
 **Task:** For each §1 candidate:
 
-1. Verify it is genuinely absent from mvp-progress.md — search by multiple phrasings, not exact name match, to catch renamed or grouped variants.
+1. Verify it is genuinely absent from aic-progress.md — search by multiple phrasings, not exact name match, to catch renamed or grouped variants.
 2. Perform a secondary codebase check: search for related implementation code using keywords from the candidate's domain. If implementation code exists, mark the candidate as "Likely already shipped under different name" and exclude it unless you can confirm the code is absent.
 3. **Disconfirmation check (mandatory):** For each candidate, actively look for evidence it should NOT be built:
    - Was it attempted and removed? (Check git log, dead code, commented-out references)
@@ -190,7 +190,7 @@ Use official documentation and primary sources. Return findings with URLs and on
 
 **Document selection:** For Tier 3 — use the user-specified document. For Tier 2 — pass the document with the Roadmap Mapping section as the specified document. If multiple Tier 2 documents have Roadmap Mapping sections, spawn one Explorer 4 per document (each as a separate subagent with its own document).
 
-**Task:** Read the specified document in full. Extract every roadmap candidate, deferred recommendation, and open question. Map each to the closest existing phase category in mvp-progress.md. Verify feasibility by cross-checking the codebase: does the infrastructure exist to support this?
+**Task:** Read the specified document in full. Extract every roadmap candidate, deferred recommendation, and open question. Map each to the closest existing phase category in aic-progress.md. Verify feasibility by cross-checking the codebase: does the infrastructure exist to support this?
 
 ---
 
@@ -222,7 +222,7 @@ Before grouping, scan all candidate names against the convention: (1) title-case
 
 **Conflict resolution:** If two explorers propose incompatible structures for the same candidates, prefer the structure that minimizes cross-phase dependencies. If still ambiguous, create more phases rather than larger phases — it is easier to merge phases than to split them.
 
-**For each proposed phase, draft using the schema of the adjacent phase in mvp-progress.md** (read the phase immediately preceding the intended insertion point to determine whether the table uses `Package` or `Skill` column):
+**For each proposed phase, draft using the schema of the adjacent phase in aic-progress.md** (read the phase immediately preceding the intended insertion point to determine whether the table uses `Package` or `Skill` column):
 
 ```
 ### Phase [letter/subletter or version] — [Short title]
@@ -319,7 +319,7 @@ After task details are drafted, run one pass to answer: **"What does shipping th
 3. **User-visible compounding:** Do two or more components in this phase combine to produce a user-visible improvement greater than either alone? If yes, note the combination explicitly.
 4. **Risk surface:** Does shipping this phase introduce a new class of failure (new external dependency, new database write path, new security boundary)? If yes, annotate the highest-risk component: "Risk surface: [description]."
 
-These annotations appear in the §6 presentation but are NOT added to the mvp-progress.md table rows — they are advisory context for the user's approval decision.
+These annotations appear in the §6 presentation but are NOT added to the aic-progress.md table rows — they are advisory context for the user's approval decision.
 
 ---
 
@@ -347,7 +347,7 @@ Critic A receives:
 
 - The original input source(s) summary
 - The draft phase proposals from §4 (including name normalization notes)
-- The full mvp-progress.md phase inventory
+- The full aic-progress.md phase inventory
 
 Critic A's tasks:
 
@@ -380,14 +380,14 @@ Critic B receives:
 
 - The draft phase proposals from §4
 - The §0 strategic hypotheses and which were supported/refuted by explorer evidence
-- The full mvp-progress.md phase inventory
+- The full aic-progress.md phase inventory
 - The README.md "Why developers use AIC" and "What it helps with" sections (Critic B reads these to ground strategy in stated user pain)
 
 Critic B's tasks:
 
 1. **AIC positioning alignment:** Does each proposal advance AIC's core purpose (deterministic context compilation for AI coding tools)? Reject proposals that expand AIC's scope beyond this without strong user pain evidence.
 2. **Real user pain evidence:** For each proposal, challenge whether it addresses a real, documented user pain. Does any explorer finding cite actual user pain (issue tracker, user feedback, observable behavior)? A technically interesting proposal with no user pain evidence should be flagged as "speculation risk."
-3. **Opportunity cost:** Given finite development capacity, does including this phase crowd out higher-value work? If a proposal is lower value than what is already Not started in mvp-progress.md, recommend deferral.
+3. **Opportunity cost:** Given finite development capacity, does including this phase crowd out higher-value work? If a proposal is lower value than what is already Not started in aic-progress.md, recommend deferral.
 4. **Simpler alternative test:** For each proposal, ask: "Is there a simpler intervention that solves 80% of the same problem in 20% of the work?" If yes, propose the simpler alternative as a replacement.
 5. **Hypothesis alignment:** Cross-reference each proposal against the §0 strategic hypotheses. Proposals that are not supported by any hypothesis AND were not identified by disconfirmation evidence should be challenged as hypothesis-free additions — either reject or require the forge to state which hypothesis they serve.
 6. **Coherence check:** Do the proposals as a set tell a coherent story about where AIC is going? Or is it a grab-bag of independent improvements? If the latter, recommend a coherence edit — removing the least coherent proposal to strengthen the narrative.
@@ -479,13 +479,13 @@ Otherwise, display all proposed phases in full (header + description + table).
 
 ---
 
-## §7. Write to mvp-progress.md
+## §7. Write to aic-progress.md
 
-**Main workspace only.** Never write to a worktree — `mvp-progress.md` is gitignored and must live in the main workspace.
+**Main workspace only.** Never write to a worktree — `aic-progress.md` is gitignored and must live in the main workspace.
 
 **Pre-write checks (run before any edit):**
 
-1. **Freshness check:** Re-read `mvp-progress.md` now. If the file has changed since §1 (compare header metrics or line count), announce: "mvp-progress.md has changed since this session began. Proceeding with a fresh read." Use the current file state for all positional insertions and metric recounts.
+1. **Freshness check:** Re-read `aic-progress.md` now. If the file has changed since §1 (compare header metrics or line count), announce: "aic-progress.md has changed since this session began. Proceeding with a fresh read." Use the current file state for all positional insertions and metric recounts.
 
 2. **Collision check:** For each approved phase, search the file for any existing `### Phase [letter]` or `### Phase [letter][letter]` header matching the proposed name. If a collision is detected, halt and report: "Phase [X] already exists in the file. Confirm the intended phase letter or an alternative before writing."
 
@@ -495,7 +495,7 @@ Otherwise, display all proposed phases in full (header + description + table).
 
 2. **Determine table schema:** Read the phase immediately preceding the insertion point. Use the same column names. If the new phase is documentation-focused (no source files), use a `Skill` column instead of `Package` (matching the Phase VA pattern).
 
-3. **Update header metrics:** Following the update-mvp-progress recounting algorithm — recount `Done` rows per named header field (`**Phase 1.0:**`, `**Phase 1.5:**`), scoped to that version group only. New `Not started` entries increase M but not N. Also update `**Current phase:**` if the active phase letter has advanced. Update `**Status:**` with a one-sentence description of current progress state. Do NOT touch `**Version target:**` or `**Previous:**` unless explicitly asked. If a new version group is introduced, add a new `**Phase X.Y:** 0/M done` header field above the new section.
+3. **Update header metrics:** Following the update-progress recounting algorithm — recount `Done` rows per named header field (`**Phase 1.0:**`, `**Phase 1.5:**`), scoped to that version group only. New `Not started` entries increase M but not N. Also update `**Current phase:**` if the active phase letter has advanced. Update `**Status:**` with a one-sentence description of current progress state. Do NOT touch `**Version target:**` or `**Previous:**` unless explicitly asked. If a new version group is introduced, add a new `**Phase X.Y:** 0/M done` header field above the new section.
 
 4. **Daily log entry:** After inserting phase sections, add a daily log entry following the format used by adjacent entries: today's date, action taken ("Forge: Added Phase [X] — [title], [N] components"), updated header metric.
 
@@ -512,7 +512,7 @@ Do not change any existing phase content, table structure, or other daily log en
 - Description column: one sentence, imperative, technical (matches the style of adjacent entries)
 - Deps column: use `—` for no deps; component name for intra-phase deps; phase letter for cross-phase deps
 - Package column: shortest accurate path (`mcp/`, `shared/src/adapters/`, `./`)
-- This skill is the only entry point for adding new phases to mvp-progress.md — status updates on existing entries go through `aic-update-mvp-progress`
+- This skill is the only entry point for adding new phases to aic-progress.md — status updates on existing entries go through `aic-update-progress`
 - After a maintainer approves and ships a new skill (including this one), add an entry to `documentation/contributor-agent-skills.md` with Type: Internal and a one-sentence role description matching the skill's Purpose section
 
 ---

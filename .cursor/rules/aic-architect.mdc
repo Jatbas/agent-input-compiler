@@ -45,7 +45,7 @@ These bullets are the single source of truth: the sessionStart hook (`.cursor/ho
 - **Global DB:** The database is a single file at `~/.aic/aic.sqlite`. Per-project isolation is enforced via `project_id` in store queries (all per-project stores take `projectId: ProjectId` and use `WHERE project_id = ?`).
 - **IDs:** All entity PKs use UUIDv7 (`TEXT(36)` in SQLite). Never `INTEGER AUTOINCREMENT` for entities. Exception: `config_history` uses composite PK `(project_id, config_hash)` with SHA-256 `config_hash`. See Project Plan ADR-007.
 - **Timestamps:** Always `YYYY-MM-DDTHH:mm:ss.sssZ` (UTC, milliseconds, trailing `Z`). Use the `Clock` interface — never `new Date()` or `Date.now()` directly. Use the `ISOTimestamp` branded type. See Project Plan ADR-008.
-- **Docs as source of truth:** Read `documentation/` before proposing or changing code. The Project Plan is the architecture spec. The MVP Spec is the implementation spec.
+- **Docs as source of truth:** Read `documentation/` before proposing or changing code. The Project Plan is the architecture spec. The implementation specification (`documentation/implementation-spec.md`) is the implementation contract.
 - **Commits:** Format `type(scope): description`, max 72 chars, target 50-60, imperative, no period. Subject line only — no body or footer. Never use `--no-verify`.
 - **File ops:** Use targeted edits (search_replace / minimal edit) on the minimum necessary lines. Do not read a file and write a new file when an in-place edit suffices.
 - **No .md without instruction:** Do not create or modify any .md file (documentation/, README, .cursor/rules/, etc.) unless the user explicitly asks you to.

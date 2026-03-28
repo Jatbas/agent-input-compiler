@@ -2,7 +2,7 @@
 
 ## Current release focus (MCP server and developer utilities)
 
-> This document defines what ships in the current MVP scope. It inherits architecture and definitions from the [Project Plan](project-plan.md). Refer to the Project Plan for the full glossary, enterprise roadmap, and strategic context.
+> This document defines what ships in the current open-source release of this repository. It inherits architecture and definitions from the [Project Plan](project-plan.md). Refer to the Project Plan for the full glossary, enterprise roadmap, and strategic context.
 >
 > **All implementation must comply with the SOLID principles and design patterns defined in [Project Plan §2.1](project-plan.md).** This is non-negotiable and checked in code review before any other criterion.
 
@@ -12,10 +12,10 @@
 
 - [Current release focus](#current-release-focus-mcp-server-and-developer-utilities)
 
-1. [MVP Goal](#1-mvp-goal)
-2. [What Ships in MVP](#2-what-ships-in-mvp)
+1. [Goal](#1-goal)
+2. [What ships](#2-what-ships)
 3. [Defaults](#3-defaults)
-4. [Core Pipeline — MVP Implementation Detail](#4-core-pipeline--mvp-implementation-detail)
+4. [Core Pipeline — implementation detail](#4-core-pipeline--implementation-detail)
    - [Pipeline orchestration (`runPipelineSteps`)](#pipeline-orchestration-runpipelinesteps)
    - [Step 1: Task Classifier](#step-1-task-classifier)
    - [Step 2: Rule Pack Resolver](#step-2-rule-pack-resolver)
@@ -24,7 +24,7 @@
    - [Step 5: Context Guard](#step-5-context-guard)
    - [Step 5.5: Content Transformer](#step-55-content-transformer)
    - [Step 6: Summarisation Ladder](#step-6-summarisation-ladder)
-   - [Language Support (MVP)](#language-support-mvp)
+   - [Language support](#language-support)
    - [Step 7: Constraint Injector](#step-7-constraint-injector)
    - [Step 8: Prompt Assembler](#step-8-prompt-assembler)
    - [Step 9: Executor (deferred design)](#step-9-executor-deferred-design)
@@ -32,17 +32,17 @@
    - [Step 10: Telemetry Logger](#step-10-telemetry-logger)
    - [Rules & Hooks Analyzer — deferred design note](#4b-rules--hooks-analyzer--deferred-design-note)
    - [Init, inspect, and status](#4c-init-inspect-and-status)
-   - [MVP additions](#4d-mvp-additions)
+   - [Additional implementation notes](#4d-additional-implementation-notes)
 5. [Success Criteria](#5-success-criteria)
-6. [Error Handling (MVP)](#6-error-handling-mvp)
-7. [Security, Observability & Performance (MVP)](#7-security-observability--performance-mvp)
+6. [Error handling](#6-error-handling)
+7. [Security, observability & performance](#7-security-observability--performance)
    - [Security](#security)
    - [Observability](#observability)
    - [Performance](#performance)
    - [Incremental compilation performance](#incremental-compilation-performance)
    - [Dependencies](#dependencies)
-8. [Multi-Project Behaviour (MVP)](#8-multi-project-behaviour-mvp)
-   - 8a. [MVP Test Plan](#8a-mvp-test-plan)
+8. [Multi-project behaviour](#8-multi-project-behaviour)
+   - 8a. [Test plan](#8a-test-plan)
    - 8b. [MCP Server Startup Sequence](#8b-mcp-server-startup-sequence)
    - 8c. [Input Validation (Zod Schemas)](#8c-input-validation-zod-schemas)
    - 8d. [Global database & per-project isolation](#8d-global-database--per-project-isolation)
@@ -55,7 +55,7 @@
 
 ---
 
-## 1. MVP Goal
+## 1. Goal
 
 Deliver a working **MCP server** that compiles optimal context for AI coding tools — with zero required configuration.
 
@@ -73,7 +73,7 @@ Deliver a working **MCP server** that compiles optimal context for AI coding too
 
 ---
 
-## 2. What Ships in MVP
+## 2. What ships
 
 ### Included ✅
 
@@ -156,7 +156,7 @@ All defaults apply when no config file exists or a field is omitted.
 
 ---
 
-## 4. Core Pipeline — MVP Implementation Detail
+## 4. Core Pipeline — implementation detail
 
 > **Audience:** Sections §1–§3 are readable by integrators and curious users. From the pipeline orchestration subsection onward, this document is a developer reference: it names types, file paths, and behaviour tied to `shared/src/core/run-pipeline-steps.ts` and `shared/src/bootstrap/create-pipeline-deps.ts`.
 
@@ -287,7 +287,7 @@ Full scoring detail with normalisation methods: [Project Plan §8](project-plan.
 
 > **Scope:** Context Guard controls what AIC includes in the compiled prompt. It does not prevent models from reading excluded files directly through editor-provided tools (`read_file`, `Shell`). Direct file access is governed by the editor's permission model (e.g. `.cursorignore`).
 
-**Checks run in order (MVP):**
+**Checks run in order (shipped):**
 
 | Scanner                      | Finding type        | Severity          | Action                                                                                                            |
 | ---------------------------- | ------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------- |
@@ -299,12 +299,12 @@ Full scoring detail with normalisation methods: [Project Plan §8](project-plan.
 
 Wiring order for content scanners: `create-pipeline-deps.ts` builds the `contentScanners` array as Secret → PromptInjection → MarkdownInstruction → CommandInjection, after `ExclusionScanner` in `ContextGuard`.
 
-**Never-include path patterns (MVP):**
+**Never-include path patterns (shipped):**
 `.env`, `.env.*`, `*.pem`, `*.key`, `*.pfx`, `*.p12`, `*secret*`, `*credential*`, `*password*`, `*.cert`
 
-**Secret patterns (MVP):** 6 regex patterns covering AWS keys, GitHub tokens, Stripe keys, generic named API keys, JWTs, and SSH/TLS private key headers. See [Project Plan §8.4](project-plan.md#84-contextguard-interface) for the full pattern table.
+**Secret patterns (shipped):** 6 regex patterns covering AWS keys, GitHub tokens, Stripe keys, generic named API keys, JWTs, and SSH/TLS private key headers. See [Project Plan §8.4](project-plan.md#84-contextguard-interface) for the full pattern table.
 
-**Prompt injection patterns (MVP):** 6 regex patterns covering instruction override, persona hijack, fake system prompt headers, constraint override, and model-specific special token injection (OpenAI chat markup, Llama/Mistral instruction tokens). See [Project Plan §8.4](project-plan.md#84-contextguard-interface) for the full pattern table and false-positive mitigation guidance.
+**Prompt injection patterns (shipped):** 6 regex patterns covering instruction override, persona hijack, fake system prompt headers, constraint override, and model-specific special token injection (OpenAI chat markup, Llama/Mistral instruction tokens). See [Project Plan §8.4](project-plan.md#84-contextguard-interface) for the full pattern table and false-positive mitigation guidance.
 
 **Behaviour on exclusion:**
 
@@ -463,11 +463,11 @@ All transformer flags default to `true`. Set `contentTransformers.enabled: false
 
 ---
 
-### Language Support (MVP)
+### Language support
 
 AIC uses a pluggable **`LanguageProvider`** interface for all language-specific operations in Steps 4 and 6. See the [Project Plan §8.1](project-plan.md) for the full interface definition.
 
-**MVP ships with these `LanguageProvider` registrations** (`create-pipeline-deps.ts`), in order: `TypeScriptProvider`, `MarkdownProvider`, optional `additionalProviders` from the composition root (defaults to none in `mcp/src/server.ts` — tree-sitter based providers are bundled in `@jatbas/aic-core` but not passed unless extended), `GenericImportProvider`, `GenericProvider`.
+**The shipped build registers these `LanguageProvider` implementations** (`create-pipeline-deps.ts`), in order: `TypeScriptProvider`, `MarkdownProvider`, optional `additionalProviders` from the composition root (defaults to none in `mcp/src/server.ts` — tree-sitter based providers are bundled in `@jatbas/aic-core` but not passed unless extended), `GenericImportProvider`, `GenericProvider`.
 
 | Provider                | Role                                                                             |
 | ----------------------- | -------------------------------------------------------------------------------- |
@@ -496,7 +496,7 @@ AIC uses a pluggable **`LanguageProvider`** interface for all language-specific 
 | L2 (Signatures Only)   | Best-effort regex (`function`, `class`, `def`, `func`, `pub fn`) |
 | L3 (Names Only)        | File path + regex-extracted names                                |
 
-Adding new language support post-MVP requires only implementing the `LanguageProvider` interface and registering it — zero core pipeline changes.
+Adding new language support later requires only implementing the `LanguageProvider` interface and registering it — zero core pipeline changes.
 
 ---
 
@@ -568,7 +568,7 @@ Type: {taskClass} (confidence: {confidence})
 
 This section describes a future direct-execution path that is not part of the current release. In that future mode, AIC would send compiled input to the configured model endpoint via the appropriate provider SDK.
 
-**Supported providers (MVP):**
+**Supported providers (shipped):**
 
 | Provider  | API key required          | Notes                                                                                                                       |
 | --------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
@@ -595,7 +595,7 @@ This section describes a future direct-execution path that is not part of the cu
 | HTTP 404 (not found)    | No        | Fail immediately — check model name and endpoint                     |
 | All other 4xx           | No        | Fail immediately                                                     |
 
-Maximum retries: **1**. No exponential backoff in MVP (may be extended in a later release if needed). Retry attempt is logged at `info` level; final failure at `error` level.
+Maximum retries: **1**. No exponential backoff in the shipped implementation (may be extended in a later release if needed). Retry attempt is logged at `info` level; final failure at `error` level.
 
 ---
 
@@ -646,7 +646,7 @@ This analyzer is not implemented in the shipped MCP package. The section below i
 
 **Trigger:** Runs once per unique combination of project root + rule file mtimes. Results are cached until a watched rule file changes — it does not re-scan on every compilation unless files have changed.
 
-**Watched sources (MVP):**
+**Watched sources (shipped):**
 
 | Source         | Path                                | What is checked                                                                     |
 | -------------- | ----------------------------------- | ----------------------------------------------------------------------------------- |
@@ -751,7 +751,7 @@ Returns the most recent compilation as JSON. Surfaced to the user via the "show 
 
 ---
 
-## 4d. MVP Additions
+## 4d. Additional implementation notes
 
 ### First-run UX (shipped surface)
 
@@ -802,7 +802,7 @@ The formula-derived `suggestedBudget` slots in just above the hard-coded default
 
 The trigger rule installed during bootstrap (e.g. `.cursor/rules/AIC.mdc`) instructs the editor's AI to call `aic_compile`. The trigger rule is suggestive — compliance depends on the model and editor. In Cursor, the integration layer (hooks) provides stronger enforcement via `preToolUse` gating. In editors without hook support, the trigger rule is the sole mechanism.
 
-**Per-editor trigger formats (MVP):**
+**Per-editor trigger formats (shipped):**
 
 | Editor      | Trigger file            | Key attributes                                                                                                                               |
 | ----------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -906,7 +906,7 @@ Each canonical task runs against a synthetic fixture repository stored at `test/
 
 ---
 
-## 6. Error Handling (MVP)
+## 6. Error handling
 
 | Scenario                             | User-facing message                                                                                                                                                                                                              | Exit code |
 | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
@@ -929,9 +929,9 @@ Exit codes: `0` = success (may include warnings); `1` = fatal error.
 
 ---
 
-## 7. Security, Observability & Performance (MVP)
+## 7. Security, observability & performance
 
-These topics are specified in full in the [Project Plan](project-plan.md). Below are the MVP-critical highlights:
+These topics are specified in full in the [Project Plan](project-plan.md). Below are the implementation-critical highlights:
 
 ### Security
 
@@ -982,7 +982,7 @@ Full detail: [Project Plan §17](project-plan.md).
 
 ---
 
-## 8. Multi-Project Behaviour (MVP)
+## 8. Multi-project behaviour
 
 ```
 ~/.aic/
@@ -1004,9 +1004,9 @@ Project-A/              Project-B/
 
 ---
 
-## 8a. MVP Test Plan
+## 8a. Test plan
 
-This section summarizes the test deliverables that ship with the MVP scope described here. Full testing strategy: [Project Plan §18](project-plan.md).
+This section summarizes the test deliverables that ship with the scope described in this document. Full testing strategy: [Project Plan §18](project-plan.md).
 
 ### Unit Tests (per pipeline step)
 
@@ -1167,7 +1167,7 @@ const InspectRequestSchema = z.object({
 
 ### `AicConfigSchema`
 
-`shared/src/config/load-config-from-file.ts` validates `aic.config.json` with a **minimal** Zod object (MVP subset). All top-level keys are optional; `{}` is valid. The schema currently allows:
+`shared/src/config/load-config-from-file.ts` validates `aic.config.json` with a **minimal** Zod object (current subset only). All top-level keys are optional; `{}` is valid. The schema currently allows:
 
 - `contextBudget.maxTokens`, optional `contextBudget.perTaskClass`
 - `contextSelector.heuristic.maxFiles` (optional nesting)
@@ -1260,6 +1260,6 @@ This approach significantly reduces the attack surface for executing untrusted g
 
 Sequenced milestones, version targets per milestone, and exit criteria live in the [Project Plan — Roadmap](project-plan.md#23-roadmap). That table is authoritative for planning; this specification does not duplicate it to avoid drift.
 
-Sections 2–8 of this document describe the implementation surface. Anonymous compile telemetry and the **design-only** `anonymous_telemetry_log` schema are covered in [4d. MVP Additions](#4d-mvp-additions) (no HTTPS telemetry client in this repository).
+Sections 2–8 of this document describe the implementation surface. Anonymous compile telemetry and the **design-only** `anonymous_telemetry_log` schema are covered in [§4d. Additional implementation notes](#4d-additional-implementation-notes) (no HTTPS telemetry client in this repository).
 
 Versioning rules: [Project Plan — Versioning Policy](project-plan.md#versioning-policy).

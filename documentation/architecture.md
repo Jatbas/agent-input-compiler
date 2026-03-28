@@ -14,15 +14,15 @@ AIC has two distinct layers:
 
 For full AIC integration, an editor should expose these hook capabilities:
 
-| Capability                             | What it enables                                                                        | Required?    |
-| -------------------------------------- | -------------------------------------------------------------------------------------- | ------------ |
-| **Session start + context injection**  | Compile context once and inject into the conversation. Model starts with curated code. | Recommended  |
-| **Per-prompt + context injection**     | Compile intent-specific context on every user message. Adapts to topic changes.        | Ideal        |
-| **Pre-tool-use gating**                | Block tool calls until `aic_compile` runs. Enforces compilation on tool-using turns.   | Recommended  |
-| **Subagent start + context injection** | Inject compiled context when subagents spawn. Closes the biggest agentic gap.          | Ideal        |
-| **Session end**                        | Log session lifecycle for telemetry.                                                   | Nice to have |
-| **Pre-compaction**                     | Re-compile before context window compaction. Preserves quality during long sessions.   | Nice to have |
-| **Trigger rule**                       | Text instruction asking the model to call `aic_compile`. Minimum viable integration.   | Minimum      |
+| Capability                             | What it enables                                                                          | Required?    |
+| -------------------------------------- | ---------------------------------------------------------------------------------------- | ------------ |
+| **Session start + context injection**  | Compile context once and inject into the conversation. Model starts with curated code.   | Recommended  |
+| **Per-prompt + context injection**     | Compile intent-specific context on every user message. Adapts to topic changes.          | Ideal        |
+| **Pre-tool-use gating**                | Block tool calls until `aic_compile` runs. Enforces compilation on tool-using turns.     | Recommended  |
+| **Subagent start + context injection** | Inject compiled context when subagents spawn. Closes the biggest agentic gap.            | Ideal        |
+| **Session end**                        | Log session lifecycle for telemetry.                                                     | Nice to have |
+| **Pre-compaction**                     | Re-compile before context window compaction. Preserves quality during long sessions.     | Nice to have |
+| **Trigger rule**                       | Text instruction asking the model to call `aic_compile`. Minimal integration (no hooks). | Minimum      |
 
 > No editor currently has a complete AIC integration for all of these. But the core pipeline is ready for all of them — the only variable is which hooks the editor provides and whether AIC's integration layer has been built for them.
 

@@ -67,7 +67,7 @@ The goal is feature-centric history: each commit in the final log represents one
 
 When a **feature context file** is available, use it as the primary grouping signal. This produces dramatically better results than commit-level heuristics because it knows what features were actually built.
 
-**Specifying the file.** The user names the file in the prompt (e.g., "using `documentation/tasks/progress/mvp-progress.md` for context"). If not specified, check for common progress files: `CHANGELOG.md`, `documentation/tasks/progress/*.md`, `docs/progress.md`. If nothing is found, skip Phase 0 and go straight to Phase 1.
+**Specifying the file.** The user names the file in the prompt (e.g., "using `documentation/tasks/progress/aic-progress.md` for context"). If not specified, check for common progress files: `CHANGELOG.md`, `documentation/tasks/progress/*.md`, `docs/progress.md`. If nothing is found, skip Phase 0 and go straight to Phase 1.
 
 **Parsing the file.** Read the file and extract dated entries. The expected structure is dated sections (e.g., `### YYYY-MM-DD`) each containing:
 
@@ -164,6 +164,7 @@ If the commit scope matches a key in this table, replace it with the mapped valu
 | `skill`                                                                   | `tooling`                                                                                |
 | `mvp-progress`                                                            | `documentation`                                                                          |
 | `mvp`                                                                     | `documentation`                                                                          |
+| `aic-progress`                                                            | `documentation`                                                                          |
 | `tasks/progress`                                                          | `documentation`                                                                          |
 | `tasks`                                                                   | (see below)                                                                              |
 | `progress`                                                                | `documentation`                                                                          |
