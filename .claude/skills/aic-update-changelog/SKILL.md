@@ -103,13 +103,23 @@ When the user approves a release suggestion above, or says "cut release x.y.z" d
 6. **Commit:** `git add CHANGELOG.md README.md package.json shared/package.json mcp/package.json pnpm-lock.yaml && git commit -m "chore(release): x.y.z"`.
 7. **Tag:** `git tag vx.y.z`.
 8. **Push:** `git push origin main && git push origin vx.y.z`.
-9. **Wait for CI to publish to npm.** The GitHub Actions workflow (`.github/workflows/publish.yml`) triggers automatically on `v*` tag pushes and handles building and publishing both packages via OIDC trusted publishing. Do **not** attempt to publish locally.
+9. **Prune prior versions on GitHub:** Keep only the semver tag `vx.y.z` on `origin` — older `vMAJOR.MINOR.PATCH` tags and their GitHub releases are removed so the remote does not accumulate historical tags. (Published npm versions are unchanged and remain addressable by version number.)
 
-   a. **Poll CI status:** Run `gh run list --repo Jatbas/agent-input-compiler --workflow publish.yml --limit 5` and find the run whose triggering ref is `refs/tags/vx.y.z`. Poll up to 20 times (roughly 5–10 minutes at 15–30 second intervals). If the run has not completed after 20 polls, report the run URL to the user and ask them to monitor it manually before proceeding.
+   a. List remote semver tags: `git ls-remote --tags origin 'refs/tags/v*'`, take the second column, strip `refs/tags/`, keep names matching `^v[0-9]+\.[0-9]+\.[0-9]+$`.
 
-   b. **If CI fails:** Report the failure to the user with `gh run view <run-id> --log-failed` output. Do not proceed to GitHub Release with a broken npm package.
+   b. For each such tag `T` where `T` is not `vx.y.z`, run `gh release delete T --yes --cleanup-tag`. If it fails because no release exists for `T`, continue.
 
-10. **Verify npm publish:** Confirm both packages published successfully:
+   c. Re-list remote tags. For each semver `T` still present other than `vx.y.z`, run `git push origin :refs/tags/T`.
+
+   d. Run `git fetch origin --prune-tags` so local remote-tracking tags match.
+
+10. **Wait for CI to publish to npm.** The GitHub Actions workflow (`.github/workflows/publish.yml`) triggers automatically on `v*` tag pushes and handles building and publishing both packages via OIDC trusted publishing. Do **not** attempt to publish locally.
+
+a. **Poll CI status:** Run `gh run list --repo Jatbas/agent-input-compiler --workflow publish.yml --limit 5` and find the run whose triggering ref is `refs/tags/vx.y.z`. Poll up to 20 times (roughly 5–10 minutes at 15–30 second intervals). If the run has not completed after 20 polls, report the run URL to the user and ask them to monitor it manually before proceeding.
+
+b. **If CI fails:** Report the failure to the user with `gh run view <run-id> --log-failed` output. Do not proceed to GitHub Release with a broken npm package.
+
+11. **Verify npm publish:** Confirm both packages published successfully:
 
     a. Run `npm view @jatbas/aic dist-tags.latest` — it must equal `x.y.z`.
 
@@ -117,7 +127,7 @@ When the user approves a release suggestion above, or says "cut release x.y.z" d
 
     If either check fails or the version is not yet visible, wait a few seconds and retry. If the version still does not appear after several retries, stop and report — do not create a GitHub Release for an unpublished version.
 
-11. **Create GitHub Release:**
+12. **Create GitHub Release:**
 
     a. **Extract** the `[x.y.z]` section from `CHANGELOG.md`: from the line `## [x.y.z] - YYYY-MM-DD` through the last line before the next `## ` heading. This is the release notes body.
 
@@ -125,7 +135,7 @@ When the user approves a release suggestion above, or says "cut release x.y.z" d
 
     c. If `gh` is not installed, not authenticated, or the command fails: output the extracted notes in a markdown block and tell the user to create the release manually on GitHub (Releases → Create a new release → choose tag vx.y.z → paste the notes).
 
-12. **Report summary** to the user: version, npm package links, GitHub Release URL, and any issues encountered.
+13. **Report summary** to the user: version, npm package links, GitHub Release URL, and any issues encountered (including how many prior tags/releases were pruned).
 
 ### Show releases
 

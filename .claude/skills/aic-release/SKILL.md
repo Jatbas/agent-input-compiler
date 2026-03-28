@@ -109,15 +109,17 @@ The release cut steps cover:
 - Run `pnpm build && pnpm typecheck` (build gate)
 - Commit: `git add CHANGELOG.md README.md package.json shared/package.json mcp/package.json pnpm-lock.yaml && git commit -m "chore(release): X.Y.Z"`
 - Push and tag remotely: `git push origin main && git push origin HEAD:refs/tags/vX.Y.Z` (no local tag — keeps the branch picker clean)
+- **Prune prior versions on GitHub:** After the new tag is on `origin`, delete every other semver `v*` tag on the remote and its GitHub release so only `vX.Y.Z` remains — follow Release cut step 9 in `.claude/skills/aic-update-changelog/SKILL.md` (npm registry versions are not deleted).
 - Poll CI: `gh run list --repo Jatbas/agent-input-compiler --workflow publish.yml --limit 5` — find the run triggered by `refs/tags/vX.Y.Z`, poll up to 20 times until complete
 - Verify npm: `npm view @jatbas/aic dist-tags.latest` must equal `X.Y.Z`; `npm view @jatbas/aic-core@X.Y.Z version` must return `X.Y.Z`
 - Create GitHub Release: `gh release create vX.Y.Z --notes "$(cat <<'EOF'\n[extracted changelog section]\nEOF\n)"`
-- Report: version, npm links, GitHub Release URL, any issues
+- Report: version, npm links, GitHub Release URL, prune summary, any issues
 
 ## Conventions
 
 - Phases run in order. A phase that produces blockers stops the skill — fix and re-run from the top.
 - Re-running is safe and idempotent for phases 1–3 and 2.5. Phases 4 and 5 follow aic-update-changelog conventions which guard against double-release.
 - Never bump versions or push tags manually — always go through Phase 5.
+- **Single remote tag:** GitHub should carry only the current `v*` semver tag after a release cut; older tags and matching releases are removed by the changelog skill’s prune step (npm still lists all published versions).
 - Phase 2.5 `skip` is not recommended before first public release. Use `full` for major releases and `quick` for patch releases.
 - The progress file is read in Phase 1 — if it does not exist (e.g., in a fresh clone), that step is skipped with a note.
