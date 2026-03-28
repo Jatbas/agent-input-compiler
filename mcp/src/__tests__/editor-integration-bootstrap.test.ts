@@ -9,7 +9,11 @@ import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
 import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
 import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
-import { runEditorBootstrapIfNeeded } from "../editor-integration-dispatch.js";
+import {
+  BOOTSTRAP_INTEGRATION,
+  parseBootstrapIntegrationMode,
+  runEditorBootstrapIfNeeded,
+} from "../editor-integration-dispatch.js";
 
 function findRepoRoot(startDir: string): string {
   let dir = startDir;
@@ -59,7 +63,7 @@ beforeAll(() => {
 });
 
 describe("editor integration bootstrap", () => {
-  it("editor_integration_bootstrap_runs_bundled_installer", () => {
+  it("editor_integration_bootstrap_auto_unchanged", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-editor-bootstrap-"));
     try {
       fs.mkdirSync(path.join(tmpDir, ".cursor"), { recursive: true });
@@ -73,5 +77,38 @@ describe("editor integration bootstrap", () => {
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
+  });
+
+  it("editor_integration_bootstrap_force_cursor_without_dot_cursor", () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-editor-bootstrap-"));
+    try {
+      runEditorBootstrapIfNeeded(toAbsolutePath(tmpDir), BOOTSTRAP_INTEGRATION.CURSOR);
+      const hooksJsonPath = path.join(tmpDir, ".cursor", "hooks.json");
+      expect(fs.existsSync(hooksJsonPath)).toBe(true);
+      const expectedHookFileCount = computeExpectedHookFileCount(repoRoot);
+      const hooksDir = path.join(tmpDir, ".cursor", "hooks");
+      const names = fs.readdirSync(hooksDir);
+      expect(names.length).toBe(expectedHookFileCount);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("editor_integration_bootstrap_none_skips", () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-editor-bootstrap-"));
+    try {
+      fs.mkdirSync(path.join(tmpDir, ".cursor"), { recursive: true });
+      runEditorBootstrapIfNeeded(toAbsolutePath(tmpDir), BOOTSTRAP_INTEGRATION.NONE);
+      const hooksJsonPath = path.join(tmpDir, ".cursor", "hooks.json");
+      expect(fs.existsSync(hooksJsonPath)).toBe(false);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("parse_bootstrap_integration_invalid_argv_throws", () => {
+    expect(() =>
+      parseBootstrapIntegrationMode(["--aic-bootstrap-integration=not-a-mode"]),
+    ).toThrow(ConfigError);
   });
 });

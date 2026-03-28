@@ -68,10 +68,13 @@ import { createCachingFileContentReader } from "@jatbas/aic-core/adapters/cachin
 import { detectEditorId } from "./detect-editor-id.js";
 import { detectInstallScope } from "./detect-install-scope.js";
 import {
+  BOOTSTRAP_INTEGRATION,
+  type BootstrapIntegrationMode,
   getInstallScopeWarnings,
   getDuplicateInstallStderrMessage,
   getEditorModelHints,
   getEditorEnvHints,
+  parseBootstrapIntegrationMode,
   runEditorBootstrapIfNeeded,
 } from "./editor-integration-dispatch.js";
 import { upgradeGlobalMcpConfigIfNeeded } from "./upgrade-global-mcp-config-if-needed.js";
@@ -143,6 +146,7 @@ export function createMcpServer(
   clock: Clock,
   additionalProviders?: readonly LanguageProvider[],
   batchExitRef?: BatchExitRef,
+  bootstrapIntegrationMode: BootstrapIntegrationMode = BOOTSTRAP_INTEGRATION.AUTO,
 ): McpServer & { close(): Promise<void>; getEditorId(): EditorId } {
   const batchExit = batchExitRef;
   const normaliser = new NodePathAdapter();
@@ -320,6 +324,7 @@ export function createMcpServer(
     setLastConversationId,
     getUpdateMessage,
     getConfigUpgraded,
+    bootstrapIntegrationMode,
   );
   const aicCompileHandler =
     batchExit !== undefined
@@ -455,6 +460,14 @@ export function createMcpServer(
 }
 
 export async function main(): Promise<void> {
+  let bootstrapMode: BootstrapIntegrationMode;
+  try {
+    bootstrapMode = parseBootstrapIntegrationMode(process.argv);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`${msg}\n`);
+    process.exit(1);
+  }
   const projectRoot = toAbsolutePath(process.cwd());
   const globalAicDir = path.join(os.homedir(), ".aic");
   const globalDbPath = path.join(globalAicDir, "aic.sqlite");
@@ -469,7 +482,14 @@ export async function main(): Promise<void> {
     stdinEnded: false,
     pendingToolCalls: 0,
   };
-  const server = createMcpServer(projectRoot, db, clock, undefined, batchExitRef);
+  const server = createMcpServer(
+    projectRoot,
+    db,
+    clock,
+    undefined,
+    batchExitRef,
+    bootstrapMode,
+  );
   const homedir = os.homedir();
   server.server.oninitialized = (): void => {
     const caps = server.server.getClientCapabilities();
@@ -483,7 +503,7 @@ export async function main(): Promise<void> {
               if (rootPath === homedir) continue;
               const absRoot = toAbsolutePath(rootPath);
               installTriggerRule(absRoot, server.getEditorId());
-              runEditorBootstrapIfNeeded(absRoot);
+              runEditorBootstrapIfNeeded(absRoot, bootstrapMode);
             } catch {
               // skip invalid roots
             }

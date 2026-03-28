@@ -1,5 +1,5 @@
 <!-- BEGIN AIC MANAGED SECTION — do not edit between these markers -->
-<!-- AIC rule version: 0.9.1 -->
+<!-- AIC rule version: 0.9.2 -->
 
 # AIC — Claude Code Rules
 

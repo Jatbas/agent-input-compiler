@@ -700,6 +700,8 @@ Full spec: [Project Plan §2.4](project-plan.md).
 
 When the client lists workspace roots (e.g. when Cursor connects) or on first `aic_compile`, the server runs bootstrap: creates `aic.config.json` with all-default values, installs the trigger rule (e.g. `.cursor/rules/AIC.mdc`) and editor hooks, and creates `.aic/` with `0700` permissions. Also adds `.aic/` to `.gitignore` (creates the file if it doesn't exist).
 
+Editor hook installation (`runEditorBootstrapIfNeeded` in `mcp/src/editor-integration-dispatch.ts`) uses **auto** heuristics (`.cursor` / `CURSOR_PROJECT_DIR` for Cursor; `.claude` / `CLAUDE_PROJECT_DIR` for Claude Code) unless overridden. Override with `--aic-bootstrap-integration=<mode>` on the MCP process or `AIC_BOOTSTRAP_INTEGRATION` in the environment; the CLI flag wins over the env var, and both win over auto detection. Modes: `auto`, `none` (skip installers), `cursor`, `claude-code`, `cursor-claude-code` (run each installer when its script resolves, without requiring the corresponding detection gates).
+
 **Behaviour:**
 
 - If `aic.config.json` already exists → bootstrap merges or skips as needed; config is not overwritten. Edit `aic.config.json` directly to change settings.

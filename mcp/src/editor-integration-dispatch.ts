@@ -13,6 +13,61 @@ import { EDITOR_ID } from "@jatbas/aic-core/core/types/enums.js";
 import type { EditorModelConfigReaderAdapter } from "@jatbas/aic-core/adapters/editor-model-config-reader.js";
 import type { EditorEnvHints } from "./detect-editor-id.js";
 import { INSTALL_SCOPE, type InstallScope } from "./detect-install-scope.js";
+import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
+
+export const BOOTSTRAP_INTEGRATION = {
+  AUTO: "auto",
+  NONE: "none",
+  CURSOR: "cursor",
+  CLAUDE_CODE: "claude-code",
+  CURSOR_CLAUDE_CODE: "cursor-claude-code",
+} as const;
+export type BootstrapIntegrationMode =
+  (typeof BOOTSTRAP_INTEGRATION)[keyof typeof BOOTSTRAP_INTEGRATION];
+
+const BOOTSTRAP_FLAG_PREFIX = "--aic-bootstrap-integration=";
+
+const VALID_MODES: ReadonlySet<string> = new Set<string>([
+  BOOTSTRAP_INTEGRATION.AUTO,
+  BOOTSTRAP_INTEGRATION.NONE,
+  BOOTSTRAP_INTEGRATION.CURSOR,
+  BOOTSTRAP_INTEGRATION.CLAUDE_CODE,
+  BOOTSTRAP_INTEGRATION.CURSOR_CLAUDE_CODE,
+]);
+
+function assertBootstrapMode(raw: string): BootstrapIntegrationMode {
+  if (!VALID_MODES.has(raw)) {
+    throw new ConfigError(
+      `Invalid AIC bootstrap integration mode "${raw}". Use auto, none, cursor, claude-code, or cursor-claude-code.`,
+    );
+  }
+  return raw as BootstrapIntegrationMode;
+}
+
+export function parseBootstrapIntegrationMode(
+  argv: readonly string[],
+): BootstrapIntegrationMode {
+  let fromArg: string | undefined;
+  for (const entry of argv) {
+    if (entry.startsWith(BOOTSTRAP_FLAG_PREFIX)) {
+      fromArg = entry.slice(BOOTSTRAP_FLAG_PREFIX.length);
+    }
+  }
+  if (fromArg !== undefined) {
+    if (fromArg === "") {
+      throw new ConfigError(
+        "Invalid AIC bootstrap integration: empty value for --aic-bootstrap-integration.",
+      );
+    }
+    return assertBootstrapMode(fromArg);
+  }
+  const envRaw = process.env["AIC_BOOTSTRAP_INTEGRATION"];
+  const trimmed = typeof envRaw === "string" ? envRaw.trim() : "";
+  if (trimmed === "") {
+    return BOOTSTRAP_INTEGRATION.AUTO;
+  }
+  return assertBootstrapMode(trimmed);
+}
 
 export function getInstallScopeWarnings(installScope: InstallScope): readonly string[] {
   if (installScope !== INSTALL_SCOPE.BOTH) return [];
@@ -91,7 +146,25 @@ function resolveCursorInstallScript(absRoot: AbsolutePath): string | null {
   return resolveBundledCursorInstallScript();
 }
 
-export function runEditorBootstrapIfNeeded(absRoot: AbsolutePath): void {
+function runCursorInstallerIfResolvable(absRoot: AbsolutePath): void {
+  const scriptPath = resolveCursorInstallScript(absRoot);
+  if (scriptPath !== null) {
+    execFileSync("node", [scriptPath], { cwd: absRoot });
+  }
+}
+
+function runClaudeInstallerIfPresent(absRoot: AbsolutePath): void {
+  const ccScript = path.join(absRoot, REL_CC_INSTALL_SCRIPT);
+  if (fs.existsSync(ccScript)) {
+    try {
+      execFileSync("node", [ccScript], { cwd: absRoot });
+    } catch {
+      process.stderr.write("[aic] Claude Code installer failed; continuing.\n");
+    }
+  }
+}
+
+function runAutoBootstrap(absRoot: AbsolutePath): void {
   const cursorDetected =
     fs.existsSync(path.join(absRoot, ".cursor")) ||
     (process.env["CURSOR_PROJECT_DIR"] !== undefined &&
@@ -102,19 +175,30 @@ export function runEditorBootstrapIfNeeded(absRoot: AbsolutePath): void {
       process.env["CLAUDE_PROJECT_DIR"] !== "");
   if (!cursorDetected && !claudeCodeDetected) return;
   if (cursorDetected) {
-    const scriptPath = resolveCursorInstallScript(absRoot);
-    if (scriptPath !== null) {
-      execFileSync("node", [scriptPath], { cwd: absRoot });
-    }
+    runCursorInstallerIfResolvable(absRoot);
   }
   if (claudeCodeDetected) {
-    const ccScript = path.join(absRoot, REL_CC_INSTALL_SCRIPT);
-    if (fs.existsSync(ccScript)) {
-      try {
-        execFileSync("node", [ccScript], { cwd: absRoot });
-      } catch {
-        process.stderr.write("[aic] Claude Code installer failed; continuing.\n");
-      }
-    }
+    runClaudeInstallerIfPresent(absRoot);
   }
+}
+
+const RUN_BOOTSTRAP_BY_MODE: Record<
+  BootstrapIntegrationMode,
+  (absRoot: AbsolutePath) => void
+> = {
+  [BOOTSTRAP_INTEGRATION.NONE]: () => {},
+  [BOOTSTRAP_INTEGRATION.AUTO]: runAutoBootstrap,
+  [BOOTSTRAP_INTEGRATION.CURSOR]: runCursorInstallerIfResolvable,
+  [BOOTSTRAP_INTEGRATION.CLAUDE_CODE]: runClaudeInstallerIfPresent,
+  [BOOTSTRAP_INTEGRATION.CURSOR_CLAUDE_CODE]: (absRoot: AbsolutePath): void => {
+    runCursorInstallerIfResolvable(absRoot);
+    runClaudeInstallerIfPresent(absRoot);
+  },
+};
+
+export function runEditorBootstrapIfNeeded(
+  absRoot: AbsolutePath,
+  mode: BootstrapIntegrationMode = BOOTSTRAP_INTEGRATION.AUTO,
+): void {
+  RUN_BOOTSTRAP_BY_MODE[mode](absRoot);
 }

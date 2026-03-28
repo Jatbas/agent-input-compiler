@@ -384,6 +384,23 @@ The dev server is pre-configured in `.cursor/mcp.json` (checked into the repo as
 >
 > No `aic.config.json` changes are needed. The `"enabled"` flag would disable both servers since they read the same config file.
 
+### Bootstrap integration override (remote / CI / nonstandard layouts)
+
+When automatic editor detection fails (for example, remote extensions, minimal CI images, or layouts without `.cursor` / `.claude`), administrators can force which integration installers run when the MCP server starts.
+
+**Precedence:** the process argument `--aic-bootstrap-integration=<value>` wins over the environment variable `AIC_BOOTSTRAP_INTEGRATION`; both win over implicit detection.
+
+**Allowed values:** `auto` (default), `none`, `cursor`, `claude-code`, `cursor-claude-code`. Invalid values cause a one-line message on stderr and exit code `1` before the server connects.
+
+The repository dev MCP entry uses `sh -c`; append the flag to the inner command or set `env.AIC_BOOTSTRAP_INTEGRATION`, for example:
+
+```json
+"args": [
+  "-c",
+  "cd /path/to/AIC && pnpm --filter @jatbas/aic-core build >&2 && npx tsx mcp/src/server.ts --aic-bootstrap-integration=cursor"
+]
+```
+
 ---
 
 ## Uninstall

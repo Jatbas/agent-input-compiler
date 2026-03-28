@@ -7,6 +7,14 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Add `--aic-bootstrap-integration` and `AIC_BOOTSTRAP_INTEGRATION` to select editor integrations on MCP startup, with CLI overriding env and invalid values exiting before the server starts
+
+### Changed
+
+- Update docs for bootstrap override precedence and wrapped dev MCP launch examples
+
 ## [0.9.2] - 2026-03-27
 
 ### Added
