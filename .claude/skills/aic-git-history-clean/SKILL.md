@@ -44,6 +44,7 @@ A commit is **squashable** if any of the following match:
 8. Description (after stripping `type(scope): ` prefix) is shorter than 12 characters.
 9. Subject matches `docs(tasks):` with any suffix not already caught by rules 4–6.
 10. Subject is a merge commit (`^Merge branch`) whose branch name contains `task-\d+` — strip the task number from the branch name during sanitization.
+11. Subject matches `docs: update roadmap` followed by anything — release-generated roadmap commits.
 
 **Release commits** are squashable with one exception. A `chore(release): ...` commit is absorbed into the preceding implementation commit UNLESS it is a **narrative release** — its description (after stripping leading `v?\d+\.\d+\.\d+[-\s]*` prefix and punctuation) is ≥ 20 characters and contains an action verb (add, rename, drop, fix, migrate, rewrite, overhaul, redesign, introduce, remove, implement, refactor, move, upgrade, support, merge, split, unify, replace). A narrative release is kept standalone and retyped to match its content: `feat:` if it adds/renames/introduces, `refactor:` if it restructures, `fix:` if it corrects. Example: `chore(release): rename packages to @jatbas/aic and @jatbas/aic-core` → kept standalone as `refactor(release): rename packages to @jatbas/aic and @jatbas/aic-core`. Non-narrative releases (bare version bumps like `chore(release): 0.6.3`) are absorbed normally. Back-to-back `chore(release):` commits: each evaluated independently.
 
@@ -51,7 +52,7 @@ A commit is **squashable** if any of the following match:
 
 A commit is **soft noise** if it is not squashable but:
 
-11. Scope is identical to the immediately preceding commit's scope, AND that preceding commit is squashable.
+12. Scope is identical to the immediately preceding commit's scope, AND that preceding commit is squashable.
 
 Soft-noise commits are only squashed when adjacent to a squashable commit with matching scope. A standalone soft-noise commit with no squashable neighbors is kept as-is.
 
@@ -63,46 +64,9 @@ A commit is **sanitizable** if its description (after stripping prefix) contains
 
 The goal is feature-centric history: each commit in the final log represents one logical feature or fix as a developer would describe it. "We added language provider support" — not 6 separate provider commits. Features are the organizing principle; commit types, scopes, and version tags are secondary artifacts.
 
-### Phase 0 — Feature context (primary grouping signal)
+### Phase 1 — Feature grouping
 
-When a **feature context file** is available, use it as the primary grouping signal. This produces dramatically better results than commit-level heuristics because it knows what features were actually built.
-
-**Specifying the file.** The user names the file in the prompt (e.g., "using `documentation/tasks/progress/aic-progress.md` for context"). If not specified, check for common progress files: `CHANGELOG.md`, `documentation/tasks/progress/*.md`, `docs/progress.md`. If nothing is found, skip Phase 0 and go straight to Phase 1.
-
-**Parsing the file.** Read the file and extract dated entries. The expected structure is dated sections (e.g., `### YYYY-MM-DD`) each containing:
-
-- A **Components** or **Features** line listing the feature groups for that day (comma-separated or parenthesized).
-- A **Completed** section listing specific items, optionally with task numbers.
-
-Example from a progress file:
-
-```
-### 2026-03-01
-**Components:** Language providers (Go, Rust, Java, Ruby, PHP), model detection, editor detection
-**Completed:**
-- GoProvider (task 043): tree-sitter parsing for .go
-- RustProvider (task 044): tree-sitter for .rs
-- ModelDetectorDispatch (task 048): dispatch table per editor/env
-```
-
-This gives 3 feature groups for 2026-03-01: "Language providers", "model detection", "editor detection."
-
-**Grouping commits by feature context.**
-
-1. For each commit in the range, determine its author date (`%aI` truncated to `YYYY-MM-DD`).
-2. Find the matching daily entry in the context file for that date.
-3. Match the commit to a feature group by checking (in order):
-   a. **Task number match.** If the commit description or any absorbed constituent references `task N` and the context file's Completed section mentions that task number under a specific component group → that group.
-   b. **Keyword match.** Extract keywords from each component group label (e.g., "Language providers" → ["language", "provider"]). If the commit's scope or description shares 2+ keywords with a component group → that group.
-   c. **Scope match.** If a component group label mentions a scope-like word (e.g., "model detection" → `model`, "session management" → `session`/`storage`) and the commit scope contains it → that group.
-4. All commits matching the same (date, component group) become one squash group. The `feat:` with the longest description is the anchor. If no `feat:`, the commit with the longest description is the anchor.
-5. Commits that match no component group, or whose date has no entry in the context file, fall through to Phase 1.
-
-This typically produces **2-5 commits per development day** instead of 10-20. A day that added 6 language providers + model detection + editor fixes becomes 3 commits, each representing a coherent feature.
-
-### Phase 1 — Heuristic feature grouping (fallback)
-
-For commits not grouped by Phase 0, build groups using commit-level heuristics. A **feature anchor** is a `feat:` commit, or a significant `fix:`/`refactor:`/`perf:` commit (description > 20 chars) that is not itself a follow-up to a preceding feature.
+Build groups using commit-level heuristics. A **feature anchor** is a `feat:` commit, or a significant `fix:`/`refactor:`/`perf:` commit (description > 20 chars) that is not itself a follow-up to a preceding feature.
 
 1. **Same-scope continuation.** After each feature anchor, scan forward within a window of 20 commits. Absorb any commit with the **same scope** that is a `fix:`, `refactor:`, `test:`, `style:`, or `docs:` — these are follow-ups to the feature. The `feat:` is the anchor. Stop absorbing if you hit another `feat:` with the same scope (that starts a new feature). Version tag boundaries do **not** block this.
 
@@ -112,9 +76,9 @@ For commits not grouped by Phase 0, build groups using commit-level heuristics. 
 
 ### Phase 2 — Artifact absorption
 
-After feature groups are built (from Phase 0 and/or Phase 1), absorb remaining noise into the nearest group.
+After feature groups are built, absorb remaining noise into the nearest group.
 
-4. **Workflow artifacts.** Squashable commits (task planning, removal, progress, generic `docs(tasks)`, bare version strings, wip, short-subject — categories 2–9 from noise criteria) are absorbed into the nearest feature anchor within a window of 10 commits in either direction, preferring scope match. If no scope match, absorb into the nearest preceding anchor.
+4. **Workflow artifacts.** Squashable commits (task planning, removal, progress, generic `docs(tasks)`, bare version strings, wip, short-subject, roadmap updates — categories 2–11 from noise criteria) are absorbed into the nearest feature anchor within a window of 10 commits in either direction, preferring scope match. If no scope match, absorb into the nearest preceding anchor.
 
 5. **Release-commit absorption.** A non-narrative `chore(release):` is absorbed into the immediately preceding anchor (i-1 only). A **narrative release** (see noise criteria) is kept standalone and retyped. If no preceding anchor exists, keep standalone.
 
@@ -124,7 +88,7 @@ After feature groups are built (from Phase 0 and/or Phase 1), absorb remaining n
 
 7. **Ungrouped commits** remain standalone — their messages are sanitized but they stay as individual commits.
 
-8. **Anchor-less groups.** If a group from phases 0–2 contains no non-squashable anchor, use the commit with the longest description as the proposed anchor and mark the row `[REVIEW]`.
+8. **Anchor-less groups.** If a group from phases 1–2 contains no non-squashable anchor, use the commit with the longest description as the proposed anchor and mark the row `[REVIEW]`.
 
 The anchor of each group provides the proposed message. Absorbed commits disappear.
 
