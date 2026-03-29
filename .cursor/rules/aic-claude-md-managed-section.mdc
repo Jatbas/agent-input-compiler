@@ -1,0 +1,31 @@
+---
+description: Canonical AIC-managed body for .claude/CLAUDE.md — marker boundaries only, no version banner in the body
+alwaysApply: false
+---
+
+# CLAUDE.md managed section (AIC)
+
+Read this rule when editing `mcp/src/install-trigger-rule.ts`, `integrations/claude/install.cjs`, uninstall or snapshot helpers under `integrations/shared/`, or the AIC-managed span inside `.claude/CLAUDE.md`.
+
+## Boundaries
+
+- **Only** these lines delimit the AIC-managed machine-editable region (regex semantics live in `integrations/claude/install.cjs` as `CLAUDE_MD_OPENING_LINE_RE` and `CLAUDE_MD_CLOSING_LINE_RE`):
+  - `<!-- BEGIN AIC MANAGED SECTION — do not edit between these markers -->`
+  - `<!-- END AIC MANAGED SECTION -->`
+- **Do not** place `<!-- AIC rule version: … -->`, `{{VERSION}}`, or any other server or package version marker **inside** the managed inner body. Version bumps must not rewrite `.claude/CLAUDE.md` or force unrelated commits.
+
+## Single canonical inner body
+
+- The managed **inner** markdown (between the two markers when the installer wraps the file) is one string: `CLAUDE_MD_TEMPLATE`.
+- **`CLAUDE_MD_TEMPLATE` must be byte-identical** (UTF-8, LF endings) in:
+  - `mcp/src/install-trigger-rule.ts` (Claude Code bootstrap writes this string as the **entire** file when no markers are used)
+  - `integrations/claude/install.cjs` (installer wraps the same string between BEGIN/END)
+- Changing rules text: update **both** templates in the **same** commit, plus `.cursor/rules/AIC-architect.mdc` and `.claude/CLAUDE.md` per cross-editor sync in `AIC-architect.mdc`.
+
+## Installer idempotence (install.cjs)
+
+- **Skip rewriting** the managed block when the normalized interior between valid BEGIN/END markers **equals** the normalized canonical `CLAUDE_MD_TEMPLATE` (after the version-banner removal above). Do **not** rely on parsing `AIC rule version:` inside the interior.
+
+## Uninstall / snapshot
+
+- Helpers that detect “file is only AIC bootstrap content” compare the normalized file body (or post–marker-strip interior) to the same canonical inner bytes shipped beside uninstall (see task 262 `integrations/shared/claude-md-canonical-body.txt`).
