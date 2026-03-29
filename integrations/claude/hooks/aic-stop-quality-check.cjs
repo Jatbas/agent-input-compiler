@@ -4,7 +4,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const { execSync } = require("child_process");
+const { execFileSync } = require("child_process");
 const { readStdinSync } = require("../../shared/read-stdin-sync.cjs");
 const { readEditedFiles } = require("../../shared/edited-files-cache.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
@@ -16,7 +16,7 @@ function runEslint(paths, cwd) {
   const cmd = fs.existsSync(eslintBin) ? eslintBin : "npx";
   const runArgs = fs.existsSync(eslintBin) ? args : ["eslint", ...args];
   try {
-    execSync(cmd, runArgs, {
+    execFileSync(cmd, runArgs, {
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"],
       cwd,
@@ -37,7 +37,7 @@ function runTsc(cwd) {
   const cmd = useLocal ? tscBin : "npx";
   const runArgs = useLocal ? ["--noEmit"] : ["tsc", "--noEmit"];
   try {
-    execSync(cmd, runArgs, {
+    execFileSync(cmd, runArgs, {
       encoding: "utf8",
       stdio: ["pipe", "pipe", "pipe"],
       cwd,
