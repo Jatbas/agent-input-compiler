@@ -80,7 +80,7 @@ Use these rules for all four AIC prompt commands. Present data like a polished d
 - Null or missing values: show as "—" (em dash), never "null".
 - Keep the one-line summary at the top of each command as specified below.
 - Output only the summary line, the table, and (for status, last, chat-summary) the metric footnote below. **Do not add commentary, notes, interpretation, or explanations after the output.**
-- **Metric footnote** (append after the table for status, last, and chat-summary — one line per metric): `Exclusion rate: % of total repo tokens not included in the compiled prompt.` then `Budget utilization: % of token budget filled.`
+- **Metric footnote** (append after the table for status, last, and chat-summary — one line per metric; **never** append to any other response): `Exclusion rate: % of total repo tokens not included in the compiled prompt.` then `Budget utilization: % of token budget filled.`
 
 ---
 
