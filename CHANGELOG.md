@@ -7,6 +7,16 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-03-29
+
+### Added
+
+- Bundle the Claude Code integration installer with the published `@jatbas/aic` package and detect the Claude Code extension when present
+
+### Fixed
+
+- Reconcile project IDs when a row for the same project root already exists in the global database
+
 ## [0.9.3] - 2026-03-29
 
 ### Added

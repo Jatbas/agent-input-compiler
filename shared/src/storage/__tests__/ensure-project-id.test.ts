@@ -222,4 +222,75 @@ describe("ensure-project-id", () => {
     expect(rows[0]?.project_id).toBe(uuid);
     expect(rows[0]?.project_root).toBe(normaliser.normalise(projectRoot));
   });
+
+  it("reconcileProjectId_file_missing_reuses_existing_root_row", () => {
+    const projectRoot = toAbsolutePath(mkProjectRoot());
+    const existingUuid = "018f0000-0000-7000-8000-000000000010";
+    const clock = mockClock("2026-03-10T17:00:00.000Z");
+    const dbInstance = setupDb(clock);
+    const normaliser = new NodePathAdapter();
+    const normalisedRoot = normaliser.normalise(projectRoot);
+    (dbInstance as unknown as Database.Database)
+      .prepare(
+        "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+      )
+      .run(
+        existingUuid,
+        normalisedRoot,
+        "2026-03-10T09:00:00.000Z",
+        "2026-03-10T09:00:00.000Z",
+      );
+    const idGenerator = mockIdGenerator("018f0000-0000-7000-8000-000000000099");
+    const returned = reconcileProjectId(
+      projectRoot,
+      dbInstance,
+      clock,
+      idGenerator,
+      normaliser,
+    );
+    expect(returned).toBe(toProjectId(existingUuid));
+    const filePath = path.join(projectRoot, ".aic", PROJECT_ID_FILENAME);
+    expect(fs.readFileSync(filePath, "utf8").trim()).toBe(existingUuid);
+    const rows = (dbInstance as unknown as Database.Database)
+      .prepare("SELECT project_id, last_seen_at FROM projects")
+      .all() as readonly { project_id: string; last_seen_at: string }[];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.project_id).toBe(existingUuid);
+    expect(rows[0]?.last_seen_at).toBe("2026-03-10T17:00:00.000Z");
+  });
+
+  it("reconcileProjectId_orphan_file_realigns_to_root_row", () => {
+    const projectRoot = toAbsolutePath(mkProjectRoot());
+    const idA = "018f0000-0000-7000-8000-000000000020";
+    const idB = "018f0000-0000-7000-8000-000000000021";
+    fs.mkdirSync(path.join(projectRoot, ".aic"), { recursive: true, mode: 0o700 });
+    fs.writeFileSync(path.join(projectRoot, ".aic", PROJECT_ID_FILENAME), idB, "utf8");
+    const clock = mockClock("2026-03-10T18:00:00.000Z");
+    const dbInstance = setupDb(clock);
+    const normaliser = new NodePathAdapter();
+    const normalisedRoot = normaliser.normalise(projectRoot);
+    (dbInstance as unknown as Database.Database)
+      .prepare(
+        "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+      )
+      .run(idA, normalisedRoot, "2026-03-10T08:00:00.000Z", "2026-03-10T08:00:00.000Z");
+    const idGenerator = mockIdGenerator(idB);
+    const returned = reconcileProjectId(
+      projectRoot,
+      dbInstance,
+      clock,
+      idGenerator,
+      normaliser,
+    );
+    expect(returned).toBe(toProjectId(idA));
+    expect(
+      fs.readFileSync(path.join(projectRoot, ".aic", PROJECT_ID_FILENAME), "utf8").trim(),
+    ).toBe(idA);
+    const rows = (dbInstance as unknown as Database.Database)
+      .prepare("SELECT project_id, last_seen_at FROM projects")
+      .all() as readonly { project_id: string; last_seen_at: string }[];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.project_id).toBe(idA);
+    expect(rows[0]?.last_seen_at).toBe("2026-03-10T18:00:00.000Z");
+  });
 });

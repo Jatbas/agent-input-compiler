@@ -1,7 +1,7 @@
 # Agent Input Compiler (AIC)
 
 ![License](https://img.shields.io/badge/license-Apache%202.0-blue)
-![Status](https://img.shields.io/badge/status-0.9.3-brightgreen)
+![Status](https://img.shields.io/badge/status-0.10.0-brightgreen)
 ![Local-first](https://img.shields.io/badge/local--first-yes-brightgreen)
 ![Telemetry](https://img.shields.io/badge/telemetry-opt--in-lightgrey)
 ![MCP Compatible](https://img.shields.io/badge/MCP-compatible-purple)
