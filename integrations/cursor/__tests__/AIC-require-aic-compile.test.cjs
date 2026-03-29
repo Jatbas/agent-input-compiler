@@ -42,11 +42,12 @@ function cleanupGeneration(generationId) {
   }
 }
 
-// Isolate from real .env by pointing CURSOR_PROJECT_DIR to an empty temp dir.
+// Isolate from the real repo aic.config.json by pointing CURSOR_PROJECT_DIR at a temp dir.
 const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-gate-empty-"));
 
-function runHook(stdinStr) {
-  const env = { ...process.env, AIC_DEV_MODE: "", CURSOR_PROJECT_DIR: emptyDir };
+function runHook(stdinStr, projectDir) {
+  const dir = projectDir ?? emptyDir;
+  const env = { ...process.env, CURSOR_PROJECT_DIR: dir };
   const result = spawnSync("node", [hookPath], {
     input: stdinStr,
     encoding: "utf8",
@@ -97,10 +98,13 @@ function deny_message_intent_stripped_when_saved_prompt_has_ide_selection() {
   }
 }
 
-function dev_mode_from_dotenv_allows() {
+function hook_dev_mode_true_allows() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-devmode-test-"));
-  fs.writeFileSync(path.join(tmpDir, ".env"), "AIC_DEV_MODE=1\n", "utf8");
-  const env = { ...process.env, AIC_DEV_MODE: "", CURSOR_PROJECT_DIR: tmpDir };
+  fs.writeFileSync(
+    path.join(tmpDir, "aic.config.json"),
+    JSON.stringify({ devMode: true }),
+    "utf8",
+  );
   const result = spawnSync("node", [hookPath], {
     input: JSON.stringify({
       generation_id: "test-gen",
@@ -108,37 +112,89 @@ function dev_mode_from_dotenv_allows() {
       tool_input: {},
     }),
     encoding: "utf8",
-    env,
+    env: { ...process.env, CURSOR_PROJECT_DIR: tmpDir },
   });
   const out = JSON.parse(result.stdout.trim());
   if (out.permission !== "allow") {
-    throw new Error(`Expected "allow" from .env dev mode, got ${out.permission}`);
-  }
-  fs.rmSync(tmpDir, { recursive: true, force: true });
-  console.log("dev_mode_from_dotenv_allows: pass");
-}
-
-function dev_mode_from_dotenv_not_set_denies() {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-devmode-test-"));
-  fs.writeFileSync(path.join(tmpDir, ".env"), "SOME_OTHER_VAR=1\n", "utf8");
-  const env = { ...process.env, AIC_DEV_MODE: "", CURSOR_PROJECT_DIR: tmpDir };
-  const result = spawnSync("node", [hookPath], {
-    input: JSON.stringify({
-      generation_id: crypto.randomBytes(8).toString("hex"),
-      tool_name: "other_tool",
-      tool_input: {},
-    }),
-    encoding: "utf8",
-    env,
-  });
-  const out = JSON.parse(result.stdout.trim());
-  if (out.permission !== "deny") {
     throw new Error(
-      `Expected "deny" when .env lacks AIC_DEV_MODE, got ${out.permission}`,
+      `Expected "allow" when aic.config.json has devMode true, got ${out.permission}`,
     );
   }
   fs.rmSync(tmpDir, { recursive: true, force: true });
-  console.log("dev_mode_from_dotenv_not_set_denies: pass");
+  console.log("hook_dev_mode_true_allows: pass");
+}
+
+function hook_dev_mode_false_or_absent_denies() {
+  const forFalse = fs.mkdtempSync(path.join(os.tmpdir(), "aic-devmode-test-"));
+  fs.writeFileSync(
+    path.join(forFalse, "aic.config.json"),
+    JSON.stringify({ devMode: false }),
+    "utf8",
+  );
+  const genFalse = crypto.randomBytes(8).toString("hex");
+  const outFalse = JSON.parse(
+    runHook(
+      JSON.stringify({
+        generation_id: genFalse,
+        tool_name: "other_tool",
+        tool_input: {},
+      }),
+      forFalse,
+    ),
+  );
+  if (outFalse.permission !== "deny") {
+    throw new Error(`Expected "deny" when devMode false, got ${outFalse.permission}`);
+  }
+  cleanupGeneration(genFalse);
+  fs.rmSync(forFalse, { recursive: true, force: true });
+
+  const forAbsent = fs.mkdtempSync(path.join(os.tmpdir(), "aic-devmode-test-"));
+  fs.writeFileSync(
+    path.join(forAbsent, "aic.config.json"),
+    JSON.stringify({ contextBudget: { maxTokens: 8000 } }),
+    "utf8",
+  );
+  const genAbsent = crypto.randomBytes(8).toString("hex");
+  const outAbsent = JSON.parse(
+    runHook(
+      JSON.stringify({
+        generation_id: genAbsent,
+        tool_name: "other_tool",
+        tool_input: {},
+      }),
+      forAbsent,
+    ),
+  );
+  if (outAbsent.permission !== "deny") {
+    throw new Error(`Expected "deny" when devMode omitted, got ${outAbsent.permission}`);
+  }
+  cleanupGeneration(genAbsent);
+  fs.rmSync(forAbsent, { recursive: true, force: true });
+  console.log("hook_dev_mode_false_or_absent_denies: pass");
+}
+
+function hook_missing_aic_config_denies() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-devmode-test-"));
+  const generationId = crypto.randomBytes(8).toString("hex");
+  try {
+    const out = JSON.parse(
+      runHook(
+        JSON.stringify({
+          generation_id: generationId,
+          tool_name: "other_tool",
+          tool_input: {},
+        }),
+        tmpDir,
+      ),
+    );
+    if (out.permission !== "deny") {
+      throw new Error(`Expected "deny" without aic.config.json, got ${out.permission}`);
+    }
+    console.log("hook_missing_aic_config_denies: pass");
+  } finally {
+    cleanupGeneration(generationId);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
 }
 
 function gate_denies_first_unknown_tool() {
@@ -215,7 +271,7 @@ function gate_allows_after_aic_compile() {
 function deny_message_uses_dynamic_project_root() {
   const generationId = crypto.randomBytes(8).toString("hex");
   const customDir = "/tmp/my-user-project";
-  const env = { ...process.env, AIC_DEV_MODE: "", CURSOR_PROJECT_DIR: customDir };
+  const env = { ...process.env, CURSOR_PROJECT_DIR: customDir };
   try {
     const result = spawnSync("node", [hookPath], {
       input: JSON.stringify({
@@ -245,8 +301,9 @@ function deny_message_uses_dynamic_project_root() {
 }
 
 deny_message_intent_stripped_when_saved_prompt_has_ide_selection();
-dev_mode_from_dotenv_allows();
-dev_mode_from_dotenv_not_set_denies();
+hook_dev_mode_true_allows();
+hook_dev_mode_false_or_absent_denies();
+hook_missing_aic_config_denies();
 gate_denies_first_unknown_tool();
 gate_allows_after_one_deny();
 gate_allows_after_aic_compile();

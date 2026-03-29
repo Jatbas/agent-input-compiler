@@ -7,6 +7,10 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Documentation aligned with the Cursor compile-gate development bypass: `devMode` in `aic.config.json` (see [installation.md](documentation/installation.md), [CONTRIBUTING.md](CONTRIBUTING.md), and [cursor-integration-layer.md §7.3](documentation/technical/cursor-integration-layer.md)); bootstrap ignore manifest described consistently across implementation-spec, security, project-plan, and installation.
+
 ## [0.10.0] - 2026-03-29
 
 ### Added
@@ -101,7 +105,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - Claude hooks: SessionStart lock to avoid triple fire; `conversation_id` from transcript path; prompt / subagent intent handling; global settings merge preserves non-AIC keys and deduplicates AIC hook blocks
-- Cursor: preToolUse deny-once behavior; `.env` dev mode; dynamic project root in compile flow
+- Cursor: preToolUse deny-once behavior; compile-gate development bypass (later moved to `aic.config.json` `devMode`; see current installation docs); dynamic project root in compile flow
 - Editor detection: `cursor-claude-code` when Cursor project dir is set with Claude Code client
 - `conversation_id` and `editor_id` forwarded consistently into `aic_compile` (including PreToolUse inject path)
 - npm update check: Content-Type and strict packument contract; response body capped at 100 KB
@@ -225,7 +229,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
-- `AIC-require-aic-compile` hook auto-detects the AIC source repo and skips enforcement, eliminating the chicken-and-egg blocking during development
+- `AIC-require-aic-compile` hook skipped enforcement when the project was detected as the AIC source tree (path-based; later superseded by `devMode` in `aic.config.json` — see installation docs)
 
 ## [0.5.3] - 2026-03-10
 

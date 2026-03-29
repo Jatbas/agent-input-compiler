@@ -42,7 +42,7 @@ Follow [documentation/installation.md](documentation/installation.md).
 
 ### 3. Dev mode
 
-While working **in this repository**, some editor setups expect `aic_compile` before other tools run. Set **`AIC_DEV_MODE=1`** during development (for example in your shell, in a `.env` file at the repo root, or by starting your editor with that variable in the environment). See the installation doc for your editor.
+While working **in this repository**, some editor setups expect `aic_compile` before other tools run. This repository commits **`"devMode": true`** in **`aic.config.json`** so the Cursor gate skips `aic_compile` enforcement while you work on AIC. Other projects can set **`devMode`** in **`aic.config.json`** only if they want the same bypass. See the installation doc for your editor.
 
 To verify CLI diagnostic subcommands against your local build (instead of the published npm package), use `pnpm aic` from the repo root after building:
 

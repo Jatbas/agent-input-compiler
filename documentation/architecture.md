@@ -64,7 +64,7 @@ Cursor exposes sessionEnd, preCompact, subagentStart (gating only — no context
 
 ## Cursor
 
-AIC's integration layer for **Cursor** provides session-start context injection, pre-tool-use gating, session end, stop quality check, and afterFileEdit tracking. For hook-by-hook behavior, deployment, and limitations, see [cursor-integration-layer](technical/cursor-integration-layer.md).
+AIC's integration layer for **Cursor** provides session-start context injection, pre-tool-use gating, session end, stop quality check, and afterFileEdit tracking. The compile gate in `preToolUse` can be bypassed for local development when `devMode` is true in `aic.config.json` ([installation.md](installation.md); full hook layout and §7.3 in [cursor-integration-layer.md](technical/cursor-integration-layer.md)).
 
 ## Claude Code
 
@@ -76,7 +76,7 @@ AIC's integration layer for **Claude Code** provides all seven capabilities (ses
 
 Each editor exposes a different subset of the hook capabilities AIC can use. Gaps in one editor may not exist in another:
 
-- **Cursor** supports sessionEnd and preCompact as hooks (AIC uses sessionEnd; preCompact is observational only — no context injection). Cursor does not support per-prompt context injection or subagent context injection; subagentStart is gating only (no additional_context). AIC registers subagentStop so compilations from Task-tool subagents roll up to the parent conversation for per-chat diagnostics. AIC can inject compiled context at session start and enforce compilation via tool gating, but text-only turns and subagent spawns bypass AIC for context injection.
+- **Cursor** supports sessionEnd and preCompact as hooks (AIC uses sessionEnd; preCompact is observational only — no context injection). Cursor does not support per-prompt context injection or subagent context injection; subagentStart is gating only (no additional_context). AIC registers subagentStop so compilations from Task-tool subagents roll up to the parent conversation for per-chat diagnostics. Compile-gate enforcement matches the **Cursor** paragraph above (`devMode` in `aic.config.json`); text-only turns and subagent spawns bypass AIC for context injection.
 - **Claude Code** supports all hook capabilities AIC needs (including per-prompt and subagent injection), and AIC's integration layer is built for them (session start, per-prompt, subagent inject, pre-compaction, session end, etc.). See [claude-code-integration-layer](technical/claude-code-integration-layer.md).
 - **Other editors** without hooks rely solely on the trigger rule, which is suggestive — the model may or may not call `aic_compile`.
 

@@ -44,7 +44,7 @@ If \`aic_compile\` is not available (tool not found, MCP server disabled, or too
 Then continue responding normally without compiled context.
 
 
-> **Dev:** When developing this repository with \`AIC_DEV_MODE=1\`, use \`pnpm aic\` from the repo root instead of \`npx @jatbas/aic\` for the shell commands below.
+> **Dev:** When \`"devMode": true\` is set in \`aic.config.json\` at the project root, use \`pnpm aic\` from the repo root instead of \`npx @jatbas/aic\` for the shell commands below.
 
 Prompt commands (run Bash with \`npx @jatbas/aic …\`, then relay stdout; human-readable labels, commas for large numbers, percentages 1 decimal, relative timestamps, em dash for nulls):
 - "show aic status" → \`npx @jatbas/aic status\` from the project directory, or \`npx @jatbas/aic status <N>d\` for a rolling **N**-day window (**N** integer 1..3660); table shows **Time range** as **Last 1 day** or **Last N days** when a window is used.
@@ -158,7 +158,7 @@ Prefer \`npx eslint\` for targeted checks. Run \`pnpm lint\` before declaring wo
 
 ## Prompt Commands
 
-> **Dev:** When \`AIC_DEV_MODE=1\`, substitute \`pnpm aic\` for \`npx @jatbas/aic\` in every command below (run from the repo root).
+> **Dev:** When \`"devMode": true\` is set in \`aic.config.json\` at the project root, substitute \`pnpm aic\` for \`npx @jatbas/aic\` in every command below (run from the repo root).
 
 Use these rules for all four AIC prompt commands. Present data like a polished dashboard, not raw JSON.
 
@@ -175,13 +175,13 @@ Use these rules for all four AIC prompt commands. Present data like a polished d
 
 ---
 
-- **"show aic status"** — Run Bash with \`npx @jatbas/aic status\` (or \`pnpm aic status\` when \`AIC_DEV_MODE=1\`) from the project directory (or the \`<N>d\` variant when the user asks for a rolling **N**-day window, with **N** an integer from 1 through 3660), then relay stdout. Start the reply with one short line: **Status = project-level AIC status.** When a window is used, the table includes a **Time range** row: **Last 1 day** if **N** is 1, otherwise **Last N days**. Then display a formatted table with labels: Compilations (total), Compilations (today), Tokens: raw → compiled, Tokens excluded, Budget limit, Budget utilization (%), Cache hit rate (%), Avg exclusion rate (%), Guard findings, Top task classes, Last compilation, Installation, Update available. When installation has issues (\`installationOk\` false), include a **Notes** row from \`installationNotes\`; omit **Notes** when installation is OK. Omit **Project** (still present in JSON as \`projectEnabled\`).
+- **"show aic status"** — Run Bash with \`npx @jatbas/aic status\` (or \`pnpm aic status\` when \`"devMode": true\` is set in \`aic.config.json\`) from the project directory (or the \`<N>d\` variant when the user asks for a rolling **N**-day window, with **N** an integer from 1 through 3660), then relay stdout. Start the reply with one short line: **Status = project-level AIC status.** When a window is used, the table includes a **Time range** row: **Last 1 day** if **N** is 1, otherwise **Last N days**. Then display a formatted table with labels: Compilations (total), Compilations (today), Tokens: raw → compiled, Tokens excluded, Budget limit, Budget utilization (%), Cache hit rate (%), Avg exclusion rate (%), Guard findings, Top task classes, Last compilation, Installation, Update available. When installation has issues (\`installationOk\` false), include a **Notes** row from \`installationNotes\`; omit **Notes** when installation is OK. Omit **Project** (still present in JSON as \`projectEnabled\`).
 
-- **"show aic chat summary"** — Run Bash with \`npx @jatbas/aic chat-summary --project <absolute workspace root>\` (or \`pnpm aic chat-summary --project <absolute workspace root>\` when \`AIC_DEV_MODE=1\`), then relay stdout. Start the reply with one short line: **Chat = this conversation's AIC compilations.** Then display a formatted table with labels: Project path, Compilations, Tokens (raw), Tokens (compiled), Tokens excluded, Cache hit rate (%), Avg exclusion rate (%), Budget utilization (%), Last compilation, Top task classes.
+- **"show aic chat summary"** — Run Bash with \`npx @jatbas/aic chat-summary --project <absolute workspace root>\` (or \`pnpm aic chat-summary --project <absolute workspace root>\` when \`"devMode": true\` is set in \`aic.config.json\`), then relay stdout. Start the reply with one short line: **Chat = this conversation's AIC compilations.** Then display a formatted table with labels: Project path, Compilations, Tokens (raw), Tokens (compiled), Tokens excluded, Cache hit rate (%), Avg exclusion rate (%), Budget utilization (%), Last compilation, Top task classes.
 
-- **"show aic last"** — Run Bash with \`npx @jatbas/aic last\` (or \`pnpm aic last\` when \`AIC_DEV_MODE=1\`) from the project directory, then relay stdout. Start the reply with one short line: **Last = most recent compilation.** Then display with labels: Intent, Files (N selected / M total), Tokens compiled, Budget utilization (%), Exclusion rate (%), Compiled (relative time), Editor, Guard (Passed or N findings), Compiled prompt (Available N chars — ask to see it).
+- **"show aic last"** — Run Bash with \`npx @jatbas/aic last\` (or \`pnpm aic last\` when \`"devMode": true\` is set in \`aic.config.json\`) from the project directory, then relay stdout. Start the reply with one short line: **Last = most recent compilation.** Then display with labels: Intent, Files (N selected / M total), Tokens compiled, Budget utilization (%), Exclusion rate (%), Compiled (relative time), Editor, Guard (Passed or N findings), Compiled prompt (Available N chars — ask to see it).
 
-- **"show aic projects"** — Run Bash with \`npx @jatbas/aic projects\` (or \`pnpm aic projects\` when \`AIC_DEV_MODE=1\`), then relay stdout. Start the reply with one short line: **Projects = known AIC projects.** Display a formatted table with columns: Project ID, Path, Last seen, Compilation count.
+- **"show aic projects"** — Run Bash with \`npx @jatbas/aic projects\` (or \`pnpm aic projects\` when \`"devMode": true\` is set in \`aic.config.json\`), then relay stdout. Start the reply with one short line: **Projects = known AIC projects.** Display a formatted table with columns: Project ID, Path, Last seen, Compilation count.
 
 ## Tests
 

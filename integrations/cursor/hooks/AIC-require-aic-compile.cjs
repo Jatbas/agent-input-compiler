@@ -9,21 +9,23 @@ const path = require("path");
 const os = require("os");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 
-// Skip enforcement when developing AIC (set AIC_DEV_MODE=1 in env or .env).
-// The hook process may not inherit .env, so load it from the project root.
-if (process.env.AIC_DEV_MODE !== "1") {
+function isDevModeFromProjectConfig() {
   try {
     const projectRoot = resolveProjectRoot(null, { env: process.env });
-    const envFile = fs.readFileSync(path.join(projectRoot, ".env"), "utf8");
-    const match = envFile.match(/^AIC_DEV_MODE\s*=\s*(.+)$/m);
-    if (match && match[1].trim() === "1") {
-      process.env.AIC_DEV_MODE = "1";
-    }
+    const raw = fs.readFileSync(path.join(projectRoot, "aic.config.json"), "utf8");
+    const parsed = JSON.parse(raw);
+    return (
+      parsed !== null &&
+      typeof parsed === "object" &&
+      !Array.isArray(parsed) &&
+      parsed.devMode === true
+    );
   } catch {
-    // .env missing or unreadable — continue with normal enforcement
+    return false;
   }
 }
-if (process.env.AIC_DEV_MODE === "1") {
+
+if (isDevModeFromProjectConfig()) {
   process.stdout.write(JSON.stringify({ permission: "allow" }));
   process.exit(0);
 }

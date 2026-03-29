@@ -109,7 +109,7 @@ integrations/cursor/               ← SOURCE (authored here)
     AIC-session-init.cjs           # sessionStart — architectural invariants (additional_context only)
     AIC-compile-context.cjs        # sessionStart — calls aic_compile, injects compiled context
     AIC-before-submit-prewarm.cjs  # beforeSubmitPrompt — prompt logging + gate prewarm
-    AIC-require-aic-compile.cjs    # preToolUse — blocks all tools until aic_compile called
+    AIC-require-aic-compile.cjs    # preToolUse — compile gate (allows all when aic.config.json has devMode true; else blocks until aic_compile)
     AIC-inject-conversation-id.cjs # preToolUse (MCP) — injects conversationId into MCP args
     AIC-post-compile-context.cjs   # postToolUse (MCP) — confirmation after aic_compile
     AIC-block-no-verify.cjs        # beforeShellExecution (git) — blocks --no-verify
@@ -262,7 +262,7 @@ AIC registers **12** hook **command** entries across **10** event types (some ty
 - On success, outputs `additional_context` with the compiled project snapshot and **`env`** with `AIC_PROJECT_ROOT` and `AIC_CONVERSATION_ID` for downstream hooks
 - **If this hook times out (20s), it exits 0 silently** — session creation is never blocked
 
-**Known limitation — `aic_compile` from sessionStart is best-effort:** The compiled context from `AIC-compile-context.cjs` is broad and intent-agnostic (project structure only). The primary per-intent context delivery in Cursor relies on the model calling `aic_compile` itself (enforced by the `preToolUse` gate). There is **no per-prompt context injection hook** in Cursor — `beforeSubmitPrompt` does not support `additional_context` output (see §7.2).
+**Known limitation — `aic_compile` from sessionStart is best-effort:** The compiled context from `AIC-compile-context.cjs` is broad and intent-agnostic (project structure only). The primary per-intent context delivery in Cursor relies on the model calling `aic_compile` itself (enforced by the `preToolUse` gate when `devMode` is not true in `aic.config.json` — see §7.3). There is **no per-prompt context injection hook** in Cursor — `beforeSubmitPrompt` does not support `additional_context` output (see §7.2).
 
 **File:** `.cursor/hooks/AIC-compile-context.cjs`
 
@@ -286,14 +286,14 @@ AIC registers **12** hook **command** entries across **10** event types (some ty
    Age-based pruning of that file is not performed inside this hook; it runs when the AIC MCP server process starts, via `shared/src/maintenance/prune-jsonl-by-timestamp.ts` (same helper as `.aic/session-log.jsonl` and `.aic/session-models.jsonl`).
 
 2. **Gate prewarm:** Writes the full `prompt` text to a per-generation temp file so
-   `AIC-require-aic-compile.cjs` can include the exact intent in its deny message. Without
-   this, the deny message falls back to a generic placeholder, reducing the chance the model
-   uses the correct intent for `aic_compile`.
+   `AIC-require-aic-compile.cjs` can include the exact intent in its deny message when the
+   enforcement path runs (§7.3). Without this, the deny message falls back to a generic placeholder, reducing the chance the model
+   uses the correct intent for `aic_compile`. When `devMode` is true in `aic.config.json`, §7.3 returns allow before deny logic, so the exact-intent deny path does not run.
 
 **Always returns `{ continue: true }`** — this hook must never block prompt submission.
 
 **Known limitation — no context injection:** `beforeSubmitPrompt` does not support an
-`additional_context` output field in Cursor's current hook schema. It can only allow/block the submission.
+`additional_context` output field in Cursor's current hook schema. The schema allows allow/block for the submission in general; AIC's hook always returns allow here (see above).
 
 **File:** `.cursor/hooks/AIC-before-submit-prewarm.cjs`
 
@@ -301,15 +301,19 @@ AIC registers **12** hook **command** entries across **10** event types (some ty
 
 ### 7.3 preToolUse (unmatched) — `aic_compile` enforcement gate
 
-**Event:** `preToolUse` (no matcher — fires on all tools)
+**Event:** `preToolUse` (no matcher — Cursor invokes this hook for every tool call; the script may return allow immediately without reading stdin.)
 
-**Input fields used:**
+**Development bypass:** Before stdin handling or marker files, the script resolves the project root via `integrations/shared/resolve-project-root.cjs`, reads `aic.config.json`, and `JSON.parse`s it. When the value is a plain object (not an array) with `devMode === true`, it writes `{ permission: "allow" }` to stdout and exits. Any read or parse failure continues to the enforcement path below.
+
+**Input fields used (enforcement path only):**
 
 - `input.generation_id` → per-generation state file key
 - `input.tool_name` → to detect if the call is `aic_compile`
 - `input.tool_input` → alternative detection for `aic_compile`
 
-**Purpose:** Block every tool call until `aic_compile` has been called for the current generation. Mechanics:
+**Purpose (enforcement path):** Block every tool call until `aic_compile` has been called for the current generation.
+
+**Mechanics (enforcement path):**
 
 1. On the first `aic_compile` call: write a marker file `os.tmpdir()/aic-gate-<generation_id>`.
    Allow the call.
@@ -318,7 +322,7 @@ AIC registers **12** hook **command** entries across **10** event types (some ty
    recommended `intent` argument — making it likely the model calls `aic_compile` with
    the correct intent and gets a cache hit from the prewarm.
 
-**Output:** `{ permission: "allow" }` or `{ permission: "deny", user_message, agent_message }`
+**Output:** `{ permission: "allow" }` or `{ permission: "deny", user_message, agent_message }`. Under the development bypass, the hook emits allow only and never deny.
 
 **`failClosed` behavior:** The `hooks.json` entry has `"failClosed": false` — if this hook crashes or times out, Cursor allows the tool call (fail-open). This is intentional: the gate serves as a reminder mechanism, not a security enforcement. A crash in the gate must never block legitimate work.
 
@@ -511,19 +515,19 @@ The model then sees this as a new prompt, fixes the errors, and tries to stop ag
 
 **Cursor:** Ten documented event types get AIC registrations; **twelve** hook command entries total (some types run two commands); **thirteen** script files deployed per `aic-hook-scripts.json`. Unused events are listed after the table.
 
-| Event                        | AIC use | Notes                                                                    |
-| ---------------------------- | ------- | ------------------------------------------------------------------------ |
-| `sessionStart`               | §7.1    | Two hooks: invariants (AIC-session-init) + compile (AIC-compile-context) |
-| `beforeSubmitPrompt`         | §7.2    | Prewarm gate, prompt log. No context injection (schema limitation)       |
-| `preToolUse` (unmatched)     | §7.3    | aic_compile enforcement gate                                             |
-| `preToolUse` (MCP)           | §7.4    | conversationId injection                                                 |
-| `postToolUse` (MCP)          | §7.5    | Compile confirmation                                                     |
-| `beforeShellExecution` (git) | §7.6    | --no-verify blocker                                                      |
-| `afterFileEdit`              | §7.7    | File edit tracker                                                        |
-| `stop`                       | §7.8    | Quality gate                                                             |
-| `sessionEnd`                 | §7.9    | Cleanup + telemetry                                                      |
-| `subagentStart`              | §7.10   | Telemetry compile per subagent start                                     |
-| `subagentStop`               | §7.11   | Reparent `compilation_log` from subagent session to parent conversation  |
+| Event                        | AIC use | Notes                                                                                      |
+| ---------------------------- | ------- | ------------------------------------------------------------------------------------------ |
+| `sessionStart`               | §7.1    | Two hooks: invariants (AIC-session-init) + compile (AIC-compile-context)                   |
+| `beforeSubmitPrompt`         | §7.2    | Prewarm gate, prompt log. No context injection (schema limitation)                         |
+| `preToolUse` (unmatched)     | §7.3    | aic_compile enforcement gate (no-op allow-all when `devMode` is true in `aic.config.json`) |
+| `preToolUse` (MCP)           | §7.4    | conversationId injection                                                                   |
+| `postToolUse` (MCP)          | §7.5    | Compile confirmation                                                                       |
+| `beforeShellExecution` (git) | §7.6    | --no-verify blocker                                                                        |
+| `afterFileEdit`              | §7.7    | File edit tracker                                                                          |
+| `stop`                       | §7.8    | Quality gate                                                                               |
+| `sessionEnd`                 | §7.9    | Cleanup + telemetry                                                                        |
+| `subagentStart`              | §7.10   | Telemetry compile per subagent start                                                       |
+| `subagentStop`               | §7.11   | Reparent `compilation_log` from subagent session to parent conversation                    |
 
 **Not registered:** `preCompact` and any other Cursor event without a row above — no entry in
 `hooks.json.template`. `subagentStart` cannot inject context; it exists for `compilation_log`
@@ -533,7 +537,7 @@ telemetry only. `subagentStop` does not inject context; it exists for reparent o
 
 ## 9. MCP compile invocation from hooks
 
-**Cursor:** `AIC-compile-context.cjs`, `AIC-subagent-compile.cjs`, and `AIC-subagent-stop.cjs` spawn MCP and call `aic_compile` directly. All other compilation goes through the model after the preToolUse gate. Because `beforeSubmitPrompt` cannot emit `additional_context`, session-wide snapshot injection depends on `AIC-compile-context.cjs`.
+**Cursor:** `AIC-compile-context.cjs`, `AIC-subagent-compile.cjs`, and `AIC-subagent-stop.cjs` spawn MCP and call `aic_compile` directly. All other compilation goes through the model after the preToolUse gate when §7.3 is enforcing (`devMode` not true in `aic.config.json`). Because `beforeSubmitPrompt` cannot emit `additional_context`, session-wide snapshot injection depends on `AIC-compile-context.cjs`.
 
 ### 9.1 Session compile — `AIC-compile-context.cjs`
 
@@ -676,12 +680,12 @@ The installer is a standalone `.cjs` script with no dependency on `mcp/src/`. So
 
 ## 14. Trigger rule
 
-**Cursor:** `.cursor/rules/AIC.mdc` with `alwaysApply: true` instructs the model to call `aic_compile` first on every message. The `preToolUse` gate (§7.3) enforces it. They are co-dependent:
+**Cursor:** `.cursor/rules/AIC.mdc` with `alwaysApply: true` instructs the model to call `aic_compile` first on every message. The `preToolUse` gate (§7.3) enforces that when `devMode` is not true in `aic.config.json`; with `devMode` true, the hook always allows tools and only the rule (and habit) steers the model toward `aic_compile`.
 
-- Without the rule: the model may not call `aic_compile` at all until blocked by the gate. The deny message then provides the intent, creating a round-trip penalty.
-- Without the gate: the rule is advisory only — the model can ignore it without consequence.
+- Without the rule: the model may not call `aic_compile` at all until blocked by the gate when enforcement runs. The deny message then provides the intent, creating a round-trip penalty.
+- Without the gate (or when the gate is bypassed via `devMode`): the rule is advisory only — the model can ignore it without consequence.
 
-The trigger rule + gate are the **primary** delivery mechanism for per-intent context in Cursor. Because there is no per-prompt context injection hook, these two components are essential — not a fallback.
+The trigger rule + gate are the **primary** delivery mechanism for per-intent context in Cursor when enforcement is active. Because there is no per-prompt context injection hook, these two components are essential for most workflows — not a fallback.
 
 Auto-installed when the Cursor installer runs. Version-stamped so it is overwritten when the AIC package version changes.
 
@@ -708,7 +712,7 @@ Context delivery:
 - [ ] `AIC-session-init.cjs` injects architectural invariants via `additional_context` (§7.1)
 - [ ] `AIC-compile-context.cjs` calls `aic_compile` with `conversationId` from `conversation_id` (§9.1)
 - [ ] `AIC-before-submit-prewarm.cjs` saves prompt for gate deny message (§7.2)
-- [ ] `AIC-require-aic-compile.cjs` blocks all tools until `aic_compile` called (§7.3)
+- [ ] `AIC-require-aic-compile.cjs` blocks all tools until `aic_compile` called when not in `devMode` (§7.3)
 - [ ] `AIC-inject-conversation-id.cjs` injects `conversationId` into MCP args (§7.4)
 - [ ] `AIC-post-compile-context.cjs` injects confirmation after compile (§7.5)
 - [ ] `AIC-subagent-compile.cjs` runs telemetry `aic_compile` on subagentStart (§7.10)
@@ -724,13 +728,13 @@ Settings:
 
 - [ ] `hooks.json` matches template: 12 command entries across ten event keys, including `subagentStart` and `subagentStop` (§10)
 
-Init behaviour:
+Init behavior:
 
 - [ ] Bootstrap: `install.cjs` runs from in-project path when present, else bundled package copy (§2–§3); manual run if needed ([installation.md#first-compile-bootstrap](../installation.md#first-compile-bootstrap))
 
 Temp file conventions:
 
-- [ ] `aic-gate-<generation_id>`: written by preToolUse gate, deleted by sessionEnd
+- [ ] `aic-gate-<generation_id>`: written by preToolUse gate when enforcement runs, deleted by sessionEnd (not written when `devMode` bypass applies — §7.3)
 - [ ] `aic-prompt-<generation_id>`: written by beforeSubmitPrompt, deleted by sessionEnd
 - [ ] `aic-deny-*`: optional leftovers from gate deny path, deleted by sessionEnd
 - [ ] `aic-edited-cursor-<conversation_key>.json` under `os.tmpdir()`: written by afterFileEdit, read by stop (not removed by sessionEnd; overwritten per session key)

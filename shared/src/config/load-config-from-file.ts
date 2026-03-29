@@ -42,6 +42,7 @@ const AicConfigSchema = z.object({
       allowPatterns: z.array(z.string().min(1).max(512)).max(64).default([]),
     })
     .optional(),
+  devMode: z.boolean().optional(),
 });
 
 type AicConfigParsed = z.infer<typeof AicConfigSchema>;
@@ -100,6 +101,7 @@ function buildResolvedConfig(parsed: AicConfigParsed): ResolvedConfig {
     }),
     enabled: parsed.enabled ?? true,
     guardAllowPatterns,
+    devMode: parsed.devMode ?? false,
   };
 }
 

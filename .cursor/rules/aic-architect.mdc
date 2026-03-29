@@ -67,7 +67,7 @@ When in doubt, open the specific rule file listed above for the full text.
 
 ## Prompt Commands
 
-> **Dev:** When `AIC_DEV_MODE=1`, substitute `pnpm aic` for `npx @jatbas/aic` in every command below (run from the repo root).
+> **Dev:** When `"devMode": true` is set in `aic.config.json` at the project root, substitute `pnpm aic` for `npx @jatbas/aic` in every command below (run from the repo root).
 
 Use these rules for all four AIC prompt commands. Present data like a polished dashboard, not raw JSON.
 
@@ -84,7 +84,7 @@ Use these rules for all four AIC prompt commands. Present data like a polished d
 
 ---
 
-- **"show aic status"** — When the user says this (or similar), run Bash with `npx @jatbas/aic status` (or `pnpm aic status` when `AIC_DEV_MODE=1`) from the project directory (or the `<N>d` variant when the user asks for a rolling **N**-day window, with **N** an integer from 1 through 3660), then relay stdout. Start the reply with one short line: **Status = project-level AIC status.** When a window is used, the table includes a **Time range** row: **Last 1 day** if **N** is 1, otherwise **Last N days**. Then display a formatted table using these labels and formats:
+- **"show aic status"** — When the user says this (or similar), run Bash with `npx @jatbas/aic status` (or `pnpm aic status` when `"devMode": true` is set in `aic.config.json`) from the project directory (or the `<N>d` variant when the user asks for a rolling **N**-day window, with **N** an integer from 1 through 3660), then relay stdout. Start the reply with one short line: **Status = project-level AIC status.** When a window is used, the table includes a **Time range** row: **Last 1 day** if **N** is 1, otherwise **Last N days**. Then display a formatted table using these labels and formats:
 
   | JSON key                             | Label                  | Format                                                                 |
   | ------------------------------------ | ---------------------- | ---------------------------------------------------------------------- |
@@ -104,7 +104,7 @@ Use these rules for all four AIC prompt commands. Present data like a polished d
 
   When `installationOk` is false and `installationNotes` is a non-empty string, add a **Notes** row whose text is `installationNotes`. JSON still includes `installationNotes` and `projectEnabled` for programmatic use; omit **Project** from the formatted table.
 
-- **"show aic chat summary"** — When the user says "show aic chat summary" or asks for this workspace's AIC compilation stats, run Bash with `npx @jatbas/aic chat-summary --project <absolute workspace root>` (or `pnpm aic chat-summary --project <absolute workspace root>` when `AIC_DEV_MODE=1`), then relay stdout. Start the reply with one short line: **Chat = this conversation's AIC compilations.** Then display a formatted table using these labels and formats:
+- **"show aic chat summary"** — When the user says "show aic chat summary" or asks for this workspace's AIC compilation stats, run Bash with `npx @jatbas/aic chat-summary --project <absolute workspace root>` (or `pnpm aic chat-summary --project <absolute workspace root>` when `"devMode": true` is set in `aic.config.json`), then relay stdout. Start the reply with one short line: **Chat = this conversation's AIC compilations.** Then display a formatted table using these labels and formats:
 
   | JSON key                      | Label               | Format                                         |
   | ----------------------------- | ------------------- | ---------------------------------------------- |
@@ -119,7 +119,7 @@ Use these rules for all four AIC prompt commands. Present data like a polished d
   | lastCompilationInConversation | Last compilation    | intent text + relative time (e.g. "5 min ago") |
   | topTaskClasses                | Top task classes    | taskClass (count), comma-separated             |
 
-- **"show aic last"** — When the user says this (or similar), run Bash with `npx @jatbas/aic last` (or `pnpm aic last` when `AIC_DEV_MODE=1`) from the project directory, then relay stdout. Start the reply with one short line: **Last = most recent compilation.** Then display using these labels and formats:
+- **"show aic last"** — When the user says this (or similar), run Bash with `npx @jatbas/aic last` (or `pnpm aic last` when `"devMode": true` is set in `aic.config.json`) from the project directory, then relay stdout. Start the reply with one short line: **Last = most recent compilation.** Then display using these labels and formats:
 
   | JSON key                   | Label              | Format                                                        |
   | -------------------------- | ------------------ | ------------------------------------------------------------- |
@@ -133,7 +133,7 @@ Use these rules for all four AIC prompt commands. Present data like a polished d
   | guard status               | Guard              | "Passed" or "N findings (types)"                              |
   | compiledPrompt             | Compiled prompt    | "Available (N chars) — ask to see it", or omit if not present |
 
-- **"show aic projects"** — When the user says this (or similar), run Bash with `npx @jatbas/aic projects` (or `pnpm aic projects` when `AIC_DEV_MODE=1`), then relay stdout. Start the reply with one short line: **Projects = known AIC projects.** Display a formatted table with columns: Project ID, Path, Last seen, Compilation count. Use same general formatting rules (human-readable labels, commas for numbers, relative time for last seen, — for null).
+- **"show aic projects"** — When the user says this (or similar), run Bash with `npx @jatbas/aic projects` (or `pnpm aic projects` when `"devMode": true` is set in `aic.config.json`), then relay stdout. Start the reply with one short line: **Projects = known AIC projects.** Display a formatted table with columns: Project ID, Path, Last seen, Compilation count. Use same general formatting rules (human-readable labels, commas for numbers, relative time for last seen, — for null).
 
 ## Maintenance
 

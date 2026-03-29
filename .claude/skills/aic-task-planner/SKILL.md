@@ -1131,9 +1131,8 @@ After verification passes:
 2. **Update heading and copy to main workspace:**
    - In the worktree task file, update the `# Task` heading: replace `# Task $EPOCH:` with `# Task NNN:`.
    - Copy the task file to the main workspace: `cp <worktree>/documentation/tasks/$EPOCH-name.md <main-workspace>/documentation/tasks/NNN-name.md` (use absolute paths for both source and target).
-   - Copy the exploration report to the main workspace: `cp <worktree>/documentation/tasks/.exploration-$EPOCH.md <main-workspace>/documentation/tasks/.exploration-NNN.md` (preserves the exploration evidence alongside the task for executor reference).
 
-3. **Clean up the worktree.** From the **main workspace root**:
+3. **Clean up the worktree** (this also removes the exploration file, which is an intermediate artifact — its findings are already mapped into the task file via C.2). From the **main workspace root**:
 
    ```
    git worktree remove .git-worktrees/plan-$EPOCH && git branch -D plan/$EPOCH

@@ -698,7 +698,7 @@ Full spec: [Project Plan §2.4](project-plan.md).
 
 ### Bootstrap (project setup)
 
-When the client lists workspace roots (e.g. when Cursor connects) or on first `aic_compile`, the server runs bootstrap: creates `aic.config.json` with all-default values, installs the trigger rule (e.g. `.cursor/rules/AIC.mdc`) and editor hooks, and creates `.aic/` with `0700` permissions. Also adds `.aic/` to `.gitignore` (creates the file if it doesn't exist).
+When the client lists workspace roots (e.g. when Cursor connects) or on first `aic_compile`, the server runs bootstrap: creates `aic.config.json` with all-default values, installs the trigger rule (e.g. `.cursor/rules/AIC.mdc`) and editor hooks, and creates `.aic/` with `0700` permissions. Also appends any missing lines from `shared/src/storage/aic-ignore-entries.json` to `.gitignore`, `.eslintignore`, and `.prettierignore` (creates each file if it does not exist).
 
 Editor hook installation (`runEditorBootstrapIfNeeded` in `mcp/src/editor-integration-dispatch.ts`) uses **auto** heuristics (`.cursor` / `CURSOR_PROJECT_DIR` for Cursor; `.claude` / `CLAUDE_PROJECT_DIR` for Claude Code) unless overridden. Override with `--aic-bootstrap-integration=<mode>` on the MCP process or `AIC_BOOTSTRAP_INTEGRATION` in the environment; the CLI flag wins over the env var, and both win over auto detection. Modes: `auto`, `none` (skip installers), `cursor`, `claude-code`, `cursor-claude-code` (run each installer when its script resolves, without requiring the corresponding detection gates).
 
@@ -800,15 +800,15 @@ The formula-derived `suggestedBudget` slots in just above the hard-coded default
 
 ### Trigger Rule Robustness
 
-The trigger rule installed during bootstrap (e.g. `.cursor/rules/AIC.mdc`) instructs the editor's AI to call `aic_compile`. The trigger rule is suggestive — compliance depends on the model and editor. In Cursor, the integration layer (hooks) provides stronger enforcement via `preToolUse` gating. In editors without hook support, the trigger rule is the sole mechanism.
+The trigger rule installed during bootstrap (e.g. `.cursor/rules/AIC.mdc`) instructs the editor's AI to call `aic_compile`. The trigger rule is suggestive — compliance depends on the model and editor. In Cursor, the integration layer (hooks) provides stronger enforcement via `preToolUse` gating when `devMode` is not true in `aic.config.json` ([Cursor integration layer](technical/cursor-integration-layer.md) §7.3). In editors without hook support, the trigger rule is the sole mechanism.
 
 **Per-editor trigger formats (shipped):**
 
-| Editor      | Trigger file            | Key attributes                                                                                                                               |
-| ----------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| Cursor      | `.cursor/rules/AIC.mdc` | `alwaysApply: true`, no `globs` restriction — included in every prompt. Integration hooks provide stronger enforcement via `preToolUse` gate |
-| Claude Code | `.claude/CLAUDE.md`     | Instruction appended to project-level system context                                                                                         |
-| Generic MCP | N/A                     | Relies on editor invoking registered MCP tools; no trigger rule needed                                                                       |
+| Editor      | Trigger file            | Key attributes                                                                                                                                                                                                                                                         |
+| ----------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cursor      | `.cursor/rules/AIC.mdc` | `alwaysApply: true`, no `globs` restriction — included in every prompt. Integration hooks provide stronger enforcement via `preToolUse` gate unless `devMode` is true in `aic.config.json` (§7.3 in [Cursor integration layer](technical/cursor-integration-layer.md)) |
+| Claude Code | `.claude/CLAUDE.md`     | Instruction appended to project-level system context                                                                                                                                                                                                                   |
+| Generic MCP | N/A                     | Relies on editor invoking registered MCP tools; no trigger rule needed                                                                                                                                                                                                 |
 
 **Trigger rule content pattern:**
 
@@ -941,7 +941,7 @@ Full detail: [Project Plan §13 — Security considerations](project-plan.md#13-
 - Guard findings are logged in `CompilationMeta.guard` and visible via `aic_inspect`; the pipeline never silently includes sensitive content
 - API keys referenced by env var name only — never stored, logged, or cached
 - **Outbound traffic:** `aic_compile` does not send repository content, prompts, or file paths to third parties. The server may perform a fixed outbound version check against the npm registry on startup — see [§8b — MCP server startup sequence](#8b-mcp-server-startup-sequence).
-- `.aic/` auto-added to `.gitignore` during bootstrap; created with `0700` permissions
+- AIC ignore manifest (`shared/src/storage/aic-ignore-entries.json`) appended to `.gitignore`, `.eslintignore`, and `.prettierignore` during first-time project init; `.aic/` created with `0700` permissions
 - Telemetry stores metrics only — never file contents or prompt text
 
 ### Observability
@@ -1039,11 +1039,11 @@ Same pass criteria as [§5 — Benchmark Suite](#benchmark-suite) (10 canonical 
 
 ### E2E Tests
 
-| Interface                | What is validated                                                                            |
-| ------------------------ | -------------------------------------------------------------------------------------------- |
-| `aic_compile` (MCP tool) | Output format correct; token count within budget                                             |
-| `aic_inspect` (MCP tool) | Trace JSON includes all pipeline sections; `selectedFiles` entries have no `resolvedContent` |
-| Bootstrap                | Config created; `.aic/` added to `.gitignore`; trigger rule exists                           |
+| Interface                | What is validated                                                                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `aic_compile` (MCP tool) | Output format correct; token count within budget                                                                                           |
+| `aic_inspect` (MCP tool) | Trace JSON includes all pipeline sections; `selectedFiles` entries have no `resolvedContent`                                               |
+| Bootstrap                | Config created; AIC ignore manifest appended to `.gitignore`, `.eslintignore`, `.prettierignore`; `.aic/` with `0700`; trigger rule exists |
 
 ---
 
@@ -1174,6 +1174,7 @@ const InspectRequestSchema = z.object({
 - `model.id` (optional)
 - `enabled` (boolean)
 - `guard.allowPatterns` (array of non-empty strings, max 64 entries)
+- `devMode` (boolean) — development bypass for the Cursor `preToolUse` gate; omitted defaults to `false` at resolve time
 
 Additional fields described in the Project Plan (telemetry, cache TTL, `rulePacks`, output format, etc.) may be accepted or ignored depending on loader evolution — see `load-config-from-file.ts` for the authoritative shape. On JSON parse failure, AIC throws `ConfigError` with a sanitised message.
 

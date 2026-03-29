@@ -30,6 +30,7 @@ describe("LoadConfigFromFile", () => {
     const result = loader.load(projectRoot, null);
     expect(result.config.contextBudget.maxTokens).toBe(toTokenCount(8000));
     expect(result.config.heuristic.maxFiles).toBe(20);
+    expect(result.config.devMode).toBe(false);
     expect(result.rawJson).toBeUndefined();
   });
 
@@ -101,6 +102,38 @@ describe("LoadConfigFromFile", () => {
     const loader = new LoadConfigFromFile();
     const result = loader.load(projectRoot, null);
     expect(result.config.enabled).toBe(true);
+  });
+
+  it("load_config_dev_mode_defaults_false", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-config-test-"));
+    const projectRoot = toAbsolutePath(tmpDir);
+    const loader = new LoadConfigFromFile();
+    const missing = loader.load(projectRoot, null);
+    expect(missing.config.devMode).toBe(false);
+    fs.writeFileSync(
+      path.join(tmpDir, "aic.config.json"),
+      '{"contextBudget":{"maxTokens":7000}}',
+      "utf8",
+    );
+    const omitted = loader.load(projectRoot, null);
+    expect(omitted.config.devMode).toBe(false);
+  });
+
+  it("load_config_dev_mode_true", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-config-test-"));
+    fs.writeFileSync(path.join(tmpDir, "aic.config.json"), '{"devMode": true}', "utf8");
+    const projectRoot = toAbsolutePath(tmpDir);
+    const loader = new LoadConfigFromFile();
+    const result = loader.load(projectRoot, null);
+    expect(result.config.devMode).toBe(true);
+  });
+
+  it("load_config_dev_mode_invalid_type", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-config-test-"));
+    fs.writeFileSync(path.join(tmpDir, "aic.config.json"), '{"devMode": "yes"}', "utf8");
+    const projectRoot = toAbsolutePath(tmpDir);
+    const loader = new LoadConfigFromFile();
+    expect(() => loader.load(projectRoot, null)).toThrow(ConfigError);
   });
 
   it("load_config_with_unimplemented_keys_ignores_extra_keys", () => {

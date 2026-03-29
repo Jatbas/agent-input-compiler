@@ -32,7 +32,7 @@ If \`aic_compile\` is not available (tool not found, MCP server disabled, or too
 Then continue responding normally without compiled context.
 
 
-> **Dev:** When developing the AIC repository with \`AIC_DEV_MODE=1\`, use \`pnpm aic\` from the repo root if you run shell diagnostics in a terminal. The prompt commands below use MCP tools in Cursor.
+> **Dev:** When developing the AIC repository, set \`"devMode": true\` in \`aic.config.json\` at the project root and use \`pnpm aic\` from the repo root if you run shell diagnostics in a terminal. The prompt commands below use MCP tools in Cursor.
 
 Prompt commands (call the MCP tool; do not use resource URIs or server identifiers):
 - "show aic status" → call \`aic_status\` with no arguments for all-time aggregates, or with \`{ "timeRangeDays": N }\` for a rolling **N**-day window (**N** integer 1..3660). Format: human-readable labels, numbers with commas, percentages 1 decimal, relative timestamps; when a window is active include **Time range** as **Last 1 day** (**N** === 1) or **Last N days**.

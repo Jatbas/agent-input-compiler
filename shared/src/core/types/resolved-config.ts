@@ -16,6 +16,7 @@ export interface ResolvedConfig {
   readonly model?: { readonly id?: string };
   readonly enabled: boolean;
   readonly guardAllowPatterns: readonly string[];
+  readonly devMode: boolean;
 }
 
 export function defaultResolvedConfig(): ResolvedConfig {
@@ -27,5 +28,6 @@ export function defaultResolvedConfig(): ResolvedConfig {
     heuristic: { maxFiles: 20 },
     enabled: true,
     guardAllowPatterns: [],
+    devMode: false,
   };
 }

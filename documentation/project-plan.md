@@ -266,15 +266,15 @@ The **integration layer** is a thin set of hook scripts, specific to each editor
 
 **What AIC needs from an editor (capability checklist):**
 
-| Capability                             | What it enables for AIC                                                                                       | Priority     |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------ |
-| **Session start + context injection**  | Compile context once and inject into the conversation. Model starts with curated code from the first message. | Recommended  |
-| **Per-prompt + context injection**     | Compile intent-specific context on every user message. Adapts to topic changes mid-conversation.              | Ideal        |
-| **Pre-tool-use gating**                | Block tool calls until `aic_compile` has run. Enforces compilation on tool-using turns.                       | Recommended  |
-| **Subagent start + context injection** | Inject compiled context when subagents spawn. Closes the biggest gap in agentic workflows.                    | Ideal        |
-| **Session end**                        | Log session lifecycle for telemetry (duration, trigger count).                                                | Nice to have |
-| **Pre-compaction**                     | Re-compile before context window compaction. Preserves context quality during long sessions.                  | Nice to have |
-| **Trigger rule**                       | Text instruction asking the model to call `aic_compile`. Minimal integration with no hooks.                   | Minimum      |
+| Capability                             | What it enables for AIC                                                                                                                                                                                  | Priority     |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **Session start + context injection**  | Compile context once and inject into the conversation. Model starts with curated code from the first message.                                                                                            | Recommended  |
+| **Per-prompt + context injection**     | Compile intent-specific context on every user message. Adapts to topic changes mid-conversation.                                                                                                         | Ideal        |
+| **Pre-tool-use gating**                | Block tool calls until `aic_compile` has run (Cursor compile gate skippable via `devMode` in `aic.config.json` — [installation](installation.md)). Enforces compilation on tool-using turns when active. | Recommended  |
+| **Subagent start + context injection** | Inject compiled context when subagents spawn. Closes the biggest gap in agentic workflows.                                                                                                               | Ideal        |
+| **Session end**                        | Log session lifecycle for telemetry (duration, trigger count).                                                                                                                                           | Nice to have |
+| **Pre-compaction**                     | Re-compile before context window compaction. Preserves context quality during long sessions.                                                                                                             | Nice to have |
+| **Trigger rule**                       | Text instruction asking the model to call `aic_compile`. Minimal integration with no hooks.                                                                                                              | Minimum      |
 
 **Current editor capabilities:**
 
@@ -290,7 +290,7 @@ The **integration layer** is a thin set of hook scripts, specific to each editor
 
 **Cursor:** Cursor exposes sessionEnd, preCompact, subagentStart (gating only — no context injection), stop, afterFileEdit, and other hooks the editor documents. The AIC integration layer consumes the subset in the table above.
 
-**Current state — Cursor:** Session-start injection, tool gating, sessionEnd, stop quality check, afterFileEdit tracking, and prompt logging are implemented.
+**Current state — Cursor:** Session-start injection, tool gating (when `devMode` is not true in `aic.config.json` — see [installation](installation.md)), sessionEnd, stop quality check, afterFileEdit tracking, and prompt logging are implemented.
 
 **Claude Code:** The integration layer is implemented (plugin and direct installer; see [installation](installation.md)).
 
@@ -326,7 +326,7 @@ _Claude Code_ — add to `~/.claude/settings.json`:
 }
 ```
 
-**Step 2 — Bootstrap** (automatic): No manual init command. When Cursor advertises workspace roots on connect, AIC proactively bootstraps each root — creating `aic.config.json`, installing the trigger rule (`.cursor/rules/AIC.mdc`) and hooks, and creating `.aic/` with `0700` permissions before the first AI message. In editors without proactive-roots support, bootstrap runs on the first `aic_compile` call. See [installation](installation.md) for Cursor deeplink and Claude Code plugin/direct installer.
+**Step 2 — Bootstrap** (automatic): No manual init command. When Cursor advertises workspace roots on connect, AIC proactively bootstraps each root — creating `aic.config.json`, installing the trigger rule (`.cursor/rules/AIC.mdc`) and hooks, creating `.aic/` with `0700` permissions, and appending the AIC ignore manifest to `.gitignore`, `.eslintignore`, and `.prettierignore` before the first AI message. In editors without proactive-roots support, bootstrap runs on the first `aic_compile` call. See [installation](installation.md) for Cursor deeplink and Claude Code plugin/direct installer.
 
 ### Model Auto-detection
 
@@ -1490,7 +1490,7 @@ All fields are optional. AIC works with an empty `{}` or no config file at all.
 
 ## 7. User Interface (MCP-Only)
 
-There is no separate CLI package. Primary use is MCP tools plus prompt commands inside the editor. The same npm entrypoint also exposes read-only CLI subcommands (`status`, `last`, `chat-summary`, `projects`) for terminals and CI — see [installation](installation.md#cli-standalone-usage). Project setup is automatic: when the editor connects (or on first `aic_compile`), the server bootstraps the project — creating `aic.config.json`, installing the trigger rule (e.g. `.cursor/rules/AIC.mdc`), installing editor hooks, and creating `.aic/` with `0700` permissions.
+There is no separate CLI package. Primary use is MCP tools plus prompt commands inside the editor. The same npm entrypoint also exposes read-only CLI subcommands (`status`, `last`, `chat-summary`, `projects`) for terminals and CI — see [installation](installation.md#cli-standalone-usage). Project setup is automatic: when the editor connects (or on first `aic_compile`), the server bootstraps the project — creating `aic.config.json`, installing the trigger rule (e.g. `.cursor/rules/AIC.mdc`), installing editor hooks, creating `.aic/` with `0700` permissions, and appending the AIC ignore manifest to `.gitignore`, `.eslintignore`, and `.prettierignore`.
 
 ### MCP Tools
 
@@ -2176,7 +2176,7 @@ The MCP server is AIC's primary interface. Its error modes differ from CLI error
 
 ### `.aic/` Directory Security
 
-- Add `.aic/` to `.gitignore` automatically during bootstrap
+- Append the AIC ignore manifest (`shared/src/storage/aic-ignore-entries.json`) to `.gitignore`, `.eslintignore`, and `.prettierignore` automatically during first-time project bootstrap (includes `.aic/` and related paths)
 - Permissions: created with `0700` (owner-only read/write/execute)
 - No symlinks followed inside `.aic/` to prevent symlink attacks
 

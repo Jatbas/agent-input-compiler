@@ -1,0 +1,6 @@
+{
+  "contextBudget": {
+    "maxTokens": 8000
+  },
+  "devMode": true
+}

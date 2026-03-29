@@ -289,7 +289,7 @@ Do not document what the intended audience already knows from ordinary professio
 
 ### Do document
 
-- Commands with **project-specific** arguments, env vars, paths, or script names (`pnpm run dev:mcp`, `.git-worktrees/` naming, `AIC_DEV_MODE`).
+- Commands with **project-specific** arguments, env vars, paths, or script names (`pnpm run dev:mcp`, `.git-worktrees/` naming, `devMode` in `aic.config.json`).
 - **Repository-specific** procedures: skill order, task file locations, verification gates, gitignored paths.
 - Behavior that **differs** from the default assumption a senior developer would make.
 
