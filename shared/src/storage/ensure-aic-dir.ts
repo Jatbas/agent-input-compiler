@@ -3,19 +3,29 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { fileURLToPath } from "node:url";
+import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
 import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 
+const ignoreEntriesPath = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "aic-ignore-entries.json",
+);
+const parsed: unknown = JSON.parse(fs.readFileSync(ignoreEntriesPath, "utf8"));
+if (
+  typeof parsed !== "object" ||
+  parsed === null ||
+  !("lines" in parsed) ||
+  !Array.isArray((parsed as { lines: unknown }).lines) ||
+  !(parsed as { lines: unknown[] }).lines.every((x) => typeof x === "string")
+) {
+  throw new ConfigError("aic-ignore-entries.json: expected top-level lines string array");
+}
+
 // AIC-only paths; same list used for .gitignore, .prettierignore, .eslintignore.
-export const AIC_IGNORE_ENTRIES: readonly string[] = [
-  ".aic/",
-  "aic.config.json",
-  ".cursor/rules/AIC.mdc",
-  ".cursor/hooks.json",
-  ".cursor/hooks/AIC-*.cjs",
-  // Git with core.ignorecase matches lowercase aic-dir.cjs to the AIC-*.cjs glob; negate so the hook stays trackable.
-  "!.cursor/hooks/aic-dir.cjs",
-];
+export const AIC_IGNORE_ENTRIES: readonly string[] = (parsed as { lines: string[] })
+  .lines;
 
 function hasIgnoreEntry(content: string, entry: string): boolean {
   return content.split("\n").some((line) => {

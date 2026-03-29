@@ -9,6 +9,8 @@ const {
   parseKeepAicDatabase,
   tryCleanGlobalAicDir,
 } = require("../clean-global-aic-dir.cjs");
+const { tryUninstallGlobalClaude } = require("../shared/uninstall-global-claude.cjs");
+const { tryUninstallProjectAic } = require("../shared/uninstall-project-aic.cjs");
 const {
   resolveProjectRoot: resolveProjectRootShared,
 } = require("../shared/resolve-project-root.cjs");
@@ -130,6 +132,10 @@ function projectRootFromArgv() {
   return null;
 }
 
+function parseKeepProjectArtifacts(argv) {
+  return argv.includes("--keep-project-artifacts");
+}
+
 function run() {
   const home = os.homedir();
   const globalMcpPath = path.join(home, ".cursor", "mcp.json");
@@ -142,14 +148,25 @@ function run() {
     projectRootFromArgv() ??
     envRoot ??
     resolveProjectRootShared(null, { env: process.env, useAicProjectRoot: true });
+  const keepProjectArtifacts = parseKeepProjectArtifacts(process.argv);
   const projectMcpPath = path.join(projectRoot, ".cursor", "mcp.json");
   const removedGlobalMcp = tryStripMcp(globalMcpPath);
   const removedProjectMcp = tryStripMcp(projectMcpPath);
   const removedProjectHooks = tryCleanProjectHooks(projectRoot);
+  const globalClaude = tryUninstallGlobalClaude(home);
+  const projectAic = tryUninstallProjectAic(projectRoot, {
+    keepProjectArtifacts,
+    homeDir: home,
+  });
   const keepDb = parseKeepAicDatabase(process.argv, process.env);
   const globalAic = tryCleanGlobalAicDir(home, keepDb);
   const changed =
-    removedGlobalMcp || removedProjectMcp || removedProjectHooks || globalAic.changed;
+    removedGlobalMcp ||
+    removedProjectMcp ||
+    removedProjectHooks ||
+    globalClaude.changed ||
+    projectAic.changed ||
+    globalAic.changed;
   if (!changed) {
     process.stdout.write("Nothing to remove. No need to restart Cursor.\n");
     return;
@@ -164,6 +181,7 @@ function run() {
   if (removedProjectHooks) {
     parts.push("Removed AIC hooks and trigger rule from this project.");
   }
+  parts.push(...globalClaude.parts, ...projectAic.parts);
   if (globalAic.message) {
     parts.push(globalAic.message);
   }

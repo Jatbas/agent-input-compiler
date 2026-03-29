@@ -70,6 +70,19 @@ describe("editor integration bootstrap", () => {
     expect(fs.existsSync(bundled)).toBe(true);
   });
 
+  it("bundle_includes_uninstall_scripts", () => {
+    expect(
+      fs.existsSync(
+        path.join(repoRoot, "mcp", "integrations", "cursor", "uninstall.cjs"),
+      ),
+    ).toBe(true);
+    expect(
+      fs.existsSync(
+        path.join(repoRoot, "mcp", "integrations", "claude", "uninstall.cjs"),
+      ),
+    ).toBe(true);
+  });
+
   it("readClaudeCodeInstalledFromExtensionsDir_false_when_missing", () => {
     expect(
       readClaudeCodeInstalledFromExtensionsDir("/nonexistent-aic-extensions-xyz"),

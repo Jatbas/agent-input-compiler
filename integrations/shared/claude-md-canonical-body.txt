@@ -1,5 +1,3 @@
-<!-- BEGIN AIC MANAGED SECTION — do not edit between these markers -->
-
 # AIC — Claude Code Rules
 
 > This file is the Claude Code equivalent of `.cursor/rules/AIC-architect.mdc`.
@@ -149,5 +147,3 @@ Keep shared rules aligned across these four code and documentation targets:
 Managed-section boundaries and the no-banner inner body follow `.cursor/rules/aic-claude-md-managed-section.mdc`; the two `CLAUDE_MD_TEMPLATE` strings must remain byte-identical.
 
 Architectural invariants, security rules, dependency rules, commit rules, ESLint rules, and test rules are **identical** across `AIC-architect.mdc` and this file — only editor-specific mechanics differ (hooks vs manual `aic_compile`, prompt command wording).
-
-<!-- END AIC MANAGED SECTION -->

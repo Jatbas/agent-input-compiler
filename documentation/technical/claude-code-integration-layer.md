@@ -717,3 +717,9 @@ Temp file and marker conventions:
 
 - [ ] Temp file `aic-edited-claude_code-<session_id>.json` under `os.tmpdir()` (sanitized key): written by PostToolUse (Edit|Write), read by Stop, cleaned by SessionEnd (`integrations/shared/edited-files-cache.cjs`)
 - [ ] `.aic/.session-context-injected`: written by SessionStart (dual-path workaround), read by UserPromptSubmit, deleted by SessionEnd (§7.2)
+
+---
+
+## 17. Uninstall
+
+`integrations/claude/uninstall.cjs` removes AIC entries from `~/.claude/settings.json` and AIC scripts under `~/.claude/hooks/`, and (unless `--keep-project-artifacts`) project `aic.config.json`, `.aic/`, matching ignore-file lines, and the AIC managed span in `.claude/CLAUDE.md`. It shares project cleanup with the Cursor uninstall script and applies the same `~/.aic/` cleanup. See [installation.md § Uninstall](../installation.md#uninstall) for ordering, flags, and bundled paths inside `@jatbas/aic`.

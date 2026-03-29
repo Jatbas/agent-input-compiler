@@ -11,12 +11,11 @@ const AIC_SCRIPT_NAMES = JSON.parse(
   fs.readFileSync(path.join(__dirname, "aic-hook-scripts.json"), "utf8"),
 ).hookScriptNames;
 
-const CLAUDE_MD_TEMPLATE = `<!-- AIC rule version: {{VERSION}} -->
-# AIC — Claude Code Rules
+const CLAUDE_MD_TEMPLATE = `# AIC — Claude Code Rules
 
 > This file is the Claude Code equivalent of \`.cursor/rules/AIC-architect.mdc\`.
 > Claude Code reads it on every session. Keep it condensed and action-oriented.
-> **Cross-editor sync:** This file and \`.cursor/rules/AIC-architect.mdc\` must stay in sync. When you change a rule in either file, apply the same change to the other. The architectural invariants are identical — only editor-specific mechanisms (hooks vs manual calls, prompt commands) differ.
+> **Cross-editor sync:** See \`## Cross-Editor Sync\` below for the canonical targets (\`AIC-architect.mdc\`, this file, both \`CLAUDE_MD_TEMPLATE\` sources, and \`aic-claude-md-managed-section.mdc\`).
 
 ## AIC Context Compilation (hooks handle this automatically)
 
@@ -151,11 +150,16 @@ Use these rules for all four AIC prompt commands. Present data like a polished d
 
 ## Cross-Editor Sync
 
-This file (\`.claude/CLAUDE.md\`) and \`.cursor/rules/AIC-architect.mdc\` are the two canonical rule files for the project. They must stay in sync:
+Keep shared rules aligned across these four code and documentation targets:
 
-- Architectural invariants, security rules, dependency rules, commit rules, ESLint rules, and test rules are **identical** across both files.
-- Only editor-specific mechanics differ: Claude Code uses hooks for \`aic_compile\`; Cursor requires manual \`aic_compile\` calls. Prompt commands use the same shell diagnostics (\`npx @jatbas/aic …\`) but instructions differ slightly per editor.
-- When changing any shared rule, update all three files in the same commit: (1) this file, (2) \`.cursor/rules/AIC-architect.mdc\`, and (3) the \`CLAUDE_MD_TEMPLATE\` in \`integrations/claude/install.cjs\`. If you only see one file in context, flag that the other two need the same change.
+- \`.cursor/rules/AIC-architect.mdc\`
+- \`.claude/CLAUDE.md\` (this file)
+- \`integrations/claude/install.cjs\` (\`CLAUDE_MD_TEMPLATE\`)
+- \`mcp/src/install-trigger-rule.ts\` (\`CLAUDE_MD_TEMPLATE\`)
+
+Managed-section boundaries and the no-banner inner body follow \`.cursor/rules/aic-claude-md-managed-section.mdc\`; the two \`CLAUDE_MD_TEMPLATE\` strings must remain byte-identical.
+
+Architectural invariants, security rules, dependency rules, commit rules, ESLint rules, and test rules are **identical** across \`AIC-architect.mdc\` and this file — only editor-specific mechanics differ (hooks vs manual \`aic_compile\`, prompt command wording).
 `;
 
 const CLAUDE_MD_OPENING_LINE =
@@ -172,8 +176,8 @@ function normalizeClaudeMdNewlines(text) {
   return String(text).replaceAll("\r\n", "\n").replaceAll("\r", "\n");
 }
 
-function buildClaudeMdManagedFileContent(version) {
-  let inner = CLAUDE_MD_TEMPLATE.replace("{{VERSION}}", version);
+function buildClaudeMdManagedFileContent() {
+  let inner = CLAUDE_MD_TEMPLATE;
   if (!inner.endsWith("\n")) inner += "\n";
   return `${CLAUDE_MD_OPENING_LINE}\n${inner}${CLAUDE_MD_CLOSING_LINE}\n`;
 }
@@ -204,8 +208,8 @@ function charOffsetForLineIndex(lines, lineIndex) {
   return offset;
 }
 
-function planProjectClaudeMdWrite(version, existingNormalized) {
-  const managed = buildClaudeMdManagedFileContent(version);
+function planProjectClaudeMdWrite(existingNormalized) {
+  const managed = buildClaudeMdManagedFileContent();
   if (existingNormalized === null) {
     return { skipWrite: false, nextContent: managed };
   }
@@ -229,9 +233,9 @@ function planProjectClaudeMdWrite(version, existingNormalized) {
     afterCloseLine += 1;
   }
   const interior = existingNormalized.slice(afterOpenLine, closeLineStart);
-  const versionMatch = interior.match(/AIC rule version:\s*(\S+)/);
-  const innerVersion = versionMatch ? versionMatch[1] : null;
-  if (innerVersion === version) {
+  const normInterior = normalizeClaudeMdNewlines(interior);
+  const normTemplate = normalizeClaudeMdNewlines(CLAUDE_MD_TEMPLATE);
+  if (normInterior === normTemplate) {
     return { skipWrite: true, nextContent: null };
   }
   const prefix = existingNormalized.slice(0, openLineStart);
@@ -388,16 +392,6 @@ try {
     fs.writeFileSync(globalSettingsPath, mergedContent, "utf8");
   }
 
-  let version = "0.0.0";
-  try {
-    const pkgPath = path.join(__dirname, "..", "..", "package.json");
-    const raw = fs.readFileSync(pkgPath, "utf8");
-    const pkg = JSON.parse(raw);
-    if (typeof pkg.version === "string") version = pkg.version;
-  } catch {
-    // keep 0.0.0
-  }
-
   const projectRoot = resolveProjectRoot({ cwd: "" }, { env: process.env });
   const projectClaudeDir = path.join(projectRoot, ".claude");
 
@@ -459,7 +453,7 @@ try {
   }
   const existingNorm =
     existingClaudeMd === null ? null : normalizeClaudeMdNewlines(existingClaudeMd);
-  const claudeMdPlan = planProjectClaudeMdWrite(version, existingNorm);
+  const claudeMdPlan = planProjectClaudeMdWrite(existingNorm);
   if (!claudeMdPlan.skipWrite) {
     try {
       if (claudeMdPlan.nextContent !== existingNorm) {

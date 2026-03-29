@@ -15,7 +15,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b && node -e \"require('node:fs').cpSync('src/storage/aic-ignore-entries.json','dist/storage/aic-ignore-entries.json')\"",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

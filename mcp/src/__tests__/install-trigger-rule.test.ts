@@ -98,6 +98,8 @@ describe("installTriggerRule", () => {
     expect(fs.existsSync(claudeMdPath)).toBe(true);
     const content = fs.readFileSync(claudeMdPath, "utf8");
     expect(content).toContain("AIC — Claude Code Rules");
+    expect(content).toContain("BEGIN AIC MANAGED SECTION");
+    expect(content).toContain("END AIC MANAGED SECTION");
   });
 
   it("generic_creates_no_trigger_file", () => {

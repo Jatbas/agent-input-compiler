@@ -31,6 +31,15 @@ function runUninstall(env, args = [], cwd) {
   });
 }
 
+function envWithTmpHome(tmpDir) {
+  return {
+    ...process.env,
+    HOME: tmpDir,
+    AIC_PROJECT_ROOT: tmpDir,
+    CURSOR_PROJECT_DIR: tmpDir,
+  };
+}
+
 function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
@@ -63,7 +72,7 @@ function cursor_global_removal_top_level_aic() {
       ) + "\n",
       "utf8",
     );
-    const out = runUninstall({ ...process.env, HOME: tmpDir }, [], tmpDir);
+    const out = runUninstall(envWithTmpHome(tmpDir), [], tmpDir);
     assert(out.includes("~/.cursor/mcp.json"), "stdout mentions global mcp");
     const obj = JSON.parse(fs.readFileSync(mcpPath, "utf8"));
     assert(
@@ -90,7 +99,7 @@ function cursor_global_removal_mcp_servers() {
       ) + "\n",
       "utf8",
     );
-    runUninstall({ ...process.env, HOME: tmpDir }, [], tmpDir);
+    runUninstall(envWithTmpHome(tmpDir), [], tmpDir);
     const obj = JSON.parse(fs.readFileSync(mcpPath, "utf8"));
     assert(findAicKey(obj.mcpServers) === undefined, "aic removed from mcpServers");
     assert(obj.other === 1, "preserves unrelated keys");
@@ -119,8 +128,8 @@ function cursor_idempotent() {
       ) + "\n",
       "utf8",
     );
-    runUninstall({ ...process.env, HOME: tmpDir }, [], tmpDir);
-    const out2 = runUninstall({ ...process.env, HOME: tmpDir }, [], tmpDir);
+    runUninstall(envWithTmpHome(tmpDir), [], tmpDir);
+    const out2 = runUninstall(envWithTmpHome(tmpDir), [], tmpDir);
     assert(
       out2.includes("Nothing to remove") && out2.includes("No need to restart"),
       "second run reports nothing to remove",
@@ -139,7 +148,7 @@ function cursor_project_cleanup() {
     const triggerPath = path.join(tmpDir, ".cursor", "rules", "AIC.mdc");
     assert(fs.existsSync(hooksJsonPath), "hooks.json exists after install");
     assert(fs.existsSync(triggerPath), "AIC.mdc exists after install");
-    const out = runUninstall({ ...process.env, HOME: tmpDir }, [], tmpDir);
+    const out = runUninstall(envWithTmpHome(tmpDir), [], tmpDir);
     assert(out.includes("hooks and trigger rule"), "project hooks removed message");
     const hooksJson = JSON.parse(fs.readFileSync(hooksJsonPath, "utf8"));
     const cmds = collectHookCommands(hooksJson);
@@ -171,6 +180,8 @@ function cursor_combined_global_and_project() {
         ...process.env,
         HOME: tmpHome,
         AIC_UNINSTALL_PROJECT_ROOT: tmpProject,
+        AIC_PROJECT_ROOT: tmpProject,
+        CURSOR_PROJECT_DIR: tmpProject,
       },
       [],
       repoRoot,
@@ -196,7 +207,7 @@ function cursor_corrupt_hooks_json_still_removes_scripts() {
     fs.writeFileSync(path.join(tmpDir, ".cursor", "hooks.json"), "{ not json\n", "utf8");
     const scriptName = AIC_SCRIPT_NAMES[0];
     fs.writeFileSync(path.join(hooksDir, scriptName), "// x\n", "utf8");
-    runUninstall({ ...process.env, HOME: tmpDir }, [], tmpDir);
+    runUninstall(envWithTmpHome(tmpDir), [], tmpDir);
     assert(
       !fs.existsSync(path.join(hooksDir, scriptName)),
       "script removed despite bad hooks.json",
@@ -216,6 +227,8 @@ function cursor_project_root_env() {
         ...process.env,
         HOME: tmpHome,
         AIC_UNINSTALL_PROJECT_ROOT: tmpProject,
+        AIC_PROJECT_ROOT: tmpProject,
+        CURSOR_PROJECT_DIR: tmpProject,
       },
       [],
       repoRoot,
@@ -238,7 +251,7 @@ function cursor_global_aic_clean_preserves_sqlite() {
     fs.mkdirSync(aicDir, { recursive: true });
     fs.writeFileSync(path.join(aicDir, "cache.txt"), "c", "utf8");
     fs.writeFileSync(path.join(aicDir, "aic.sqlite"), "db", "utf8");
-    const out = runUninstall({ ...process.env, HOME: tmpDir }, [], tmpDir);
+    const out = runUninstall(envWithTmpHome(tmpDir), [], tmpDir);
     assert(out.includes("kept SQLite database files"), "mentions db preserved");
     assert(!fs.existsSync(path.join(aicDir, "cache.txt")), "cache removed");
     assert(
@@ -257,7 +270,7 @@ function cursor_global_aic_no_keep_db_wipes_dir() {
     fs.mkdirSync(aicDir, { recursive: true });
     fs.writeFileSync(path.join(aicDir, "aic.sqlite"), "db", "utf8");
     const out = runUninstall(
-      { ...process.env, HOME: tmpDir },
+      envWithTmpHome(tmpDir),
       ["--keep-aic-database=false"],
       tmpDir,
     );
@@ -276,8 +289,7 @@ function cursor_global_aic_env_no_keep_db_wipes_dir() {
     fs.writeFileSync(path.join(aicDir, "x.txt"), "x", "utf8");
     runUninstall(
       {
-        ...process.env,
-        HOME: tmpDir,
+        ...envWithTmpHome(tmpDir),
         AIC_UNINSTALL_KEEP_AIC_DATABASE: "0",
       },
       [],
@@ -301,13 +313,125 @@ function cursor_project_mcp_removed() {
       "utf8",
     );
     const out = runUninstall(
-      { ...process.env, HOME: tmpHome, AIC_UNINSTALL_PROJECT_ROOT: tmpProject },
+      {
+        ...process.env,
+        HOME: tmpHome,
+        AIC_UNINSTALL_PROJECT_ROOT: tmpProject,
+        AIC_PROJECT_ROOT: tmpProject,
+        CURSOR_PROJECT_DIR: tmpProject,
+      },
       [],
       repoRoot,
     );
     assert(out.includes("project's Cursor MCP"), "project mcp message");
     const parsed = JSON.parse(fs.readFileSync(path.join(pc, "mcp.json"), "utf8"));
     assert(findAicKey(parsed.mcpServers) === undefined, "project mcp stripped");
+  } finally {
+    fs.rmSync(tmpHome, { recursive: true, force: true });
+    fs.rmSync(tmpProject, { recursive: true, force: true });
+  }
+}
+
+function cursor_uninstall_cleans_global_claude() {
+  const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "aic-curs-cc-"));
+  const tmpProject = fs.mkdtempSync(path.join(os.tmpdir(), "aic-curs-pr-"));
+  try {
+    const claudeDir = path.join(tmpHome, ".claude");
+    fs.mkdirSync(path.join(claudeDir, "hooks"), { recursive: true });
+    fs.writeFileSync(
+      path.join(claudeDir, "settings.json"),
+      JSON.stringify({ mcpServers: { aic: { command: "npx", args: ["x"] } } }, null, 2) +
+        "\n",
+      "utf8",
+    );
+    const out = runUninstall(
+      {
+        ...process.env,
+        HOME: tmpHome,
+        AIC_UNINSTALL_PROJECT_ROOT: tmpProject,
+        AIC_PROJECT_ROOT: tmpProject,
+        CURSOR_PROJECT_DIR: tmpProject,
+      },
+      [],
+      repoRoot,
+    );
+    assert(out.includes("mcpServers"), "stdout mentions claude mcp strip");
+    const data = JSON.parse(
+      fs.readFileSync(path.join(claudeDir, "settings.json"), "utf8"),
+    );
+    const servers = data.mcpServers || {};
+    const aicKey = Object.keys(servers).find((k) => k.toLowerCase() === "aic");
+    assert(aicKey === undefined, "global claude mcpServers aic removed");
+  } finally {
+    fs.rmSync(tmpHome, { recursive: true, force: true });
+    fs.rmSync(tmpProject, { recursive: true, force: true });
+  }
+}
+
+function cursor_uninstall_removes_project_artifacts() {
+  const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "aic-curs-pa-h-"));
+  const tmpProject = fs.mkdtempSync(path.join(os.tmpdir(), "aic-curs-pa-p-"));
+  try {
+    fs.writeFileSync(path.join(tmpProject, "aic.config.json"), "{}\n", "utf8");
+    fs.mkdirSync(path.join(tmpProject, ".aic"), { recursive: true });
+    fs.writeFileSync(path.join(tmpProject, ".aic", "foo.txt"), "x", "utf8");
+    fs.writeFileSync(path.join(tmpProject, ".gitignore"), ".aic/\n", "utf8");
+    const inner = fs.readFileSync(
+      path.join(repoRoot, "integrations", "shared", "claude-md-canonical-body.txt"),
+      "utf8",
+    );
+    const mdBody = inner.endsWith("\n") ? inner : `${inner}\n`;
+    fs.mkdirSync(path.join(tmpProject, ".claude"), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpProject, ".claude", "CLAUDE.md"),
+      `<!-- BEGIN AIC MANAGED SECTION — do not edit between these markers -->\n${mdBody}<!-- END AIC MANAGED SECTION -->\n`,
+      "utf8",
+    );
+    runUninstall(
+      {
+        ...process.env,
+        HOME: tmpHome,
+        AIC_UNINSTALL_PROJECT_ROOT: tmpProject,
+        AIC_PROJECT_ROOT: tmpProject,
+        CURSOR_PROJECT_DIR: tmpProject,
+      },
+      [],
+      repoRoot,
+    );
+    assert(!fs.existsSync(path.join(tmpProject, "aic.config.json")), "config removed");
+    assert(!fs.existsSync(path.join(tmpProject, ".aic")), ".aic removed");
+    const gi = fs.readFileSync(path.join(tmpProject, ".gitignore"), "utf8");
+    assert(!gi.includes(".aic/"), "ignore line removed");
+    assert(
+      !fs.existsSync(path.join(tmpProject, ".claude", "CLAUDE.md")),
+      "claude md removed",
+    );
+  } finally {
+    fs.rmSync(tmpHome, { recursive: true, force: true });
+    fs.rmSync(tmpProject, { recursive: true, force: true });
+  }
+}
+
+function cursor_uninstall_keep_project_artifacts_skips_project_files() {
+  const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "aic-curs-kp-h-"));
+  const tmpProject = fs.mkdtempSync(path.join(os.tmpdir(), "aic-curs-kp-p-"));
+  try {
+    fs.writeFileSync(path.join(tmpProject, "aic.config.json"), "{}\n", "utf8");
+    fs.mkdirSync(path.join(tmpProject, ".aic"), { recursive: true });
+    fs.writeFileSync(path.join(tmpProject, ".aic", "keep.txt"), "k", "utf8");
+    runUninstall(
+      {
+        ...process.env,
+        HOME: tmpHome,
+        AIC_UNINSTALL_PROJECT_ROOT: tmpProject,
+        AIC_PROJECT_ROOT: tmpProject,
+        CURSOR_PROJECT_DIR: tmpProject,
+      },
+      ["--keep-project-artifacts"],
+      repoRoot,
+    );
+    assert(fs.existsSync(path.join(tmpProject, "aic.config.json")), "config kept");
+    assert(fs.existsSync(path.join(tmpProject, ".aic", "keep.txt")), ".aic kept");
   } finally {
     fs.rmSync(tmpHome, { recursive: true, force: true });
     fs.rmSync(tmpProject, { recursive: true, force: true });
@@ -336,3 +460,9 @@ cursor_global_aic_env_no_keep_db_wipes_dir();
 console.log("ok: cursor_global_aic_env_no_keep_db_wipes_dir");
 cursor_project_mcp_removed();
 console.log("ok: cursor_project_mcp_removed");
+cursor_uninstall_cleans_global_claude();
+console.log("ok: cursor_uninstall_cleans_global_claude");
+cursor_uninstall_removes_project_artifacts();
+console.log("ok: cursor_uninstall_removes_project_artifacts");
+cursor_uninstall_keep_project_artifacts_skips_project_files();
+console.log("ok: cursor_uninstall_keep_project_artifacts_skips_project_files");

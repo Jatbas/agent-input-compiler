@@ -734,3 +734,9 @@ Temp file conventions:
 - [ ] `aic-prompt-<generation_id>`: written by beforeSubmitPrompt, deleted by sessionEnd
 - [ ] `aic-deny-*`: optional leftovers from gate deny path, deleted by sessionEnd
 - [ ] `aic-edited-cursor-<conversation_key>.json` under `os.tmpdir()`: written by afterFileEdit, read by stop (not removed by sessionEnd; overwritten per session key)
+
+---
+
+## 17. Uninstall
+
+`integrations/cursor/uninstall.cjs` removes Cursor MCP and project hook artifacts, **global Claude Code AIC state** under `~/.claude/` (because Cursor bootstrap can install Claude hooks), and (unless `--keep-project-artifacts`) project `aic.config.json`, `.aic/`, matching ignore-file lines, and the AIC managed span in `.claude/CLAUDE.md`. It finishes with the same `~/.aic/` cleanup as the Claude uninstall script. Full ordering, flags, and bundled paths under `node_modules/@jatbas/aic` are documented in [installation.md § Uninstall](../installation.md#uninstall).

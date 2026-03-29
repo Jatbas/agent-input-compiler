@@ -10,9 +10,25 @@ import {
   statSync,
   realpathSync,
 } from "node:fs";
-import { join } from "node:path";
+
+function findRepoRootForIgnoreJson(startDir: string): string {
+  let dir = startDir;
+  for (;;) {
+    const sharedPath = join(dir, "shared", "src", "storage", "aic-ignore-entries.json");
+    const intPath = join(dir, "integrations", "shared", "aic-ignore-entries.json");
+    if (existsSync(sharedPath) && existsSync(intPath)) return dir;
+    const parent = dirname(dir);
+    if (parent === dir) {
+      throw new ConfigError("repo root not found for ignore json sync test");
+    }
+    dir = parent;
+  }
+}
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { tmpdir, platform } from "node:os";
 import { describe, it, expect, afterEach } from "vitest";
+import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
 import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import {
   AIC_IGNORE_ENTRIES,
@@ -24,6 +40,19 @@ import {
 const EXPECTED_GITIGNORE_CONTENT = AIC_IGNORE_ENTRIES.map((e) => `${e}\n`).join("");
 
 describe("ensureAicDir", () => {
+  it("aic_ignore_json_matches_integrations_copy", () => {
+    const root = findRepoRootForIgnoreJson(dirname(fileURLToPath(import.meta.url)));
+    const sharedJson = readFileSync(
+      join(root, "shared", "src", "storage", "aic-ignore-entries.json"),
+      "utf8",
+    );
+    const integrationsJson = readFileSync(
+      join(root, "integrations", "shared", "aic-ignore-entries.json"),
+      "utf8",
+    );
+    expect(sharedJson).toBe(integrationsJson);
+  });
+
   const dirs: string[] = [];
 
   afterEach(() => {

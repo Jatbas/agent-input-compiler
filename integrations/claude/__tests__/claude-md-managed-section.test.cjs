@@ -6,26 +6,17 @@ const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 
 const installScript = path.join(__dirname, "..", "install.cjs");
-const repoPkgPath = path.join(__dirname, "..", "..", "..", "package.json");
 
 const CLAUDE_MD_OPENING_LINE =
   "<!-- BEGIN AIC MANAGED SECTION — do not edit between these markers -->";
 const CLAUDE_MD_CLOSING_LINE = "<!-- END AIC MANAGED SECTION -->";
-const INVALID_MANAGED_VERSION = "0.0.0-aic-test-invalid";
-
-function loadRepoPackageVersion() {
-  const pkg = JSON.parse(fs.readFileSync(repoPkgPath, "utf8"));
-  if (typeof pkg.version !== "string") {
-    throw new Error("Expected string package.version");
-  }
-  return pkg.version;
-}
 
 function buildTestEnv(tmpHome) {
   const env = { ...process.env };
   env.HOME = tmpHome;
   delete env.CURSOR_PROJECT_DIR;
   delete env.CLAUDE_PROJECT_DIR;
+  env.AIC_PROJECT_ROOT = tmpHome;
   return env;
 }
 
@@ -41,8 +32,14 @@ function readProjectClaudeMd(projectRoot) {
   return fs.readFileSync(path.join(projectRoot, ".claude", "CLAUDE.md"), "utf8");
 }
 
-function managedBlockWithInnerVersion(innerVersion) {
-  return `${CLAUDE_MD_OPENING_LINE}\n<!-- AIC rule version: ${innerVersion} -->\n# placeholder\n${CLAUDE_MD_CLOSING_LINE}\n`;
+function assertNoVersionBanner(text) {
+  if (text.includes("<!-- AIC rule version")) {
+    throw new Error("Managed inner must not contain AIC rule version banner");
+  }
+}
+
+function managedBlockWithStaleInner() {
+  return `${CLAUDE_MD_OPENING_LINE}\n# STALE_NON_CANONICAL_BODY\n${CLAUDE_MD_CLOSING_LINE}\n`;
 }
 
 function fresh_install_claude_md_has_markers() {
@@ -50,7 +47,6 @@ function fresh_install_claude_md_has_markers() {
     path.join(require("node:os").tmpdir(), "aic-claude-md-fresh-"),
   );
   try {
-    const expectedVersion = loadRepoPackageVersion();
     runInstall(tmpDir);
     const raw = readProjectClaudeMd(tmpDir);
     if (!raw.includes(CLAUDE_MD_OPENING_LINE)) {
@@ -62,9 +58,9 @@ function fresh_install_claude_md_has_markers() {
     if (!raw.includes("BEGIN AIC MANAGED SECTION")) {
       throw new Error("Expected BEGIN AIC MANAGED SECTION text");
     }
-    const verLine = `<!-- AIC rule version: ${expectedVersion} -->`;
-    if (!raw.includes(verLine)) {
-      throw new Error("Expected version line for repo package version");
+    assertNoVersionBanner(raw);
+    if (!raw.includes("# AIC — Claude Code Rules")) {
+      throw new Error("Expected canonical template heading in managed inner");
     }
     console.log("fresh_install_claude_md_has_markers: pass");
   } finally {
@@ -77,12 +73,11 @@ function upgrade_replaces_managed_preserves_surrounding() {
     path.join(require("node:os").tmpdir(), "aic-claude-md-upgrade-"),
   );
   try {
-    const expectedVersion = loadRepoPackageVersion();
     const prefix = "USER_PREFIX_LINE_A\n";
     const suffix = "\nUSER_SUFFIX_LINE_Z";
     const claudeDir = path.join(tmpDir, ".claude");
     fs.mkdirSync(claudeDir, { recursive: true });
-    const initial = `${prefix}${managedBlockWithInnerVersion(INVALID_MANAGED_VERSION)}${suffix}`;
+    const initial = `${prefix}${managedBlockWithStaleInner()}${suffix}`;
     fs.writeFileSync(path.join(claudeDir, "CLAUDE.md"), initial, "utf8");
     runInstall(tmpDir);
     const after = readProjectClaudeMd(tmpDir);
@@ -92,9 +87,12 @@ function upgrade_replaces_managed_preserves_surrounding() {
     if (!after.endsWith(suffix)) {
       throw new Error("Expected suffix unchanged");
     }
-    const verLine = `<!-- AIC rule version: ${expectedVersion} -->`;
-    if (!after.includes(verLine)) {
-      throw new Error("Expected upgraded inner version");
+    assertNoVersionBanner(after);
+    if (after.includes("# STALE_NON_CANONICAL_BODY")) {
+      throw new Error("Expected stale inner replaced with canonical template");
+    }
+    if (!after.includes("# AIC — Claude Code Rules")) {
+      throw new Error("Expected canonical template after upgrade");
     }
     const openings = after.split(CLAUDE_MD_OPENING_LINE).length - 1;
     if (openings !== 1) {
@@ -130,7 +128,6 @@ function legacy_without_markers_appends_managed() {
     path.join(require("node:os").tmpdir(), "aic-claude-md-legacy-"),
   );
   try {
-    const expectedVersion = loadRepoPackageVersion();
     const userOnly = "user line one\nuser line two\n";
     const claudeDir = path.join(tmpDir, ".claude");
     fs.mkdirSync(claudeDir, { recursive: true });
@@ -144,9 +141,9 @@ function legacy_without_markers_appends_managed() {
     if (!after.includes(CLAUDE_MD_CLOSING_LINE)) {
       throw new Error("Expected managed closing marker");
     }
-    const verLine = `<!-- AIC rule version: ${expectedVersion} -->`;
-    if (!after.includes(verLine)) {
-      throw new Error("Expected managed version from package.json");
+    assertNoVersionBanner(after);
+    if (!after.includes("# AIC — Claude Code Rules")) {
+      throw new Error("Expected canonical managed inner");
     }
     console.log("legacy_without_markers_appends_managed: pass");
   } finally {
@@ -159,7 +156,6 @@ function empty_file_writes_managed_only() {
     path.join(require("node:os").tmpdir(), "aic-claude-md-empty-"),
   );
   try {
-    const expectedVersion = loadRepoPackageVersion();
     const claudeDir = path.join(tmpDir, ".claude");
     fs.mkdirSync(claudeDir, { recursive: true });
     fs.writeFileSync(path.join(claudeDir, "CLAUDE.md"), "", "utf8");
@@ -174,9 +170,9 @@ function empty_file_writes_managed_only() {
     if (!after.includes("BEGIN AIC MANAGED SECTION")) {
       throw new Error("Expected BEGIN marker text");
     }
-    const verLine = `<!-- AIC rule version: ${expectedVersion} -->`;
-    if (!after.includes(verLine)) {
-      throw new Error("Expected version line");
+    assertNoVersionBanner(after);
+    if (!after.includes("# AIC — Claude Code Rules")) {
+      throw new Error("Expected canonical inner");
     }
     const openings = after.split(CLAUDE_MD_OPENING_LINE).length - 1;
     if (openings !== 1) {
@@ -193,12 +189,11 @@ function content_before_and_after_preserved_on_upgrade() {
     path.join(require("node:os").tmpdir(), "aic-claude-md-surround-"),
   );
   try {
-    const expectedVersion = loadRepoPackageVersion();
     const before = "line before managed\n";
     const afterUser = "\nline after managed\n";
     const claudeDir = path.join(tmpDir, ".claude");
     fs.mkdirSync(claudeDir, { recursive: true });
-    const initial = `${before}${managedBlockWithInnerVersion(INVALID_MANAGED_VERSION)}${afterUser}`;
+    const initial = `${before}${managedBlockWithStaleInner()}${afterUser}`;
     fs.writeFileSync(path.join(claudeDir, "CLAUDE.md"), initial, "utf8");
     runInstall(tmpDir);
     const after = readProjectClaudeMd(tmpDir);
@@ -208,9 +203,9 @@ function content_before_and_after_preserved_on_upgrade() {
     if (!after.endsWith(afterUser)) {
       throw new Error("Expected content after markers preserved");
     }
-    const verLine = `<!-- AIC rule version: ${expectedVersion} -->`;
-    if (!after.includes(verLine)) {
-      throw new Error("Expected upgraded version inside managed section");
+    assertNoVersionBanner(after);
+    if (!after.includes("# AIC — Claude Code Rules")) {
+      throw new Error("Expected canonical inner after upgrade");
     }
     console.log("content_before_and_after_preserved_on_upgrade: pass");
   } finally {
