@@ -157,6 +157,41 @@ describe("ensureAicDir", () => {
     const content = readFileSync(join(tmp, ".gitignore"), "utf8");
     expect(content).toBe(EXPECTED_GITIGNORE_CONTENT);
   });
+
+  it("skips aic.config.json in gitignore when devMode is true", () => {
+    const tmp = makeTmpDir();
+    dirs[dirs.length] = tmp;
+    writeFileSync(
+      join(tmp, "aic.config.json"),
+      JSON.stringify({ contextBudget: { maxTokens: 8000 }, devMode: true }),
+      "utf8",
+    );
+    ensureAicDir(toAbsolutePath(tmp));
+    const content = readFileSync(join(tmp, ".gitignore"), "utf8");
+    expect(content).not.toContain("aic.config.json");
+    expect(content).toContain(".aic/");
+  });
+
+  it("includes aic.config.json in gitignore when devMode is false", () => {
+    const tmp = makeTmpDir();
+    dirs[dirs.length] = tmp;
+    writeFileSync(
+      join(tmp, "aic.config.json"),
+      JSON.stringify({ contextBudget: { maxTokens: 8000 }, devMode: false }),
+      "utf8",
+    );
+    ensureAicDir(toAbsolutePath(tmp));
+    const content = readFileSync(join(tmp, ".gitignore"), "utf8");
+    expect(content).toContain("aic.config.json");
+  });
+
+  it("includes aic.config.json in gitignore when no config file exists", () => {
+    const tmp = makeTmpDir();
+    dirs[dirs.length] = tmp;
+    ensureAicDir(toAbsolutePath(tmp));
+    const content = readFileSync(join(tmp, ".gitignore"), "utf8");
+    expect(content).toContain("aic.config.json");
+  });
 });
 
 describe("ensurePrettierignore", () => {
