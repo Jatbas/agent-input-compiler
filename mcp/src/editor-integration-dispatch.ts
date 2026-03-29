@@ -5,6 +5,7 @@
 
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
@@ -140,10 +141,34 @@ function resolveBundledCursorInstallScript(): string | null {
   return fs.existsSync(candidate) ? candidate : null;
 }
 
+function resolveBundledClaudeInstallScript(): string | null {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const candidate = path.resolve(here, "..", "integrations", "claude", "install.cjs");
+  return fs.existsSync(candidate) ? candidate : null;
+}
+
 function resolveCursorInstallScript(absRoot: AbsolutePath): string | null {
   const inProject = path.join(absRoot, REL_INSTALL_SCRIPT);
   if (fs.existsSync(inProject)) return inProject;
   return resolveBundledCursorInstallScript();
+}
+
+export function resolveClaudeInstallScript(absRoot: AbsolutePath): string | null {
+  const inProject = path.join(absRoot, REL_CC_INSTALL_SCRIPT);
+  if (fs.existsSync(inProject)) return inProject;
+  return resolveBundledClaudeInstallScript();
+}
+
+export function isAnthropicClaudeCodeExtensionDirEntry(name: string): boolean {
+  return name.trim().toLowerCase().startsWith("anthropic.claude-code");
+}
+
+export function readClaudeCodeInstalledFromExtensionsDir(extensionsDir: string): boolean {
+  if (!fs.existsSync(extensionsDir)) return false;
+  const stat = fs.statSync(extensionsDir);
+  if (!stat.isDirectory()) return false;
+  const entries = fs.readdirSync(extensionsDir);
+  return entries.some((entry) => isAnthropicClaudeCodeExtensionDirEntry(entry));
 }
 
 function runCursorInstallerIfResolvable(absRoot: AbsolutePath): void {
@@ -153,11 +178,11 @@ function runCursorInstallerIfResolvable(absRoot: AbsolutePath): void {
   }
 }
 
-function runClaudeInstallerIfPresent(absRoot: AbsolutePath): void {
-  const ccScript = path.join(absRoot, REL_CC_INSTALL_SCRIPT);
-  if (fs.existsSync(ccScript)) {
+function runClaudeInstallerIfResolvable(absRoot: AbsolutePath): void {
+  const scriptPath = resolveClaudeInstallScript(absRoot);
+  if (scriptPath !== null) {
     try {
-      execFileSync("node", [ccScript], { cwd: absRoot });
+      execFileSync("node", [scriptPath], { cwd: absRoot });
     } catch {
       process.stderr.write("[aic] Claude Code installer failed; continuing.\n");
     }
@@ -169,16 +194,20 @@ function runAutoBootstrap(absRoot: AbsolutePath): void {
     fs.existsSync(path.join(absRoot, ".cursor")) ||
     (process.env["CURSOR_PROJECT_DIR"] !== undefined &&
       process.env["CURSOR_PROJECT_DIR"] !== "");
+  const cursorExtensionsDir = path.join(os.homedir(), ".cursor", "extensions");
+  const claudeViaCursor =
+    cursorDetected && readClaudeCodeInstalledFromExtensionsDir(cursorExtensionsDir);
   const claudeCodeDetected =
     fs.existsSync(path.join(absRoot, ".claude")) ||
     (process.env["CLAUDE_PROJECT_DIR"] !== undefined &&
-      process.env["CLAUDE_PROJECT_DIR"] !== "");
+      process.env["CLAUDE_PROJECT_DIR"] !== "") ||
+    claudeViaCursor;
   if (!cursorDetected && !claudeCodeDetected) return;
   if (cursorDetected) {
     runCursorInstallerIfResolvable(absRoot);
   }
   if (claudeCodeDetected) {
-    runClaudeInstallerIfPresent(absRoot);
+    runClaudeInstallerIfResolvable(absRoot);
   }
 }
 
@@ -189,10 +218,10 @@ const RUN_BOOTSTRAP_BY_MODE: Record<
   [BOOTSTRAP_INTEGRATION.NONE]: () => {},
   [BOOTSTRAP_INTEGRATION.AUTO]: runAutoBootstrap,
   [BOOTSTRAP_INTEGRATION.CURSOR]: runCursorInstallerIfResolvable,
-  [BOOTSTRAP_INTEGRATION.CLAUDE_CODE]: runClaudeInstallerIfPresent,
+  [BOOTSTRAP_INTEGRATION.CLAUDE_CODE]: runClaudeInstallerIfResolvable,
   [BOOTSTRAP_INTEGRATION.CURSOR_CLAUDE_CODE]: (absRoot: AbsolutePath): void => {
     runCursorInstallerIfResolvable(absRoot);
-    runClaudeInstallerIfPresent(absRoot);
+    runClaudeInstallerIfResolvable(absRoot);
   },
 };
 

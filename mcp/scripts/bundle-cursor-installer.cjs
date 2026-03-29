@@ -16,7 +16,10 @@ const cursorSrc = path.join(repoRoot, "integrations", "cursor");
 const cursorDest = path.join(destRoot, "cursor");
 const sharedSrc = path.join(repoRoot, "integrations", "shared");
 const sharedDest = path.join(destRoot, "shared");
+const claudeSrc = path.join(repoRoot, "integrations", "claude");
+const claudeDest = path.join(destRoot, "claude");
 
 fs.mkdirSync(destRoot, { recursive: true });
 fs.cpSync(cursorSrc, cursorDest, { recursive: true, force: true, filter });
 fs.cpSync(sharedSrc, sharedDest, { recursive: true, force: true, filter });
+fs.cpSync(claudeSrc, claudeDest, { recursive: true, force: true, filter });

@@ -17,9 +17,14 @@ What this means concretely:
 
 - **All Claude Code hook and settings logic lives in `integrations/claude/`.** The installer
   (`integrations/claude/install.cjs`) is standalone. `mcp/src/editor-integration-dispatch.ts`
-  detects a Claude Code workspace (`.claude/` or `CLAUDE_PROJECT_DIR`) and runs that script
-  with `execFileSync` when the MCP client lists workspace roots (if the client supports roots)
-  or on the **first** `aic_compile` for that project (`mcp/src/server.ts` /
+  detects a Claude Code workspace when `.claude/` exists, `CLAUDE_PROJECT_DIR` is set, or (in
+  auto mode with Cursor detected) the Anthropic Claude Code extension is present under
+  `~/.cursor/extensions` (directory name prefix `anthropic.claude-code`). It resolves the
+  installer path the same way as Cursor: `<project>/integrations/claude/install.cjs` when that
+  file exists under the workspace root, otherwise the copy bundled inside the published
+  `@jatbas/aic` package at package-relative `integrations/claude/install.cjs`, then runs it with
+  `execFileSync` when the MCP client lists workspace roots (if the client supports roots) or on
+  the **first** `aic_compile` for that project (`mcp/src/server.ts` /
   `mcp/src/handlers/compile-handler.ts`). It does not duplicate copy/merge logic. Manual run:
   `node integrations/claude/install.cjs`. Idempotent (writes only when content differs).
 
@@ -630,7 +635,7 @@ This is a future optimization, not a blocker. Command hooks work correctly and t
 
 ## 13. Direct installer path
 
-**Claude Code:** Manual run or MCP bootstrap. The installer is `integrations/claude/install.cjs` — standalone, no dependency on `mcp/src/`.
+**Claude Code:** Manual run or MCP bootstrap. The installer is `integrations/claude/install.cjs` in the repo — standalone, no dependency on `mcp/src/`. When the MCP server runs bootstrap, it prefers `<project>/integrations/claude/install.cjs` if that file exists under the opened workspace root; otherwise it runs the copy shipped inside the published `@jatbas/aic` package at package-relative `integrations/claude/install.cjs` (mirroring Cursor installer resolution in `editor-integration-dispatch.ts`).
 
 ```
 node integrations/claude/install.cjs
@@ -654,9 +659,11 @@ The installer:
    writable), version-stamped; overwrites only when the installed version differs from
    the current package version.
 
-The MCP server runs this installer when it detects a Claude Code context and the script exists:
-on workspace root listing (if the client supports roots) or on the first `aic_compile` for
-that project. See [installation.md](../installation.md) for the user-facing path.
+The MCP server runs this installer when auto or forced bootstrap opens a Claude Code context
+(detection per §2) and a resolved installer path exists (in-project or bundled). Triggers: on
+workspace root listing (if the client supports roots) or on the first `aic_compile` for that
+project. See [installation.md](../installation.md) for the user-facing path, including Cursor +
+extension detection under `~/.cursor/extensions`.
 
 For end-user distribution, AIC is also packaged as a native Claude Code Plugin (`integrations/claude/plugin/`) installable via the Plugin Marketplace. See `integrations/claude/plugin/` for the plugin structure.
 

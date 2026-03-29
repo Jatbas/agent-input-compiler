@@ -10,6 +10,7 @@ How AIC gets installed, what artifacts it creates, and how its components intera
   - [One-Click Install (Deeplink)](#one-click-install-deeplink)
   - [Prerequisite](#prerequisite)
   - [What the Deeplink Does](#what-the-deeplink-does)
+  - [Claude Code hooks from Cursor](#claude-code-hooks-from-cursor)
   - [Trigger Rule](#trigger-rule)
   - [Hooks](#hooks)
   - [Hook Lifecycle](#hook-lifecycle)
@@ -106,6 +107,10 @@ Typical flow:
 4. After hooks are installed, enforcement and context injection match the tables below; until then the trigger rule alone asks the model to call `aic_compile`.
 
 No per-project MCP registration is needed. To verify the server: use `aic_status` or send a message so `aic_compile` runs.
+
+### Claude Code hooks from Cursor
+
+When you use Cursor, AIC can run the Claude Code installer during bootstrap if the official **Anthropic Claude Code** extension is installed. The server looks under `~/.cursor/extensions` for a directory whose name starts with `anthropic.claude-code` (the VS Marketplace id is `Anthropic.claude-code`). If Cursor is detected for the project and that folder is present, auto bootstrap may install or refresh global Claude Code hook entries even when the project has no `.claude/` directory and `CLAUDE_PROJECT_DIR` is unset. Standalone Claude Code workflows still rely on `.claude/` in the project, `CLAUDE_PROJECT_DIR`, or the plugin as described in [Claude Code](#claude-code).
 
 ### Trigger Rule
 
@@ -255,7 +260,7 @@ To request support for your editor or contribute an integration layer, [open an 
 
 ### What Gets Published
 
-The npm package `@jatbas/aic` ships `dist/` (the compiled MCP server with shebang for `npx` execution) and a bundled copy of `integrations/cursor/` plus `integrations/shared/` used by bootstrap. Source hook scripts remain in the repository (`integrations/cursor/hooks/`); the published installer deploys them when bootstrap or a manual run executes `install.cjs` (see [Cursor](#cursor)). Teams can still commit `integrations/cursor/` into a repo so that in-project copy overrides the bundled installer. Claude Code hooks are provided by the plugin or the direct installer (see [Claude Code](#claude-code)).
+The npm package `@jatbas/aic` ships `dist/` (the compiled MCP server with shebang for `npx` execution) and bundled copies of `integrations/cursor/`, `integrations/shared/`, and `integrations/claude/` used by bootstrap. Source hook scripts remain in the repository (`integrations/cursor/hooks/`, `integrations/claude/hooks/`); the published installers deploy them when bootstrap or a manual run executes the corresponding `install.cjs` (see [Cursor](#cursor) and [Claude Code](#claude-code)). Teams can still commit `integrations/cursor/` or `integrations/claude/` into a repo so that in-project copies override the bundled installers.
 
 The server is the primary interface. It exposes these MCP tools:
 
@@ -326,7 +331,7 @@ When `aic_compile` runs for a new project for the first time, `ensureProjectInit
 3. Writes `aic.config.json` with defaults (`contextBudget.maxTokens: 8000`)
 4. Appends missing lines to `.gitignore`, `.eslintignore`, and `.prettierignore` for `.aic/`, `aic.config.json`, `.cursor/rules/AIC.mdc`, `.cursor/hooks.json`, and `.cursor/hooks/AIC-*.cjs` (same list for all three files; existing entries are left unchanged)
 5. Installs the trigger rule (editor-specific — e.g., `.cursor/rules/AIC.mdc` for Cursor, `.claude/CLAUDE.md` for Claude Code)
-6. **Cursor:** When Cursor is detected, the server runs the Cursor installer on init — `<project>/integrations/cursor/install.cjs` if present, otherwise the copy bundled in `@jatbas/aic` (`integrations/cursor/install.cjs` relative to the installed package). That run writes `.cursor/hooks.json` and copies every script listed in `integrations/cursor/aic-hook-scripts.json` plus top-level `integrations/shared/*.cjs` into `.cursor/hooks/`. **Claude Code:** If `<project>/integrations/claude/install.cjs` exists, the server may run it to merge global hook entries; the **plugin** path installs hooks globally without per-project scripts (see [Claude Code](#claude-code)).
+6. **Cursor:** When Cursor is detected, the server runs the Cursor installer on init — `<project>/integrations/cursor/install.cjs` if present, otherwise the copy bundled in `@jatbas/aic` (`integrations/cursor/install.cjs` relative to the installed package). That run writes `.cursor/hooks.json` and copies every script listed in `integrations/cursor/aic-hook-scripts.json` plus top-level `integrations/shared/*.cjs` into `.cursor/hooks/`. **Claude Code:** Auto bootstrap runs the Claude installer when the project has `.claude/`, `CLAUDE_PROJECT_DIR` is set, or (with Cursor detected) an `anthropic.claude-code*` extension folder exists under `~/.cursor/extensions` (see [Claude Code hooks from Cursor](#claude-code-hooks-from-cursor)). The server resolves `<project>/integrations/claude/install.cjs` first, otherwise the bundled package copy at `integrations/claude/install.cjs` relative to the installed package. The **plugin** path installs hooks globally without per-project scripts (see [Claude Code](#claude-code)).
 
 When the Cursor installer does run, it is idempotent: hook registrations merge (new entries added, user hooks preserved) and scripts are re-copied to match the installer source (in-project tree or bundled package version). The trigger rule updates only when the installed rule version differs from the current package version. Init runs when the server lists workspace roots or on first `aic_compile`, depending on the client.
 

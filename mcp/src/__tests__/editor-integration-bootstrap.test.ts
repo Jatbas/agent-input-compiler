@@ -12,6 +12,8 @@ import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import {
   BOOTSTRAP_INTEGRATION,
   parseBootstrapIntegrationMode,
+  readClaudeCodeInstalledFromExtensionsDir,
+  resolveClaudeInstallScript,
   runEditorBootstrapIfNeeded,
 } from "../editor-integration-dispatch.js";
 
@@ -63,6 +65,60 @@ beforeAll(() => {
 });
 
 describe("editor integration bootstrap", () => {
+  it("bundle_copies_claude_install_script", () => {
+    const bundled = path.join(repoRoot, "mcp", "integrations", "claude", "install.cjs");
+    expect(fs.existsSync(bundled)).toBe(true);
+  });
+
+  it("readClaudeCodeInstalledFromExtensionsDir_false_when_missing", () => {
+    expect(
+      readClaudeCodeInstalledFromExtensionsDir("/nonexistent-aic-extensions-xyz"),
+    ).toBe(false);
+  });
+
+  it("readClaudeCodeInstalledFromExtensionsDir_true_when_prefix_present", () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-cc-ext-"));
+    try {
+      fs.mkdirSync(path.join(tmpDir, "anthropic.claude-code-0.0.0"), { recursive: true });
+      expect(readClaudeCodeInstalledFromExtensionsDir(tmpDir)).toBe(true);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("readClaudeCodeInstalledFromExtensionsDir_false_when_no_match", () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-cc-ext-empty-"));
+    try {
+      expect(readClaudeCodeInstalledFromExtensionsDir(tmpDir)).toBe(false);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("resolveClaudeInstallScript_prefers_workspace", () => {
+    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aic-cc-resolve-ws-"));
+    try {
+      const rel = path.join("integrations", "claude", "install.cjs");
+      fs.mkdirSync(path.dirname(path.join(projectRoot, rel)), { recursive: true });
+      fs.writeFileSync(path.join(projectRoot, rel), "", "utf8");
+      const expected = path.join(projectRoot, rel);
+      expect(resolveClaudeInstallScript(toAbsolutePath(projectRoot))).toBe(expected);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("resolveClaudeInstallScript_falls_back_to_bundled_after_257_bundle", () => {
+    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aic-cc-resolve-bundle-"));
+    try {
+      const bundled = path.join(repoRoot, "mcp", "integrations", "claude", "install.cjs");
+      expect(fs.existsSync(bundled)).toBe(true);
+      expect(resolveClaudeInstallScript(toAbsolutePath(projectRoot))).toBe(bundled);
+    } finally {
+      fs.rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
   it("editor_integration_bootstrap_auto_unchanged", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-editor-bootstrap-"));
     try {
