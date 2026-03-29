@@ -381,6 +381,13 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm knip && pnpm lint:clones
 
 This runs ONCE. Do not re-run unless you fix something. If the lint/typecheck/test portion fails, the chain stops before knip — fix the failure, then re-run the full chain.
 
+**Known issue — knip false positives in `.git-worktrees/` paths.** Knip reports spurious "unused files" when the CWD is under a `.git-worktrees/` directory (a path-resolution bug in knip). If `pnpm knip` fails in the worktree but all other checks pass, run this two-step fallback instead of investigating:
+
+1. From the **main workspace root**, run `git merge --no-commit --no-ff <branch> && pnpm knip; git merge --abort`.
+2. If knip exits 0 on main with the merged code, the worktree failure is the known false positive — record "knip: pass (verified on main — worktree path false positive)" and proceed. If knip exits non-zero on main too, the failure is real — fix it.
+
+Do NOT investigate the worktree knip failure further (cache clearing, debug mode, temp worktrees, etc.). The two-step fallback is sufficient and costs 1 tool call instead of 12+.
+
 **4b — Re-read all files + mechanical checks in one parallel batch.**
 
 Fire all of these in a single round of tool calls. All calls within a round are independent — do not batch a Grep that depends on a Read's output; if a check requires reading a file first, include the Read and the Grep in the same batch (they run in parallel, not sequentially):
