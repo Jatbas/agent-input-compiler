@@ -14,7 +14,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Uninstall scripts default to project-local cleanup only; **`--global`** is required to remove user-level Cursor MCP, global Claude wiring, and **`~/.aic/`** (see [installation.md § Uninstall](documentation/installation.md#uninstall)); follow-up edits fix the environment-variables ToC anchor, clarify **`<project>`** and bundled script entrypoints, spell out uninstall project-root layering vs `resolveProjectRoot`, and add a warning before manual **`~/.aic`** deletion
 - Documentation aligned with the Cursor compile-gate development bypass: `devMode` in `aic.config.json` (see [installation.md](documentation/installation.md), [CONTRIBUTING.md](CONTRIBUTING.md), and [cursor-integration-layer.md §7.3](documentation/technical/cursor-integration-layer.md)); bootstrap ignore manifest described consistently across implementation-spec, security, project-plan, and installation.
 
-## [0.10.0] - 2026-03-29
+## [0.10.0] - 2026-03-29 (Deprecated)
 
 ### Added
 
@@ -24,7 +24,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 - Reconcile project IDs when a row for the same project root already exists in the global database
 
-## [0.9.3] - 2026-03-29
+## [0.9.3] - 2026-03-29 (Deprecated)
 
 ### Added
 
@@ -39,7 +39,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Set TypeScript `compilerOptions.target` to `ES2024` so workspace builds succeed on supported compiler targets
 - Declare `@types/node` on `@jatbas/aic-core` so clean installs resolve Node typings during `tsc -b`
 
-## [0.9.2] - 2026-03-27
+## [0.9.2] - 2026-03-27 (Deprecated)
 
 ### Added
 
@@ -50,14 +50,14 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Update Cursor installation docs and the Cursor integration-layer reference for bundled-install flows
 - Align internal contributor rules and documentation tooling guidance with current practices
 
-## [0.9.1] - 2026-03-25
+## [0.9.1] - 2026-03-25 (Deprecated)
 
 ### Fixed
 
 - Enforce SQLite `foreign_keys` when opening the global database and register the homedir scope in the projects table so foreign-key rules stay satisfied
 - Forward config path into the MCP compilation runner so custom `aic.config.json` locations are honored
 
-## [0.9.0] - 2026-03-25
+## [0.9.0] - 2026-03-25 (Deprecated)
 
 ### Added
 
@@ -90,7 +90,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 - Validate cache rows on read and sanitize cache-derived identifiers before the compilation pipeline uses them
 
-## [0.7.0] - 2026-03-18
+## [0.7.0] - 2026-03-18 (Deprecated)
 
 ### Added
 
@@ -114,7 +114,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 - npm update check: Content-Type and strict packument contract; response body capped at 100 KB
 - Server tests stub registry fetch so update checks do not flake
 
-## [0.6.9] - 2026-03-13
+## [0.6.9] - 2026-03-13 (Deprecated)
 
 ### Changed
 
@@ -127,7 +127,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Nested node_modules excluded correctly in monorepos
 - Hooks install is idempotent; AIC-block-no-verify hook added to prevent git `--no-verify` in preToolUse
 
-## [0.6.8] - 2026-03-13
+## [0.6.8] - 2026-03-13 (Deprecated)
 
 ### Added
 
@@ -141,7 +141,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 - MCP server process now releases all file watchers on close so the Node process can exit cleanly
 
-## [0.6.7] - 2026-03-13
+## [0.6.7] - 2026-03-13 (Deprecated)
 
 ### Added
 
@@ -151,19 +151,19 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 - Internal tooling and dependency updates
 
-## [0.6.6] - 2026-03-12
+## [0.6.6] - 2026-03-12 (Deprecated)
 
 ### Changed
 
 - Internal tooling and dependency updates
 
-## [0.6.5] - 2026-03-12
+## [0.6.5] - 2026-03-12 (Deprecated)
 
 ### Changed
 
 - Internal tooling and dependency updates
 
-## [0.6.4] - 2026-03-12
+## [0.6.4] - 2026-03-12 (Deprecated)
 
 ### Added
 
@@ -177,27 +177,27 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Guard metadata in aic_compile responses no longer includes file paths; only type and count are returned to the model (findings omit file, blocked/redacted/warned file lists are empty)
 - Compilation memory and I/O improvements: bounded file-content cache (LRU, default 500 entries) and bounded runner cache (cap 10, watcher cleanup on eviction and shutdown)
 
-## [0.6.3] - 2026-03-12
+## [0.6.3] - 2026-03-12 (Deprecated)
 
 ### Fixed
 
 - Node process no longer crashes with "JavaScript heap out of memory" on large projects (50k+ files). Raised heap limit to 4 GB, batched concurrent file reads in symbol scoring, and cached `.gitignore` parsing to avoid redundant I/O
 
-## [0.6.2] - 2026-03-12
+## [0.6.2] - 2026-03-12 (Deprecated)
 
 ### Fixed
 
 - When AIC is in both global and workspace MCP configs, AIC no longer modifies the workspace config (Cursor was disconnecting the server when the file changed). A clear warning is shown instead with step-by-step instructions to remove the duplicate manually and reload
 - Duplicate-install warning now explains that reloading Cursor is enough and no reinstall or Cursor link is needed
 
-## [0.6.1] - 2026-03-12
+## [0.6.1] - 2026-03-12 (Deprecated)
 
 ### Fixed
 
 - When AIC is registered in both global and workspace MCP configs, the duplicate workspace entry is now removed automatically; a warning is shown in the output console and in the chat asking the user to reload Cursor
 - Multi-project compilations in a single session no longer fail with a session database constraint error
 
-## [0.6.0] - 2026-03-12
+## [0.6.0] - 2026-03-12 (Deprecated)
 
 ### Added
 
@@ -217,7 +217,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Lower memory footprint: LRU-bounded file-content cache, bounded runner cache with watcher cleanup
 - Fewer per-request object allocations via cached repo-map hash
 
-## [0.5.5] - 2026-03-10
+## [0.5.5] - 2026-03-10 (Deprecated)
 
 ### Changed
 
@@ -228,32 +228,32 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 - Global database at `~/.aic/aic.sqlite` with per-project isolation (`project_id`): schema, stores, migrations, and design notes documented in `implementation-spec.md` (global server model)
 
-## [0.5.4] - 2026-03-10
+## [0.5.4] - 2026-03-10 (Deprecated)
 
 ### Fixed
 
 - `AIC-require-aic-compile` hook skipped enforcement when the project was detected as the AIC source tree (path-based; later superseded by `devMode` in `aic.config.json` — see installation docs)
 
-## [0.5.3] - 2026-03-10
+## [0.5.3] - 2026-03-10 (Deprecated)
 
 ### Fixed
 
 - Project files (`.cursor/hooks/`, `.cursor/rules/AIC.mdc`, `aic.config.json`) are now created in the correct project directory on first `aic_compile` call, instead of in the server's working directory
 
-## [0.5.2] - 2026-03-09
+## [0.5.2] - 2026-03-09 (Deprecated)
 
 ### Fixed
 
 - MCP server no longer times out on startup when launched from the home directory by deferring language provider scanning from server boot
 - Language provider glob exclusions now cover Windows (`$Recycle.Bin`, `AppData`) and Linux (`.local`, `.cache`, `snap`) system directories
 
-## [0.5.1] - 2026-03-09
+## [0.5.1] - 2026-03-09 (Deprecated)
 
 ### Fixed
 
 - MCP server no longer crashes with EPERM when started from the home directory on macOS (e.g. `.Trash` protected by SIP)
 
-## [0.5.0] - 2026-03-09
+## [0.5.0] - 2026-03-09 (Deprecated)
 
 ### Added
 
@@ -268,7 +268,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 - CI publish workflow uses `pnpm pack` to resolve workspace dependencies before publishing
 - Install scope detection matches the MCP server key case-insensitively
 
-## [0.3.0] - 2026-03-09
+## [0.3.0] - 2026-03-09 (Deprecated)
 
 ### Added
 
@@ -295,7 +295,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 - Path containment validation, timeout enforcement, audit logging, and safer aic_last tool behavior (no raw compiled prompt in response)
 
-## [0.2.1] - 2026-03-08
+## [0.2.1] - 2026-03-08 (Deprecated)
 
 ### Added
 
@@ -313,7 +313,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 - Remove synthetic example output from public docs in favor of captured real output
 
-## [0.2.0] - 2026-03-04
+## [0.2.0] - 2026-03-04 (Deprecated)
 
 ### Added
 
@@ -329,7 +329,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Documentation reorganized for public release
 - README simplified for GitHub users
 
-## [0.1.0] - 2026-02-26
+## [0.1.0] - 2026-02-26 (Deprecated)
 
 ### Added
 
