@@ -23,8 +23,8 @@ if (!mcpOnly) {
 export default defineConfig({
   resolve: {
     alias: {
-      "@aic/shared": resolve(__dirname, "shared/src"),
-      "@aic/mcp": resolve(__dirname, "mcp/src"),
+      "@jatbas/aic-core": resolve(__dirname, "shared/src"),
+      "@jatbas/aic": resolve(__dirname, "mcp/src"),
     },
   },
   test: {
