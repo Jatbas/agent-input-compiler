@@ -179,7 +179,7 @@ function normalizeClaudeMdNewlines(text) {
 function buildClaudeMdManagedFileContent() {
   let inner = CLAUDE_MD_TEMPLATE;
   if (!inner.endsWith("\n")) inner += "\n";
-  return `${CLAUDE_MD_OPENING_LINE}\n${inner}${CLAUDE_MD_CLOSING_LINE}\n`;
+  return `${CLAUDE_MD_OPENING_LINE}\n\n${inner}\n${CLAUDE_MD_CLOSING_LINE}\n`;
 }
 
 function findValidManagedPairLines(lines) {
@@ -233,8 +233,8 @@ function planProjectClaudeMdWrite(existingNormalized) {
     afterCloseLine += 1;
   }
   const interior = existingNormalized.slice(afterOpenLine, closeLineStart);
-  const normInterior = normalizeClaudeMdNewlines(interior);
-  const normTemplate = normalizeClaudeMdNewlines(CLAUDE_MD_TEMPLATE);
+  const normInterior = normalizeClaudeMdNewlines(interior).trim();
+  const normTemplate = normalizeClaudeMdNewlines(CLAUDE_MD_TEMPLATE).trim();
   if (normInterior === normTemplate) {
     return { skipWrite: true, nextContent: null };
   }

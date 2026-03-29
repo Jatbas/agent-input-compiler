@@ -7,6 +7,8 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-03-30
+
 ### Changed
 
 - Uninstall scripts default to project-local cleanup only; **`--global`** is required to remove user-level Cursor MCP, global Claude wiring, and **`~/.aic/`** (see [installation.md § Uninstall](documentation/installation.md#uninstall)); follow-up edits fix the environment-variables ToC anchor, clarify **`<project>`** and bundled script entrypoints, spell out uninstall project-root layering vs `resolveProjectRoot`, and add a warning before manual **`~/.aic`** deletion

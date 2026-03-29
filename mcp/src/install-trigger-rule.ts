@@ -211,7 +211,7 @@ const CLAUDE_MD_CLOSING_LINE = "<!-- END AIC MANAGED SECTION -->";
 function buildClaudeMdManagedFileContent(): string {
   let inner = CLAUDE_MD_TEMPLATE;
   if (!inner.endsWith("\n")) inner += "\n";
-  return `${CLAUDE_MD_OPENING_LINE}\n${inner}${CLAUDE_MD_CLOSING_LINE}\n`;
+  return `${CLAUDE_MD_OPENING_LINE}\n\n${inner}\n${CLAUDE_MD_CLOSING_LINE}\n`;
 }
 
 export function installTriggerRule(projectRoot: AbsolutePath, editorId: EditorId): void {
@@ -219,6 +219,18 @@ export function installTriggerRule(projectRoot: AbsolutePath, editorId: EditorId
   if (editorId === EDITOR_ID.CLAUDE_CODE) {
     const claudeDir = path.join(projectRoot, ".claude");
     const claudeMdPath = path.join(claudeDir, "CLAUDE.md");
+    try {
+      const existing = fs.readFileSync(claudeMdPath, "utf8");
+      if (
+        existing.includes(CLAUDE_MD_OPENING_LINE) &&
+        existing.includes(CLAUDE_MD_CLOSING_LINE)
+      ) {
+        // install.cjs handles managed-section updates with user-content preservation
+        return;
+      }
+    } catch {
+      // file missing or unreadable — create it
+    }
     fs.mkdirSync(claudeDir, { recursive: true });
     fs.writeFileSync(claudeMdPath, buildClaudeMdManagedFileContent(), "utf8");
     return;
