@@ -18,8 +18,11 @@ const sharedSrc = path.join(repoRoot, "integrations", "shared");
 const sharedDest = path.join(destRoot, "shared");
 const claudeSrc = path.join(repoRoot, "integrations", "claude");
 const claudeDest = path.join(destRoot, "claude");
+const cleanGlobalSrc = path.join(repoRoot, "integrations", "clean-global-aic-dir.cjs");
+const cleanGlobalDest = path.join(destRoot, "clean-global-aic-dir.cjs");
 
 fs.mkdirSync(destRoot, { recursive: true });
 fs.cpSync(cursorSrc, cursorDest, { recursive: true, force: true, filter });
 fs.cpSync(sharedSrc, sharedDest, { recursive: true, force: true, filter });
 fs.cpSync(claudeSrc, claudeDest, { recursive: true, force: true, filter });
+fs.copyFileSync(cleanGlobalSrc, cleanGlobalDest);

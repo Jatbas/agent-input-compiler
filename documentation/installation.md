@@ -497,21 +497,24 @@ Restart Cursor (or **MCP: Reload Configurations**) after a successful uninstall.
 
 ### Bundled uninstall paths
 
-Published package `@jatbas/aic` includes the same scripts under the package root:
+Published package `@jatbas/aic` ships an `integrations/` directory at the **package root** (see `mcp/package.json` `files`). After `pnpm --filter @jatbas/aic build`, the same tree exists under **`mcp/integrations/`** in this repository before publish.
 
-- `mcp/integrations/cursor/uninstall.cjs`
-- `mcp/integrations/claude/uninstall.cjs`
+- `integrations/cursor/uninstall.cjs`
+- `integrations/claude/uninstall.cjs`
+- `integrations/clean-global-aic-dir.cjs` (loaded by both uninstall scripts)
 
-Shared helpers and data (`integrations/shared/*.cjs`, `aic-ignore-entries.json`, `claude-md-canonical-body.txt`) are copied beside them when the bundle is built. Run with `node` and set `--project-root` or `AIC_UNINSTALL_PROJECT_ROOT` if the target project is not the current working directory, for example:
+Shared helpers and data (`integrations/shared/*.cjs`, `aic-ignore-entries.json`, `claude-md-canonical-body.txt`) are copied beside them when the bundle is built.
+
+**No repository clone:** from any directory, run `npm install @jatbas/aic` (or `pnpm add @jatbas/aic`), then invoke the script under `node_modules/@jatbas/aic/integrations/…` with `--project-root` or `AIC_UNINSTALL_PROJECT_ROOT` when the target project is not the current working directory, for example:
 
 ```bash
-node /path/to/node_modules/@jatbas/aic/mcp/integrations/cursor/uninstall.cjs --project-root /path/to/your-project
+node /path/to/node_modules/@jatbas/aic/integrations/cursor/uninstall.cjs --project-root /path/to/your-project
 ```
 
 ### Claude Code (plugin)
 
 1. In Claude Code, run `/plugin` and uninstall the AIC plugin.
-2. If global hooks or project files were installed earlier (e.g. direct installer or Cursor bootstrap), run `integrations/claude/uninstall.cjs` or the bundled `mcp/integrations/claude/uninstall.cjs` with the same flags as **### Cursor** in this section (`--global`, `--remove-database`, `--keep-project-artifacts`, `--force`, `--project-root`; see **Flags** there). Clearing **`~/.claude/`** and **`~/.aic/`** requires **`--global`**; without it, only project-level artifacts under **`<project>`** are removed (see [Uninstall](#uninstall)).
+2. If global hooks or project files were installed earlier (e.g. direct installer or Cursor bootstrap), run `integrations/claude/uninstall.cjs` from a clone or `node_modules/@jatbas/aic/integrations/claude/uninstall.cjs` from the published package, with the same flags as **### Cursor** in this section (`--global`, `--remove-database`, `--keep-project-artifacts`, `--force`, `--project-root`; see **Flags** there). Clearing **`~/.claude/`** and **`~/.aic/`** requires **`--global`**; without it, only project-level artifacts under **`<project>`** are removed (see [Uninstall](#uninstall)).
 3. Restart or reload Claude Code if needed.
 
 ### Claude Code (direct installer)
@@ -524,7 +527,7 @@ node integrations/claude/uninstall.cjs
 ```
 
 ```bash
-node /path/to/node_modules/@jatbas/aic/mcp/integrations/claude/uninstall.cjs --project-root /path/to/your-project
+node /path/to/node_modules/@jatbas/aic/integrations/claude/uninstall.cjs --project-root /path/to/your-project
 ```
 
 Use the bundled path when you do not have the repository checkout. Restart Claude Code (or reload) after a successful uninstall.

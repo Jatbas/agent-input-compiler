@@ -83,6 +83,16 @@ describe("editor integration bootstrap", () => {
     ).toBe(true);
   });
 
+  it("bundle_includes_clean_global_aic_dir_for_uninstall_requires", () => {
+    const bundled = path.join(
+      repoRoot,
+      "mcp",
+      "integrations",
+      "clean-global-aic-dir.cjs",
+    );
+    expect(fs.existsSync(bundled)).toBe(true);
+  });
+
   it("readClaudeCodeInstalledFromExtensionsDir_false_when_missing", () => {
     expect(
       readClaudeCodeInstalledFromExtensionsDir("/nonexistent-aic-extensions-xyz"),
