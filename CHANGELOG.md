@@ -9,6 +9,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Uninstall scripts default to project-local cleanup only; **`--global`** is required to remove user-level Cursor MCP, global Claude wiring, and **`~/.aic/`** (see [installation.md § Uninstall](documentation/installation.md#uninstall)); follow-up edits fix the environment-variables ToC anchor, clarify **`<project>`** and bundled script entrypoints, spell out uninstall project-root layering vs `resolveProjectRoot`, and add a warning before manual **`~/.aic`** deletion
 - Documentation aligned with the Cursor compile-gate development bypass: `devMode` in `aic.config.json` (see [installation.md](documentation/installation.md), [CONTRIBUTING.md](CONTRIBUTING.md), and [cursor-integration-layer.md §7.3](documentation/technical/cursor-integration-layer.md)); bootstrap ignore manifest described consistently across implementation-spec, security, project-plan, and installation.
 
 ## [0.10.0] - 2026-03-29

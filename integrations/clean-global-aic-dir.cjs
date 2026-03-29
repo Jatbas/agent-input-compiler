@@ -6,7 +6,8 @@ const fs = require("node:fs");
 
 const PRESERVE_DB_NAMES = new Set(["aic.sqlite", "aic.sqlite-wal", "aic.sqlite-shm"]);
 
-function parseKeepAicDatabase(argv, env) {
+// Env overrides first; then legacy --keep-aic-database argv; else --remove-database inverts default keep.
+function resolveGlobalKeepAicDatabase(argv, env) {
   const envVal = String(env.AIC_UNINSTALL_KEEP_AIC_DATABASE || "").toLowerCase();
   if (envVal === "0" || envVal === "false") {
     return false;
@@ -23,7 +24,7 @@ function parseKeepAicDatabase(argv, env) {
   ) {
     return true;
   }
-  return true;
+  return !argv.includes("--remove-database");
 }
 
 function tryCleanGlobalAicDir(homeDir, keepAicDatabase) {
@@ -70,6 +71,6 @@ function tryCleanGlobalAicDir(homeDir, keepAicDatabase) {
 }
 
 module.exports = {
-  parseKeepAicDatabase,
+  resolveGlobalKeepAicDatabase,
   tryCleanGlobalAicDir,
 };

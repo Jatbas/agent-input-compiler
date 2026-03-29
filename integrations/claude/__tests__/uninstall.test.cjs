@@ -4,7 +4,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const os = require("node:os");
-const { execFileSync } = require("node:child_process");
+const { execFileSync, spawnSync } = require("node:child_process");
 
 const installScript = path.join(__dirname, "..", "install.cjs");
 const uninstallScript = path.join(__dirname, "..", "uninstall.cjs");
@@ -87,7 +87,7 @@ function claude_uninstall_removes_hooks_and_files() {
       "// placeholder\n",
       "utf8",
     );
-    const out = runUninstall(envTmpHome(tmpDir), tmpDir);
+    const out = runUninstall(envTmpHome(tmpDir), tmpDir, ["--global"]);
     assert(out.includes("settings.json"), "mentions settings");
     assert(out.includes("hooks/"), "mentions hooks dir");
     const raw = fs.readFileSync(settingsPath, "utf8");
@@ -118,8 +118,8 @@ function claude_idempotent() {
   const tmpProject = fs.mkdtempSync(path.join(os.tmpdir(), "aic-uninstall-idem-p-"));
   try {
     runInstall({ HOME: tmpHome, CLAUDE_PROJECT_DIR: tmpProject }, tmpProject);
-    runUninstall(envTmpHome(tmpHome), tmpHome);
-    const out2 = runUninstall(envTmpHome(tmpHome), tmpHome);
+    runUninstall(envTmpHome(tmpHome), tmpHome, ["--global"]);
+    const out2 = runUninstall(envTmpHome(tmpHome), tmpHome, ["--global"]);
     assert(
       out2.includes("Nothing to remove") && out2.includes("No need to restart"),
       "second uninstall reports nothing to remove",
@@ -158,7 +158,7 @@ function claude_settings_only_no_scripts_line() {
       ) + "\n",
       "utf8",
     );
-    const out = runUninstall(envTmpHome(tmpDir), tmpDir);
+    const out = runUninstall(envTmpHome(tmpDir), tmpDir, ["--global"]);
     assert(out.includes("settings.json"), "settings cleaned");
     assert(!out.includes("~/.claude/hooks/."), "no scripts line when no files removed");
   } finally {
@@ -178,7 +178,7 @@ function claude_files_only_no_settings_line() {
       "utf8",
     );
     fs.writeFileSync(path.join(hooksDir, "aic-session-start.cjs"), "//\n", "utf8");
-    const out = runUninstall(envTmpHome(tmpDir), tmpDir);
+    const out = runUninstall(envTmpHome(tmpDir), tmpDir, ["--global"]);
     assert(out.includes("hooks/"), "scripts removed line");
     assert(!out.includes("settings.json"), "no settings line when settings unchanged");
     assert(!fs.existsSync(path.join(hooksDir, "aic-session-start.cjs")), "file gone");
@@ -211,7 +211,7 @@ function claude_strips_multiple_events() {
       ) + "\n",
       "utf8",
     );
-    runUninstall(envTmpHome(tmpDir), tmpDir);
+    runUninstall(envTmpHome(tmpDir), tmpDir, ["--global"]);
     const data = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
     const cmds = [];
     for (const k of Object.keys(data.hooks || {})) {
@@ -233,7 +233,7 @@ function claude_global_aic_clean_preserves_sqlite() {
     fs.mkdirSync(aicDir, { recursive: true });
     fs.writeFileSync(path.join(aicDir, "cache.txt"), "c", "utf8");
     fs.writeFileSync(path.join(aicDir, "aic.sqlite"), "db", "utf8");
-    const out = runUninstall(envTmpHome(tmpDir), tmpDir, []);
+    const out = runUninstall(envTmpHome(tmpDir), tmpDir, ["--global"]);
     assert(out.includes("kept SQLite database files"), "mentions db preserved");
     assert(!fs.existsSync(path.join(aicDir, "cache.txt")), "cache removed");
     assert(
@@ -252,7 +252,10 @@ function claude_global_aic_no_keep_db_wipes_dir() {
     const aicDir = path.join(tmpDir, ".aic");
     fs.mkdirSync(aicDir, { recursive: true });
     fs.writeFileSync(path.join(aicDir, "aic.sqlite"), "db", "utf8");
-    const out = runUninstall(envTmpHome(tmpDir), tmpDir, ["--keep-aic-database=false"]);
+    const out = runUninstall(envTmpHome(tmpDir), tmpDir, [
+      "--global",
+      "--remove-database",
+    ]);
     assert(out.includes("including the database"), "mentions full removal");
     assert(!fs.existsSync(aicDir), ".aic dir gone");
   } finally {
@@ -275,7 +278,7 @@ function claude_uninstall_removes_mcp_server() {
       ) + "\n",
       "utf8",
     );
-    const out = runUninstall(envTmpHome(tmpDir), tmpDir);
+    const out = runUninstall(envTmpHome(tmpDir), tmpDir, ["--global"]);
     assert(out.includes("mcpServers"), "mentions mcpServers");
     const data = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
     const servers = data.mcpServers || {};
@@ -341,6 +344,102 @@ function claude_uninstall_keep_project_artifacts_skips_project_files() {
   }
 }
 
+function claude_remove_database_without_global_warns_stderr() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-cl-rdb-"));
+  try {
+    const aicDir = path.join(tmpDir, ".aic");
+    fs.mkdirSync(aicDir, { recursive: true });
+    fs.writeFileSync(path.join(aicDir, "aic.sqlite"), "db", "utf8");
+    const r = spawnSync(process.execPath, [uninstallScript, "--remove-database"], {
+      cwd: repoRoot(),
+      env: envTmpHome(tmpDir),
+      encoding: "utf8",
+    });
+    assert(r.status === 0, "exit 0");
+    assert(
+      String(r.stderr).includes("--remove-database") &&
+        String(r.stderr).includes("--global"),
+      "stderr warns",
+    );
+    assert(fs.existsSync(path.join(aicDir, "aic.sqlite")), ".aic sqlite kept");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+  console.log("claude_remove_database_without_global_warns_stderr: pass");
+}
+
+function claude_dev_mode_skips_uninstall() {
+  const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "aic-cl-dv-h-"));
+  const tmpProject = fs.mkdtempSync(path.join(os.tmpdir(), "aic-cl-dv-p-"));
+  try {
+    const settingsPath = path.join(tmpHome, ".claude", "settings.json");
+    fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+    fs.writeFileSync(
+      settingsPath,
+      JSON.stringify(
+        { mcpServers: { aic: { command: "npx", args: ["-y", "@jatbas/aic@latest"] } } },
+        null,
+        2,
+      ) + "\n",
+      "utf8",
+    );
+    fs.writeFileSync(
+      path.join(tmpProject, "aic.config.json"),
+      JSON.stringify({ devMode: true }) + "\n",
+      "utf8",
+    );
+    const out = runUninstall(envHomeProject(tmpHome, tmpProject), repoRoot(), []);
+    assert(
+      out.includes("Skipping uninstall") && out.includes("devMode: true"),
+      "skip msg",
+    );
+    const data = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    const servers = data.mcpServers || {};
+    const aicKey = Object.keys(servers).find((k) => k.toLowerCase() === "aic");
+    assert(aicKey !== undefined, "global settings untouched");
+  } finally {
+    fs.rmSync(tmpHome, { recursive: true, force: true });
+    fs.rmSync(tmpProject, { recursive: true, force: true });
+  }
+  console.log("claude_dev_mode_skips_uninstall: pass");
+}
+
+function claude_dev_mode_force_uninstalls() {
+  const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "aic-cl-dvf-h-"));
+  const tmpProject = fs.mkdtempSync(path.join(os.tmpdir(), "aic-cl-dvf-p-"));
+  try {
+    const settingsPath = path.join(tmpHome, ".claude", "settings.json");
+    fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+    fs.writeFileSync(
+      settingsPath,
+      JSON.stringify(
+        { mcpServers: { aic: { command: "npx", args: ["-y", "@jatbas/aic@latest"] } } },
+        null,
+        2,
+      ) + "\n",
+      "utf8",
+    );
+    fs.writeFileSync(
+      path.join(tmpProject, "aic.config.json"),
+      JSON.stringify({ devMode: true }) + "\n",
+      "utf8",
+    );
+    const out = runUninstall(envHomeProject(tmpHome, tmpProject), repoRoot(), [
+      "--force",
+      "--global",
+    ]);
+    assert(out.includes("Force-uninstalling AIC development project"), "force line");
+    const data = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    const servers = data.mcpServers || {};
+    const aicKey = Object.keys(servers).find((k) => k.toLowerCase() === "aic");
+    assert(aicKey === undefined, "aic stripped with force+global");
+  } finally {
+    fs.rmSync(tmpHome, { recursive: true, force: true });
+    fs.rmSync(tmpProject, { recursive: true, force: true });
+  }
+  console.log("claude_dev_mode_force_uninstalls: pass");
+}
+
 claude_uninstall_removes_hooks_and_files();
 claude_idempotent();
 claude_settings_only_no_scripts_line();
@@ -351,3 +450,6 @@ claude_global_aic_no_keep_db_wipes_dir();
 claude_uninstall_removes_mcp_server();
 claude_uninstall_removes_project_artifacts();
 claude_uninstall_keep_project_artifacts_skips_project_files();
+claude_remove_database_without_global_warns_stderr();
+claude_dev_mode_skips_uninstall();
+claude_dev_mode_force_uninstalls();

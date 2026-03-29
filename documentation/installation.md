@@ -31,7 +31,7 @@ How AIC gets installed, what artifacts it creates, and how its components intera
 - [AIC Server](#aic-server)
   - [What Gets Published](#what-gets-published)
   - [CLI Standalone Usage](#cli-standalone-usage)
-  - [Environment variables](#environment-variables)
+  - [Environment variables and project config](#environment-variables-and-project-config)
   - [First-Compile Bootstrap](#first-compile-bootstrap)
   - [Per-Project Artifacts](#per-project-artifacts)
   - [Per-Project Disable](#per-project-disable)
@@ -313,16 +313,16 @@ Each subcommand opens the database read-only, prints formatted table output to s
 
 End users rarely need these; integrators and contributors use them for uninstall, CI, or repo development. The last row documents a JSON field in `aic.config.json`, not a process environment variable.
 
-| Name                              | Where it matters                                         | Purpose                                                                                                                                                                                                                                        |
-| --------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AIC_BOOTSTRAP_INTEGRATION`       | MCP server startup                                       | Forces which editor installers run when auto-detection is wrong. Values: `auto`, `none`, `cursor`, `claude-code`, `cursor-claude-code`. See [Bootstrap integration override](#bootstrap-integration-override-remote--ci--nonstandard-layouts). |
-| `AIC_UNINSTALL_PROJECT_ROOT`      | `integrations/cursor/uninstall.cjs`                      | Non-empty value selects the project directory when you cannot `cd` there first.                                                                                                                                                                |
-| `AIC_UNINSTALL_KEEP_AIC_DATABASE` | `integrations/clean-global-aic-dir.cjs` / uninstall flow | When `false`, global cleanup can remove `aic.sqlite`; default keeps the database.                                                                                                                                                              |
-| `CURSOR_PROJECT_DIR`              | Cursor hooks                                             | Project root when Cursor runs hook processes (see [Cursor integration layer](technical/cursor-integration-layer.md)).                                                                                                                          |
-| `CLAUDE_PROJECT_DIR`              | Claude Code hooks / shared resolver                      | Project root in minimal or remote layouts when the cwd is not the repo root (see [implementation-spec.md](implementation-spec.md) and [Claude Code integration layer](technical/claude-code-integration-layer.md)).                            |
-| `AIC_PROJECT_ROOT`                | Cursor compile hooks                                     | Injected after a successful `aic_compile` so later hooks resolve the same project (see [Cursor integration layer](technical/cursor-integration-layer.md)).                                                                                     |
-| `AIC_CONVERSATION_ID`             | Hooks / `aic_compile`                                    | Stable conversation key for compile and chat-summary tooling.                                                                                                                                                                                  |
-| `devMode` in `aic.config.json`    | Cursor `preToolUse` gate hook                            | When `true`, skips dev-only compile gate enforcement for that project root (see [CONTRIBUTING.md](../CONTRIBUTING.md)).                                                                                                                        |
+| Name                              | Where it matters                                                                         | Purpose                                                                                                                                                                                                                                        |
+| --------------------------------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AIC_BOOTSTRAP_INTEGRATION`       | MCP server startup                                                                       | Forces which editor installers run when auto-detection is wrong. Values: `auto`, `none`, `cursor`, `claude-code`, `cursor-claude-code`. See [Bootstrap integration override](#bootstrap-integration-override-remote--ci--nonstandard-layouts). |
+| `AIC_UNINSTALL_PROJECT_ROOT`      | `integrations/cursor/uninstall.cjs`, `integrations/claude/uninstall.cjs`                 | Non-empty value selects the project directory when you cannot `cd` there first.                                                                                                                                                                |
+| `AIC_UNINSTALL_KEEP_AIC_DATABASE` | `integrations/clean-global-aic-dir.cjs` / uninstall flow (only when **`--global`** runs) | When `false`, global `~/.aic/` cleanup can remove `aic.sqlite`; when unset, the CLI default is to keep the database unless **`--global --remove-database`** is passed.                                                                         |
+| `CURSOR_PROJECT_DIR`              | Cursor hooks                                                                             | Project root when Cursor runs hook processes (see [Cursor integration layer](technical/cursor-integration-layer.md)).                                                                                                                          |
+| `CLAUDE_PROJECT_DIR`              | Claude Code hooks / shared resolver                                                      | Project root in minimal or remote layouts when the cwd is not the repo root (see [implementation-spec.md](implementation-spec.md) and [Claude Code integration layer](technical/claude-code-integration-layer.md)).                            |
+| `AIC_PROJECT_ROOT`                | Cursor compile hooks                                                                     | Injected after a successful `aic_compile` so later hooks resolve the same project (see [Cursor integration layer](technical/cursor-integration-layer.md)).                                                                                     |
+| `AIC_CONVERSATION_ID`             | Hooks / `aic_compile`                                                                    | Stable conversation key for compile and chat-summary tooling.                                                                                                                                                                                  |
+| `devMode` in `aic.config.json`    | Cursor `preToolUse` gate hook / uninstall scripts                                        | When `true`, skips dev-only compile gate enforcement for that project root (see [CONTRIBUTING.md](../CONTRIBUTING.md)). Uninstall scripts exit without changes unless **`--force`**.                                                           |
 
 ### First-Compile Bootstrap
 
@@ -435,32 +435,52 @@ The repository dev MCP entry uses `sh -c`; append the flag to the inner command 
 
 ## Uninstall
 
-Disable or remove the editor integration first where that applies (turn off the AIC MCP entry in Cursor, uninstall the Claude Code plugin, or otherwise stop hooks from running). Then run the matching uninstall script so global and project artifacts are removed in one pass.
+Disable or remove the editor integration first where that applies (turn off the AIC MCP entry in Cursor, uninstall the Claude Code plugin, or otherwise stop hooks from running). Then run the matching uninstall script: `integrations/cursor/uninstall.cjs` or `integrations/claude/uninstall.cjs` from a repository clone, or the copies under [Bundled uninstall paths](#bundled-uninstall-paths) inside `node_modules/@jatbas/aic`.
 
-The Cursor uninstall script clears **global Claude Code AIC state** as well as Cursor-specific files, because first-compile bootstrap can install Claude hooks when the Claude Code extension is present under Cursor. Claude-only users can run the Claude uninstall script instead; both entrypoints accept the same project-root and artifact-preservation flags.
+**`<project>`** is the resolved project directory for that uninstall run (how it is chosen is under **Project directory** below).
+
+**Default (no flags):** no **global** cleanup — `~/.claude/`, `~/.aic/`, and user-level **`~/.cursor/mcp.json`** are not touched **when those paths differ from `<project>`**. Project-local steps still run under **`<project>/.cursor/`** and **`<project>/.aic/`** (the project tree). If the resolved **`<project>`** is your home directory (or any root where `<project>/.cursor/mcp.json` is the same file as the global MCP config), default mode can still edit that `.cursor/` tree; pass **`--project-root`** to your checkout when you need a clear separation. **Global cleanup** (explicit user-level Cursor MCP, global Claude wiring, and `~/.aic/` maintenance) runs only with **`--global`**.
+
+The Cursor uninstall script can clear **global Claude Code AIC state** when you use **`--global`**, because first-compile bootstrap can install Claude hooks when the Claude Code extension is present under Cursor. Claude-only users can run the Claude uninstall script instead; both entrypoints accept the same flags and project-root resolution.
+
+If **`aic.config.json`** under the same **`<project>`** as this run contains **`"devMode": true`**, uninstall prints a message and exits successfully **without changing any files**, unless you pass **`--force`** (which prints a notice on stdout and proceeds). Missing or invalid config is treated as not dev mode.
 
 ### Cursor
 
-One run of `integrations/cursor/uninstall.cjs` (or the [bundled copy](#bundled-uninstall-paths)) removes, when present:
+One run of `integrations/cursor/uninstall.cjs` (or the [bundled copy](#bundled-uninstall-paths)) always targets **`<project>`** when present:
 
-- The AIC entry from `~/.cursor/mcp.json` (global MCP) and from `<project>/.cursor/mcp.json` (workspace MCP).
-- In `<project>/.cursor/`: AIC hook entries in `hooks.json`, deployed `AIC-*.cjs` scripts and `subagent-start-model-id.cjs` under `hooks/`, and the trigger rule `rules/AIC.mdc`.
+- From `<project>/.cursor/mcp.json` (workspace MCP — the project tree’s Cursor MCP file, not `~/.cursor/mcp.json`): removes the AIC MCP entry.
+- In `<project>/.cursor/`: removes AIC hook entries in `hooks.json`, deployed `AIC-*.cjs` scripts and `subagent-start-model-id.cjs` under `hooks/`, and the trigger rule `rules/AIC.mdc`.
+- **Project files** (unless **`--keep-project-artifacts`**): `aic.config.json`, the `.aic/` directory (never the global `~/.aic/` tree), lines in `.gitignore` / `.prettierignore` / `.eslintignore` that match the AIC ignore manifest, and the AIC managed block in `.claude/CLAUDE.md` (or the whole file when it matches the canonical inner body). With **`--keep-project-artifacts`**, those project files are preserved, but **project** Cursor MCP and project hooks/trigger above are still removed.
+
+**With `--global` only**, the script also removes when present:
+
+- The AIC entry from **`~/.cursor/mcp.json`** (global MCP).
 - **Global Claude Code:** AIC hook commands in `~/.claude/settings.json` (commands matching `aic-*.cjs`), the `aic` key in `mcpServers` (case-insensitive), and AIC scripts under `~/.claude/hooks/` listed in the Claude hook manifest.
-- **Project (default):** `aic.config.json`, the `.aic/` directory, lines in `.gitignore` / `.prettierignore` / `.eslintignore` that match the AIC ignore manifest, and the AIC managed block in `.claude/CLAUDE.md` (or the whole file when it matches the canonical inner body). Skipped entirely when **`--keep-project-artifacts`** is passed.
-- Under `~/.aic/`: same semantics as before — cache and other non-database files removed while keeping `aic.sqlite` (and WAL/SHM) unless you opt out. Full removal including the database: `--keep-aic-database=0` or `AIC_UNINSTALL_KEEP_AIC_DATABASE=false` (see `integrations/clean-global-aic-dir.cjs`).
+- Under **`~/.aic/`:** non-database files are removed; **`aic.sqlite`** (and SQLite WAL/SHM sidecar files) are **kept by default**. For full removal including the database, use **`--global --remove-database`**. The environment variable **`AIC_UNINSTALL_KEEP_AIC_DATABASE`** still overrides when global cleanup runs (`false` / `0` forces deletion; `true` / `1` forces preservation). **`--remove-database` without `--global`** has no effect on the filesystem; the script prints a warning to stderr.
 
-**Project directory** (`<project>`) resolution order: `--project-root` / `--project-root=<path>`; then `AIC_UNINSTALL_PROJECT_ROOT` when set and non-empty; then the shared project-root resolver (typically the shell working directory).
+Legacy **`--keep-aic-database`** argv forms (including **`=0`**, **`=1`**, **`=true`**, **`=false`**, or the bare flag) are still honored during **`--global`** cleanup for compatibility; new automation should prefer **`--remove-database`** for opting out of database preservation.
+
+**Project directory** (`<project>`) resolution order: each script applies `--project-root` / `--project-root=<path>` and `AIC_UNINSTALL_PROJECT_ROOT` first, then calls the shared `resolveProjectRoot` helper with **`useAicProjectRoot: true`** for **`CURSOR_PROJECT_DIR`** (non-empty), **`AIC_PROJECT_ROOT`** (non-empty), and **`process.cwd()`** fallback. **`CLAUDE_PROJECT_DIR` is not used** on this path.
 
 **Flags:**
 
-- **`--keep-project-artifacts`** — preserves `aic.config.json`, `.aic/`, AIC lines in ignore files, and `.claude/CLAUDE.md`. Global Cursor and global Claude cleanup still run.
-- **`--keep-aic-database`** / **`AIC_UNINSTALL_KEEP_AIC_DATABASE`** — unchanged; control whether `~/.aic/` keeps `aic.sqlite`.
+- **`--global`** — also clean user-level Cursor MCP, global Claude Code wiring, and `~/.aic/` as described above.
+- **`--remove-database`** — only with **`--global`**: allow removing `aic.sqlite` (subject to **`AIC_UNINSTALL_KEEP_AIC_DATABASE`**).
+- **`--keep-project-artifacts`** — skip project file removals (`aic.config.json`, `.aic/`, ignore lines, managed `.claude/CLAUDE.md`); project Cursor MCP and hooks are still cleaned.
+- **`--force`** — bypass the dev-project guard when **`devMode`** is true.
 
-From a checkout:
+From a checkout (if you only have the published package, use [Bundled uninstall paths](#bundled-uninstall-paths) instead):
 
 ```bash
 cd /path/to/agent-input-compiler
 node integrations/cursor/uninstall.cjs
+```
+
+Full removal including global editor config and `~/.aic/` (typical “reset everything”):
+
+```bash
+node integrations/cursor/uninstall.cjs --global
 ```
 
 Different project:
@@ -491,27 +511,33 @@ node /path/to/node_modules/@jatbas/aic/mcp/integrations/cursor/uninstall.cjs --p
 ### Claude Code (plugin)
 
 1. In Claude Code, run `/plugin` and uninstall the AIC plugin.
-2. If global hooks or project files were installed earlier (e.g. direct installer or Cursor bootstrap), run `integrations/claude/uninstall.cjs` or the bundled `mcp/integrations/claude/uninstall.cjs` with the same flags as above to clear `~/.claude/` and optional project artifacts.
+2. If global hooks or project files were installed earlier (e.g. direct installer or Cursor bootstrap), run `integrations/claude/uninstall.cjs` or the bundled `mcp/integrations/claude/uninstall.cjs` with the same flags as **### Cursor** in this section (`--global`, `--remove-database`, `--keep-project-artifacts`, `--force`, `--project-root`; see **Flags** there). Clearing **`~/.claude/`** and **`~/.aic/`** requires **`--global`**; without it, only project-level artifacts under **`<project>`** are removed (see [Uninstall](#uninstall)).
 3. Restart or reload Claude Code if needed.
 
 ### Claude Code (direct installer)
 
-The direct-installer uninstall removes global Claude AIC entries (settings hooks, `mcpServers.aic`, hook scripts under `~/.claude/hooks/`) and, unless **`--keep-project-artifacts`** is set, the same project-level artifacts as the Cursor script (`aic.config.json`, `.aic/`, ignore lines, managed `.claude/CLAUDE.md`). It uses the same `~/.aic/` cleanup rules as the Cursor script.
+The direct-installer uninstall uses the same defaults as the Cursor script: **without `--global`**, it only removes project-level artifacts (and does not touch `~/.claude/` or `~/.aic/`). **With `--global`**, it removes global Claude AIC entries (settings hooks, `mcpServers.aic`, hook scripts under `~/.claude/hooks/`) and applies the same **`~/.aic/`** rules as the Cursor script. Unless **`--keep-project-artifacts`** is set, it removes the same project-level artifacts as the Cursor script (`aic.config.json`, `.aic/`, ignore lines, managed `.claude/CLAUDE.md`). It does **not** modify **`<project>/.cursor/`**; use the Cursor uninstall script when Cursor workspace MCP or hooks must be removed.
 
 ```bash
 cd /path/to/agent-input-compiler
 node integrations/claude/uninstall.cjs
 ```
 
-Use the bundled path inside `node_modules/@jatbas/aic` when you do not have the repo. Restart Claude Code (or reload) after a successful uninstall.
+```bash
+node /path/to/node_modules/@jatbas/aic/mcp/integrations/claude/uninstall.cjs --project-root /path/to/your-project
+```
+
+Use the bundled path when you do not have the repository checkout. Restart Claude Code (or reload) after a successful uninstall.
 
 ### Other editors
 
-Remove the `aic` entry from your editor’s global MCP config (path and shape depend on the editor). Optionally delete the project’s `.aic/` directory for local metadata; compilation history for all projects remains in `**~/.aic/aic.sqlite**` until you remove `~/.aic` (see [Optional — remove all data](#optional--remove-all-data)).
+Remove the `aic` entry from your editor’s global MCP config (path and shape depend on the editor). Optionally delete the project’s `.aic/` directory for local metadata; compilation history for all projects remains in `~/.aic/aic.sqlite` until you remove `~/.aic` (see [Optional — remove all data](#optional--remove-all-data)).
 
 ### Optional — remove all data
 
-If you already ran an uninstall with `**--keep-aic-database=0**` (or `AIC_UNINSTALL_KEEP_AIC_DATABASE=false`), the global database is gone. Otherwise, to delete compilation history and cache (global DB and per-project rows), remove the data directory:
+If you already ran an uninstall with **`--global --remove-database`** (or **`--global`** with `AIC_UNINSTALL_KEEP_AIC_DATABASE=false`), the global database is gone. Otherwise, to delete compilation history and cache (global DB and per-project rows), remove the data directory:
+
+> **Warning:** `~/.aic` holds AIC’s global SQLite database and related files for **all** projects on this machine. Removing it is irreversible.
 
 ```bash
 rm -rf ~/.aic

@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -72,7 +72,7 @@ function cursor_global_removal_top_level_aic() {
       ) + "\n",
       "utf8",
     );
-    const out = runUninstall(envWithTmpHome(tmpDir), [], tmpDir);
+    const out = runUninstall(envWithTmpHome(tmpDir), ["--global"], tmpDir);
     assert(out.includes("~/.cursor/mcp.json"), "stdout mentions global mcp");
     const obj = JSON.parse(fs.readFileSync(mcpPath, "utf8"));
     assert(
@@ -99,7 +99,7 @@ function cursor_global_removal_mcp_servers() {
       ) + "\n",
       "utf8",
     );
-    runUninstall(envWithTmpHome(tmpDir), [], tmpDir);
+    runUninstall(envWithTmpHome(tmpDir), ["--global"], tmpDir);
     const obj = JSON.parse(fs.readFileSync(mcpPath, "utf8"));
     assert(findAicKey(obj.mcpServers) === undefined, "aic removed from mcpServers");
     assert(obj.other === 1, "preserves unrelated keys");
@@ -128,8 +128,8 @@ function cursor_idempotent() {
       ) + "\n",
       "utf8",
     );
-    runUninstall(envWithTmpHome(tmpDir), [], tmpDir);
-    const out2 = runUninstall(envWithTmpHome(tmpDir), [], tmpDir);
+    runUninstall(envWithTmpHome(tmpDir), ["--global"], tmpDir);
+    const out2 = runUninstall(envWithTmpHome(tmpDir), ["--global"], tmpDir);
     assert(
       out2.includes("Nothing to remove") && out2.includes("No need to restart"),
       "second run reports nothing to remove",
@@ -183,7 +183,7 @@ function cursor_combined_global_and_project() {
         AIC_PROJECT_ROOT: tmpProject,
         CURSOR_PROJECT_DIR: tmpProject,
       },
-      [],
+      ["--global"],
       repoRoot,
     );
     assert(out.includes("~/.cursor/mcp.json"), "global mcp mentioned");
@@ -251,7 +251,7 @@ function cursor_global_aic_clean_preserves_sqlite() {
     fs.mkdirSync(aicDir, { recursive: true });
     fs.writeFileSync(path.join(aicDir, "cache.txt"), "c", "utf8");
     fs.writeFileSync(path.join(aicDir, "aic.sqlite"), "db", "utf8");
-    const out = runUninstall(envWithTmpHome(tmpDir), [], tmpDir);
+    const out = runUninstall(envWithTmpHome(tmpDir), ["--global"], tmpDir);
     assert(out.includes("kept SQLite database files"), "mentions db preserved");
     assert(!fs.existsSync(path.join(aicDir, "cache.txt")), "cache removed");
     assert(
@@ -271,7 +271,7 @@ function cursor_global_aic_no_keep_db_wipes_dir() {
     fs.writeFileSync(path.join(aicDir, "aic.sqlite"), "db", "utf8");
     const out = runUninstall(
       envWithTmpHome(tmpDir),
-      ["--keep-aic-database=false"],
+      ["--global", "--remove-database"],
       tmpDir,
     );
     assert(out.includes("including the database"), "mentions full removal");
@@ -292,7 +292,7 @@ function cursor_global_aic_env_no_keep_db_wipes_dir() {
         ...envWithTmpHome(tmpDir),
         AIC_UNINSTALL_KEEP_AIC_DATABASE: "0",
       },
-      [],
+      ["--global"],
       tmpDir,
     );
     assert(!fs.existsSync(aicDir), ".aic removed via env");
@@ -352,7 +352,7 @@ function cursor_uninstall_cleans_global_claude() {
         AIC_PROJECT_ROOT: tmpProject,
         CURSOR_PROJECT_DIR: tmpProject,
       },
-      [],
+      ["--global"],
       repoRoot,
     );
     assert(out.includes("mcpServers"), "stdout mentions claude mcp strip");
@@ -438,6 +438,149 @@ function cursor_uninstall_keep_project_artifacts_skips_project_files() {
   }
 }
 
+function cursor_keep_project_artifacts_still_cleans_cursor_project() {
+  const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "aic-curs-kpc-h-"));
+  const tmpProject = fs.mkdtempSync(path.join(os.tmpdir(), "aic-curs-kpc-p-"));
+  try {
+    runInstaller(tmpProject);
+    fs.writeFileSync(
+      path.join(tmpProject, "aic.config.json"),
+      JSON.stringify({ devMode: false }) + "\n",
+      "utf8",
+    );
+    const pc = path.join(tmpProject, ".cursor");
+    fs.writeFileSync(
+      path.join(pc, "mcp.json"),
+      JSON.stringify({ mcpServers: { aic: { command: "npx" } } }, null, 2) + "\n",
+      "utf8",
+    );
+    runUninstall(
+      {
+        ...process.env,
+        HOME: tmpHome,
+        AIC_UNINSTALL_PROJECT_ROOT: tmpProject,
+        AIC_PROJECT_ROOT: tmpProject,
+        CURSOR_PROJECT_DIR: tmpProject,
+      },
+      ["--keep-project-artifacts"],
+      repoRoot,
+    );
+    assert(
+      fs.existsSync(path.join(tmpProject, "aic.config.json")),
+      "config kept with flag",
+    );
+    const parsed = JSON.parse(fs.readFileSync(path.join(pc, "mcp.json"), "utf8"));
+    assert(findAicKey(parsed.mcpServers) === undefined, "project MCP still stripped");
+    const hooksJson = JSON.parse(fs.readFileSync(path.join(pc, "hooks.json"), "utf8"));
+    const cmds = collectHookCommands(hooksJson);
+    assert(!cmds.some((c) => /AIC-[a-z0-9-]+\.cjs/.test(c)), "AIC hook commands removed");
+  } finally {
+    fs.rmSync(tmpHome, { recursive: true, force: true });
+    fs.rmSync(tmpProject, { recursive: true, force: true });
+  }
+}
+
+function cursor_remove_database_without_global_warns_stderr() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-curs-rdb-"));
+  try {
+    const aicDir = path.join(tmpDir, ".aic");
+    fs.mkdirSync(aicDir, { recursive: true });
+    fs.writeFileSync(path.join(aicDir, "aic.sqlite"), "db", "utf8");
+    const r = spawnSync(process.execPath, [uninstallScript, "--remove-database"], {
+      cwd: tmpDir,
+      env: envWithTmpHome(tmpDir),
+      encoding: "utf8",
+    });
+    assert(r.status === 0, "exit 0");
+    assert(
+      String(r.stderr).includes("--remove-database") &&
+        String(r.stderr).includes("--global"),
+      "stderr warns about --global",
+    );
+    assert(
+      fs.existsSync(path.join(aicDir, "aic.sqlite")),
+      "~/.aic untouched without --global",
+    );
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+function cursor_dev_mode_skips_uninstall() {
+  const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "aic-curs-dv-h-"));
+  const tmpProject = fs.mkdtempSync(path.join(os.tmpdir(), "aic-curs-dv-p-"));
+  try {
+    const cursorDir = path.join(tmpHome, ".cursor");
+    fs.mkdirSync(cursorDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(cursorDir, "mcp.json"),
+      JSON.stringify({ mcpServers: { aic: { command: "npx" } } }, null, 2) + "\n",
+      "utf8",
+    );
+    fs.writeFileSync(
+      path.join(tmpProject, "aic.config.json"),
+      JSON.stringify({ devMode: true }) + "\n",
+      "utf8",
+    );
+    const out = runUninstall(
+      {
+        ...process.env,
+        HOME: tmpHome,
+        AIC_UNINSTALL_PROJECT_ROOT: tmpProject,
+        AIC_PROJECT_ROOT: tmpProject,
+        CURSOR_PROJECT_DIR: tmpProject,
+      },
+      [],
+      repoRoot,
+    );
+    assert(
+      out.includes("Skipping uninstall") && out.includes("devMode: true"),
+      "skip message",
+    );
+    const obj = JSON.parse(fs.readFileSync(path.join(cursorDir, "mcp.json"), "utf8"));
+    assert(findAicKey(obj.mcpServers) !== undefined, "global MCP untouched on skip");
+  } finally {
+    fs.rmSync(tmpHome, { recursive: true, force: true });
+    fs.rmSync(tmpProject, { recursive: true, force: true });
+  }
+}
+
+function cursor_dev_mode_force_uninstalls() {
+  const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "aic-curs-dvf-h-"));
+  const tmpProject = fs.mkdtempSync(path.join(os.tmpdir(), "aic-curs-dvf-p-"));
+  try {
+    const cursorDir = path.join(tmpHome, ".cursor");
+    fs.mkdirSync(cursorDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(cursorDir, "mcp.json"),
+      JSON.stringify({ mcpServers: { aic: { command: "npx" } } }, null, 2) + "\n",
+      "utf8",
+    );
+    fs.writeFileSync(
+      path.join(tmpProject, "aic.config.json"),
+      JSON.stringify({ devMode: true }) + "\n",
+      "utf8",
+    );
+    const out = runUninstall(
+      {
+        ...process.env,
+        HOME: tmpHome,
+        AIC_UNINSTALL_PROJECT_ROOT: tmpProject,
+        AIC_PROJECT_ROOT: tmpProject,
+        CURSOR_PROJECT_DIR: tmpProject,
+      },
+      ["--force", "--global"],
+      repoRoot,
+    );
+    assert(out.includes("Force-uninstalling AIC development project"), "force warning");
+    const obj = JSON.parse(fs.readFileSync(path.join(cursorDir, "mcp.json"), "utf8"));
+    assert(findAicKey(obj.mcpServers) === undefined, "global MCP removed with force");
+  } finally {
+    fs.rmSync(tmpHome, { recursive: true, force: true });
+    fs.rmSync(tmpProject, { recursive: true, force: true });
+  }
+}
+
 cursor_global_removal_top_level_aic();
 console.log("ok: cursor_global_removal_top_level_aic");
 cursor_global_removal_mcp_servers();
@@ -466,3 +609,11 @@ cursor_uninstall_removes_project_artifacts();
 console.log("ok: cursor_uninstall_removes_project_artifacts");
 cursor_uninstall_keep_project_artifacts_skips_project_files();
 console.log("ok: cursor_uninstall_keep_project_artifacts_skips_project_files");
+cursor_keep_project_artifacts_still_cleans_cursor_project();
+console.log("ok: cursor_keep_project_artifacts_still_cleans_cursor_project");
+cursor_remove_database_without_global_warns_stderr();
+console.log("ok: cursor_remove_database_without_global_warns_stderr");
+cursor_dev_mode_skips_uninstall();
+console.log("ok: cursor_dev_mode_skips_uninstall");
+cursor_dev_mode_force_uninstalls();
+console.log("ok: cursor_dev_mode_force_uninstalls");

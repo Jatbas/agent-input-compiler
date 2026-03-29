@@ -5,11 +5,12 @@ const path = require("node:path");
 const os = require("node:os");
 
 const {
-  parseKeepAicDatabase,
+  resolveGlobalKeepAicDatabase,
   tryCleanGlobalAicDir,
 } = require("../clean-global-aic-dir.cjs");
 const { tryUninstallGlobalClaude } = require("../shared/uninstall-global-claude.cjs");
 const { tryUninstallProjectAic } = require("../shared/uninstall-project-aic.cjs");
+const { isDevModeTrue } = require("../shared/read-project-dev-mode.cjs");
 const {
   resolveProjectRoot: resolveProjectRootShared,
 } = require("../shared/resolve-project-root.cjs");
@@ -32,7 +33,11 @@ function parseKeepProjectArtifacts(argv) {
 }
 
 function run() {
+  const argv = process.argv;
   const home = os.homedir();
+  const globalCleanup = argv.includes("--global");
+  const force = argv.includes("--force");
+  const removeDatabase = argv.includes("--remove-database");
   const envRoot =
     process.env.AIC_UNINSTALL_PROJECT_ROOT != null &&
     String(process.env.AIC_UNINSTALL_PROJECT_ROOT).trim() !== ""
@@ -42,14 +47,34 @@ function run() {
     projectRootFromArgv() ??
     envRoot ??
     resolveProjectRootShared(null, { env: process.env, useAicProjectRoot: true });
-  const keepProjectArtifacts = parseKeepProjectArtifacts(process.argv);
-  const globalClaude = tryUninstallGlobalClaude(home);
+  const devMode = isDevModeTrue(projectRoot);
+  if (devMode && !force) {
+    process.stdout.write(
+      "This is an AIC development project (devMode: true in aic.config.json). Skipping uninstall.\n",
+    );
+    process.exit(0);
+    return;
+  }
+  if (force && devMode) {
+    process.stdout.write("Force-uninstalling AIC development project.\n");
+  }
+  if (removeDatabase && !globalCleanup) {
+    process.stderr.write(
+      "Warning: --remove-database only applies with --global. Ignored.\n",
+    );
+  }
+  const keepProjectArtifacts = parseKeepProjectArtifacts(argv);
   const projectAic = tryUninstallProjectAic(projectRoot, {
     keepProjectArtifacts,
     homeDir: home,
   });
-  const keepDb = parseKeepAicDatabase(process.argv, process.env);
-  const globalAic = tryCleanGlobalAicDir(home, keepDb);
+  let globalClaude = { changed: false, parts: [] };
+  let globalAic = { changed: false, message: null };
+  if (globalCleanup) {
+    globalClaude = tryUninstallGlobalClaude(home);
+    const keepDb = resolveGlobalKeepAicDatabase(argv, process.env);
+    globalAic = tryCleanGlobalAicDir(home, keepDb);
+  }
   const changed = globalClaude.changed || projectAic.changed || globalAic.changed;
   if (!changed) {
     process.stdout.write("Nothing to remove. No need to restart Claude Code.\n");

@@ -6,11 +6,12 @@ const fs = require("node:fs");
 const os = require("node:os");
 
 const {
-  parseKeepAicDatabase,
+  resolveGlobalKeepAicDatabase,
   tryCleanGlobalAicDir,
 } = require("../clean-global-aic-dir.cjs");
 const { tryUninstallGlobalClaude } = require("../shared/uninstall-global-claude.cjs");
 const { tryUninstallProjectAic } = require("../shared/uninstall-project-aic.cjs");
+const { isDevModeTrue } = require("../shared/read-project-dev-mode.cjs");
 const {
   resolveProjectRoot: resolveProjectRootShared,
 } = require("../shared/resolve-project-root.cjs");
@@ -137,8 +138,11 @@ function parseKeepProjectArtifacts(argv) {
 }
 
 function run() {
+  const argv = process.argv;
   const home = os.homedir();
-  const globalMcpPath = path.join(home, ".cursor", "mcp.json");
+  const globalCleanup = argv.includes("--global");
+  const force = argv.includes("--force");
+  const removeDatabase = argv.includes("--remove-database");
   const envRoot =
     process.env.AIC_UNINSTALL_PROJECT_ROOT != null &&
     String(process.env.AIC_UNINSTALL_PROJECT_ROOT).trim() !== ""
@@ -148,18 +152,42 @@ function run() {
     projectRootFromArgv() ??
     envRoot ??
     resolveProjectRootShared(null, { env: process.env, useAicProjectRoot: true });
-  const keepProjectArtifacts = parseKeepProjectArtifacts(process.argv);
+  const devMode = isDevModeTrue(projectRoot);
+  if (devMode && !force) {
+    process.stdout.write(
+      "This is an AIC development project (devMode: true in aic.config.json). Skipping uninstall.\n",
+    );
+    process.exit(0);
+    return;
+  }
+  if (force && devMode) {
+    process.stdout.write("Force-uninstalling AIC development project.\n");
+  }
+  if (removeDatabase && !globalCleanup) {
+    process.stderr.write(
+      "Warning: --remove-database only applies with --global. Ignored.\n",
+    );
+  }
+  const keepProjectArtifacts = parseKeepProjectArtifacts(argv);
   const projectMcpPath = path.join(projectRoot, ".cursor", "mcp.json");
-  const removedGlobalMcp = tryStripMcp(globalMcpPath);
-  const removedProjectMcp = tryStripMcp(projectMcpPath);
+  const globalMcpPath = path.join(home, ".cursor", "mcp.json");
+  const sameCursorMcpPath = path.resolve(projectMcpPath) === path.resolve(globalMcpPath);
+  const removedProjectMcp =
+    sameCursorMcpPath && globalCleanup ? false : tryStripMcp(projectMcpPath);
   const removedProjectHooks = tryCleanProjectHooks(projectRoot);
-  const globalClaude = tryUninstallGlobalClaude(home);
   const projectAic = tryUninstallProjectAic(projectRoot, {
     keepProjectArtifacts,
     homeDir: home,
   });
-  const keepDb = parseKeepAicDatabase(process.argv, process.env);
-  const globalAic = tryCleanGlobalAicDir(home, keepDb);
+  let removedGlobalMcp = false;
+  let globalClaude = { changed: false, parts: [] };
+  let globalAic = { changed: false, message: null };
+  if (globalCleanup) {
+    removedGlobalMcp = tryStripMcp(globalMcpPath);
+    globalClaude = tryUninstallGlobalClaude(home);
+    const keepDb = resolveGlobalKeepAicDatabase(argv, process.env);
+    globalAic = tryCleanGlobalAicDir(home, keepDb);
+  }
   const changed =
     removedGlobalMcp ||
     removedProjectMcp ||

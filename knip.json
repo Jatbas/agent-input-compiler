@@ -12,6 +12,7 @@
     "integrations/shared/strip-project-claude-md.cjs",
     "integrations/shared/uninstall-global-claude.cjs",
     "integrations/shared/uninstall-project-aic.cjs",
+    "integrations/shared/read-project-dev-mode.cjs",
     "integrations/cursor/__tests__/AIC-require-aic-compile.test.cjs",
     "integrations/cursor/__tests__/AIC-inject-conversation-id.test.cjs",
     "integrations/claude/hooks/**",
