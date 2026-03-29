@@ -49,8 +49,28 @@ function ensureIgnoreFile(
   fs.writeFileSync(filePath, `${content}${separator}${toAppend}`, "utf8");
 }
 
+const CONFIG_FILENAME = "aic.config.json";
+
+function readDevMode(projectRoot: AbsolutePath): boolean {
+  try {
+    const raw = fs.readFileSync(path.join(projectRoot, CONFIG_FILENAME), "utf8");
+    const data: unknown = JSON.parse(raw);
+    return (
+      typeof data === "object" &&
+      data !== null &&
+      "devMode" in data &&
+      (data as { devMode: unknown }).devMode === true
+    );
+  } catch {
+    return false;
+  }
+}
+
 function ensureGitignore(projectRoot: AbsolutePath): void {
-  ensureIgnoreFile(projectRoot, ".gitignore", AIC_IGNORE_ENTRIES);
+  const entries = readDevMode(projectRoot)
+    ? AIC_IGNORE_ENTRIES.filter((e) => e !== CONFIG_FILENAME)
+    : AIC_IGNORE_ENTRIES;
+  ensureIgnoreFile(projectRoot, ".gitignore", entries);
 }
 
 export function ensurePrettierignore(projectRoot: AbsolutePath): void {

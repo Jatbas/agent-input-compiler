@@ -7,6 +7,14 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-03-30
+
+### Fixed
+
+- Skip adding `aic.config.json` to project ignore manifests during bootstrap when **`devMode`** is enabled in that file so shared dev config can be committed
+- Bundle the global cleanup script in the published `@jatbas/aic` package so npm-based uninstall can remove **`~/.aic/`** when **`--global`** is used
+- Avoid rewriting the managed AIC block in **`CLAUDE.md`** on MCP server startup when it already matches the installed template
+
 ## [0.10.1] - 2026-03-30
 
 ### Changed
