@@ -10,4 +10,14 @@ function conversationIdFromTranscriptPath(parsed) {
   return trimmed.length > 0 ? path.basename(trimmed, ".jsonl") : null;
 }
 
-module.exports = { conversationIdFromTranscriptPath };
+function conversationIdFromAgentTranscriptPath(agentTranscriptPath) {
+  if (agentTranscriptPath == null) return null;
+  const trimmed =
+    typeof agentTranscriptPath === "string" ? agentTranscriptPath.trim() : "";
+  return trimmed.length > 0 ? path.basename(trimmed, ".jsonl") : null;
+}
+
+module.exports = {
+  conversationIdFromTranscriptPath,
+  conversationIdFromAgentTranscriptPath,
+};

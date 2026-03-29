@@ -10,6 +10,7 @@
     "AIC-after-file-edit-tracker.cjs",
     "AIC-session-end.cjs",
     "AIC-subagent-compile.cjs",
+    "AIC-subagent-stop.cjs",
     "subagent-start-model-id.cjs",
     "AIC-stop-quality-check.cjs"
   ]

@@ -34,12 +34,19 @@ const compilationRequestShape = {
       "prompt_submit",
       "tool_gate",
       "subagent_start",
+      "subagent_stop",
       "cli",
       "model_initiated",
       "internal_test",
     ])
     .optional(),
   conversationId: z
+    .string()
+    .max(128)
+    .regex(/^[\x20-\x7E]+$/)
+    .nullable()
+    .optional(),
+  reparentFromConversationId: z
     .string()
     .max(128)
     .regex(/^[\x20-\x7E]+$/)

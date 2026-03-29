@@ -26,6 +26,7 @@
     ],
     "sessionEnd": [{ "command": "node .cursor/hooks/AIC-session-end.cjs" }],
     "subagentStart": [{ "command": "node .cursor/hooks/AIC-subagent-compile.cjs" }],
+    "subagentStop": [{ "command": "node .cursor/hooks/AIC-subagent-stop.cjs" }],
     "stop": [
       { "command": "node .cursor/hooks/AIC-stop-quality-check.cjs", "loop_limit": 5 }
     ]

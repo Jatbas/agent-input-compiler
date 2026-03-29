@@ -103,9 +103,9 @@ The planner operates in a dedicated worktree based on `main` so that task files 
 
    Run with `working_directory` set to the worktree absolute path.
 
-4. **All planning work (§1 through §6 or §7) happens in the worktree.** Set `working_directory` to the worktree for all Shell commands. Use worktree-prefixed absolute paths for Read, Write, StrReplace, Grep, and Glob. During planning, task files use `$EPOCH` as a temporary identifier (e.g. `documentation/tasks/1741209600-component-name.md`). The final sequential number (NNN) is assigned at merge time in §6.
+4. **All planning work (§1 through §6 or §7) happens in the worktree.** Set `working_directory` to the worktree for all Shell commands. Use worktree-prefixed absolute paths for Read, Write, StrReplace, Grep, and Glob. During planning, task files use `$EPOCH` as a temporary identifier (e.g. `documentation/tasks/1741209600-component-name.md`). The final sequential number (NNN) is assigned at finalization in §6. **Note:** Task files are gitignored (`documentation/tasks/` is in `.gitignore`), so they cannot be committed — §6 copies the final file directly to the main workspace.
 
-5. After the task file is saved and verified (end of §6 or §7), assign the final task number, commit, merge, and clean up. See §6 for the full procedure (§7 follows the same merge steps).
+5. After the task file is saved and verified (end of §6 or §7), assign the final task number, copy to the main workspace, and clean up the worktree. See §6 for the full procedure (§7 follows the same finalization steps).
 
 ---
 
@@ -758,7 +758,7 @@ Violating any of these causes the mechanical review (C.5) to reject and force a 
 
 Save to: `documentation/tasks/$EPOCH-kebab-case-name.md`
 
-Use the epoch value from §0 as a temporary identifier. The final sequential number (NNN) is assigned at merge time in §6. Use `$EPOCH` in the `# Task` heading as well (e.g. `# Task 1741209600: Component Name`).
+Use the epoch value from §0 as a temporary identifier. The final sequential number (NNN) is assigned at finalization in §6. Use `$EPOCH` in the `# Task` heading as well (e.g. `# Task 1741209600: Component Name`).
 
 Use the task file template below.
 
@@ -1070,44 +1070,34 @@ For each genuine miss found by the adversarial agent, add the file to the Files 
 
 ---
 
-## §6. Finalize, merge, and offer execution
+## §6. Finalize and offer execution
+
+Task files live in `documentation/tasks/`, which is gitignored. They cannot be committed or merged — finalization copies the file directly from the worktree to the main workspace.
 
 After verification passes:
 
-1. **Assign the final task number.** From the **main workspace root**, scan both `documentation/tasks/` and `documentation/tasks/done/` for the highest existing task number. Completed tasks are archived to `done/`, so you must check both directories:
+1. **Assign the final task number.** From the **main workspace root** (not the worktree — gitignored files only exist in the main workspace), scan both `documentation/tasks/` and `documentation/tasks/done/` for the highest existing task number. Completed tasks are archived to `done/`, so both directories must be checked:
 
    ```
    { ls documentation/tasks/ 2>/dev/null; ls documentation/tasks/done/ 2>/dev/null; } | grep -oE '^[0-9]+' | sort -rn | head -1
    ```
 
-   Note: uses `-oE` (extended regex), not `-oP` (Perl regex), for macOS compatibility. Add 1 and zero-pad to 3 digits (e.g. `196`). This is the final NNN. If no numbered files exist, start at `001`.
+   Note: uses `-oE` (extended regex), not `-oP` (Perl regex), for macOS compatibility. Add 1 and zero-pad to 3 digits (e.g. `261`). This is the final NNN. If no numbered files exist, start at `001`.
 
-2. **Rename and update in the worktree** (run with `working_directory` set to the worktree):
-   - Rename the task file: `mv documentation/tasks/$EPOCH-name.md documentation/tasks/NNN-name.md`
-   - Update the `# Task` heading inside the file: replace `# Task $EPOCH:` with `# Task NNN:`
-   - Delete the exploration file: `rm -f documentation/tasks/.exploration-$EPOCH.md`
+   **Parallel safety:** Multiple planners use unique `$EPOCH` identifiers during planning. The final NNN is assigned here, at the last possible moment. If a parallel planner saved a file between your scan and your copy (step 2), the numbers will collide — this is acceptable for the rare case and the user can rename manually.
 
-3. **Commit in the worktree** (run with `working_directory` set to the worktree):
+2. **Update heading and copy to main workspace:**
+   - In the worktree task file, update the `# Task` heading: replace `# Task $EPOCH:` with `# Task NNN:`.
+   - Copy the task file to the main workspace: `cp <worktree>/documentation/tasks/$EPOCH-name.md <main-workspace>/documentation/tasks/NNN-name.md` (use absolute paths for both source and target).
+   - Copy the exploration report to the main workspace: `cp <worktree>/documentation/tasks/.exploration-$EPOCH.md <main-workspace>/documentation/tasks/.exploration-NNN.md` (preserves the exploration evidence alongside the task for executor reference).
 
-   ```
-   git add documentation/tasks/ && git commit -m "docs(tasks): plan task NNN — <component name>"
-   ```
-
-4. **Merge to main.** From the **main workspace root**:
-
-   ```
-   git merge --squash plan/$EPOCH && git commit -m "docs(tasks): plan task NNN — <component name>"
-   ```
-
-   If the merge has conflicts (rare for documentation-only changes), resolve them: read each conflicted file, fix conflict markers, stage, and commit. If unresolvable, tell the user.
-
-5. **Clean up:**
+3. **Clean up the worktree.** From the **main workspace root**:
 
    ```
    git worktree remove .git-worktrees/plan-$EPOCH && git branch -D plan/$EPOCH
    ```
 
-6. **Announce:** "Task saved to `documentation/tasks/NNN-name.md`. Score: N/M (X%). Use the @aic-task-executor skill to execute it."
+4. **Announce:** "Task saved to `documentation/tasks/NNN-name.md`. Score: N/M (X%). Use the @aic-task-executor skill to execute it."
 
 ---
 
@@ -1120,7 +1110,7 @@ Triggered when the user asks to review one or more task files.
 - "review task 008" → single task
 - "review tasks" / "review all tasks" → all pending in `documentation/tasks/` (skip `done/`)
 
-**Step 7.0: Worktree setup.** Create a planning worktree from `main` using the same procedure as §0 steps 1–3. Store the epoch value. All subsequent §7 work — reading, rewriting, committing — happens in the worktree.
+**Step 7.0: Worktree setup.** Create a planning worktree from `main` using the same procedure as §0 steps 1–3. Store the epoch value. Use the worktree for code exploration (reading interfaces, types, source files). Task files are gitignored, so read and write them from the **main workspace** — the worktree will not have them.
 
 **Step 7a: Check for codebase drift.** For each file referenced in the task's Files table (both "Create" and "Modify" paths), check if the file or its directory has changed since the task was written. Use `git log -1 --format='%ai' -- <path>` for modified files and Glob for created files that now exist. If drift is detected, flag the specific files and re-read them before proceeding.
 
@@ -1142,12 +1132,9 @@ When rewriting:
 - Mark checks N/A only when the check's precondition is structurally unmet (see C.6 rule 4).
 - If the review discovers a failure class not covered by the current probe library, note it as a candidate for feedback-driven probe accumulation (see Conventions).
 
-After rewriting, commit in the worktree, merge to main, and clean up (same as §6 steps 3–5, but skip the renaming — rewritten tasks keep their existing NNN):
+After rewriting, rewritten task files are already in the main workspace (they were read from and written to it directly — task files are gitignored and never exist in the worktree). Clean up the worktree:
 
-- Commit in the worktree: `git add documentation/tasks/ && git commit -m "docs(tasks): rewrite task NNN — <component name>"`
-- From the main workspace root: `git merge --squash plan/$EPOCH && git commit -m "docs(tasks): rewrite task NNN — <component name>"`
-- Clean up: `git worktree remove .git-worktrees/plan-$EPOCH && git branch -D plan/$EPOCH`
-- If conflicts, resolve or tell the user.
+- From the main workspace root: `git worktree remove .git-worktrees/plan-$EPOCH && git branch -D plan/$EPOCH`
 
 Then announce: **"Task NNN rewritten. Score: N/M (X%). [Summary of changes]."**
 

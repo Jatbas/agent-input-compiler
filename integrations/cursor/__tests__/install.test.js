@@ -19,6 +19,7 @@ const AIC_SCRIPT_NAMES = [
   "AIC-after-file-edit-tracker.cjs",
   "AIC-session-end.cjs",
   "AIC-subagent-compile.cjs",
+  "AIC-subagent-stop.cjs",
   "subagent-start-model-id.cjs",
   "AIC-stop-quality-check.cjs",
 ];
@@ -93,6 +94,14 @@ function install_creates_all_artifacts() {
           (e.command || "").includes("AIC-subagent-compile.cjs"),
         ),
       "hooks.json has subagentStart with AIC-subagent-compile.cjs",
+    );
+    assert(
+      Array.isArray(hooksJson.hooks.subagentStop) &&
+        hooksJson.hooks.subagentStop.length > 0 &&
+        hooksJson.hooks.subagentStop.some((e) =>
+          (e.command || "").includes("AIC-subagent-stop.cjs"),
+        ),
+      "hooks.json has subagentStop with AIC-subagent-stop.cjs",
     );
     const triggerPath = path.join(tmpDir, ".cursor", "rules", "AIC.mdc");
     assert(fs.existsSync(triggerPath), ".cursor/rules/AIC.mdc exists");

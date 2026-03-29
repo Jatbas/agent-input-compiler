@@ -14,6 +14,7 @@ import type { StringHasher } from "@jatbas/aic-core/core/interfaces/string-hashe
 import type { ProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
 import { SqliteToolInvocationLogStore } from "@jatbas/aic-core/storage/sqlite-tool-invocation-log-store.js";
 import { reconcileProjectId } from "@jatbas/aic-core/storage/ensure-project-id.js";
+import { reparentSubagentCompilations } from "@jatbas/aic-core/storage/reparent-subagent-compilations.js";
 import { AicError } from "@jatbas/aic-core/core/errors/aic-error.js";
 import { TimeoutError } from "@jatbas/aic-core/core/errors/timeout-error.js";
 import { sanitizeError } from "@jatbas/aic-core/core/errors/sanitize-error.js";
@@ -240,6 +241,7 @@ type CompileHandlerArgs = {
   previousFiles?: readonly string[] | undefined;
   toolOutputs?: readonly McpCompileToolOutputArg[] | undefined;
   conversationTokens?: number | undefined;
+  reparentFromConversationId?: string | null | undefined;
 };
 
 export function createCompileHandler(
@@ -383,6 +385,28 @@ export function createCompileHandler(
     try {
       const projectRoot = validateProjectRoot(args.projectRoot);
       const scope = getScope(projectRoot);
+      if (
+        args.triggerSource === TRIGGER_SOURCE.SUBAGENT_STOP &&
+        typeof args.reparentFromConversationId === "string" &&
+        args.reparentFromConversationId.trim().length > 0 &&
+        typeof args.conversationId === "string" &&
+        args.conversationId.trim().length > 0
+      ) {
+        const count = reparentSubagentCompilations(
+          scope.db,
+          scope.projectId,
+          toConversationId(args.reparentFromConversationId.trim()),
+          toConversationId(args.conversationId.trim()),
+        );
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({ reparented: true, rowsUpdated: count }),
+            },
+          ],
+        };
+      }
       const configPath =
         args.configPath !== null
           ? validateConfigPath(args.configPath, projectRoot)

@@ -2,7 +2,10 @@
 // Copyright (c) 2025 AIC Contributors
 
 const assert = require("assert");
-const { conversationIdFromTranscriptPath } = require("../conversation-id.cjs");
+const {
+  conversationIdFromTranscriptPath,
+  conversationIdFromAgentTranscriptPath,
+} = require("../conversation-id.cjs");
 
 function from_transcript_path_top_level() {
   const actual = conversationIdFromTranscriptPath({
@@ -33,12 +36,32 @@ function null_when_empty_string() {
   assert.strictEqual(actual, null);
 }
 
+function from_agent_transcript_path_extracts_basename() {
+  const actual = conversationIdFromAgentTranscriptPath(
+    "/home/user/.cursor/projects/proj/agent-transcripts/parent-uuid/subagents/child-uuid.jsonl",
+  );
+  assert.strictEqual(actual, "child-uuid");
+}
+
+function from_agent_transcript_path_null_when_empty() {
+  const actual = conversationIdFromAgentTranscriptPath("");
+  assert.strictEqual(actual, null);
+}
+
+function from_agent_transcript_path_null_when_missing() {
+  const actual = conversationIdFromAgentTranscriptPath(null);
+  assert.strictEqual(actual, null);
+}
+
 const cases = [
   from_transcript_path_top_level,
   from_transcript_path_input,
   null_when_missing,
   null_when_parsed_null,
   null_when_empty_string,
+  from_agent_transcript_path_extracts_basename,
+  from_agent_transcript_path_null_when_empty,
+  from_agent_transcript_path_null_when_missing,
 ];
 
 let failed = 0;

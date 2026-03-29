@@ -122,6 +122,7 @@ const hookKeys = [
   "afterFileEdit",
   "sessionEnd",
   "subagentStart",
+  "subagentStop",
   "stop",
 ];
 

@@ -122,6 +122,7 @@ export const TRIGGER_SOURCE = {
   PROMPT_SUBMIT: "prompt_submit",
   TOOL_GATE: "tool_gate",
   SUBAGENT_START: "subagent_start",
+  SUBAGENT_STOP: "subagent_stop",
   CLI: "cli",
   MODEL_INITIATED: "model_initiated",
   HOOK: "hook",
