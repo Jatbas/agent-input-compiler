@@ -164,18 +164,29 @@ Read `../shared/SKILL-investigation.md` and apply the **Runtime Evidence Checkli
 
 If any assumption cannot be verified (no evidence exists, or the evidence contradicts the claim), **stop and report to the user** before implementing. Include: (1) the exact claim from the task file, (2) what you checked, (3) what you found. This catches tasks that are technically correct but based on stale or wrong assumptions about runtime state — the most common cause of "the fix didn't work" after execution.
 
-### 2b. Documentation mode detection
+### 2b. Documentation and mixed-mode detection
 
-**Check if this is a documentation task.** A task is a documentation task if:
+**Classify the task into one of three execution modes** by examining the Files table:
 
-- The task file's Layer field is absent or says "documentation"
-- The task file has a **Change Specification** section instead of an Interface/Signature section
-- The task file has a **Writing Standards** section instead of a Dependent Types section
-- All files in the Files table are `.md` files in `documentation/`
+**Pure documentation task** — all files in the Files table are `.md` files in `documentation/`, AND the task has a Change Specification section instead of Interface/Signature, AND the Layer field is absent or says "documentation":
 
-If this is a documentation task, switch to the documentation execution workflow described in §3-doc below. Skip §3 (code implementation), §4a-§4b (code verification), and use §3-doc, §4-doc instead. §5 (finalize) and §6 (merge) remain the same.
+- Execute §3-doc (documentation implementation) and §4-doc (documentation verification).
+- Skip §3 (code implementation) and §4a-§4b (code verification).
 
-If this is NOT a documentation task, skip §3-doc and §4-doc. Proceed to §3 as usual.
+**Mixed task** — the Files table contains BOTH code files (`.ts`, `.js`, `.cjs`, `.mjs`, config files) AND `.md` files in `documentation/`:
+
+- Execute §3 (code implementation) for all code steps first.
+- Then execute §3-mixed (documentation implementation within a code task) for documentation steps.
+- Then execute §4a-§4b (code verification) for code files.
+- Then execute §4-mixed (documentation verification within a code task) for doc files.
+- The task file's documentation steps have Change Specifications produced by the planner (via the documentation-writer pipeline for SECTION EDIT changes, or directly for MECHANICAL changes). The executor applies these pre-verified edits and runs a verification pass.
+
+**Pure code task** — no `.md` files in `documentation/` appear in the Files table:
+
+- Execute §3 (code implementation) and §4a-§4b (code verification).
+- Skip §3-doc, §3-mixed, §4-doc, §4-mixed.
+
+**Detection heuristic:** Scan the Files table for any row where the path matches `documentation/*.md` or `documentation/**/*.md`. If at least one match exists AND at least one non-`.md` file also exists, classify as mixed. If all files match, classify as pure documentation. If none match, classify as pure code.
 
 ### 3-doc. Implement (documentation mode)
 
@@ -271,6 +282,92 @@ Dimensions 1-7, 10, and 12 must be clean before proceeding. Dimensions 8-9 are r
 **4-doc-d — Track first-pass quality.**
 
 Same as code tasks: record whether each dimension was clean on first check or required a fix. Report in §5a (e.g. "12/12 first-pass clean" or "10/12 first-pass clean, fixed 2: factual claim about interface name, cross-doc stale reference"). Dimensions 8-9 and 11 (out-of-scope findings only) count toward the total even though they are informational — within-scope findings in those dimensions are still fixable and must be clean.
+
+### 3-mixed. Implement documentation changes (mixed-mode tasks)
+
+**This section runs AFTER §3 (code implementation) for mixed tasks only.** It applies the documentation steps from the task file using the same workflow as §3-doc, but scoped to the documentation files within a primarily code task.
+
+**Pre-write: internalize voice and context.**
+
+Before editing any documentation file, read in one parallel batch:
+
+- The full target document (not just the sections being edited — you need the full voice and tone)
+- The 2 most-related sibling documents in `documentation/` (identified from the task's documentation steps or by proximity — e.g., if editing `architecture.md`, read `project-plan.md` and `implementation-spec.md`)
+- The Change Specification for this documentation step from the task file
+
+Internalize: tone, sentence patterns, paragraph length, formatting conventions, terminology. Your edits must be indistinguishable from the surrounding text.
+
+**Content format conventions:** The same content format rules from §3-doc apply. Violations cause §4-mixed failures:
+
+- Definitions / glossaries: 3+ terms use a table. 1-2 terms may be inline.
+- Comparisons: 2+ items across multiple dimensions use a table.
+- Step-by-step procedures: numbered lists, not prose.
+- New sections: must be added to the Table of Contents if one exists.
+- Line-break preservation: match the source document's structure.
+
+**For each documentation step in the Steps section:**
+
+1. **Read the Change Specification.** Note: current text (to locate the edit point), rationale (to understand why), and target text (what to write).
+2. **Apply the change.** Use targeted edits (StrReplace) to replace the current text with the target text.
+3. **Per-edit quick check.** After each edit, re-read the edited section plus 5 lines before and 5 lines after. Verify:
+   - The target text was applied correctly (no truncation, no duplication)
+   - The transition from surrounding text to new text is smooth
+   - No formatting inconsistencies introduced
+   - If a new heading was added, it appears in the Table of Contents (if one exists)
+
+After all documentation steps are complete, proceed to §4 (code verification) first, then §4-mixed (documentation verification).
+
+### 4-mixed. Verify documentation changes (mixed-mode tasks)
+
+**This section runs AFTER §4a-§4b (code verification) for mixed tasks only.** It verifies the documentation files modified during §3-mixed using the documentation-writer skill's quality pipeline — the same pipeline used for pure documentation tasks.
+
+**4-mixed-a — Run the documentation-writer skill's Phase 3 (Adversarial Review).**
+
+Delegate to the `aic-documentation-writer` skill's Phase 3. This provides editorial quality, factual accuracy, cross-doc consistency, and reader simulation verification via independent critics.
+
+**How to run Phase 3:**
+
+1. Read `.claude/skills/aic-documentation-writer/SKILL.md` (Phase 3 sections 3a through 3f).
+2. Read `.claude/skills/aic-documentation-writer/SKILL-dimensions.md` (critic prompt templates).
+3. Spawn 3-4 critics in parallel using the templates. Each critic receives: the path to the edited document, the paths to sibling documents, and the Change Specification from the task file.
+   - **Critic 1 — Editorial quality** (`generalPurpose`): voice/tone match, sentence variety, paragraph cohesion, detail consistency, heading hierarchy, audience awareness.
+   - **Critic 2 — Factual re-verification** (`explore`, `fast`): independently re-verifies every technical claim in the edited sections against the codebase.
+   - **Critic 3 — Cross-document consistency** (`explore`, `fast`): checks all key terms against sibling documents.
+   - **Critic 4 — Reader simulation** (`generalPurpose`, conditional): spawn ONLY for user-facing documents (installation guides, getting started docs, user-facing READMEs). Skip for developer references (architecture, implementation-spec, project-plan).
+4. Evaluate critic outputs per `SKILL.md` section 3d. Apply backward feedback loop (3f) if issues require target text revision.
+
+**Scaling by change complexity:** For MECHANICAL changes (name/path replacements only), run Critic 2 (factual spot-check) only — skip Critics 1, 3, 4. For SECTION EDIT changes, run the full critic set (3-4 critics). The change complexity classification is in the task file's documentation steps (from the planner's DOCUMENTATION IMPACT analysis).
+
+**4-mixed-b — Process critic results.**
+
+Follow the documentation-writer skill's processing flow (SKILL.md section 3d):
+
+- **Editorial issues (Critic 1):** Fix them. Re-read context around each fix.
+- **Factual issues — NOT FOUND or CONTRADICTED (Critic 2):** Investigate by reading the source file. Fix the document to match the codebase. If the codebase is wrong and the document is right, do NOT change the document — add to Blocked.
+- **Consistency divergences (Critic 3):** Fix the edited document to align with the authoritative source. Note sibling fixes as follow-up items.
+- **Reader simulation findings (Critic 4, if spawned):** Fix issues in the edited sections. Note surrounding context issues as follow-up items.
+
+**4-mixed-c — Run mechanical verification on documentation files.**
+
+Run the documentation-specific mechanical checks on each modified `.md` file. Use the same dimensions as §4-doc-c, but only for the documentation files in the task (not the entire document in depth — focus on the edited sections and their immediate context):
+
+| Dimension                      | Method                                                                           |
+| ------------------------------ | -------------------------------------------------------------------------------- |
+| 1. Change spec compliance      | Re-read the Change Specification vs actual document                              |
+| 2. Factual accuracy            | Grep codebase for every technical claim in edited sections                       |
+| 3. Cross-doc consistency       | Grep sibling docs for key terms in edited sections                               |
+| 4. Link validity               | Glob for every markdown link target in the edited document                       |
+| 5. Writing quality             | Critic 1 output — all issues resolved                                            |
+| 6. No regressions              | git diff — only intended sections changed                                        |
+| 7. ToC-body match              | Verify headings and ToC are consistent                                           |
+| 10. Content format compliance  | Tables for 3+ definitions, ToC entries for new sections                          |
+| 12. Intra-document consistency | Grep full document for concepts described in edited sections — no contradictions |
+
+Dimensions 1-7, 10, and 12 must be clean. This is a subset of the full §4-doc-c table — dimensions 8, 9, and 11 are informational and are only reported in §5a, not blocking for mixed tasks where documentation is a secondary concern.
+
+**4-mixed-d — Track first-pass quality.**
+
+Record whether each documentation dimension was clean on first check or required a fix. Report separately from code dimensions in §5a (e.g. "Code: 20/20 first-pass clean. Docs: 9/9 first-pass clean" or "Code: 18/20. Docs: 8/9, fixed 1: factual claim about interface name").
 
 ### 3. Implement
 
@@ -435,15 +532,15 @@ When all dimensions are confirmed clean, complete these three sub-steps in order
 **5a — Report to the user:**
 
 - What was implemented (files created/modified)
-- Test results (pass count, confirming no regressions) — for code tasks. For documentation tasks: subagent verification results instead.
-- **First-pass quality: N/M** (from §4c or §4-doc-d, where M = applicable dimensions) — list any dimensions that needed fixing and what was fixed
+- Test results (pass count, confirming no regressions) — for code tasks and mixed tasks. For pure documentation tasks: subagent verification results instead.
+- **First-pass quality: N/M** (from §4c or §4-doc-d or §4-mixed-d, where M = applicable dimensions) — list any dimensions that needed fixing and what was fixed. For mixed tasks, report code and documentation dimensions separately: "Code: N/M first-pass clean. Docs: N/M first-pass clean."
 - **Benchmark impact** (transformer tasks only): "Token reduction: baseline X → actual Y (delta: -Z%). Baseline auto-ratcheted / unchanged." Include this only when dimension 16 applied
-- **Verification subagent results** (documentation tasks only): writing quality issues found/fixed, factual accuracy results, consistency results, reader simulation findings (if spawned)
-- **Pre-existing issues detected** (documentation tasks only, informational): list any GAP/TODO/FIXME markers, stale phase references, or other pre-existing problems found by dimension 9 that are outside the task scope. These inform the user of follow-up work but do not indicate a problem with the current task.
-- **Scope-adjacent consistency** (documentation tasks only): list any concepts from the edited sections that appear elsewhere in the document with stale or contradicted values (dimension 8 findings)
-- **Cross-documentation term ripple** (documentation tasks only): list any stale old terms found in other documentation files (dimension 11 findings). Non-historical references in out-of-scope files are follow-up items for the user.
-- **Intra-document consistency** (documentation tasks only): list any contradictions between sections of the same document that describe the same mechanism differently (dimension 12 findings)
-- **Parallel section notes** (documentation tasks only): if the writing quality subagent flagged asymmetry with a sibling section, summarize what differs and recommend whether a follow-up task should align them
+- **Verification subagent results** (documentation and mixed tasks): writing quality issues found/fixed, factual accuracy results, consistency results, reader simulation findings (if spawned). For mixed tasks, this covers the documentation-writer's Phase 3 critics run during §4-mixed-a.
+- **Pre-existing issues detected** (documentation and mixed tasks, informational): list any GAP/TODO/FIXME markers, stale phase references, or other pre-existing problems found by dimension 9 that are outside the task scope. These inform the user of follow-up work but do not indicate a problem with the current task.
+- **Scope-adjacent consistency** (documentation and mixed tasks): list any concepts from the edited sections that appear elsewhere in the document with stale or contradicted values (dimension 8 findings)
+- **Cross-documentation term ripple** (documentation and mixed tasks): list any stale old terms found in other documentation files (dimension 11 findings). Non-historical references in out-of-scope files are follow-up items for the user.
+- **Intra-document consistency** (documentation and mixed tasks): list any contradictions between sections of the same document that describe the same mechanism differently (dimension 12 findings)
+- **Parallel section notes** (documentation and mixed tasks): if the writing quality subagent flagged asymmetry with a sibling section, summarize what differs and recommend whether a follow-up task should align them
 - Review findings and fixes applied (if any)
 - Any concerns or follow-up items
 

@@ -313,6 +313,14 @@ This catches the specific failure mode where a planner describes a computation (
 18. **`shared/package.json`** — record dependencies and pinned versions.
 19. **`eslint.config.mjs`** — record restricted-import rules for the target layer. If ESLint changes are needed, determine the exact structural change.
 20. **Installer-managed content sync** (conditional — if any file in the Files table touches `.cursor/rules/AIC-architect.mdc`, `.claude/CLAUDE.md`, `integrations/claude/install.cjs` (`CLAUDE_MD_TEMPLATE`), `integrations/cursor/install.cjs` (`TRIGGER_RULE_TEMPLATE`), or `mcp/src/install-trigger-rule.ts`) — these files contain duplicated rule content that the installers write to user projects. Changes to shared sections in one file must propagate to the others. Diff the shared sections (architectural invariants, security, dependencies, commits, ESLint, tests, prompt commands) across the affected files. If any section has drifted, add "Modify" rows to the Files table for every file that needs updating. Record all findings in the INSTALLER SYNC field of the Exploration Report. The Cursor installer does NOT write `AIC-architect.mdc` (it is git-committed), so it is never at risk of being overwritten — but it IS the source of truth that templates must match.
+21. **Documentation impact analysis** (mandatory — all non-documentation task types) — grep `documentation/` for every entity the task creates, modifies, or renames: component names, interface names, function names, class names, file paths, type names. For each match, read the surrounding context (5 lines before and after) and classify the reference:
+    - **WILL BECOME STALE** — the document describes specific details (behavior, signature, wiring, file path) that the task changes. After the task executes, the document will contain incorrect information.
+    - **NEEDS UPDATE** — the document references the entity by a name or path being renamed, or describes behavior being modified. The reference is not yet wrong but will be after the task.
+    - **UNAFFECTED** — generic mention that does not depend on the specific details being changed (e.g., the entity appears in a high-level architecture list but no detail is given).
+      Record all findings in the DOCUMENTATION IMPACT field of the Exploration Report. For each file classified as WILL BECOME STALE or NEEDS UPDATE, determine the change complexity:
+    - **MECHANICAL** — the fix is a name/path text replacement with no surrounding prose changes needed.
+    - **SECTION EDIT** — the surrounding prose describes behavior, architecture, or usage that must be rewritten to reflect the new state.
+      This analysis catches the specific failure mode where a code task silently makes documentation incorrect — the most common source of documentation drift.
 
 ### A.2 Produce the Exploration Report
 
@@ -550,6 +558,16 @@ INSTALLER SYNC (conditional — only if checklist item 19 triggered):
 - Files table impact: [N files added as "Modify" rows]
 - Or: Not applicable — task does not touch installer-managed content.
 
+DOCUMENTATION IMPACT (mandatory — all non-documentation task types, from item 21):
+- Entities searched: [list of component/interface/function/type names grepped in documentation/]
+  - [doc file]:[line] — "[excerpt of matching text]" — WILL BECOME STALE / NEEDS UPDATE / UNAFFECTED
+  - Reason: [why this reference will or will not become incorrect after the task]
+- Documentation files requiring changes: [count] — [list of file paths]
+- Change complexity per file:
+  - [doc file] — MECHANICAL (name/path replacement only) / SECTION EDIT (prose rewrite needed)
+- Or: No documentation impact — grep returned 0 relevant matches for all entities.
+  Source: [verified via Grep of documentation/ for each entity name]
+
 DESIGN DECISIONS:
 - [decision]: [chosen option] — [why]
 ```
@@ -624,6 +642,19 @@ Cross-reference findings against the TEST IMPACT and CHANGE-PATTERN INSTANCES fi
 
 **Research delegation (optional depth boost):** At any point during A.4, if the planner encounters a question that its exploration checklist cannot answer — an approach evaluation with 2+ viable candidates, a sibling analysis for a first-of-kind component where shared code prediction is speculative, or a cross-package duplication check that requires understanding intent — it can delegate to the `aic-researcher` skill protocol. Read `.claude/skills/aic-researcher/SKILL.md` and run the appropriate protocol (codebase analysis or gap/improvement analysis). Use the research findings to make the decision. This is optional — only when the planner judges it needs deeper investigation than its checklist provides.
 
+**Documentation change production (mandatory when DOCUMENTATION IMPACT reveals files needing changes):** When the Exploration Report's DOCUMENTATION IMPACT field lists documentation files classified as WILL BECOME STALE or NEEDS UPDATE, produce Change Specifications for each file. The approach depends on the change complexity classification:
+
+- **MECHANICAL changes** (name/path replacements): Write the Change Specification directly — current text, required change (one sentence), and target text. These are simple text substitutions that do not require the documentation-writer pipeline.
+- **SECTION EDIT changes** (prose rewrite needed): Delegate to the `aic-documentation-writer` skill's Phase 2 (Synthesis + Write) and Phase 3 (Adversarial Review) to produce reviewed Change Specifications with target text. Read `.claude/skills/aic-documentation-writer/SKILL.md` sections 2a-2d and 3a-3f. Use the Adaptive Protocol Scaling from the documentation-writer (section edit level): full Phase 1 explorers scoped to the impacted sections, Phase 2 writing, Phase 3 critics. The reviewed target text becomes the Change Specification in the task file.
+
+For each impacted documentation file:
+
+1. Add a "Modify" row to the Files table with the doc file path and a description of the change.
+2. Add a documentation step to the Steps section — one step per documentation file (1-file-per-step rule). Documentation steps go at the END of the step list, after all code implementation steps. Code changes must be complete before documenting them.
+3. Each documentation step includes: the Change Specification (current text, required change, target text) and a Verify line that references the documentation-writer's mechanical checks (factual accuracy, cross-doc consistency, link validity).
+
+If the user's scope tier (from A.4c) excludes documentation changes, defer them to the Follow-up Items section instead of creating Files table rows and steps.
+
 ### A.4b Simplicity sweep
 
 After resolving all decisions, review the plan for over-engineering. For every new artifact the plan introduces, answer one question:
@@ -638,23 +669,23 @@ Record any simplifications made. If simplification changes the STEP PLAN or FILE
 
 ### A.4c Scope expansion recommendation (all task types)
 
-After exploration completes (A.1 through A.4b), if the exploration discovered issues beyond the original task scope — stale markers in modified files (item 8b), change-pattern instances not in original scope (item 8c), scope-adjacent string references that would go stale (item 14b), consumer breakage beyond the minimum fix (item 14), test assertions invalidated by the changes (items 15, 15b), pre-existing stale test assertions (item 15c), tests excluded from the test runner (item 15d), sibling improvements, actionable TODOs in touched files, or for documentation tasks: parallel section asymmetry, structural mismatches, scope-adjacent inconsistencies, mirror document divergences (items 5b-5e, item 11) — present three scope tiers to the user before proceeding to the user checkpoint:
+After exploration completes (A.1 through A.4b), if the exploration discovered issues beyond the original task scope — stale markers in modified files (item 8b), change-pattern instances not in original scope (item 8c), scope-adjacent string references that would go stale (item 14b), consumer breakage beyond the minimum fix (item 14), test assertions invalidated by the changes (items 15, 15b), pre-existing stale test assertions (item 15c), tests excluded from the test runner (item 15d), documentation files that will become stale or need updates (item 21), sibling improvements, actionable TODOs in touched files, or for documentation tasks: parallel section asymmetry, structural mismatches, scope-adjacent inconsistencies, mirror document divergences (items 5b-5e, item 11) — present three scope tiers to the user before proceeding to the user checkpoint:
 
 > **Exploration found issues beyond the original scope.** Choose a scope tier:
 >
 > **Minimal (original scope only):** Implement only the original task. Found issues are reported as follow-up items.
 >
 > - Changes: [list the original changes]
-> - Issues deferred: [count and brief summary]
+> - Issues deferred: [count and brief summary, including documentation files needing updates]
 >
-> **Recommended (original + high-impact findings):** Implement the original task plus fixes for issues that directly affect correctness or consistency of the modified code/document. Typically: stale markers in modified files, string references that would break, consumer fixes for type breakage.
+> **Recommended (original + high-impact findings):** Implement the original task plus fixes for issues that directly affect correctness or consistency of the modified code/document. Typically: stale markers in modified files, string references that would break, consumer fixes for type breakage, MECHANICAL documentation fixes (name/path replacements). SECTION EDIT documentation changes are deferred.
 >
-> - Additional changes: [list each with one-line rationale]
-> - Issues deferred: [count and brief summary of remaining low-priority items]
+> - Additional changes: [list each with one-line rationale, including MECHANICAL doc fixes]
+> - Issues deferred: [count and brief summary of remaining items, including SECTION EDIT doc changes]
 >
-> **Comprehensive (full sweep):** Implement the original task plus fix all found issues, including sibling improvements, actionable TODOs, and broader refactoring opportunities.
+> **Comprehensive (full sweep):** Implement the original task plus fix all found issues, including sibling improvements, actionable TODOs, broader refactoring, and all documentation changes (both MECHANICAL and SECTION EDIT with full Change Specifications produced via the documentation-writer pipeline).
 >
-> - Additional changes: [list each with one-line rationale]
+> - Additional changes: [list each with one-line rationale, including all doc changes]
 > - Issues deferred: None
 >
 > **"Pick a tier, or tell me a custom scope."**
@@ -898,6 +929,15 @@ Z. **BEHAVIOR CHANGE DOCUMENTATION (mandatory — all tasks with "Modify" rows t
 - If no "Modify" rows change existing function logic (all modifications are pure additions), this check passes automatically.
 - Verify the Exploration Report has a BEHAVIOR CHANGES field. If "Modify" rows change function logic but no BEHAVIOR CHANGES field exists = fail.
 
+AA. **DOCUMENTATION IMPACT COVERAGE (mandatory — all non-documentation task types):** Cross-reference the Exploration Report's DOCUMENTATION IMPACT field against the task file:
+
+- If DOCUMENTATION IMPACT lists files classified as WILL BECOME STALE or NEEDS UPDATE:
+  - For each such file, verify it appears either (a) as a "Modify" row in the Files table with a corresponding documentation step in the Steps section, or (b) in the Follow-up Items section (when the user chose Minimal scope). Missing files that were classified as needing updates with no accounting in either location = fail.
+  - For each documentation "Modify" row in the Files table, verify the step includes a Change Specification with all three parts (current text, required change, target text). A documentation step with only prose instructions ("update the docs") instead of a concrete Change Specification = fail.
+  - For SECTION EDIT changes included in scope, verify the Change Specification's target text was produced via the documentation-writer skill's Phase 2-3 pipeline (the step or Architecture Notes must reference the documentation-writer delegation). MECHANICAL changes do not require this delegation.
+- If DOCUMENTATION IMPACT says "No documentation impact," verify this is plausible: grep `documentation/` for the main entity names from the task. If grep returns matches that the exploration missed = fail (re-run item 21).
+- If no DOCUMENTATION IMPACT field exists in the Exploration Report and the task is not a documentation recipe = fail.
+
 **Step 2: Score the rubric.** Score each dimension 0 (fail) or 1 (pass):
 
 1. Interface accuracy (check B)
@@ -926,6 +966,7 @@ Z. **BEHAVIOR CHANGE DOCUMENTATION (mandatory — all tasks with "Modify" rows t
 24. Copy target completeness — conditional (check X)
 25. Binding reuse — conditional (check Y)
 26. Behavior change documentation — conditional (check Z)
+27. Documentation impact coverage — mandatory for non-doc tasks (check AA)
 
 ### C.5b Independent verification agent
 
@@ -952,8 +993,9 @@ After the self-check (C.5 Steps 1–2) passes with all applicable checks at 100%
    - **Copy target audit:** For each recursive copy operation in the Steps, glob the source directory and list all subdirectories. If `__tests__/` or test files exist and the task has no exclusion strategy, report: `[source dir] — contains [subdir] with [N] test files — NO EXCLUSION STRATEGY`.
    - **Binding reuse:** For each "Modify" file where the task adds new code, read the file and list all top-level bindings. If the task's step instructions describe deriving a value that an existing binding already provides, report: `[file]:[line] — existing binding [name] provides [value] — task step describes redundant derivation`.
    - **Behavior change completeness:** For each "Modify" file where the task changes existing function logic (not just adding new functions), read the current function. Identify every conditional, guard, early return, default value, and error path. Compare against the task's proposed changes. For each observable behavioral difference (conditions under which code runs/doesn't run, values returned, side effects triggered), check whether Architecture Notes documents it with a "Behavior change:" bullet. Report: `[file]:[function] — [behavioral difference] — DOCUMENTED / UNDOCUMENTED`.
+   - **Documentation impact completeness (non-documentation tasks only):** Read the Exploration Report's DOCUMENTATION IMPACT field. For each file classified as WILL BECOME STALE or NEEDS UPDATE, verify it appears as a "Modify" row in the Files table or in Follow-up Items. If the DOCUMENTATION IMPACT says "No documentation impact," spot-check by grepping `documentation/` for the task's main entity names (component, interface, function names). Report: `[doc file] — [classification] — IN FILES TABLE / IN FOLLOW-UP / MISSING` and for spot-checks: `[entity] in documentation/ — [N matches] — COVERED / MISSED`.
 
-4. **Output format:** Return a structured list of findings: each finding has type (api/sql/path/signature/coverage/test-impact/ground-truth/test-wiring/copy-target/binding-reuse/behavior-change), name, source file, and status (FOUND/NOT_FOUND or MATCH/MISMATCH or IN_FILES_TABLE/MISSING or CORRECT/STALE or IN_TEST_SUITE/EXCLUDED or REDUNDANT/OK or DOCUMENTED/UNDOCUMENTED). End with a summary: "PASS — all N findings confirmed" or "FAIL — M of N findings have errors" with the specific errors listed.
+4. **Output format:** Return a structured list of findings: each finding has type (api/sql/path/signature/coverage/test-impact/ground-truth/test-wiring/copy-target/binding-reuse/behavior-change/doc-impact), name, source file, and status (FOUND/NOT_FOUND or MATCH/MISMATCH or IN_FILES_TABLE/MISSING or CORRECT/STALE or IN_TEST_SUITE/EXCLUDED or REDUNDANT/OK or DOCUMENTED/UNDOCUMENTED or COVERED/MISSED). End with a summary: "PASS — all N findings confirmed" or "FAIL — M of N findings have errors" with the specific errors listed.
 
 **If the subagent returns FAIL:** For each NOT_FOUND or MISMATCH finding, determine the root cause (wrong method name, training-data hallucination, outdated interface, typo). Fix the task file, re-run the specific C.5 check that corresponds to the finding, and re-spawn the subagent to confirm the fix. Do NOT proceed to C.6 until the independent review passes.
 

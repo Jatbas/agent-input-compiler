@@ -36,13 +36,12 @@ What this means concretely:
 
 **How they get there:** The MCP server resolves the installer the same way as [installation.md](../installation.md#first-compile-bootstrap): in-project `integrations/cursor/install.cjs` when present under the workspace root, otherwise the bundled copy from `@jatbas/aic`, then runs it when the bootstrap gate in `editor-integration-dispatch.ts` passes — on workspace roots listing (if supported) or on the first `aic_compile` for the project. For a manual refresh or when bootstrap did not run, execute `node` on that resolved path with cwd at the project root (see [installation.md](../installation.md#first-compile-bootstrap)).
 
-The installer is idempotent: it merges `hooks.json` and copies every script name in `integrations/cursor/aic-hook-scripts.json` from `integrations/cursor/hooks/` to `.cursor/hooks/` (currently 12 files: eleven `AIC-*.cjs` plus `subagent-start-model-id.cjs`).
+The installer is idempotent: it merges `hooks.json` and copies every script name in `integrations/cursor/aic-hook-scripts.json` from `integrations/cursor/hooks/` to `.cursor/hooks/` (currently **13** files: **twelve** `AIC-*.cjs` plus `subagent-start-model-id.cjs`). That manifest is the canonical script list.
 
-**Optional: commit hooks to the repo.** Teams can commit `.cursor/hooks.json` and `.cursor/hooks/AIC-*.cjs` so every clone gets hooks without re-running the installer.
+**Optional: commit hooks to the repo.** Teams can commit `.cursor/hooks.json`, every `.cursor/hooks/AIC-*.cjs` script, and `subagent-start-model-id.cjs` (not `AIC-*`) so every clone gets hooks without re-running the installer.
 
 > **Verified:** Cursor documents `sessionStart`, `beforeSubmitPrompt`, `preToolUse`, `postToolUse`,
-> `beforeShellExecution`, `afterFileEdit`, `sessionEnd`, `stop`, and `subagentStart`. See
-> per-event sections below for source links.
+> `beforeShellExecution`, `afterFileEdit`, `sessionEnd`, `stop`, `subagentStart`, and `subagentStop` (paired with `subagentStart` for Task-tool subagent lifecycle). See [Cursor agent hooks](https://cursor.com/docs/agent/hooks) and per-event sections below.
 
 ---
 
@@ -62,7 +61,7 @@ Cursor runtime
   ▼
 .cursor/hooks/AIC-<role>.cjs   ← one hook process per registration
   │
-  │  (session compile / subagent telemetry only) JSON-RPC: tools/call aic_compile …
+  │  (session compile / subagent telemetry / subagent reparent) JSON-RPC: tools/call aic_compile …
   ▼
 mcp/src/server.ts → CompilationRunner.run()
   │
@@ -77,11 +76,9 @@ Cursor runtime → injects as context
 
 ### 4.2 Where the adapter lives
 
-All event hooks are **authored** in `integrations/cursor/hooks/`. The installer deploys them to `.cursor/hooks/` per project. Nothing outside `integrations/cursor/` changes at dev time.
+All event hooks are **authored** in `integrations/cursor/hooks/`. The installer deploys them to `.cursor/hooks/` per project and does not modify `mcp/` or `shared/` on disk — but hooks may call the MCP tool, and the server uses `mcp/` and `shared/` at runtime (e.g. `subagent_stop` reparent updates `compilation_log` via `shared/src/storage/reparent-subagent-compilations.ts`).
 
-`AIC-compile-context.cjs` and `AIC-subagent-compile.cjs` each spawn the MCP server via `execSync`
-and JSON-RPC to call `aic_compile`. Every other hook is pure Node (gate, inject, tracker,
-blockers, telemetry).
+`AIC-compile-context.cjs`, `AIC-subagent-compile.cjs`, and `AIC-subagent-stop.cjs` each spawn the MCP server via `execSync` and JSON-RPC to call `aic_compile`. Every other hook is pure Node (gate, inject, tracker, blockers, telemetry).
 
 ### 4.3 Input field mapping
 
@@ -97,13 +94,14 @@ blockers, telemetry).
 | `CURSOR_PROJECT_DIR` env var                    | project root for hooks that need it                                                                                                                                 |
 | `AIC_PROJECT_ROOT` env var                      | injected via `env:` when `AIC-compile-context.cjs` completes a successful `aic_compile` (§7.1); not emitted by `AIC-session-init.cjs`                               |
 | `AIC_CONVERSATION_ID` env var                   | same `env:` path as `AIC_PROJECT_ROOT`; `AIC-inject-conversation-id.cjs` also falls back to `process.env.AIC_CONVERSATION_ID`; stdin `conversation_id` when present |
+| `input.agent_transcript_path`                   | `subagentStop` only — path to the subagent transcript `.jsonl`; child session id is the basename without `.jsonl` (see §7.11)                                       |
 
 ---
 
 ## 5. Target file layout
 
 `integrations/cursor/` is the source. `.cursor/` is the per-project deployment target.
-Nothing in `mcp/` or `shared/` changes.
+Hook sources live only under `integrations/cursor/`; runtime handling for some `aic_compile` calls (including `subagent_stop` reparent) lives in `mcp/` and `shared/`.
 
 ```
 integrations/cursor/               ← SOURCE (authored here)
@@ -119,6 +117,7 @@ integrations/cursor/               ← SOURCE (authored here)
     AIC-stop-quality-check.cjs     # stop — ESLint + typecheck quality gate
     AIC-session-end.cjs            # sessionEnd — temp file cleanup + session telemetry
     AIC-subagent-compile.cjs       # subagentStart — aic_compile for compilation_log telemetry
+    AIC-subagent-stop.cjs          # subagentStop — reparent compilation_log to parent conversation
     subagent-start-model-id.cjs    # helper: subagent_model → modelId (deployed beside hooks)
   install.cjs                      # Installer: copies hooks, merges hooks.json
   hooks.json.template              # hooks.json template
@@ -233,12 +232,16 @@ process.stdout.write(JSON.stringify({}));
 
 Side-effect only. Exit 0 always. Must never block.
 
+### 6.9 subagentStop — empty `{}`
+
+Same stdout contract as §6.6: write `JSON.stringify({})`. The hook performs a best-effort MCP call and must not block the parent session if spawn or RPC fails.
+
 ---
 
 ## 7. Hook events — details
 
 Cursor's hook system is documented at [docs.cursor.com/context/rules](https://docs.cursor.com/context/rules).
-AIC registers **12** hook commands across **9** event types (some types run more than one command). Limitations and workarounds are per hook below.
+AIC registers **12** hook **command** entries across **10** event types (some types run more than one command); **13** hook **script files** are copied from `aic-hook-scripts.json` (twelve `AIC-*.cjs` plus `subagent-start-model-id.cjs`). Limitations and workarounds are per hook below.
 
 ### 7.1 sessionStart — two hooks (architectural invariants + compiled context)
 
@@ -485,9 +488,28 @@ The model then sees this as a new prompt, fixes the errors, and tries to stop ag
 
 ---
 
+### 7.11 subagentStop — reparent `compilation_log` to parent conversation
+
+**Event:** `subagentStop`
+
+**Reference:** [Cursor agent hooks](https://cursor.com/docs/agent/hooks) — fires when a Task-tool subagent completes; paired with `subagentStart` for subagent lifecycle.
+
+**Input fields used:**
+
+- `input.conversation_id` → parent chat id; passed as `conversationId` on `aic_compile`
+- `input.agent_transcript_path` → path to the subagent transcript `.jsonl`; `conversationIdFromAgentTranscriptPath` in `integrations/shared/conversation-id.cjs` yields the child session id (basename without `.jsonl`)
+
+**Purpose:** Subagents run under a separate session id. Compilations inside the subagent would otherwise stay on that child id. When parent and child ids differ, the hook calls `aic_compile` with `triggerSource: "subagent_stop"`, `conversationId` (parent), and `reparentFromConversationId` (child). The MCP compile handler runs `reparentSubagentCompilations` in `shared/src/storage/reparent-subagent-compilations.ts` only — no full compile pipeline — so existing `compilation_log` rows move to the parent. That keeps `aic_chat_summary` and per-conversation diagnostics on one thread for the whole chat.
+
+**Must never block:** On parse or exec error the hook still writes `{}` to stdout; reparent is best-effort.
+
+**File:** `.cursor/hooks/AIC-subagent-stop.cjs`
+
+---
+
 ## 8. Full event coverage
 
-**Cursor:** Nine documented event types get AIC registrations; **twelve** hook command entries total (some types run two commands). Unused events are listed after the table.
+**Cursor:** Ten documented event types get AIC registrations; **twelve** hook command entries total (some types run two commands); **thirteen** script files deployed per `aic-hook-scripts.json`. Unused events are listed after the table.
 
 | Event                        | AIC use | Notes                                                                    |
 | ---------------------------- | ------- | ------------------------------------------------------------------------ |
@@ -501,16 +523,17 @@ The model then sees this as a new prompt, fixes the errors, and tries to stop ag
 | `stop`                       | §7.8    | Quality gate                                                             |
 | `sessionEnd`                 | §7.9    | Cleanup + telemetry                                                      |
 | `subagentStart`              | §7.10   | Telemetry compile per subagent start                                     |
+| `subagentStop`               | §7.11   | Reparent `compilation_log` from subagent session to parent conversation  |
 
 **Not registered:** `preCompact` and any other Cursor event without a row above — no entry in
 `hooks.json.template`. `subagentStart` cannot inject context; it exists for `compilation_log`
-telemetry only.
+telemetry only. `subagentStop` does not inject context; it exists for reparent only.
 
 ---
 
 ## 9. MCP compile invocation from hooks
 
-**Cursor:** Only `AIC-compile-context.cjs` and `AIC-subagent-compile.cjs` spawn MCP and call `aic_compile` directly. All other compilation goes through the model after the preToolUse gate. Because `beforeSubmitPrompt` cannot emit `additional_context`, session-wide snapshot injection depends on `AIC-compile-context.cjs`.
+**Cursor:** `AIC-compile-context.cjs`, `AIC-subagent-compile.cjs`, and `AIC-subagent-stop.cjs` spawn MCP and call `aic_compile` directly. All other compilation goes through the model after the preToolUse gate. Because `beforeSubmitPrompt` cannot emit `additional_context`, session-wide snapshot injection depends on `AIC-compile-context.cjs`.
 
 ### 9.1 Session compile — `AIC-compile-context.cjs`
 
@@ -538,7 +561,11 @@ Without `conversationId`, `compilation_log` rows from this session have `convers
 
 ### 9.2 Subagent telemetry — `AIC-subagent-compile.cjs`
 
-Same spawn pattern for a best-effort `compilation_log` row; on failure the hook still allows subagent start. All other hooks are pure Node (under ~50ms).
+Same spawn pattern for a best-effort `compilation_log` row; on failure the hook still allows subagent start. §9.1’s `conversationId` requirement applies to parent attribution: without `parent_conversation_id`, subagent telemetry rows cannot roll up for `aic_chat_summary`.
+
+### 9.3 Subagent reparent — `AIC-subagent-stop.cjs`
+
+Same `execSync` + JSON-RPC spawn pattern as §9.2. The tool response is `{ reparented: true, rowsUpdated: N }` JSON text (not `compiledPrompt`). On failure the hook still prints `{}` so the parent session continues. All other hooks are pure Node (under ~50ms), except the three in §9 opening paragraph.
 
 ---
 
@@ -575,6 +602,7 @@ Same spawn pattern for a best-effort `compilation_log` row; on failure the hook 
     ],
     "sessionEnd": [{ "command": "node .cursor/hooks/AIC-session-end.cjs" }],
     "subagentStart": [{ "command": "node .cursor/hooks/AIC-subagent-compile.cjs" }],
+    "subagentStop": [{ "command": "node .cursor/hooks/AIC-subagent-stop.cjs" }],
     "stop": [
       { "command": "node .cursor/hooks/AIC-stop-quality-check.cjs", "loop_limit": 5 }
     ]
@@ -666,6 +694,7 @@ Auto-installed when the Cursor installer runs. Version-stamped so it is overwrit
 | `afterFileEdit` input schema varies across Cursor versions                                        | —     | No issue filed                   | Flexible field extraction in `AIC-after-file-edit-tracker.cjs` (§7.7)                   |
 | `conversation_id` not passed to all hooks — only `beforeSubmitPrompt` and `preToolUse` receive it | —     | Cursor behavior — no issue filed | `AIC_CONVERSATION_ID` env var injected by sessionStart; used as fallback in other hooks |
 | `subagentStart` does not support `additional_context` output                                      | —     | Cursor capability gap            | No workaround — subagent context injection is structurally impossible in Cursor         |
+| `subagentStop` does not support `additional_context` output                                       | —     | Cursor capability gap            | AIC uses it for reparent only (`compilation_log`); see §7.11                            |
 | `preCompact` is observational only — no output injected into new context                          | —     | Cursor capability gap            | No workaround — recompile after compaction is structurally impossible in Cursor         |
 
 ---
@@ -683,6 +712,7 @@ Context delivery:
 - [ ] `AIC-inject-conversation-id.cjs` injects `conversationId` into MCP args (§7.4)
 - [ ] `AIC-post-compile-context.cjs` injects confirmation after compile (§7.5)
 - [ ] `AIC-subagent-compile.cjs` runs telemetry `aic_compile` on subagentStart (§7.10)
+- [ ] `AIC-subagent-stop.cjs` runs reparent `aic_compile` on subagentStop (§7.11)
 
 Quality gate (Cursor-specific):
 
@@ -692,7 +722,7 @@ Quality gate (Cursor-specific):
 
 Settings:
 
-- [ ] `hooks.json` matches template: 12 command entries across nine event keys, including `subagentStart` (§10)
+- [ ] `hooks.json` matches template: 12 command entries across ten event keys, including `subagentStart` and `subagentStop` (§10)
 
 Init behaviour:
 

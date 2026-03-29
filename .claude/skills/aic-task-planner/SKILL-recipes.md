@@ -831,6 +831,38 @@ When the general-purpose recipe is applied to a task that creates or modifies `.
 
 ---
 
+## Cross-cutting: Documentation impact steps (all non-documentation recipes)
+
+This section applies to every recipe above (adapter, storage, pipeline transformer, composition root, benchmark, release-pipeline, fix-patch, general-purpose, CJS integration). It is NOT a standalone recipe — it is an addendum that activates when the Exploration Report's DOCUMENTATION IMPACT field (from exploration item 21) identifies documentation files needing changes and the user's scope tier includes them.
+
+**When this activates:** The DOCUMENTATION IMPACT field lists one or more files classified as WILL BECOME STALE or NEEDS UPDATE, and the user chose a scope tier that includes documentation changes (Recommended includes MECHANICAL changes; Comprehensive includes both MECHANICAL and SECTION EDIT changes).
+
+**What it adds to the task file:**
+
+1. **Files table rows:** Add a "Modify" row for each documentation file included in scope. Description: "Update [section/reference] to reflect [what changed]."
+
+2. **Steps (appended after all code steps):** One step per documentation file (1-file-per-step rule). Documentation steps always come last — code changes must be complete before documenting them.
+
+   Each documentation step contains a **Change Specification** with three parts:
+   - **Current text:** the exact text that will be changed (so the executor can locate it)
+   - **Required change:** what needs to change and why (one sentence)
+   - **Target text:** the exact replacement text
+
+   For MECHANICAL changes (name/path replacements), the Change Specification is written directly by the planner — no documentation-writer pipeline needed.
+
+   For SECTION EDIT changes (prose rewrite), the planner delegates to the `aic-documentation-writer` skill's Phase 2 (Synthesis + Write) and Phase 3 (Adversarial Review) to produce the target text. Read `.claude/skills/aic-documentation-writer/SKILL.md` sections 2a-2d and 3a-3f. Use the Adaptive Protocol Scaling (section edit level).
+
+3. **Verify lines for documentation steps:** Each documentation step's Verify line includes:
+   - Grep the edited document for the old text — expect 0 matches (replaced)
+   - Grep the edited document for key terms in the new text — expect matches at the correct location
+   - For SECTION EDIT changes: note that the executor will run the documentation-writer's Phase 3 critics on the modified file (see executor §4-mixed)
+
+**What it does NOT change:** The recipe's existing step granularity, Files pattern, exploration checklist, or verification checks. Documentation steps are purely additive — they extend the task without modifying its code structure.
+
+**Step granularity interaction:** The recipe's existing steps handle code. Documentation steps are numbered after the last code step and before the final verification step. Example: if the adapter recipe has Steps 1-4 (config, implement, test, final verification), and documentation impact adds 1 doc file, the steps become 1-4 (code), 5 (documentation), 6 (final verification including doc checks).
+
+---
+
 ## Documentation recipe (creating, editing, or improving documentation)
 
 **When to use:** The task creates a new `.md` documentation file, edits existing documentation content, or improves documentation quality (accuracy, completeness, consistency, clarity). This recipe applies when the primary deliverable is documentation, not code. Code-adjacent documentation (inline comments, JSDoc) is NOT covered — that follows the code recipe for the relevant layer.

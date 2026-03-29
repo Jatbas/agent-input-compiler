@@ -1,10 +1,18 @@
-# Agent Input Compiler (AIC)
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="logotype.svg" />
+    <source media="(prefers-color-scheme: light)" srcset="logotype-light.svg" />
+    <img alt="Agent Input Compiler (AIC)" src="logotype-light.svg" width="320" />
+  </picture>
+</p>
 
-![License](https://img.shields.io/badge/license-Apache%202.0-blue)
-![Status](https://img.shields.io/badge/status-0.10.0-brightgreen)
-![Local-first](https://img.shields.io/badge/local--first-yes-brightgreen)
-![Telemetry](https://img.shields.io/badge/telemetry-opt--in-lightgrey)
-![MCP Compatible](https://img.shields.io/badge/MCP-compatible-purple)
+<p align="center">
+  <img alt="License" src="https://img.shields.io/badge/license-Apache%202.0-blue" />
+  <img alt="Status" src="https://img.shields.io/badge/status-0.10.0-brightgreen" />
+  <img alt="Local-first" src="https://img.shields.io/badge/local--first-yes-brightgreen" />
+  <img alt="Telemetry" src="https://img.shields.io/badge/telemetry-opt--in-lightgrey" />
+  <img alt="MCP Compatible" src="https://img.shields.io/badge/MCP-compatible-purple" />
+</p>
 
 Deterministic context compiler for AI coding tools. AIC is a local-first MCP server (Model Context Protocol — see the [installation glossary](documentation/installation.md#glossary)) that selects relevant files, removes noise, and returns a smaller context package before it reaches the model.
 
@@ -150,7 +158,7 @@ What to look for:
 
 - **Installation: OK** in `show aic status`
 - a recent compilation in `show aic last` (send a normal coding message first if nothing has compiled yet)
-- per-conversation compilation stats in `show aic chat summary` after AIC has recorded at least one compilation for the current editor conversation
+- per-conversation compilation stats in `show aic chat summary` after AIC has recorded at least one compilation for the current editor conversation (in Cursor, Task-tool subagent compilations are reparented to the parent chat via the `subagentStop` hook so they count on that thread)
 - selected file count, compiled tokens, and exclusion rate figures that make sense for the task
 - AIC blocking sensitive or excluded content
 - your project path listed in `show aic projects` after AIC has seen the workspace

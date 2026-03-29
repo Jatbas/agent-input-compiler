@@ -9,7 +9,7 @@ description: Orchestrates the complete release sequence — validation, document
 
 ## Purpose
 
-Run the full release sequence from a single invocation. Validates the codebase and repository state, audits documentation, checks for history noise, finalizes the changelog, and publishes the new version. Each phase is a hard gate — failures stop the sequence and must be resolved before re-running.
+Run the full release sequence from a single invocation. Validates the codebase and repository state, audits documentation, checks for history noise, finalizes the changelog, publishes the new version, and deprecates prior npm versions. Each phase is a hard gate — failures stop the sequence and must be resolved before re-running.
 
 ## Editors
 
@@ -115,11 +115,47 @@ The release cut steps cover:
 - Create GitHub Release: `gh release create vX.Y.Z --notes "$(cat <<'EOF'\n[extracted changelog section]\nEOF\n)"`
 - Report: version, npm links, GitHub Release URL, prune summary, any issues
 
+### Phase 6 — Deprecate prior npm versions
+
+After the Phase 5 report, deprecate all previously published npm versions so users who install an older version see a clear upgrade warning. This phase is non-blocking — a failure here does not invalidate the release.
+
+**Why this requires manual auth:** Publishing happens in GitHub Actions CI via OIDC trusted publishing, but npm OIDC is limited to `npm publish` — it does not cover `npm deprecate` or other registry write operations. There is no CI-automatable path for deprecation without a short-lived granular access token (90-day max expiry, requires rotation). The skill therefore generates the exact commands and attempts to run them if a local npm session exists.
+
+1. **Collect published versions.** Run `npm view @jatbas/aic versions --json`. Parse the JSON array. If the only version is `X.Y.Z` (first release or no prior versions), skip this phase: "Phase 6 skipped — no prior versions to deprecate."
+
+2. **Build the deprecation commands.** Compute the two commands using a semver range that covers all versions below `X.Y.Z`:
+
+   `npm deprecate "@jatbas/aic@<X.Y.Z" "Deprecated: upgrade to X.Y.Z"`
+
+   `npm deprecate "@jatbas/aic-core@<X.Y.Z" "Deprecated: upgrade to X.Y.Z"`
+
+3. **Attempt automatic deprecation.** Run `npm whoami` to check for an active local npm session. If authenticated (exit 0), run both deprecation commands from step 2. If both succeed, proceed to step 4. If `npm whoami` fails or either deprecation command fails, proceed to step 5 (manual output).
+
+4. **Verify and finalize (automatic path).** Run `npm view @jatbas/aic --json` and confirm each version below `X.Y.Z` has a `deprecated` field. Then update CHANGELOG.md: for each deprecated version whose changelog heading does not already contain `(Deprecated)`, change `## [old] - YYYY-MM-DD` to `## [old] - YYYY-MM-DD (Deprecated)`. If any headings were updated, commit and push:
+
+   `git add CHANGELOG.md && git commit -m "docs(changelog): mark prior versions as deprecated" && git push origin main`
+
+   Report: "Phase 6 passed — N prior version(s) deprecated on npm. CHANGELOG.md updated."
+
+5. **Output manual commands (expected path).** Present the commands under the heading **Deprecate prior versions** with this exact format:
+
+   > N prior version(s) need deprecation on npm. Publishing uses CI with OIDC (which only covers `npm publish`), so deprecation requires a one-time local login.
+   >
+   > Run these commands — `npm login` opens your browser for auth, then the deprecate commands run instantly:
+   >
+   > ```
+   > npm login
+   > npm deprecate "@jatbas/aic@<X.Y.Z" "Deprecated: upgrade to X.Y.Z"
+   > npm deprecate "@jatbas/aic-core@<X.Y.Z" "Deprecated: upgrade to X.Y.Z"
+   > ```
+   >
+   > After running them, re-invoke Phase 6 with "deprecate old versions" to update CHANGELOG.md — or edit the headings manually.
+
 ## Conventions
 
 - Phases run in order. A phase that produces blockers stops the skill — fix and re-run from the top.
-- Re-running is safe and idempotent for phases 1–3 and 2.5. Phases 4 and 5 follow aic-update-changelog conventions which guard against double-release.
+- Re-running is safe and idempotent for phases 1–3 and 2.5. Phases 4 and 5 follow aic-update-changelog conventions which guard against double-release. Phase 6 is idempotent — `npm deprecate` updates the deprecation message without side effects, and the CHANGELOG.md edit is a no-op if `(Deprecated)` is already present.
 - Never bump versions or push tags manually — always go through Phase 5.
-- **Single remote tag:** GitHub should carry only the current `v*` semver tag after a release cut; older tags and matching releases are removed by the changelog skill’s prune step (npm still lists all published versions).
+- **Single remote tag:** GitHub should carry only the current `v*` semver tag after a release cut; older tags and matching releases are removed by the changelog skill's prune step. Prior npm versions remain published but are deprecated with an upgrade notice (Phase 6).
 - Phase 2.5 `skip` is not recommended before first public release. Use `full` for major releases and `quick` for patch releases.
 - The progress file is read in Phase 1 — if it does not exist (e.g., in a fresh clone), that step is skipped with a note.

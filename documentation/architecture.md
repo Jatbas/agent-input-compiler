@@ -58,7 +58,7 @@ When AIC compiles context (at session start or per-prompt), it selects the most 
 | Pre-compaction                     | Hook available (observational) | Integrated  |
 | Trigger rule                       | Integrated                     | Integrated  |
 
-Cursor exposes sessionEnd, preCompact, subagentStart (gating only — no context injection), stop, afterFileEdit, and others; see [Cursor agent hooks](https://cursor.com/docs/agent/hooks). AIC uses sessionEnd, stop, and afterFileEdit where the editor exposes them. Claude Code's hook system covers all 7 capabilities, and AIC's integration layer is built for them.
+Cursor exposes sessionEnd, preCompact, subagentStart (gating only — no context injection), subagentStop (lifecycle hook when a Task-tool subagent completes), stop, afterFileEdit, and others; see [Cursor agent hooks](https://cursor.com/docs/agent/hooks). AIC uses sessionEnd, stop, afterFileEdit, and subagentStop (to reparent `compilation_log` to the parent conversation) where the editor exposes them. Claude Code's hook system covers all 7 capabilities, and AIC's integration layer is built for them.
 
 ---
 
@@ -76,7 +76,7 @@ AIC's integration layer for **Claude Code** provides all seven capabilities (ses
 
 Each editor exposes a different subset of the hook capabilities AIC can use. Gaps in one editor may not exist in another:
 
-- **Cursor** supports sessionEnd and preCompact as hooks (AIC uses sessionEnd; preCompact is observational only — no context injection). Cursor does not support per-prompt context injection or subagent context injection; subagentStart is gating only (no additional_context). AIC can inject compiled context at session start and enforce compilation via tool gating, but text-only turns and subagent spawns bypass AIC for context injection.
+- **Cursor** supports sessionEnd and preCompact as hooks (AIC uses sessionEnd; preCompact is observational only — no context injection). Cursor does not support per-prompt context injection or subagent context injection; subagentStart is gating only (no additional_context). AIC registers subagentStop so compilations from Task-tool subagents roll up to the parent conversation for per-chat diagnostics. AIC can inject compiled context at session start and enforce compilation via tool gating, but text-only turns and subagent spawns bypass AIC for context injection.
 - **Claude Code** supports all hook capabilities AIC needs (including per-prompt and subagent injection), and AIC's integration layer is built for them (session start, per-prompt, subagent inject, pre-compaction, session end, etc.). See [claude-code-integration-layer](technical/claude-code-integration-layer.md).
 - **Other editors** without hooks rely solely on the trigger rule, which is suggestive — the model may or may not call `aic_compile`.
 
