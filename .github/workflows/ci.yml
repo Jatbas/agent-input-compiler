@@ -63,21 +63,3 @@ jobs:
 
       - name: Test
         run: pnpm test
-
-  # Uncomment when benchmarks are set up (Phase 0.5+)
-  # bench:
-  #   name: Benchmark regression
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 15
-  #   needs: quality
-  #   steps:
-  #     - uses: actions/checkout@v6
-  #     - uses: pnpm/action-setup@v5
-  #       with:
-  #         version: 9
-  #     - uses: actions/setup-node@v6
-  #       with:
-  #         node-version: 20
-  #         cache: pnpm
-  #     - run: pnpm install --frozen-lockfile
-  #     - run: pnpm bench

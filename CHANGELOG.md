@@ -310,7 +310,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Claude Code hook-based delivery design documentation
 - MCP server security hardening coverage table in security docs
 - Contributing guide
-- npm publish workflow for @aic/mcp and Knip dead-code checks
+- npm publish workflow for `@jatbas/aic` and Knip dead-code checks
 
 ### Changed
 
@@ -327,7 +327,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 - aic_status tool with budget utilization
 - aic_last tool and aic_chat_summary tool
-- MCP-only distribution: CLI removed, init via npx @aic/mcp init and auto-init on MCP startup
+- MCP-only distribution: CLI removed, init via npx and auto-init on MCP startup
 - Conversation tracking and per-conversation stats
 - Multiple language provider support (TypeScript, Python, Go, Rust, Java, and others)
 - Transformer and guard upgrades including warn severity and safety tests

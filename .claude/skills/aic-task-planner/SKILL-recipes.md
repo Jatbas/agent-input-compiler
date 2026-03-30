@@ -347,7 +347,7 @@ Each step still touches max 1 file.
 
 Release pipeline tasks define how one or more packages are published to npm (or another registry). They cover package metadata for publishability, build output layout, and CI automation (e.g. GitHub Actions) that runs on release triggers (e.g. tag push) and executes the publish step. No new production code in core, pipeline, adapter, or storage — only package config, workflow files, and optional documentation.
 
-**Identifying a release-pipeline task:** If the component's job is to make a package publishable, add or change a workflow that publishes on tag/release, configure `publishConfig` / `files` / entry points, or document the release process — it is a release-pipeline task. Example: "npm publish pipeline (`@aic/mcp`)" from Phase V.
+**Identifying a release-pipeline task:** If the component's job is to make a package publishable, add or change a workflow that publishes on tag/release, configure `publishConfig` / `files` / entry points, or document the release process — it is a release-pipeline task. Example: "npm publish pipeline (`@jatbas/aic`)" from Phase V.
 
 **Files pattern:**
 
@@ -364,7 +364,7 @@ Do not add workflow or docs unless the exploration concludes they are in scope. 
 
 Release-pipeline tasks do not implement a core interface. Instead, the task must contain:
 
-1. **Package(s) to publish:** Exact npm package name(s) (e.g. `@aic/mcp`). If multiple (e.g. `@aic/shared` and `@aic/mcp`), state publish order (shared first if mcp depends on it).
+1. **Package(s) to publish:** Exact npm package name(s) (e.g. `@jatbas/aic`). If multiple (e.g. `@jatbas/aic-core` and `@jatbas/aic`), state publish order (core first if mcp depends on it).
 
 2. **Entry points:** For each package, the exact fields that define what gets run and what gets included:
    - `main`, `types`, `bin` — must point at built output (`dist/...`), not source (`src/...`), so that `npm pack` / install produces runnable code.
@@ -387,7 +387,7 @@ Release-pipeline tasks do not implement a core interface. Instead, the task must
 - **Shebang for bin entries:** If a package has a `bin` field, the target file must start with `#!/usr/bin/env node`. TypeScript's `tsc` does NOT add shebangs to compiled output. Check whether the source file already has one (tsc preserves it if present as a leading comment). If not, the task must add the shebang to the source file or add a post-build step that prepends it. Without the shebang, `npx <package>` fails on Unix systems.
 - **tsconfig.json for published packages:** Read each published package's `tsconfig.json`. Record: `declaration` (must be true for `.d.ts` generation), `declarationMap`, `sourceMap`, `outDir`. If `declaration` is false or missing, the task must enable it so consumers get type information.
 - **`exports` field mapping:** If a published package is consumed via subpath imports (consumers write `import { X } from "@scope/pkg/some/path.js"`), the `exports` field in `package.json` must map those subpaths to built output, not source. Check current `exports` values — if they point at `./src/*`, the task must change them to `./dist/*`. For packages with a single entry point (no subpath imports), `main` + `types` suffice and `exports` can match.
-- **Workspace dependency and publish order:** If the published package depends on another workspace package (`"@aic/shared": "workspace:*"`), both packages must be published. `workspace:*` is a pnpm protocol that does not resolve on the npm registry. Use `pnpm publish` (not `npm publish`) — pnpm automatically replaces `workspace:*` with the resolved version at publish time. The dependency must be published first. Record the exact publish order.
+- **Workspace dependency and publish order:** If the published package depends on another workspace package (`"@jatbas/aic-core": "workspace:*"`), both packages must be published. `workspace:*` is a pnpm protocol that does not resolve on the npm registry. Use `pnpm publish` (not `npm publish`) — pnpm automatically replaces `workspace:*` with the resolved version at publish time. The dependency must be published first. Record the exact publish order.
 - **Existing CI:** Read `.github/workflows/*.yml`. If a publish workflow already exists, the task Modifies it; otherwise Create. Record the exact trigger and job names.
 - **SBOM / provenance (Phase 1+):** SBOM generation, `npm publish --provenance` — include in the task only if the mvp-progress or project-plan explicitly calls for them in this component.
 - **Publish inclusion strategy:** AIC uses the `files` field in `package.json` to control what goes into the npm tarball — not `.npmignore`. The `files` field is a whitelist: only listed paths are included. This is safer than `.npmignore` (a blacklist that can accidentally ship dev artifacts). During exploration, determine the exact `files` array for each published package.

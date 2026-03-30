@@ -8,7 +8,7 @@
 
 <p align="center">
   <img alt="License" src="https://img.shields.io/badge/license-Apache%202.0-blue" />
-  <img alt="Status" src="https://img.shields.io/badge/status-0.10.2-brightgreen" />
+  <a href="https://www.npmjs.com/package/@jatbas/aic"><img alt="npm version" src="https://img.shields.io/npm/v/@jatbas/aic?color=brightgreen" /></a>
   <img alt="Local-first" src="https://img.shields.io/badge/local--first-yes-brightgreen" />
   <img alt="Telemetry" src="https://img.shields.io/badge/telemetry-opt--in-lightgrey" />
   <img alt="MCP Compatible" src="https://img.shields.io/badge/MCP-compatible-purple" />

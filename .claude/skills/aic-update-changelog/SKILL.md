@@ -98,9 +98,8 @@ When the user approves a release suggestion above, or says "cut release x.y.z" d
 2. **Create a fresh empty `[Unreleased]`** section above the new version entry.
 3. **Update comparison links** at the bottom of the file if they exist.
 4. **Bump versions** in `package.json` (root), `shared/package.json`, and `mcp/package.json` to `x.y.z`. All three must have the same version — verify before proceeding. Then run `pnpm install` to update `pnpm-lock.yaml` to reflect the bumped workspace dependency resolution.
-   4b. **Update README status badge.** In `README.md`, find the status badge line (`![Status](https://img.shields.io/badge/status-...`) and replace the version in the URL with `x.y.z`. The badge format is `https://img.shields.io/badge/status-x.y.z-brightgreen`. Verify the replacement by re-reading the line.
 5. **Build gate:** Run `pnpm build && pnpm typecheck`. If either fails, stop and report the error. Do not proceed to commit or tag until the build is clean — a bad tag on the remote is difficult to retract and npm's immutability rule can permanently burn a version slot.
-6. **Commit:** `git add CHANGELOG.md README.md package.json shared/package.json mcp/package.json pnpm-lock.yaml && git commit -m "chore(release): x.y.z"`.
+6. **Commit:** `git add CHANGELOG.md package.json shared/package.json mcp/package.json pnpm-lock.yaml && git commit -m "chore(release): x.y.z"`.
 7. **Tag:** `git tag vx.y.z`.
 8. **Push:** `git push origin main && git push origin vx.y.z`.
 9. **Prune prior versions on GitHub:** Keep only the semver tag `vx.y.z` on `origin` — older `vMAJOR.MINOR.PATCH` tags and their GitHub releases are removed so the remote does not accumulate historical tags. (Published npm versions are unchanged and remain addressable by version number.)

@@ -3099,7 +3099,7 @@ AIC is designed to be **technically compliant** with GDPR, SOC 2, and ISO 27001 
 | Right to withdraw consent | ✅         | Set config to `false` at any time. Immediate effect.              |
 | Purpose limitation        | ✅         | "Product improvement" stated in opt-in prompt and privacy policy  |
 | Data retention limit      | ⚠️ Phase 1 | Server-side: auto-delete after 90 days. Define in privacy policy. |
-| Privacy policy            | ⚠️ Phase 1 | Publish at `https://docs.aic.dev/privacy`                         |
+| Privacy policy            | ⚠️ Phase 1 | Not yet published — planned for a future release                  |
 | DPIA                      | ⚠️ Phase 2 | Document when telemetry volume justifies it                       |
 
 ### SOC 2 Readiness

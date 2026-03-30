@@ -5,11 +5,23 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-    open-pull-requests-limit: 0
+    open-pull-requests-limit: 10
     reviewers:
       - "Jatbas"
     labels:
       - "dependencies"
+    groups:
+      dev-dependencies:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "major"
+      production-dependencies:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "major"
+          - "patch"
 
   - package-ecosystem: "github-actions"
     directory: "/"

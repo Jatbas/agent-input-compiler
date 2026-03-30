@@ -36,9 +36,9 @@
 
 If you discover a security vulnerability in AIC, please report it responsibly.
 
-**Email:** security@aic.dev
+**GitHub Security Advisories (preferred):** [Report a vulnerability](https://github.com/Jatbas/agent-input-compiler/security/advisories/new)
 
-**Encrypted reports:** If you need to share sensitive details (exploit code, credentials found in a release, etc.), request a PGP public key in your initial email and we will provide one for encrypted follow-up. Alternatively, include your own PGP public key and we will encrypt our replies.
+**Email:** jatbas@gmail.com — use when GitHub is not an option.
 
 **Please include:**
 
@@ -327,7 +327,7 @@ Normative shipped-state notes: [Implementation Spec §4d](implementation-spec.md
 
 ## Telemetry Endpoint Threat Model
 
-The `https://telemetry.aic.dev` endpoint is specified as an append-only, anonymous, low-value target **for when an outbound anonymous client ships**. There is **no** such client in the repository today — see [Anonymous Telemetry](#anonymous-telemetry) and [Implementation Spec §4d](implementation-spec.md#4d-additional-implementation-notes).
+The telemetry endpoint described below is a **design target only** — it does not exist today and the shipped `@jatbas/aic` package contains **no code that contacts it**. The design is documented here so the threat model is established before any implementation ships. See [Anonymous Telemetry](#anonymous-telemetry) and [Implementation Spec §4d](implementation-spec.md#4d-additional-implementation-notes).
 
 | Threat                                 | Mitigation                                                                                                                                                                       |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -451,7 +451,7 @@ AIC's architecture is designed to be **technically compliant** with GDPR, SOC 2,
 | Right to withdraw consent | ✅              | N/A for outbound until implemented; local data removable as above                                                                                                    |
 | Purpose limitation        | ⚠️ Outbound TBD | Shipped MCP path: no anonymous POST. When outbound ships: purpose disclosed in UI/config; see [Compliance Roadmap](#compliance-roadmap) (privacy policy ⚠️ Planned). |
 | Data retention limit      | ⚠️ Planned      | Server-side: auto-delete after 90 days                                                                                                                               |
-| Privacy policy            | ⚠️ Planned      | Publish at `https://docs.aic.dev/privacy`                                                                                                                            |
+| Privacy policy            | ⚠️ Planned      | Not yet published — planned for a future release                                                                                                                     |
 
 ### SOC 2 Readiness
 

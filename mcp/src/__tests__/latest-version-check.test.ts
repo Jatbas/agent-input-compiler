@@ -75,7 +75,7 @@ describe("latest-version-check", () => {
       const clock = createMockClock("2025-01-01T12:00:00.000Z", 25 * 60 * 60 * 1000);
       const result = await getUpdateInfo(
         toAbsolutePath(tmpDir),
-        "@aic/mcp",
+        "@jatbas/aic",
         "0.2.1",
         clock,
       );
@@ -102,7 +102,7 @@ describe("latest-version-check", () => {
       const clock = createMockClock(now, 0);
       const result = await getUpdateInfo(
         toAbsolutePath(tmpDir),
-        "@aic/mcp",
+        "@jatbas/aic",
         "0.2.1",
         clock,
       );
@@ -127,7 +127,7 @@ describe("latest-version-check", () => {
       const clock = createMockClock("2025-01-01T12:00:00.000Z", 25 * 60 * 60 * 1000);
       const result = await getUpdateInfo(
         toAbsolutePath(tmpDir),
-        "@aic/mcp",
+        "@jatbas/aic",
         "0.2.1",
         clock,
       );
@@ -160,7 +160,7 @@ describe("latest-version-check", () => {
       const clock = createMockClock("2025-01-01T12:00:00.000Z", 25 * 60 * 60 * 1000);
       const result = await getUpdateInfo(
         toAbsolutePath(tmpDir),
-        "@aic/mcp",
+        "@jatbas/aic",
         "0.2.1",
         clock,
       );
@@ -181,7 +181,7 @@ describe("latest-version-check", () => {
       const clock = createMockClock("2025-01-01T12:00:00.000Z", 25 * 60 * 60 * 1000);
       const result = await getUpdateInfo(
         toAbsolutePath(tmpDir),
-        "@aic/mcp",
+        "@jatbas/aic",
         "0.2.1",
         clock,
       );
@@ -206,7 +206,7 @@ describe("latest-version-check", () => {
       expect(fs.existsSync(cachePath)).toBe(false);
       const result = await getUpdateInfo(
         toAbsolutePath(tmpDir),
-        "@aic/mcp",
+        "@jatbas/aic",
         "0.2.1",
         clock,
         { persistSideEffects: false },

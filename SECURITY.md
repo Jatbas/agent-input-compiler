@@ -6,4 +6,6 @@ For vulnerability reporting, severity classification, safe-harbor policy, and th
 
 Please report security vulnerabilities privately via [GitHub Security Advisories](https://github.com/Jatbas/agent-input-compiler/security/advisories/new).
 
+If GitHub is not an option, email jatbas@gmail.com.
+
 Do not open a public issue for security vulnerabilities.

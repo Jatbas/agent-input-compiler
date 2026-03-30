@@ -42,11 +42,11 @@ jobs:
       - name: Pack and publish @jatbas/aic-core
         run: |
           pnpm pack
-          npm publish *.tgz --access public
+          npm publish *.tgz --access public --provenance
         working-directory: shared
 
       - name: Pack and publish @jatbas/aic
         run: |
           pnpm pack
-          npm publish *.tgz --access public
+          npm publish *.tgz --access public --provenance
         working-directory: mcp
