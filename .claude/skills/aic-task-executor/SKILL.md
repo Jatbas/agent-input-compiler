@@ -520,7 +520,19 @@ Fire all of these in a single round of tool calls. All calls within a round are 
 
 **4c — Confirm clean and track first-pass quality.**
 
+**Gate Function — every completion claim must follow this sequence:**
+
+1. **IDENTIFY** the dimension or verification target
+2. **RUN** the specific tool command (grep, read, shell)
+3. **READ** the actual output (paste it — do not summarize from memory)
+4. **VERIFY** the output matches the success criteria
+5. **CLAIM** the result only after steps 1-4 complete
+
+Skipping any step is an unverified claim, not efficiency. "Should pass" or "looks correct" without tool output is a skipped gate.
+
 After §4b, every dimension must be clean (all violations fixed, all re-checks passing). If a dimension reveals an architectural issue that cannot be fixed mechanically (e.g. signature mismatch, wrong layer boundary, missing DI), go to **Blocked diagnostic** — these indicate a task-file or design problem, not a code-style issue.
+
+**Verification dimension accounting.** After completing §4b, list each dimension with its result. If any dimension was not explicitly checked with tool output, it was skipped — go back and check it. The list must cover all applicable dimensions (1-21, excluding conditional dimensions that do not apply).
 
 Track first-pass quality: for each dimension, record whether it was clean on first check or required a fix. This is informational — it helps calibrate the pre-write reference table and per-file quick checks over time but does not gate progress. Report the count in §5a (e.g. "21/21 first-pass clean" or "19/21 first-pass clean, fixed 2: readonly array in X, block comment in Y"). Dimensions 16–21 are conditional or informational — exclude conditional dimensions from the denominator when they don't apply (no transformer added, no migration created, no non-TS assets introduced). Dimensions 19–20 are informational and always count in the denominator but do not block progress for pre-existing issues. If the per-file quick check (§3) already caught and fixed a violation during implementation, that dimension still counts as first-pass clean — the quick check is part of the first pass.
 
@@ -718,6 +730,8 @@ Before declaring Blocked, check whether the failure is in your code or in the ta
 ---
 
 ## Conventions
+
+**Violating the letter of these rules is violating the spirit.** Reframing, reinterpreting, or finding loopholes in these conventions is not cleverness — it is the exact failure mode they exist to prevent.
 
 - Never skip a step — execute them in order
 - Never add files or features not listed in the task

@@ -18,6 +18,8 @@ Produce a self-contained task file that any agent can pick up and execute withou
 
 ## Cardinal Rule: Stop If Unsure
 
+**Violating the letter of these rules is violating the spirit.** Reframing, reinterpreting, or finding loopholes in these rules is not cleverness — it is the exact failure mode they exist to prevent.
+
 **If you do not know something with certainty, STOP and tell the user.** Never guess, assume, or improvise. This applies to:
 
 - **Library APIs:** If you have not read the installed `.d.ts` files, you do not know the API. Do not write class names, import paths, or method signatures from memory. Read the actual type definitions first.
@@ -1360,6 +1362,21 @@ If during execution you encounter something unexpected:
 ````
 
 ---
+
+## Plan Failure Patterns — Never Write These
+
+These are plan failures. If any of these patterns appear in a step instruction, Files table description, verify line, or test description, the plan is incomplete — go back and resolve it.
+
+| Pattern                                                | Why it fails                                                                  |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| "TBD" or "TODO"                                        | Unresolved decision deferred to executor                                      |
+| "implement later" or "in a future task"                | Scope leak — if it is in the plan, it is in scope; if not, remove it entirely |
+| "add appropriate handling" or "add appropriate tests"  | "Appropriate" is the planner's job to define, not the executor's              |
+| "similar to Task N" or "see Task N"                    | The executor may not have Task N. Repeat the code                             |
+| "write tests for the above" without listing test cases | The Tests table must list every case by name                                  |
+| "update as needed" or "fix if broken"                  | The planner knows the current state — write the specific update               |
+| "handle edge cases" without listing them               | Which edge cases? List each one                                               |
+| "refactor if necessary"                                | Decide now: refactor or don't                                                 |
 
 ## Conventions
 

@@ -20,18 +20,19 @@ The deliverable is a **draft phase proposal** — header, description, and compo
 
 ## Process Overview
 
-| Step                      | Deliverable                                                      | User gate?                  |
-| ------------------------- | ---------------------------------------------------------------- | --------------------------- |
-| Input Routing             | Resolved input source (Tier 1/2/3)                               | No                          |
-| §0 Strategic framing      | 3-5 direction hypotheses (before reading any file)               | No                          |
-| §1 Current state          | Gap candidate list + phase inventory                             | No                          |
-| §2 Pre-spawn setup        | SKILL-investigation sections extracted                           | No                          |
-| §3 Parallel investigation | Explorer findings with evidence + disconfirmation                | No                          |
-| §4 Synthesize             | Draft phase proposals (named, deduped, normalized, second-order) | No                          |
-| §5 Adversarial review     | Feasibility critic + strategic fit critic + adjudication         | No                          |
-| §5b Convergence detection | Re-spawn if explorers over-agreed or no disconfirmation found    | No                          |
-| §6 Present                | Draft phases displayed to user                                   | **Yes — wait for approval** |
-| §7 Write                  | Approved phases inserted into aic-progress.md                    | No (post-approval)          |
+| Step                      | Deliverable                                                                        | User gate?                  |
+| ------------------------- | ---------------------------------------------------------------------------------- | --------------------------- |
+| Input Routing             | Resolved input source (Tier 1/2/3)                                                 | No                          |
+| §0 Strategic framing      | 3-5 direction hypotheses (before reading any file)                                 | No                          |
+| §1 Current state          | Gap candidate list + phase inventory                                               | No                          |
+| §2 Pre-spawn setup        | SKILL-investigation sections extracted                                             | No                          |
+| §3 Parallel investigation | Explorer findings with evidence, disconfirmation, and value scores                 | No                          |
+| §4 Synthesize             | Scored, ranked, grouped phase proposals (named, deduped, normalized, second-order) | No                          |
+| §4i Self-review           | Mechanical consistency check before critic dispatch                                | No                          |
+| §5 Adversarial review     | Feasibility critic + strategic fit critic + adjudication                           | No                          |
+| §5b Convergence detection | Re-spawn if explorers over-agreed or no disconfirmation found                      | No                          |
+| §6 Present                | Draft phases displayed to user                                                     | **Yes — wait for approval** |
+| §7 Write                  | Approved phases inserted into aic-progress.md                                      | No (post-approval)          |
 
 ## When to Use
 
@@ -67,6 +68,9 @@ Use ONLY the specified document. Skip Tier 1 and Tier 2. If the document yields 
 ---
 
 ## §0. Strategic Framing
+
+> **Anti-Pattern: "Just Read the Docs and List the Gaps"**
+> The most common failure mode is skipping framing and going straight to §1. The agent reads `aic-progress.md`, reads `project-plan.md`, diffs them, and proposes whatever is missing. This produces correct but useless output — the proposals are obvious, unsurprising, and indistinguishable from what a human could produce in 60 seconds. Strategic framing exists to prevent this. If you are tempted to skip §0 because "the gaps are obvious," that is exactly when you need it most.
 
 **Run before reading any file — including aic-progress.md.** This step exists to prevent the single greatest failure mode in auto mode: convergence on safe, obvious, predictable proposals that a developer could derive from a 60-second scan of the docs.
 
@@ -118,16 +122,49 @@ Do NOT instruct subagents to read this file themselves. The parent agent reads i
 
 Spawn 3–4 explorer subagents in parallel. Use `fast` model for all explorers.
 
-**Inline collapse is prohibited.** Do not produce explorer findings by reasoning through the explorer's task yourself and labeling the output "Explorer N findings." The quality of this skill's output depends entirely on independent context windows — a single agent cannot hold contradictory positions simultaneously and cannot independently challenge its own conclusions. If you find yourself writing "Explorer 1 findings:" without having used the Task tool, stop and use it.
+> **Anti-Pattern: "I'll Just Do It Myself"**
+> The second most common failure mode: the parent agent skips spawning subagents and writes explorer findings inline. The output looks correct but is worthless — a single agent cannot hold contradictory positions, cannot independently challenge its own conclusions, and converges on its first hypothesis. Every time this has happened in testing, the proposals were bland, obvious, and missing the non-obvious candidates that only independent investigation surfaces. If you are tempted to skip subagent dispatch because "it's faster" or "I already know what they'd find," that is exactly when you need independent agents most.
+
+**Inline collapse is prohibited.** Do not produce explorer findings by reasoning through the explorer's task yourself and labeling the output "Explorer N findings." The quality of this skill's output depends entirely on independent context windows. If you find yourself writing "Explorer 1 findings:" without having used the Task tool, stop and use it.
+
+**Explorer status protocol:** Each explorer must end its output with one of four status codes. The parent agent handles each differently:
+
+- **`STATUS: FINDINGS_COMPLETE`** — Normal path. Explorer completed investigation and returned a full table. Proceed to validation.
+- **`STATUS: FINDINGS_WITH_CONCERNS`** — Explorer completed but flags uncertainty on specific candidates. Parent reads the concerns section before synthesis. Concerned candidates get a caveat annotation in §4d scoring.
+- **`STATUS: NEEDS_CONTEXT`** — Explorer could not complete investigation without additional input (e.g., a file it couldn't access, a document reference it couldn't resolve). Parent provides the missing context and re-dispatches. This does not count toward the re-spawn cap.
+- **`STATUS: BLOCKED`** — Explorer hit a wall it cannot resolve (e.g., no web access for Explorer 3, codebase too large to search). Parent does not re-spawn with the same prompt — that wastes tokens. Instead: narrow the scope, split the task, or skip this explorer with a degradation warning.
+
+Include this instruction in each explorer's prompt: "End your response with one of: `STATUS: FINDINGS_COMPLETE`, `STATUS: FINDINGS_WITH_CONCERNS` (followed by a Concerns section), `STATUS: NEEDS_CONTEXT` (followed by what you need), or `STATUS: BLOCKED` (followed by what blocked you)."
 
 **Post-spawn verification (required before §4):** After all explorers return, produce a structured handoff report:
 
-- "Explorer 1: [N] candidates found, [M] with disconfirmation notes."
-- "Explorer 2: [N] High-value findings returned."
-- "Explorer 3: [N] external findings, impact classes: [list]."
+- "Explorer 1: [N] candidates found, [M] with disconfirmation notes. UP scores: [range]."
+- "Explorer 2: [N] High-value findings returned. IS scores: [range], DR scores: [range]."
+- "Explorer 3: [N] external findings, impact classes: [list]. UI scores: [range], EU scores: [range]."
 - "Explorer 4: [spawned / not spawned — reason]."
 
 If Explorer 1 disconfirmation count is 0, treat as convergence condition 2 in §5b — do not proceed to synthesis without re-spawning Explorer 1 with a disconfirmation-focused prompt.
+
+**Parent-side output validation (run before §4):** After all explorers return, the parent agent validates each explorer's output before accepting it. This catches the most common fast-model failures: shallow investigation, missing citations, unjustified scores, and format violations.
+
+For each explorer, check:
+
+1. **Format compliance:** Output uses the required table format. If an explorer returned free-form prose instead of a table, re-spawn with: "Your output must use the required table format. Do not write prose paragraphs. Fill in the table template provided in your instructions."
+2. **Citation floor:** Count file:line citations (Explorer 1, 2, 4) or URLs (Explorer 3). Each explorer's required output format specifies its minimum. If below the floor, re-spawn with: "Your investigation was too shallow — you returned [N] citations but the minimum is [M]. Search more broadly: [specific guidance on what to search]."
+3. **Score justification check:** Every score cell must have a corresponding justification cell that is non-empty and names specific evidence. Count unjustified scores. If more than 25% of scores lack justification, re-spawn with: "Your scores lack justification. Each score must name the specific evidence — not just a number. Re-score all candidates using the format: '[1-5] — [one sentence citing evidence]'."
+4. **Disconfirmation fill rate (Explorer 1 only):** The "Evidence against" column must be non-empty for every candidate row. "None found after checking [what]" is valid. A blank cell triggers re-spawn.
+5. **Strategy balance (Explorer 3 only):** Count Strategy A vs Strategy B findings. If fewer than 2 from either strategy, re-spawn with: "Your findings are unbalanced — [N] from Strategy A, [M] from Strategy B. Run additional [A/B] searches before returning."
+
+**Re-spawn cap and escalation (the "3 failures = question the task" rule):**
+
+An explorer can be re-spawned for three distinct reasons: (1) validation failure, (2) convergence detection (§5b), (3) `NEEDS_CONTEXT` status. Track total re-spawns per explorer across all reasons.
+
+- **1st re-spawn:** Normal. Provide corrective guidance or missing context.
+- **2nd re-spawn:** Acceptable but annotate: "Explorer [N] required 2 re-spawns — output may be lower quality."
+- **3rd re-spawn: STOP.** Do not re-spawn a third time. The problem is the task scope, not the model. Escalate:
+  - If the explorer's task can be split into two narrower subtasks, split and dispatch two new agents
+  - If splitting is not feasible, accept available output with degradation warning: "Explorer [N] failed to produce quality findings after 2 re-spawns — findings from this explorer should be weighted lower in the user's assessment"
+  - If no usable output exists from any attempt, drop this explorer entirely and note the gap in §6: "Explorer [N] could not complete its investigation. Proposals may underrepresent [scope area]."
 
 ### Explorer 1 — Documentation gap analyst
 
@@ -135,7 +172,7 @@ If Explorer 1 disconfirmation count is 0, treat as convergence condition 2 in §
 
 **Scope boundary:** Investigate only the §1 candidate list. Do not add candidates not identified in §1. Do not read files outside the resolved input source(s) unless cross-checking architectural fit in the codebase.
 
-**Task:** For each §1 candidate:
+**Task:** For each §1 candidate, perform all checks below. Return results in the **required output format** — do not return free-form prose.
 
 1. Verify it is genuinely absent from aic-progress.md — search by multiple phrasings, not exact name match, to catch renamed or grouped variants.
 2. Perform a secondary codebase check: search for related implementation code using keywords from the candidate's domain. If implementation code exists, mark the candidate as "Likely already shipped under different name" and exclude it unless you can confirm the code is absent.
@@ -148,6 +185,22 @@ If Explorer 1 disconfirmation count is 0, treat as convergence condition 2 in §
 4. Assess: is it architecturally necessary, optional, or speculative?
 5. Assess: what is the implementation surface? (new pipeline step, adapter, storage migration, MCP handler, etc.)
 6. Cite the source document with file:line for each candidate.
+7. **Value score (per Value Scoring Rubric):** For each verified candidate, score **Unblock Potential (1-5)** — count how many tracked or proposed components depend on it. Enforce forced distribution.
+
+**Required output format — one row per candidate:**
+
+```
+| Candidate | Status | Necessity | Surface | Source (file:line) | Evidence against | UP | UP justification |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| [name] | Verified / Excluded / Already shipped | Necessary / Optional / Speculative | [pipeline step, adapter, etc.] | [file:line] | [one sentence or "None found"] | [1-5] | [one sentence: why this score] |
+```
+
+**Output constraints:**
+
+- Maximum 12 candidate rows (the §1 candidate list is bounded by input source scope)
+- Minimum 3 file:line citations across all rows — if you cannot cite 3, your investigation was too shallow; search more broadly before returning
+- The "Evidence against" column must be non-empty for every row — "None found after checking [what you checked]" is acceptable; a blank cell is not
+- Every UP score must include a justification — a bare number without reasoning will be rejected by the parent agent
 
 [INJECT: Codebase Investigation Depth section from SKILL-investigation.md verbatim here]
 
@@ -155,34 +208,74 @@ If Explorer 1 disconfirmation count is 0, treat as convergence condition 2 in §
 
 **Role:** Find concrete improvement opportunities — not new features, but work that improves the codebase without changing public behavior.
 
-**Task:** Investigate these three axes:
+**Task:** Investigate these three axes. Return results in the **required output format** — do not return free-form prose.
 
 1. **Simplification:** Abstractions with only one implementor? Intermediate types or mapping functions that could be inlined? Files mergeable without losing clarity?
 2. **Performance:** O(n²) patterns, repeated file reads, unnecessary serialization in hot paths?
 3. **Dead patterns:** TODO/FIXME/HACK markers. Phase references in code never cleaned up. Exports with no consumers.
 
-Return findings with file:line citations. Group by axis. Rate each: **High value** (reduces maintenance burden or improves measurable perf) / **Low value** (cosmetic or speculative). **Return at most 8 High-value findings.** If you find more, rank by impact and return the top 8. Low-value findings go in a separate list — do not include them as phase component candidates.
+**Required output format — High-value findings table:**
+
+```
+| # | Finding | Axis | File:line | Value | IS | IS justification | DR | DR justification |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | [short name] | Simplification / Performance / Dead patterns | [file:line] | High | [1-5] | [one sentence] | [1-5] | [one sentence] |
+```
+
+**Output constraints:**
+
+- Maximum 8 High-value rows. If you find more, rank by impact and return the top 8
+- Each row must have a file:line citation — findings without citations are rejected
+- Minimum 5 file:line citations across all rows — if you cannot cite 5, search more broadly
+- Low-value findings go in a separate compact list (name + file:line only, no scores) — do not include them as phase component candidates
+- Every IS and DR score must include a justification — a bare number will be rejected
 
 [INJECT: Runtime Evidence Checklist section from SKILL-investigation.md verbatim here]
 
-### Explorer 3 — External research
+### Explorer 3 — External research and pain detection
 
-**Role:** Find what the ecosystem is doing that AIC doesn't yet address.
+**Role:** Find what the ecosystem is doing that AIC doesn't yet address, and — critically — identify where real users are experiencing pain that AIC could solve.
 
-**Task:** Use `WebSearch` and `WebFetch` for:
+**Task:** Use `WebSearch` and `WebFetch` across two search strategies:
+
+**Strategy A — Ecosystem landscape** (what exists):
 
 - Recent MCP spec changes or upcoming capabilities AIC could leverage
 - How adjacent tools handle context compilation, editor integration, or agent memory
 - Emerging patterns in AI editor tooling (new hook events, new IDE APIs, new agent capabilities)
-- Developer pain points in tools AIC competes with or integrates alongside
 
-Use official documentation and primary sources. Return findings with URLs and one-line summaries.
+**Strategy B — Pain-directed search** (what hurts):
 
-**Flag each finding with one of three impact classes:**
+- Search for user complaints, frustrations, and workarounds in AI coding tools (GitHub issues, forum threads, blog rants). Example queries: "context window too small cursor", "AI coding tool forgets context", "MCP server memory problems 2026"
+- Search for feature gaps users explicitly request — "I wish [tool] could...", "missing feature in [tool]"
+- Search for migration patterns — users switching between tools and citing specific capability gaps
+- Cross-reference findings against what AIC already does: the gap between user pain and AIC's current capabilities is the opportunity space
+
+Use official documentation and primary sources for Strategy A. Community sources (GitHub issues, forums, developer blogs) are valid for Strategy B — but flag the source type.
+
+Return results in the **required output format** — do not return free-form prose.
+
+**Required output format — findings table:**
+
+```
+| # | Finding | Strategy | Source type | Impact class | URL | Search query | UI | UI justification | EU | EU justification |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | [short name + one-line summary] | A / B | Official / Community | Additive / Interface-requiring / Breaking | [url] | [query used] | [1-5] | [one sentence] | [1-5] | [one sentence] |
+```
+
+**Impact class definitions:**
 
 - **Additive** — new adapter, pipeline step, or feature; no existing interface changes needed
 - **Interface-requiring** — requires adding methods to an existing interface or creating a new core interface
 - **Breaking** — requires changing or removing methods on an existing interface; existing callers must be updated. For breaking-class findings, describe the interface affected, its current callers, and a proposed migration path. These must be proposed as separate "Interface Migration" phases, not standard Not started components.
+
+**Output constraints:**
+
+- Maximum 10 findings total (balance across Strategy A and B — at least 3 from each strategy)
+- Each row must have a URL — findings without URLs are rejected
+- Minimum 6 URLs across all rows — if you cannot find 6, broaden your search queries
+- Every UI and EU score must include a justification — a bare number will be rejected
+- At least 2 findings must be from Strategy B (pain-directed) — if your first search pass yields only Strategy A findings, run additional pain-directed queries before returning
 
 ### Explorer 4 — Specific document deep-read
 
@@ -190,7 +283,21 @@ Use official documentation and primary sources. Return findings with URLs and on
 
 **Document selection:** For Tier 3 — use the user-specified document. For Tier 2 — pass the document with the Roadmap Mapping section as the specified document. If multiple Tier 2 documents have Roadmap Mapping sections, spawn one Explorer 4 per document (each as a separate subagent with its own document).
 
-**Task:** Read the specified document in full. Extract every roadmap candidate, deferred recommendation, and open question. Map each to the closest existing phase category in aic-progress.md. Verify feasibility by cross-checking the codebase: does the infrastructure exist to support this?
+**Task:** Read the specified document in full. Extract every roadmap candidate, deferred recommendation, and open question. Map each to the closest existing phase category in aic-progress.md. Verify feasibility by cross-checking the codebase: does the infrastructure exist to support this? Return results in the **required output format**.
+
+**Required output format:**
+
+```
+| # | Candidate | Type | Closest phase | Feasibility | Codebase evidence (file:line) | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | [name] | Roadmap candidate / Deferred recommendation / Open question | [phase name or "New phase needed"] | Ready / Partial / Missing infrastructure | [file:line or "None found"] | [one sentence] |
+```
+
+**Output constraints:**
+
+- Extract all candidates — no maximum cap (this explorer reads one document thoroughly)
+- Each feasibility assessment must cite at least one codebase file:line showing supporting or missing infrastructure
+- Minimum 4 file:line citations across all rows
 
 ---
 
@@ -208,7 +315,29 @@ If two candidates from different explorers share more than 60% of their name wor
 
 Before grouping, scan all candidate names against the convention: (1) title-cased, (2) identifies a specific implementation surface, (3) noun-form naming the thing (not "Improve X" — use "X Optimization" or "X Enforcement"). Rewrite violating names. Document rewrites in a note included in the critic's input at §5.
 
-### 4d. Group into phases
+### 4d. Value score aggregation
+
+Before grouping, compute the **composite value score** for each deduplicated candidate.
+
+**Collecting scores:** Each explorer scores the dimensions in its mandate (see Explorer 1-3 task sections and the Value Scoring Rubric). A candidate may have scores from multiple explorers — a documentation gap (Explorer 1) that also appeared in external research (Explorer 3) carries both Unblock Potential and User Impact/Ecosystem Urgency scores.
+
+**Missing dimensions:** If a candidate was scored by only one explorer, the unscored dimensions default to 2 (conservative neutral). The parent agent does not fabricate scores for dimensions no explorer investigated.
+
+**Composite formula:**
+
+`Value = (UI × 3 + UP × 2 + SA × 2 + EU × 1.5 + DR × 1) / (IS × 1.5)`
+
+Where: UI = User Impact, UP = Unblock Potential, SA = Strategic Alignment (scored by Critic B in §5, defaults to 2 until then), EU = Ecosystem Urgency, DR = Debt Reduction, IS = Implementation Surface. Higher composite = higher priority.
+
+**Present scores:** Include a ranked candidate table in the handoff to §5 critics:
+
+| Candidate | UI    | UP    | SA    | EU    | DR    | IS    | Composite | Source     |
+| --------- | ----- | ----- | ----- | ----- | ----- | ----- | --------- | ---------- |
+| [name]    | [1-5] | [1-5] | [1-5] | [1-5] | [1-5] | [1-5] | [n.n]     | Explorer N |
+
+Sort by composite descending. This table is advisory input to critics and to the §6 presentation — it does not mechanically determine inclusion or exclusion.
+
+### 4e. Group into phases
 
 **Grouping heuristics:**
 
@@ -235,13 +364,15 @@ Before grouping, scan all candidate names against the convention: (1) title-case
 | [Doc update task] | Not started | documentation/ | [component it follows] | Update [doc name] for [feature] |
 ```
 
-**Priority ordering across phases:**
+**Priority ordering across phases (composite score primary, heuristics secondary):**
 
-1. **Unblocks other work** — infrastructure before features
-2. **Highest user impact** — end-user-visible before internal refactors
+Use the §4d composite value scores as the **primary** ordering signal. Within equal-score tiers, apply these tiebreakers:
+
+1. **Unblocks other work** — infrastructure before features (high UP score)
+2. **Highest user impact** — end-user-visible before internal refactors (high UI score)
 3. **Lowest risk** — additive before interface-requiring; interface-requiring before breaking
 
-### 4e. Documentation impact analysis
+### 4f. Documentation impact analysis
 
 For each proposed code component, identify which documentation files will need updating when that component ships. Classify by impact type:
 
@@ -266,11 +397,11 @@ For each identified impact, add a companion row to the phase table:
 
 **Scope exclusion:** `documentation/notes/` contains internal strategy documents and is not a documentation impact target — no companion rows needed for notes/ files.
 
-### 4f. Task detail generation
+### 4g. Task detail generation
 
 After the summary table for each phase, generate a `#### Task details` section. Task details serve two audiences: human developers scoping work before picking it up, and the `aic-task-executor` skill when invoked directly. They are NOT consumed by `aic-task-planner` — the planner reads only component table rows (status + deps) and derives its own steps through Pass 1 exploration. Writing task details does not make the planner more accurate; it makes human review and direct execution faster.
 
-For each component in the phase table — **including the documentation update rows produced in §4e** — write a task detail entry following this format exactly:
+For each component in the phase table — **including the documentation update rows produced in §4f** — write a task detail entry following this format exactly:
 
 ```
 #### Task details
@@ -310,7 +441,7 @@ Why: [one sentence on ordering rationale or dependency — why this before/after
 **Task detail quality standards for documentation tasks:**
 Documentation tasks produced by forge are at **intent level** — forge never reads the target documentation files, so it cannot identify specific sections or line numbers. Steps for documentation tasks should state the intent clearly (e.g., "Update README.md to document the new `contextMode` config field") without fabricating section numbers or content structure. The `aic-documentation-writer` skill will perform its own Phase 1 deep analysis to identify the specific sections. Mark documentation task steps with: "Documentation-writer Phase 1 will identify specific sections and verify cross-doc consistency."
 
-### 4g. Second-order implications
+### 4h. Second-order implications
 
 After task details are drafted, run one pass to answer: **"What does shipping this phase unlock?"** For each proposed phase:
 
@@ -324,6 +455,22 @@ These annotations appear in the §6 presentation but are NOT added to the aic-pr
 ---
 
 **Escape hatch minimum specificity rule:** When implementation details are uncertain (interface signatures unknown, dependency graph unclear), write the step as far as known and add: "Planner verification required: [what must be confirmed before executing this step]." However, each step must contain at least one concrete, non-speculative element before the escape hatch annotation. Concrete means: (1) a specific `.ts` file path (not a directory — `shared/src/pipeline/` does not satisfy this; `shared/src/pipeline/context-compiler.ts` does), (2) a named interface from `shared/src/core/interfaces/` by name, (3) a runnable command with its flags, or (4) a grep pattern specific enough to return fewer than 20 results in this codebase. A step that says "add a pipeline step in `shared/src/pipeline/`" is not more specific than the component table row and is not acceptable. A step that contains nothing but a "Planner verification required" annotation is not acceptable. If a task detail genuinely cannot be written beyond what is in the component table row, omit the task detail entirely and annotate the table row Description: "(Task detail deferred — insufficient codebase evidence from explorers. Planner will derive steps during Pass 1.)"
+
+---
+
+## §4i. Synthesis Self-Review
+
+**Run before dispatching critics.** The parent agent reviews its own synthesis output to catch obvious issues that would waste critic tokens. This is not a substitute for §5 adversarial review — it catches mechanical problems, not strategic or feasibility issues.
+
+**Checklist (run inline, do not spawn a subagent):**
+
+1. **Score consistency:** Does any candidate have a UP score of 5 but zero tracked dependents? Does any candidate score UI:5 with no user pain evidence from Explorer 3? Flag and adjust.
+2. **Naming collision:** Do any two candidates in the same phase share 3+ words in their name? If yes, they may be duplicates that §4b missed.
+3. **Grouping self-check:** Does any phase violate the skill's own heuristics — breaking-class mixed with additive, more than 12 components, cross-layer mixing?
+4. **Documentation impact completeness:** For each code component, is the corresponding documentation update row present? Quick count: code components vs doc update rows. If the ratio is below 0.5 (fewer than 1 doc update per 2 code components), a documentation impact was likely missed.
+5. **Score inflation check:** Run the §4d inflation detection now. If more than 40% of candidates have composite above 8.0, apply forced distribution correction before critics see inflated numbers.
+
+**Fix issues inline.** If all checks pass, announce: "Self-review passed — proceeding to adversarial review." If issues were found, announce: "Self-review found [N] issues, corrected inline — proceeding to adversarial review."
 
 ---
 
@@ -379,6 +526,7 @@ Include verbatim in Critic B's prompt:
 Critic B receives:
 
 - The draft phase proposals from §4
+- The §4d ranked candidate table with composite value scores
 - The §0 strategic hypotheses and which were supported/refuted by explorer evidence
 - The full aic-progress.md phase inventory
 - The README.md "Why developers use AIC" and "What it helps with" sections (Critic B reads these to ground strategy in stated user pain)
@@ -391,6 +539,7 @@ Critic B's tasks:
 4. **Simpler alternative test:** For each proposal, ask: "Is there a simpler intervention that solves 80% of the same problem in 20% of the work?" If yes, propose the simpler alternative as a replacement.
 5. **Hypothesis alignment:** Cross-reference each proposal against the §0 strategic hypotheses. Proposals that are not supported by any hypothesis AND were not identified by disconfirmation evidence should be challenged as hypothesis-free additions — either reject or require the forge to state which hypothesis they serve.
 6. **Coherence check:** Do the proposals as a set tell a coherent story about where AIC is going? Or is it a grab-bag of independent improvements? If the latter, recommend a coherence edit — removing the least coherent proposal to strengthen the narrative.
+7. **Value score challenge + Strategic Alignment scoring:** Review the §4d composite scores. For each candidate, assign a **Strategic Alignment (1-5)** score — this is Critic B's exclusive dimension. Challenge any composite score that seems inflated: if a candidate ranks top-3 by composite but Critic B rates its Strategic Alignment at 1-2, flag the discrepancy. Challenge any User Impact score above 3 that lacks cited user pain evidence. Return updated SA scores — these replace the default-2 in the final composite recalculation after §5.
 
 **Critic B quality check:** Critic B's output is acceptable only if ALL of the following are true:
 
@@ -409,7 +558,7 @@ If Critic B fails any of these criteria, re-spawn with: "Your previous review wa
 **Post-critic structured report (required before adjudicating):**
 
 - "Critic A: proposed [N] removals, [M] scope reductions, [K] caveats."
-- "Critic B: proposed [N] removals/deferrals, [M] simpler alternatives, [K] hypothesis misalignments."
+- "Critic B: proposed [N] removals/deferrals, [M] simpler alternatives, [K] hypothesis misalignments. SA scores: [range]. Score challenges: [N]."
 
 If Critic A removals = 0 AND scope reductions = 0 simultaneously, trigger the Critic A quality check re-spawn regardless of other outputs.
 
@@ -423,6 +572,8 @@ Evaluate each challenge:
 - **Invalid:** Reject with explanation; keep the proposal unchanged
 
 Record adjudication results: "Incorporated: [N]. Rejected: [M]. Summary: [one line]." This feeds into the §6 presentation.
+
+**Post-adjudication score recalculation:** Replace the default SA=2 values in the §4d composite table with Critic B's actual Strategic Alignment scores. Recalculate composites. If the recalculated ordering differs from the pre-critic ordering, note which candidates moved and why — this feeds the "Score disputes resolved" line in §6.
 
 ---
 
@@ -455,11 +606,19 @@ Present the refined proposal:
 
 > **Roadmap Forge complete.** Input source: [tier]. Explorers: [count]. Proposals: [N phases, M components].
 >
+> **Value scorecard** (top 5 by composite, post-critic SA scores applied):
+>
+> | #   | Candidate | Composite | UI    | UP    | SA    | EU    | DR    | IS    |
+> | --- | --------- | --------- | ----- | ----- | ----- | ----- | ----- | ----- |
+> | 1   | [name]    | [n.n]     | [1-5] | [1-5] | [1-5] | [1-5] | [1-5] | [1-5] |
+>
 > **Proposed phases:** [list phase names + component counts]
 >
-> **Priority rationale:** [2-3 sentences]
+> **Priority rationale:** [2-3 sentences referencing composite scores — "Phase X leads because its components average composite Y, driven by high Unblock Potential and User Impact"]
 >
 > **Adversarial challenges addressed:** [N incorporated, M rejected — one line summary]
+>
+> **Score disputes resolved:** [any cases where Critic B's SA score changed the ordering]
 >
 > **From external research:** [key finding and impact, or "None — all proposals from internal sources"]
 
@@ -517,6 +676,60 @@ Do not change any existing phase content, table structure, or other daily log en
 
 ---
 
+## Value Scoring Rubric
+
+Each explorer scores candidates on the dimensions in its mandate. Scores use a **1-5 integer scale** with forced distribution to prevent clustering.
+
+### Dimensions
+
+| Dimension              | Code | Definition                                      | Scored by                        |
+| ---------------------- | ---- | ----------------------------------------------- | -------------------------------- |
+| User Impact            | UI   | Direct effect on end-user experience            | Explorer 3, Critic B (challenge) |
+| Unblock Potential      | UP   | Downstream work this enables                    | Explorer 1                       |
+| Strategic Alignment    | SA   | Fit with AIC's core thesis                      | Critic B (exclusive)             |
+| Ecosystem Urgency      | EU   | External competitive pressure                   | Explorer 3                       |
+| Debt Reduction         | DR   | Maintenance or simplification improvement       | Explorer 2                       |
+| Implementation Surface | IS   | Effort and risk (higher = harder — denominator) | Explorer 2, Critic A (challenge) |
+
+### Composite Formula
+
+`Value = (UI × 3 + UP × 2 + SA × 2 + EU × 1.5 + DR × 1) / (IS × 1.5)`
+
+Higher composite = higher priority. User Impact is weighted highest because features users need drive adoption. Implementation Surface is in the denominator because harder work must clear a higher value bar.
+
+### Score Justification (mandatory)
+
+Every score must include a one-line justification in the explorer's output table. The justification names the specific evidence that produced the score. Examples:
+
+- "UP: 4 — unblocks memory extension (item 1) and editor memory (item 2) in the roadmap mapping"
+- "UI: 2 — improves internal code quality but no user-visible behavior change"
+- "EU: 5 — Cursor removed cross-session memory in v0.48; users actively requesting alternatives (GitHub issue #1234)"
+- "IS: 3 — requires new adapter + interface + test file, no migration"
+
+A bare number (e.g., "UP: 4") without justification is treated as an invalid score. The parent agent will set unjustified scores to the conservative default of 2.
+
+### Forced Distribution (per explorer, per dimension)
+
+Each explorer must enforce across all candidates they score on a given dimension:
+
+- At most 2 scores of 5
+- At least 1 score of 1 or 2 when scoring 4+ candidates
+- No dimension where all candidates score 3 or 4 — if this occurs, re-rank relative to each other
+
+### Anchor Examples
+
+| Score | UI                                                            | UP                                                | EU                                                    | IS                                                                       |
+| ----- | ------------------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------ |
+| **5** | Users are leaving tools without this capability               | Unblocks 3+ tracked components or an entire phase | Competitors shipped it; users expect it within months | New pipeline step + storage migration + 3+ interfaces + composition root |
+| **3** | Improves workflow for a subset of users in specific scenarios | Unblocks 1 tracked component                      | Industry trend, no direct competitive pressure yet    | New adapter + interface + tests                                          |
+| **1** | No user-visible change; internal-only                         | Standalone; nothing depends on it                 | Academic/theoretical; no production adoption          | Single file change, config addition                                      |
+
+### Score Inflation Detection
+
+If the §4d aggregated scores show **more than 40% of candidates with composite above 8.0**, scores are inflated. Re-examine the highest-scored dimension across all candidates and apply forced distribution more strictly — at least one candidate must score 1 on that dimension.
+
+---
+
 ## Auto-Mode Resilience
 
 This section documents the structural mechanisms that make this skill produce higher-quality output than a single model pass — even when running in Cursor Agent auto mode where there is no human mid-loop.
@@ -524,23 +737,39 @@ This section documents the structural mechanisms that make this skill produce hi
 **Why a single Opus pass is insufficient for roadmap generation:**
 A single model pass — even a capable one — converges on the obvious: the most prominent documentation gaps, the most salient codebase complaints, the most cited external trends. It also has no mechanism to challenge itself. It confirms hypotheses rather than falsifying them, accepts proposals rather than removing them, and cannot hold two contradictory perspectives simultaneously.
 
+**Why fast-model subagents need structural guardrails:**
+Explorer and critic subagents run with `fast` model for cost and latency. Fast models follow structured instructions well but are weaker at open-ended investigation, disconfirmation reasoning, and self-calibration. The skill compensates by making every output expectation explicit (templates, citation floors, justification requirements) and validating outputs mechanically before accepting them. The parent agent (running at whatever model the user selected — typically a more capable model) handles synthesis, adjudication, and presentation where reasoning depth matters most.
+
 **How this skill compensates structurally:**
 
-| Failure mode                                 | Structural compensation                                                                                                 |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Convergence on safe/obvious candidates       | §0 generates falsifiable hypotheses BEFORE reading files; convergence detection in §5b re-spawns if all explorers agree |
-| Confirmation bias in investigation           | Disconfirmation mandate in Explorer 1 — must report evidence AGAINST each candidate                                     |
-| Missing non-obvious candidates               | Explorer 3 external research with ecosystem lens; Explorer 4 for deep document reads                                    |
-| Technically feasible but strategically wrong | Critic B strategic fit check anchored to user pain and AIC positioning                                                  |
-| Implementation blind spots                   | Critic A feasibility check requires file:line citations — unevidenced challenges are downweighted                       |
-| Shallow task detail                          | Evidence density gate (§4a) and escape hatch floor (§4f) ensure task steps have concrete anchors                        |
-| Short-term thinking                          | §4g second-order implications — explicitly asks "what does shipping this unlock?"                                       |
-| Hallucinated codebase state                  | Runtime Evidence Checklist injected into Explorer 2; Critic A must read source files                                    |
+| Failure mode                                      | Structural compensation                                                                                                                                                         |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Convergence on safe/obvious candidates            | §0 generates falsifiable hypotheses BEFORE reading files; convergence detection in §5b re-spawns if all explorers agree                                                         |
+| Confirmation bias in investigation                | Disconfirmation mandate in Explorer 1 — must report evidence AGAINST each candidate; mandatory "Evidence against" column in output template                                     |
+| Missing non-obvious candidates                    | Explorer 3 pain-directed search (Strategy B) + ecosystem landscape (Strategy A); Explorer 4 for deep document reads; strategy balance check enforces minimum findings from each |
+| Technically feasible but strategically wrong      | Critic B strategic fit check anchored to user pain and AIC positioning; SA scoring is Critic B's exclusive dimension                                                            |
+| Implementation blind spots                        | Critic A feasibility check requires file:line citations — unevidenced challenges are downweighted                                                                               |
+| Shallow task detail                               | Evidence density gate (§4a) and escape hatch floor (§4g) ensure task steps have concrete anchors                                                                                |
+| Short-term thinking                               | §4h second-order implications — explicitly asks "what does shipping this unlock?"                                                                                               |
+| Hallucinated codebase state                       | Runtime Evidence Checklist injected into Explorer 2; Critic A must read source files                                                                                            |
+| Score inflation (everything rated 3-4)            | Forced distribution per explorer per dimension; inflation detection gate in §4d triggers re-ranking; Critic B challenges UI scores lacking pain evidence                        |
+| Qualitative-only prioritization                   | Composite value score replaces gut-feel ordering; formula weights are explicit and auditable; critics can challenge individual dimension scores                                 |
+| Fast model returns free-form prose                | Required table output format per explorer; parent validation rejects prose and re-spawns with format instruction                                                                |
+| Fast model skips citations                        | Per-explorer citation floor (Explorer 1: 3, Explorer 2: 5, Explorer 3: 6 URLs, Explorer 4: 4); parent validation re-spawns below floor                                          |
+| Fast model assigns unjustified scores             | Every score needs a one-line justification; parent validation sets unjustified scores to default 2 (conservative penalty)                                                       |
+| Fast model ignores disconfirmation                | Explorer 1 "Evidence against" column cannot be blank; parent validation re-spawns if any cell is empty; convergence detection in §5b as backstop                                |
+| Fast model unbalanced investigation               | Explorer 3 strategy balance (min 2 from each strategy); Explorer 2 grouped by axis; output caps prevent kitchen-sink dumps                                                      |
+| Silent explorer failure (no output, no error)     | Explorer status protocol — BLOCKED status surfaces the problem explicitly; NEEDS_CONTEXT enables recovery without wasting re-spawns                                             |
+| Mechanical errors in synthesis                    | §4i self-review catches score inconsistencies, naming collisions, missing doc impact rows, and inflation before critics see them                                                |
+| Infinite re-spawn loops                           | 3-failure escalation rule — after 2 re-spawns, stop and question the task scope; split or drop rather than retry                                                                |
+| Skipping strategic framing ("gaps are obvious")   | Named anti-pattern at §0 top — directly addresses the rationalization and makes skipping feel wrong                                                                             |
+| Inlining explorer work ("I'll just do it myself") | Named anti-pattern at §3 top — directly addresses the temptation and explains why it produces worthless output                                                                  |
 
-**Note:** This table covers investigation and synthesis defenses. Write-safety defenses (freshness check, collision check) and presentation-safety defenses (incremental display for large proposals, revision cap, context window save) are documented in §7 and §6 respectively.
+**Note:** This table covers investigation, synthesis, fast-model defenses, and process-skip defenses. Write-safety defenses (freshness check, collision check) and presentation-safety defenses (incremental display for large proposals, revision cap, context window save) are documented in §7 and §6 respectively.
 
 **When auto mode degrades:**
 
 - If the session context is compressed mid-skill (between §3 and §4), explorers may return but their findings are truncated. The forge MUST read back all explorer results before synthesis — if a result is missing, re-spawn that explorer.
-- If subagent spawning fails silently (no error, but no output), the parent MUST detect a missing result and re-spawn rather than proceeding with partial evidence.
+- If subagent spawning fails silently (no error, but no output), the parent MUST detect a missing result and re-spawn rather than proceeding with partial evidence. The explorer status protocol helps here: an explorer that returns `STATUS: BLOCKED` has explicitly surfaced the problem; an explorer that returns nothing is a silent failure.
 - If the user skips §0 strategic framing by jumping straight to "generate phases now," the forge runs §0 anyway — framing is not optional and cannot be accelerated out of the process.
+- If an explorer has been re-spawned twice (for any combination of validation, convergence, or context reasons), do not re-spawn a third time — question the task scope per the 3-failure escalation rule.

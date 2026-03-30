@@ -353,6 +353,20 @@ For adapter, storage, and pipeline tasks, the existing rule applies: paste all d
 
 For each step's Verify line, confirm the verification is actionable against the current codebase state at that step. If verification says "file X that imports Y fails lint" but file X doesn't exist yet, rewrite to: "Run `pnpm lint` — passes with zero errors." If `pnpm typecheck` is listed as verification but the step introduces symbols defined in a later step, the verification will fail — reorder steps or change the verify instruction.
 
+## Plan failure patterns
+
+These are plan failures — if any appear in a step instruction, Files table description, verify line, or test description, the plan is incomplete. The planner must resolve these before writing:
+
+- "TBD", "TODO", "implement later", "in a future task"
+- "add appropriate handling", "add appropriate tests", "appropriate" without qualifier
+- "similar to Task N", "see Task N" — repeat the code, the executor may not have Task N
+- "write tests for the above" without listing specific test case names
+- "update as needed", "fix if broken" — state the specific update
+- "handle edge cases" without listing each edge case
+- "refactor if necessary" — decide now
+
+**Enforced by:** Final ambiguity sweep (below) and C.5 mechanical review.
+
 ## Final ambiguity sweep
 
 Before finishing the task file, run three mechanical scans on every sentence in Steps, Tests table descriptions, Verify lines, implementation notes, and parenthetical qualifiers. Architecture Notes explaining rationale are excluded (they don't instruct the executor).

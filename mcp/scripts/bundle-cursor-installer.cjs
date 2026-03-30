@@ -10,7 +10,7 @@ const scriptDir = __dirname;
 const repoRoot = path.join(scriptDir, "..", "..");
 const destRoot = path.join(scriptDir, "..", "integrations");
 
-const filter = (src) => !src.includes("__tests__");
+const filter = (src) => !src.includes("__tests__") && !src.includes("fixtures");
 
 const cursorSrc = path.join(repoRoot, "integrations", "cursor");
 const cursorDest = path.join(destRoot, "cursor");

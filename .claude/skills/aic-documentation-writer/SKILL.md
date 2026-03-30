@@ -25,6 +25,8 @@ The same multi-agent machinery (4 explorers, 3-5 critics, double-blind verificat
 
 ## Cardinal Rules
 
+**Violating the letter of these rules is violating the spirit.** Reframing, reinterpreting, or finding loopholes in these rules is not cleverness — it is the exact failure mode they exist to prevent.
+
 ### 0. Mandatory Subagent Dispatch
 
 **This skill's entire value comes from multi-agent parallelism. You MUST use the Task tool to spawn subagents where specified — NEVER perform explorer or critic work in the main conversation.** The point of producer-critic separation is that independent agents find issues the main agent misses due to anchoring bias. If you skip subagent dispatch and do the analysis yourself, the output is single-model quality — which defeats the purpose of this skill and violates Cardinal Rule 2 (Producer-Critic Separation).
@@ -189,6 +191,8 @@ Compare document coverage against codebase reality: glob for files/components/in
 
 ### 1c. Collect and merge explorer findings
 
+**Handoff accounting (before processing).** Enumerate each explorer's output before analyzing content: Explorer 1: N findings, M with citations. Explorer 2: N findings, M with citations. Explorer 3: N findings, M with citations. Explorer 4: N findings, M with citations. If any explorer returned 0 findings, investigate whether the explorer ran correctly before proceeding.
+
 Read all 4 explorer outputs. For each finding:
 
 - Verify the citation format (must have file:line, grep result, or URL)
@@ -196,6 +200,10 @@ Read all 4 explorer outputs. For each finding:
 - Flag findings with no evidence citation — candidates for removal
 - Identify convergence (multiple explorers found the same thing — strong evidence)
 - Identify contradictions (explorers disagree — flag for investigation)
+
+**Post-spawn validation.** For each explorer output, check: (1) findings use the required evidence format, (2) at least 1 citation per finding (citation floor), (3) output addresses the assigned dimension, not a different one. If any explorer fails 2+ of these checks, re-spawn it once with a more specific prompt. Maximum 1 re-spawn per explorer.
+
+**Convergence detection.** After merging, check whether all explorers returned suspiciously similar top findings — each explorer's top 3 findings overlap significantly with the others, with no unique perspectives. This suggests explorers searched the same obvious areas rather than their assigned dimensions. If detected, re-spawn the weakest explorer with a narrower scope targeting the areas its dimension should uniquely cover. Maximum 1 convergence re-spawn per phase.
 
 ### 1d. Gap check
 

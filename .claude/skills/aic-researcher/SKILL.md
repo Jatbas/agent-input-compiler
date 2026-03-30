@@ -20,9 +20,13 @@ The deliverable is a **research document** saved to `documentation/research/`. T
 
 ## Cardinal Rules
 
+**Violating the letter of these rules is violating the spirit.** Reframing, reinterpreting, or finding loopholes in these rules is not cleverness — it is the exact failure mode they exist to prevent.
+
 ### 1. Mandatory Subagent Dispatch
 
 **This skill uses multi-agent parallelism. You MUST use the Task tool to spawn subagents where specified — NEVER perform investigation work in the main conversation.** §3 says "Spawn 2-4 explorers" — you MUST make 2-4 Task tool calls. §5 says "Spawn 1-2 critics" — you MUST make those Task tool calls. Single-agent investigation misses things that parallel independent agents catch. If the Task tool is unavailable, tell the user and stop.
+
+If you find yourself writing "Explorer N findings:" without having used the Task tool, stop — you are doing the work inline. This is the single most common auto-mode failure in this skill.
 
 ### 2. Evidence Over Claims
 
@@ -158,12 +162,9 @@ Read the `SKILL-protocols.md` sibling file for the detailed protocol matching th
 1. **Role:** "You are an investigator. Your job is to gather evidence about [specific area]. Report only what you find with citations — never speculate."
 2. **Target:** The specific hypothesis, dimension, or area to investigate
 3. **Search strategy:** What files to read, what patterns to grep, what to look for
-4. **Evidence format:** Return findings as structured items:
-   - Finding title (one line)
-   - Evidence (file path:line number, or URL, or grep result — MANDATORY)
-   - Confidence: High (multiple independent pieces of evidence) / Medium (single clear evidence) / Low (inferred or absence-based)
-   - Surprise: anything that contradicted expectations (important for catching assumptions)
+4. **Evidence format:** Return findings as a structured table — not free-form prose. Each finding must be a row with columns: Finding title | Evidence (file:line or URL) | Confidence (High/Medium/Low) | Surprise (yes/no + what). This forced format ensures programmatic validation by the parent agent.
 5. **Disconfirmation mandate:** "Actively look for evidence AGAINST the hypothesis, not just evidence for it. Report disconfirming evidence with the same rigor."
+6. **Escalation:** "It is always OK to stop and say 'this is too complex for my assigned scope.' Bad work with fabricated evidence is worse than partial work with honest gaps. Report what you found and what you could not determine. You will not be penalized for incomplete coverage — you will be penalized for fabricated evidence."
 
 For technology evaluation: one explorer uses `WebSearch` and `WebFetch` for external research (official docs, benchmarks, comparisons). The prompt must specify: "Use official documentation and primary sources. Avoid forum posts and blog articles unless no better source exists."
 
@@ -173,11 +174,17 @@ For technology evaluation: one explorer uses `WebSearch` and `WebFetch` for exte
 
 ### 3b. Collect explorer results
 
+**Handoff accounting (before processing).** Enumerate each explorer's output before analyzing content: Explorer 1: N findings, M with citations, confidence distribution (H/M/L). Explorer 2: ... If any explorer returned 0 findings, investigate whether the explorer ran correctly before proceeding.
+
 Read each explorer's output. For each finding:
 
 - Verify the citation format (must have file:line or URL)
 - Note which explorer produced it
 - Flag any finding with no evidence citation — these are candidates for removal
+
+**Post-spawn validation.** For each explorer output, check: (1) findings use the required structured table format, (2) at least 1 citation per finding (citation floor), (3) output addresses the assigned hypothesis/dimension, not a different one. If any explorer fails 2+ of these checks, re-spawn it once with a more specific prompt. Maximum 1 re-spawn per explorer.
+
+**Convergence detection.** After collecting, check whether all explorers returned suspiciously similar top findings — each explorer's top findings overlap significantly with the others, with no unique perspectives. This suggests explorers searched the same obvious areas rather than their assigned targets. If detected, re-spawn the weakest explorer with a narrower scope. Maximum 1 convergence re-spawn.
 
 ---
 
@@ -233,7 +240,7 @@ For each finding, ask: **"What does this mean for AIC beyond the obvious first-o
 
 **You MUST make a Task tool call here.** Do NOT critique your own synthesis — that defeats the purpose of adversarial review. Spawn a `generalPurpose` subagent with `fast` model. The critic's prompt must include:
 
-1. **Role:** "You are an independent critic. You have NO prior context about this investigation. Your only job is to find flaws, challenge assumptions, and propose alternatives. You are not helpful — you are adversarial."
+1. **Role:** "You are an independent critic. You have NO prior context about this investigation. Your only job is to find flaws, challenge assumptions, and propose alternatives. You are not helpful — you are adversarial. The investigators may have been shallow or optimistic. Verify independently — read the actual code/files, do not accept their claims at face value."
 2. **Input:** The original question + the draft synthesis (from §4c) + the evidence citations
 3. **NOT included:** The hypotheses, the investigation plan, or the explorer prompts. The critic must not be anchored by the investigation's framing.
 4. **Tasks:**

@@ -3,6 +3,9 @@
 
 import { describe, it, expect, beforeAll, afterEach } from "vitest";
 import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import type { RepoMapSupplier } from "@jatbas/aic-core/core/interfaces/repo-map-supplier.interface.js";
+import type { RepoMap } from "@jatbas/aic-core/core/types/repo-map.js";
 import { EDITOR_ID, TRIGGER_SOURCE } from "@jatbas/aic-core/core/types/enums.js";
 import type { TaskClass } from "@jatbas/aic-core/core/types/enums.js";
 import type { RulePackProvider } from "@jatbas/aic-core/core/interfaces/rule-pack-provider.interface.js";
@@ -52,7 +55,7 @@ function createRulePackProvider(): RulePackProvider {
 
 let lastScope: ProjectScope | undefined;
 
-function createRunner(): CompilationRunner {
+function createRunner(repoMapOverride?: RepoMapSupplier): CompilationRunner {
   const clock = new SystemClock();
   const db = openDatabase(":memory:", clock);
   lastScope = createProjectScope(projectRoot, new NodePathAdapter(), db, clock);
@@ -74,10 +77,9 @@ function createRunner(): CompilationRunner {
     heuristicConfig,
     guardAllowPatterns,
   );
-  const repoMapSupplier = new FileSystemRepoMapSupplier(
-    new FastGlobAdapter(),
-    new IgnoreAdapter(),
-  );
+  const repoMapSupplier =
+    repoMapOverride ??
+    new FileSystemRepoMapSupplier(new FastGlobAdapter(), new IgnoreAdapter());
   return new CompilationRunner(
     { ...deps, repoMapSupplier },
     scope.clock,
@@ -89,6 +91,23 @@ function createRunner(): CompilationRunner {
     scope.idGenerator,
     null,
   );
+}
+
+// Caches the first getRepoMap result so subsequent calls return the same
+// object — prevents cache-key drift from concurrent filesystem changes
+function createStableRepoMapSupplier(): RepoMapSupplier {
+  let cached: RepoMap | null = null;
+  return {
+    async getRepoMap(root: AbsolutePath): Promise<RepoMap> {
+      if (cached !== null) return cached;
+      const real = new FileSystemRepoMapSupplier(
+        new FastGlobAdapter(),
+        new IgnoreAdapter(),
+      );
+      cached = await real.getRepoMap(root);
+      return cached;
+    },
+  };
 }
 
 let providers: Awaited<ReturnType<typeof initLanguageProviders>>;
@@ -129,7 +148,8 @@ describe("real project integration", () => {
   }, 30_000);
 
   it("real_project_second_run_cache_hit", async () => {
-    const runner = createRunner();
+    const stable = createStableRepoMapSupplier();
+    const runner = createRunner(stable);
     await runner.run(request);
     const second = await runner.run(request);
     expect(second.meta.cacheHit).toBe(true);

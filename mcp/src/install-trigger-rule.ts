@@ -189,6 +189,7 @@ Use these rules for all four AIC prompt commands. Present data like a polished d
 - Pattern: \`*.test.ts\`
 - Bug fixes must include a regression test
 - No \`any\` in tests
+- **Smoke tests:** When editing \`integrations/**\`, \`mcp/scripts/bundle-*\`, or \`mcp/package.json\` \`files\` field, verify \`integrations/__tests__/pack-install-smoke.test.cjs\` still passes and update its assertions if you changed the published artifact layout, install behavior, or uninstall behavior. Run: \`node integrations/__tests__/pack-install-smoke.test.cjs\`.
 
 ## Cross-Editor Sync
 

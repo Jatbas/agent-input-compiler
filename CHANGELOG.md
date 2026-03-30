@@ -7,6 +7,27 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-03-31
+
+### Added
+
+- Standalone bundled uninstall script for global teardown (`--global` removes user-level integration artifacts and `~/.aic/`)
+- SECURITY.md and CODEOWNERS for vulnerability reporting and default code ownership
+
+### Changed
+
+- Public documentation audit and corrected install URLs for the GitHub-hosted repository
+- Dependency updates including MCP SDK and diff; Dependabot configuration for the monorepo
+- Contributor agent skills: auto-mode resilience, PR review skill, planner and executor guardrails; expanded pack-install smoke tests across integration layers
+
+### Fixed
+
+- Claude Code stop hook invokes ESLint and TypeScript through execFileSync instead of a shell
+
+### Security
+
+- Upgrade Minimatch to remediate ReDoS advisories in transitive dependencies
+
 ## [0.10.2] - 2026-03-30
 
 ### Fixed

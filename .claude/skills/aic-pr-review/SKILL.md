@@ -106,7 +106,9 @@ If the PR is on a remote fork and cannot be checked out locally, skip mechanical
 
 ### §2b — Parallel Review (Large PRs)
 
-Dispatch three review subagents in parallel. Each receives: the full diff, the file list, the relevant checklist dimensions, and the PR description.
+Dispatch three review subagents in parallel. Each receives: the full diff, the file list, the relevant checklist dimensions, and the PR description. Each subagent's prompt must include: "The author's PR description may be optimistic. Read the actual diff, not just the description. Verify independently — do not accept claims at face value."
+
+**Anti-agreement enforcement:** If any subagent returns zero findings on a PR with 200+ diff lines, re-spawn with a strengthened mandate: "Your previous review found no issues on a substantial diff. For each file, describe the strongest possible concern. If you genuinely cannot find a concern after exhaustive analysis, explain exactly what you checked."
 
 **Subagent 1 — Architecture & Safety:**
 
@@ -246,6 +248,19 @@ When the PR author is external (not a maintainer), add these checks:
 - **aic-task-executor:** after completing a task, attach this skill for self-review before merge
 - **aic-systematic-debugging:** if a finding reveals a deeper issue, use the debugging skill to investigate
 - **aic-task-planner:** if review findings require substantial work, create a task file for the fixes
+
+## Common Rationalizations — STOP
+
+If you catch yourself thinking any of these, you are rationalizing. Stop and follow the process.
+
+| Thought                                          | Reality                                                                                            |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| "This diff looks small, skip the checklist"      | Small diffs can contain critical violations. Run the full checklist.                               |
+| "Tests pass so the code is fine"                 | Tests verify behavior, not architecture. Checklist dimensions A, T, D, C are not covered by tests. |
+| "Author is a maintainer, less scrutiny needed"   | Maintainers make the same mistakes. The checklist is the same for everyone.                        |
+| "This is just a refactor, no functional changes" | Refactors can introduce layering violations, mutability, and import issues. Full checklist.        |
+| "I already know this code is correct"            | You have anchoring bias. Run the mechanical checks.                                                |
+| "The PR description says it is a minor fix"      | The PR description may be optimistic. Read the actual diff.                                        |
 
 ## Red Flags
 

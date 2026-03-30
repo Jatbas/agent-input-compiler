@@ -816,6 +816,8 @@ When the general-purpose recipe is applied to a task that creates or modifies `.
 
 6. **Claude vs Cursor symmetry:** Most hook behavior must be mirrored in both editors. Before scoping a CJS task to one editor only, verify the other editor does not need the same change. If it does, the task must cover both. If the behavior genuinely differs by design (e.g., path conventions), Architecture Notes must document why.
 
+7. **Pack-install smoke test impact:** Read `integrations/__tests__/pack-install-smoke.test.cjs`. If the task changes any of: hook manifests, shared utilities, bundle scripts, package `files` field, install script behavior, or uninstall script behavior — the smoke test assertions must be updated. Add a verification step to the task file: "Run `node integrations/__tests__/pack-install-smoke.test.cjs` and verify all checks pass."
+
 **Template section applicability for CJS integration tasks:**
 
 - **Interface / Signature:** Replace with **Module Exports** — list every `module.exports` assignment with the function signatures (name, parameters with types/shapes, return value). For behavioral fixes, use the **Behavior Change** section from the fix/patch recipe instead.

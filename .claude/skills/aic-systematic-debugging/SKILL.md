@@ -22,6 +22,8 @@ Find root causes before attempting fixes. Random fixes waste time, mask underlyi
 NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
 ```
 
+**Violating the letter of this law is violating the spirit.** Reframing, reinterpreting, or finding loopholes is not cleverness — it is the exact failure mode this skill exists to prevent.
+
 If you have not completed Phase 1, you cannot propose fixes. No exceptions.
 
 ## When to Use
@@ -88,6 +90,13 @@ When the error is deep in a call stack:
 - What called this function with the bad value?
 - Keep tracing backward until you find the source
 - Fix at the source, not at the symptom
+
+**Phase 1 checkpoint gate.** Before proceeding to Phase 2, answer these two questions:
+
+1. **What is the root cause?** (one sentence — not symptoms, not guesses)
+2. **What is your evidence?** (file:line or command output — not "I think" or "probably")
+
+If you cannot answer both with concrete evidence, return to Phase 1. Proceeding without answers to both is skipping the investigation.
 
 ### Phase 2: Pattern Analysis
 

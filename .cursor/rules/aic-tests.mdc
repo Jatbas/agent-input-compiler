@@ -1,6 +1,6 @@
 ---
 description: Testing rules — co-location, naming, isolated units, golden snapshots, typed mocks
-globs: "**/*.test.ts, **/__tests__/**/*.ts"
+globs: "**/*.test.ts, **/*.test.cjs, **/__tests__/**"
 alwaysApply: false
 ---
 
@@ -98,3 +98,25 @@ Bug fixes **must** include a regression test:
 - Private methods (test through public interface)
 - Third-party library behaviour (trust their tests)
 - Implementation details (test outcomes, not internal state)
+
+## Integration / Smoke Tests (CJS)
+
+CJS integration tests live in `integrations/__tests__/` and `integrations/*/__tests__/`. They run with plain `node` (no test runner) and use `assert`-style checks.
+
+The **pack-install smoke test** (`integrations/__tests__/pack-install-smoke.test.cjs`) is the artifact verification gate. It packs the repo, installs the tarballs into a clean temp directory, and validates:
+
+- All bundled files appear in the installed package (top-level `.cjs` scripts, subdirectories, hook manifests, shared utilities)
+- Every positive entry in `mcp/package.json` `files` field resolves in the installed package
+- No test artifacts (`__tests__`, `fixtures`, `*.test.*`) leak into the package
+- Cursor and Claude install/uninstall flows work end-to-end from the installed package
+
+**When to update this test:**
+
+- Adding/removing hooks in a manifest (`aic-hook-scripts.json`)
+- Adding/removing shared utilities in `integrations/shared/`
+- Changing the bundle scripts (`mcp/scripts/bundle-*.cjs`)
+- Changing `mcp/package.json` `files` field
+- Changing install or uninstall script behavior
+- Adding a new top-level integration script (e.g. a new `integrations/*.cjs`)
+
+**How to run:** `node integrations/__tests__/pack-install-smoke.test.cjs`

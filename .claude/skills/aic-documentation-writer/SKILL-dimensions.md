@@ -38,6 +38,10 @@ Reference file for the documentation-writer skill. Read this before spawning exp
 If INACCURATE, also state: `Document says: [X]. Code says: [Y].`
 If UNCERTAIN, also state: `Ambiguity: [what makes this unclear].`
 
+**Escalation.** It is always OK to stop and report incomplete findings. Bad work with fabricated evidence is worse than partial work with honest gaps. If you cannot complete your investigation, report what you found, what you could not determine, and why.
+
+**Self-review before returning.** Verify: (1) every finding has a file:line or URL citation, (2) you investigated only your assigned dimension, (3) nothing is inferred without evidence, (4) your output uses the required format above.
+
 **Output:** Return ALL findings in the structured format above. Group by document section. End with a summary: 'N claims checked: X accurate, Y inaccurate, Z not found, W uncertain.'"
 
 ---
@@ -92,6 +96,10 @@ For every table in the document, read the 1-3 paragraphs or bullet lists immedia
 For every cross-reference in the document that points to a sibling document in `documentation/` as the source of truth for a topic, verify the sibling document actually covers the topic. Grep the sibling document for the key terms of the referenced topic; read the relevant section to confirm it addresses the topic at sufficient depth. Classify each cross-reference: CONFIRMED (sibling covers the topic as claimed), PARTIAL (sibling covers some but not all aspects — gap remains), MISSING (sibling does not cover the topic — the cross-reference is misleading). Report: `[cross-reference in target doc] — [sibling file] — CONFIRMED / PARTIAL / MISSING — [evidence]`.
 
 **Evidence format:** For each finding, cite the exact heading, line content, or grep result.
+
+**Escalation.** It is always OK to stop and report incomplete findings. Bad work with fabricated evidence is worse than partial work with honest gaps. If you cannot complete your investigation, report what you found, what you could not determine, and why.
+
+**Self-review before returning.** Verify: (1) every finding has a file:line or URL citation, (2) you investigated only your assigned dimension, (3) nothing is inferred without evidence, (4) your output uses the required format above.
 
 **Output:** Return structured findings grouped by check (A through I). End with: 'Structural issues: N. Consistency issues: M. Stale markers: K. Sibling coverage: A confirmed, B partial, C missing.'"
 
@@ -151,6 +159,10 @@ Build a tone profile the writing agent can follow:
 
 Cite 3 representative sentences that exemplify the document's voice.
 
+**Escalation.** It is always OK to stop and report incomplete findings. Bad work with fabricated evidence is worse than partial work with honest gaps. If you cannot complete your investigation, report what you found, what you could not determine, and why.
+
+**Self-review before returning.** Verify: (1) every finding has a file:line or URL citation, (2) you investigated only your assigned dimension, (3) nothing is inferred without evidence, (4) your output uses the required format above.
+
 **Output:** Return the full profile in structured format. The writing agent will use this to match the document's voice exactly."
 
 ---
@@ -207,6 +219,10 @@ For every gap identified in checks A and C (UNDOCUMENTED items and UNANSWERED qu
    - NOT COVERED: no sibling document covers this topic. The writing agent may write the full section.
      Return: `[gap topic] — COVERED BY SIBLING (path) / PARTIALLY COVERED BY SIBLING (path, missing: [aspects]) / NOT COVERED — [importance]`
 
+**Escalation.** It is always OK to stop and report incomplete findings. Bad work with fabricated evidence is worse than partial work with honest gaps. If you cannot complete your investigation, report what you found, what you could not determine, and why.
+
+**Self-review before returning.** Verify: (1) every finding has a file:line or URL citation, (2) you investigated only your assigned dimension, (3) nothing is inferred without evidence, (4) your output uses the required format above.
+
 **Output:** Return findings grouped by check (A, B, C, D). End with: 'Coverage: X documented, Y undocumented (Z critical). Cross-references: N valid, M invalid. Gaps: K total (J critical). Sibling coverage: A fully covered, B partially covered, C not covered.'"
 
 ---
@@ -219,7 +235,7 @@ For every gap identified in checks A and C (UNDOCUMENTED items and UNANSWERED qu
 
 **Prompt template:**
 
-"You are an independent editorial reviewer. You have NO prior context about the analysis that produced this text. Your only job is to find writing quality issues. You are not helpful — you are critical.
+"You are an independent editorial reviewer. You have NO prior context about the analysis that produced this text. Your only job is to find writing quality issues. You are not helpful — you are critical. The producer may have been shallow or optimistic. Verify independently — read the actual files, do not accept claims at face value.
 
 **Document:** [path]
 **Edited sections:** [list of sections that were changed, with Change Specification for reference]
@@ -258,7 +274,7 @@ For every gap identified in checks A and C (UNDOCUMENTED items and UNANSWERED qu
 
 **Prompt template:**
 
-"You are an independent fact-checker. You have NO prior context about how this document was analyzed or written. Your only job is to verify every technical claim in the edited sections against the actual codebase.
+"You are an independent fact-checker. You have NO prior context about how this document was analyzed or written. Your only job is to verify every technical claim in the edited sections against the actual codebase. The producer may have been shallow or optimistic. Verify independently — read the actual code, do not accept claims at face value.
 
 **Document:** [path]
 **Edited sections:** [list of sections that were changed]
@@ -295,7 +311,7 @@ If UNCERTAIN: `Ambiguity: [what makes this unclear — multiple candidates, uncl
 
 **Prompt template:**
 
-"You are an independent consistency checker. You have NO prior context about how this document was analyzed. Your only job is to verify that terms and concepts in the edited sections are used consistently across all documentation.
+"You are an independent consistency checker. You have NO prior context about how this document was analyzed. Your only job is to verify that terms and concepts in the edited sections are used consistently across all documentation. The producer may have been shallow or optimistic. Verify independently — read the actual files, do not accept claims at face value.
 
 **Document:** [path]
 **Sibling documents:** [list of all .md files in documentation/]
@@ -333,7 +349,7 @@ For mirror document: `[section] — TARGET has [X] / MIRROR has [Y] — ALIGNED 
 
 **Prompt template:**
 
-"You are a first-time reader of this document. You have NEVER seen this project before. You know nothing about its architecture, terminology, or conventions. Read the document from top to bottom, mentally following every instruction as if you were actually performing the steps.
+"You are a first-time reader of this document. You have NEVER seen this project before. You know nothing about its architecture, terminology, or conventions. The producer may have been shallow or optimistic — do not assume the text is correct or clear just because it exists. Read the document from top to bottom, mentally following every instruction as if you were actually performing the steps.
 
 **Document:** [path]
 **Edited sections:** [list of sections that were changed — focus on these but note issues in surrounding context]
@@ -363,7 +379,7 @@ Use these templates instead of the standard critic templates when mode = Audit. 
 
 **Prompt template:**
 
-"You are an independent editorial reviewer auditing an entire document. You have NO prior context about any analysis performed on this document. Your job is to find writing quality issues across EVERY section. You are not helpful — you are critical.
+"You are an independent editorial reviewer auditing an entire document. You have NO prior context about any analysis performed on this document. Your job is to find writing quality issues across EVERY section. You are not helpful — you are critical. The producer may have been shallow or optimistic. Verify independently — read the actual files, do not accept claims at face value.
 
 **Document:** [path]
 
@@ -402,7 +418,7 @@ Use these templates instead of the standard critic templates when mode = Audit. 
 
 **Prompt template:**
 
-"You are an independent fact-checker auditing an entire document. You have NO prior context about how this document was analyzed. Your only job is to verify every technical claim in the ENTIRE document against the actual codebase.
+"You are an independent fact-checker auditing an entire document. You have NO prior context about how this document was analyzed. Your only job is to verify every technical claim in the ENTIRE document against the actual codebase. The producer may have been shallow or optimistic. Verify independently — read the actual code, do not accept claims at face value.
 
 **Document:** [path]
 
@@ -439,7 +455,7 @@ If UNCERTAIN: `Ambiguity: [what makes this unclear — multiple candidates, uncl
 
 **Prompt template:**
 
-"You are an independent consistency checker auditing an entire document. You have NO prior context about how this document was analyzed. Your only job is to verify that terms and concepts across the ENTIRE document are used consistently with all sibling documentation.
+"You are an independent consistency checker auditing an entire document. You have NO prior context about how this document was analyzed. Your only job is to verify that terms and concepts across the ENTIRE document are used consistently with all sibling documentation. The producer may have been shallow or optimistic. Verify independently — read the actual files, do not accept claims at face value.
 
 **Document:** [path]
 **Sibling documents:** [list of all .md files in documentation/]
@@ -476,7 +492,7 @@ For mirror document: `[section] — TARGET has [X] / MIRROR has [Y] — ALIGNED 
 
 **Prompt template:**
 
-"You are a first-time reader of this ENTIRE document. You have NEVER seen this project before. You know nothing about its architecture, terminology, or conventions. Read the document from top to bottom, mentally following every instruction as if you were actually performing the steps for the first time.
+"You are a first-time reader of this ENTIRE document. You have NEVER seen this project before. You know nothing about its architecture, terminology, or conventions. The producer may have been shallow or optimistic — do not assume the text is correct or clear just because it exists. Read the document from top to bottom, mentally following every instruction as if you were actually performing the steps for the first time.
 
 **Document:** [path]
 
@@ -504,7 +520,7 @@ For mirror document: `[section] — TARGET has [X] / MIRROR has [Y] — ALIGNED 
 
 **Prompt template:**
 
-"You are an audit quality reviewer. You have received an Audit Report produced by a documentation analysis pipeline. Your job is to find gaps in the audit — sections the auditors missed, claims they marked ACCURATE that may be wrong, or issues they overlooked. You have no loyalty to the audit report — challenge every conclusion.
+"You are an audit quality reviewer. You have received an Audit Report produced by a documentation analysis pipeline. Your job is to find gaps in the audit — sections the auditors missed, claims they marked ACCURATE that may be wrong, or issues they overlooked. You have no loyalty to the audit report — challenge every conclusion. The auditors may have been shallow or optimistic. Verify independently — read the actual code and files, do not accept the report's claims at face value.
 
 **Document:** [path]
 **Audit Report:** [the full Structured Audit Report from Phase 2, including all corrections and findings]
