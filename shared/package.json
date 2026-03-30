@@ -24,7 +24,7 @@
   "dependencies": {
     "better-sqlite3": "12.6.2",
     "commander": "13.1.0",
-    "diff": "7.0.0",
+    "diff": "8.0.3",
     "fast-glob": "3.3.3",
     "ignore": "7.0.4",
     "tiktoken": "1.0.21",
