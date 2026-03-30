@@ -77,7 +77,7 @@ Use this page to pick an editor, then read shared server behavior under [AIC Ser
 
 The primary installation method for Cursor users. A deeplink URL registers AIC in the global MCP config:
 
-[Install MCP Server](https://jatbas.github.io/agent-input-compiler/install/cursor-install.html)
+[Install AIC MCP Server](https://jatbas.github.io/agent-input-compiler/install/cursor-install.html)
 
 Or copy this URL into your browser:
 
@@ -518,10 +518,10 @@ node /path/to/node_modules/@jatbas/aic/integrations/cursor/uninstall.cjs --proje
 The repository commits `integrations/aic-uninstall-standalone.cjs`, a single CommonJS bundle produced by the build (`node mcp/scripts/bundle-standalone-uninstall.cjs`). After `pnpm --filter @jatbas/aic build`, a copy also lands at `mcp/integrations/aic-uninstall-standalone.cjs` for the published package tree.
 
 1. Use Node.js 20 or newer.
-2. Download the file for the release you want. Replace `0.10.2` with the `@jatbas/aic` version you target:
+2. Download the file:
 
    ```bash
-   curl -fsSL -o aic-uninstall-standalone.cjs https://raw.githubusercontent.com/Jatbas/agent-input-compiler/v0.10.2/integrations/aic-uninstall-standalone.cjs
+   curl -fsSL -o aic-uninstall-standalone.cjs https://raw.githubusercontent.com/Jatbas/agent-input-compiler/main/integrations/aic-uninstall-standalone.cjs
    ```
 
 3. Run it with `node`. Default behavior matches the Cursor uninstall script (`integrations/cursor/uninstall.cjs`). Pass **`--claude`** before other flags to run the Claude uninstall script instead (`integrations/claude/uninstall.cjs`).
