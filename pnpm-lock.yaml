@@ -98,17 +98,17 @@ importers:
         specifier: 14.0.3
         version: 14.0.3
       diff:
-        specifier: 8.0.3
-        version: 8.0.3
+        specifier: 8.0.4
+        version: 8.0.4
       fast-glob:
         specifier: 3.3.3
         version: 3.3.3
       ignore:
-        specifier: 7.0.4
-        version: 7.0.4
+        specifier: 7.0.5
+        version: 7.0.5
       tiktoken:
-        specifier: 1.0.21
-        version: 1.0.21
+        specifier: 1.0.22
+        version: 1.0.22
       tree-sitter-go:
         specifier: 0.25.0
         version: 0.25.0
@@ -125,8 +125,8 @@ importers:
         specifier: 6.0.2
         version: 6.0.2
       web-tree-sitter:
-        specifier: 0.26.6
-        version: 0.26.6
+        specifier: 0.26.7
+        version: 0.26.7
       zod:
         specifier: 4.3.6
         version: 4.3.6
@@ -1273,8 +1273,8 @@ packages:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
 
-  diff@8.0.3:
-    resolution: {integrity: sha512-qejHi7bcSD4hQAZE0tNAawRK1ZtafHDmMTMkrrIGgSLl7hTnQHmKCeB45xAcbfTqK2zowkM3j3bHt/4b/ARbYQ==}
+  diff@8.0.4:
+    resolution: {integrity: sha512-DPi0FmjiSU5EvQV0++GFDOJ9ASQUVFh5kD+OzOnYdi7n3Wpm9hWWGfB/O2blfHcMVTL5WkQXSnRiK9makhrcnw==}
     engines: {node: '>=0.3.1'}
 
   doctypes@1.1.0:
@@ -1645,10 +1645,6 @@ packages:
 
   ignore@5.3.2:
     resolution: {integrity: sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==}
-    engines: {node: '>= 4'}
-
-  ignore@7.0.4:
-    resolution: {integrity: sha512-gJzzk+PQNznz8ysRrC0aOkBNVRBDtE1n53IqyqEf3PXrYwomFs5q4pGMizBMJF+ykh03insJ27hB8gSrD2Hn8A==}
     engines: {node: '>= 4'}
 
   ignore@7.0.5:
@@ -2363,8 +2359,8 @@ packages:
     resolution: {integrity: sha512-ujeqbceABgwMZxEJnk2HDY2DlnUZ+9oEcb1KzTVfYHio0UE6dG71n60d8D2I4qNvleWrrXpmjpt7vZeF1LnMZQ==}
     engines: {node: '>=6'}
 
-  tiktoken@1.0.21:
-    resolution: {integrity: sha512-/kqtlepLMptX0OgbYD9aMYbM7EFrMZCL7EoHM8Psmg2FuhXoo/bH64KqOiZGGwa6oS9TPdSEDKBnV2LuB8+5vQ==}
+  tiktoken@1.0.22:
+    resolution: {integrity: sha512-PKvy1rVF1RibfF3JlXBSP0Jrcw2uq3yXdgcEXtKTYn3QJ/cBRBHDnrJ5jHky+MENZ6DIPwNUGWpkVx+7joCpNA==}
 
   tinybench@2.9.0:
     resolution: {integrity: sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg==}
@@ -2575,8 +2571,8 @@ packages:
     resolution: {integrity: sha512-3hu+tD8YzSLGuFYtPRb48vdhKMi0KQV5sn+uWr8+7dMEq/2G/dtLrdDinkLjqq5TIbIBjYJ4Ax/n3YiaW7QM8A==}
     engines: {node: 20 || >=22}
 
-  web-tree-sitter@0.26.6:
-    resolution: {integrity: sha512-fSPR7VBW/fZQdUSp/bXTDLT+i/9dwtbnqgEBMzowrM4U3DzeCwDbY3MKo0584uQxID4m/1xpLflrlT/rLIRPew==}
+  web-tree-sitter@0.26.7:
+    resolution: {integrity: sha512-KiZhelTvBA/ziUHEO7Emb75cGVAq8iGZNabYaZm53Zpy50NsXyOW+xSHlwHt5CVg/TRPZBfeVLTTobF0LjFJ1w==}
 
   which@2.0.2:
     resolution: {integrity: sha512-BLI3Tl1TW3Pvl70l3yq3Y64i+awpwXqsGBYWkkqMtnbXgrMD+yj7rhW0kuEDxzJaYXGjEW5ogapKNMEKNMjibA==}
@@ -3650,7 +3646,7 @@ snapshots:
 
   detect-libc@2.1.2: {}
 
-  diff@8.0.3: {}
+  diff@8.0.4: {}
 
   doctypes@1.1.0: {}
 
@@ -4074,8 +4070,6 @@ snapshots:
   ieee754@1.2.1: {}
 
   ignore@5.3.2: {}
-
-  ignore@7.0.4: {}
 
   ignore@7.0.5: {}
 
@@ -4885,7 +4879,7 @@ snapshots:
       inherits: 2.0.4
       readable-stream: 3.6.2
 
-  tiktoken@1.0.21: {}
+  tiktoken@1.0.22: {}
 
   tinybench@2.9.0: {}
 
@@ -5033,7 +5027,7 @@ snapshots:
 
   walk-up-path@4.0.0: {}
 
-  web-tree-sitter@0.26.6: {}
+  web-tree-sitter@0.26.7: {}
 
   which@2.0.2:
     dependencies:
