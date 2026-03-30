@@ -17,7 +17,7 @@ Procedures for repository development live under `.claude/skills/` as Agent Skil
 
 Use each skill for its intended role (see the table below) to get the best output.
 
-Some skills add files beside `SKILL.md`: the task planner includes `SKILL-recipes.md` and `SKILL-guardrails.md`; the `aic-documentation-writer` skill includes `SKILL-dimensions.md`, `SKILL-standards.md`, and `SKILL-policies.md`; the researcher includes `SKILL-protocols.md`.
+Some skills add files beside `SKILL.md`: the task planner includes `SKILL-recipes.md` and `SKILL-guardrails.md`; the `aic-documentation-writer` skill includes `SKILL-dimensions.md`, `SKILL-standards.md`, and `SKILL-policies.md`; the researcher includes `SKILL-protocols.md`; the PR reviewer includes `SKILL-checklist.md`.
 
 | Skill folder               | Type        | Role                                                                                                                                                                                                     |
 | -------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -31,6 +31,7 @@ Some skills add files beside `SKILL.md`: the task planner includes `SKILL-recipe
 | `aic-update-changelog`     | Internal    | Updates root `CHANGELOG.md` for user-facing releases and milestones.                                                                                                                                     |
 | `aic-git-history-clean`    | Internal    | Squashes noisy or throwaway commits while preserving author dates; defaults to history that is not yet shared upstream, with explicit workflows when branches are already public.                        |
 | `aic-release`              | Internal    | Full release orchestration: codebase validation, documentation audit, history check, roadmap update, changelog, and publish.                                                                             |
+| `aic-pr-review`            | Delegatable | Systematic PR review against AIC architectural invariants, type safety, security, and contribution rules; structured report with severity-classified findings.                                           |
 
 Skills marked **Internal** are developer workflow tools — they require your judgment and must not be invoked autonomously by an agent. Skills marked **Delegatable** are safe to assign to agents as part of a planned task.
 
@@ -65,6 +66,10 @@ For documentation-heavy tasks, the task planner documentation recipe delegates t
 ### Clean git history (optional)
 
 Use before a release or a first public push when recent commits are noisy (for example `wip`, `fixup!`, or short throwaway subjects). Prefer unpushed-only cleanup unless you are intentionally rewriting published history. Full steps and safety gates are in `.claude/skills/aic-git-history-clean/SKILL.md`.
+
+### Review a pull request
+
+Run the PR reviewer on a GitHub PR number or URL, or on the current branch diff against `main`. The skill checks process gates from `CONTRIBUTING.md` first (branch naming, RFC presence, scope), then walks through the full architectural checklist in `.claude/skills/aic-pr-review/SKILL-checklist.md`. For large PRs it dispatches parallel review subagents. The output is a structured report with severity-classified findings; for GitHub PRs it can post the review and inline comments after confirmation.
 
 ### Publish a release
 

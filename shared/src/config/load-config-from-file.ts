@@ -82,7 +82,7 @@ function parseAndValidate(content: string): AicConfigParsed {
   const data = parseJson(content);
   const parsed = AicConfigSchema.safeParse(data);
   if (!parsed.success) {
-    const msg = parsed.error.errors.map((e) => e.message).join("; ");
+    const msg = parsed.error.issues.map((e) => e.message).join("; ");
     throw new ConfigError(`Invalid aic.config.json: ${msg}`);
   }
   return parsed.data;

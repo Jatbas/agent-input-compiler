@@ -431,7 +431,7 @@ Architecture claims (layer boundaries, dependency directions, module structure) 
 
 When a package name, file path, or command appears in documentation, it must match the actual codebase. Grep-verify every path and package name. Common drift points:
 
-- Package scope changes (`@aic/mcp` vs `@jatbas/aic`)
+- Package scope changes (verify `@jatbas/aic` and `@jatbas/aic-core` are used consistently)
 - File renames or moves
 - Command name changes in `package.json` scripts
 - Config file path changes

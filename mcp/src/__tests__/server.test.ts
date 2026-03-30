@@ -646,9 +646,8 @@ describe("MCP server", () => {
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
     await client.connect(transportClient);
-    await expect(
-      client.callTool({ name: "aic_compile", arguments: {} }),
-    ).rejects.toThrow();
+    const result = await client.callTool({ name: "aic_compile", arguments: {} });
+    expect(result.isError).toBe(true);
   });
 
   it("aic_inspect_invalid_params", async () => {
@@ -660,9 +659,8 @@ describe("MCP server", () => {
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
     await client.connect(transportClient);
-    await expect(
-      client.callTool({ name: "aic_inspect", arguments: {} }),
-    ).rejects.toThrow();
+    const result = await client.callTool({ name: "aic_inspect", arguments: {} });
+    expect(result.isError).toBe(true);
   });
 
   it("aic_chat_summary_catch_returns_internal_error", async () => {
@@ -674,13 +672,11 @@ describe("MCP server", () => {
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
     await client.connect(transportClient);
-    // Invalid type triggers parse error, handler catch returns McpError InternalError
-    await expect(
-      client.callTool({
-        name: "aic_chat_summary",
-        arguments: { conversationId: 123 },
-      }),
-    ).rejects.toThrow();
+    const result = await client.callTool({
+      name: "aic_chat_summary",
+      arguments: { conversationId: 123 },
+    });
+    expect(result.isError).toBe(true);
   });
 
   it("aic_inspect_returns_trace", async () => {

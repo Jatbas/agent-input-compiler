@@ -174,6 +174,12 @@ The RFC should explain:
 - Include tests for behavior changes.
 - Update documentation when changing commands, config, workflow, or other user-visible behavior.
 
+## Issues and pull requests
+
+Use the [bug report](https://github.com/Jatbas/agent-input-compiler/issues/new?template=bug_report.yml) or [feature request](https://github.com/Jatbas/agent-input-compiler/issues/new?template=feature_request.yml) templates when opening an issue. Security vulnerabilities go through [GitHub Security Advisories](https://github.com/Jatbas/agent-input-compiler/security/advisories/new) — do not open a public issue.
+
+Pull requests use a [template](.github/PULL_REQUEST_TEMPLATE.md) that mirrors the checklist below.
+
 ## Pull request checklist
 
 Before opening a PR, ensure:

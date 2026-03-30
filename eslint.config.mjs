@@ -238,6 +238,7 @@ export default tseslint.config(
       "node_modules/",
       "dist/",
       "**/dist/**",
+      "mcp/integrations/",
       ".cursor/",
       ".claude/",
       ".git-worktrees/",

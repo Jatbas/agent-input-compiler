@@ -53,11 +53,11 @@ export function readPackageVersion(): {
     const pkgPath = path.join(dir, "..", "package.json");
     const raw = fs.readFileSync(pkgPath, "utf8");
     const pkg = JSON.parse(raw) as { name?: string; version?: string };
-    const packageName = typeof pkg.name === "string" ? pkg.name : "@aic/mcp";
+    const packageName = typeof pkg.name === "string" ? pkg.name : "@jatbas/aic";
     const packageVersion = typeof pkg.version === "string" ? pkg.version : "0.0.0";
     return { packageName, packageVersion };
   } catch {
-    return { packageName: "@aic/mcp", packageVersion: "0.0.0" };
+    return { packageName: "@jatbas/aic", packageVersion: "0.0.0" };
   }
 }
 

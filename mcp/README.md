@@ -8,7 +8,7 @@ AIC sits between your editor and the AI model. On every message, it scans your c
 
 ### Cursor (one click)
 
-[![Install in Cursor](https://img.shields.io/badge/Install_in-Cursor-blue?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZD0iTTEyIDJMMiAxMmwxMCAxMCAxMC0xMEwxMiAyeiIgZmlsbD0id2hpdGUiLz48L3N2Zz4=)](https://jatbas.github.io/agent-input-compiler/install/cursor-install.html)
+[![Install in Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://jatbas.github.io/agent-input-compiler/install/cursor-install.html)
 
 Or add manually to your global MCP config (`~/.cursor/mcp.json`):
 
@@ -17,30 +17,36 @@ Or add manually to your global MCP config (`~/.cursor/mcp.json`):
   "mcpServers": {
     "aic": {
       "command": "npx",
-      "args": ["-y", "@jatbas/aic"]
+      "args": ["-y", "@jatbas/aic@latest"]
     }
   }
 }
 ```
 
-### Claude Code
+### Claude Code (plugin — recommended)
 
-```bash
-claude mcp add aic -- npx -y @jatbas/aic
 ```
+/plugin marketplace add Jatbas/agent-input-compiler
+/plugin install aic@aic-tools
+```
+
+The plugin auto-starts the MCP server and registers hooks so every project gets compiled context automatically. See [Installation — Claude Code](https://github.com/Jatbas/agent-input-compiler/blob/main/documentation/installation.md#claude-code) for prerequisites, direct installer, and troubleshooting.
 
 ## What it does
 
 - Classifies intent from the user's message
-- Discovers and scores files by relevance
-- Compresses content (strip comments, minify types, summarize)
-- Assembles a token-budgeted prompt with structural context
+- Selects and scores files by relevance
+- Blocks secrets, excluded paths, and prompt injection strings
+- Compresses content to fit a token budget
+- Returns a bounded context package the model can reason over
 - Caches results for fast recompilation
 
 ## Links
 
 - [GitHub](https://github.com/Jatbas/agent-input-compiler)
+- [Installation guide](https://github.com/Jatbas/agent-input-compiler/blob/main/documentation/installation.md)
 - [Changelog](https://github.com/Jatbas/agent-input-compiler/blob/main/CHANGELOG.md)
+- [Security](https://github.com/Jatbas/agent-input-compiler/blob/main/documentation/security.md)
 
 ## License
 

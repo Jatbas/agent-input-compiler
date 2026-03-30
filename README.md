@@ -8,13 +8,13 @@
 
 <p align="center">
   <img alt="License" src="https://img.shields.io/badge/license-Apache%202.0-blue" />
-  <img alt="Status" src="https://img.shields.io/badge/status-0.10.2-brightgreen" />
+  <a href="https://www.npmjs.com/package/@jatbas/aic"><img alt="npm version" src="https://img.shields.io/npm/v/@jatbas/aic?color=brightgreen" /></a>
   <img alt="Local-first" src="https://img.shields.io/badge/local--first-yes-brightgreen" />
   <img alt="Telemetry" src="https://img.shields.io/badge/telemetry-opt--in-lightgrey" />
   <img alt="MCP Compatible" src="https://img.shields.io/badge/MCP-compatible-purple" />
 </p>
 
-Deterministic context compiler for AI coding tools. AIC is a local-first MCP server (Model Context Protocol — see the [installation glossary](documentation/installation.md#glossary)) that selects relevant files, removes noise, and returns a smaller context package before it reaches the model.
+Deterministic context compiler for AI coding tools. AIC is a local-first MCP server that selects relevant files, removes noise, and returns a smaller context package before it reaches the model.
 
 AIC does **not** replace your editor. It runs alongside MCP-compatible editors and improves the context they send to the model.
 
@@ -106,7 +106,7 @@ Requirements: Node.js 20+
 
 1. **Install the MCP server** — use the one-click link or copy the URL into your browser:
 
-   [![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://jatbas.github.io/agent-input-compiler/install/cursor-install.html)
+   [![Install AIC MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://jatbas.github.io/agent-input-compiler/install/cursor-install.html)
 
    Or copy this URL:
 
@@ -137,10 +137,10 @@ AIC requires a dedicated integration layer to compile context automatically. Cur
 
 ## Uninstall
 
-Use Node.js 20 or newer. Download the standalone script for the release you want (replace `0.10.2` with the `@jatbas/aic` version you target):
+Use Node.js 20 or newer. Download the standalone uninstall script:
 
 ```bash
-curl -fsSL -o aic-uninstall-standalone.cjs https://raw.githubusercontent.com/Jatbas/agent-input-compiler/v0.10.2/integrations/aic-uninstall-standalone.cjs
+curl -fsSL -o aic-uninstall-standalone.cjs https://raw.githubusercontent.com/Jatbas/agent-input-compiler/main/integrations/aic-uninstall-standalone.cjs
 ```
 
 Run Cursor-oriented cleanup for a project directory:

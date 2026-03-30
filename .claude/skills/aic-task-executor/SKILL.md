@@ -622,7 +622,7 @@ Present:
 
 The main workspace is already on `main` — no checkout needed.
 
-**CRITICAL — No stash.** Never run `git stash` before merging. The user (or another agent) may be actively editing files on main. A stash would reset those files to HEAD, causing edits-in-progress to be silently lost — a race condition that cannot be recovered. Instead, let `git merge --squash` handle dirty working trees natively: git succeeds when dirty files don't overlap with the merge, and refuses when they do. This is safe by design.
+**CRITICAL — No stash.** Never run `git stash` before merging. A stash would reset every dirty file to HEAD, causing edits-in-progress to be silently lost — a race condition that cannot be recovered. Instead, let `git merge --squash` handle dirty working trees natively: git succeeds when dirty files don't overlap with the merge, and refuses when they do. When it refuses, follow the interactive resolution flow below.
 
 **Step 1 — Squash merge.**
 
@@ -640,11 +640,19 @@ The squash merge produces a single clean commit on main. Use the same commit mes
 
 **If the merge fails with "local changes would be overwritten":**
 
-Git refused the merge because uncommitted files on main overlap with files the merge would modify. Do NOT stash. Instead:
+Git refused the merge because uncommitted files on main overlap with files the merge would modify. Do NOT stash, but do NOT stop either. Follow this interactive resolution:
 
 1. Read the git error output — it lists the conflicting files.
-2. Report to the user: "Cannot merge — these files have uncommitted changes that conflict with the merge: [list]. Please commit or stash them manually, then ask me to retry the merge."
-3. Do NOT proceed. Do NOT delete the worktree. Wait for the user to resolve and re-request.
+2. Ask the user: "These files have uncommitted local changes that conflict with the merge: **[list]**. Are any of these being actively edited by another agent right now?"
+3. **If the user says YES** (some files are being actively edited): respond "OK — let me know when I can proceed with the merge." Then STOP and wait. When the user says to proceed, start Step 1 again from the top (`git merge --squash`).
+4. **If the user says NO** (none are being actively edited): discard the local changes on only those conflicting files and retry the merge:
+
+```
+git checkout -- <file1> <file2> ...
+git merge --squash <branch>
+```
+
+This is safe because the feature branch contains the correct final content for those files. Non-conflicting dirty files remain untouched.
 
 **If the merge succeeds but has content conflicts:**
 
