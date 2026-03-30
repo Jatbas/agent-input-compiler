@@ -20,9 +20,16 @@ const claudeSrc = path.join(repoRoot, "integrations", "claude");
 const claudeDest = path.join(destRoot, "claude");
 const cleanGlobalSrc = path.join(repoRoot, "integrations", "clean-global-aic-dir.cjs");
 const cleanGlobalDest = path.join(destRoot, "clean-global-aic-dir.cjs");
+const standaloneUninstallSrc = path.join(
+  repoRoot,
+  "integrations",
+  "aic-uninstall-standalone.cjs",
+);
+const standaloneUninstallDest = path.join(destRoot, "aic-uninstall-standalone.cjs");
 
 fs.mkdirSync(destRoot, { recursive: true });
 fs.cpSync(cursorSrc, cursorDest, { recursive: true, force: true, filter });
 fs.cpSync(sharedSrc, sharedDest, { recursive: true, force: true, filter });
 fs.cpSync(claudeSrc, claudeDest, { recursive: true, force: true, filter });
 fs.copyFileSync(cleanGlobalSrc, cleanGlobalDest);
+fs.copyFileSync(standaloneUninstallSrc, standaloneUninstallDest);

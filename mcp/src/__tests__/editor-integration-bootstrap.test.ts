@@ -57,6 +57,13 @@ const repoRoot = findRepoRoot(startDir);
 beforeAll(() => {
   execFileSync(
     "node",
+    [path.join(repoRoot, "mcp", "scripts", "bundle-standalone-uninstall.cjs")],
+    {
+      cwd: repoRoot,
+    },
+  );
+  execFileSync(
+    "node",
     [path.join(repoRoot, "mcp", "scripts", "bundle-cursor-installer.cjs")],
     {
       cwd: repoRoot,
@@ -89,6 +96,16 @@ describe("editor integration bootstrap", () => {
       "mcp",
       "integrations",
       "clean-global-aic-dir.cjs",
+    );
+    expect(fs.existsSync(bundled)).toBe(true);
+  });
+
+  it("bundle_includes_standalone_uninstall_script", () => {
+    const bundled = path.join(
+      repoRoot,
+      "mcp",
+      "integrations",
+      "aic-uninstall-standalone.cjs",
     );
     expect(fs.existsSync(bundled)).toBe(true);
   });

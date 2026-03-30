@@ -9,6 +9,8 @@
     "integrations/claude/install.cjs",
     "integrations/claude/uninstall.cjs",
     "integrations/clean-global-aic-dir.cjs",
+    "integrations/aic-uninstall-standalone.cjs",
+    "integrations/standalone-uninstall-entry.cjs",
     "integrations/shared/strip-project-claude-md.cjs",
     "integrations/shared/uninstall-global-claude.cjs",
     "integrations/shared/uninstall-project-aic.cjs",

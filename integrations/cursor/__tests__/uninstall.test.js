@@ -376,10 +376,12 @@ function cursor_uninstall_removes_project_artifacts() {
     fs.mkdirSync(path.join(tmpProject, ".aic"), { recursive: true });
     fs.writeFileSync(path.join(tmpProject, ".aic", "foo.txt"), "x", "utf8");
     fs.writeFileSync(path.join(tmpProject, ".gitignore"), ".aic/\n", "utf8");
-    const inner = fs.readFileSync(
-      path.join(repoRoot, "integrations", "shared", "claude-md-canonical-body.txt"),
-      "utf8",
-    );
+    const inner = JSON.parse(
+      fs.readFileSync(
+        path.join(repoRoot, "integrations", "shared", "claude-md-canonical-body.json"),
+        "utf8",
+      ),
+    ).body;
     const mdBody = inner.endsWith("\n") ? inner : `${inner}\n`;
     fs.mkdirSync(path.join(tmpProject, ".claude"), { recursive: true });
     fs.writeFileSync(

@@ -4,10 +4,7 @@
 const path = require("node:path");
 const fs = require("node:fs");
 
-const manifestPath = path.join(__dirname, "..", "claude", "aic-hook-scripts.json");
-const AIC_SCRIPT_NAMES = JSON.parse(
-  fs.readFileSync(manifestPath, "utf8"),
-).hookScriptNames;
+const { hookScriptNames: AIC_SCRIPT_NAMES } = require("../claude/aic-hook-scripts.json");
 const AIC_HOOK_CMD = /aic-[a-z0-9-]+\.cjs/i;
 
 function commandReferencesAicHook(command) {

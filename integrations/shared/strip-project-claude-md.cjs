@@ -36,14 +36,14 @@ function tryRemoveEmptyClaudeDir(claudeDir) {
   }
 }
 
-function tryStripProjectClaudeMd(claudeMdPath, canonicalBodySnapshotPath) {
+function tryStripProjectClaudeMd(claudeMdPath, canonicalBodyUtf8) {
   const parts = [];
   if (!fs.existsSync(claudeMdPath)) {
     return { changed: false, parts };
   }
   const raw = fs.readFileSync(claudeMdPath, "utf8");
   const normalizedFile = normalizeLf(raw);
-  const canonicalNorm = normalizeLf(fs.readFileSync(canonicalBodySnapshotPath, "utf8"));
+  const canonicalNorm = normalizeLf(canonicalBodyUtf8);
 
   const lines = normalizedFile.split("\n");
   const pair = findValidManagedPairLines(lines);

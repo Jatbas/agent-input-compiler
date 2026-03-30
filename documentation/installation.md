@@ -42,6 +42,7 @@ How AIC gets installed, what artifacts it creates, and how its components intera
 - [Uninstall](#uninstall)
   - [Cursor](#cursor-1)
   - [Bundled uninstall paths](#bundled-uninstall-paths)
+  - [Standalone single file](#standalone-single-file)
   - [Claude Code (plugin)](#claude-code-plugin)
   - [Claude Code (direct installer)](#claude-code-direct-installer)
   - [Other editors](#other-editors-1)
@@ -502,14 +503,31 @@ Published package `@jatbas/aic` ships an `integrations/` directory at the **pack
 - `integrations/cursor/uninstall.cjs`
 - `integrations/claude/uninstall.cjs`
 - `integrations/clean-global-aic-dir.cjs` (loaded by both uninstall scripts)
+- `integrations/aic-uninstall-standalone.cjs` (single-file bundle; also under `mcp/integrations/` after build)
 
-Shared helpers and data (`integrations/shared/*.cjs`, `aic-ignore-entries.json`, `claude-md-canonical-body.txt`) are copied beside them when the bundle is built.
+Shared helpers and data (`integrations/shared/*.cjs`, `aic-ignore-entries.json`, `claude-md-canonical-body.json`) are copied beside them when the bundle is built.
 
 **No repository clone:** from any directory, run `npm install @jatbas/aic` (or `pnpm add @jatbas/aic`), then invoke the script under `node_modules/@jatbas/aic/integrations/…` with `--project-root` or `AIC_UNINSTALL_PROJECT_ROOT` when the target project is not the current working directory, for example:
 
 ```bash
 node /path/to/node_modules/@jatbas/aic/integrations/cursor/uninstall.cjs --project-root /path/to/your-project
 ```
+
+### Standalone single file
+
+The repository commits `integrations/aic-uninstall-standalone.cjs`, a single CommonJS bundle produced by the build (`node mcp/scripts/bundle-standalone-uninstall.cjs`). After `pnpm --filter @jatbas/aic build`, a copy also lands at `mcp/integrations/aic-uninstall-standalone.cjs` for the published package tree.
+
+1. Use Node.js 20 or newer.
+2. Download the file for the release you want. Replace `0.10.2` with the `@jatbas/aic` version you target:
+
+   ```bash
+   curl -fsSL -o aic-uninstall-standalone.cjs https://raw.githubusercontent.com/Jatbas/agent-input-compiler/v0.10.2/integrations/aic-uninstall-standalone.cjs
+   ```
+
+3. Run it with `node`. Default behavior matches the Cursor uninstall script (`integrations/cursor/uninstall.cjs`). Pass **`--claude`** before other flags to run the Claude uninstall script instead (`integrations/claude/uninstall.cjs`).
+4. Use the same flags as the modular scripts: `--project-root`, `AIC_UNINSTALL_PROJECT_ROOT`, `--global`, `--remove-database`, `--keep-project-artifacts`, `--force`, and the legacy database argv forms described under **### Cursor** above.
+
+You do not need `npm install` or the rest of the `integrations/` tree; the bundle inlines shared helpers and JSON data.
 
 ### Claude Code (plugin)
 
