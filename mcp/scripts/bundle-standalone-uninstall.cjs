@@ -3,6 +3,7 @@
 
 "use strict";
 
+const { execFileSync } = require("node:child_process");
 const path = require("node:path");
 const esbuild = require("esbuild");
 
@@ -22,6 +23,17 @@ esbuild
     platform: "node",
   })
   .then(() => {
+    const prettierCjs = path.join(
+      repoRoot,
+      "node_modules",
+      "prettier",
+      "bin",
+      "prettier.cjs",
+    );
+    execFileSync(process.execPath, [prettierCjs, "--write", outPath], {
+      cwd: repoRoot,
+      stdio: "inherit",
+    });
     console.log("ok");
   })
   .catch((err) => {
