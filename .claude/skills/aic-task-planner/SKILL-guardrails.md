@@ -126,6 +126,20 @@ These present two implementation paths where the planner should have chosen one:
 
 **Fix:** Pick one. If genuinely uncertain, ask the user during Pass 1 decisions (A.4).
 
+### Category 8: Tool-conditional scope — deferring decisions to executor tool runs
+
+These make the scope of a step, Files table entry, or acceptance criterion depend on the output of a tool the executor must run, instead of resolving the scope during exploration:
+
+> `if knip reports`, `if knip flags`, `if lint shows`, `if lint reports`,
+> `if test shows`, `if test fails`, `if typecheck reports`,
+> `if [tool] reports`, `if [tool] flags`, `if [tool] shows`,
+> `run [tool] and add`, `run [tool] to determine`, `check [tool] output`,
+> `if [tool] reports unused`, `add entries ... if [tool]`
+
+This also covers **implicit** tool-conditional scope: a Files table description that says "add ignore entries for X, Y, Z if knip reports unused" or a step that says "fix any lint errors that appear" without listing them.
+
+**Fix:** Run the verification tool during exploration (item 22). Record the output. Write the exact scope — specific file paths, specific ignore entries, specific lint errors to fix. If the tool cannot be run (artifact does not exist yet), resolve by static analysis of tool config (e.g., read knip.json entry patterns to determine what it would flag). If static analysis is insufficient, flag as a BLOCKER and tell the user. Never write a conditional that the executor must resolve by running a tool.
+
 ## Single definition
 
 Never show alternative interfaces or "Option A / Option B" in the Interface/Signature section. The task file must contain exactly **one** interface definition and exactly **one** class signature. If you're unsure which design is better, ask the user before writing the task file. Showing multiple options means the planner hasn't made a decision.
@@ -343,7 +357,7 @@ For each step's Verify line, confirm the verification is actionable against the 
 
 Before finishing the task file, run three mechanical scans on every sentence in Steps, Tests table descriptions, Verify lines, implementation notes, and parenthetical qualifiers. Architecture Notes explaining rationale are excluded (they don't instruct the executor).
 
-**Scan 1 — Banned patterns:** Search for every pattern listed in the "No ambiguity" section above (Categories 1–7). Any match in an instruction context is a violation. Fix each one per the category's fix guidance.
+**Scan 1 — Banned patterns:** Search for every pattern listed in the "No ambiguity" section above (Categories 1–8). Any match in an instruction context is a violation. Fix each one per the category's fix guidance. Scan scope includes ALL non-code text: step instructions, verify lines, Files table descriptions, acceptance criteria, and Architecture Notes (only instruction-like bullets, not rationale).
 
 **Scan 2 — " or " in instructions:** For each non-code sentence containing " or ", ask: does the executor have to choose between two actions? If yes, resolve it now. Acceptable uses of "or": conditional behavior descriptions ("if file exists, read it; otherwise return null"), conjunctions ("zero errors or warnings"), error descriptions ("throws ConfigError or returns null").
 

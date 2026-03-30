@@ -311,6 +311,22 @@ This catches the specific failure mode where a planner describes a computation (
     - This is especially critical when: (a) a conditional is narrowed or widened (code that used to run in some cases no longer does, or vice versa), (b) a new always-available resource is introduced (bundled fallback, default config, injected dependency) that changes the function's effective reachability, (c) the combination of (a) and (b) creates a correctness requirement that did not exist before.
     - If no "Modify" rows change existing function logic (all modifications are pure additions — new functions, new exports, new imports), record "No behavior changes — modifications are additive only" and move on.
 
+18. **Speculative verification tool execution** (mandatory — all task types) — if any proposed step, Files table description, or acceptance criterion depends on the output of a verification tool (`pnpm knip`, `pnpm lint`, `pnpm test`, `node --check`, a grep for unused exports, etc.) to determine its scope, the planner MUST run that tool during exploration and record the exact output. Never defer tool-dependent decisions to the executor with conditionals like "if knip reports unused" or "if lint shows errors." The planner runs the tool, reads the output, and writes the concrete scope.
+    - For `pnpm knip`: run it against the workspace, record which files/exports it flags, and write exact ignore entries in the task.
+    - For lint/typecheck: run the check on affected files, record specific errors, and write exact fixes.
+    - For test runners: run relevant tests, record pass/fail status, and reference concrete outcomes in the task.
+    - If a tool cannot be run during exploration (requires artifacts that do not yet exist, e.g. a bundle not yet created), the planner must determine the answer by static analysis instead — trace the entry points in knip config, read lint rules, etc. — and write a definitive scope. If static analysis is insufficient, flag it as a **BLOCKER** and tell the user.
+      Record findings in a SPECULATIVE TOOL EXECUTION field of the Exploration Report: `[tool] — run during exploration: [YES (output summary) | NO (static analysis: result) | BLOCKER (reason)]`.
+      This catches the specific failure mode where a planner writes "add entries if knip reports them" instead of running knip and writing "add entries for X, Y, Z."
+
+19. **File convention determination** (mandatory — for every file in the Files table with action "Modify" where the task writes code that has multiple valid idioms) — before writing step instructions that involve a common operation (loading JSON, reading files, importing modules, error handling), read the target file and determine which idiom it already uses. The step instructions must use the same idiom — never offer alternatives. Common idiom forks:
+    - JSON loading: `require("./foo.json")` vs `JSON.parse(fs.readFileSync(...))` vs `import` assertion — check which the file already uses.
+    - Module system: CJS `require`/`module.exports` vs ESM `import`/`export` — never mix.
+    - Test framework: `assert` vs `expect` vs `it`/`describe` — match the file's existing framework.
+    - Path computation: `__dirname` vs `import.meta.url` + `fileURLToPath` — match the module system.
+      Record findings in the BINDING INVENTORY field alongside the existing binding analysis: `[file] — JSON loading idiom: [require | readFileSync+parse | import] — test framework: [assert | vitest | jest]`.
+      This catches the specific failure mode where a planner offers "use readFileSync or require" because it did not read the target file to determine which idiom it uses.
+
 **Pre-read items** (already in context from §1 — extract findings, do not re-read):
 
 18. **`shared/package.json`** — record dependencies and pinned versions.
@@ -327,7 +343,7 @@ This catches the specific failure mode where a planner describes a computation (
 
 ### A.2 Produce the Exploration Report
 
-**Write the report to a file**, not to the chat. Save to `documentation/tasks/.exploration-$EPOCH.md` (using the epoch value from §0 — this avoids number collisions when multiple planners run in parallel). This avoids slow chat streaming for a 200–300 line document and gives the user a better review surface (editor search, folding, scrolling).
+**Write the report to a file in the worktree**, not to the chat. Save to `<worktree>/documentation/tasks/.exploration-$EPOCH-slug.md` (use the worktree absolute path, the epoch value from §0, and a short kebab-case slug for the component). The worktree path is critical — if written to the main workspace by mistake, it will not be cleaned up when the worktree is removed. This avoids slow chat streaming for a 200–300 line document and gives the user a better review surface (editor search, folding, scrolling).
 
 Every field must be filled. Every field with pasted code must include a `Source:` line citing the exact file path read. If you cannot cite a source, write **"NOT VERIFIED — BLOCKER"**.
 
@@ -577,6 +593,11 @@ DOCUMENTATION IMPACT (mandatory — all non-documentation task types, from item 
 - Or: No documentation impact — grep returned 0 relevant matches for all entities.
   Source: [verified via Grep of documentation/ for each entity name]
 
+SPECULATIVE TOOL EXECUTION (mandatory — from item 22):
+- [tool command] — run during exploration: [YES — output: "[summary]" | NO — static analysis: [result] | BLOCKER — [reason]]
+- Scope resolved: [exact list of entries/fixes determined, or "no tool-dependent scope in this task"]
+- Or: Not applicable — no step, Files table row, or acceptance criterion depends on tool output for scope.
+
 DESIGN DECISIONS:
 - [decision]: [chosen option] — [why]
 ```
@@ -594,7 +615,7 @@ Before presenting to the user, verify the Exploration Report yourself using obje
 5. **Cross-check library .d.ts** — re-read each cited `node_modules/` path, Grep for the class/method name, confirm signatures match.
 6. **Installer sync check** (conditional — only if INSTALLER SYNC section is present) — for each template file listed, read both the source-of-truth file and the template, and confirm the shared sections match. If drift is found and the exploration report says "IN SYNC," fix the report and add the drifted files to the Files table.
 
-For every discrepancy found, fix the exploration file (use targeted edits on `documentation/tasks/.exploration-$EPOCH.md`) before proceeding. Do NOT present unchecked claims to the user.
+For every discrepancy found, fix the exploration file (use targeted edits on `<worktree>/documentation/tasks/.exploration-$EPOCH-slug.md`) before proceeding. Do NOT present unchecked claims to the user.
 
 ### A.4 Resolve design decisions
 
@@ -709,9 +730,9 @@ This checkpoint prevents two failure modes: under-scoping (applying a change too
 
 ### A.5 User checkpoint
 
-The full Exploration Report is in `documentation/tasks/.exploration-$EPOCH.md` (written in A.2). **Present a decisions-focused summary in chat**, not the full report. The summary must include every design decision so the user can approve the plan without opening the file for routine components. Say:
+The full Exploration Report is in `<worktree>/documentation/tasks/.exploration-$EPOCH-slug.md` (written in A.2). **Present a decisions-focused summary in chat**, not the full report. The summary must include every design decision so the user can approve the plan without opening the file for routine components. Say:
 
-> **Pass 1 complete.** Full report: `documentation/tasks/.exploration-$EPOCH.md`
+> **Pass 1 complete.** Full report: `<worktree>/documentation/tasks/.exploration-$EPOCH-slug.md`
 >
 > **Component:** [name] | **Layer:** [layer] | **Recipe:** [recipe]
 >
@@ -743,7 +764,7 @@ The full Exploration Report is in `documentation/tasks/.exploration-$EPOCH.md` (
 
 `SKILL-recipes.md` and `SKILL-guardrails.md` were pre-read during §1 and are already in context. Review the recipe matching the RECIPE field in the Exploration Report, and review all guardrails before writing. Do not re-read these files unless the context window has been truncated.
 
-The Exploration Report is on disk at `documentation/tasks/.exploration-$EPOCH.md`. If context has been truncated and you need to re-read report sections, use Read with offset/limit to target specific sections rather than re-reading the entire file.
+The Exploration Report is on disk at `<worktree>/documentation/tasks/.exploration-$EPOCH-slug.md`. If context has been truncated and you need to re-read report sections, use Read with offset/limit to target specific sections rather than re-reading the entire file.
 
 ### C.2 Mapping table
 
@@ -794,6 +815,8 @@ Violating any of these causes the mechanical review (C.5) to reject and force a 
 - Never describe SQL query modifications with prose only when the bind-parameter order changes — show the complete `.all(...)` or `.run(...)` argument list with all bound parameters in positional order, so the executor can verify placeholder-to-argument alignment mechanically
 - Never write a recursive copy command (`cpSync`, `cp -r`) for a directory without verifying the full directory tree in the Exploration Report — if the COPY TARGET AUDIT is absent or says "Not applicable" when the step uses recursive copy = fail
 - Never describe a new value derivation (e.g., "compute repoRoot from \_\_dirname") when the target file already has an existing binding for that value — the step must say "use the existing `<name>` (line N)" instead
+- Never make the scope of a step, Files table description, or acceptance criterion depend on tool output the planner did not collect during exploration — e.g., "add ignore entries if knip reports unused" or "fix any lint errors that appear." Run the tool in exploration item 22 and write the concrete scope. If the tool cannot run, resolve by static analysis or flag as a blocker.
+- Never offer alternative idioms for a common operation when the target file already uses one — e.g., "use readFileSync or require for JSON" when the file uses `require`. Read the file in exploration item 23 and write the single correct idiom.
 
 ### C.4 Save the task file
 
@@ -838,8 +861,13 @@ Cat 6 (escape clauses): "or skip", "or ignore", "or leave for later",
 "in a later task", "if possible", "where possible", "if feasible",
 "mock or skip", "mock or conditional"
 Cat 7 (false alternatives): "or use", "or another", "or any"
-Layer 2 — Grep for `" or "` in the task file. Read each match. Does it present two alternative actions the executor must choose between? If yes = fail.
-Acceptable "or": conditional behavior, conjunctions ("zero errors or warnings").
+Cat 8 (tool-conditional scope): "if knip reports", "if knip flags", "if lint shows",
+"if lint reports", "if test shows", "if test fails", "if typecheck reports",
+"if [tool] reports", "if [tool] flags", "if [tool] shows",
+"run [tool] and add", "run [tool] to determine", "check [tool] output"
+Any Files table description, step instruction, or acceptance criterion whose scope depends on tool output the planner did not run during exploration = fail. The planner must resolve tool-dependent scope in exploration item 22 and write the concrete result.
+Layer 2 — Grep for `" or "` in the task file — scanning ALL non-code text: step instructions, verify lines, Files table descriptions, Architecture Notes, acceptance criteria. Read each match. Does it present two alternative actions the executor must choose between? If yes = fail.
+Acceptable "or": conditional behavior, conjunctions ("zero errors or warnings"), logical disjunction in code blocks.
 Layer 3 — Grep for parenthesized hedges: `\(if needed\)`, `\(optional\)`, `\(e\.g\.`, `\(or similar\)`, `\(sync or async\)`. Any banned pattern inside parentheses = fail.
 
 B. **SIGNATURE CROSS-CHECK:** For each method in the class code block, compare against the interface source file — parameter names, types (including readonly), return types must match exactly. Additionally, for every optional field (`?:`) in dependent types that the implementation accesses, verify the step instructions use optional chaining (`?.`) and a fallback value. If the exploration report has an OPTIONAL FIELD HAZARDS section, cross-check every entry against the step text.
@@ -954,6 +982,21 @@ AA. **DOCUMENTATION IMPACT COVERAGE (mandatory — all non-documentation task ty
   - For SECTION EDIT changes included in scope, verify the Change Specification's target text was produced via the documentation-writer skill's Phase 2-3 pipeline (the step or Architecture Notes must reference the documentation-writer delegation). MECHANICAL changes do not require this delegation.
 - If DOCUMENTATION IMPACT says "No documentation impact," verify this is plausible: grep `documentation/` for the main entity names from the task. If grep returns matches that the exploration missed = fail (re-run item 21).
 - If no DOCUMENTATION IMPACT field exists in the Exploration Report and the task is not a documentation recipe = fail.
+
+AB. **SPECULATIVE TOOL EXECUTION COMPLETENESS (mandatory — all task types):** For every step, Files table description, and acceptance criterion, scan for tool-conditional language:
+
+- Grep the task file for patterns: "if knip", "if lint", "if test", "if typecheck", "if [tool]", "run [tool] and", "run [tool] to determine", "check [tool] output". Any match outside a code block = fail.
+- For every Files table row, verify its description does not contain conditionals that depend on unresolved tool output (e.g., "add entries if X reports Y"). Every description must be unconditional. If a description contains a conditional = fail.
+- Verify the Exploration Report has a SPECULATIVE TOOL EXECUTION field (or says "Not applicable"). If any step's scope was determined by tool output but no SPECULATIVE TOOL EXECUTION field exists = fail.
+- Cross-check: if the task includes a `knip.json` modification, verify the specific entries to add are listed in the step instructions (not deferred to the executor). If the step says "add entries" without listing exact paths = fail.
+  This catches the specific failure mode where a planner defers scope decisions to the executor by wrapping them in tool-conditional language.
+
+AC. **FILE CONVENTION CONSISTENCY (mandatory — all tasks with "Modify" rows that add code):** For every "Modify" file where the task adds code that involves a common operation with multiple valid idioms (JSON loading, module imports, error handling, path computation, test assertions):
+
+- Verify the step instructions specify exactly one idiom, not alternatives (e.g., must say "`require('./foo.json')`" not "use `require` or `readFileSync`").
+- If the target file already uses a specific idiom for the same operation, verify the step instructions match that idiom. If the step uses a different idiom from what the file already uses = fail.
+- Verify the Exploration Report's BINDING INVENTORY includes a file convention note (JSON loading idiom, module system, test framework). If the file receives new code with a common-operation idiom but no convention was recorded = fail.
+  This catches the specific failure mode where a planner offers "readFileSync or require" for JSON loading because it did not read the target file's existing conventions.
 
 **Step 2: Score the rubric.** Score each dimension 0 (fail) or 1 (pass):
 
@@ -1137,13 +1180,15 @@ Task files live in `documentation/tasks/`, which is gitignored. They cannot be c
 
 After verification passes:
 
-1. **Assign the final task number.** From the **main workspace root** (not the worktree — gitignored files only exist in the main workspace), scan both `documentation/tasks/` and `documentation/tasks/done/` for the highest existing task number. Completed tasks are archived to `done/`, so both directories must be checked:
+1. **Assign the final sequential task number (NNN).** The task number is a short sequential integer (e.g. `265`), **NOT the epoch value** used during planning. From the **main workspace root** (not the worktree — gitignored files only exist in the main workspace), scan both `documentation/tasks/` and `documentation/tasks/done/` for the highest existing sequential task number. Completed tasks are archived to `done/`, so both directories must be checked. **Exclude epoch-prefixed filenames** (10+ digit numbers) — those are planning artifacts that were not properly renumbered:
 
    ```
-   { ls documentation/tasks/ 2>/dev/null; ls documentation/tasks/done/ 2>/dev/null; } | grep -oE '^[0-9]+' | sort -rn | head -1
+   { ls documentation/tasks/ 2>/dev/null; ls documentation/tasks/done/ 2>/dev/null; } | grep -oE '^[0-9]+' | awk 'length <= 4' | sort -rn | head -1
    ```
 
-   Note: uses `-oE` (extended regex), not `-oP` (Perl regex), for macOS compatibility. Add 1 and zero-pad to 3 digits (e.g. `261`). This is the final NNN. If no numbered files exist, start at `001`.
+   Note: uses `-oE` (extended regex), not `-oP` (Perl regex), for macOS compatibility. The `awk 'length <= 4'` filter excludes epoch timestamps (10 digits) that may exist from planners that failed to renumber. Add 1 to the result (e.g. if highest is `264`, NNN is `265`). Zero-pad to 3 digits only if under 100 (e.g. `007`). If no numbered files exist, start at `001`.
+
+   **Validation guard:** If NNN is greater than 9999 or has 10+ digits, something went wrong — you are using the epoch, not the sequential number. Re-read this step and try again.
 
    **Parallel safety:** Multiple planners use unique `$EPOCH` identifiers during planning. The final NNN is assigned here, at the last possible moment. If a parallel planner saved a file between your scan and your copy (step 2), the numbers will collide — this is acceptable for the rare case and the user can rename manually.
 
@@ -1151,9 +1196,10 @@ After verification passes:
    - In the worktree task file, update the `# Task` heading: replace `# Task $EPOCH:` with `# Task NNN:`.
    - Copy the task file to the main workspace: `cp <worktree>/documentation/tasks/$EPOCH-name.md <main-workspace>/documentation/tasks/NNN-name.md` (use absolute paths for both source and target).
 
-3. **Clean up the worktree** (this also removes the exploration file, which is an intermediate artifact — its findings are already mapped into the task file via C.2). From the **main workspace root**:
+3. **Clean up the worktree and exploration file.** The exploration file is an intermediate artifact — its findings are already mapped into the task file via C.2. Removing the worktree should delete it, but as a safety net also delete it from the main workspace in case it was accidentally written there. From the **main workspace root**:
 
    ```
+   rm -f documentation/tasks/.exploration-$EPOCH*.md
    git worktree remove .git-worktrees/plan-$EPOCH && git branch -D plan/$EPOCH
    ```
 
