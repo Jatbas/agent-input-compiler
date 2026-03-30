@@ -16,10 +16,7 @@ const {
   resolveProjectRoot: resolveProjectRootShared,
 } = require("../shared/resolve-project-root.cjs");
 
-const manifestPath = path.join(__dirname, "aic-hook-scripts.json");
-const AIC_SCRIPT_NAMES = JSON.parse(
-  fs.readFileSync(manifestPath, "utf8"),
-).hookScriptNames;
+const { hookScriptNames: AIC_SCRIPT_NAMES } = require("./aic-hook-scripts.json");
 
 function findAicMcpKey(servers) {
   if (servers === undefined || typeof servers !== "object" || servers === null) {

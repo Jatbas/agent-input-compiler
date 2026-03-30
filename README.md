@@ -135,6 +135,28 @@ For the full list of available configuration options, see [§6 Configuration in 
 
 AIC requires a dedicated integration layer to compile context automatically. Cursor and Claude Code have first-class integration layers; other editors do not yet have one. To request support for your editor or contribute an integration layer, [open an issue](https://github.com/Jatbas/agent-input-compiler/issues).
 
+## Uninstall
+
+Use Node.js 20 or newer. Download the standalone script for the release you want (replace `0.10.2` with the `@jatbas/aic` version you target):
+
+```bash
+curl -fsSL -o aic-uninstall-standalone.cjs https://raw.githubusercontent.com/Jatbas/agent-input-compiler/v0.10.2/integrations/aic-uninstall-standalone.cjs
+```
+
+Run Cursor-oriented cleanup for a project directory:
+
+```bash
+node aic-uninstall-standalone.cjs --project-root /path/to/project
+```
+
+Run the Claude uninstall entrypoint by passing `--claude` before other flags:
+
+```bash
+node aic-uninstall-standalone.cjs --claude --project-root /path/to/project
+```
+
+For `--global`, database removal, and the full flag list, see [Installation — Uninstall](documentation/installation.md#uninstall).
+
 ---
 
 ## Commands

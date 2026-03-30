@@ -15,7 +15,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "scripts": {
-    "build": "tsc -b && node scripts/prepend-shebang.cjs && node scripts/bundle-cursor-installer.cjs",
+    "build": "tsc -b && node scripts/prepend-shebang.cjs && node scripts/bundle-standalone-uninstall.cjs && node scripts/bundle-cursor-installer.cjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

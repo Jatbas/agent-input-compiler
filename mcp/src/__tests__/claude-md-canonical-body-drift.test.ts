@@ -35,7 +35,12 @@ function extractClaudeMdTemplateFromSource(source: string): string {
 function findRepoRoot(startDir: string): string {
   let dir = startDir;
   for (;;) {
-    const snap = path.join(dir, "integrations", "shared", "claude-md-canonical-body.txt");
+    const snap = path.join(
+      dir,
+      "integrations",
+      "shared",
+      "claude-md-canonical-body.json",
+    );
     const trigger = path.join(dir, "mcp", "src", "install-trigger-rule.ts");
     if (fs.existsSync(snap) && fs.existsSync(trigger)) {
       return dir;
@@ -56,11 +61,10 @@ describe("claude_md_canonical_body_drift", () => {
       root,
       "integrations",
       "shared",
-      "claude-md-canonical-body.txt",
+      "claude-md-canonical-body.json",
     );
-    const snapshot = fs
-      .readFileSync(snapshotPath, "utf8")
-      .replaceAll("\r\n", "\n")
+    const snapshot = JSON.parse(fs.readFileSync(snapshotPath, "utf8"))
+      .body.replaceAll("\r\n", "\n")
       .replaceAll("\r", "\n");
     const installSrc = fs.readFileSync(
       path.join(root, "integrations", "claude", "install.cjs"),

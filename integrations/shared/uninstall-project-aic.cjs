@@ -6,9 +6,8 @@ const fs = require("node:fs");
 const { tryStripProjectClaudeMd } = require("./strip-project-claude-md.cjs");
 
 function loadIgnoreLineSet() {
-  const manifestPath = path.join(__dirname, "aic-ignore-entries.json");
-  const data = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-  return new Set(data.lines);
+  const { lines } = require("./aic-ignore-entries.json");
+  return new Set(lines);
 }
 
 function tryRemoveIgnoreLines(filePath, lineSet) {
@@ -57,8 +56,8 @@ function tryUninstallProjectAic(projectRoot, options) {
     }
   }
   const claudeMd = path.join(projectRoot, ".claude", "CLAUDE.md");
-  const snap = path.join(__dirname, "claude-md-canonical-body.txt");
-  const strip = tryStripProjectClaudeMd(claudeMd, snap);
+  const { body: canonicalBody } = require("./claude-md-canonical-body.json");
+  const strip = tryStripProjectClaudeMd(claudeMd, canonicalBody);
   if (strip.changed) {
     changed = true;
     parts.push(...strip.parts);
