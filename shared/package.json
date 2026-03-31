@@ -1,6 +1,33 @@
 {
   "name": "@jatbas/aic-core",
   "version": "0.11.0",
+  "description": "Core library for Agent Input Compiler — deterministic context compilation pipeline and SQLite-backed storage",
+  "author": "Jorge Santos <jatbas@gmail.com> (https://github.com/Jatbas)",
+  "license": "Apache-2.0",
+  "funding": "https://github.com/sponsors/Jatbas",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Jatbas/agent-input-compiler.git"
+  },
+  "homepage": "https://github.com/Jatbas/agent-input-compiler#readme",
+  "bugs": {
+    "url": "https://github.com/Jatbas/agent-input-compiler/issues"
+  },
+  "keywords": [
+    "aic",
+    "context-compiler",
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "llm",
+    "sqlite",
+    "typescript",
+    "token-optimization",
+    "codebase-context"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

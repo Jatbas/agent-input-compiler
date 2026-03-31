@@ -16,6 +16,22 @@ Run the full release sequence from a single invocation. Validates the codebase a
 - **Claude Code:** Invoke with `/aic-release`. All phases run inline with explicit user approval at gates.
 - **Cursor:** Attach the skill with `@` or invoke via `/`.
 
+## Autonomous Execution
+
+Run each phase continuously until a hard gate is reached. Do NOT pause between steps within a phase to report status or explain what you will do next. Completing one step means immediately starting the next.
+
+**Legitimate user gates (the ONLY points where you stop and wait):**
+
+- Phase 1 step 4: knip findings review (user decides)
+- Phase 1 step 5: in-progress components warning (user confirms)
+- Phase 2.5: documentation audit choice (full/quick/skip)
+- Phase 3: noisy commits found (user decides yes/no)
+- Phase 4: version confirmation (user approves version)
+- Phase 6: deprecation commands (user runs manually)
+- Any phase that produces blockers (hard stop — fix and re-run)
+
+**Everything between gates runs without pausing.** Run all steps within Phase 1, report any blockers, then proceed to Phase 2. Run all Phase 2 checks in sequence. Do not send status messages between individual checks.
+
 ## When to Use
 
 - When you are ready to publish a new version.
@@ -119,37 +135,22 @@ The release cut steps cover:
 
 After the Phase 5 report, deprecate all previously published npm versions so users who install an older version see a clear upgrade warning. This phase is non-blocking — a failure here does not invalidate the release.
 
-**Why this requires manual auth:** Publishing happens in GitHub Actions CI via OIDC trusted publishing, but npm OIDC is limited to `npm publish` — it does not cover `npm deprecate` or other registry write operations. There is no CI-automatable path for deprecation without a short-lived granular access token (90-day max expiry, requires rotation). The skill therefore generates the exact commands and attempts to run them if a local npm session exists.
-
 1. **Collect published versions.** Run `npm view @jatbas/aic versions --json`. Parse the JSON array. If the only version is `X.Y.Z` (first release or no prior versions), skip this phase: "Phase 6 skipped — no prior versions to deprecate."
 
-2. **Build the deprecation commands.** Compute the two commands using a semver range that covers all versions below `X.Y.Z`:
+2. **Generate deprecation commands.** For each version V below `X.Y.Z`, build a per-version deprecation line. Do not use semver ranges (`@<X.Y.Z`) — they cause registry errors. Combine all versions into two shell loops:
 
-   `npm deprecate "@jatbas/aic@<X.Y.Z" "Deprecated: upgrade to X.Y.Z"`
+   ```
+   for v in 0.5.0 0.5.1 …; do npm deprecate "@jatbas/aic@$v" "Deprecated: upgrade to X.Y.Z"; done
+   for v in 0.5.0 0.5.1 …; do npm deprecate "@jatbas/aic-core@$v" "Deprecated: upgrade to X.Y.Z"; done
+   ```
 
-   `npm deprecate "@jatbas/aic-core@<X.Y.Z" "Deprecated: upgrade to X.Y.Z"`
+3. **Present for manual execution.** CI publishes via OIDC which only covers `npm publish` — `npm deprecate` requires a local npm session. Present the two commands and ask the user to run them in a terminal where they are logged in (`npm login`). If 2FA blocks the commands, the user must temporarily disable the per-package "Require two-factor authentication for write actions" setting on npmjs.com for both packages, run the commands, then re-enable.
 
-3. **Attempt automatic deprecation.** Run `npm whoami` to check for an active local npm session. If authenticated (exit 0), run both deprecation commands from step 2. If both succeed, proceed to step 4. If `npm whoami` fails or either deprecation command fails, proceed to step 5 (manual output).
-
-4. **Verify and finalize (automatic path).** Run `npm view @jatbas/aic --json` and confirm each version below `X.Y.Z` has a `deprecated` field. Then update CHANGELOG.md: for each deprecated version whose changelog heading does not already contain `(Deprecated)`, change `## [old] - YYYY-MM-DD` to `## [old] - YYYY-MM-DD (Deprecated)`. If any headings were updated, commit and push:
+4. **After confirmation.** Once the user confirms deprecation succeeded, update CHANGELOG.md: for each deprecated version whose changelog heading does not already contain `(Deprecated)`, change `## [old] - YYYY-MM-DD` to `## [old] - YYYY-MM-DD (Deprecated)`. If any headings were updated, commit and push:
 
    `git add CHANGELOG.md && git commit -m "docs(changelog): mark prior versions as deprecated" && git push origin main`
 
-   Report: "Phase 6 passed — N prior version(s) deprecated on npm. CHANGELOG.md updated."
-
-5. **Output manual commands (expected path).** Present the commands under the heading **Deprecate prior versions** with this exact format:
-
-   > N prior version(s) need deprecation on npm. Publishing uses CI with OIDC (which only covers `npm publish`), so deprecation requires a one-time local login.
-   >
-   > Run these commands — `npm login` opens your browser for auth, then the deprecate commands run instantly:
-   >
-   > ```
-   > npm login
-   > npm deprecate "@jatbas/aic@<X.Y.Z" "Deprecated: upgrade to X.Y.Z"
-   > npm deprecate "@jatbas/aic-core@<X.Y.Z" "Deprecated: upgrade to X.Y.Z"
-   > ```
-   >
-   > After running them, re-invoke Phase 6 with "deprecate old versions" to update CHANGELOG.md — or edit the headings manually.
+   Report: "Phase 6 complete — N prior version(s) deprecated on npm. CHANGELOG.md updated."
 
 ## Conventions
 

@@ -34,6 +34,21 @@ The deliverable is a **draft phase proposal** — header, description, and compo
 | §6 Present                | Draft phases displayed to user                                                     | **Yes — wait for approval** |
 | §7 Write                  | Approved phases inserted into aic-progress.md                                      | No (post-approval)          |
 
+## Autonomous Execution
+
+Run §0 through §5 as a single continuous flow. Do NOT pause between sections to report status, explain what you will do next, or ask for confirmation. Completing one section means immediately starting the next — not sending a message and waiting.
+
+**Legitimate user gates (the ONLY points where you stop and wait):**
+
+- §6: Present draft for user approval (always wait before writing to aic-progress.md)
+- §6 revision cycles: wait for user response on change requests
+- Input Routing: Tier 2 empty (ask user before proceeding with Explorer 2+3 only)
+- Input Routing: Tier 3 zero candidates (ask user how to proceed)
+
+**Everything else runs without pausing.** Strategic framing, current state analysis, parallel investigation, synthesis, self-review, adversarial review, and convergence detection all run as one continuous flow. Present the complete proposal at §6 after all analysis is done.
+
+**Anti-pattern:** Sending a message like "Explorers have returned findings, now I'll synthesize..." and waiting. Run the full pipeline and present the finished proposal.
+
 ## When to Use
 
 - User says "what should we build next", "generate next phase", "plan Phase 2", "what's left", "forge roadmap"

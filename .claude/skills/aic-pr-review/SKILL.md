@@ -16,6 +16,16 @@ Systematically review pull requests against AIC's architectural invariants, secu
 - **Cursor:** Attach the skill with `@` or invoke via Task tool. Where this skill says to dispatch subagents for large PRs, use the **Task tool** with `subagent_type="generalPurpose"`. You MUST use the Task tool for subagent work — never do it inline.
 - **Claude Code:** Invoke with `/aic-pr-review`. Where this skill references multi-agent work, spawn separate agents. Never perform reviewer work inline.
 
+## Autonomous Execution
+
+Run §1 through §4 as a single continuous flow. Do NOT pause between sections to report status or explain what you will do next. Completing one section means immediately starting the next — not sending a message and waiting.
+
+**Legitimate user gates (the ONLY points where you stop and wait):**
+
+- §5 step 1: ask "Post this review to the PR?" before posting (Mode A only)
+
+**Everything else runs without pausing.** Context gathering, review (inline or parallel), synthesis, and severity classification all run as one continuous flow. Present the complete review report at §3 and then ask about posting.
+
 ## When to Use
 
 - User says "review PR", "review this PR", "check PR #N"

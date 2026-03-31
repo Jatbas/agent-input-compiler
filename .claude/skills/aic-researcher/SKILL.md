@@ -32,6 +32,19 @@ If you find yourself writing "Explorer N findings:" without having used the Task
 
 **Every finding must cite at least one concrete source.** A file path with line number, a URL, or a grep result. No exceptions. If you cannot cite a source, the finding does not exist — move it to Open Questions. This single rule prevents the most common auto-mode failure: plausible-sounding hallucination.
 
+## Autonomous Execution
+
+Run §1 through §6 as a single continuous flow. Do NOT pause between sections to report status, explain what you will do next, or ask for confirmation. Completing one section means immediately starting the next — not sending a message and waiting.
+
+**This skill has NO mid-process user gates.** The entire pipeline — classify, frame, investigate, synthesize, adversarial review, final synthesis — runs without pausing. Present results only at §6e after the research document is saved.
+
+**The ONLY conditions that stop execution:**
+
+- The Task tool is unavailable (Cardinal Rule 1 — tell the user and stop)
+- A blocked diagnostic that cannot be resolved by re-spawning
+
+**Anti-pattern:** Sending a message like "Classification complete, now I'll frame the investigation..." and waiting. Run the full pipeline and present the finished research document.
+
 ## When to Use
 
 - User says "research", "investigate", "analyze", "look into", "how does X work", "what's wrong with X"

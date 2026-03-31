@@ -87,6 +87,19 @@ Only after the user has chosen may the skill proceed — and only by changing do
 
 **Normal documents** (guides, READMEs, best-practices, installation docs): Always change the documentation to match the code. The code is the source of truth. Even if the code appears to have a bug, the documentation-writer documents reality — what the code actually does — not what it should do. If a code bug is suspected, note it as a follow-up item but still update the documentation to match the codebase.
 
+## Autonomous Execution
+
+Run all phases (1 through 4) as a single continuous flow. Do NOT pause between phases to report status, explain what you will do next, or ask for confirmation. Completing one phase means immediately starting the next — not sending a message and waiting.
+
+**Legitimate user gates (the ONLY points where you stop and wait):**
+
+- Prescriptive document incongruence (Cardinal Rule 7 — code vs doc mismatch in project-plan, implementation-spec, architecture, security)
+- Audit mode Phase 4e: after presenting the Structured Audit Report, wait for user to approve corrections before applying them
+
+**Everything else runs without pausing.** Exploration, synthesis, adversarial review, and mechanical verification all run as one continuous flow. Present results at Phase 4c (write/modify) or Phase 4d (audit) after all work is complete.
+
+**Anti-pattern:** Sending a message like "Phase 1 analysis complete, now I'll write the target text..." and waiting. Run the full pipeline and present the finished result.
+
 ## When to Use
 
 - **Via the planner:** The planner's documentation recipe delegates to this skill for Phase 1 (analysis) and Phases 2-3 (writing + review). The planner reads this `SKILL.md` and follows the protocol. Mode is always write/modify.

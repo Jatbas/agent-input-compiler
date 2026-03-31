@@ -16,6 +16,23 @@ Execute a task file produced by the `aic-task-planner` skill. Read the task, int
 - **Cursor:** Attach the skill with `@` or invoke via `/`. Where this skill says to spawn subagents (e.g. documentation critics in §4-doc), use the **Task tool** with the specified `subagent_type`. You MUST use the Task tool for subagent work — never do it inline.
 - **Claude Code:** Invoke with `/aic-task-executor`. Where this skill references multi-agent work, spawn separate agents. Never perform critic/explorer work inline.
 
+## Autonomous Execution
+
+Run §1 through §5 as a single continuous flow. Do NOT pause between sections to report status, explain what you will do next, or ask for confirmation. Completing one section means immediately starting the next — not sending a message and waiting.
+
+**The ONLY conditions that stop execution:**
+
+- A dependency is not done (§1)
+- The task file contains unresolved ambiguity (§2 quality gate)
+- An external assumption cannot be verified (§2.5)
+- The circuit breaker fires (§3 — 3+ unlisted code pieces)
+- A blocked diagnostic is triggered (any section)
+- Merge approval (§6 — always wait before merging)
+
+Everything else — worktree creation, task internalization, implementation, verification, progress updates, committing — runs without pausing. Present your report at §5a only after all work through §5c is complete, then propose the merge in §6a and wait.
+
+**Anti-pattern:** Sending a message like "I've set up the worktree, next I'll implement..." and waiting. This wastes the user's time. Set up the worktree AND implement AND verify AND report — all in one continuous flow.
+
 ## When to Use
 
 - User says "execute task", "go", "implement task NNN"

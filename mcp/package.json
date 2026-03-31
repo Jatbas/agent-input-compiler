@@ -1,6 +1,35 @@
 {
   "name": "@jatbas/aic",
   "version": "0.11.0",
+  "description": "Agent Input Compiler — local-first MCP server for context compilation (Cursor, Claude Code, and other MCP clients)",
+  "author": "Jorge Santos <jatbas@gmail.com> (https://github.com/Jatbas)",
+  "license": "Apache-2.0",
+  "funding": "https://github.com/sponsors/Jatbas",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Jatbas/agent-input-compiler.git"
+  },
+  "homepage": "https://github.com/Jatbas/agent-input-compiler#readme",
+  "bugs": {
+    "url": "https://github.com/Jatbas/agent-input-compiler/issues"
+  },
+  "keywords": [
+    "aic",
+    "mcp",
+    "model-context-protocol",
+    "context-compiler",
+    "ai",
+    "llm",
+    "cursor",
+    "claude-code",
+    "developer-tools",
+    "prompt",
+    "token-optimization",
+    "codebase-context"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "type": "module",
   "main": "dist/server.js",
   "types": "dist/server.d.ts",

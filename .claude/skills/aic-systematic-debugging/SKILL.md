@@ -26,6 +26,19 @@ NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
 
 If you have not completed Phase 1, you cannot propose fixes. No exceptions.
 
+## Autonomous Execution
+
+Run all four phases as a single continuous flow. Do NOT pause between phases to report status, explain what you will do next, or ask for confirmation. Completing one phase means immediately starting the next — not sending a message and waiting.
+
+**The ONLY conditions that stop execution:**
+
+- Phase 4 step 5: 3+ fixes failed — the architecture may be wrong. Stop and discuss with the user before attempting more fixes.
+- A fix introduces a regression that cannot be resolved within the current hypothesis.
+
+**Everything else runs without pausing.** Investigation, pattern analysis, hypothesis testing, and implementation (including the failing test) all run as one continuous flow. Present the fix and verification results after Phase 4 is complete.
+
+**Anti-pattern:** Sending a message like "I've identified the root cause, now I'll create a failing test..." and waiting. Identify the cause AND create the test AND fix it AND verify — all in one flow.
+
 ## When to Use
 
 Use for ANY technical issue:

@@ -44,6 +44,22 @@ The planner's natural bias is toward comprehensiveness — more types, more file
 
 **The simplicity test:** For every new file, new type, or new interface in the plan, ask: _"What happens if I don't create this and instead use what already exists?"_ If the answer is "nothing breaks, and the code is still clear" — don't create it.
 
+## Autonomous Execution
+
+Run each pass as a single continuous flow. Do NOT pause mid-pass to report status, explain what you will do next, or ask for confirmation. Completing one step within a pass means immediately starting the next — not sending a message and waiting.
+
+**Legitimate user gates (these are the ONLY points where you stop and wait):**
+
+- §1: User picks a component (wait for pick)
+- §0b: Ambiguous intent (ask user)
+- A.4c: Scope expansion tiers (wait for tier pick — skip if no expansion found)
+- A.5: User checkpoint after Pass 1 (wait for "proceed")
+- §0b step 6: Research-then-plan confirmation (wait for user decision)
+
+**Everything else runs without pausing.** The entire exploration pass (A.1 through A.4b) runs as one continuous flow. The entire write pass (C.1 through C.6) runs as one continuous flow. Do not send status messages between steps within a pass.
+
+**Anti-pattern:** Sending a message like "I've completed the exploration, now I'll write the task file..." between A.5 approval and Pass 2. The user already said "proceed" — just do it.
+
 ## When to Use
 
 - User says "plan next task", "what's next", or "create a task"

@@ -23,6 +23,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - Claude Code stop hook invokes ESLint and TypeScript through execFileSync instead of a shell
+- Add `repository`, `homepage`, `bugs`, and related manifest fields on published packages so npm trusted publishing (OIDC provenance) validates
 
 ### Security
 

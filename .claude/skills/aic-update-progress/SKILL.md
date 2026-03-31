@@ -18,6 +18,10 @@ After completing a coding task, update the `documentation/tasks/progress/aic-pro
 - In Cursor, attach the skill with `@` or invoke via `/`; where the skill names the Task tool with `subagent_type` or subagents, use those Cursor mechanisms.
 - In Claude Code, invoke with `/` plus the skill `name`; where the skill references multi-agent work, follow Claude Code subagent or parallel-session patterns.
 
+## Autonomous Execution
+
+Run all steps (1 through 9) as a single continuous flow. Do NOT pause between steps to report status or explain what you will do next. This skill has NO mid-process user gates — run everything and present the results at step 8.
+
 ## When to Use
 
 - After completing implementation tasks

@@ -18,6 +18,19 @@ Two modes: Mode A (unpushed commits only, safe default) and Mode B (explicit rew
 - **Claude Code:** Invoke with `/aic-git-history-clean`. All rebase planning and execution happens inline — no subagent dispatch needed.
 - **Cursor:** Attach the skill with `@` or invoke via `/`.
 
+## Autonomous Execution
+
+Run all steps within each mode as a continuous flow until a user gate is reached. Do NOT pause between steps to report status or explain what you will do next.
+
+**Legitimate user gates (the ONLY points where you stop and wait):**
+
+- Mode A step 10: squash plan approval (yes / edit / cancel)
+- Mode B step 3: other authors warning (wait for confirmation)
+- Mode B step 14: resolve all [NEEDS-FIX] items (wait for replacement messages)
+- Mode B step 15: double confirmation for destructive rewrite
+
+**Everything between gates runs without pausing.** Scope determination, commit classification, group building, message sanitization, plan validation, and tag anchor selection all run as one continuous flow. Present the complete plan at the approval gate.
+
 ## When to Use
 
 - Before pushing: clean up local dev commits so pushed history reads naturally.

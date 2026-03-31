@@ -16,6 +16,18 @@ Maintain a curated, user-facing `CHANGELOG.md` at the project root. The changelo
 - In Cursor, attach the skill with `@` or invoke via `/`; where the skill names the Task tool with `subagent_type` or subagents, use those Cursor mechanisms.
 - In Claude Code, invoke with `/` plus the skill `name`; where the skill references multi-agent work, follow Claude Code subagent or parallel-session patterns.
 
+## Autonomous Execution
+
+Run all steps as a single continuous flow. Do NOT pause between steps to report status or explain what you will do next.
+
+**Legitimate user gates (the ONLY points where you stop and wait):**
+
+- Step 7f: release suggestion (yes / different version / not now)
+- Release cut step 0b: unexpected staged files warning
+- Deprecation step 2: confirmation before deprecating
+
+**Everything else runs without pausing.** Reading, curating, critic review, format verification, and writing all run as one continuous flow. Present the release suggestion (if warranted) only after all update steps are complete.
+
 ## When to Use
 
 - When the user says "update changelog"
