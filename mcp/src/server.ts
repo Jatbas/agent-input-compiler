@@ -338,10 +338,19 @@ export function createMcpServer(
           }
         }
       : compileHandler;
+  // Safety net: if the model omits intent/projectRoot, fall back to the
+  // startup project root and a generic intent so the call succeeds rather
+  // than returning -32602. Normal calls are unaffected (defaults are only
+  // applied when the value is undefined).
+  const compileSchemaWithDefaults = {
+    ...CompilationRequestSchema,
+    intent: CompilationRequestSchema.intent.default("general context compilation"),
+    projectRoot: CompilationRequestSchema.projectRoot.default(projectRoot),
+  };
   server.tool(
     "aic_compile",
     "Compile intent-specific project context. MUST be called as your FIRST action on EVERY message — including follow-ups in the same chat. Each message has a different intent that needs fresh context. Never skip.",
-    CompilationRequestSchema,
+    compileSchemaWithDefaults,
     aicCompileHandler,
   );
   server.tool("aic_inspect", InspectRequestSchema, (args) =>

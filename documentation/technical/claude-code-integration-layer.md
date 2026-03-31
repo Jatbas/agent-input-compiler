@@ -459,6 +459,8 @@ The shared helper mediates between a hook script and the AIC MCP server via MCP 
 callAicCompile(intent, projectRoot, conversationId, timeoutMs, triggerSource, modelId);
 ```
 
+**Emergency bypass:** Before spawning the MCP server, the helper checks `aic.config.json` via `isCompileGateSkipped()` (from `integrations/shared/read-project-dev-mode.cjs`). When **both** `devMode` and `skipCompileGate` are `true`, it returns `null` immediately without any I/O. This prevents all compilation hooks (SessionStart, UserPromptSubmit, SubagentStart) from hanging on a broken MCP server. Remove `skipCompileGate` from the config immediately after resolving the issue.
+
 The `compileRequest` arguments object must include `conversationId` derived from
 `transcript_path`:
 

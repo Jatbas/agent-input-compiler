@@ -646,7 +646,10 @@ describe("MCP server", () => {
     await server.connect(transportServer);
     const client = new Client({ name: "test", version: "1.0" });
     await client.connect(transportClient);
-    const result = await client.callTool({ name: "aic_compile", arguments: {} });
+    const result = await client.callTool({
+      name: "aic_compile",
+      arguments: { intent: 123 },
+    });
     expect(result.isError).toBe(true);
   });
 

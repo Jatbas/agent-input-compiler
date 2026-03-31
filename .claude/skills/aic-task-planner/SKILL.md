@@ -56,9 +56,12 @@ Run each pass as a single continuous flow. Do NOT pause mid-pass to report statu
 - A.5: User checkpoint after Pass 1 (wait for "proceed")
 - §0b step 6: Research-then-plan confirmation (wait for user decision)
 
-**Everything else runs without pausing.** The entire exploration pass (A.1 through A.4b) runs as one continuous flow. The entire write pass (C.1 through C.6) runs as one continuous flow. Do not send status messages between steps within a pass.
+**Everything else runs without pausing.** The entire exploration pass (A.1 through A.4b) runs as one continuous flow. The entire write pass (C.1 through C.6) runs as one continuous flow. **After Pass 2 verification completes (C.6), §6 (Finalize) runs immediately** — assign the task number, copy the file to the main workspace, and remove the worktree. The task is NOT complete until §6 finishes. Do not send status messages between steps within a pass.
 
-**Anti-pattern:** Sending a message like "I've completed the exploration, now I'll write the task file..." between A.5 approval and Pass 2. The user already said "proceed" — just do it.
+**Anti-patterns:**
+
+- Sending a message like "I've completed the exploration, now I'll write the task file..." between A.5 approval and Pass 2. The user already said "proceed" — just do it.
+- Stopping after Pass 2 verification and reporting that the task file is in the worktree. The worktree is temporary — §6 copies the file to the main workspace and cleans up. Always run §6.
 
 ## When to Use
 
@@ -78,13 +81,14 @@ Run each pass as a single continuous flow. Do NOT pause mid-pass to report statu
 
 ## Process Overview
 
-The process has **two passes** plus a presentation step. Each pass produces a concrete deliverable. One user gate between passes keeps oversight without unnecessary round-trips.
+The process has **two passes**, a finalization step, and user gates. Each pass produces a concrete deliverable. One user gate between passes keeps oversight without unnecessary round-trips. **§6 (Finalize) is mandatory — the task is not complete until the file is copied to the main workspace and the worktree is removed.**
 
-| Step       | Deliverable                                                                     | User gate?          |
-| ---------- | ------------------------------------------------------------------------------- | ------------------- |
-| §1 Present | User picks a component                                                          | Yes — wait for pick |
-| Pass 1     | Exploration Report + all decisions resolved                                     | Yes — user reviews  |
-| Pass 2     | Task file written + 4-stage verified (self → document → codebase → adversarial) | No — self-check     |
+| Step        | Deliverable                                                                     | User gate?          |
+| ----------- | ------------------------------------------------------------------------------- | ------------------- |
+| §1 Present  | User picks a component                                                          | Yes — wait for pick |
+| Pass 1      | Exploration Report + all decisions resolved                                     | Yes — user reviews  |
+| Pass 2      | Task file written + 4-stage verified (self → document → codebase → adversarial) | No — self-check     |
+| §6 Finalize | Task file numbered, copied to main workspace, worktree removed                  | No — automatic      |
 
 ---
 
@@ -1188,11 +1192,13 @@ For each genuine miss found by the adversarial agent, add the file to the Files 
 2. **After all fixes within a stage:** Re-run the full rubric for that stage. If new failures were introduced by the fixes, repeat.
 3. **Iterate** until each stage reports PASS, then advance to the next.
 4. **Genuinely unfixable:** A check is unfixable only when the component structurally cannot satisfy it (e.g. "Wiring accuracy" for a non-composition-root task, or "Library API accuracy" for a task that uses no external library). In this case, mark the check as N/A and exclude it from the denominator. Never mark a check N/A to avoid doing work — only when the check's precondition is structurally unmet.
-5. **Proceed to §6** only when: C.5 score = M/M (100%), C.5b = PASS, C.5c = PASS, and C.5d = PASS or skipped.
+5. **Proceed to §6 immediately** when: C.5 score = M/M (100%), C.5b = PASS, C.5c = PASS, and C.5d = PASS or skipped. **Do NOT stop, report, or wait for the user** — §6 is mandatory finalization (copy task file to main workspace, clean up worktree). The task is incomplete until §6 finishes.
 
 ---
 
-## §6. Finalize and offer execution
+## §6. Finalize and offer execution (MANDATORY — never skip)
+
+**This section is NOT optional.** After Pass 2 verification (C.6) completes, §6 MUST run immediately. The task file exists only in the worktree — if you stop before §6, the user has no task file in their main workspace. The worktree is temporary and will be deleted.
 
 Task files live in `documentation/tasks/`, which is gitignored. They cannot be committed or merged — finalization copies the file directly from the worktree to the main workspace.
 
@@ -1415,17 +1421,18 @@ These are plan failures. If any of these patterns appear in a step instruction, 
 
 If you catch yourself thinking any of these, you are rationalizing. Stop and follow the process.
 
-| Thought                                                           | Reality                                                                                   |
-| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| "This component is simple enough to plan from memory"             | Read the actual `.d.ts` files. Memory-based APIs are wrong 30%+ of the time.              |
-| "The interface probably has these methods"                        | "Probably" means you have not read it. Read it.                                           |
-| "I can skip the exploration report for this one"                  | The exploration report IS the plan's foundation. No shortcut.                             |
-| "This does not fit any recipe, I will improvise"                  | Use the general-purpose recipe. It exists for this case. Never improvise.                 |
-| "I will fill in the details later"                                | Every step must have exact code. "Later" means "never."                                   |
-| "Similar to Task N"                                               | The executor may read tasks out of order. Repeat the code.                                |
-| "Add appropriate error handling"                                  | Which errors? What handling? Be specific or the executor will guess wrong.                |
-| "The existing code probably works this way"                       | Read the actual source. Assumptions cause the most rework.                                |
-| "This is too complex to plan in detail"                           | Break it into smaller tasks. Complexity is not an excuse for vagueness.                   |
-| "I know what the user wants"                                      | Verify with the exploration report and user gate. Do not assume intent.                   |
-| "The planner does not need to verify, the executor will catch it" | The planner's verification prevents the executor from starting bad tasks. Catch it early. |
-| "One more file will not hurt"                                     | Apply the simplicity test. Every new file costs maintenance.                              |
+| Thought                                                           | Reality                                                                                                                        |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| "This component is simple enough to plan from memory"             | Read the actual `.d.ts` files. Memory-based APIs are wrong 30%+ of the time.                                                   |
+| "The interface probably has these methods"                        | "Probably" means you have not read it. Read it.                                                                                |
+| "I can skip the exploration report for this one"                  | The exploration report IS the plan's foundation. No shortcut.                                                                  |
+| "This does not fit any recipe, I will improvise"                  | Use the general-purpose recipe. It exists for this case. Never improvise.                                                      |
+| "I will fill in the details later"                                | Every step must have exact code. "Later" means "never."                                                                        |
+| "Similar to Task N"                                               | The executor may read tasks out of order. Repeat the code.                                                                     |
+| "Add appropriate error handling"                                  | Which errors? What handling? Be specific or the executor will guess wrong.                                                     |
+| "The existing code probably works this way"                       | Read the actual source. Assumptions cause the most rework.                                                                     |
+| "This is too complex to plan in detail"                           | Break it into smaller tasks. Complexity is not an excuse for vagueness.                                                        |
+| "I know what the user wants"                                      | Verify with the exploration report and user gate. Do not assume intent.                                                        |
+| "The planner does not need to verify, the executor will catch it" | The planner's verification prevents the executor from starting bad tasks. Catch it early.                                      |
+| "One more file will not hurt"                                     | Apply the simplicity test. Every new file costs maintenance.                                                                   |
+| "The task file is saved in the worktree, I can stop now"          | The worktree is temporary. §6 copies the file to the main workspace and removes the worktree. Without §6 the user has nothing. |

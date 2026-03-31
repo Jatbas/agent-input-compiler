@@ -36,7 +36,7 @@ The deliverable is a **draft phase proposal** — header, description, and compo
 
 ## Autonomous Execution
 
-Run §0 through §5 as a single continuous flow. Do NOT pause between sections to report status, explain what you will do next, or ask for confirmation. Completing one section means immediately starting the next — not sending a message and waiting.
+Run §0 through §7 as a single continuous flow, stopping only at the user gates listed below. Do NOT pause between sections to report status, explain what you will do next, or ask for confirmation. Completing one section means immediately starting the next — not sending a message and waiting. **After the user approves at §6, §7 runs immediately** — write the approved phases to aic-progress.md without further prompting. The task is NOT complete until §7 finishes.
 
 **Legitimate user gates (the ONLY points where you stop and wait):**
 
@@ -45,9 +45,12 @@ Run §0 through §5 as a single continuous flow. Do NOT pause between sections t
 - Input Routing: Tier 2 empty (ask user before proceeding with Explorer 2+3 only)
 - Input Routing: Tier 3 zero candidates (ask user how to proceed)
 
-**Everything else runs without pausing.** Strategic framing, current state analysis, parallel investigation, synthesis, self-review, adversarial review, and convergence detection all run as one continuous flow. Present the complete proposal at §6 after all analysis is done.
+**Everything else runs without pausing.** Strategic framing, current state analysis, parallel investigation, synthesis, self-review, adversarial review, and convergence detection all run as one continuous flow. Present the complete proposal at §6 after all analysis is done. After approval, §7 writes the phases.
 
-**Anti-pattern:** Sending a message like "Explorers have returned findings, now I'll synthesize..." and waiting. Run the full pipeline and present the finished proposal.
+**Anti-patterns:**
+
+- Sending a message like "Explorers have returned findings, now I'll synthesize..." and waiting. Run the full pipeline and present the finished proposal.
+- Stopping after §6 presentation and not proceeding to §7 after approval. The user approved the phases — write them to aic-progress.md immediately.
 
 ## When to Use
 

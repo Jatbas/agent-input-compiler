@@ -7,9 +7,47 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const crypto = require("crypto");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 
-function isDevModeFromProjectConfig() {
+const RECENCY_WINDOW_MS = 120_000;
+const MAX_DENIES = 3;
+const CLEANUP_INTERVAL_MS = 600_000;
+const STALE_THRESHOLD_MS = 600_000;
+
+function cleanupStaleGateFiles() {
+  const marker = path.join(os.tmpdir(), "aic-gate-cleanup-marker");
+  try {
+    if (Date.now() - fs.statSync(marker).mtimeMs < CLEANUP_INTERVAL_MS) return;
+  } catch {
+    /* marker missing — proceed */
+  }
+  try {
+    fs.writeFileSync(marker, "1");
+  } catch {
+    return;
+  }
+  try {
+    const tmpDir = os.tmpdir();
+    const now = Date.now();
+    for (const entry of fs.readdirSync(tmpDir)) {
+      if (entry.startsWith("aic-gate-recent-")) continue;
+      if (entry === "aic-gate-cleanup-marker") continue;
+      if (!entry.startsWith("aic-gate-") && !entry.startsWith("aic-prompt-")) continue;
+      try {
+        const full = path.join(tmpDir, entry);
+        if (now - fs.statSync(full).mtimeMs > STALE_THRESHOLD_MS) fs.unlinkSync(full);
+      } catch {
+        /* removed by another process */
+      }
+    }
+  } catch {
+    /* readdir failed */
+  }
+}
+
+// Emergency bypass: requires BOTH devMode AND skipCompileGate in aic.config.json.
+function isEmergencyBypass() {
   try {
     const projectRoot = resolveProjectRoot(null, { env: process.env });
     const raw = fs.readFileSync(path.join(projectRoot, "aic.config.json"), "utf8");
@@ -18,28 +56,36 @@ function isDevModeFromProjectConfig() {
       parsed !== null &&
       typeof parsed === "object" &&
       !Array.isArray(parsed) &&
-      parsed.devMode === true
+      parsed.devMode === true &&
+      parsed.skipCompileGate === true
     );
   } catch {
     return false;
   }
 }
 
-if (isDevModeFromProjectConfig()) {
+if (isEmergencyBypass()) {
   process.stdout.write(JSON.stringify({ permission: "allow" }));
   process.exit(0);
 }
+
+cleanupStaleGateFiles();
 
 function getStateFile(generationId) {
   return path.join(os.tmpdir(), `aic-gate-${generationId}`);
 }
 
-function getDenyMarker(generationId) {
-  return path.join(os.tmpdir(), `aic-deny-${generationId}`);
-}
-
 function getPromptFile(generationId) {
   return path.join(os.tmpdir(), `aic-prompt-${generationId}`);
+}
+
+function getDenyCountFile(generationId) {
+  return path.join(os.tmpdir(), `aic-gate-deny-${generationId}`);
+}
+
+function getRecencyFile(projectRoot) {
+  const hash = crypto.createHash("md5").update(projectRoot).digest("hex").slice(0, 12);
+  return path.join(os.tmpdir(), `aic-gate-recent-${hash}`);
 }
 
 function readSavedPrompt(generationId) {
@@ -79,8 +125,17 @@ process.stdin.on("end", () => {
     const toolInput = input.tool_input || {};
     const stateFile = getStateFile(generationId);
 
+    const projectRoot = resolveProjectRoot(null, { env: process.env });
+    const recencyFile = getRecencyFile(projectRoot);
+
     if (isAicCompileMcpCall(toolName, toolInput)) {
       fs.writeFileSync(stateFile, "1");
+      fs.writeFileSync(recencyFile, String(Date.now()));
+      try {
+        fs.unlinkSync(getDenyCountFile(generationId));
+      } catch {
+        /* ignore */
+      }
       process.stdout.write(JSON.stringify({ permission: "allow" }));
       return;
     }
@@ -90,16 +145,28 @@ process.stdin.on("end", () => {
       return;
     }
 
-    // Deny-once-then-allow: the gate is a reminder, not a security enforcement.
-    // If we already denied once for this generation, allow through.
-    const denyMarker = getDenyMarker(generationId);
-    if (fs.existsSync(denyMarker)) {
+    try {
+      const ts = Number(fs.readFileSync(recencyFile, "utf8").trim());
+      if (Date.now() - ts < RECENCY_WINDOW_MS) {
+        process.stdout.write(JSON.stringify({ permission: "allow" }));
+        return;
+      }
+    } catch {
+      /* no recency marker or parse error */
+    }
+
+    const denyCountFile = getDenyCountFile(generationId);
+    let denyCount = 0;
+    try {
+      denyCount = Number(fs.readFileSync(denyCountFile, "utf8").trim()) || 0;
+    } catch {
+      /* ignore */
+    }
+    if (denyCount >= MAX_DENIES) {
       process.stdout.write(JSON.stringify({ permission: "allow" }));
       return;
     }
-
-    // First denial for this generation — write marker, then deny with instruction.
-    fs.writeFileSync(denyMarker, "1");
+    fs.writeFileSync(denyCountFile, String(denyCount + 1));
 
     const savedPrompt = readSavedPrompt(generationId);
     const stripped = savedPrompt.replace(
@@ -109,9 +176,8 @@ process.stdin.on("end", () => {
     const intentArg =
       stripped.length > 0
         ? stripped.replace(/"/g, '\\"')
-        : "<summarise the user message>";
+        : "<search query: name the files, components, or actions>";
 
-    const projectRoot = resolveProjectRoot(null, { env: process.env });
     const denyMsg = `BLOCKED: You must call the aic_compile MCP tool FIRST before using any other tool. Call it now with { "intent": "${intentArg}", "projectRoot": "${projectRoot}" }`;
     process.stdout.write(
       JSON.stringify({
@@ -121,7 +187,15 @@ process.stdin.on("end", () => {
       }),
     );
   } catch {
-    // Fail-open: allow on parse error
-    process.stdout.write(JSON.stringify({ permission: "allow" }));
+    // Fail-closed: deny on parse error (hooks.json also sets failClosed: true)
+    process.stdout.write(
+      JSON.stringify({
+        permission: "deny",
+        user_message:
+          "BLOCKED: aic_compile gate encountered an error. Call aic_compile first.",
+        agent_message:
+          "BLOCKED: aic_compile gate encountered an error. Call aic_compile first.",
+      }),
+    );
   }
 });

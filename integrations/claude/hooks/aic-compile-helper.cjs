@@ -13,6 +13,7 @@ const {
   readSessionModelCache,
   writeSessionModelCache,
 } = require("../../shared/session-model-cache.cjs");
+const { isCompileGateSkipped } = require("../../shared/read-project-dev-mode.cjs");
 
 // conversationId must be conversation-scoped (not session_id) for correct chat summary attribution.
 // modelId: string with content, or null, or undefined; undefined: resolve from sixth param first; if empty, read projectRoot/.aic/session-models.jsonl
@@ -32,6 +33,7 @@ function callAicCompile(
   triggerSource,
   modelId,
 ) {
+  if (isCompileGateSkipped(projectRoot)) return Promise.resolve(null);
   const timeout = timeoutMs || 25000;
   const serverPath = path.join(projectRoot, "mcp", "src", "server.ts");
   const isDev = fs.existsSync(serverPath);

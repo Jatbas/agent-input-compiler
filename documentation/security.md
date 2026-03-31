@@ -289,7 +289,7 @@ AIC uses **`~/.aic/`** for the global SQLite database (`aic.sqlite`) and **`<pro
 - **Auto-gitignored:** Bootstrap appends the AIC ignore manifest (`shared/src/storage/aic-ignore-entries.json`, including `.aic/` and related paths) to `.gitignore`, `.eslintignore`, and `.prettierignore` on first-time init. Project `.aic/` and cache paths stay out of version control.
 - **Permissions:** Global `~/.aic/` is created with `0700` (owner-only). Project `.aic/` is created with restricted permissions for cache writes.
 - **Paths:** Writes use fixed filenames under `.aic/` (database, cache keys, `last-compiled-prompt.txt`). Do not point `.aic/` at untrusted locations.
-- **Cursor compile gate:** Per-project `devMode` in `aic.config.json` skips the preToolUse compile gate only ([installation.md](installation.md)). That bypass is local workflow configuration, not a substitute for Context Guard on compiled context.
+- **Cursor compile gate:** The preToolUse compile gate is always active by default. An emergency bypass requires **both** `"devMode": true` and `"skipCompileGate": true` in `aic.config.json` ([installation.md](installation.md)). The gate uses `failClosed: true` — hook crashes deny rather than allow. This bypass is local workflow configuration for emergencies only, not a substitute for Context Guard on compiled context.
 
 ---
 

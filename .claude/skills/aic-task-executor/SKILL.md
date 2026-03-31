@@ -18,7 +18,7 @@ Execute a task file produced by the `aic-task-planner` skill. Read the task, int
 
 ## Autonomous Execution
 
-Run §1 through §5 as a single continuous flow. Do NOT pause between sections to report status, explain what you will do next, or ask for confirmation. Completing one section means immediately starting the next — not sending a message and waiting.
+Run §1 through §6 as a single continuous flow. Do NOT pause between sections to report status, explain what you will do next, or ask for confirmation. Completing one section means immediately starting the next — not sending a message and waiting. **§6 (Merge and Clean Up) is mandatory — the task is NOT complete until the worktree is merged to main and removed.**
 
 **The ONLY conditions that stop execution:**
 
@@ -27,11 +27,14 @@ Run §1 through §5 as a single continuous flow. Do NOT pause between sections t
 - An external assumption cannot be verified (§2.5)
 - The circuit breaker fires (§3 — 3+ unlisted code pieces)
 - A blocked diagnostic is triggered (any section)
-- Merge approval (§6 — always wait before merging)
+- Merge approval (§6a — always wait before merging, then §6b runs immediately after approval)
 
-Everything else — worktree creation, task internalization, implementation, verification, progress updates, committing — runs without pausing. Present your report at §5a only after all work through §5c is complete, then propose the merge in §6a and wait.
+Everything else — worktree creation, task internalization, implementation, verification, progress updates, committing — runs without pausing. Present your report at §5a only after all work through §5c is complete, then propose the merge in §6a and wait. After the user approves the merge, §6b runs immediately — merge to main, remove the worktree, delete the branch. Do not stop between approval and cleanup.
 
-**Anti-pattern:** Sending a message like "I've set up the worktree, next I'll implement..." and waiting. This wastes the user's time. Set up the worktree AND implement AND verify AND report — all in one continuous flow.
+**Anti-patterns:**
+
+- Sending a message like "I've set up the worktree, next I'll implement..." and waiting. This wastes the user's time. Set up the worktree AND implement AND verify AND report — all in one continuous flow.
+- Stopping after §5 (Finalize) and reporting that the work is committed in the worktree. The worktree is temporary — §6 merges it into main and cleans up. Without §6 the user has uncommitted work on a detached branch.
 
 ## When to Use
 
@@ -60,6 +63,17 @@ Everything else — worktree creation, task internalization, implementation, ver
 3. Existing source in `shared/src/` — current interfaces, types, patterns
 
 ## Process
+
+The process has **six sections** plus mode-specific variants. §6 (Merge and Clean Up) is mandatory — the task is not complete until the worktree is merged into main and removed.
+
+| Step                  | Deliverable                                 | User gate?              |
+| --------------------- | ------------------------------------------- | ----------------------- |
+| §1 Read + validate    | Task file internalized, worktree created    | Only if deps not met    |
+| §2 Internalize        | Touched-files list, mode detection          | Only if ambiguity found |
+| §3 Implement          | Code/docs written in worktree               | No — continuous         |
+| §4 Verify             | All dimensions clean                        | No — continuous         |
+| §5 Finalize           | Report, progress update, commit in worktree | No — continuous         |
+| §6 Merge and Clean Up | Squash merge to main, worktree removed      | Yes — wait for approval |
 
 ### 1. Read, validate, and internalize the task
 
@@ -99,10 +113,10 @@ If the worktree directory already exists (stale from a previous run), prune and 
 git worktree prune && git worktree add ...
 ```
 
-**Install dependencies in the worktree** (pnpm hard-links from the global store — fast, no re-downloads):
+**Install dependencies and build in the worktree** (pnpm hard-links from the global store — fast, no re-downloads; build ensures `dist/` exists for standalone tests that require build artifacts like the smoke test):
 
 ```
-pnpm install
+pnpm install && pnpm build
 ```
 
 Run with `working_directory` set to the worktree absolute path.
@@ -631,7 +645,9 @@ Run these sequentially in one flow — no user gate between them:
    d. Run `git status --porcelain` again. Filter against touched-files list. If touched files are still dirty (lint-staged reformatted again), repeat from (b). This outer loop (steps a–d) is separate from (c)'s test-failure fix loop — it caps at 3 total iterations of (a–d). If touched files remain dirty after 3 iterations, something is structurally wrong; go to **Blocked diagnostic**.
    e. Run `git diff main...HEAD --stat` to produce the final file list for the merge proposal. Verify that `git rev-parse --abbrev-ref HEAD` still shows the stored branch name.
 
-### 6. Merge and Clean Up
+### 6. Merge and Clean Up (MANDATORY — never skip)
+
+**This section is NOT optional.** After §5 finalization, §6 MUST run. The task's work exists only in the worktree — if you stop before §6, the user has uncommitted work on a temporary branch that will be lost. The worktree is temporary and must be merged into main and removed.
 
 This step merges the feature branch into main and removes the worktree. All commands in §6 run from the **main workspace root** (not the worktree).
 
@@ -765,17 +781,18 @@ Before declaring Blocked, check whether the failure is in your code or in the ta
 
 If you catch yourself thinking any of these, you are rationalizing. Stop and follow the process.
 
-| Thought                                                         | Reality                                                                             |
-| --------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| "This step is trivial, I can skip verification"                 | Trivial steps fail too. Verify everything.                                          |
-| "I just wrote it so I know it is correct"                       | Re-read from disk. Memory is unreliable after 10+ files.                            |
-| "Tests should pass now"                                         | "Should" means you have not run them. Run them.                                     |
-| "The task file is probably wrong, I will improvise"             | Stop and report to the user. Never improvise.                                       |
-| "I will fix this lint error later"                              | Fix it now. Deferred fixes compound.                                                |
-| "One more try without going to Blocked"                         | If you have tried 2+ times, go to Blocked. More attempts waste tokens.              |
-| "This workaround is fine, the task did not anticipate this"     | 3+ workarounds = circuit breaker. Report it.                                        |
-| "I can skip the worktree for this small change"                 | The worktree protects main. Size does not matter.                                   |
-| "Verification passed in §4a, no need for §4b mechanical checks" | §4a catches toolchain errors. §4b catches convention violations. Both are required. |
-| "I will commit and fix the remaining issue after"               | All dimensions must be clean before committing.                                     |
-| "The subagent said it succeeded"                                | Verify independently. Never trust subagent reports without evidence.                |
-| "This debugging attempt will work"                              | Follow the systematic debugging skill. No guessing.                                 |
+| Thought                                                         | Reality                                                                                               |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| "This step is trivial, I can skip verification"                 | Trivial steps fail too. Verify everything.                                                            |
+| "I just wrote it so I know it is correct"                       | Re-read from disk. Memory is unreliable after 10+ files.                                              |
+| "Tests should pass now"                                         | "Should" means you have not run them. Run them.                                                       |
+| "The task file is probably wrong, I will improvise"             | Stop and report to the user. Never improvise.                                                         |
+| "I will fix this lint error later"                              | Fix it now. Deferred fixes compound.                                                                  |
+| "One more try without going to Blocked"                         | If you have tried 2+ times, go to Blocked. More attempts waste tokens.                                |
+| "This workaround is fine, the task did not anticipate this"     | 3+ workarounds = circuit breaker. Report it.                                                          |
+| "I can skip the worktree for this small change"                 | The worktree protects main. Size does not matter.                                                     |
+| "Verification passed in §4a, no need for §4b mechanical checks" | §4a catches toolchain errors. §4b catches convention violations. Both are required.                   |
+| "I will commit and fix the remaining issue after"               | All dimensions must be clean before committing.                                                       |
+| "The subagent said it succeeded"                                | Verify independently. Never trust subagent reports without evidence.                                  |
+| "This debugging attempt will work"                              | Follow the systematic debugging skill. No guessing.                                                   |
+| "The work is committed in the worktree, I can stop now"         | The worktree is temporary. §6 merges to main and removes it. Without §6 the user has nothing on main. |

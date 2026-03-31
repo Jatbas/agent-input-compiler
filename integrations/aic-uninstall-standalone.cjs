@@ -389,7 +389,17 @@ var require_read_project_dev_mode = __commonJS({
         return false;
       }
     }
-    module2.exports = { isDevModeTrue };
+    function isCompileGateSkipped(projectRoot) {
+      const configPath = path.join(projectRoot, "aic.config.json");
+      try {
+        const raw = fs.readFileSync(configPath, "utf8");
+        const parsed = JSON.parse(raw);
+        return parsed.devMode === true && parsed.skipCompileGate === true;
+      } catch {
+        return false;
+      }
+    }
+    module2.exports = { isDevModeTrue, isCompileGateSkipped };
   },
 });
 

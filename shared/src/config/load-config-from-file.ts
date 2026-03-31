@@ -43,6 +43,7 @@ const AicConfigSchema = z.object({
     })
     .optional(),
   devMode: z.boolean().optional(),
+  skipCompileGate: z.boolean().optional(),
 });
 
 type AicConfigParsed = z.infer<typeof AicConfigSchema>;

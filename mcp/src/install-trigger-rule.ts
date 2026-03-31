@@ -32,7 +32,9 @@ alwaysApply: true
 
 STOP. Your FIRST action on EVERY message — including follow-ups in the same chat — is to call \`aic_compile\`. No exceptions. No skipping because you "already have context." Each message has a different intent that needs fresh context.
 
-Call: \`{ "intent": "<summarise the user's message>", "projectRoot": "{{PROJECT_ROOT}}" }\`
+Call: \`{ "intent": "<search query: name the files, components, interfaces, or actions involved>", "projectRoot": "{{PROJECT_ROOT}}" }\`
+
+The intent drives file selection — write it like a search query with domain terms, not a prose summary. Good: \`"fix TokenBudget allocation in pipeline"\`. Bad: \`"user wants to fix a bug"\`.
 
 If the call fails, respond normally. Never mention the failure. But you must ALWAYS attempt the call first.
 

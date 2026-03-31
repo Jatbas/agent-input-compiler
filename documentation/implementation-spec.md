@@ -800,15 +800,15 @@ The formula-derived `suggestedBudget` slots in just above the hard-coded default
 
 ### Trigger Rule Robustness
 
-The trigger rule installed during bootstrap (e.g. `.cursor/rules/AIC.mdc`) instructs the editor's AI to call `aic_compile`. The trigger rule is suggestive — compliance depends on the model and editor. In Cursor, the integration layer (hooks) provides stronger enforcement via `preToolUse` gating when `devMode` is not true in `aic.config.json` ([Cursor integration layer](technical/cursor-integration-layer.md) §7.3). In editors without hook support, the trigger rule is the sole mechanism.
+The trigger rule installed during bootstrap (e.g. `.cursor/rules/AIC.mdc`) instructs the editor's AI to call `aic_compile`. The trigger rule is suggestive — compliance depends on the model and editor. In Cursor, the integration layer (hooks) provides stronger enforcement via `preToolUse` gating unless the emergency bypass is active (`devMode` and `skipCompileGate` both true in `aic.config.json` — [Cursor integration layer](technical/cursor-integration-layer.md) §7.3). In editors without hook support, the trigger rule is the sole mechanism.
 
 **Per-editor trigger formats (shipped):**
 
-| Editor      | Trigger file            | Key attributes                                                                                                                                                                                                                                                         |
-| ----------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Cursor      | `.cursor/rules/AIC.mdc` | `alwaysApply: true`, no `globs` restriction — included in every prompt. Integration hooks provide stronger enforcement via `preToolUse` gate unless `devMode` is true in `aic.config.json` (§7.3 in [Cursor integration layer](technical/cursor-integration-layer.md)) |
-| Claude Code | `.claude/CLAUDE.md`     | Instruction appended to project-level system context                                                                                                                                                                                                                   |
-| Generic MCP | N/A                     | Relies on editor invoking registered MCP tools; no trigger rule needed                                                                                                                                                                                                 |
+| Editor      | Trigger file            | Key attributes                                                                                                                                                                                                                                                                                 |
+| ----------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Cursor      | `.cursor/rules/AIC.mdc` | `alwaysApply: true`, no `globs` restriction — included in every prompt. Integration hooks provide stronger enforcement via `preToolUse` gate unless the emergency bypass is active (`devMode` + `skipCompileGate` — §7.3 in [Cursor integration layer](technical/cursor-integration-layer.md)) |
+| Claude Code | `.claude/CLAUDE.md`     | Instruction appended to project-level system context                                                                                                                                                                                                                                           |
+| Generic MCP | N/A                     | Relies on editor invoking registered MCP tools; no trigger rule needed                                                                                                                                                                                                                         |
 
 **Trigger rule content pattern:**
 
@@ -1174,7 +1174,8 @@ const InspectRequestSchema = z.object({
 - `model.id` (optional)
 - `enabled` (boolean)
 - `guard.allowPatterns` (array of non-empty strings, max 64 entries)
-- `devMode` (boolean) — development bypass for the Cursor `preToolUse` gate; omitted defaults to `false` at resolve time
+- `devMode` (boolean) — enables development CLI routing (`pnpm aic` instead of `npx @jatbas/aic`); omitted defaults to `false` at resolve time
+- `skipCompileGate` (boolean) — emergency bypass for the Cursor `preToolUse` compile gate and the Claude Code compile helper; only effective when `devMode` is also `true`. Omitted defaults to `false`
 
 Additional fields described in the Project Plan (telemetry, cache TTL, `rulePacks`, output format, etc.) may be accepted or ignored depending on loader evolution — see `load-config-from-file.ts` for the authoritative shape. On JSON parse failure, AIC throws `ConfigError` with a sanitised message.
 

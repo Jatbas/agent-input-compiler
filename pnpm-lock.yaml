@@ -84,10 +84,10 @@ importers:
         version: link:../shared
       '@modelcontextprotocol/sdk':
         specifier: 1.29.0
-        version: 1.29.0(patch_hash=5d1da56f8e3efb612531541dbeb860271be77139d59107162e0e22f894a53025)(zod@4.3.6)
+        version: 1.29.0(patch_hash=5d1da56f8e3efb612531541dbeb860271be77139d59107162e0e22f894a53025)(zod@3.25.7)
       zod:
-        specifier: 4.3.6
-        version: 4.3.6
+        specifier: 3.25.7
+        version: 3.25.7
 
   shared:
     dependencies:
@@ -128,8 +128,8 @@ importers:
         specifier: 0.26.6
         version: 0.26.6
       zod:
-        specifier: 4.3.6
-        version: 4.3.6
+        specifier: 3.25.7
+        version: 3.25.7
     devDependencies:
       '@types/node':
         specifier: 25.5.0
@@ -2619,6 +2619,9 @@ packages:
     peerDependencies:
       zod: ^3.25.28 || ^4
 
+  zod@3.25.7:
+    resolution: {integrity: sha512-YGdT1cVRmKkOg6Sq7vY7IkxdphySKnXhaUmFI4r4FcuFVNgpCb9tZfNwXbT6BPjD5oz0nubFsoo9pIqKrDcCvg==}
+
   zod@4.3.6:
     resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
 
@@ -2953,7 +2956,7 @@ snapshots:
       reprism: 0.0.11
       spark-md5: 3.0.2
 
-  '@modelcontextprotocol/sdk@1.29.0(patch_hash=5d1da56f8e3efb612531541dbeb860271be77139d59107162e0e22f894a53025)(zod@4.3.6)':
+  '@modelcontextprotocol/sdk@1.29.0(patch_hash=5d1da56f8e3efb612531541dbeb860271be77139d59107162e0e22f894a53025)(zod@3.25.7)':
     dependencies:
       '@hono/node-server': 1.19.12(hono@4.12.9)
       ajv: 8.18.0
@@ -2970,8 +2973,8 @@ snapshots:
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
       raw-body: 3.0.2
-      zod: 4.3.6
-      zod-to-json-schema: 3.25.2(zod@4.3.6)
+      zod: 3.25.7
+      zod-to-json-schema: 3.25.2(zod@3.25.7)
     transitivePeerDependencies:
       - supports-color
 
@@ -5061,8 +5064,10 @@ snapshots:
 
   yocto-queue@0.1.0: {}
 
-  zod-to-json-schema@3.25.2(zod@4.3.6):
+  zod-to-json-schema@3.25.2(zod@3.25.7):
     dependencies:
-      zod: 4.3.6
+      zod: 3.25.7
+
+  zod@3.25.7: {}
 
   zod@4.3.6: {}

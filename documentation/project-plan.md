@@ -266,15 +266,15 @@ The **integration layer** is a thin set of hook scripts, specific to each editor
 
 **What AIC needs from an editor (capability checklist):**
 
-| Capability                             | What it enables for AIC                                                                                                                                                                                  | Priority     |
-| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
-| **Session start + context injection**  | Compile context once and inject into the conversation. Model starts with curated code from the first message.                                                                                            | Recommended  |
-| **Per-prompt + context injection**     | Compile intent-specific context on every user message. Adapts to topic changes mid-conversation.                                                                                                         | Ideal        |
-| **Pre-tool-use gating**                | Block tool calls until `aic_compile` has run (Cursor compile gate skippable via `devMode` in `aic.config.json` — [installation](installation.md)). Enforces compilation on tool-using turns when active. | Recommended  |
-| **Subagent start + context injection** | Inject compiled context when subagents spawn. Closes the biggest gap in agentic workflows.                                                                                                               | Ideal        |
-| **Session end**                        | Log session lifecycle for telemetry (duration, trigger count).                                                                                                                                           | Nice to have |
-| **Pre-compaction**                     | Re-compile before context window compaction. Preserves context quality during long sessions.                                                                                                             | Nice to have |
-| **Trigger rule**                       | Text instruction asking the model to call `aic_compile`. Minimal integration with no hooks.                                                                                                              | Minimum      |
+| Capability                             | What it enables for AIC                                                                                                                                                                                                         | Priority     |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **Session start + context injection**  | Compile context once and inject into the conversation. Model starts with curated code from the first message.                                                                                                                   | Recommended  |
+| **Per-prompt + context injection**     | Compile intent-specific context on every user message. Adapts to topic changes mid-conversation.                                                                                                                                | Ideal        |
+| **Pre-tool-use gating**                | Enforce `aic_compile` before other tools (per-generation marker, recency fallback, deny-count cap; emergency bypass when both `devMode` and `skipCompileGate` are true in `aic.config.json` — [installation](installation.md)). | Recommended  |
+| **Subagent start + context injection** | Inject compiled context when subagents spawn. Closes the biggest gap in agentic workflows.                                                                                                                                      | Ideal        |
+| **Session end**                        | Log session lifecycle for telemetry (duration, trigger count).                                                                                                                                                                  | Nice to have |
+| **Pre-compaction**                     | Re-compile before context window compaction. Preserves context quality during long sessions.                                                                                                                                    | Nice to have |
+| **Trigger rule**                       | Text instruction asking the model to call `aic_compile`. Minimal integration with no hooks.                                                                                                                                     | Minimum      |
 
 **Current editor capabilities:**
 
@@ -290,7 +290,7 @@ The **integration layer** is a thin set of hook scripts, specific to each editor
 
 **Cursor:** Cursor exposes sessionEnd, preCompact, subagentStart (gating only — no context injection), stop, afterFileEdit, and other hooks the editor documents. The AIC integration layer consumes the subset in the table above.
 
-**Current state — Cursor:** Session-start injection, tool gating (when `devMode` is not true in `aic.config.json` — see [installation](installation.md)), sessionEnd, stop quality check, afterFileEdit tracking, and prompt logging are implemented.
+**Current state — Cursor:** Session-start injection, tool gating (always on unless the emergency bypass is active — both `devMode` and `skipCompileGate` true in `aic.config.json`; see [installation](installation.md)), sessionEnd, stop quality check, afterFileEdit tracking, and prompt logging are implemented.
 
 **Claude Code:** The integration layer is implemented (plugin and direct installer; see [installation](installation.md)).
 
