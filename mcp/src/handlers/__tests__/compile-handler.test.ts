@@ -646,6 +646,102 @@ describe("compile-handler", () => {
     }
   });
 
+  it("deduplicates_guard_findings", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+    try {
+      const singleFinding = {
+        severity: GUARD_SEVERITY.BLOCK,
+        type: GUARD_FINDING_TYPE.COMMAND_INJECTION,
+        file: toRelativePath("src/foo.ts"),
+        message: "Command injection pattern: pipe chain",
+        pattern: "\\|\\s*\\S+",
+      };
+      const guardMeta: CompilationMeta = {
+        ...STUB_COMPILATION_META,
+        guard: {
+          passed: false,
+          findings: Array.from({ length: 50 }, () => singleFinding),
+          filesBlocked: [],
+          filesRedacted: [],
+          filesWarned: [],
+        },
+      };
+      const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
+      const handler = createCompileHandler(
+        getScope,
+        (_scope: ProjectScope) => makeRunnerWithMeta("body", guardMeta),
+        { hash: (): string => "" },
+        getSessionId,
+        getEditorId,
+        getModelId,
+        [],
+        enabledConfigLoader,
+        () => {},
+        () => null,
+        () => false,
+      );
+      const result = await handler(
+        { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },
+        undefined,
+      );
+      const items = result.content as readonly { type: string; text: string }[];
+      const parsed = JSON.parse(items[0]!.text) as {
+        meta: { guard: { findings: unknown[] } };
+      };
+      expect(parsed.meta.guard.findings.length).toBe(1);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("caps_guard_findings_at_max", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+    try {
+      const findings = Array.from({ length: 30 }, (_, i) => ({
+        severity: GUARD_SEVERITY.BLOCK,
+        type: GUARD_FINDING_TYPE.COMMAND_INJECTION,
+        file: toRelativePath("src/foo.ts"),
+        message: `Command injection pattern: pipe chain ${i}`,
+        pattern: `pattern-${i}`,
+      }));
+      const guardMeta: CompilationMeta = {
+        ...STUB_COMPILATION_META,
+        guard: {
+          passed: false,
+          findings,
+          filesBlocked: [],
+          filesRedacted: [],
+          filesWarned: [],
+        },
+      };
+      const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
+      const handler = createCompileHandler(
+        getScope,
+        (_scope: ProjectScope) => makeRunnerWithMeta("body", guardMeta),
+        { hash: (): string => "" },
+        getSessionId,
+        getEditorId,
+        getModelId,
+        [],
+        enabledConfigLoader,
+        () => {},
+        () => null,
+        () => false,
+      );
+      const result = await handler(
+        { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },
+        undefined,
+      );
+      const items = result.content as readonly { type: string; text: string }[];
+      const parsed = JSON.parse(items[0]!.text) as {
+        meta: { guard: { findings: unknown[] } };
+      };
+      expect(parsed.meta.guard.findings.length).toBe(20);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it("exclusion_instruction_prepended_when_guard_excluded", async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
     try {

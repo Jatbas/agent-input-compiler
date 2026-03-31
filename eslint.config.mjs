@@ -193,6 +193,12 @@ const STORAGE_SCOPE_HASH_WHITELIST = allowOnlyHashAliases(
 );
 const ADAPTER_HASH_WHITELIST = allowOnlyHashAliases(["core"], "adapters");
 
+const LET_BAN = {
+  selector: "VariableDeclaration[kind='let']",
+  message:
+    "Use const. For accumulators, use .reduce(). Boolean control flags in imperative closures are exempt — add a file override in eslint.config.mjs.",
+};
+
 // ─── Composed rule sets ─────────────────────────────────────────────
 
 const BASE_RESTRICTED = [
@@ -205,6 +211,7 @@ const BASE_RESTRICTED = [
   ...PRIMITIVE_CAST_BANS,
   DOUBLE_CAST_BAN,
   ...ANTI_PATTERN_BANS,
+  LET_BAN,
 ];
 
 const CORE_PIPELINE_RESTRICTED = [
@@ -1377,6 +1384,51 @@ export default tseslint.config(
         "error",
         ...SYSTEM_CLOCK_RESTRICTED,
         ADAPTER_HASH_WHITELIST,
+      ],
+    },
+  },
+
+  // ─── Boolean-flag exemptions: let is permitted for boolean control flags ──
+  // These files contain legitimate boolean flags in imperative closures (e.g.
+  // `let exited = false` set by a nested closure) that cannot be expressed as
+  // const without significant restructuring.
+  {
+    files: ["mcp/src/server.ts", "mcp/src/startup-self-check.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        BARE_ERROR,
+        ...ARRAY_MUTATIONS,
+        ...DATE_RESTRICTIONS,
+        MATH_RANDOM,
+        IF_CHAIN_BAN,
+        NAMESPACE_IMPORT_BAN,
+        ...PRIMITIVE_CAST_BANS,
+        DOUBLE_CAST_BAN,
+        ...ANTI_PATTERN_BANS,
+      ],
+    },
+  },
+  // ─── test-structure-extractor.ts: imperative parser with loop indices ────
+  // This AST scanner uses let for character-position indices (let i, let pos,
+  // let depth) inside while loops — the standard pattern for hand-written
+  // lexer/parser code that cannot be expressed cleanly with reduce.
+  {
+    files: ["shared/src/pipeline/test-structure-extractor.ts"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        BARE_ERROR,
+        ...ARRAY_MUTATIONS,
+        ...DATE_RESTRICTIONS,
+        MATH_RANDOM,
+        IF_CHAIN_BAN,
+        NAMESPACE_IMPORT_BAN,
+        ...PRIMITIVE_CAST_BANS,
+        DOUBLE_CAST_BAN,
+        ...ANTI_PATTERN_BANS,
+        ...CORE_PIPELINE_EXTRA,
+        CORE_HASH_WHITELIST,
       ],
     },
   },

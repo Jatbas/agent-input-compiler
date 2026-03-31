@@ -8,6 +8,12 @@ import type { ScanPattern } from "@jatbas/aic-core/core/interfaces/scan-pattern.
 import { scanWithPatterns } from "./pattern-scanner.js";
 import { GUARD_SEVERITY, GUARD_FINDING_TYPE } from "@jatbas/aic-core/core/types/enums.js";
 
+const MARKDOWN_EXTENSIONS: readonly string[] = [".md", ".mdc", ".mdx"];
+
+function isMarkdownPath(filePath: string): boolean {
+  return MARKDOWN_EXTENSIONS.some((ext) => filePath.endsWith(ext));
+}
+
 const COMMAND_INJECTION_PATTERNS: readonly ScanPattern[] = [
   { pattern: /\$\([^)]*\)/, label: "dollar-paren substitution" },
   { pattern: /`[^`]*`/, label: "backtick substitution" },
@@ -18,6 +24,9 @@ export class CommandInjectionScanner implements GuardScanner {
   readonly name = "CommandInjectionScanner";
 
   scan(file: SelectedFile, content: string): readonly GuardFinding[] {
+    if (isMarkdownPath(file.path)) {
+      return [];
+    }
     return scanWithPatterns(
       file,
       content,

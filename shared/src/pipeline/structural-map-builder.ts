@@ -18,12 +18,14 @@ export class StructuralMapBuilder implements IStructuralMapBuilder {
 
   build(repoMap: RepoMap): string {
     if (repoMap.files.length === 0) return "";
-    const counts = repoMap.files.reduce<Readonly<Record<string, number>>>((acc, file) => {
-      const dir = dirPrefixAtDepth(file.path, MAX_DEPTH);
-      if (dir === "") return acc;
-      const n = (acc[dir] ?? 0) + 1;
-      return { ...acc, [dir]: n };
-    }, {});
+    const counts = repoMap.files
+      .filter((file) => !file.path.startsWith(".git/"))
+      .reduce<Readonly<Record<string, number>>>((acc, file) => {
+        const dir = dirPrefixAtDepth(file.path, MAX_DEPTH);
+        if (dir === "") return acc;
+        const n = (acc[dir] ?? 0) + 1;
+        return { ...acc, [dir]: n };
+      }, {});
     const sortedDirs = Object.keys(counts).toSorted();
     return sortedDirs.map((dir) => `${dir} (${counts[dir] ?? 0} files)`).join("\n");
   }

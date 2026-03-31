@@ -62,6 +62,8 @@ import {
 
 const SESSION_MODELS_FILE = "session-models.jsonl";
 
+const MAX_SANITIZED_FINDINGS = 20;
+
 function normalizeModelId(raw: string): string {
   return raw.toLowerCase() === "default" ? "auto" : raw;
 }
@@ -79,29 +81,32 @@ function readSessionModelCache(
     const raw = fs.readFileSync(sessionModelsPath(projectRoot), "utf8");
     const lines = raw.split("\n").filter((l) => l.trim().length > 0);
     const cid = typeof conversationId === "string" ? conversationId.trim() : "";
-    let lastMatch: string | null = null;
-    let lastAny: string | null = null;
-    for (const line of lines) {
-      try {
-        const entry = JSON.parse(line) as { m?: string; c?: string; e?: string };
-        if (
-          typeof entry.m !== "string" ||
-          !isValidModelId(entry.m) ||
-          typeof entry.c !== "string" ||
-          !isValidConversationId(entry.c) ||
-          typeof entry.e !== "string" ||
-          !isValidEditorId(entry.e) ||
-          entry.e !== editorId
-        ) {
-          continue;
+    const state = lines.reduce<Readonly<{ match: string | null; last: string | null }>>(
+      (s, line) => {
+        try {
+          const entry = JSON.parse(line) as { m?: string; c?: string; e?: string };
+          if (
+            typeof entry.m !== "string" ||
+            !isValidModelId(entry.m) ||
+            typeof entry.c !== "string" ||
+            !isValidConversationId(entry.c) ||
+            typeof entry.e !== "string" ||
+            !isValidEditorId(entry.e) ||
+            entry.e !== editorId
+          ) {
+            return s;
+          }
+          return {
+            last: entry.m,
+            match: cid.length > 0 && entry.c === cid ? entry.m : s.match,
+          };
+        } catch {
+          return s;
         }
-        lastAny = entry.m;
-        if (cid.length > 0 && entry.c === cid) lastMatch = entry.m;
-      } catch {
-        // skip malformed lines
-      }
-    }
-    return lastMatch ?? lastAny;
+      },
+      { match: null, last: null },
+    );
+    return state.match ?? state.last;
   } catch {
     return null;
   }
@@ -166,9 +171,28 @@ function sanitizeGuardForModel(guard: GuardResult): {
   filesRedacted: readonly string[];
   filesWarned: readonly string[];
 } {
+  const stripped = guard.findings.map(({ file: _f, ...rest }) => rest);
+  const deduped = Object.values(
+    stripped.reduce<
+      Record<
+        string,
+        {
+          severity: string;
+          type: string;
+          line?: number;
+          message: string;
+          pattern?: string;
+        }
+      >
+    >((acc, finding) => {
+      const key = `${finding.type}|${finding.pattern ?? ""}`;
+      if (acc[key] !== undefined) return acc;
+      return { ...acc, [key]: finding };
+    }, {}),
+  );
   return {
     passed: guard.passed,
-    findings: guard.findings.map(({ file: _f, ...rest }) => rest),
+    findings: deduped.slice(0, MAX_SANITIZED_FINDINGS),
     filesBlocked: [],
     filesRedacted: [],
     filesWarned: [],

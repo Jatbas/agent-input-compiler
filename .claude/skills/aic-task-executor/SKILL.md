@@ -54,7 +54,7 @@ Everything else — worktree creation, task internalization, implementation, ver
 - §5: Report results, skip progress update, commit in the worktree
 - §6: Propose merge to user
 
-**NEVER skip §4 (verification) for ad-hoc work.** The most common failure mode is implementing the change, skipping verification, and committing directly to main. This skill exists to prevent that.
+**NEVER skip §4 (verification) for ad-hoc work.**
 
 ## Inputs
 
@@ -113,7 +113,7 @@ If the worktree directory already exists (stale from a previous run), prune and 
 git worktree prune && git worktree add ...
 ```
 
-**Install dependencies and build in the worktree** (pnpm hard-links from the global store — fast, no re-downloads; build ensures `dist/` exists for standalone tests that require build artifacts like the smoke test):
+**Install dependencies and build in the worktree:**
 
 ```
 pnpm install && pnpm build
@@ -135,7 +135,7 @@ Run with `working_directory` set to the worktree. Output must match the branch y
 
 ### 2. Internalize the task
 
-Before writing any code, absorb these sections from the pre-read task file. Do not skip this step — it prevents rework caused by implementing without understanding the spec.
+Before writing any code, absorb these sections from the pre-read task file.
 
 **Quick doc-mode pre-check.** The task file's `Layer:` header field was in the §1 pre-read. If it says `documentation`, skip directly to §2b now — the code-specific internalization below does not apply.
 
@@ -221,7 +221,7 @@ If any assumption cannot be verified (no evidence exists, or the evidence contra
 
 ### 3-doc. Implement (documentation mode)
 
-**This section replaces §3 for documentation tasks.** Work through the Steps section in order, applying the documentation-specific workflow. The Change Specification's target text was already verified by the documentation-writer skill's multi-agent pipeline during planning (Phase 1 explorers + Phase 2 writing + Phase 3 critics). The executor applies these pre-verified edits and then runs a SECOND adversarial review pass (4-doc-a) with fresh critics.
+**This section replaces §3 for documentation tasks.** Work through the Steps section in order, applying the documentation-specific workflow.
 
 **Pre-write: internalize voice and context.**
 
@@ -259,11 +259,9 @@ These rules are also documented in `.claude/skills/aic-documentation-writer/SKIL
 
 ### 4-doc. Verify (documentation mode)
 
-**This section replaces §4 for documentation tasks.** Run a verification pass using subagents and tool output as objective evidence.
+**This section replaces §4 for documentation tasks.**
 
-**4-doc-a — Run the documentation-writer skill's Phase 3 (Adversarial Review).**
-
-Instead of spawning subagents directly, delegate to the `aic-documentation-writer` skill's Phase 3. This provides the same verification (editorial quality, factual accuracy, cross-doc consistency, reader simulation) but from a single source of truth — the same protocol used during planning.
+**4-doc-a — Run the documentation-writer skill's Phase 3 (Adversarial Review).** Delegate to the `aic-documentation-writer` skill's Phase 3.
 
 **How to run Phase 3:**
 
@@ -275,8 +273,6 @@ Instead of spawning subagents directly, delegate to the `aic-documentation-write
    - **Critic 3 — Cross-document consistency** (`explore`, `fast`): checks all key terms against sibling documents and mirror documents.
    - **Critic 4 — Reader simulation** (`generalPurpose`, conditional): spawn ONLY for user-facing documents (installation guides, getting started docs, user-facing READMEs). Skip for developer references.
 4. Evaluate critic outputs per `SKILL.md` section 3d. Run double-blind factual reconciliation (3e) if the planner's Explorer 1 findings are available from the task's exploration report. Apply backward feedback loop (3f) if issues require target text revision.
-
-**Why this is stronger than the previous approach:** The documentation-writer's Phase 3 includes anti-agreement enforcement (3c), double-blind factual reconciliation (3e), and a backward feedback loop (3f) — mechanisms that the previous inline subagent prompts lacked. The critic prompt templates in `SKILL-dimensions.md` are also more detailed and structured than the previous inline prompts.
 
 **4-doc-b — Process critic results.**
 
@@ -293,26 +289,24 @@ Follow the documentation-writer skill's processing flow (SKILL.md section 3d). R
 
 After fixing all critic-reported issues, run the mechanical checks:
 
-| Dimension                          | Tool check                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Evidence                                                                                                |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| 1. Change specification compliance | Re-read the task's Change Specification. Re-read the edited document. Every specified change is present.                                                                                                                                                                                                                                                                                                                                                             | List each change — APPLIED or MISSING                                                                   |
-| 2. Factual accuracy                | Re-run: grep codebase for every technical claim in edited sections                                                                                                                                                                                                                                                                                                                                                                                                   | List each claim — VERIFIED / NOT FOUND / CONTRADICTED                                                   |
-| 3. Cross-document consistency      | Re-run: grep sibling docs for key terms in edited sections                                                                                                                                                                                                                                                                                                                                                                                                           | List each term — CONSISTENT or DIVERGENT                                                                |
-| 4. Link validity                   | For every markdown link `[text](path)` in the document, Glob for the target                                                                                                                                                                                                                                                                                                                                                                                          | List each link — VALID or BROKEN                                                                        |
-| 5. Writing quality                 | Critic 1 output — all issues resolved                                                                                                                                                                                                                                                                                                                                                                                                                                | List each issue — FIXED or ACCEPTED (with reason)                                                       |
-| 6. No regressions                  | `git diff` the document — verify only intended sections changed                                                                                                                                                                                                                                                                                                                                                                                                      | Diff shows only changes matching the Change Specification                                               |
-| 7. ToC-body structure match        | Parse the Table of Contents and body headings. Verify every ToC entry has a matching body heading and the order matches. Verify every body heading appears in the ToC. Flag mismatches. **This includes headings added by this task.**                                                                                                                                                                                                                               | List each ToC entry — MATCHES BODY / MISSING IN BODY / ORDER MISMATCH / MISSING IN TOC                  |
-| 8. Scope-adjacent consistency      | For every key concept in the edited sections (package names, commands, component names), grep the FULL document for other occurrences. Verify they are consistent with the edited text                                                                                                                                                                                                                                                                               | List each concept — [location outside target] — CONSISTENT / STALE / CONTRADICTED                       |
-| 9. Pre-existing issue scan         | Grep the full document for: "GAP", "TODO", "FIXME", "will be added", "future task". Also grep for "Phase [A-Z]" and cross-reference against `documentation/tasks/progress/aic-progress.md` (main workspace) for stale phase references                                                                                                                                                                                                                               | List each marker found — [type] at [location] — IN TARGET (should fix) / OUTSIDE TARGET (informational) |
-| 10. Content format compliance      | Verify: (a) any group of 3+ definitions uses a table, not inline paragraph; (b) any new section has a ToC entry; (c) new section placement follows document flow logic (intro→concepts→procedures→reference→appendix)                                                                                                                                                                                                                                                | List each check — COMPLIANT / VIOLATION (describe)                                                      |
-| 11. Cross-doc term ripple          | For every term/command/reference that was replaced in the target document (old value → new value), grep ALL files in `documentation/` for the old value. Classify each match as: non-historical (current description that should use the new value) or historical (daily log entry, task description, changelog — leave as-is). Non-historical stale references in the task's scoped files must be fixed; in out-of-scope files they are reported as follow-up items | List each old term — [file:line] — NON-HISTORICAL (fix or follow-up) / HISTORICAL (leave)               |
-| 12. Intra-document consistency     | For each concept described in the edited sections (e.g. how hooks are deployed, when bootstrap runs), grep the FULL document for other sections that describe the same concept. Verify they agree. Flag contradictions where one section uses different verbs or descriptions for the same mechanism (e.g. "merged" vs "re-copied" for the same operation)                                                                                                           | List each concept — [section A says X] vs [section B says Y] — CONSISTENT / CONTRADICTED                |
+| Dim                           | Check                                                                                                                    | Evidence                                                                 |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| 1. Change spec compliance     | Re-read Change Spec vs edited document                                                                                   | Each change — APPLIED / MISSING                                          |
+| 2. Factual accuracy           | Grep codebase for every technical claim in edited sections                                                               | Each claim — VERIFIED / NOT FOUND / CONTRADICTED                         |
+| 3. Cross-doc consistency      | Grep sibling docs for key terms in edited sections                                                                       | Each term — CONSISTENT / DIVERGENT                                       |
+| 4. Link validity              | Glob for every `[text](path)` target                                                                                     | Each link — VALID / BROKEN                                               |
+| 5. Writing quality            | Critic 1 output — all issues resolved                                                                                    | Each issue — FIXED / ACCEPTED (with reason)                              |
+| 6. No regressions             | `git diff` — only intended sections changed                                                                              | Diff matches Change Spec only                                            |
+| 7. ToC-body match             | Verify every ToC entry ↔ body heading (including new headings)                                                           | Each entry — MATCHES / MISSING IN BODY / ORDER MISMATCH / MISSING IN TOC |
+| 8. Scope-adjacent consistency | Grep full document for key concepts from edited sections                                                                 | Each concept — CONSISTENT / STALE / CONTRADICTED                         |
+| 9. Pre-existing issue scan    | Grep for "GAP", "TODO", "FIXME", "will be added", "future task", stale "Phase [A-Z]" references                          | Each marker — IN TARGET (fix) / OUTSIDE TARGET (info)                    |
+| 10. Content format compliance | 3+ definitions → table; new sections → ToC entry; placement follows document flow                                        | Each check — COMPLIANT / VIOLATION                                       |
+| 11. Cross-doc term ripple     | Grep `documentation/` for old values of replaced terms; classify as non-historical (fix/follow-up) or historical (leave) | Each old term — [file:line] — NON-HISTORICAL / HISTORICAL                |
+| 12. Intra-doc consistency     | Grep full document for same concepts described in edited sections; flag contradictions                                   | Each concept — CONSISTENT / CONTRADICTED                                 |
 
-Dimensions 1-7, 10, and 12 must be clean before proceeding. Dimensions 8-9 are reported but informational — pre-existing issues outside the task scope do not block completion. However, if dimension 8 reveals issues WITHIN the edited sections, those must be fixed before proceeding. Dimension 7 is now a **blocker** for all ToC mismatches introduced or left unfixed by this task — pre-existing mismatches outside the edited sections are informational only. Dimension 11 is blocking for non-historical stale references within the task's scoped files; out-of-scope non-historical references are reported as follow-up items. Dimension 12 is blocking — intra-document contradictions introduced or left unfixed by the task must be resolved.
+**Blocking:** Dimensions 1-7, 10, 11 (in-scope non-historical), and 12 must be clean. Dimensions 8 (within edited sections only), 9 are informational. Out-of-scope dim-8 issues and pre-existing dim-7 ToC mismatches outside edited sections are informational.
 
-**4-doc-d — Track first-pass quality.**
-
-Same as code tasks: record whether each dimension was clean on first check or required a fix. Report in §5a (e.g. "12/12 first-pass clean" or "10/12 first-pass clean, fixed 2: factual claim about interface name, cross-doc stale reference"). Dimensions 8-9 and 11 (out-of-scope findings only) count toward the total even though they are informational — within-scope findings in those dimensions are still fixable and must be clean.
+**4-doc-d — Track first-pass quality.** Record whether each dimension was clean on first check or required a fix. Report in §5a (e.g. "12/12 first-pass clean" or "10/12 first-pass clean, fixed 2").
 
 ### 3-mixed. Implement documentation changes (mixed-mode tasks)
 
@@ -459,7 +453,7 @@ For each step:
 4. If you cannot fix it after 2 attempts, go to **Blocked diagnostic** (see below).
 5. **Circuit breaker:** If you find yourself introducing 3+ pieces of code not described in any step instruction or the Interface/Signature section to make the implementation compile or pass tests — type casts, adapter stubs, wrapper functions, or plumbing absent from every step instruction — stop. The task's approach is likely wrong. Go to **Blocked diagnostic** — list each piece of unlisted code you added and report that the approach needs re-evaluation.
 
-**Per-file quick check (after writing each production file).** Before moving to the next step, run these 4 Grep commands on the file you just wrote. This catches the most common first-pass violations immediately — 4 tool calls (~1 second) that prevent an entire §4b rework cycle. Skip this for test files.
+**Per-file quick check (after writing each production file).** Run these 4 Grep commands on each production file you just wrote. Skip for test files.
 
 1. Grep for `\.push\(|\.splice\(|\.sort\(|\.reverse\(` — mutating methods (table row 3)
 2. Grep for `/\*\*` — block comment style (table row 5)
@@ -468,7 +462,7 @@ For each step:
 
 If any match, fix in the same file before proceeding. Do NOT defer to §4b — fixing now prevents compound rework later.
 
-**Prefer direct implementation over subagent dispatch.** Subagents require full context re-assembly, which is token-expensive and introduces cold-start latency. Implement steps directly using parallel tool calls (Read + Write + Shell) in a single message where possible. The task file provides all the context you need — Interface/Signature, Dependent Types, Architecture Notes — so there is no exploration overhead.
+**Prefer direct implementation over subagent dispatch.** Implement steps directly using parallel tool calls (Read + Write + Shell) in a single message where possible.
 
 **Model selection (when subagents are used).** Use the least powerful model that can handle the work:
 
@@ -485,11 +479,11 @@ Complexity signals: touches 1-2 files with a complete spec → `fast`. Touches m
 - **NEEDS_CONTEXT:** The subagent needs information that was not provided. Provide the missing context and re-dispatch.
 - **BLOCKED:** The subagent cannot complete the task. Assess the blocker: (1) context problem → provide more context and re-dispatch with the same model, (2) task requires more reasoning → re-dispatch with a more capable model, (3) task is too large → break into smaller pieces, (4) plan itself is wrong → escalate to the user.
 
-Never ignore an escalation or force the same model to retry without changes. If the subagent said it is stuck, something needs to change.
+Never ignore an escalation or force the same model to retry without changes.
 
 ### 4. Verify
 
-After completing all steps, run a single verification pass using tool output as objective evidence. No memory-based review — tool output does not lie.
+After completing all steps, run a single verification pass using tool output as objective evidence.
 
 **4a — Run toolchain.**
 
@@ -764,8 +758,6 @@ Before declaring Blocked, check whether the failure is in your code or in the ta
 
 ## Conventions
 
-**Violating the letter of these rules is violating the spirit.** Reframing, reinterpreting, or finding loopholes in these conventions is not cleverness — it is the exact failure mode they exist to prevent.
-
 - Never skip a step — execute them in order
 - Never add files or features not listed in the task
 - Never modify the task file content (Steps, Signatures, etc.) — only update the Status field
@@ -779,20 +771,6 @@ Before declaring Blocked, check whether the failure is in your code or in the ta
 
 ## Common Rationalizations — STOP
 
-If you catch yourself thinking any of these, you are rationalizing. Stop and follow the process.
-
-| Thought                                                         | Reality                                                                                               |
-| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| "This step is trivial, I can skip verification"                 | Trivial steps fail too. Verify everything.                                                            |
-| "I just wrote it so I know it is correct"                       | Re-read from disk. Memory is unreliable after 10+ files.                                              |
-| "Tests should pass now"                                         | "Should" means you have not run them. Run them.                                                       |
-| "The task file is probably wrong, I will improvise"             | Stop and report to the user. Never improvise.                                                         |
-| "I will fix this lint error later"                              | Fix it now. Deferred fixes compound.                                                                  |
-| "One more try without going to Blocked"                         | If you have tried 2+ times, go to Blocked. More attempts waste tokens.                                |
-| "This workaround is fine, the task did not anticipate this"     | 3+ workarounds = circuit breaker. Report it.                                                          |
-| "I can skip the worktree for this small change"                 | The worktree protects main. Size does not matter.                                                     |
-| "Verification passed in §4a, no need for §4b mechanical checks" | §4a catches toolchain errors. §4b catches convention violations. Both are required.                   |
-| "I will commit and fix the remaining issue after"               | All dimensions must be clean before committing.                                                       |
-| "The subagent said it succeeded"                                | Verify independently. Never trust subagent reports without evidence.                                  |
-| "This debugging attempt will work"                              | Follow the systematic debugging skill. No guessing.                                                   |
-| "The work is committed in the worktree, I can stop now"         | The worktree is temporary. §6 merges to main and removes it. Without §6 the user has nothing on main. |
+- Never skip verification, worktree setup, or mechanical checks — no matter how trivial the step seems.
+- Never trust memory or subagent reports — re-read from disk, run the command, verify with tool output.
+- Never stop before §6 — the worktree is temporary; without merge to main the user has nothing.

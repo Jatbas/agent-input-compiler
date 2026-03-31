@@ -165,13 +165,13 @@ Context Guard (pipeline Step 5) scans every selected file **before** it reaches 
 
 **Scope of protection:** Context Guard controls what AIC includes in its compiled prompt. It does not control what the model or editor does independently — models can still read files directly through editor-provided tools (e.g. `read_file`, `Shell`). AIC's role is to ensure that bulk context injection does not carry sensitive content; direct file access is governed by the editor's own permission model (e.g. `.cursorignore`).
 
-| Scanner                      | Finding type        | What it detects                                                                |
-| ---------------------------- | ------------------- | ------------------------------------------------------------------------------ |
-| `ExclusionScanner`           | `excluded-file`     | File path matches a never-include pattern                                      |
-| `SecretScanner`              | `secret`            | File content matches a known secret regex                                      |
-| `PromptInjectionScanner`     | `prompt-injection`  | Instruction-override and special-token patterns on all selected files          |
-| `MarkdownInstructionScanner` | `prompt-injection`  | Same instruction-pattern pass, limited to `.md`, `.mdc`, `.mdx`                |
-| `CommandInjectionScanner`    | `command-injection` | Shell-like patterns (e.g. command substitution, backticks, pipe chains), BLOCK |
+| Scanner                      | Finding type        | What it detects                                                                                                                                                  |
+| ---------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ExclusionScanner`           | `excluded-file`     | File path matches a never-include pattern                                                                                                                        |
+| `SecretScanner`              | `secret`            | File content matches a known secret regex                                                                                                                        |
+| `PromptInjectionScanner`     | `prompt-injection`  | Instruction-override and special-token patterns on all selected non-markdown files                                                                               |
+| `MarkdownInstructionScanner` | `prompt-injection`  | Same instruction-pattern pass, limited to `.md`, `.mdc`, `.mdx`                                                                                                  |
+| `CommandInjectionScanner`    | `command-injection` | Shell-like patterns (e.g. command substitution, backticks, pipe chains) on non-markdown files; markdown paths are handled by `MarkdownInstructionScanner`, BLOCK |
 
 **Never-include path patterns (always active, not overridable):**
 `.env`, `.env.*`, `*.pem`, `*.key`, `*.pfx`, `*.p12`, `*secret*`, `*credential*`, `*password*`, `*.cert`

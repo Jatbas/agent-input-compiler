@@ -48,12 +48,13 @@ function assertBootstrapMode(raw: string): BootstrapIntegrationMode {
 export function parseBootstrapIntegrationMode(
   argv: readonly string[],
 ): BootstrapIntegrationMode {
-  let fromArg: string | undefined;
-  for (const entry of argv) {
-    if (entry.startsWith(BOOTSTRAP_FLAG_PREFIX)) {
-      fromArg = entry.slice(BOOTSTRAP_FLAG_PREFIX.length);
-    }
-  }
+  const fromArg = argv.reduce<string | undefined>(
+    (found, entry) =>
+      entry.startsWith(BOOTSTRAP_FLAG_PREFIX)
+        ? entry.slice(BOOTSTRAP_FLAG_PREFIX.length)
+        : found,
+    undefined,
+  );
   if (fromArg !== undefined) {
     if (fromArg === "") {
       throw new ConfigError(

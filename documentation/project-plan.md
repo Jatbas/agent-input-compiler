@@ -1881,8 +1881,8 @@ interface ContextGuard {
 | `ExclusionScanner`           | `excluded-file`     | `block`  | File path matches a never-include pattern (`.env`, `*.pem`, `*secret*`, `*credential*`, `*password*`, `*.key`, `*.pfx`) |
 | `SecretScanner`              | `secret`            | `block`  | File content matches a known secret regex (see patterns below)                                                          |
 | `PromptInjectionScanner`     | `prompt-injection`  | `block`  | File content contains suspected instruction-override strings; file removed from context, finding logged                 |
-| `MarkdownInstructionScanner` | `prompt-injection`  | `block`  | File content contains markdown instruction patterns (e.g. `<!--`, directive-like blocks)                                |
-| `CommandInjectionScanner`    | `command-injection` | `block`  | File content contains suspected shell/command injection strings; file removed from context, finding logged              |
+| `MarkdownInstructionScanner` | `prompt-injection`  | `block`  | Markdown-specific instruction patterns on `.md`, `.mdc`, `.mdx` files; runs only on markdown paths                      |
+| `CommandInjectionScanner`    | `command-injection` | `block`  | Shell/command-injection strings on non-markdown files; markdown paths are handled by `MarkdownInstructionScanner`       |
 
 **Secret patterns (shipped):**
 

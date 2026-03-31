@@ -468,15 +468,18 @@ export function createMcpServer(
   return out;
 }
 
-export async function main(): Promise<void> {
-  let bootstrapMode: BootstrapIntegrationMode;
+function resolveBootstrapMode(): BootstrapIntegrationMode {
   try {
-    bootstrapMode = parseBootstrapIntegrationMode(process.argv);
+    return parseBootstrapIntegrationMode(process.argv);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     process.stderr.write(`${msg}\n`);
     process.exit(1);
   }
+}
+
+export async function main(): Promise<void> {
+  const bootstrapMode = resolveBootstrapMode();
   const projectRoot = toAbsolutePath(process.cwd());
   const globalAicDir = path.join(os.homedir(), ".aic");
   const globalDbPath = path.join(globalAicDir, "aic.sqlite");

@@ -6,21 +6,16 @@
     "integrations/cursor/hooks/**",
     "integrations/cursor/install.cjs",
     "integrations/cursor/uninstall.cjs",
+    "integrations/cursor/__tests__/**",
     "integrations/claude/install.cjs",
     "integrations/claude/uninstall.cjs",
-    "integrations/clean-global-aic-dir.cjs",
-    "integrations/aic-uninstall-standalone.cjs",
-    "integrations/standalone-uninstall-entry.cjs",
-    "integrations/shared/strip-project-claude-md.cjs",
-    "integrations/shared/uninstall-global-claude.cjs",
-    "integrations/shared/uninstall-project-aic.cjs",
-    "integrations/shared/read-project-dev-mode.cjs",
-    "integrations/cursor/__tests__/AIC-require-aic-compile.test.cjs",
-    "integrations/cursor/__tests__/AIC-inject-conversation-id.test.cjs",
     "integrations/claude/hooks/**",
     "integrations/claude/plugin/**",
     "integrations/claude/__tests__/**",
-    "integrations/shared/read-stdin-sync.cjs"
+    "integrations/clean-global-aic-dir.cjs",
+    "integrations/aic-uninstall-standalone.cjs",
+    "integrations/standalone-uninstall-entry.cjs",
+    "integrations/shared/**"
   ],
   "workspaces": {
     ".": {},
@@ -41,6 +36,15 @@
   "ignoreIssues": {
     "mcp/src/server.ts": ["exports"],
     "shared/src/core/types/status-types.ts": ["types"],
-    "shared/src/maintenance/cache-field-validators.ts": ["exports"]
+    "shared/src/maintenance/cache-field-validators.ts": ["exports"],
+    "shared/src/core/errors/budget-exceeded-error.ts": ["files"],
+    "shared/src/core/errors/guard-blocked-all-error.ts": ["files"],
+    "shared/src/core/errors/index.ts": ["files"],
+    "shared/src/core/errors/model-error.ts": ["files"],
+    "shared/src/core/errors/no-files-selected-error.ts": ["files"],
+    "shared/src/core/interfaces/status-runner.interface.ts": ["files"],
+    "shared/src/index.ts": ["files"],
+    "shared/src/core/types/identifiers.ts": ["exports"],
+    "shared/src/core/types/enums.ts": ["types"]
   }
 }

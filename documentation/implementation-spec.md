@@ -178,7 +178,7 @@ The numbered steps below explain the main concepts. The **authoritative executio
 8. **Context Guard** (Step 5) on the main selected set — then **Content Transformer** (Step 5.5) — then **Summarisation Ladder** (Step 6).
 9. **LineLevelPruner** — when `subjectTokens` is non-empty, prunes line-level detail on ladder output.
 10. **ConversationCompressor** — when agentic session state is present, builds the `Steps completed:` header snippet from recent steps.
-11. **StructuralMapBuilder** — builds structural map metadata for assembly.
+11. **StructuralMapBuilder** — builds structural map metadata for assembly, ignoring VCS internals such as `.git/`.
 12. **PromptAssembler** (Step 8) — final prompt string.
 
 Constraint injection and output-format blocks are part of assembly (Step 8), not separate `runPipelineSteps` calls. Steps 7 (Constraint Injector) and 8 (Prompt Assembler) in the subsections below map to that assembly stage.
@@ -289,13 +289,13 @@ Full scoring detail with normalisation methods: [Project Plan §8](project-plan.
 
 **Checks run in order (shipped):**
 
-| Scanner                      | Finding type        | Severity          | Action                                                                                                            |
-| ---------------------------- | ------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `ExclusionScanner`           | `excluded-file`     | `block`           | File path matches a never-include pattern (runs before content scanners)                                          |
-| `SecretScanner`              | `secret`            | `block`           | File content matches a known secret regex                                                                         |
-| `PromptInjectionScanner`     | `prompt-injection`  | `block`           | Suspected instruction-override string detected; file removed from context, finding logged                         |
-| `MarkdownInstructionScanner` | `prompt-injection`  | `block` or `warn` | Same finding type as prompt-injection scanning; some patterns use `warn` severity (see `instruction-patterns.ts`) |
-| `CommandInjectionScanner`    | `command-injection` | `block`           | Shell / substitution patterns (`command-injection-scanner.ts`)                                                    |
+| Scanner                      | Finding type        | Severity          | Action                                                                                                                                                                              |
+| ---------------------------- | ------------------- | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ExclusionScanner`           | `excluded-file`     | `block`           | File path matches a never-include pattern (runs before content scanners)                                                                                                            |
+| `SecretScanner`              | `secret`            | `block`           | File content matches a known secret regex                                                                                                                                           |
+| `PromptInjectionScanner`     | `prompt-injection`  | `block`           | Suspected instruction-override string detected; file removed from context, finding logged                                                                                           |
+| `MarkdownInstructionScanner` | `prompt-injection`  | `block` or `warn` | Same finding type as prompt-injection scanning; some patterns use `warn` severity (see `instruction-patterns.ts`)                                                                   |
+| `CommandInjectionScanner`    | `command-injection` | `block`           | Shell / substitution patterns on non-markdown files (`command-injection-scanner.ts`; markdown is handled by `MarkdownInstructionScanner` and skipped here to avoid false positives) |
 
 Wiring order for content scanners: `create-pipeline-deps.ts` builds the `contentScanners` array as Secret → PromptInjection → MarkdownInstruction → CommandInjection, after `ExclusionScanner` in `ContextGuard`.
 
@@ -310,7 +310,7 @@ Wiring order for content scanners: `create-pipeline-deps.ts` builds the `content
 
 - Excluded files are removed from the file list before it is passed to the Summarisation Ladder
 - The pipeline never fails due to Guard findings — it filters and continues
-- `GuardResult` is attached to `CompilationMeta.guard`; the editor can surface a warning to the developer
+- `GuardResult` is attached to `CompilationMeta.guard`; the editor can surface a warning to the developer, and inspection tools (`aic_last`, `aic_inspect`) surface the full finding set. MCP tool responses expose a sanitised subset where duplicate findings by `(type, pattern)` are merged and at most twenty findings are returned to the model.
 - If all selected files are excluded, the pipeline returns an empty context with a `guard.passed: false` indicator
 
 **Guard allow patterns (shipped):**

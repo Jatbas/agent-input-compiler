@@ -42,10 +42,9 @@ function recencyScoresFromValues(
   const sorted = lastModifiedValues.toSorted();
   const n = sorted.length;
   const rankByVal = new Map<string, number>();
-  for (let i = 0; i < n; i++) {
-    const v = sorted[i] ?? "";
+  sorted.forEach((v, i) => {
     if (!rankByVal.has(v)) rankByVal.set(v, n <= 1 ? 1 : i / (n - 1));
-  }
+  });
   return lastModifiedValues.map((v) => rankByVal.get(v) ?? 0);
 }
 

@@ -40,8 +40,11 @@ async function scoreInBatches(
   languageProviders: readonly LanguageProvider[],
 ): Promise<ReadonlyMap<RelativePath, number>> {
   const result = new Map<RelativePath, number>();
-  for (let i = 0; i < files.length; i += CONCURRENCY_LIMIT) {
-    const batch = files.slice(i, i + CONCURRENCY_LIMIT);
+  const chunks = Array.from(
+    { length: Math.ceil(files.length / CONCURRENCY_LIMIT) },
+    (_, i) => files.slice(i * CONCURRENCY_LIMIT, (i + 1) * CONCURRENCY_LIMIT),
+  );
+  for (const batch of chunks) {
     const scores = await Promise.all(
       batch.map((entry) =>
         scoreForFile(entry, subjectTokens, fileContentReader, languageProviders).then(

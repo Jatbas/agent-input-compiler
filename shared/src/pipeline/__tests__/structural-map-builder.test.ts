@@ -71,4 +71,27 @@ describe("StructuralMapBuilder", () => {
     const second = builder.build(repo);
     expect(first).toBe(second);
   });
+
+  it("excludes_git_paths", () => {
+    const builder = new StructuralMapBuilder();
+    const repo = makeRepoMap([
+      makeFileEntry(".git/objects/ab/1234abcd"),
+      makeFileEntry(".git/refs/heads/main"),
+      makeFileEntry("src/index.ts"),
+    ]);
+    const result = builder.build(repo);
+    expect(result).not.toContain(".git/");
+    expect(result).toContain("src/");
+    expect(result).toContain("1 files");
+  });
+
+  it("all_git_paths_returns_empty", () => {
+    const builder = new StructuralMapBuilder();
+    const repo = makeRepoMap([
+      makeFileEntry(".git/objects/ab/1234abcd"),
+      makeFileEntry(".git/HEAD"),
+    ]);
+    const result = builder.build(repo);
+    expect(result).toBe("");
+  });
 });

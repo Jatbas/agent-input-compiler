@@ -90,10 +90,9 @@ function recencyRanksFromValues(recencyValues: readonly string[]): readonly numb
   const sortedRec = recencyValues.toSorted();
   const rankByVal = new Map<string, number>();
   const n = sortedRec.length;
-  for (let i = 0; i < n; i++) {
-    const v = sortedRec[i] ?? "";
+  sortedRec.forEach((v, i) => {
     if (!rankByVal.has(v)) rankByVal.set(v, n <= 1 ? 1 : i / (n - 1));
-  }
+  });
   return recencyValues.map((v) => rankByVal.get(v) ?? 0);
 }
 

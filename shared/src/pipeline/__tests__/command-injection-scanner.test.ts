@@ -57,4 +57,25 @@ describe("CommandInjectionScanner", () => {
     expect(findings[0]?.file).toBe(mockFile.path);
     expect(findings[0]?.line).toBeDefined();
   });
+
+  it("skips_markdown_md_files", () => {
+    const mdFile = makeSelectedFile("docs/readme.md");
+    const content = "| col1 | col2 |\n| --- | --- |\n| `code` | value |";
+    const findings = scanner.scan(mdFile, content);
+    expect(findings).toEqual([]);
+  });
+
+  it("skips_markdown_mdc_files", () => {
+    const mdcFile = makeSelectedFile("rules/test.mdc");
+    const content = "`backtick code` and | pipe";
+    const findings = scanner.scan(mdcFile, content);
+    expect(findings).toEqual([]);
+  });
+
+  it("still_detects_in_non_markdown", () => {
+    const shFile = makeSelectedFile("scripts/run.sh");
+    const content = "cat file | grep pattern";
+    const findings = scanner.scan(shFile, content);
+    expect(findings.length).toBeGreaterThanOrEqual(1);
+  });
 });

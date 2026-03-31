@@ -3,7 +3,10 @@
 
 import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { ProjectId } from "@jatbas/aic-core/core/types/identifiers.js";
-import { toConversationId } from "@jatbas/aic-core/core/types/identifiers.js";
+import {
+  toConversationId,
+  type ConversationId,
+} from "@jatbas/aic-core/core/types/identifiers.js";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import type { BudgetConfig } from "@jatbas/aic-core/core/interfaces/budget-config.interface.js";
@@ -129,6 +132,22 @@ export function buildLastPayload(input: {
   };
 }
 
+function resolveConversationData(
+  conversationId: ConversationId,
+  statusStore: SqliteStatusStore,
+  db: ExecutableDb,
+  clock: Clock,
+): { readonly summary: ConversationSummary | null; readonly projectRootStr: string } {
+  const projectId = statusStore.getProjectIdForConversation(conversationId);
+  if (projectId === null) return { summary: null, projectRootStr: "" };
+  const root = statusStore.getProjectRoot(projectId);
+  const projectStore = new SqliteStatusStore(projectId, db, clock);
+  return {
+    summary: projectStore.getConversationSummary(conversationId),
+    projectRootStr: root ?? "",
+  };
+}
+
 export function buildChatSummaryToolPayload(input: {
   readonly startupProjectId: ProjectId;
   readonly db: ExecutableDb;
@@ -148,17 +167,10 @@ export function buildChatSummaryToolPayload(input: {
     input.db,
     input.clock,
   );
-  let summary: ReturnType<SqliteStatusStore["getConversationSummary"]> = null;
-  let projectRootStr = "";
-  if (conversationId !== null) {
-    const projectId = statusStore.getProjectIdForConversation(conversationId);
-    if (projectId !== null) {
-      const root = statusStore.getProjectRoot(projectId);
-      projectRootStr = root ?? "";
-      const projectStore = new SqliteStatusStore(projectId, input.db, input.clock);
-      summary = projectStore.getConversationSummary(conversationId);
-    }
-  }
+  const { summary, projectRootStr } =
+    conversationId !== null
+      ? resolveConversationData(conversationId, statusStore, input.db, input.clock)
+      : { summary: null, projectRootStr: "" };
   const empty: ConversationSummary = {
     conversationId: idForPayload,
     projectRoot: projectRootStr,

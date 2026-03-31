@@ -212,8 +212,9 @@ const CLAUDE_MD_OPENING_LINE =
 const CLAUDE_MD_CLOSING_LINE = "<!-- END AIC MANAGED SECTION -->";
 
 function buildClaudeMdManagedFileContent(): string {
-  let inner = CLAUDE_MD_TEMPLATE;
-  if (!inner.endsWith("\n")) inner += "\n";
+  const inner = CLAUDE_MD_TEMPLATE.endsWith("\n")
+    ? CLAUDE_MD_TEMPLATE
+    : `${CLAUDE_MD_TEMPLATE}\n`;
   return `${CLAUDE_MD_OPENING_LINE}\n\n${inner}\n${CLAUDE_MD_CLOSING_LINE}\n`;
 }
 
