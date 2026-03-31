@@ -15,6 +15,7 @@ import type { ProjectScope } from "@jatbas/aic-core/storage/create-project-scope
 import { SqliteToolInvocationLogStore } from "@jatbas/aic-core/storage/sqlite-tool-invocation-log-store.js";
 import { reconcileProjectId } from "@jatbas/aic-core/storage/ensure-project-id.js";
 import { reparentSubagentCompilations } from "@jatbas/aic-core/storage/reparent-subagent-compilations.js";
+import { getLastNonGeneralIntentForConversation } from "@jatbas/aic-core/storage/get-last-intent-for-conversation.js";
 import { AicError } from "@jatbas/aic-core/core/errors/aic-error.js";
 import { TimeoutError } from "@jatbas/aic-core/core/errors/timeout-error.js";
 import { sanitizeError } from "@jatbas/aic-core/core/errors/sanitize-error.js";
@@ -125,6 +126,31 @@ function rejectAfter(ms: number): Promise<never> {
   return new Promise((_, reject) =>
     setTimeout(() => reject(new TimeoutError("Compilation timed out after 30s")), ms),
   );
+}
+
+const WEAK_SUBAGENT_INTENT_PREFIXES = ["provide context for"] as const;
+
+function isWeakIntent(intent: string): boolean {
+  const trimmed = intent.trim();
+  return (
+    trimmed.length === 0 ||
+    WEAK_SUBAGENT_INTENT_PREFIXES.some((p) => trimmed.startsWith(p))
+  );
+}
+
+function resolveIntentWithFallback(
+  intent: string,
+  conversationId: string | null,
+  db: ProjectScope["db"],
+  projectId: ProjectScope["projectId"],
+): string {
+  if (!isWeakIntent(intent) || conversationId === null) return intent;
+  const fallback = getLastNonGeneralIntentForConversation(
+    db,
+    projectId,
+    toConversationId(conversationId),
+  );
+  return fallback ?? intent;
 }
 
 function sanitizeGuardForModel(guard: GuardResult): {
@@ -302,6 +328,12 @@ export function createCompileHandler(
       scope.clock.now(),
     );
     const resolvedConversationId = resolveConversationId(args.conversationId);
+    const effectiveIntent = resolveIntentWithFallback(
+      intent,
+      resolvedConversationId,
+      scope.db,
+      scope.projectId,
+    );
     const parsed = SanitisedCacheIdsSchema.safeParse({
       modelId: resolvedModelId,
       conversationId: resolvedConversationId,
@@ -322,7 +354,7 @@ export function createCompileHandler(
             editorId: EDITOR_ID.GENERIC as EditorId,
           };
     const request: CompilationRequest = {
-      intent,
+      intent: effectiveIntent,
       projectRoot,
       modelId: safe.modelId,
       editorId: safe.editorId,

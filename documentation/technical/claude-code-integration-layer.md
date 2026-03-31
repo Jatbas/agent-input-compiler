@@ -318,7 +318,7 @@ Lock file layout (`.session-start-lock`), merge options, and ordering with this 
 
 - `input.agent_type` → `"Bash"`, `"Explore"`, `"Plan"`, or custom agent name
 - `input.transcript_path` → `conversationId` (via `path.basename`)
-- `input.prompt` → `intent` (with `<ide_selection>` stripped; falls back to agent_type-based intent when absent)
+- `input.prompt` → `intent` (with IDE markup blocks like `<ide_selection>…</ide_selection>` and other `<ide_*>` regions stripped; falls back to agent_type-based intent when absent)
 
 **Matcher:** Use `"*"` or omit — inject context into all subagent types. Optionally filter to
 `Explore|Plan` if Bash subagents don't need full context.

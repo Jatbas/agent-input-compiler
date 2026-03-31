@@ -83,7 +83,7 @@ Deliver a working **MCP server** that compiles optimal context for AI coding too
 | -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | **MCP Server**       | Primary interface — exposes `aic_compile` tool; called by trigger rule or integration hooks                                  |
 | Editor adapters      | Cursor, Claude Code, Generic MCP fallback                                                                                    |
-| Model adapters       | OpenAI, Anthropic, Ollama, Generic fallback (auto-detected from request)                                                     |
+| Model adapters       | OpenAI, Anthropic, Generic fallback (auto-detected from request)                                                             |
 | Task Classifier      | Heuristic keyword/pattern matching → 6 task classes                                                                          |
 | HeuristicSelector    | File-path, import-graph, recency-based context selection                                                                     |
 | Context Guard        | Scans selected files for secrets, excluded paths, and prompt injection; excludes sensitive content from the compiled context |
@@ -183,11 +183,11 @@ The numbered steps below explain the main concepts. The **authoritative executio
 
 Constraint injection and output-format blocks are part of assembly (Step 8), not separate `runPipelineSteps` calls. Steps 7 (Constraint Injector) and 8 (Prompt Assembler) in the subsections below map to that assembly stage.
 
-**Agentic workflows:** The internal `CompilationRequest` type carries optional session fields (`sessionId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens`) plus `triggerSource` and `conversationId`. The MCP Zod schema in `mcp/src/schemas/compilation-request.ts` validates optional wire fields that map into these (`editorId`, `triggerSource`, `conversationId`, `reparentFromConversationId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens`). The compile handler maps them into `CompilationRequest`, except when `triggerSource` is `subagent_stop` with a non-empty `reparentFromConversationId` and `conversationId`: then it runs `reparentSubagentCompilations` only and returns JSON `{ reparented: true, rowsUpdated: N }` without invoking the pipeline. `sessionId` is not an MCP client argument; the composition root sets it from MCP server session state when applicable. Hook integrations supply `conversationId` and related fields where the editor exposes them (see [Project Plan §2.7](project-plan.md#27-agentic-workflow-support)). Optional `toolOutputs` is forwarded on the pipeline request but does not affect file selection today; stored tool outputs are summarised into the deterministic `Steps completed:` header on later compiles (last 10 steps in the prompt; see Project Plan §2.7).
+**Agentic workflows:** The internal `CompilationRequest` type carries optional session fields (`sessionId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens`) plus `triggerSource` and `conversationId`. The MCP Zod schema in `mcp/src/schemas/compilation-request.ts` validates optional wire fields that map into these (`editorId`, `triggerSource`, `conversationId`, `reparentFromConversationId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens`). The compile handler maps them into `CompilationRequest`, except when `triggerSource` is `subagent_stop` with a non-empty `reparentFromConversationId` and `conversationId`: then it runs `reparentSubagentCompilations` only and returns JSON `{ reparented: true, rowsUpdated: N }` without invoking the pipeline. When a subagent compile arrives with a weak intent string (empty or matching the known “provide context for …” pattern) and a non-null `conversationId`, the handler may resolve `CompilationRequest.intent` from the most recent non-`general` compilation for that conversation instead of using the raw request intent, so that file selection reflects the last meaningful task description. `sessionId` is not an MCP client argument; the composition root sets it from MCP server session state when applicable. Hook integrations supply `conversationId` and related fields where the editor exposes them (see [Project Plan §2.7](project-plan.md#27-agentic-workflow-support)). Optional `toolOutputs` is forwarded on the pipeline request but does not affect file selection today; stored tool outputs are summarised into the deterministic `Steps completed:` header on later compiles (last 10 steps in the prompt; see Project Plan §2.7).
 
 ### Step 1: Task Classifier
 
-**Implementation:** `IntentClassifier` in `shared/src/pipeline/step1-classify/intent-classifier.ts` (this section uses the product name “task class” for the enum `TaskClass`).
+**Implementation:** `IntentClassifier` in `shared/src/pipeline/intent-classifier.ts` (this section uses the product name “task class” for the enum `TaskClass`).
 
 **Input:** Raw intent string (e.g., `"refactor auth module to use JWT"`)
 
@@ -955,19 +955,21 @@ Full detail: [Project Plan §14](project-plan.md).
 
 Full detail: [Project Plan §15](project-plan.md).
 
-- Cold cache compilation: <2s for repos <1,000 files
-- Cache hit: <100ms
-- Memory: <256MB resident
-- Startup: <500ms to first pipeline step
-- Max repo: 10,000 files (beyond this, use `includePatterns` to scope)
+These are product **targets**, not hard runtime guarantees; they are tracked via benchmarks and profiling rather than enforced as code-level invariants:
+
+- Cold cache compilation target: <2s for repos <1,000 files
+- Cache-hit target: <100ms
+- Memory target: <256MB resident
+- Startup target: <500ms to first pipeline step
+- Recommended max repo size for these targets: 10,000 files (beyond this, use `includePatterns` to scope)
 
 ### Incremental compilation performance
 
-Beyond the whole-prompt cache (cache hit <100ms), per-file incremental processing makes cache misses fast too:
+Beyond the whole-prompt cache (cache-hit target <100ms), per-file incremental processing makes cache misses fast too:
 
 - **File system scan:** Cached RepoMap with `fs.watch` — subsequent `getRepoMap()` returns ~0ms instead of rescanning all files. Prerequisite stages: fast-glob `stats: true` (eliminate double-stat), async parallel I/O (unblock event loop).
 - **Per-file transformation cache:** `SqliteFileTransformStore` keyed by `(file_path, content_hash)` — `ContentTransformerPipeline` and `SummarisationLadder` skip unchanged files entirely. On typical recompiles (1–3 files changed), 95%+ of CPU work (tree-sitter parsing, transformer chains, tokenizer calls) is eliminated.
-- **Target:** After first compilation, intent-change-only recompiles (no file edits) complete in <500ms for repos <1,000 files. Recompiles with 1–3 file edits complete in <1s.
+- **Targets:** After first compilation, intent-change-only recompiles (no file edits) complete in <500ms for repos <1,000 files. Recompiles with 1–3 file edits complete in <1s.
 
 See [Project Plan §15 — Incremental Compilation Performance](project-plan.md) for full design.
 

@@ -20,7 +20,7 @@ async function run(stdinStr) {
   const rawPrompt = parsed.prompt ?? parsed.input?.prompt ?? null;
   const intent = rawPrompt
     ? String(rawPrompt)
-        .replace(/<ide_selection>[\s\S]*?<\/ide_selection>/gi, "")
+        .replace(/<ide_[a-z_]+>[\s\S]*?<\/ide_[a-z_]+>/gi, "")
         .trim()
     : "provide context for " + agentType + " subagent";
   const text = await callAicCompile(
