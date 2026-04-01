@@ -9,7 +9,7 @@ const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
 
-const { modelIdFromSubagentStartPayload } = require("./subagent-start-model-id.cjs");
+const { modelIdFromSubagentStartPayload } = require("./AIC-subagent-start-model-id.cjs");
 const {
   writeSessionModelCache,
   readSessionModelCache,

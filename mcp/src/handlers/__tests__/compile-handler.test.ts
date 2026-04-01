@@ -8,6 +8,7 @@ import * as path from "node:path";
 import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 import * as initProject from "../../init-project.js";
 import { createCompileHandler } from "../compile-handler.js";
+import { MCP_INTENT_OMITTED_DEFAULT } from "../../schemas/compilation-request.js";
 import {
   toSessionId,
   toISOTimestamp,
@@ -1619,6 +1620,79 @@ describe("compile-handler", () => {
         expect(capturedRequests).toHaveLength(1);
         expect(capturedRequests[0]!.intent).toBe(
           "fix subagent intent fallback in compile handler",
+        );
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it("fallback_intent_used_when_mcp_omitted_default_and_prior_non_general_exists", async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+      try {
+        const { scope } = createScopeWithRealDb(tmpDir);
+        scope.db
+          .prepare(
+            `INSERT INTO compilation_log (id, intent, task_class, files_selected, files_total, tokens_raw, tokens_compiled, cache_hit, duration_ms, editor_id, model_id, created_at, project_id, conversation_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .run(
+            toUUIDv7("018f0000-0000-7000-8000-0000000000aa"),
+            "restore pipeline context after omitted mcp intent",
+            "bugfix",
+            5,
+            100,
+            1000,
+            500,
+            0,
+            100,
+            "claude-code",
+            null,
+            toISOTimestamp("2026-01-01T10:00:00.000Z"),
+            scope.projectId,
+            "conv-mcp-default-fallback",
+          );
+        const capturedRequests: CompilationRequest[] = [];
+        const capturingRunner = {
+          run: (
+            request: CompilationRequest,
+          ): Promise<{
+            compiledPrompt: string;
+            meta: CompilationMeta;
+            compilationId: ReturnType<typeof toUUIDv7>;
+          }> => {
+            capturedRequests.push(request);
+            return Promise.resolve({
+              compiledPrompt: "",
+              meta: STUB_COMPILATION_META,
+              compilationId: toUUIDv7("018f0000-0000-7000-8000-000000000001"),
+            });
+          },
+        };
+        const handler = createCompileHandler(
+          (_projectRoot: AbsolutePath) => scope,
+          (_s: ProjectScope) => capturingRunner,
+          { hash: (): string => "" },
+          () => toSessionId("00000000-0000-7000-8000-000000000002"),
+          () => EDITOR_ID.CLAUDE_CODE,
+          () => null,
+          [],
+          enabledConfigLoader,
+          () => {},
+          () => null,
+          () => false,
+        );
+        await handler(
+          {
+            intent: MCP_INTENT_OMITTED_DEFAULT,
+            projectRoot: tmpDir,
+            modelId: null,
+            configPath: null,
+            conversationId: "conv-mcp-default-fallback",
+          },
+          undefined,
+        );
+        expect(capturedRequests).toHaveLength(1);
+        expect(capturedRequests[0]!.intent).toBe(
+          "restore pipeline context after omitted mcp intent",
         );
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });

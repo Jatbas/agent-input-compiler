@@ -367,6 +367,36 @@ These are plan failures — if any appear in a step instruction, Files table des
 
 **Enforced by:** Final ambiguity sweep (below) and C.5 mechanical review.
 
+## Hook file naming convention
+
+When a task creates or renames hook files under `integrations/`, the planner must enforce the AIC prefix convention. The convention makes every AIC-owned file instantly recognizable by prefix in the editor's hook directory.
+
+| Location                     | Naming rule                         | Source example            | Deployed example                          |
+| ---------------------------- | ----------------------------------- | ------------------------- | ----------------------------------------- |
+| `integrations/cursor/hooks/` | `AIC-<name>.cjs` (uppercase prefix) | `AIC-compile-context.cjs` | `.cursor/hooks/AIC-compile-context.cjs`   |
+| `integrations/claude/hooks/` | `aic-<name>.cjs` (lowercase prefix) | `aic-prompt-compile.cjs`  | `~/.claude/hooks/aic-prompt-compile.cjs`  |
+| `integrations/shared/`       | No prefix (plain source names)      | `conversation-id.cjs`     | — (never deployed directly)               |
+| Shared → Cursor deploy       | `sharedDeployedName()` adds `AIC-`  | `conversation-id.cjs`     | `.cursor/hooks/AIC-conversation-id.cjs`   |
+| Shared → Claude deploy       | `sharedDeployedName()` adds `aic-`  | `conversation-id.cjs`     | `~/.claude/hooks/aic-conversation-id.cjs` |
+
+**Rules:**
+
+- Cursor-specific hooks at source must start with `AIC-`. A file like `integrations/cursor/hooks/my-hook.cjs` is a violation — it must be `AIC-my-hook.cjs`.
+- Claude-specific hooks at source must start with `aic-`. A file like `integrations/claude/hooks/my-hook.cjs` is a violation — it must be `aic-my-hook.cjs`.
+- Shared modules in `integrations/shared/` keep their plain names. The install scripts (`integrations/cursor/install.cjs` and `integrations/claude/install.cjs`) apply the correct prefix when copying to the hook directory via `sharedDeployedName()`.
+- The Cursor hook manifest (`integrations/cursor/aic-hook-scripts.json`) must list the `AIC-` prefixed source names.
+- Require paths inside hook files must reference the deployed (prefixed) name: `require("./AIC-conversation-id.cjs")` in Cursor hooks, `require("./aic-conversation-id.cjs")` in Claude hooks.
+- When a task adds a new shared module, the Files table must include updates to both install scripts and their stale-cleanup sets if the new file affects the deployed name set.
+
+**Red flags:**
+
+- A new Cursor hook file without the `AIC-` prefix
+- A new Claude hook file without the `aic-` prefix
+- A require path referencing a shared file by its source name instead of its deployed name (e.g. `require("./conversation-id.cjs")` instead of `require("./AIC-conversation-id.cjs")`)
+- A task creating a hook file that does not update the corresponding manifest or install script
+
+**Enforced by:** Exploration (A.1) when the task touches `integrations/*/hooks/` and mechanical review C.5.
+
 ## Final ambiguity sweep
 
 Before finishing the task file, run three mechanical scans on every sentence in Steps, Tests table descriptions, Verify lines, implementation notes, and parenthetical qualifiers. Architecture Notes explaining rationale are excluded (they don't instruct the executor).

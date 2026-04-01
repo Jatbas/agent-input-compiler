@@ -9,6 +9,7 @@ const path = require("path");
 const os = require("os");
 const crypto = require("crypto");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
+const { readAicPrewarmPrompt } = require("../../shared/read-aic-prewarm-prompt.cjs");
 
 const RECENCY_WINDOW_MS = 120_000;
 const MAX_DENIES = 3;
@@ -75,10 +76,6 @@ function getStateFile(generationId) {
   return path.join(os.tmpdir(), `aic-gate-${generationId}`);
 }
 
-function getPromptFile(generationId) {
-  return path.join(os.tmpdir(), `aic-prompt-${generationId}`);
-}
-
 function getDenyCountFile(generationId) {
   return path.join(os.tmpdir(), `aic-gate-deny-${generationId}`);
 }
@@ -86,14 +83,6 @@ function getDenyCountFile(generationId) {
 function getRecencyFile(projectRoot) {
   const hash = crypto.createHash("md5").update(projectRoot).digest("hex").slice(0, 12);
   return path.join(os.tmpdir(), `aic-gate-recent-${hash}`);
-}
-
-function readSavedPrompt(generationId) {
-  try {
-    return fs.readFileSync(getPromptFile(generationId), "utf8").trim();
-  } catch {
-    return "";
-  }
 }
 
 function isAicCompileMcpCall(toolName, toolInput) {
@@ -168,14 +157,10 @@ process.stdin.on("end", () => {
     }
     fs.writeFileSync(denyCountFile, String(denyCount + 1));
 
-    const savedPrompt = readSavedPrompt(generationId);
-    const stripped = savedPrompt.replace(
-      /<ide_selection>[\s\S]*?<\/ide_selection>/gi,
-      "",
-    );
+    const savedPrompt = readAicPrewarmPrompt(generationId);
     const intentArg =
-      stripped.length > 0
-        ? stripped.replace(/"/g, '\\"')
+      savedPrompt.length > 0
+        ? savedPrompt.replace(/"/g, '\\"')
         : "<search query: name the files, components, or actions>";
 
     const denyMsg = `BLOCKED: You must call the aic_compile MCP tool FIRST before using any other tool. Call it now with { "intent": "${intentArg}", "projectRoot": "${projectRoot}" }`;

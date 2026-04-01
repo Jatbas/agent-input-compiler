@@ -70,6 +70,19 @@ function tryRemoveHookFiles(globalHooksDir) {
       // Best effort
     }
   }
+  const hookDirFiles = fs.existsSync(globalHooksDir)
+    ? fs.readdirSync(globalHooksDir)
+    : [];
+  for (const name of hookDirFiles) {
+    if (/^aic-[a-z0-9-]+\.cjs$/.test(name) && !AIC_SCRIPT_NAMES.includes(name)) {
+      try {
+        fs.unlinkSync(path.join(globalHooksDir, name));
+        removed = true;
+      } catch {
+        // Best effort
+      }
+    }
+  }
   return removed;
 }
 

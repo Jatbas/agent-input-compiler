@@ -56,6 +56,7 @@ import {
   isValidEditorId,
 } from "@jatbas/aic-core/maintenance/cache-field-validators.js";
 import {
+  MCP_INTENT_OMITTED_DEFAULT,
   SanitisedCacheIdsSchema,
   type SanitisedCacheIds,
 } from "../schemas/compilation-request.js";
@@ -135,12 +136,15 @@ function rejectAfter(ms: number): Promise<never> {
 
 const WEAK_SUBAGENT_INTENT_PREFIXES = ["provide context for"] as const;
 
+const WEAK_INTENT_PREDICATES: ReadonlyArray<(t: string) => boolean> = [
+  (t) => t.length === 0,
+  (t) => WEAK_SUBAGENT_INTENT_PREFIXES.some((p) => t.startsWith(p)),
+  (t) => t === MCP_INTENT_OMITTED_DEFAULT,
+];
+
 function isWeakIntent(intent: string): boolean {
   const trimmed = intent.trim();
-  return (
-    trimmed.length === 0 ||
-    WEAK_SUBAGENT_INTENT_PREFIXES.some((p) => trimmed.startsWith(p))
-  );
+  return WEAK_INTENT_PREDICATES.some((fn) => fn(trimmed));
 }
 
 function resolveIntentWithFallback(

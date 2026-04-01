@@ -240,8 +240,101 @@ function merge_preserves_existing_custom_mcp_server() {
   }
 }
 
+function claude_install_deploys_shared_as_aic_prefix() {
+  const tmpDir = fs.mkdtempSync(
+    path.join(require("node:os").tmpdir(), "aic-install-test-"),
+  );
+  try {
+    execFileSync("node", [installScript], {
+      cwd: tmpDir,
+      env: { ...process.env, HOME: tmpDir },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const globalHooksDir = path.join(tmpDir, ".claude", "hooks");
+    const names = fs.readdirSync(globalHooksDir);
+    if (!names.includes("aic-conversation-id.cjs")) {
+      throw new Error("Expected aic-conversation-id.cjs to be deployed");
+    }
+    if (names.includes("conversation-id.cjs")) {
+      throw new Error("Expected conversation-id.cjs not to be deployed under old name");
+    }
+    if (!names.includes("aic-session-model-cache.cjs")) {
+      throw new Error("Expected aic-session-model-cache.cjs to be deployed");
+    }
+    if (names.includes("session-model-cache.cjs")) {
+      throw new Error(
+        "Expected session-model-cache.cjs not to be deployed under old name",
+      );
+    }
+    if (!names.includes("aic-dir.cjs")) {
+      throw new Error("Expected aic-dir.cjs to remain as aic-dir.cjs");
+    }
+    console.log("claude_install_deploys_shared_as_aic_prefix: pass");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+function claude_install_rewrites_require_to_aic_prefix() {
+  const tmpDir = fs.mkdtempSync(
+    path.join(require("node:os").tmpdir(), "aic-install-test-"),
+  );
+  try {
+    execFileSync("node", [installScript], {
+      cwd: tmpDir,
+      env: { ...process.env, HOME: tmpDir },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const globalHooksDir = path.join(tmpDir, ".claude", "hooks");
+    const content = fs.readFileSync(
+      path.join(globalHooksDir, "aic-session-start.cjs"),
+      "utf8",
+    );
+    if (!content.includes('require("./aic-conversation-id.cjs")')) {
+      throw new Error(
+        "Expected installed aic-session-start.cjs to require ./aic-conversation-id.cjs",
+      );
+    }
+    if (content.includes("../../shared/")) {
+      throw new Error("Expected no ../../shared/ paths in installed hook");
+    }
+    console.log("claude_install_rewrites_require_to_aic_prefix: pass");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+function claude_install_migrates_old_style_shared_files() {
+  const tmpDir = fs.mkdtempSync(
+    path.join(require("node:os").tmpdir(), "aic-install-test-"),
+  );
+  try {
+    const globalHooksDir = path.join(tmpDir, ".claude", "hooks");
+    fs.mkdirSync(globalHooksDir, { recursive: true });
+    fs.writeFileSync(path.join(globalHooksDir, "conversation-id.cjs"), "old", "utf8");
+    execFileSync("node", [installScript], {
+      cwd: tmpDir,
+      env: { ...process.env, HOME: tmpDir },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const names = fs.readdirSync(globalHooksDir);
+    if (names.includes("conversation-id.cjs")) {
+      throw new Error("Expected conversation-id.cjs removed after migrate install");
+    }
+    if (!names.includes("aic-conversation-id.cjs")) {
+      throw new Error("Expected aic-conversation-id.cjs present after migrate install");
+    }
+    console.log("claude_install_migrates_old_style_shared_files: pass");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
 fresh_install_creates_global_settings();
 merge_preserves_non_aic_entries();
 legacy_project_local_cleanup();
 fresh_install_writes_mcp_server();
 merge_preserves_existing_custom_mcp_server();
+claude_install_deploys_shared_as_aic_prefix();
+claude_install_rewrites_require_to_aic_prefix();
+claude_install_migrates_old_style_shared_files();

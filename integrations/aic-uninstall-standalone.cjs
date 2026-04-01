@@ -169,6 +169,17 @@ var require_uninstall_global_claude = __commonJS({
           }
         } catch {}
       }
+      const hookDirFiles = fs.existsSync(globalHooksDir)
+        ? fs.readdirSync(globalHooksDir)
+        : [];
+      for (const name of hookDirFiles) {
+        if (/^aic-[a-z0-9-]+\.cjs$/.test(name) && !AIC_SCRIPT_NAMES.includes(name)) {
+          try {
+            fs.unlinkSync(path.join(globalHooksDir, name));
+            removed = true;
+          } catch {}
+        }
+      }
       return removed;
     }
     function tryUninstallGlobalClaude(homeDir) {
@@ -282,14 +293,7 @@ var require_strip_project_claude_md = __commonJS({
 var require_aic_ignore_entries = __commonJS({
   "integrations/shared/aic-ignore-entries.json"(exports2, module2) {
     module2.exports = {
-      lines: [
-        ".aic/",
-        "aic.config.json",
-        ".cursor/rules/AIC.mdc",
-        ".cursor/hooks.json",
-        ".cursor/hooks/AIC-*.cjs",
-        "!.cursor/hooks/aic-dir.cjs",
-      ],
+      lines: [".aic/", "aic.config.json", ".cursor/rules/AIC.mdc", ".cursor/hooks.json"],
     };
   },
 });
@@ -543,7 +547,7 @@ var require_aic_hook_scripts2 = __commonJS({
         "AIC-session-end.cjs",
         "AIC-subagent-compile.cjs",
         "AIC-subagent-stop.cjs",
-        "subagent-start-model-id.cjs",
+        "AIC-subagent-start-model-id.cjs",
         "AIC-stop-quality-check.cjs",
       ],
     };
@@ -644,6 +648,17 @@ var require_uninstall2 = __commonJS({
               removed = true;
             }
           } catch {}
+        }
+        const hookDirFiles = fs.existsSync(projectHooksDir)
+          ? fs.readdirSync(projectHooksDir)
+          : [];
+        for (const name of hookDirFiles) {
+          if (/^AIC-[a-z0-9-]+\.cjs$/.test(name) && !AIC_SCRIPT_NAMES.includes(name)) {
+            try {
+              fs.unlinkSync(path.join(projectHooksDir, name));
+              removed = true;
+            } catch {}
+          }
         }
         try {
           if (fs.existsSync(triggerPath)) {

@@ -3,6 +3,8 @@
 
 import { z } from "zod";
 
+export const MCP_INTENT_OMITTED_DEFAULT = "general context compilation" as const;
+
 const compilationRequestShape = {
   intent: z
     .string()

@@ -20,7 +20,7 @@ const AIC_SCRIPT_NAMES = [
   "AIC-session-end.cjs",
   "AIC-subagent-compile.cjs",
   "AIC-subagent-stop.cjs",
-  "subagent-start-model-id.cjs",
+  "AIC-subagent-start-model-id.cjs",
   "AIC-stop-quality-check.cjs",
 ];
 
@@ -76,8 +76,8 @@ function install_creates_all_artifacts() {
       "installed hook has no ../../shared/ require path",
     );
     assert(
-      compileContextContent.includes('require("./session-model-cache.cjs")'),
-      "installed hook uses local require for session-model-cache",
+      compileContextContent.includes('require("./AIC-session-model-cache.cjs")'),
+      "installed hook uses local require for AIC-session-model-cache",
     );
     const hooksJsonPath = path.join(tmpDir, ".cursor", "hooks.json");
     assert(fs.existsSync(hooksJsonPath), ".cursor/hooks.json exists");
@@ -151,7 +151,12 @@ function install_idempotent() {
   try {
     runInstaller(tmpDir);
     const scriptPath = path.join(tmpDir, ".cursor", "hooks", "AIC-session-init.cjs");
-    const sharedPath = path.join(tmpDir, ".cursor", "hooks", "session-model-cache.cjs");
+    const sharedPath = path.join(
+      tmpDir,
+      ".cursor",
+      "hooks",
+      "AIC-session-model-cache.cjs",
+    );
     const hooksJsonPath = path.join(tmpDir, ".cursor", "hooks.json");
     const triggerPath = path.join(tmpDir, ".cursor", "rules", "AIC.mdc");
     const content1 = fs.readFileSync(scriptPath, "utf8");
@@ -296,6 +301,50 @@ function install_keeps_workspace_aic_when_global_has_no_aic() {
   }
 }
 
+function cursor_install_deploys_shared_as_AIC_prefix() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-install-"));
+  try {
+    runInstaller(tmpDir);
+    const hooksDir = path.join(tmpDir, ".cursor", "hooks");
+    const names = fs.readdirSync(hooksDir);
+    assert(
+      names.includes("AIC-session-model-cache.cjs"),
+      "AIC-session-model-cache.cjs deployed",
+    );
+    assert(
+      !names.includes("session-model-cache.cjs"),
+      "session-model-cache.cjs not deployed under old name",
+    );
+    assert(names.includes("AIC-conversation-id.cjs"), "AIC-conversation-id.cjs deployed");
+    assert(
+      !names.includes("conversation-id.cjs"),
+      "conversation-id.cjs not deployed under old name",
+    );
+    assert(names.includes("AIC-dir.cjs"), "AIC-dir.cjs deployed");
+    assert(!names.includes("aic-dir.cjs"), "aic-dir.cjs not deployed under old name");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+function cursor_install_migrates_old_style_shared_files() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-install-"));
+  try {
+    const hooksDir = path.join(tmpDir, ".cursor", "hooks");
+    fs.mkdirSync(hooksDir, { recursive: true });
+    fs.writeFileSync(path.join(hooksDir, "conversation-id.cjs"), "old", "utf8");
+    fs.writeFileSync(path.join(hooksDir, "aic-dir.cjs"), "old", "utf8");
+    runInstaller(tmpDir);
+    const names = fs.readdirSync(hooksDir);
+    assert(!names.includes("conversation-id.cjs"), "old conversation-id.cjs removed");
+    assert(names.includes("AIC-conversation-id.cjs"), "AIC-conversation-id.cjs present");
+    assert(!names.includes("aic-dir.cjs"), "old aic-dir.cjs removed");
+    assert(names.includes("AIC-dir.cjs"), "AIC-dir.cjs present");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
 const tests = [
   ["install_creates_all_artifacts", install_creates_all_artifacts],
   [
@@ -313,6 +362,14 @@ const tests = [
   [
     "install_keeps_workspace_aic_when_global_has_no_aic",
     install_keeps_workspace_aic_when_global_has_no_aic,
+  ],
+  [
+    "cursor_install_deploys_shared_as_AIC_prefix",
+    cursor_install_deploys_shared_as_AIC_prefix,
+  ],
+  [
+    "cursor_install_migrates_old_style_shared_files",
+    cursor_install_migrates_old_style_shared_files,
   ],
 ];
 for (const [name, fn] of tests) {

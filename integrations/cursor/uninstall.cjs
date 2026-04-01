@@ -103,6 +103,19 @@ function tryCleanProjectHooks(projectRoot) {
         // Best effort
       }
     }
+    const hookDirFiles = fs.existsSync(projectHooksDir)
+      ? fs.readdirSync(projectHooksDir)
+      : [];
+    for (const name of hookDirFiles) {
+      if (/^AIC-[a-z0-9-]+\.cjs$/.test(name) && !AIC_SCRIPT_NAMES.includes(name)) {
+        try {
+          fs.unlinkSync(path.join(projectHooksDir, name));
+          removed = true;
+        } catch {
+          // Best effort
+        }
+      }
+    }
     try {
       if (fs.existsSync(triggerPath)) {
         fs.unlinkSync(triggerPath);

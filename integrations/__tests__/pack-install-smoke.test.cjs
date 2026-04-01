@@ -409,6 +409,18 @@ try {
         }),
     );
     assert(!hasAicHook, "claude_uninstall_removes_hooks");
+    if (fs.existsSync(claudeHooksDir)) {
+      const remainingHooks = fs.readdirSync(claudeHooksDir);
+      const remainingAicShared = remainingHooks.filter((n) =>
+        /^aic-[a-z0-9-]+\.cjs$/.test(n),
+      );
+      assert(
+        remainingAicShared.length === 0,
+        "claude_uninstall_removes_aic_shared_files (" +
+          remainingAicShared.join(",") +
+          " remain)",
+      );
+    }
     console.log("claude_uninstall_from_package: pass");
   } finally {
     fs.rmSync(tmpClaudeHome, { recursive: true, force: true });
@@ -440,9 +452,7 @@ try {
   const hooksDir = path.join(projectDir, ".cursor", "hooks");
   if (fs.existsSync(hooksDir)) {
     const remainingHooks = fs.readdirSync(hooksDir);
-    const aicHooks = remainingHooks.filter(
-      (n) => n.startsWith("AIC-") || n === "subagent-start-model-id.cjs",
-    );
+    const aicHooks = remainingHooks.filter((n) => n.startsWith("AIC-"));
     assert(
       aicHooks.length === 0,
       "cursor_uninstall_removes_aic_scripts (found: " + aicHooks.join(", ") + ")",

@@ -3,4 +3,3 @@ aic.config.json
 .cursor/rules/AIC.mdc
 .cursor/hooks.json
 .cursor/hooks/AIC-*.cjs
-!.cursor/hooks/aic-dir.cjs

@@ -6,7 +6,7 @@ const os = require("node:os");
 const path = require("node:path");
 
 const { modelIdFromSubagentStartPayload } = require(
-  path.join(__dirname, "..", "hooks", "subagent-start-model-id.cjs"),
+  path.join(__dirname, "..", "hooks", "AIC-subagent-start-model-id.cjs"),
 );
 const { readSessionModelCache, writeSessionModelCache, normalizeModelId } = require(
   path.join(__dirname, "..", "..", "shared", "session-model-cache.cjs"),

@@ -11,7 +11,7 @@ const raw = fs.readFileSync(gitignorePath, "utf8");
 const lines = raw.split("\n").map((line) => line.trim());
 
 const aicGlobLine = ".cursor/hooks/AIC-*.cjs";
-const negationLine = "!.cursor/hooks/aic-dir.cjs";
+const negationLine = "!.cursor/hooks/AIC-dir.cjs";
 
 const aicIndex = lines.indexOf(aicGlobLine);
 const negationIndex = lines.indexOf(negationLine);
@@ -19,24 +19,21 @@ const negationIndex = lines.indexOf(negationLine);
 if (aicIndex === -1) {
   throw new Error(`missing ${aicGlobLine} in .gitignore`);
 }
-if (negationIndex === -1) {
-  throw new Error(`missing ${negationLine} in .gitignore`);
-}
-if (negationIndex <= aicIndex) {
+if (negationIndex !== -1) {
   throw new Error(
-    `expected ${negationLine} after ${aicGlobLine}: aicIndex=${aicIndex} negationIndex=${negationIndex}`,
+    `remove ${negationLine} from .gitignore — deploy AIC-dir.cjs via install, do not track`,
   );
 }
 
-const check = spawnSync("git", ["check-ignore", "-q", ".cursor/hooks/aic-dir.cjs"], {
+const check = spawnSync("git", ["check-ignore", "-q", ".cursor/hooks/AIC-dir.cjs"], {
   cwd: repoRoot,
   encoding: "utf8",
 });
 
-if (check.status !== 1) {
+if (check.status !== 0) {
   throw new Error(
-    `expected git check-ignore status 1 (path not ignored), got ${check.status}`,
+    `expected git check-ignore status 0 (path ignored), got ${check.status}`,
   );
 }
 
-console.log("gitignore_aic_dir_trackable: ok");
+console.log("gitignore_aic_dir_ignored: ok");

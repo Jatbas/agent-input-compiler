@@ -52,14 +52,40 @@ const hooksDir = path.join(cursorDir, "hooks");
 fs.mkdirSync(cursorDir, { recursive: true });
 fs.mkdirSync(hooksDir, { recursive: true });
 
+function sharedDeployedName(name) {
+  if (name.startsWith("AIC-")) return name;
+  if (name.startsWith("aic-")) return "AIC-" + name.slice(4);
+  return "AIC-" + name;
+}
+
 const sharedDir = path.join(__dirname, "..", "shared");
 const sharedEntries = fs.readdirSync(sharedDir);
+const sharedDeployedNamesSet = new Set();
+const sharedSourceNamesSet = new Set();
 for (const name of sharedEntries) {
   if (name.endsWith(".cjs")) {
     const src = path.join(sharedDir, name);
     if (fs.statSync(src).isFile()) {
-      fs.copyFileSync(src, path.join(hooksDir, name));
+      const deployedName = sharedDeployedName(name);
+      sharedSourceNamesSet.add(name);
+      sharedDeployedNamesSet.add(deployedName);
+      fs.copyFileSync(src, path.join(hooksDir, deployedName));
     }
+  }
+}
+
+for (const deployedName of sharedDeployedNamesSet) {
+  const filePath = path.join(hooksDir, deployedName);
+  const content = fs.readFileSync(filePath, "utf8");
+  const rewritten = content.replace(
+    /require\("\.\/([^"]+\.cjs)"\)/g,
+    (match, basename) =>
+      sharedSourceNamesSet.has(basename)
+        ? `require("./${sharedDeployedName(basename)}")`
+        : match,
+  );
+  if (rewritten !== content) {
+    fs.writeFileSync(filePath, rewritten, "utf8");
   }
 }
 
@@ -68,8 +94,8 @@ for (const name of AIC_SCRIPT_NAMES) {
   const destPath = path.join(hooksDir, name);
   const sourceContent = fs.readFileSync(srcPath, "utf8");
   const installedContent = sourceContent.replace(
-    /require\("\.\.\/\.\.\/shared\//g,
-    'require("./',
+    /require\("\.\.\/\.\.\/shared\/([^"]+)"\)/g,
+    (_, basename) => `require("./${sharedDeployedName(basename)}")`,
   );
   let shouldWrite = true;
   try {
@@ -85,8 +111,34 @@ for (const name of AIC_SCRIPT_NAMES) {
 
 const hookNames = fs.readdirSync(hooksDir);
 for (const name of hookNames) {
-  if (/^AIC-[a-z0-9-]+\.cjs$/.test(name) && !AIC_SCRIPT_NAMES.includes(name)) {
+  if (
+    /^AIC-[a-z0-9-]+\.cjs$/.test(name) &&
+    !AIC_SCRIPT_NAMES.includes(name) &&
+    !sharedDeployedNamesSet.has(name)
+  ) {
     fs.unlinkSync(path.join(hooksDir, name));
+  } else if (sharedSourceNamesSet.has(name) && !sharedDeployedNamesSet.has(name)) {
+    const deployed = sharedDeployedName(name);
+    const oldPath = path.join(hooksDir, name);
+    const newPath = path.join(hooksDir, deployed);
+    try {
+      if (!fs.existsSync(oldPath)) {
+        // no-op
+      } else if (fs.existsSync(newPath)) {
+        const stOld = fs.statSync(oldPath);
+        const stNew = fs.statSync(newPath);
+        const sameFile = stOld.ino === stNew.ino && stOld.dev === stNew.dev;
+        if (sameFile) {
+          if (name !== deployed) {
+            fs.renameSync(oldPath, newPath);
+          }
+        } else {
+          fs.unlinkSync(oldPath);
+        }
+      } else {
+        fs.unlinkSync(oldPath);
+      }
+    } catch {}
   }
 }
 
