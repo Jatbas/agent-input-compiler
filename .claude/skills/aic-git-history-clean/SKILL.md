@@ -15,21 +15,14 @@ Two modes: Mode A (unpushed commits only, safe default) and Mode B (explicit rew
 
 ## Editors
 
-- **Claude Code:** Invoke with `/aic-git-history-clean`. All rebase planning and execution happens inline — no subagent dispatch needed.
+- **Claude Code:** Invoke with `/aic-git-history-clean`. No subagent dispatch needed.
 - **Cursor:** Attach the skill with `@` or invoke via `/`.
 
 ## Autonomous Execution
 
-Run all steps within each mode as a continuous flow until a user gate is reached. Do NOT pause between steps to report status or explain what you will do next.
+Run all steps as a continuous flow until a user gate. Do NOT pause between steps.
 
-**Legitimate user gates (the ONLY points where you stop and wait):**
-
-- Mode A step 10: squash plan approval (yes / edit / cancel)
-- Mode B step 3: other authors warning (wait for confirmation)
-- Mode B step 14: resolve all [NEEDS-FIX] items (wait for replacement messages)
-- Mode B step 15: double confirmation for destructive rewrite
-
-**Everything between gates runs without pausing.** Scope determination, commit classification, group building, message sanitization, plan validation, and tag anchor selection all run as one continuous flow. Present the complete plan at the approval gate.
+**User gates:** Mode A step 10 (squash plan approval), Mode B step 3 (other authors warning), Mode B step 14 (resolve [NEEDS-FIX]), Mode B step 15 (double confirmation).
 
 ## When to Use
 
@@ -342,13 +335,11 @@ After the first public release (`v1.0.0` or equivalent) is pushed and the reposi
 
 ## Conventions
 
-- **Feature-centric thinking.** The guiding question is "what features were built and what problems were solved?" — not "what commit types exist?" Each group in the final history should read like a changelog entry: "added X", "fixed Y", "refactored Z." Follow-up fixes to a feature are part of the feature, not separate entries.
-- Always present the squash plan before executing — never squash silently.
-- Proposed commit messages come from existing non-squashable commits in the group, not from generated text. Sanitization modifies existing messages (removing internal references) but does not invent new descriptions.
-- Date preservation is non-negotiable. Every squashed commit inherits the earliest author date in its group. The `--committer-date-is-author-date` flag ensures committer dates match.
-- Mode A is the default. Mode B requires explicit user instruction with an explicit range.
-- Backup branches are created before every rebase (both modes) and are never deleted automatically. The user prunes them when satisfied.
-- If `git rebase` fails (conflicts, detached HEAD, or other error), stop immediately, show the error and `git status`, and tell the user to run `git rebase --abort`.
-- `--committer-date-is-author-date` requires git 2.29+. If the rebase fails with an unrecognized option error, tell the user to upgrade git.
-- The result must look natural: no traces of internal task numbering, no AI-workflow artifacts, no phase codes, no empty parentheses, no broken trailing sentences. An experienced developer reading `git log` should see a normal conventional-commit history.
-- Validation is not optional. Every plan must pass all 9 validation checks with zero `[NEEDS-FIX]` before the user is asked to approve.
+- **Feature-centric:** each group reads like a changelog entry. Follow-up fixes to a feature are part of the feature.
+- Always present the plan before executing. Messages come from existing commits, not generated text.
+- Date preservation is non-negotiable. `--committer-date-is-author-date` (requires git 2.29+).
+- Mode A is default. Mode B requires explicit user instruction.
+- Backup branches are created before every rebase, never deleted automatically.
+- On rebase failure: stop, show error + `git status`, tell user to run `git rebase --abort`.
+- The result must look natural: no task numbers, phase codes, empty parentheses, or broken sentences.
+- Validation is not optional — zero `[NEEDS-FIX]` before approval.

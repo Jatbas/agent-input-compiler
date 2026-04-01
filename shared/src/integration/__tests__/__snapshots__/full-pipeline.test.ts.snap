@@ -36,9 +36,5 @@ export function validateToken(token: string): { userId: string; role: string } |
  */
 export function createAuthMiddleware(requiredRole: string) { }
 
-### src/index.ts [Tier: L0]
-
-
-## Output Format
-Respond with a unified diff (--- a/ +++ b/ @@ ... @@). Do not include any text outside the diff blocks."
+### src/index.ts [Tier: L0]"
 `;

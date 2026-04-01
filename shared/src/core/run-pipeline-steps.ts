@@ -31,7 +31,6 @@ import type { SessionId, ISOTimestamp } from "@jatbas/aic-core/core/types/identi
 import type { ToolOutput } from "@jatbas/aic-core/core/types/compilation-types.js";
 import type { SessionBudgetContext } from "@jatbas/aic-core/core/types/session-budget-context.js";
 import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
-import { OUTPUT_FORMAT } from "@jatbas/aic-core/core/types/enums.js";
 
 export interface PipelineStepsDeps {
   readonly intentClassifier: IntentClassifier;
@@ -217,7 +216,6 @@ export async function runPipelineSteps(
     task,
     prunedFiles,
     rulePack.constraints,
-    OUTPUT_FORMAT.UNIFIED_DIFF,
     specLadderFiles,
     sessionContextSummary,
     structuralMap,

@@ -259,18 +259,11 @@ When the PR author is external (not a maintainer), add these checks:
 - **aic-systematic-debugging:** if a finding reveals a deeper issue, use the debugging skill to investigate
 - **aic-task-planner:** if review findings require substantial work, create a task file for the fixes
 
-## Common Rationalizations — STOP
+## Critical Reminders
 
-If you catch yourself thinking any of these, you are rationalizing. Stop and follow the process.
-
-| Thought                                          | Reality                                                                                            |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| "This diff looks small, skip the checklist"      | Small diffs can contain critical violations. Run the full checklist.                               |
-| "Tests pass so the code is fine"                 | Tests verify behavior, not architecture. Checklist dimensions A, T, D, C are not covered by tests. |
-| "Author is a maintainer, less scrutiny needed"   | Maintainers make the same mistakes. The checklist is the same for everyone.                        |
-| "This is just a refactor, no functional changes" | Refactors can introduce layering violations, mutability, and import issues. Full checklist.        |
-| "I already know this code is correct"            | You have anchoring bias. Run the mechanical checks.                                                |
-| "The PR description says it is a minor fix"      | The PR description may be optimistic. Read the actual diff.                                        |
+- Always run the full checklist regardless of diff size, author, or PR description claims.
+- Tests verify behavior, not architecture — checklist dimensions A, T, D, C are not covered by tests.
+- Always read the actual diff — PR descriptions may be optimistic.
 
 ## Red Flags
 

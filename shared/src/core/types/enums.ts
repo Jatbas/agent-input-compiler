@@ -61,15 +61,6 @@ export const TOOL_OUTPUT_TYPE = {
 } as const;
 export type ToolOutputType = (typeof TOOL_OUTPUT_TYPE)[keyof typeof TOOL_OUTPUT_TYPE];
 
-export const OUTPUT_FORMAT = {
-  UNIFIED_DIFF: "unified-diff",
-  FULL_FILE: "full-file",
-  MARKDOWN: "markdown",
-  JSON: "json",
-  PLAIN: "plain",
-} as const;
-export type OutputFormat = (typeof OUTPUT_FORMAT)[keyof typeof OUTPUT_FORMAT];
-
 export const GUARD_SEVERITY = {
   BLOCK: "block",
   WARN: "warn",

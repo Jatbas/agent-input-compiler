@@ -68,8 +68,6 @@ export {
   type SymbolKind,
   TOOL_OUTPUT_TYPE,
   type ToolOutputType,
-  OUTPUT_FORMAT,
-  type OutputFormat,
   GUARD_SEVERITY,
   type GuardSeverity,
   GUARD_FINDING_TYPE,

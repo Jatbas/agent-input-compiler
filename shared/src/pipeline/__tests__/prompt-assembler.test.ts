@@ -10,11 +10,7 @@ import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toTokenCount, toStepIndex } from "@jatbas/aic-core/core/types/units.js";
 import { toConfidence } from "@jatbas/aic-core/core/types/scores.js";
 import { toRelevanceScore } from "@jatbas/aic-core/core/types/scores.js";
-import {
-  TASK_CLASS,
-  OUTPUT_FORMAT,
-  type OutputFormat,
-} from "@jatbas/aic-core/core/types/enums.js";
+import { TASK_CLASS } from "@jatbas/aic-core/core/types/enums.js";
 import { INCLUSION_TIER } from "@jatbas/aic-core/core/types/enums.js";
 
 function makeFile(path: string): SelectedFile {
@@ -35,7 +31,7 @@ describe("PromptAssembler", () => {
     subjectTokens: [],
   };
 
-  it("renders template correctly for unified-diff format", async () => {
+  it("renders template correctly", async () => {
     const reader: FileContentReader = {
       getContent: (path) => Promise.resolve(`content of ${path as string}`),
     };
@@ -44,7 +40,6 @@ describe("PromptAssembler", () => {
       task,
       [makeFile("src/a.ts")],
       ["use TypeScript"],
-      OUTPUT_FORMAT.UNIFIED_DIFF,
     );
     expect(result).toContain("## Task");
     expect(result).toContain("add feature");
@@ -55,8 +50,7 @@ describe("PromptAssembler", () => {
     expect(result).toContain("content of src/a.ts");
     expect(result).toContain("## Constraints");
     expect(result).toContain("- use TypeScript");
-    expect(result).toContain("## Output Format");
-    expect(result).toContain("unified diff");
+    expect(result).not.toContain("## Output Format");
   });
 
   it("omits constraints section when empty", async () => {
@@ -64,34 +58,9 @@ describe("PromptAssembler", () => {
       getContent: () => Promise.resolve(""),
     };
     const assembler = new PromptAssembler(reader);
-    const result = await assembler.assemble(
-      task,
-      [makeFile("x.ts")],
-      [],
-      OUTPUT_FORMAT.PLAIN,
-    );
+    const result = await assembler.assemble(task, [makeFile("x.ts")], []);
     expect(result).not.toContain("## Constraints");
-    expect(result).toContain("## Output Format");
-  });
-
-  it("uses correct description for each output format", async () => {
-    const reader: FileContentReader = {
-      getContent: () => Promise.resolve(""),
-    };
-    const assembler = new PromptAssembler(reader);
-    const formats: OutputFormat[] = [
-      OUTPUT_FORMAT.UNIFIED_DIFF,
-      OUTPUT_FORMAT.FULL_FILE,
-      OUTPUT_FORMAT.MARKDOWN,
-      OUTPUT_FORMAT.JSON,
-      OUTPUT_FORMAT.PLAIN,
-    ];
-    for (const format of formats) {
-      const result = await assembler.assemble(task, [], [], format);
-      expect(result).toContain("## Output Format");
-      if (format === OUTPUT_FORMAT.JSON) expect(result).toContain("valid JSON");
-      if (format === OUTPUT_FORMAT.PLAIN) expect(result).toContain("plain text");
-    }
+    expect(result).not.toContain("## Output Format");
   });
 
   it("renders multiple files in order", async () => {
@@ -103,7 +72,6 @@ describe("PromptAssembler", () => {
       task,
       [makeFile("first.ts"), makeFile("second.ts")],
       [],
-      OUTPUT_FORMAT.PLAIN,
     );
     const firstIdx = result.indexOf("### first.ts");
     const secondIdx = result.indexOf("### second.ts");
@@ -124,12 +92,7 @@ describe("PromptAssembler", () => {
       ...makeFile("src/seen.ts"),
       previouslyShownAtStep: toStepIndex(2),
     };
-    const result = await assembler.assemble(
-      task,
-      [fileWithPrevious],
-      [],
-      OUTPUT_FORMAT.PLAIN,
-    );
+    const result = await assembler.assemble(task, [fileWithPrevious], []);
     expect(result).toContain("Previously shown in step 2");
     expect(getContentCalls).not.toContain("src/seen.ts");
   });
@@ -149,9 +112,7 @@ describe("PromptAssembler", () => {
       ...makeFile("documentation/readme.md"),
       path: toRelativePath("documentation/readme.md"),
     };
-    const result = await assembler.assemble(task, [codeFile], [], OUTPUT_FORMAT.PLAIN, [
-      specFile,
-    ]);
+    const result = await assembler.assemble(task, [codeFile], [], [specFile]);
     expect(result).toContain("## Specification");
     expect(result).toContain("### documentation/readme.md");
     expect(result).toContain("spec content here");
@@ -165,24 +126,13 @@ describe("PromptAssembler", () => {
   it("prompt_assembler_no_spec_when_empty", async () => {
     const reader: FileContentReader = { getContent: () => Promise.resolve("") };
     const assembler = new PromptAssembler(reader);
-    const resultOmitted = await assembler.assemble(
-      task,
-      [makeFile("x.ts")],
-      [],
-      OUTPUT_FORMAT.PLAIN,
-    );
+    const resultOmitted = await assembler.assemble(task, [makeFile("x.ts")], []);
     expect(resultOmitted).not.toContain("## Specification");
     expect(resultOmitted).toContain("## Task");
     expect(resultOmitted).toContain("## Task Classification");
     expect(resultOmitted).toContain("## Context");
-    expect(resultOmitted).toContain("## Output Format");
-    const resultEmpty = await assembler.assemble(
-      task,
-      [makeFile("x.ts")],
-      [],
-      OUTPUT_FORMAT.PLAIN,
-      [],
-    );
+    expect(resultOmitted).not.toContain("## Output Format");
+    const resultEmpty = await assembler.assemble(task, [makeFile("x.ts")], [], []);
     expect(resultEmpty).not.toContain("## Specification");
   });
 
@@ -199,7 +149,7 @@ describe("PromptAssembler", () => {
       ...makeFile("documentation/plan.md"),
       path: toRelativePath("documentation/plan.md"),
     };
-    await assembler.assemble(task, [], [], OUTPUT_FORMAT.PLAIN, [specFile]);
+    await assembler.assemble(task, [], [], [specFile]);
     expect(getContentCalls).toContain("documentation/plan.md");
   });
 
@@ -210,7 +160,6 @@ describe("PromptAssembler", () => {
       task,
       [],
       [],
-      OUTPUT_FORMAT.PLAIN,
       undefined,
       "Steps completed:\n1) Done.",
     );
@@ -221,15 +170,8 @@ describe("PromptAssembler", () => {
   it("prompt_assembler_session_context_omitted_when_empty", async () => {
     const reader: FileContentReader = { getContent: () => Promise.resolve("") };
     const assembler = new PromptAssembler(reader);
-    const resultEmpty = await assembler.assemble(
-      task,
-      [],
-      [],
-      OUTPUT_FORMAT.PLAIN,
-      undefined,
-      "",
-    );
-    const resultUndefined = await assembler.assemble(task, [], [], OUTPUT_FORMAT.PLAIN);
+    const resultEmpty = await assembler.assemble(task, [], [], undefined, "");
+    const resultUndefined = await assembler.assemble(task, [], []);
     expect(resultEmpty).not.toContain("## Session context");
     expect(resultUndefined).not.toContain("## Session context");
   });
@@ -241,7 +183,6 @@ describe("PromptAssembler", () => {
       task,
       [],
       [],
-      OUTPUT_FORMAT.PLAIN,
       undefined,
       undefined,
       "src/ (2 files)",
@@ -257,16 +198,8 @@ describe("PromptAssembler", () => {
   it("assemble_omits_project_structure_when_empty", async () => {
     const reader: FileContentReader = { getContent: () => Promise.resolve("") };
     const assembler = new PromptAssembler(reader);
-    const resultNoArg = await assembler.assemble(task, [], [], OUTPUT_FORMAT.PLAIN);
-    const resultEmpty = await assembler.assemble(
-      task,
-      [],
-      [],
-      OUTPUT_FORMAT.PLAIN,
-      undefined,
-      undefined,
-      "",
-    );
+    const resultNoArg = await assembler.assemble(task, [], []);
+    const resultEmpty = await assembler.assemble(task, [], [], undefined, undefined, "");
     expect(resultNoArg).not.toContain("## Project structure");
     expect(resultEmpty).not.toContain("## Project structure");
   });
@@ -284,12 +217,7 @@ describe("PromptAssembler", () => {
       ...makeFile("src/resolved.ts"),
       resolvedContent: "resolved text",
     };
-    const result = await assembler.assemble(
-      task,
-      [fileWithResolved],
-      [],
-      OUTPUT_FORMAT.PLAIN,
-    );
+    const result = await assembler.assemble(task, [fileWithResolved], []);
     expect(result).toContain("resolved text");
     expect(result).toContain("### src/resolved.ts");
     expect(getContentCalls).not.toContain("src/resolved.ts");
@@ -300,12 +228,7 @@ describe("PromptAssembler", () => {
       getContent: (path) => Promise.resolve(`content of ${path as string}`),
     };
     const assembler = new PromptAssembler(reader);
-    const result = await assembler.assemble(
-      task,
-      [makeFile("a.ts")],
-      ["C1", "C2", "C3"],
-      OUTPUT_FORMAT.PLAIN,
-    );
+    const result = await assembler.assemble(task, [makeFile("a.ts")], ["C1", "C2", "C3"]);
     expect(result).toContain("## Constraints (key)");
     expect(result).toContain("- C1");
     expect(result).toContain("- C2");
@@ -318,12 +241,7 @@ describe("PromptAssembler", () => {
   it("prompt_assembler_constraints_preamble_top_three_only", async () => {
     const reader: FileContentReader = { getContent: () => Promise.resolve("") };
     const assembler = new PromptAssembler(reader);
-    const result = await assembler.assemble(
-      task,
-      [],
-      ["A", "B", "C", "D", "E"],
-      OUTPUT_FORMAT.PLAIN,
-    );
+    const result = await assembler.assemble(task, [], ["A", "B", "C", "D", "E"]);
     const preambleEnd = result.indexOf("## Context");
     const preamble = result.slice(0, preambleEnd);
     expect(result).toContain("## Constraints (key)");
@@ -341,19 +259,14 @@ describe("PromptAssembler", () => {
   it("prompt_assembler_constraints_preamble_omitted_when_empty", async () => {
     const reader: FileContentReader = { getContent: () => Promise.resolve("") };
     const assembler = new PromptAssembler(reader);
-    const result = await assembler.assemble(task, [], [], OUTPUT_FORMAT.PLAIN);
+    const result = await assembler.assemble(task, [], []);
     expect(result).not.toContain("## Constraints (key)");
   });
 
   it("prompt_assembler_constraints_preamble_one_or_two", async () => {
     const reader: FileContentReader = { getContent: () => Promise.resolve("") };
     const assembler = new PromptAssembler(reader);
-    const resultOne = await assembler.assemble(
-      task,
-      [],
-      ["Only one"],
-      OUTPUT_FORMAT.PLAIN,
-    );
+    const resultOne = await assembler.assemble(task, [], ["Only one"]);
     const preambleOneEnd = resultOne.indexOf("## Context");
     const preambleOne = resultOne.slice(0, preambleOneEnd);
     expect(resultOne).toContain("## Constraints (key)");
@@ -361,17 +274,31 @@ describe("PromptAssembler", () => {
     const bulletCountOne = (preambleOne.match(/^- /gm) ?? []).length;
     expect(bulletCountOne).toBe(1);
 
-    const resultTwo = await assembler.assemble(
-      task,
-      [],
-      ["First", "Second"],
-      OUTPUT_FORMAT.PLAIN,
-    );
+    const resultTwo = await assembler.assemble(task, [], ["First", "Second"]);
     const preambleTwoEnd = resultTwo.indexOf("## Context");
     const preambleTwo = resultTwo.slice(0, preambleTwoEnd);
     expect(preambleTwo).toContain("- First");
     expect(preambleTwo).toContain("- Second");
     const bulletCountTwo = (preambleTwo.match(/^- /gm) ?? []).length;
     expect(bulletCountTwo).toBe(2);
+  });
+
+  it("prompt_assembler_never_emits_output_format_section", async () => {
+    const reader: FileContentReader = {
+      getContent: () => Promise.resolve("file content"),
+    };
+    const assembler = new PromptAssembler(reader);
+    const result = await assembler.assemble(
+      task,
+      [makeFile("src/a.ts")],
+      ["use TypeScript"],
+    );
+    expect(result).not.toContain("## Output Format");
+    expect(result).not.toContain("unified diff");
+    expect(result).not.toContain("Do not include any text outside");
+    expect(result).not.toContain("full-file");
+    expect(result).not.toContain("Respond in Markdown");
+    expect(result).not.toContain("valid JSON object");
+    expect(result).not.toContain("plain text");
   });
 });

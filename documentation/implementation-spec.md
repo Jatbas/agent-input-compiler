@@ -137,7 +137,6 @@ All defaults apply when no config file exists or a field is omitted.
 | Config file                              | Auto-discovered (walk up from project root)                                                                                              | Auto-discovered                                            | `--config`        |
 | Database                                 | `~/.aic/aic.sqlite` (global)                                                                                                             | Auto-resolved                                              | `--db`            |
 | Context budget                           | 8,000 tokens                                                                                                                             | `aic.config.json` only                                     | `--budget`        |
-| Output format                            | `unified-diff`                                                                                                                           | `aic.config.json` only                                     | `--format`        |
 | Context selector                         | `heuristic`                                                                                                                              | `aic.config.json` only                                     | Config only       |
 | Model id                                 | Auto-detected from editor                                                                                                                | `aic.config.json` → `model.id` wins                        | Config only       |
 | Model provider                           | `null` (required only for the deferred executor path)                                                                                    | `aic.config.json` only                                     | Config only       |
@@ -181,7 +180,7 @@ The numbered steps below explain the main concepts. The **authoritative executio
 11. **StructuralMapBuilder** — builds structural map metadata for assembly, ignoring VCS internals such as `.git/`.
 12. **PromptAssembler** (Step 8) — final prompt string.
 
-Constraint injection and output-format blocks are part of assembly (Step 8), not separate `runPipelineSteps` calls. Steps 7 (Constraint Injector) and 8 (Prompt Assembler) in the subsections below map to that assembly stage.
+Merged rule-pack constraints are emitted during assembly (Step 8), not via separate `runPipelineSteps` calls. Steps 7 (Constraint Injector) and 8 (Prompt Assembler) in the subsections below describe that single assembly stage.
 
 **Agentic workflows:** The internal `CompilationRequest` type carries optional session fields (`sessionId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens`) plus `triggerSource` and `conversationId`. The MCP Zod schema in `mcp/src/schemas/compilation-request.ts` validates optional wire fields that map into these (`editorId`, `triggerSource`, `conversationId`, `reparentFromConversationId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens`). The compile handler maps them into `CompilationRequest`, except when `triggerSource` is `subagent_stop` with a non-empty `reparentFromConversationId` and `conversationId`: then it runs `reparentSubagentCompilations` only and returns JSON `{ reparented: true, rowsUpdated: N }` without invoking the pipeline. When a subagent compile arrives with a weak intent string (empty or matching the known “provide context for …” pattern) and a non-null `conversationId`, the handler may resolve `CompilationRequest.intent` from the most recent non-`general` compilation for that conversation instead of using the raw request intent, so that file selection reflects the last meaningful task description. `sessionId` is not an MCP client argument; the composition root sets it from MCP server session state when applicable. Hook integrations supply `conversationId` and related fields where the editor exposes them (see [Project Plan §2.7](project-plan.md#27-agentic-workflow-support)). Optional `toolOutputs` is forwarded on the pipeline request but does not affect file selection today; stored tool outputs are summarised into the deterministic `Steps completed:` header on later compiles (last 10 steps in the prompt; see Project Plan §2.7).
 
@@ -506,7 +505,9 @@ Adding new language support later requires only implementing the `LanguageProvid
 
 **Deduplication:** Exact string match → keep first occurrence; first occurrence wins.
 
-**Output format (injected into prompt):**
+**Example `## Constraints` section (inside the compiled prompt):**
+
+Rule-pack and config constraints are opaque strings; authors often ask for a specific response shape. This is illustrative only — it is not a built-in AIC instruction.
 
 ```
 ## Constraints
@@ -528,7 +529,7 @@ Adding new language support later requires only implementing the `LanguageProvid
 
 **Template:**
 
-> The fenced block below shows **sections inside the compiled prompt string** — the `##` / `###` lines are not headings in this document.
+> The fenced block below shows **sections inside the compiled prompt string** — the `##` / `###` lines are not headings in this document. Order matches `shared/src/pipeline/prompt-assembler.ts`. Optional blocks are omitted when their inputs are empty. **Two constraint sections are deliberate:** `## Constraints (key)` surfaces up to three bullets before context; the final `## Constraints` lists the full merged set after context (ordering mitigates prompt-injection from file bodies — see `security.md`).
 
 ```
 ## Task
@@ -537,28 +538,29 @@ Adding new language support later requires only implementing the `LanguageProvid
 ## Task Classification
 Type: {taskClass} (confidence: {confidence})
 
+## Specification
+{optional — per selected spec / rules / skills files}
+
+## Session context
+{optional — agentic session summary}
+
+## Project structure
+{optional — structural map metadata}
+
+## Constraints (key)
+{when constraints non-empty — first three constraints as bullets}
+
 ## Context
 {for each file in context}
 ### {filePath} [Tier: {tier}]
-{content at appropriate tier}
+{content at appropriate tier, or “Previously shown in step N” placeholder}
 {end for}
 
 ## Constraints
-{constraints}
-
-## Output Format
-{outputFormat description}
+{when constraints non-empty — every constraint as a bullet, in order}
 ```
 
-**`{outputFormat description}` values by format:**
-
-| `--format` value           | Block rendered                                                                                                     |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `unified-diff` _(default)_ | `Respond with a unified diff (--- a/ +++ b/ @@ ... @@). Do not include any text outside the diff blocks.`          |
-| `full-file`                | `Respond with the complete contents of each modified file. Begin each file with a header comment: // FILE: {path}` |
-| `markdown`                 | `Respond in Markdown. Use headings, code blocks, and bullet lists as appropriate.`                                 |
-| `json`                     | `Respond with a single valid JSON object. Do not include any prose, markdown, or explanation outside the JSON.`    |
-| `plain`                    | `Respond in plain text.`                                                                                           |
+AIC does **not** append a machine-owned “output format” appendix (unified diff, JSON-only reply, etc.). Editors, skills, and rule-pack constraints own how the user asks the model to respond.
 
 **Output:** The compiled input (a single string, the final prompt)
 
@@ -681,8 +683,8 @@ This analyzer is not implemented in the shipped MCP package. The section below i
       "severity": "info",
       "source": ".cursorrules",
       "line": 7,
-      "message": "'Output unified diff format only' duplicates the AIC built-in:refactor rule pack constraint",
-      "suggestion": "Remove this line — AIC already injects it when task class is 'refactor'."
+      "message": "'Output unified diff format only' duplicates the same line in your project `aic-rules/refactor.json` constraints",
+      "suggestion": "Keep the constraint in one place only so the compiled prompt does not repeat it."
     }
   ]
 }
@@ -1021,7 +1023,7 @@ This section summarizes the test deliverables that ship with the scope described
 | Step 5 (ContextGuard)        | Exclusion, Secret, PromptInjection, MarkdownInstruction, CommandInjection scanners — known-safe and known-flagged fixtures; all-blocked edge case handled                             |
 | Step 6 (SummarisationLadder) | Each tier produces expected compression; over-budget triggers next tier; lowest-score files compressed first                                                                          |
 | Step 7 (ConstraintInjector)  | Deduplication; empty list omits block; ordering preserved                                                                                                                             |
-| Step 8 (PromptAssembler)     | Template rendered correctly for each output format; token count includes overhead                                                                                                     |
+| Step 8 (PromptAssembler)     | Sections ordered as in `prompt-assembler.ts`; optional blocks omitted when empty; never emits `## Output Format` or format-instruction prose; regression tests lock assembly shape    |
 | Step 9 (Executor)            | Retry policy honoured; non-retryable errors fail immediately (mocked endpoint)                                                                                                        |
 | Step 10 (TelemetryLogger)    | After successful `runner.run` when `enabled !== false`, `writeCompilationTelemetry` persists to `telemetry_events`; handler catches store errors without failing the compile response |
 
@@ -1043,7 +1045,7 @@ Same pass criteria as [§5 — Benchmark Suite](#benchmark-suite) (10 canonical 
 
 | Interface                | What is validated                                                                                                                          |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `aic_compile` (MCP tool) | Output format correct; token count within budget                                                                                           |
+| `aic_compile` (MCP tool) | Compiled prompt non-empty structured text; token count within budget                                                                       |
 | `aic_inspect` (MCP tool) | Trace JSON includes all pipeline sections; `selectedFiles` entries have no `resolvedContent`                                               |
 | Bootstrap                | Config created; AIC ignore manifest appended to `.gitignore`, `.eslintignore`, `.prettierignore`; `.aic/` with `0700`; trigger rule exists |
 
@@ -1179,7 +1181,7 @@ const InspectRequestSchema = z.object({
 - `devMode` (boolean) — enables development CLI routing (`pnpm aic` instead of `npx @jatbas/aic`); omitted defaults to `false` at resolve time
 - `skipCompileGate` (boolean) — emergency bypass for the Cursor `preToolUse` compile gate and the Claude Code compile helper; only effective when `devMode` is also `true`. Omitted defaults to `false`
 
-Additional fields described in the Project Plan (telemetry, cache TTL, `rulePacks`, output format, etc.) may be accepted or ignored depending on loader evolution — see `load-config-from-file.ts` for the authoritative shape. On JSON parse failure, AIC throws `ConfigError` with a sanitised message.
+Additional fields described in the Project Plan (telemetry, cache TTL, `rulePacks`, etc.) may be accepted or stripped depending on loader evolution — unknown top-level keys (including `output`) are not preserved by the shipped Zod schema — see `load-config-from-file.ts` for the authoritative shape. On JSON parse failure, AIC throws `ConfigError` with a sanitised message.
 
 ### Rule pack validation
 
