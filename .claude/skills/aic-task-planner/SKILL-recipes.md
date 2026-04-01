@@ -500,11 +500,11 @@ All universal checks apply. Fix-specific check emphasis:
 
 Checks B (signature), C (dependent types), H (branded types), K (library API), L (wiring) are conditional on whether the fix touches those artifacts.
 
-### Auto-mode resilience for fix tasks
+### Subagent resilience for fix tasks
 
-Fix tasks are where auto-mode models fail most characteristically — they find the first instance of a problem, write a narrow fix, and declare victory. The pattern exhaustiveness scan (exploration item 2) and test impact analysis (item 3) are the primary countermeasures. Both are mandatory and enforced by mechanical checks U and V.
+Fix tasks are where cheaper models (subagents, fast models) fail most characteristically — they find the first instance of a problem, write a narrow fix, and declare victory. The pattern exhaustiveness scan (exploration item 2) and test impact analysis (item 3) are the primary countermeasures. Both are mandatory and enforced by mechanical checks U and V.
 
-**Common auto-mode failure modes for fix tasks:**
+**Common subagent failure modes for fix tasks:**
 
 | Failure mode                           | What goes wrong                                              | Countermeasure                                            |
 | -------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------------- |
@@ -626,7 +626,7 @@ If any row matches, switch to the specialized recipe now. Do not proceed with ge
 - **1-2 uncertain items:** Investigate inline — read additional source files, trace the code path, check test files for usage examples, or search the web for library documentation. Resolve each before writing the task file. Do not leave uncertainties for the executor.
 - **3+ uncertain items:** The component has significant ambiguity that inline investigation cannot efficiently resolve. Delegate to the `aic-researcher` skill for a focused codebase analysis investigation. Read `.claude/skills/aic-researcher/SKILL.md` and run the codebase analysis protocol targeting the uncertain items. Use the research findings to resolve all uncertainties before proceeding. This is more expensive but prevents the executor from hitting blockers on ambiguous task instructions.
 
-This graduated approach ensures auto-mode models don't silently write task files with unresolved ambiguities (training data fills in plausible-looking but wrong details). The escalation threshold of 3 balances thoroughness against cost.
+This graduated approach ensures cheaper models don't silently write task files with unresolved ambiguities (training data fills in plausible-looking but wrong details). The escalation threshold of 3 balances thoroughness against cost.
 
 ### Files pattern (derived, not fixed)
 
@@ -758,9 +758,9 @@ Because the general-purpose recipe lacks the domain-specific knowledge of specia
 
 The user must confirm both the design decisions AND the characterization before Pass 2 proceeds. This compensates for the absence of recipe-level automation.
 
-### Auto-mode resilience (making cheaper models succeed)
+### Subagent resilience (making cheaper models succeed)
 
-The general-purpose recipe is designed to work with less capable models (auto mode, fast models) by eliminating judgment calls and making every decision mechanical. This section documents the failure modes that cheaper models hit most often and the countermeasures built into the recipe.
+The general-purpose recipe is designed to work with less capable models (subagents, fast models) by eliminating judgment calls and making every decision mechanical. This section documents the failure modes that cheaper models hit most often and the countermeasures built into the recipe.
 
 **Why cheaper models struggle without this:** Specialized recipes work well with cheaper models because the recipe provides the structure — the model just fills in blanks. Without a recipe, the model must _derive_ the structure, which requires synthesis and judgment that cheaper models lack. The general-purpose recipe compensates by providing exhaustive decision trees, validation gates, and self-correction checkpoints that turn synthesis into verification.
 
@@ -1133,9 +1133,9 @@ The planner does NOT delegate to the researcher when:
 
 **Note:** The documentation-writer skill itself can escalate to the researcher skill when Explorer 1 finds 3+ UNCERTAIN claims. This is built into the documentation-writer's Phase 1 (see `SKILL.md` section 1b, Explorer 1 template).
 
-### Auto-mode resilience for documentation tasks
+### Subagent resilience for documentation tasks
 
-Documentation tasks are where auto-mode struggles most compared to Opus — writing quality, nuanced analysis, and cross-document consistency require the kind of holistic reasoning that cheaper models lack. The documentation recipe compensates by delegating to the `aic-documentation-writer` skill, which provides a multi-agent pipeline that surpasses single-model quality.
+Documentation tasks are where cheaper models struggle most compared to Opus — writing quality, nuanced analysis, and cross-document consistency require the kind of holistic reasoning that cheaper models lack. The documentation recipe compensates by delegating to the `aic-documentation-writer` skill, which provides a multi-agent pipeline that surpasses single-model quality.
 
 **How the documentation-writer skill surpasses Opus:**
 
@@ -1145,7 +1145,7 @@ Documentation tasks are where auto-mode struggles most compared to Opus — writ
 4. **3-4 adversarial critics** — editorial quality, factual re-verification, cross-doc consistency, and reader simulation are each checked by a focused critic with zero prior context. Opus checks all dimensions in one pass with full anchoring on its own reasoning.
 5. **Backward feedback loops** — when critics find issues, the target text is revised and re-checked. Opus cannot iterate on its own output in a single pass.
 6. **Reader simulation agent** — a fresh agent with zero project knowledge reads as a first-time user. Opus has to pretend it does not know things it does — the reader simulation agent genuinely does not know.
-7. **Explicit tone profile** — Explorer 3 builds a tone profile that the writing agent follows as rules. Auto-mode models calibrate tone by feel (unreliable); rules are reproducible.
+7. **Explicit tone profile** — Explorer 3 builds a tone profile that the writing agent follows as rules. Cheaper models calibrate tone by feel (unreliable); rules are reproducible.
 
 **Additional structural protections (inherited from previous recipe):**
 
@@ -1155,4 +1155,4 @@ Documentation tasks are where auto-mode struggles most compared to Opus — writ
 11. **Scope expansion recommendation** — the planner presents 3 scope tiers to the user after exploration, preventing under-scoping and over-scoping.
 12. **Content format conventions** — explicit rules in `SKILL-standards.md` for definitions (table for 3+), comparisons (table), procedures (numbered list), and new sections (must update ToC).
 
-The net effect: auto-mode produces documentation that reads as if Opus wrote it, because the multi-agent pipeline handles the reasoning that auto-mode cannot do alone. The documentation-writer skill is the single source of truth — both planner and executor delegate to it, ensuring identical quality regardless of entry point.
+The net effect: even cheaper models produce documentation that reads as if Opus wrote it, because the multi-agent pipeline handles the reasoning that a single model pass cannot do alone. The documentation-writer skill is the single source of truth — both planner and executor delegate to it, ensuring identical quality regardless of entry point.

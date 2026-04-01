@@ -5,20 +5,6 @@ import type { PromptAssembler as IPromptAssembler } from "@jatbas/aic-core/core/
 import type { FileContentReader } from "@jatbas/aic-core/core/interfaces/file-content-reader.interface.js";
 import type { TaskClassification } from "@jatbas/aic-core/core/types/task-classification.js";
 import type { SelectedFile } from "@jatbas/aic-core/core/types/selected-file.js";
-import type { OutputFormat } from "@jatbas/aic-core/core/types/enums.js";
-import { OUTPUT_FORMAT } from "@jatbas/aic-core/core/types/enums.js";
-
-const FORMAT_DESCRIPTIONS: Readonly<Record<OutputFormat, string>> = {
-  [OUTPUT_FORMAT.UNIFIED_DIFF]:
-    "Respond with a unified diff (--- a/ +++ b/ @@ ... @@). Do not include any text outside the diff blocks.",
-  [OUTPUT_FORMAT.FULL_FILE]:
-    "Respond with the complete contents of each modified file. Begin each file with a header comment: // FILE: {path}",
-  [OUTPUT_FORMAT.MARKDOWN]:
-    "Respond in Markdown. Use headings, code blocks, and bullet lists as appropriate.",
-  [OUTPUT_FORMAT.JSON]:
-    "Respond with a single valid JSON object. Do not include any prose, markdown, or explanation outside the JSON.",
-  [OUTPUT_FORMAT.PLAIN]: "Respond in plain text.",
-};
 
 async function buildSpecParts(
   fileContentReader: FileContentReader,
@@ -65,7 +51,6 @@ export class PromptAssembler implements IPromptAssembler {
     task: TaskClassification,
     files: readonly SelectedFile[],
     constraints: readonly string[],
-    format: OutputFormat,
     specFiles?: readonly SelectedFile[],
     sessionContextSummary?: string,
     structuralMap?: string,
@@ -113,8 +98,6 @@ export class PromptAssembler implements IPromptAssembler {
       "## Context",
       ...contextParts,
       ...constraintSection,
-      "## Output Format",
-      FORMAT_DESCRIPTIONS[format],
     ];
     return sections.join("\n").trimEnd();
   }

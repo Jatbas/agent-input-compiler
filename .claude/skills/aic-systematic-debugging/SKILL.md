@@ -167,26 +167,13 @@ STOP and question fundamentals:
 
 **Discuss with the user before attempting more fixes.** This is NOT a failed hypothesis — this is a wrong architecture.
 
-## Red Flags — STOP and Follow Process
+## Red Flags — STOP and Return to Phase 1
 
-If you catch yourself thinking:
-
-| Thought                                                | Reality                                                              |
-| ------------------------------------------------------ | -------------------------------------------------------------------- |
-| "Quick fix for now, investigate later"                 | Investigation IS the quick path. Guessing is the slow path.          |
-| "Just try changing X and see if it works"              | That is guessing, not debugging. Return to Phase 1.                  |
-| "Add multiple changes, run tests"                      | Cannot isolate what worked. Causes new bugs.                         |
-| "Skip the test, I will manually verify"                | Manual verification proves nothing permanently.                      |
-| "It is probably X, let me fix that"                    | "Probably" means you have not investigated. Phase 1.                 |
-| "I do not fully understand but this might work"        | Stop. Understand first.                                              |
-| "One more fix attempt" (after 2+ failures)             | 3+ failures = architectural problem. Question the pattern.           |
-| "Each fix reveals a new problem elsewhere"             | Architecture is wrong. Stop fixing symptoms.                         |
-| "Here are the main problems: [list of fixes]"          | You proposed solutions without investigation. Phase 1.               |
-| "The issue is simple, no need for process"             | Simple issues have root causes too. Process is fast for simple bugs. |
-| "Emergency, no time for process"                       | Systematic debugging is FASTER than guess-and-check thrashing.       |
-| "I will write the test after confirming the fix works" | Untested fixes do not stick. Test first proves it catches the bug.   |
-
-**ALL of these mean: STOP. Return to Phase 1.**
+- Never guess — "probably" or "might work" means you have not investigated.
+- Never skip the failing test — untested fixes do not stick.
+- Never make multiple changes at once — cannot isolate what worked.
+- Never skip process because "it is simple" or "emergency" — systematic debugging is faster than guessing.
+- 3+ failed fixes = architectural problem. Stop fixing symptoms, question the pattern.
 
 ## AIC-Specific Debugging Patterns
 

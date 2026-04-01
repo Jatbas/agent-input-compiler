@@ -7,7 +7,7 @@ description: Evidence-backed research via multi-agent protocols; writes document
 
 ## Purpose
 
-Produce Opus-quality research through multi-agent investigation protocols. The skill compensates for individual model reasoning limits by using parallel exploration, adversarial review, and structured synthesis — achieving depth and coverage that matches or exceeds a single Opus pass at lower cost.
+Produce evidence-backed research through multi-agent investigation: parallel exploration, adversarial review, and structured synthesis. The protocol compensates for individual model reasoning limits through structured parallelism — achieving depth and coverage that a single agent pass cannot.
 
 The deliverable is a **research document** saved to `documentation/research/`. This document can be used standalone (answers a question) or as input to the `aic-task-planner` skill (informs task planning).
 
@@ -24,13 +24,11 @@ The deliverable is a **research document** saved to `documentation/research/`. T
 
 ### 1. Mandatory Subagent Dispatch
 
-**This skill uses multi-agent parallelism. You MUST use the Task tool to spawn subagents where specified — NEVER perform investigation work in the main conversation.** §3 says "Spawn 2-4 explorers" — you MUST make 2-4 Task tool calls. §5 says "Spawn 1-2 critics" — you MUST make those Task tool calls. Single-agent investigation misses things that parallel independent agents catch. If the Task tool is unavailable, tell the user and stop.
-
-If you find yourself writing "Explorer N findings:" without having used the Task tool, stop — you are doing the work inline. This is the single most common auto-mode failure in this skill.
+**You MUST use the Task tool to spawn subagents — NEVER perform investigation inline.** §3 = 2-4 Task tool calls. §5 = 1-2 Task tool calls. If the Task tool is unavailable, tell the user and stop. If you find yourself writing "Explorer N findings:" without a Task tool call, stop and spawn.
 
 ### 2. Evidence Over Claims
 
-**Every finding must cite at least one concrete source.** A file path with line number, a URL, or a grep result. No exceptions. If you cannot cite a source, the finding does not exist — move it to Open Questions. This single rule prevents the most common auto-mode failure: plausible-sounding hallucination.
+**Every finding must cite at least one concrete source.** A file path with line number, a URL, or a grep result. No exceptions. If you cannot cite a source, the finding does not exist — move it to Open Questions. This single rule prevents the most common subagent failure: plausible-sounding hallucination.
 
 ## Autonomous Execution
 
@@ -43,7 +41,7 @@ Run §1 through §6 as a single continuous flow. Do NOT pause between sections t
 - The Task tool is unavailable (Cardinal Rule 1 — tell the user and stop)
 - A blocked diagnostic that cannot be resolved by re-spawning
 
-**Anti-pattern:** Sending a message like "Classification complete, now I'll frame the investigation..." and waiting. Run the full pipeline and present the finished research document.
+**Anti-pattern:** Do not pause between sections to report status.
 
 ## When to Use
 
@@ -114,329 +112,28 @@ For all other classifications, proceed to §2.
 
 ---
 
-## §2. Frame the Investigation
+## Phase Dispatch
 
-**Goal:** Before reading any code, reason about what the answer might be and design a systematic investigation. This prevents tunnel vision — the most common auto-mode failure.
+After §1 classification, read and execute the appropriate phase files in order. Each phase file is a sibling of this file (same directory). Read each one just before executing it — do NOT skip ahead.
 
-### 2a. Restate the question
+**Factual lookup (§1 classification):** No phase files needed — answer directly in chat. Done.
 
-Write a precise, unambiguous restatement. If the original question is vague ("how can we improve X?"), narrow it: "What are the specific weaknesses in X's current implementation, and what concrete changes would address each one?"
+**All other classifications (codebase analysis, gap/improvement, technology evaluation, documentation analysis):**
 
-### 2b. Generate hypotheses (gap/improvement and technology evaluation only)
+1. Read `SKILL-phase-2-frame.md` → execute §2 framing + investigation plan
+2. Read `SKILL-phase-3-investigate.md` → execute §3 parallel investigation
+3. Read `SKILL-phase-4-synthesize.md` → execute §4 synthesis + §5 adversarial review (continuous)
+4. Read `SKILL-phase-6-finalize.md` → execute §6 final synthesis + save document
 
-Generate 3-5 hypotheses BEFORE reading any code. Each hypothesis is a possible answer to the question.
+**Skip §5 adversarial review:** Only for codebase analysis when ALL findings have High confidence and 2+ explorers converged. For all other classifications, §5 is mandatory (it's in the same phase file as §4 to enforce this).
 
-**Hypothesis generation heuristics:**
+**Reference:** Read `SKILL-protocols.md` for classification-specific protocols (referenced in §2d).
 
-For gap/improvement analysis:
-
-- "The problem might be in [layer]" — one hypothesis per plausible layer
-- "The problem might be caused by [pattern]" — one hypothesis per suspect pattern (performance, architecture, missing feature, wrong abstraction)
-- "Improvement X might work because [reason]" — one hypothesis per approach
-
-For technology evaluation:
-
-- "Technology X is the best fit because [reason]"
-- "Technology Y is better despite being less popular because [reason]"
-- "Neither X nor Y — the real solution is [alternative approach]"
-
-**Write each hypothesis as a falsifiable claim.** Not "X might be slow" but "X's token counting is O(n^2) due to [suspected reason], causing latency above [threshold] for large files."
-
-### 2c. Design the investigation plan
-
-For each hypothesis (or each dimension for codebase/documentation analysis), define:
-
-1. **What to investigate** — specific files, directories, patterns
-2. **What evidence would confirm** — concrete observations that would make the hypothesis more likely
-3. **What evidence would disconfirm** — concrete observations that would make the hypothesis less likely
-4. **Assigned explorer** — which subagent handles this
-
-**Explorer assignment rules:**
-
-- Each explorer gets a focused, non-overlapping investigation area
-- Maximum 4 explorers (tool limit for parallel subagents)
-- Each explorer's prompt includes: the specific hypothesis/dimension, what to search for, what evidence to collect, and the evidence format to return
-- Explorers do NOT see each other's assignments (prevents anchoring)
-
-### 2d. Classification-specific framing
-
-Read the `SKILL-protocols.md` sibling file for the detailed protocol matching this question's classification. It contains investigation dimensions, explorer assignments, and evidence collection patterns specific to each type.
+**CRITICAL:** You must NOT skip to §6 without completing §3-§4. The research document template is in `SKILL-phase-6-finalize.md` — you cannot access it until you have explorer findings and synthesis.
 
 ---
 
-## §3. Investigate (Parallel Subagents)
-
-**Goal:** Execute the investigation plan from §2 using parallel subagents. Each explorer investigates its assigned area independently.
-
-### 3a. Spawn explorers (MANDATORY — Cardinal Rule 1)
-
-**You MUST make 2-4 Task tool calls here.** Do NOT perform the investigation yourself. Spawn 2-4 `explore` or `generalPurpose` subagents in parallel (use `fast` model). Each explorer's prompt must include:
-
-1. **Role:** "You are an investigator. Your job is to gather evidence about [specific area]. Report only what you find with citations — never speculate."
-2. **Target:** The specific hypothesis, dimension, or area to investigate
-3. **Search strategy:** What files to read, what patterns to grep, what to look for
-4. **Evidence format:** Return findings as a structured table — not free-form prose. Each finding must be a row with columns: Finding title | Evidence (file:line or URL) | Confidence (High/Medium/Low) | Surprise (yes/no + what). This forced format ensures programmatic validation by the parent agent.
-5. **Disconfirmation mandate:** "Actively look for evidence AGAINST the hypothesis, not just evidence for it. Report disconfirming evidence with the same rigor."
-6. **Escalation:** "It is always OK to stop and say 'this is too complex for my assigned scope.' Bad work with fabricated evidence is worse than partial work with honest gaps. Report what you found and what you could not determine. You will not be penalized for incomplete coverage — you will be penalized for fabricated evidence."
-
-For technology evaluation: one explorer uses `WebSearch` and `WebFetch` for external research (official docs, benchmarks, comparisons). The prompt must specify: "Use official documentation and primary sources. Avoid forum posts and blog articles unless no better source exists."
-
-**Runtime evidence mandate:** When the research question involves runtime behavior (hooks, database contents, deployed files, external system payloads, bootstrap flows), at least one explorer must be a `shell` subagent (or `generalPurpose` with shell access) tasked with gathering actual runtime evidence. Read `../shared/SKILL-investigation.md` and include the **Runtime Evidence Checklist** in this explorer's prompt. This explorer's findings take precedence over documentation-based findings when they conflict.
-
-**Codebase investigation depth:** When the investigation touches the AIC codebase (classifications: codebase analysis, gap/improvement analysis, documentation analysis with code cross-checks), explorer prompts MUST include the **Codebase Investigation Depth** requirements from `../shared/SKILL-investigation.md`. These are read-only — explorers read, query, and trace, but never modify files. These depth requirements do NOT activate for technology evaluations that only involve external technologies (no AIC codebase code).
-
-### 3b. Collect explorer results
-
-**Handoff accounting (before processing).** Enumerate each explorer's output before analyzing content: Explorer 1: N findings, M with citations, confidence distribution (H/M/L). Explorer 2: ... If any explorer returned 0 findings, investigate whether the explorer ran correctly before proceeding.
-
-Read each explorer's output. For each finding:
-
-- Verify the citation format (must have file:line or URL)
-- Note which explorer produced it
-- Flag any finding with no evidence citation — these are candidates for removal
-
-**Post-spawn validation.** For each explorer output, check: (1) findings use the required structured table format, (2) at least 1 citation per finding (citation floor), (3) output addresses the assigned hypothesis/dimension, not a different one. If any explorer fails 2+ of these checks, re-spawn it once with a more specific prompt. Maximum 1 re-spawn per explorer.
-
-**Convergence detection.** After collecting, check whether all explorers returned suspiciously similar top findings — each explorer's top findings overlap significantly with the others, with no unique perspectives. This suggests explorers searched the same obvious areas rather than their assigned targets. If detected, re-spawn the weakest explorer with a narrower scope. Maximum 1 convergence re-spawn.
-
----
-
-## §4. Synthesize
-
-**Goal:** Merge findings from all explorers into a coherent draft, identifying patterns, contradictions, and gaps.
-
-### 4a. Merge findings
-
-Organize all findings from all explorers. Group by:
-
-- **Convergence:** Did multiple explorers independently find the same thing? If yes, this is strong evidence — note which explorers converged.
-- **Contradiction:** Did explorers find conflicting evidence? If yes, note both sides — do not resolve prematurely.
-- **Unique:** Findings from only one explorer. These need the critic's attention most.
-
-### 4b. Identify gaps
-
-Ask: "What aspects of the question did NO explorer investigate?" List them. If gaps exist and they are important to the answer, spawn one additional explorer for the uncovered area before proceeding. This is a **sequential spawn** — wait for the result before proceeding to §4c draft synthesis. Add its findings to the merge.
-
-### 4c. Draft synthesis
-
-Write the draft research document using the template (see Research Document Template below). At this stage:
-
-- Include ALL findings (even low-confidence ones — the critic will help trim)
-- Note convergence and contradictions in the Analysis section
-- Leave the Adversarial Status field as "Pending review" for all findings
-- Write the Executive Summary as a draft — it will be refined after adversarial review
-
-### 4d. Evidence density check
-
-Count evidence citations across all findings. If fewer than 1 citation per finding on average, the investigation was too shallow. Go back to §3 and re-spawn the weakest explorer with a more specific prompt.
-
-### 4e. Strategic implications pass — REQUIRED for technology evaluation and gap/improvement (skip for all other classifications)
-
-For each finding, ask: **"What does this mean for AIC beyond the obvious first-order conclusion?"** Generate at least one second-order implication per finding. A second-order implication connects the finding to a project decision, timeline, or design choice that isn't directly stated in the evidence.
-
-**Examples of first-order vs. second-order reasoning:**
-
-- Finding: "MCP is moving toward stateless transport." First-order: "Doesn't affect AIC's stdio transport." Second-order: "MCP's cookie-like session mechanism could influence AIC's Phase 1 session tracking design — aligning early avoids rework."
-- Finding: "Enterprise WG doesn't exist yet." First-order: "Track it." Second-order: "AIC's Phase 1 OSS release positions it to contribute requirements to the WG from day one, shaping the spec rather than reacting to it."
-
-**Process:** After writing the draft synthesis (§4c), re-read each finding and write one sentence starting with "This also means..." or "The non-obvious consequence is..." If no second-order implication exists after genuine effort, note "First-order only — no downstream project implications identified." Include the strongest implications in the Analysis section. This is what separates a fact-reporting exercise from strategic research.
-
----
-
-## §5. Adversarial Review
-
-**Goal:** A fresh agent with zero prior commitment challenges the draft findings. This is the quality mechanism that most directly compensates for auto-mode's tendency to accept its own conclusions.
-
-**When to skip:** For codebase analysis only — if ALL findings in §4 have High confidence and at least 2 explorers converged on each finding, the adversarial review can be skipped. For all other classifications (gap/improvement, technology evaluation, documentation analysis), adversarial review is MANDATORY.
-
-### 5a. Spawn the critic (MANDATORY — Cardinal Rule 1)
-
-**You MUST make a Task tool call here.** Do NOT critique your own synthesis — that defeats the purpose of adversarial review. Spawn a `generalPurpose` subagent with `fast` model. The critic's prompt must include:
-
-1. **Role:** "You are an independent critic. You have NO prior context about this investigation. Your only job is to find flaws, challenge assumptions, and propose alternatives. You are not helpful — you are adversarial. The investigators may have been shallow or optimistic. Verify independently — read the actual code/files, do not accept their claims at face value."
-2. **Input:** The original question + the draft synthesis (from §4c) + the evidence citations
-3. **NOT included:** The hypotheses, the investigation plan, or the explorer prompts. The critic must not be anchored by the investigation's framing.
-4. **Tasks:**
-   - For each finding: attempt to disprove it. Search the codebase for counter-evidence. If you cannot disprove it, **state exactly what you searched for** (grep patterns, files read, directories checked) and why disproof was not possible. A finding marked "Unchallenged" without a search log will be treated as unevaluated.
-   - Identify unstated assumptions in the analysis.
-   - Propose at least one alternative explanation for the evidence presented.
-   - Rate each finding: Strong (multiple independent evidence, survived challenge) / Moderate (single clear evidence, no counter-evidence found) / Weak (inferred, absence-based, or counter-evidence exists)
-   - Flag any finding that relies on absence of evidence ("I didn't find X" ≠ "X doesn't exist")
-5. **Anti-agreement instruction:** "If you agree with all findings without challenge, your review will be rejected and you will be re-spawned with a stronger adversarial mandate. A genuine review challenges at least some findings."
-
-### 5b. Evaluate critic output
-
-Read the critic's challenges. For each:
-
-- **Valid challenge with evidence:** Incorporate it. Downgrade the finding's confidence, add a caveat, or remove the finding.
-- **Valid challenge without evidence but with sound reasoning:** Add the alternative explanation as a caveat in the finding.
-- **Invalid challenge (misread evidence, wrong file, logical error):** Reject it with explanation. Keep the finding unchanged.
-
-**Critic quality check:** If the critic marked ALL findings as "Strong" or agreed with everything, re-spawn with the strengthened prompt: "Your previous review was too agreeable. For each finding, describe the strongest possible counter-argument. If you genuinely cannot find a counter-argument after exhaustive search, explain exactly what you searched for (grep patterns, files read, areas checked)."
-
----
-
-## §6. Final Synthesis + Document
-
-**Goal:** Produce the final research document incorporating adversarial review results.
-
-### 6a. Update findings
-
-For each finding in the draft:
-
-- Update the Adversarial Status: "Unchallenged", "Challenged — incorporated [what changed]", or "Challenged — rejected because [reason]"
-- Update confidence ratings based on critic's assessment
-- Remove findings with 0 evidence citations (quality gate 1)
-
-### 6b. Apply mandatory quality gates
-
-Before finalizing, verify all five gates pass:
-
-1. **Minimum evidence density:** Every finding has at least 1 evidence citation. If not → remove the finding or investigate further.
-2. **Adversarial coverage:** The critic challenged at least some findings. If all are "Unchallenged" → re-run §5 with stronger mandate.
-3. **Explicit gap acknowledgment:** Open Questions section is non-empty (unless factual lookup). If empty → re-examine: what aspects of the question remain uncertain?
-4. **Confidence calibration:** No more than 60% of findings are rated "High confidence" (unless factual lookup). If over 60% → count the High findings and apply this heuristic: a finding is High only if it is a **binary verifiable fact** (code does X, schema has field Y, API exists/doesn't exist). Findings that **characterize** priorities, intentions, timelines, or external project direction are Medium — they depend on interpretation or external actors. Downgrade the weakest characterization-type findings until the ratio is at or below 60%. When in doubt, use these examples: _High_: "ESLint blocks `Date.now()` outside `system-clock.ts`" (grep confirms it — binary). _Medium_: "The project prioritizes hexagonal architecture" (interpretation of a pattern — characterization). _Borderline_: "Error handling is centralized in the config validator" — High if a single function proves it, Medium if you inferred it from a pattern across files.
-5. **Cross-explorer convergence bonus:** Any finding independently discovered by 2+ explorers is upgraded to High confidence with note: "Independently confirmed by [N] explorers." This upgrade applies only to findings **not downgraded by the critic in §6a** — a challenged finding retains the critic's assessment.
-
-### 6c. Refine the document
-
-- Rewrite the Executive Summary to reflect the final findings (not the draft)
-- Ensure the Analysis section connects findings to each other (not just lists them)
-- Ensure Recommendations are actionable and specific
-- Ensure Sources section lists every file and URL cited
-
-### 6c-ii. Roadmap mapping (conditional)
-
-**Auto-detection:** If any recommendation references a future phase (Phase 1, Phase 1+, Phase 2, Phase 2+, Phase 2-3, Phase 3) or uses language indicating deferred work ("track", "revisit when", "align when", "no code change now", "no action today"), generate the Roadmap Mapping section. This applies to technology evaluation and gap/improvement classifications. Skip for codebase analysis and documentation analysis (these produce findings about current state, not future work).
-
-**On-demand:** If the user asks "write the roadmap mapping" or "map recommendations to the roadmap" after any research — regardless of classification — generate the section and append it to the existing document.
-
-**How to generate:**
-
-1. Read `documentation/tasks/progress/aic-progress.md` (main workspace) to understand the current phase structure, categories, and entry format.
-2. For each recommendation, determine: (a) which phase it belongs to based on the evidence in the findings, (b) the closest category in aic-progress, (c) a one-line entry matching the style of existing entries, (d) whether it's immediately plannable or deferred (and why).
-3. Write the Roadmap Mapping table in the research document using the template.
-4. Recommendations that are purely informational ("track this") get "No — tracking only" in the Immediate column. Recommendations that depend on external events ("when WG forms") get "No — depends on [event]". Recommendations that can be planned and executed now get "Yes — plannable now".
-
-### 6d. Save the document
-
-Save to: `documentation/research/YYYY-MM-DD-kebab-title.md`
-
-Use today's date. If a file with that name already exists, append a sequence number: `YYYY-MM-DD-kebab-title-2.md`.
-
-### 6e. Present to user
-
-> **Research complete.** Saved to `documentation/research/YYYY-MM-DD-kebab-title.md`
->
-> **Classification:** [type] | **Findings:** [count] | **Confidence:** [overall — High/Medium/Low]
->
-> **Executive Summary:** [2-3 sentences]
->
-> **Key findings:** [top 3, one line each]
->
-> **Roadmap mapping:** [count] recommendations mapped — [N immediate, M deferred] (or "None — all recommendations are current-phase" if section was omitted)
->
-> **Open questions:** [count] — [one-line summary of what's uncertain]
->
-> Tell me which roadmap entries to add to `documentation/tasks/progress/aic-progress.md`, or say "plan tasks based on this research".
-
----
-
-## Research Document Template
-
-```markdown
-# Research: [Title]
-
-> **Status:** Complete
-> **Date:** [YYYY-MM-DD]
-> **Question:** [the original question, restated precisely]
-> **Classification:** [factual lookup | codebase analysis | gap/improvement analysis | technology evaluation | documentation analysis]
-> **Confidence:** [High | Medium | Low] — [one sentence justification]
-> **Explorers:** [count] | **Critic:** [yes/no/skipped — reason]
-
-## Executive Summary
-
-[2-3 sentences — the key answer. Must be actionable — not "it's complicated." If the answer is nuanced, state the primary conclusion first, then the nuance.]
-
-## Findings
-
-### Finding 1: [title]
-
-**Evidence:** [file path:line, URL, or grep result — MANDATORY]
-**Confidence:** [High | Medium | Low]
-**Adversarial status:** [Unchallenged | Challenged — incorporated: [what changed] | Challenged — rejected: [reason]]
-
-[Details — what was found and what it means. 2-5 sentences.]
-
-### Finding N: [title]
-
-[Same format for each finding]
-
-## Analysis
-
-[Synthesis — how findings connect, patterns, implications, trade-offs. This section must reference multiple findings in relation to each other. A flat list of independent observations is not analysis.]
-
-## Recommendations
-
-1. **[Priority 1]** — [actionable, specific recommendation with concrete next step]
-2. **[Priority 2]** — [...]
-
-[Recommendations must be ordered by impact. Each must be actionable by a human or the planner skill.]
-
-## Roadmap Mapping
-
-[Auto-generated when recommendations reference future phases. Omit this section if all recommendations are immediately actionable within the current phase or are purely informational (no code/doc change).]
-
-| #   | Recommendation | Phase                              | Category                                                                   | Candidate progress entry                                  | Immediate?                                                                                     |
-| --- | -------------- | ---------------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| [N] | [short name]   | [0 / 0.5 / 1 / 2 / 3 or "Current"] | [category from progress file — e.g. MCP Server, Documentation, Enterprise] | [one-line entry as it would appear in the progress table] | [Yes — plannable now / No — [reason: tracking only, depends on X, WG doesn't exist yet, etc.]] |
-
-> **To add these to the roadmap:** tell me which rows to add to `documentation/tasks/progress/aic-progress.md` and I'll write them.
-
-## Open Questions
-
-- [Honestly stated unknown — what could not be determined and why]
-- [What additional investigation would be needed to resolve this]
-
-[This section must not be empty for analysis/evaluation questions. There is always something uncertain.]
-
-## Sources
-
-- `[file path]` — [what was learned from this file]
-- [URL] — [what was learned] (technology evaluation only)
-
-[Every file read and URL fetched during the investigation.]
-```
-
----
-
-## Auto-Mode Resilience — Matching or Exceeding Opus
-
-The research skill is designed so that auto-mode (cheaper model) produces results matching or exceeding a single Opus pass. This section documents how.
-
-**Structural advantages over a single Opus pass:**
-
-| Opus advantage            | Protocol countermeasure                                                | Why protocol matches or exceeds                                                                   |
-| ------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| Deep reasoning            | 3-4 focused explorers each go deep in one area                         | 4 agents x medium depth > 1 agent x deep. Opus cannot read 4 areas simultaneously.                |
-| Alternative consideration | Hypothesis-driven framing: generate 3-5 hypotheses BEFORE reading code | Structurally prevents convergence. Opus considers alternatives internally but may still converge. |
-| Self-correction           | Adversarial review by fresh agent with zero sunk cost                  | Stronger than self-correction. A separate critic has zero anchoring bias.                         |
-| Nuanced synthesis         | Structured synthesis phase merging pre-organized findings              | Template ensures no connection is missed. Synthesis receives organized data, not raw files.       |
-| Honest uncertainty        | Evidence requirements: must cite file:line or URL. Absence = Weak.     | Structurally prevents hallucination. Impossible to assert without evidence.                       |
-| Comprehensive coverage    | Parallel exploration with assigned, non-overlapping targets            | Coverage guaranteed by assignment. Opus decides what to read and may miss areas.                  |
-| Context utilization       | Each subagent gets focused, short-context task                         | Eliminates the long-context problem. No single agent holds everything.                            |
-
-**Failure-mode recovery (built into the protocol):**
-
-| Failure mode           | Detection                                              | Recovery                                                |
-| ---------------------- | ------------------------------------------------------ | ------------------------------------------------------- |
-| Shallow exploration    | Fewer than 1 evidence citation per finding             | Re-spawn explorer with more specific prompt             |
-| Hallucinated citations | Critic re-reads every cited source                     | Downgrade or remove finding; re-investigate if critical |
-| Agreeable critic       | All findings marked "Unchallenged"                     | Re-spawn with strengthened adversarial mandate          |
-| Flat synthesis         | Analysis mentions each finding independently           | Re-do synthesis with explicit relation-mapping prompt   |
-| Missing coverage       | Gap check after synthesis reveals uninvestigated areas | Spawn additional explorer for uncovered area            |
-
-**Mandatory quality gates (enforced before document is finalized):**
+## Quality Gates (enforced before document is finalized)
 
 1. Every finding has at least 1 evidence citation
 2. Critic challenged at least some findings (not all "Unchallenged")
@@ -476,20 +173,20 @@ When the planner has a research document (from either mode):
 
 ---
 
-## Common Rationalizations — STOP
+## Critical Reminders
 
-If you catch yourself thinking any of these, you are rationalizing. Stop and follow the process.
+- Never skip subagent dispatch — always use the Task tool (Cardinal Rule 1). Minimum 2 explorers.
+- Every finding requires a file:line or URL — no exceptions (Cardinal Rule 2).
+- Never skip adversarial review because findings agree — agreement without challenge proves nothing.
+- Agreeable critics (zero challenges) must be re-spawned with strengthened mandate.
+- Never skip the gap check — it catches tunnel vision.
+- Factual lookup = 1-2 files only. If 3+ files needed, re-classify upward.
 
-| Thought                                                         | Reality                                                                                                  |
+**Rationalization traps — if you catch yourself thinking these, stop:**
+
+| Rationalization                                                 | Why it is wrong                                                                                          |
 | --------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| "I can investigate this myself without subagents"               | Single-agent investigation misses what parallel independent agents catch. Cardinal Rule 1.               |
-| "One explorer is enough for this"                               | Even simple questions benefit from 2+ perspectives. Minimum is 2 explorers.                              |
 | "I already know the answer from context"                        | You have anchoring bias. Subagents do not. Spawn them.                                                   |
-| "The findings all agree, so skip adversarial review"            | Agreement without challenge proves nothing. The critic exists to find what you missed.                   |
-| "The critic agrees with everything — good enough"               | A fully agreeable critic failed its job. Re-spawn with strengthened adversarial mandate.                 |
-| "This evidence is obvious, no citation needed"                  | Every finding requires a file:line or URL. No exceptions. Cardinal Rule 2.                               |
-| "This is just a factual lookup"                                 | Only if 1-2 files answer it. If you need 3+ files, re-classify upward.                                   |
-| "I will skip the gap check, the explorers covered everything"   | The gap check catches tunnel vision — the most common auto-mode failure. Run it.                         |
 | "The research is good enough without second-order implications" | First-order findings are fact reports. Second-order implications are what make research strategic.       |
 | "I do not need to verify the critic's challenges"               | Invalid challenges must be explicitly rejected with reasoning. Silently ignoring them is not evaluation. |
 

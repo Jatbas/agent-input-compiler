@@ -54,7 +54,7 @@ Every implementation must be a valid drop-in substitute:
 - New capabilities are added by creating a new class implementing an existing interface
 - Never modify an existing interface to add unrelated methods
 - Never modify an existing pipeline class to add new behaviour
-- Extension points: `EditorAdapter`, `ModelAdapter`, `ContextSelector`, `LanguageProvider`, `OutputFormatter`, `GuardScanner`, `ContentTransformer`
+- Extension points: `EditorAdapter`, `ModelAdapter`, `ContextSelector`, `LanguageProvider`, `GuardScanner`, `ContentTransformer`
 
 ## Null Object Pattern
 
@@ -89,7 +89,7 @@ All domain values use branded types from `shared/src/core/types/` — never raw 
 - **Quantities:** `TokenCount`, `Milliseconds`, `Bytes`, `LineNumber`, `StepIndex`
 - **Scores:** `Percentage`, `Confidence`, `RelevanceScore`
 - **Identifiers:** `ISOTimestamp`, `UUIDv7`, `SessionId`, `RepoId`, `SemanticVersion`
-- **Enums:** `TaskClass`, `EditorId`, `ModelProvider`, `InclusionTier`, `SymbolType`, `SymbolKind`, `ToolOutputType`, `OutputFormat`, `GuardSeverity`, `GuardFindingType`, `PipelineEventType`
+- **Enums:** `TaskClass`, `EditorId`, `ModelProvider`, `InclusionTier`, `SymbolType`, `SymbolKind`, `ToolOutputType`, `GuardSeverity`, `GuardFindingType`, `PipelineEventType`
 
 When adding or modifying interfaces:
 

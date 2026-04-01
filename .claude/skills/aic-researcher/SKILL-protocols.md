@@ -299,7 +299,7 @@ If an explorer reports findings marked UNCERTAIN (partial evidence, ambiguous gr
 - **1-2 uncertain findings:** Re-spawn the explorer with more specific instructions targeting the uncertainty. Provide the specific file paths, line numbers, and questions that need answers. One re-spawn typically resolves it.
 - **3+ uncertain findings:** The investigation has significant ambiguity. Before finalizing the research document, add an **Uncertainty Summary** section listing each unresolved item with what was tried and what remains unclear. Inform the user: "This investigation has N uncertain findings that could not be fully resolved. See the Uncertainty Summary for details." Do not present uncertain findings as confirmed — the distinction between "confirmed" and "uncertain" is critical for downstream planning and execution.
 
-This prevents auto-mode models from producing confident-sounding research documents that contain unverified claims — the most dangerous failure mode for downstream consumers (planner, executor) that trust the research.
+This prevents cheaper models from producing confident-sounding research documents that contain unverified claims — the most dangerous failure mode for downstream consumers (planner, executor) that trust the research.
 
 ### Maximum Subagent Budget
 

@@ -7,7 +7,9 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.11.0] - 2026-03-31
+## [0.11.5] - 2026-04-01
+
+## [0.11.0] - 2026-03-31 (Deprecated)
 
 ### Added
 
@@ -29,7 +31,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 - Upgrade Minimatch to remediate ReDoS advisories in transitive dependencies
 
-## [0.10.2] - 2026-03-30
+## [0.10.2] - 2026-03-30 (Deprecated)
 
 ### Fixed
 
@@ -37,7 +39,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Bundle the global cleanup script in the published `@jatbas/aic` package so npm-based uninstall can remove **`~/.aic/`** when **`--global`** is used
 - Avoid rewriting the managed AIC block in **`CLAUDE.md`** on MCP server startup when it already matches the installed template
 
-## [0.10.1] - 2026-03-30
+## [0.10.1] - 2026-03-30 (Deprecated)
 
 ### Changed
 

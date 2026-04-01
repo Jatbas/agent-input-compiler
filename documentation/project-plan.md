@@ -30,7 +30,7 @@
 8. [ContextSelector Interface](#8-contextselector-interface)
    - 8.1 [LanguageProvider Interface](#81-languageprovider-interface)
    - 8.2 [ModelClient Interface](#82-modelclient-interface)
-   - 8.3 [OutputFormatter Interface](#83-outputformatter-interface)
+   - 8.3 [Compiled prompt boundary](#83-compiled-prompt-boundary)
    - 8.4 [ContextGuard Interface](#84-contextguard-interface)
    - 8.5 [ContentTransformer Interface](#85-contenttransformer-interface)
    - 8.6 [InspectRunner Interface](#86-inspectrunner-interface)
@@ -111,7 +111,7 @@ These are explicitly out of scope for the Phase 0 baseline described in this pla
 | **Deterministic behavior** | Same intent + same codebase = same compiled output, every time                                                                                                                                      |
 | **Minimal context**        | Include only what the agent needs; exclude everything else                                                                                                                                          |
 | **Local-first**            | All processing happens on the developer's machine; no cloud required                                                                                                                                |
-| **Pluggable architecture** | Every subsystem (context selection, model adaptation, editor integration, output format) has a swappable interface — add a new one without touching core                                            |
+| **Pluggable architecture** | Every subsystem (context selection, model adaptation, editor integration) has a swappable interface — add a new one without touching core                                                           |
 | **Fail-safe defaults**     | Every optional config has a sensible default; AIC works correctly with zero configuration                                                                                                           |
 
 ---
@@ -136,7 +136,7 @@ Each class has exactly one reason to change. Every pipeline step is a single cla
 | `ContextGuard`                                                                              | Scan selected files for secrets and exclusions → `GuardResult`                                                                                                                                                                  |
 | `ContentTransformerPipeline`                                                                | Transform file content for token efficiency → `TransformResult`                                                                                                                                                                 |
 | `SummarisationLadder`                                                                       | Compress context to fit budget → annotated context                                                                                                                                                                              |
-| `PromptAssembler`                                                                           | Merge and deduplicate constraints, then combine task + context + constraints → final prompt `string` (see [Implementation Spec — Step 8](implementation-spec.md#step-8-prompt-assembler))                                       |
+| `PromptAssembler`                                                                           | Combine task intent, optional spec/session/structure blocks, file context, and merged rule-pack constraints → final prompt `string` (see [Implementation Spec — Step 8](implementation-spec.md#step-8-prompt-assembler))        |
 | _(Executor — deferred)_                                                                     | Send compiled prompt to model → response — **not** a shipped pipeline class in MCP-only mode (Phase 2+ direct execution)                                                                                                        |
 | _(Compile telemetry — handler boundary)_                                                    | After successful `runner.run`, the MCP compile handler calls `writeCompilationTelemetry()` → `telemetry_events` via `TelemetryStore`; pipeline steps do not perform this write (see [§9.1](#91-compile-telemetry-local-sqlite)) |
 | `SqliteSessionStore`                                                                        | Implements `SessionTracker`; persist session steps → `session_state` (see [§2.7](#27-agentic-workflow-support))                                                                                                                 |
@@ -150,14 +150,14 @@ No pipeline class touches storage, no storage class touches prompt logic, no MCP
 
 Core classes are open for extension and closed for modification. New capabilities are added by implementing an existing interface, never by editing an existing class.
 
-| Extension point                            | How to extend                                                                                                    |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- |
-| New editor integration (e.g. VS Code)      | Implement `EditorAdapter` interface; register in `EditorAdapterRegistry` _(planned abstraction, Phase 2+)_       |
-| New model adapter (e.g. Gemini tweaks)     | Implement `ModelAdapter` interface; register in `ModelAdapterRegistry` _(planned abstraction, Phase 2+)_         |
-| New context selector (e.g. VectorSelector) | Implement `ContextSelector` interface; register in selector factory                                              |
-| New language support (e.g. PythonProvider) | Implement `LanguageProvider`; register via `initLanguageProviders` / composition root wiring before the selector |
-| New output format                          | Implement `OutputFormatter` interface; register in formatter registry                                            |
-| New guard scanner (e.g. PII detector)      | Implement `GuardScanner` interface; register in `ContextGuard` scanner chain                                     |
+| Extension point                            | How to extend                                                                                                                         |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| New editor integration (e.g. VS Code)      | Implement `EditorAdapter` interface; register in `EditorAdapterRegistry` _(planned abstraction, Phase 2+)_                            |
+| New model adapter (e.g. Gemini tweaks)     | Implement `ModelAdapter` interface; register in `ModelAdapterRegistry` _(planned abstraction, Phase 2+)_                              |
+| New context selector (e.g. VectorSelector) | Implement `ContextSelector` interface; register in selector factory                                                                   |
+| New language support (e.g. PythonProvider) | Implement `LanguageProvider`; register via `initLanguageProviders` / composition root wiring before the selector                      |
+| New response-shaping instruction           | Add it as rule-pack or editor-owned constraint text — AIC does not append a hard-coded “output format” section to the compiled prompt |
+| New guard scanner (e.g. PII detector)      | Implement `GuardScanner` interface; register in `ContextGuard` scanner chain                                                          |
 
 No existing pipeline class is modified when any of the above are added. The core pipeline is frozen once correct; all evolution happens at the edges.
 
@@ -210,7 +210,7 @@ The MCP server handler (`mcp/src/server.ts`) is the only place where concrete cl
 | **Registry**                | `LanguageProvider[]` from `initLanguageProviders()`; future `ModelAdapterRegistry` / `EditorAdapterRegistry` | Language list wired in the composition root before `HeuristicSelector` / `SummarisationLadder`; extension-to-provider selection is by array order + provider logic               |
 | **Factory**                 | `ModelDetectorDispatch`                                                                                      | Resolves model hints from env / client metadata for counting and display; not a full `ModelAdapter` registry in the shipped code                                                 |
 | **Facade**                  | MCP server + compile handler                                                                                 | Thin wiring at the edge — pipeline + adapters; compile handler calls `writeCompilationTelemetry` after `runner.run` so pipeline steps stay free of `TelemetryStore`              |
-| **Builder**                 | `PromptAssembler`                                                                                            | Constructs the final prompt step-by-step (task block → context block → constraints block → format block), each block independently testable                                      |
+| **Builder**                 | `PromptAssembler`                                                                                            | Constructs the final prompt step-by-step (task → optional spec/session/structure → context → constraints), each block independently testable                                     |
 | **Null Object**             | `GenericProvider`, `GenericModelAdapter`                                                                     | Safe defaults for unsupported languages/models; return empty/estimated values instead of throwing                                                                                |
 | **Template Method**         | `LanguageProvider` interface                                                                                 | Defines the algorithm skeleton (parse → extract L1 → extract L2 → extract L3); concrete providers fill in the steps                                                              |
 | **Decorator**               | Future: `CachingSelector` wrapping `HeuristicSelector`                                                       | Add caching behaviour to a selector without modifying it                                                                                                                         |
@@ -926,7 +926,7 @@ These are fundamental constraints of the current editor extension model, not AIC
 | **Rule Pack**            | A named, composable set of instructions and constraints for a specific task class. Ships as JSON files in `./aic-rules/` (advanced) or is embedded as defaults. Example: `refactor.json` includes "preserve public API", "add deprecation notices"                                                                                                                                                                                                                                                                                                                                               |
 | **Context Budget**       | The maximum token allowance for context included in the compiled input. Derived from the model's context window via formula (`maxContextWindow × windowRatio`, clamped between 4,000 floor and 16,000 ceiling). Falls back to 8,000 tokens when the model is unknown. Configurable per-project, per-task-class, and via `contextBudget.windowRatio`. Phase 1 auto-tunes based on compilation history                                                                                                                                                                                             |
 | **Summarisation Ladder** | A tiered compression strategy applied when selected context exceeds the budget. Levels: `full` → `signatures+docs` → `signatures-only` → `names-only`. Files are sorted by relevance score ascending (least relevant compressed first). **Tie-breaking:** when two files share the same relevance score, the file with more `estimatedTokens` is compressed first (compressing a larger file yields more budget savings). If tokens also tie, alphabetical path order (ascending) is used as a final deterministic tiebreaker. Each level is tried in order until the context fits within budget |
-| **Constraint**           | A rule injected into the compiled prompt to steer agent behavior. Examples: "output unified diff only", "do not modify files outside src/", "use TypeScript strict mode". Sourced from rule packs + user config                                                                                                                                                                                                                                                                                                                                                                                  |
+| **Constraint**           | A rule injected into the compiled prompt to steer agent behavior. Examples: "respond with a unified diff", "do not modify files outside src/", "use TypeScript strict mode". Sourced from merged rule packs (project JSON under `aic-rules/`, etc.); wording is author-controlled — AIC does not inject a separate machine-owned response-format block                                                                                                                                                                                                                                           |
 | **ContextSelector**      | A pluggable interface that, given a task + repository + budget, returns the most relevant files/chunks of code. The shipped implementation includes `HeuristicSelector`; future: `VectorSelector`                                                                                                                                                                                                                                                                                                                                                                                                |
 | **Telemetry Event**      | Row in `telemetry_events`: `repo_id` (SHA-256 of project root), per-compile guard and summarisation-ladder aggregates (`guard_findings`, `guard_blocks`, `transform_savings`, `tiers_json`), linked to `compilation_log` via `compilation_id`. Built in `build-telemetry-event.ts` and written by `writeCompilationTelemetry` after a successful compile when the project is not disabled — not gated by a `telemetry.enabled` config flag in the shipped loader (see [§9.1](#91-compile-telemetry-local-sqlite), [§20](#20-storage))                                                            |
 | **RepoMap**              | A lightweight representation of the project's file tree: paths, sizes, last-modified timestamps, and detected language. Built by a `RepoMapSupplier` implementation (e.g. `FileSystemRepoMapSupplier`) before selection runs; cached in the `repomap_cache` SQLite table                                                                                                                                                                                                                                                                                                                         |
@@ -1010,13 +1010,13 @@ Rule packs are the primary advanced customization surface for AIC. A well-writte
 
 ### Constraint writing principles
 
-| Principle                                   | Good example                                                     | Bad example                                                         | Why                                                                                                   |
-| ------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| **Be specific and actionable**              | `"Preserve all existing public API signatures"`                  | `"Be careful with the code"`                                        | The model can verify compliance with the first; the second is vacuous                                 |
-| **Constrain the output, not the reasoning** | `"Output unified diff format only"`                              | `"Think carefully about what format to use"`                        | Constraints should tell the model _what to produce_, not _how to think_                               |
-| **Avoid redundancy with default packs**     | `"Add @deprecated JSDoc to replaced methods"` (project-specific) | `"Output unified diff format only"` (already in `built-in:default`) | Duplicate constraints waste constraint-block tokens; use `aic_inspect` to see what's already injected |
-| **Keep count manageable**                   | 3–7 constraints per pack                                         | 20+ constraints per pack                                            | Beyond ~10 constraints, models start ignoring or deprioritising later entries (recency bias)          |
-| **Use imperative mood**                     | `"Do not modify files outside src/"`                             | `"Files outside src/ should probably not be modified"`              | Imperative instructions are followed more reliably by language models                                 |
+| Principle                                   | Good example                                                     | Bad example                                            | Why                                                                                             |
+| ------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| **Be specific and actionable**              | `"Preserve all existing public API signatures"`                  | `"Be careful with the code"`                           | The model can verify compliance with the first; the second is vacuous                           |
+| **Constrain the output, not the reasoning** | `"Output unified diff format only"`                              | `"Think carefully about what format to use"`           | Constraints should tell the model _what to produce_, not _how to think_                         |
+| **Avoid redundancy across packs**           | `"Add @deprecated JSDoc to replaced methods"` (project-specific) | The same sentence repeated in two packs you merge      | Duplicate constraints waste tokens; use `aic_inspect` to see the merged list before adding more |
+| **Keep count manageable**                   | 3–7 constraints per pack                                         | 20+ constraints per pack                               | Beyond ~10 constraints, models start ignoring or deprioritising later entries (recency bias)    |
+| **Use imperative mood**                     | `"Do not modify files outside src/"`                             | `"Files outside src/ should probably not be modified"` | Imperative instructions are followed more reliably by language models                           |
 
 ### Include/exclude pattern guidance
 
@@ -1342,7 +1342,7 @@ Core remains untouched; enterprise features wrap around it:
 - **Context:** The Project Plan defines 35+ interfaces with ~80 `string` fields and ~50 `number` fields. Raw primitives are interchangeable at the type level: nothing prevents passing a `Milliseconds` value where a `TokenCount` is expected, or a `TaskClass` where a `FilePath` is expected.
 - **Rationale:** Branded types are zero-runtime-cost (compile-time only) and catch category errors that unit tests miss. Constructor functions (`toTokenCount(n)`, `toISOTimestamp(s)`) serve as documentation and validation entry points. `as const` objects with derived union types are preferred over TypeScript `enum` because they serialize as plain strings (no reverse mapping), tree-shake correctly, and work seamlessly with JSON and SQLite.
 - **Tradeoffs:** Slightly more verbose than raw primitives. Constructors add ceremony at boundaries. Both are acceptable for a codebase that prioritises correctness.
-- **Type categories:** Branded strings (8): `ProjectId`, `AbsolutePath`, `RelativePath`, `FilePath`, `ISOTimestamp`, `GlobPattern`, `SessionId`, `RepoId`. Branded numbers (8): `TokenCount`, `Milliseconds`, `Bytes`, `LineNumber`, `StepIndex`, `Percentage`, `Confidence`, `RelevanceScore`. String literal unions (11): `TaskClass`, `EditorId`, `ModelProvider`, `InclusionTier`, `SymbolType`, `SymbolKind`, `ToolOutputType`, `OutputFormat`, `GuardSeverity`, `GuardFindingType`, `PipelineEventType`. All defined in `shared/src/core/types/`.
+- **Type categories:** Branded strings (8): `ProjectId`, `AbsolutePath`, `RelativePath`, `FilePath`, `ISOTimestamp`, `GlobPattern`, `SessionId`, `RepoId`. Branded numbers (8): `TokenCount`, `Milliseconds`, `Bytes`, `LineNumber`, `StepIndex`, `Percentage`, `Confidence`, `RelevanceScore`. String literal unions (10): `TaskClass`, `EditorId`, `ModelProvider`, `InclusionTier`, `SymbolType`, `SymbolKind`, `ToolOutputType`, `GuardSeverity`, `GuardFindingType`, `PipelineEventType`. All defined in `shared/src/core/types/`.
 - **Null vs undefined convention:** Required nullable fields use `Type | null` ("we checked, absence is meaningful"). Optional fields use `?: Type` ("caller may not provide this"). Never `?: Type | null` (redundant).
 
 ---
@@ -1416,10 +1416,6 @@ One file per class at the leaf level; the pipeline is never duplicated. Publishe
     }
   },
   "rulePacks": ["built-in:default", "./aic-rules/team.json"],
-  "output": {
-    "format": "unified-diff",
-    "includeExplanation": false
-  },
   "contextSelector": {
     "type": "heuristic",
     "heuristic": {
@@ -1460,8 +1456,7 @@ All fields are optional. AIC works with an empty `{}` or no config file at all.
 | `contextBudget.maxTokens`                   | `8000`                               | Default token limit for all task classes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `contextBudget.perTaskClass`                | —                                    | Optional per-task-class overrides; e.g. `bugfix` may warrant a higher budget                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `rulePacks`                                 | `["built-in:default"]`               | Rule packs loaded in priority order; later entries override earlier ones                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `output.format`                             | `"unified-diff"`                     | `"unified-diff"` \| `"full-file"` \| `"markdown"` \| `"json"` \| `"plain"`                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `output.includeExplanation`                 | `false`                              | When `true`, appends a prose explanation block after the diff/code                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `output.*` (ignored)                        | —                                    | Keys under `output` are not defined in the shipped `load-config-from-file.ts` Zod schema — they are dropped like other unknown top-level keys. Response shape is owned by editors, skills, and rule-pack constraints, not by the compiler.                                                                                                                                                                                                                                                                                                      |
 | `contextSelector.type`                      | `"heuristic"`                        | `"heuristic"` (default) \| `"vector"` (Phase 2+)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `contextSelector.heuristic.maxFiles`        | `20`                                 | Cap on files passed to the summarisation ladder                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | `contextSelector.heuristic.includePatterns` | `["src/**"]`                         | Glob whitelist for file scanning; merged with rule pack `includePatterns`                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -1781,47 +1776,11 @@ Resolves the correct `ModelClient` implementation from `config.provider`. Throws
 
 ---
 
-## 8.3 OutputFormatter Interface
+## 8.3 Compiled prompt boundary
 
-Step 8 (Prompt Assembler) produces the compiled prompt; the CLI layer then formats the final output for the user using an `OutputFormatter`. This enforces SRP (the assembler only assembles; formatting is a separate concern) and OCP (new formats added without touching the assembler or CLI logic).
+`PromptAssembler` (Step 8; see [Implementation Spec — Step 8](implementation-spec.md#step-8-prompt-assembler)) returns a single string built in this order: **`## Task`** (intent text), **`## Task Classification`**, optional **`## Specification`**, optional **`## Session context`**, optional **`## Project structure`**, optional **`## Constraints (key)`** (first three merged constraints when the merged list is non-empty), **`## Context`** (selected files), then optional **`## Constraints`** (every merged constraint as a bullet, after context). **AIC does not append compiler-owned instructions that dictate how the model must format its reply** (for example a trailing `## Output Format` block or hard-coded “respond with unified diff only” prose). Editors, agent skills, and human-authored constraints own that policy.
 
-```typescript
-interface FormatterInput {
-  compiledPrompt: string;
-  agentResponse: string | null;
-  selectedFiles: SelectedFile[];
-  tokenCount: TokenCount;
-  taskClass: TaskClass;
-  format: OutputFormat;
-  includeExplanation: boolean;
-}
-
-interface OutputFormatter {
-  readonly format: OutputFormat;
-  render(input: FormatterInput): string;
-}
-```
-
-### Shipped implementations
-
-| Class                  | Format           | Description                                                                                  |
-| ---------------------- | ---------------- | -------------------------------------------------------------------------------------------- |
-| `UnifiedDiffFormatter` | `"unified-diff"` | Renders agent response as a unified diff; falls back to raw text if no diff markers detected |
-| `FullFileFormatter`    | `"full-file"`    | Renders the complete file contents for each modified file                                    |
-| `MarkdownFormatter`    | `"markdown"`     | Passes the agent response through as-is (model is instructed to respond in Markdown)         |
-| `JsonFormatter`        | `"json"`         | Renders a structured JSON object: `{ taskClass, tokenCount, selectedFiles, agentResponse }`  |
-| `PlainFormatter`       | `"plain"`        | Passes the agent response through as-is (model is instructed to respond in plain text)       |
-
-### FormatterRegistry
-
-```typescript
-interface FormatterRegistry {
-  register(formatter: OutputFormatter): void;
-  get(format: OutputFormat): OutputFormatter; // throws UnknownFormatError if not registered
-}
-```
-
-New formats are added by implementing `OutputFormatter` and calling `FormatterRegistry.register()` — zero changes to the assembler or CLI.
+`aic_compile` exposes that string as `compiledPrompt` and stops. A separate “format the agent’s answer for the terminal” layer is **not** part of the shipped MCP-only product; any future executor or CLI renderer would live outside `runPipelineSteps` and must not reintroduce hidden response-format injection into the compiled prompt.
 
 ---
 
@@ -2299,8 +2258,8 @@ Token Summary
   After guard (12 safe, 0 blocked):  8,800 tokens
   After transforms:     8,200 tokens
   After ladder:         7,200 tokens
-  Prompt total:         7,870 tokens (context + overhead)
-  Reduction:            82.5%
+  Prompt total:         7,842 tokens (context + assembly overhead; no compiler-owned output-format appendix)
+  Reduction:            82.6%
 
 Constraints (5)
   - Preserve all existing public API signatures
@@ -2374,16 +2333,16 @@ The following walkthrough traces a single compilation request through every pipe
 
 **Step 7–8: Prompt Assembler (constraints merged in assembly)**
 
-- Constraints from merged RulePack: `["Include the full stack trace context", "Preserve existing error handling patterns", "Output unified diff format only"]` — deduplicated inside assembly (no separate pipeline class)
-- Template overhead: task block (45 tokens) + classification block (12 tokens) + constraints block (38 tokens) + format block (28 tokens) = 123 tokens
-- **Prompt total:** 7,420 + 123 = **7,543 tokens**
-- Model context window check: 7,543 < 124,000 (GPT-4o available) → pass
+- Constraints from merged RulePack: `["Include the full stack trace context", "Preserve existing error handling patterns", "Output unified diff format only"]` — illustrative strings from packs the project configured; deduplicated inside assembly (no separate pipeline class)
+- Template overhead: task block (45 tokens) + classification block (12 tokens) + constraints preamble + constraints block (38 tokens combined) = 95 tokens _(illustrative — real counts depend on content)_
+- **Prompt total:** 7,420 + 95 = **7,515 tokens**
+- Model context window check: 7,515 < 124,000 (GPT-4o available) → pass
 
 **Result:**
 
 - `tokensRaw`: 45,000 (all 142 files)
-- `tokensCompiled`: 7,543 (assembled prompt)
-- `tokenReductionPct`: 83.2%
+- `tokensCompiled`: 7,515 (assembled prompt)
+- `tokenReductionPct`: 83.3%
 - `durationMs`: 280
 - `cacheHit`: false
 
@@ -2960,11 +2919,11 @@ Add it automatically with `git commit -s`. By signing off, you certify that you 
 
 AIC follows **Semantic Versioning 2.0.0** (`MAJOR.MINOR.PATCH`).
 
-| Change type                                            | Version bump | Examples                                                                                  |
-| ------------------------------------------------------ | ------------ | ----------------------------------------------------------------------------------------- |
-| Breaking change to any public interface or MCP tool    | `MAJOR`      | Removing a tool, changing `ContextSelector` method signature, changing config field names |
-| New backward-compatible feature                        | `MINOR`      | New MCP tool/resource, new `LanguageProvider`, new output format                          |
-| Bug fix or internal refactor with no public API change | `PATCH`      | Fix scoring bug, fix cache TTL calculation, fix retry logic                               |
+| Change type                                            | Version bump | Examples                                                                                        |
+| ------------------------------------------------------ | ------------ | ----------------------------------------------------------------------------------------------- |
+| Breaking change to any public interface or MCP tool    | `MAJOR`      | Removing a tool, changing `ContextSelector` method signature, changing config field names       |
+| New backward-compatible feature                        | `MINOR`      | New MCP tool/resource, new `LanguageProvider`, new optional config field consumed by the loader |
+| Bug fix or internal refactor with no public API change | `PATCH`      | Fix scoring bug, fix cache TTL calculation, fix retry logic                                     |
 
 **What counts as "public":** All TypeScript interfaces in `shared/src/*/interfaces/`, all CLI commands and flags, the `aic.config.json` schema, and the cache/telemetry file formats.
 
