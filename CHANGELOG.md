@@ -7,6 +7,24 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.6] - 2026-04-02
+
+### Added
+
+- Weak intent fallback when the prompt is too generic for reliable file selection, with shared hook deployment from the published package
+
+### Changed
+
+- Remove output-format section from compiled prompts and Cursor rule documentation
+- Enforce compile gate order: without devMode, require a successful `aic_compile` before other tools; rules document mandatory per-message compilation
+- Inherit parent intent for Claude Code subagent compiles; strip IDE-only instruction blocks from hook-injected context
+- Skip markdown paths in the command-injection guard scanner to cut false positives; ban `let` in production TypeScript via ESLint
+- Extend pack-install smoke coverage and document long-running skills for Composer versus auto mode
+
+### Fixed
+
+- Align npm OIDC provenance metadata and publish workflow with trusted publishing requirements
+
 ## [0.11.5] - 2026-04-01
 
 ## [0.11.0] - 2026-03-31 (Deprecated)
