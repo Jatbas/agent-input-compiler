@@ -9,6 +9,8 @@ const {
 } = require("../../shared/session-model-cache.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 const { conversationIdFromTranscriptPath } = require("../../shared/conversation-id.cjs");
+const { isWeakAicCompileIntent } = require("../../shared/is-weak-aic-compile-intent.cjs");
+const { readAicPrewarmPrompt } = require("../../shared/read-aic-prewarm-prompt.cjs");
 
 function run(stdinStr) {
   let parsed;
@@ -48,6 +50,12 @@ function run(stdinStr) {
     ...(conversationId ? { conversationId } : {}),
     ...(cachedModelId ? { modelId: cachedModelId } : {}),
   };
+  if (isWeakAicCompileIntent(toolInput?.intent) && conversationId) {
+    const filled = readAicPrewarmPrompt(`cc-${conversationId}`);
+    if (filled.length > 0) {
+      updatedInput.intent = filled.slice(0, 10000);
+    }
+  }
   return {
     hookSpecificOutput: {
       hookEventName: "PreToolUse",

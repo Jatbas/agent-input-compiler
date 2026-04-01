@@ -11,7 +11,7 @@
     "AIC-session-end.cjs",
     "AIC-subagent-compile.cjs",
     "AIC-subagent-stop.cjs",
-    "subagent-start-model-id.cjs",
+    "AIC-subagent-start-model-id.cjs",
     "AIC-stop-quality-check.cjs"
   ]
 }

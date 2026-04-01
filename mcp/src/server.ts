@@ -12,7 +12,10 @@ import type { LanguageProvider } from "@jatbas/aic-core/core/interfaces/language
 import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { TaskClass, EditorId } from "@jatbas/aic-core/core/types/enums.js";
 import { InspectRunner } from "@jatbas/aic-core/pipeline/inspect-runner.js";
-import { CompilationRequestSchema } from "./schemas/compilation-request.js";
+import {
+  CompilationRequestSchema,
+  MCP_INTENT_OMITTED_DEFAULT,
+} from "./schemas/compilation-request.js";
 import { StatusRequestSchema } from "./schemas/status-request.schema.js";
 import { ConversationSummaryRequestSchema } from "./schemas/conversation-summary-request.js";
 import { InspectRequestSchema } from "./schemas/inspect-request.schema.js";
@@ -344,7 +347,7 @@ export function createMcpServer(
   // applied when the value is undefined).
   const compileSchemaWithDefaults = {
     ...CompilationRequestSchema,
-    intent: CompilationRequestSchema.intent.default("general context compilation"),
+    intent: CompilationRequestSchema.intent.default(MCP_INTENT_OMITTED_DEFAULT),
     projectRoot: CompilationRequestSchema.projectRoot.default(projectRoot),
   };
   server.tool(

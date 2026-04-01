@@ -36,9 +36,9 @@ What this means concretely:
 
 **How they get there:** The MCP server resolves the installer the same way as [installation.md](../installation.md#first-compile-bootstrap): in-project `integrations/cursor/install.cjs` when present under the workspace root, otherwise the bundled copy from `@jatbas/aic`, then runs it when the bootstrap gate in `editor-integration-dispatch.ts` passes — on workspace roots listing (if supported) or on the first `aic_compile` for the project. For a manual refresh or when bootstrap did not run, execute `node` on that resolved path with cwd at the project root (see [installation.md](../installation.md#first-compile-bootstrap)).
 
-The installer is idempotent: it merges `hooks.json` and copies every script name in `integrations/cursor/aic-hook-scripts.json` from `integrations/cursor/hooks/` to `.cursor/hooks/` (currently **13** files: **twelve** `AIC-*.cjs` plus `subagent-start-model-id.cjs`). That manifest is the canonical script list.
+The installer is idempotent: it merges `hooks.json` and copies every script name in `integrations/cursor/aic-hook-scripts.json` from `integrations/cursor/hooks/` to `.cursor/hooks/` (currently **13** files: **thirteen** `AIC-*.cjs`). That manifest is the canonical script list.
 
-**Optional: commit hooks to the repo.** Teams can commit `.cursor/hooks.json`, every `.cursor/hooks/AIC-*.cjs` script, and `subagent-start-model-id.cjs` (not `AIC-*`) so every clone gets hooks without re-running the installer.
+**Optional: commit hooks to the repo.** Teams can commit `.cursor/hooks.json` and every `.cursor/hooks/AIC-*.cjs` script so every clone gets hooks without re-running the installer.
 
 > **Verified:** Cursor documents `sessionStart`, `beforeSubmitPrompt`, `preToolUse`, `postToolUse`,
 > `beforeShellExecution`, `afterFileEdit`, `sessionEnd`, `stop`, `subagentStart`, and `subagentStop` (paired with `subagentStart` for Task-tool subagent lifecycle). See [Cursor agent hooks](https://cursor.com/docs/agent/hooks) and per-event sections below.
@@ -118,7 +118,7 @@ integrations/cursor/               ← SOURCE (authored here)
     AIC-session-end.cjs            # sessionEnd — temp file cleanup + session telemetry
     AIC-subagent-compile.cjs       # subagentStart — aic_compile for compilation_log telemetry
     AIC-subagent-stop.cjs          # subagentStop — reparent compilation_log to parent conversation
-    subagent-start-model-id.cjs    # helper: subagent_model → modelId (deployed beside hooks)
+    AIC-subagent-start-model-id.cjs # helper: subagent_model → modelId (deployed beside hooks)
   install.cjs                      # Installer: copies hooks, merges hooks.json
   hooks.json.template              # hooks.json template
 
@@ -241,7 +241,7 @@ Same stdout contract as §6.6: write `JSON.stringify({})`. The hook performs a b
 ## 7. Hook events — details
 
 Cursor's hook system is documented at [docs.cursor.com/context/rules](https://docs.cursor.com/context/rules).
-AIC registers **12** hook **command** entries across **10** event types (some types run more than one command); **13** hook **script files** are copied from `aic-hook-scripts.json` (twelve `AIC-*.cjs` plus `subagent-start-model-id.cjs`). Limitations and workarounds are per hook below.
+AIC registers **12** hook **command** entries across **10** event types (some types run more than one command); **13** hook **script files** are copied from `aic-hook-scripts.json` (all **thirteen** `AIC-*.cjs`). Limitations and workarounds are per hook below.
 
 ### 7.1 sessionStart — two hooks (architectural invariants + compiled context)
 
@@ -343,10 +343,11 @@ AIC registers **12** hook **command** entries across **10** event types (some ty
 
 - `input.conversation_id` → preferred source
 - `AIC_CONVERSATION_ID` env var → fallback when `AIC-compile-context` has set `env` after a successful compile, else `process.env` may be unset until then
+- `input.generation_id` → key for the prewarmed prompt temp file `aic-prompt-<generation_id>` (see purpose below)
 - `input.tool_name` → to scope injection to `aic_compile` and `aic_chat_summary`
 - `input.tool_input` → the arguments object to augment
 
-**Purpose:** Cursor does not pass a `conversationId` in `aic_compile` tool arguments automatically. This hook intercepts every MCP tool call, checks if it is `aic_compile` or `aic_chat_summary`, and injects `conversationId` into `updated_input` so the MCP server receives it.
+**Purpose:** Cursor does not pass a `conversationId` in `aic_compile` tool arguments automatically. This hook intercepts every MCP tool call, checks if it is `aic_compile` or `aic_chat_summary`, and injects `conversationId` into `updated_input` so the MCP server receives it. For `aic_compile`, when `input.generation_id` is present and `aic-prompt-<generation_id>` in the temp directory contains non-empty text after the same normalization as the compile gate, a weak tool intent (including the MCP omitted-intent default string) may be replaced with that text (truncated) before the request reaches the server.
 
 **Output:**
 

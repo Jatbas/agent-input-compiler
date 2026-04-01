@@ -127,25 +127,13 @@ describe("ensureAicDir", () => {
     expect(content).toBe(`.aic\ndist/\n${rest}`);
   });
 
-  it("ensure_aic_dir_negation_appends", () => {
+  it("ensure_aic_dir_does_not_append_dir_negation", () => {
     const tmp = makeTmpDir();
     dirs[dirs.length] = tmp;
-    writeFileSync(
-      join(tmp, ".gitignore"),
-      "node_modules/\n.cursor/hooks/AIC-*.cjs\n",
-      "utf8",
-    );
+    writeFileSync(join(tmp, ".gitignore"), "node_modules/\n", "utf8");
     ensureAicDir(toAbsolutePath(tmp));
     const content = readFileSync(join(tmp, ".gitignore"), "utf8");
-    expect(content).toContain("!.cursor/hooks/aic-dir.cjs");
-    const lines = content.split("\n");
-    const aicIdx = lines.findIndex((line) => line.trim() === ".cursor/hooks/AIC-*.cjs");
-    const negIdx = lines.findIndex(
-      (line) => line.trim() === "!.cursor/hooks/aic-dir.cjs",
-    );
-    expect(aicIdx).toBeGreaterThanOrEqual(0);
-    expect(negIdx).toBeGreaterThanOrEqual(0);
-    expect(aicIdx).toBeLessThan(negIdx);
+    expect(content).not.toContain("!.cursor/hooks/AIC-dir.cjs");
   });
 
   it("is idempotent on repeated calls", () => {

@@ -12,6 +12,8 @@ const {
   normalizeModelId,
   writeSessionModelCache,
 } = require("../../shared/session-model-cache.cjs");
+const { isWeakAicCompileIntent } = require("../../shared/is-weak-aic-compile-intent.cjs");
+const { readAicPrewarmPrompt } = require("../../shared/read-aic-prewarm-prompt.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 
 let raw = "";
@@ -80,7 +82,18 @@ process.stdin.on("end", () => {
         );
       }
     }
-    if (updated.conversationId !== undefined || updated.modelId !== undefined) {
+    const generationId = input.generation_id ?? input.generationId ?? "unknown";
+    if (isWeakAicCompileIntent(toolInput?.intent)) {
+      const filled = readAicPrewarmPrompt(generationId);
+      if (filled.length > 0) {
+        updated.intent = filled.slice(0, 10000);
+      }
+    }
+    const shouldEmitUpdatedInput =
+      Boolean(idStr) ||
+      updated.modelId !== undefined ||
+      updated.intent !== toolInput.intent;
+    if (shouldEmitUpdatedInput) {
       process.stdout.write(
         JSON.stringify({ permission: "allow", updated_input: updated }),
       );

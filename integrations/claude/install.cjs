@@ -323,15 +323,22 @@ try {
 
   fs.mkdirSync(globalHooksDir, { recursive: true });
 
+  function sharedDeployedName(name) {
+    return name.startsWith("aic-") ? name : "aic-" + name;
+  }
+
   const sharedDir = path.join(__dirname, "..", "shared");
   const sharedEntries = fs.readdirSync(sharedDir);
   const deployedSharedNames = new Set();
+  const sharedSourceNamesSet = new Set();
   for (const name of sharedEntries) {
     if (name.endsWith(".cjs")) {
       const src = path.join(sharedDir, name);
       if (fs.statSync(src).isFile()) {
-        deployedSharedNames.add(name);
-        fs.copyFileSync(src, path.join(globalHooksDir, name));
+        const deployedName = sharedDeployedName(name);
+        sharedSourceNamesSet.add(name);
+        deployedSharedNames.add(deployedName);
+        fs.copyFileSync(src, path.join(globalHooksDir, deployedName));
       }
     }
   }
@@ -341,8 +348,8 @@ try {
     const destPath = path.join(globalHooksDir, name);
     const sourceContent = fs.readFileSync(srcPath, "utf8");
     const installedContent = sourceContent.replace(
-      /require\("\.\.\/\.\.\/shared\//g,
-      'require("./',
+      /require\("\.\.\/\.\.\/shared\/([^"]+)"\)/g,
+      (_, basename) => `require("./${sharedDeployedName(basename)}")`,
     );
     let shouldWrite = true;
     try {
@@ -364,6 +371,11 @@ try {
       !deployedSharedNames.has(name)
     ) {
       fs.unlinkSync(path.join(globalHooksDir, name));
+    } else if (sharedSourceNamesSet.has(name) && !deployedSharedNames.has(name)) {
+      // migrate: remove old-style shared file deployed without aic- prefix
+      try {
+        fs.unlinkSync(path.join(globalHooksDir, name));
+      } catch {}
     }
   }
 

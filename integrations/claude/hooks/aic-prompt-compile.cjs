@@ -3,6 +3,7 @@
 // UserPromptSubmit hook — plain text stdout, dual-path fallback per CC §7.1, §7.2.
 
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const { isSessionAlreadyInjected } = require("../../shared/session-markers.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
@@ -35,6 +36,18 @@ async function run(stdinStr) {
         : null;
   const projectRoot = resolveProjectRoot(parsed);
   const conversationId = conversationIdFromTranscriptPath(parsed);
+  if (conversationId != null && String(conversationId).trim() !== "") {
+    try {
+      const ccId = String(conversationId).trim();
+      fs.writeFileSync(
+        path.join(os.tmpdir(), `aic-prompt-cc-${ccId}`),
+        intent.slice(0, 10000),
+        "utf8",
+      );
+    } catch {
+      /* non-fatal */
+    }
+  }
   const rawModel =
     top.model != null ? top.model : input.model != null ? input.model : null;
   const modelArg =

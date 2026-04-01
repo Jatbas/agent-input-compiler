@@ -22,6 +22,10 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+function sharedDeployedName(name) {
+  return name.startsWith("aic-") ? name : "aic-" + name;
+}
+
 function claude_install_shared_utils_present() {
   const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), "aic-claude-verify-h-"));
   const tmpProjectDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-claude-verify-p-"));
@@ -34,9 +38,10 @@ function claude_install_shared_utils_present() {
           name.endsWith(".cjs") && fs.statSync(path.join(sharedDir, name)).isFile(),
       );
     for (const name of sharedNames) {
+      const deployed = sharedDeployedName(name);
       assert(
-        fs.existsSync(path.join(tmpHome, ".claude", "hooks", name)),
-        `expected shared hook copy: ${name}`,
+        fs.existsSync(path.join(tmpHome, ".claude", "hooks", deployed)),
+        `expected shared hook copy: ${deployed} (from ${name})`,
       );
     }
     const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
