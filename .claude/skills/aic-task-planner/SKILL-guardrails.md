@@ -397,6 +397,32 @@ When a task creates or renames hook files under `integrations/`, the planner mus
 
 **Enforced by:** Exploration (A.1) when the task touches `integrations/*/hooks/` and mechanical review C.5.
 
+## Rename/move: transitive reference rewriting
+
+When a task renames, moves, or copies-with-rename any file, the planner must trace the **full transitive dependency graph** — not just direct consumers of the renamed file, but also internal references between files in the renamed set.
+
+**The failure mode:** File A and file B are both renamed. B contains `require("./A")`. The plan rewrites external callers of A and B but does not rewrite B's internal reference to A. At runtime B crashes with MODULE_NOT_FOUND.
+
+**Required during exploration (item 8c):**
+
+1. Identify every file being renamed or moved.
+2. For each file, grep for all references TO it (direct consumers — one hop).
+3. For each file, grep for all references FROM it to other files in the renamed set (sibling references — second hop).
+4. If a script performs the rename (install script, build script), read the script and verify it rewrites BOTH external references (step 2) AND internal sibling references (step 3). A regex that only matches one import pattern (e.g. `require("../../shared/...")`) but misses another (e.g. `require("./...")`) is a bug the task must fix.
+
+**Required in the task file:**
+
+- The Files table must include the script that performs the rename, with explicit mention of both rewrite passes.
+- Tests must verify that deployed files contain correct internal references — not just that files exist with the right names. A presence-only test (`names.includes("AIC-foo.cjs")`) misses broken internal requires; add a content test (`content.includes('require("./AIC-bar.cjs")')`) for files with sibling dependencies.
+
+**Red flags:**
+
+- A task renames files deployed by a script but only tests file presence, not internal reference correctness
+- A task adds a regex rewrite for one import pattern but does not analyze whether other patterns exist in the affected files
+- The exploration report lists "require paths" but only traces one hop of the dependency graph
+
+**Enforced by:** Exploration (A.1 item 8c rename bullet) and mechanical review C.5.
+
 ## Final ambiguity sweep
 
 Before finishing the task file, run three mechanical scans on every sentence in Steps, Tests table descriptions, Verify lines, implementation notes, and parenthetical qualifiers. Architecture Notes explaining rationale are excluded (they don't instruct the executor).
