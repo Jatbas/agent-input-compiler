@@ -79,33 +79,34 @@ Deliver a working **MCP server** that compiles optimal context for AI coding too
 
 **Primary: MCP Server (`@jatbas/aic`)**
 
-| Feature              | Detail                                                                                                                       |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| **MCP Server**       | Primary interface — exposes `aic_compile` tool; called by trigger rule or integration hooks                                  |
-| Editor adapters      | Cursor, Claude Code, Generic MCP fallback                                                                                    |
-| Model adapters       | OpenAI, Anthropic, Generic fallback (auto-detected from request)                                                             |
-| Task Classifier      | Heuristic keyword/pattern matching → 6 task classes                                                                          |
-| HeuristicSelector    | File-path, import-graph, recency-based context selection                                                                     |
-| Context Guard        | Scans selected files for secrets, excluded paths, and prompt injection; excludes sensitive content from the compiled context |
-| Summarisation Ladder | 4-tier compression: full → signatures+docs → signatures → names                                                              |
-| Default Rule Packs   | `default.json`, `refactor.json`, `bugfix.json`, `feature.json`, `docs.json`, `test.json`                                     |
-| SQLite Storage       | Local telemetry + cache metadata                                                                                             |
-| Output Caching       | Hash-based, TTL-configurable, auto-invalidating                                                                              |
-| Config System        | `aic.config.json` — all fields optional; zero-config works out of the box                                                    |
+| Feature              | Detail                                                                                                                                            |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **MCP Server**       | Primary interface — exposes MCP tools including `aic_compile` (full set in **User interface** below); called by trigger rule or integration hooks |
+| Editor adapters      | Cursor, Claude Code, Generic MCP fallback                                                                                                         |
+| Model adapters       | OpenAI, Anthropic, Generic fallback (auto-detected from request)                                                                                  |
+| Task Classifier      | Heuristic keyword/pattern matching → 6 task classes                                                                                               |
+| HeuristicSelector    | File-path, import-graph, recency-based context selection                                                                                          |
+| Context Guard        | Scans selected files for secrets, excluded paths, and prompt injection; excludes sensitive content from the compiled context                      |
+| Summarisation Ladder | 4-tier compression: full → signatures+docs → signatures → names                                                                                   |
+| Default Rule Packs   | `default.json`, `refactor.json`, `bugfix.json`, `feature.json`, `docs.json`, `test.json`                                                          |
+| SQLite Storage       | Local telemetry + cache metadata                                                                                                                  |
+| Output Caching       | Hash-based, TTL-configurable, auto-invalidating                                                                                                   |
+| Config System        | `aic.config.json` — all fields optional; zero-config works out of the box                                                                         |
 
 **User interface (MCP tools; diagnostic CLI)**
 
 MCP is the primary interface when the model runs inside an editor. The same published entrypoint (`server.js`) also implements four read-only **CLI** subcommands (`status`, `last`, `chat-summary`, `projects`) that print formatted tables to stdout and exit; see [§8b](#8b-mcp-server-startup-sequence) and [installation.md — CLI Standalone Usage](installation.md#cli-standalone-usage).
 
-| Interface                                         | Purpose                                                                                                      |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `aic_compile` (MCP tool)                          | Compile intent into context; returns compiled prompt to the model                                            |
-| `aic_inspect` (MCP tool)                          | Show pipeline decision trace without executing; JSON omits per-file `resolvedContent` on `selectedFiles`     |
-| `aic_chat_summary` (MCP tool)                     | Compilation stats for the current conversation                                                               |
-| `aic_status` (MCP tool)                           | Project-level summary: compilations, tokens excluded (context compression), budget utilization, guard blocks |
-| `aic_last` (MCP tool)                             | Most recent compilation breakdown with prompt summary                                                        |
-| `aic_projects` (MCP tool)                         | Lists known projects from the global database (path, last seen, compilation count)                           |
-| Bootstrap (automatic on connect or first compile) | Scaffold config, trigger rule, hooks, `.aic/` directory                                                      |
+| Interface                                         | Purpose                                                                                                        |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `aic_compile` (MCP tool)                          | Compile intent into context; returns compiled prompt to the model                                              |
+| `aic_inspect` (MCP tool)                          | Show pipeline decision trace without executing; JSON omits per-file `resolvedContent` on `selectedFiles`       |
+| `aic_chat_summary` (MCP tool)                     | Compilation stats for the current conversation                                                                 |
+| `aic_status` (MCP tool)                           | Project-level summary: compilations, tokens excluded (context compression), budget utilization, guard blocks   |
+| `aic_last` (MCP tool)                             | Most recent compilation breakdown with prompt summary                                                          |
+| `aic_projects` (MCP tool)                         | Lists known projects from the global database (path, last seen, compilation count)                             |
+| `aic_model_test` (MCP tool)                       | Optional agent capability probe: challenges plus embedded `aic_compile` intent check against `compilation_log` |
+| Bootstrap (automatic on connect or first compile) | Scaffold config, trigger rule, hooks, `.aic/` directory                                                        |
 
 The integration layer runs quality checks on edited files at stop time; see [Cursor integration layer](technical/cursor-integration-layer.md) and [Claude Code integration layer](technical/claude-code-integration-layer.md) for the full flow per editor.
 
@@ -1104,10 +1105,11 @@ When the server process starts (via `npx @jatbas/aic@latest`, `pnpm aic`, or equ
 8. Register MCP tools + resources
    └─ Tool: aic_compile
    └─ Tool: aic_inspect
+   └─ Tool: aic_projects
    └─ Tool: aic_status
    └─ Tool: aic_last
+   └─ Tool: aic_model_test
    └─ Tool: aic_chat_summary
-   └─ Tool: aic_projects
    └─ Resource: aic://rules-analysis _(planned)_
          │
          ▼

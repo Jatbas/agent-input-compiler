@@ -353,6 +353,12 @@ For adapter, storage, and pipeline tasks, the existing rule applies: paste all d
 
 For each step's Verify line, confirm the verification is actionable against the current codebase state at that step. If verification says "file X that imports Y fails lint" but file X doesn't exist yet, rewrite to: "Run `pnpm lint` — passes with zero errors." If `pnpm typecheck` is listed as verification but the step introduces symbols defined in a later step, the verification will fail — reorder steps or change the verify instruction.
 
+**Node smoke command correctness:** `node -e "fn() === 'value'"` always exits 0 — the comparison result is discarded. `node -e "console.log(fn() === 'value')"` prints `false` but still exits 0. Neither is a guard. Use `assert.strictEqual`:
+
+```
+node -e "const assert = require('assert'); assert.strictEqual(require('./path').fn(args), expected)"
+```
+
 ## Plan failure patterns
 
 These are plan failures — if any appear in a step instruction, Files table description, verify line, or test description, the plan is incomplete. The planner must resolve these before writing:

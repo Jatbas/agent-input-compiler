@@ -118,7 +118,7 @@ Prefer \`npx eslint\` for targeted checks. Run \`pnpm lint\` before declaring wo
 
 > **Dev:** When \`"devMode": true\` is set in \`aic.config.json\` at the project root, substitute \`pnpm aic\` for \`npx @jatbas/aic\` in every command below (run from the repo root).
 
-Use these rules for all four AIC prompt commands. Present data like a polished dashboard, not raw JSON.
+Use these rules for all five AIC prompt commands. Present data like a polished dashboard, not raw JSON.
 
 **General formatting (all commands):**
 
@@ -140,6 +140,8 @@ Use these rules for all four AIC prompt commands. Present data like a polished d
 - **"show aic last"** — Run Bash with \`npx @jatbas/aic last\` (or \`pnpm aic last\` when \`"devMode": true\` is set in \`aic.config.json\`) from the project directory, then relay stdout. Start the reply with one short line: **Last = most recent compilation.** Then display with labels: Intent, Files (N selected / M total), Tokens compiled, Budget utilization (%), Exclusion rate (%), Compiled (relative time), Editor, Guard (Passed or N findings), Compiled prompt (Available N chars — ask to see it).
 
 - **"show aic projects"** — Run Bash with \`npx @jatbas/aic projects\` (or \`pnpm aic projects\` when \`"devMode": true\` is set in \`aic.config.json\`), then relay stdout. Start the reply with one short line: **Projects = known AIC projects.** Display a formatted table with columns: Project ID, Path, Last seen, Compilation count.
+
+- **"run aic model test"** — Call the \`aic_model_test\` MCP tool with \`{ "projectRoot": "<absolute workspace root>" }\`. The tool returns a \`probeId\`, three challenges, and instructions. Solve challenge 1 (arithmetic) and challenge 2 (string-reverse). Then call \`aic_compile\` with intent exactly equal to \`"model-test-<answer1>-<answer2>"\` (replace with your computed answers). Finally call \`aic_model_test\` again with \`{ "projectRoot": "<absolute workspace root>", "probeId": "<probeId from step 1>", "answers": [<arithmetic answer>, "<reversed string>"] }\`. Display the result as a table with columns: Test, Result (Pass/Fail), Notes. Start the reply with one short line: **Model test = agent capability probe.**
 
 ## Tests
 

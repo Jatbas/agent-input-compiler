@@ -19,7 +19,9 @@ import {
 import { StatusRequestSchema } from "./schemas/status-request.schema.js";
 import { ConversationSummaryRequestSchema } from "./schemas/conversation-summary-request.js";
 import { InspectRequestSchema } from "./schemas/inspect-request.schema.js";
+import { ModelTestRequestSchema } from "./schemas/model-test-request.schema.js";
 import { createCompileHandler } from "./handlers/compile-handler.js";
+import { createModelTestHandler } from "./handlers/model-test-handler.js";
 import { SessionContext } from "./handlers/session-context-cache.js";
 import { handleInspect } from "./handlers/inspect-handler.js";
 import { recordToolInvocation } from "./record-tool-invocation.js";
@@ -417,6 +419,13 @@ export function createMcpServer(
       Promise.resolve({
         content: [{ type: "text" as const, text: JSON.stringify(getLastPayload()) }],
       }),
+  );
+  const modelTestHandler = createModelTestHandler(startupScope.db, startupScope.clock);
+  server.tool(
+    "aic_model_test",
+    "Agent capability probe: call this tool to receive challenges, solve them, then call it again with your answers to verify your agent can use AIC.",
+    ModelTestRequestSchema,
+    modelTestHandler,
   );
   server.tool(
     "aic_chat_summary",

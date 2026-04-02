@@ -49,7 +49,7 @@ Every sentence in the Change Specification's target text must be traceable to an
 
 ### 5. Deduplicate Before Writing
 
-When a gap is identified (a topic the document does not cover), the skill MUST check whether a dedicated document in `documentation/` already covers it before writing any content. Glob `documentation/` for files whose name or content matches the gap topic. Three outcomes:
+When a gap is identified (a topic the document does not cover), the skill MUST check whether a dedicated document in `documentation/` or a root-level file (`README.md`, `CONTRIBUTING.md`) already covers it before writing any content. Glob `documentation/` and check root-level `.md` files for content matching the gap topic. Three outcomes:
 
 - **Dedicated document exists and covers the topic fully:** Do NOT write the section. Either skip entirely (if the target document has no reason to mention the topic) or write a single cross-reference sentence with a markdown link: `For [topic], see [document title](relative-path).`
 - **Dedicated document exists but covers it partially:** Write only the delta — the aspects specific to the target document's context that the sibling does not cover. Link to the sibling for the rest.
@@ -108,7 +108,7 @@ Run all phases (1 through 4) as a single continuous flow. Do NOT pause between p
 ## Inputs (read these when the skill runs directly)
 
 1. The target document path
-2. `documentation/` — all sibling documents (for cross-document consistency)
+2. `documentation/`, `README.md`, and `CONTRIBUTING.md` — all sibling documents (for cross-document consistency)
 3. `.cursor/rules/AIC-architect.mdc` — active architectural rules
 4. Existing source in `shared/src/` — for factual verification against codebase
 5. `SKILL-dimensions.md` (this file's sibling — explorer and critic prompt templates)
@@ -274,7 +274,7 @@ Applying edits (`3-doc`), mechanical verification dimensions (`4-doc-c`), first-
 - Never self-review your own writing — critics must be independent agents (Cardinal Rule 2).
 - Zero-issue critic reports on substantial documents require re-spawn with strengthened mandate.
 - Every sentence in target text must trace to an explorer finding (Cardinal Rule 4).
-- Glob `documentation/` for existing coverage before writing gap-fill content (Cardinal Rule 5).
+- Glob `documentation/` and root-level `.md` files for existing coverage before writing gap-fill content (Cardinal Rule 5).
 
 ## Common Rationalizations — STOP
 

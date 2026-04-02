@@ -111,7 +111,7 @@ G. **SELF-CONTAINED:** Grep for "see Task", "defined in task", "see task" (case-
 
 H. **CONSTRUCTOR BRANDED TYPES:** For each constructor param representing a domain value, verify the type is a branded type from `core/types/`. Raw `string`/`number` = fail.
 
-I. **VERIFY INSTRUCTIONS:** Read each step's "Verify:" line. Confirm the referenced artifact exists or will exist by that step.
+I. **VERIFY INSTRUCTIONS:** Read each step's "Verify:" line. Confirm the referenced artifact exists or will exist by that step. Grep for `node -e "` — any match containing `===` without `assert` or `process.exit` = fail (silent comparison, always exits 0).
 
 J. **TEST TABLE ↔ STEP CROSS-CHECK:** Grep each Tests table row name in the step instructions. Grep each test name from steps in the Tests table. Mismatches = fail.
 

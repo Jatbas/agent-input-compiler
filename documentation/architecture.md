@@ -86,7 +86,7 @@ Each editor exposes a different subset of the hook capabilities AIC can use. Gap
 
 In this repository the built entrypoint is `mcp/dist/server.js`. In the published `@jatbas/aic` package the same program is exposed as `dist/server.js` at the package root (`bin` in `mcp/package.json`). It has a dual interface:
 
-- **MCP server mode** (default) — when invoked without a recognized CLI subcommand, the process starts as a long-running MCP stdio server and accepts requests from editors.
+- **MCP server mode** (default) — when invoked without a recognized CLI subcommand, the process starts as a long-running MCP stdio server and accepts requests from editors. The shipped server registers seven MCP tools (`aic_compile`, `aic_inspect`, `aic_projects`, `aic_status`, `aic_last`, `aic_model_test`, `aic_chat_summary`); see [installation.md — AIC Server](installation.md#aic-server) and [implementation-spec.md](implementation-spec.md).
 - **CLI mode** — when invoked with `status`, `last`, `chat-summary`, or `projects` as the first argument, the process opens the database read-only, prints formatted table output to stdout, and exits. No MCP transport is started.
 
 The dispatch happens at process entry via an `isEntry` check. CLI mode is always one-shot and read-only — it never mutates state.

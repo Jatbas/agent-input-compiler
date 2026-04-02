@@ -55,7 +55,7 @@ If UNCERTAIN, also state: `Ambiguity: [what makes this unclear].`
 "You are a structural and consistency analyst. Your job is to analyze the document's internal structure, cross-document consistency, and identify stale or mismatched content.
 
 **Target document:** [path]
-**Sibling documents:** [list of all .md files in documentation/]
+**Sibling documents:** [list of all .md files in documentation/, plus README.md and CONTRIBUTING.md at the repo root]
 
 **Instructions — perform ALL of these checks:**
 
@@ -71,11 +71,11 @@ Identify sections within the same document that describe the same concept for di
   Report each finding with exact headings.
 
 **B. Mirror document detection:**
-Check if the target document has a structural sibling in `documentation/` — another document covering the same topic for a different subject. Detection: file names sharing a suffix but differing by subject prefix, documents with overlapping heading patterns, explicit cross-references.
+Check if the target document has a structural sibling in `documentation/` or at the repo root (`README.md`, `CONTRIBUTING.md`) — another document covering the same topic for a different subject. Detection: file names sharing a suffix but differing by subject prefix, documents with overlapping heading patterns, explicit cross-references.
 If found: compare section structure heading-by-heading, compare depth (word count per corresponding section), flag missing/mismatched sections.
 
 **C. Cross-documentation term ripple:**
-For every key term, command, package name, file path, or reference in the target document, grep ALL files in `documentation/` for the same term. Flag any document that uses the term differently or has a stale reference. Classify each as: NON-HISTORICAL (current description, should match) or HISTORICAL (log entry, changelog, leave as-is).
+For every key term, command, package name, file path, or reference in the target document, grep ALL sibling documents (`documentation/`, `README.md`, `CONTRIBUTING.md`) for the same term. Flag any document that uses the term differently or has a stale reference. Classify each as: NON-HISTORICAL (current description, should match) or HISTORICAL (log entry, changelog, leave as-is).
 
 **D. ToC-body structure match:**
 Parse the Table of Contents (if present) and all body headings. Verify: every ToC entry has a matching body heading in the correct order, every body heading appears in the ToC. Report mismatches.
@@ -93,7 +93,7 @@ Check every subsection heading under a parent heading. If a subsection repeats t
 For every table in the document, read the 1-3 paragraphs or bullet lists immediately preceding it. If the prose restates the same information the table contains (same flags, same values, same options), flag the duplication. See SKILL-standards.md §Prose-table anti-duplication. Report: the table location, the duplicating prose, and which content overlaps.
 
 **I. Sibling coverage verification:**
-For every cross-reference in the document that points to a sibling document in `documentation/` as the source of truth for a topic, verify the sibling document actually covers the topic. Grep the sibling document for the key terms of the referenced topic; read the relevant section to confirm it addresses the topic at sufficient depth. Classify each cross-reference: CONFIRMED (sibling covers the topic as claimed), PARTIAL (sibling covers some but not all aspects — gap remains), MISSING (sibling does not cover the topic — the cross-reference is misleading). Report: `[cross-reference in target doc] — [sibling file] — CONFIRMED / PARTIAL / MISSING — [evidence]`.
+For every cross-reference in the document that points to a sibling document (`documentation/`, `README.md`, `CONTRIBUTING.md`) as the source of truth for a topic, verify the sibling document actually covers the topic. Grep the sibling document for the key terms of the referenced topic; read the relevant section to confirm it addresses the topic at sufficient depth. Classify each cross-reference: CONFIRMED (sibling covers the topic as claimed), PARTIAL (sibling covers some but not all aspects — gap remains), MISSING (sibling does not cover the topic — the cross-reference is misleading). Report: `[cross-reference in target doc] — [sibling file] — CONFIRMED / PARTIAL / MISSING — [evidence]`.
 
 **Evidence format:** For each finding, cite the exact heading, line content, or grep result.
 
@@ -176,7 +176,7 @@ Cite 3 representative sentences that exemplify the document's voice.
 "You are a completeness analyst. Your job is to determine what SHOULD be in this document but is NOT, and to build a map of how this document relates to other documentation.
 
 **Target document:** [path]
-**Sibling documents:** [list of all .md files in documentation/]
+**Sibling documents:** [list of all .md files in documentation/, plus README.md and CONTRIBUTING.md at the repo root]
 
 **Instructions:**
 
@@ -194,7 +194,7 @@ Based on the document's stated purpose (usually in its first section), determine
 
 **B. Cross-reference map:**
 
-- Which other documents in `documentation/` reference this document? Grep for the filename.
+- Which other documents in `documentation/`, `README.md`, or `CONTRIBUTING.md` reference this document? Grep for the filename.
 - Which documents does this one reference? Grep the target document for links and mentions of other doc filenames.
 - For each cross-reference: is it valid (target exists and the reference is accurate)?
   Return: `[document] — references this doc: [yes/no, where] — this doc references: [yes/no, where] — valid: [yes/no]`
@@ -208,9 +208,9 @@ What questions would a reader have after reading this document that are not answ
   Return: `[question a reader would have] — ANSWERED / UNANSWERED — [importance: critical / nice-to-have]`
 
 **D. Sibling coverage check (deduplication — Cardinal Rule 5):**
-For every gap identified in checks A and C (UNDOCUMENTED items and UNANSWERED questions), determine whether a dedicated sibling document in `documentation/` already covers the topic. Method:
+For every gap identified in checks A and C (UNDOCUMENTED items and UNANSWERED questions), determine whether a dedicated sibling document in `documentation/` or a root-level file (`README.md`, `CONTRIBUTING.md`) already covers the topic. Method:
 
-1. Glob `documentation/*.md` for filenames matching the gap topic (e.g. a gap about 'installation' matches `documentation/installation.md`).
+1. Glob `documentation/*.md` and check root-level `.md` files for filenames or content matching the gap topic (e.g. a gap about 'installation' matches `documentation/installation.md`; a gap about 'commands' may match `README.md`).
 2. If a filename match exists, read the document's headings and first paragraphs to confirm it covers the topic.
 3. If no filename match, grep all sibling documents for the gap topic's key terms — a document may cover the topic under a different name.
 4. Classify each gap:
@@ -314,7 +314,7 @@ If UNCERTAIN: `Ambiguity: [what makes this unclear — multiple candidates, uncl
 "You are an independent consistency checker. You have NO prior context about how this document was analyzed. Your only job is to verify that terms and concepts in the edited sections are used consistently across all documentation. The producer may have been shallow or optimistic. Verify independently — read the actual files, do not accept claims at face value.
 
 **Document:** [path]
-**Sibling documents:** [list of all .md files in documentation/]
+**Sibling documents:** [list of all .md files in documentation/, plus README.md and CONTRIBUTING.md at the repo root]
 **Edited sections:** [list of sections that were changed]
 
 **Instructions:**
@@ -458,7 +458,7 @@ If UNCERTAIN: `Ambiguity: [what makes this unclear — multiple candidates, uncl
 "You are an independent consistency checker auditing an entire document. You have NO prior context about how this document was analyzed. Your only job is to verify that terms and concepts across the ENTIRE document are used consistently with all sibling documentation. The producer may have been shallow or optimistic. Verify independently — read the actual files, do not accept claims at face value.
 
 **Document:** [path]
-**Sibling documents:** [list of all .md files in documentation/]
+**Sibling documents:** [list of all .md files in documentation/, plus README.md and CONTRIBUTING.md at the repo root]
 
 **Instructions:**
 

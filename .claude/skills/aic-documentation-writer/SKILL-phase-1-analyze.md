@@ -7,7 +7,7 @@
 Before spawning explorers, read in one parallel batch:
 
 - The full target document
-- All `.md` files in `documentation/` (sibling documents)
+- All `.md` files in `documentation/` plus `README.md` and `CONTRIBUTING.md` at the repo root (sibling documents — root-level files are included because they reference the same entities as `documentation/` and become stale when features change)
 - `SKILL-dimensions.md` (explorer prompt templates)
 - `SKILL-standards.md` (writing standards)
 - `SKILL-policies.md` (editorial content policies)
@@ -25,7 +25,7 @@ If 3+ claims are UNCERTAIN, escalate: delegate to the `aic-researcher` skill for
 
 **Explorer 2 — Structure + consistency** (`explore` subagent, `fast` model):
 
-Parallel section analysis: identify sections describing the same concept for different targets, compare heading structure, content parity, information density. Mirror document detection: find structural siblings in `documentation/`. Cross-documentation term ripple: grep all docs for terms being modified. ToC-body structure match. Stale marker detection: grep for GAP, TODO, FIXME, stale phase references. Return: structural findings with heading-by-heading comparisons, term divergences, stale markers.
+Parallel section analysis: identify sections describing the same concept for different targets, compare heading structure, content parity, information density. Mirror document detection: find structural siblings in `documentation/` and root-level files (`README.md`, `CONTRIBUTING.md`). Cross-documentation term ripple: grep all sibling docs for terms being modified. ToC-body structure match. Stale marker detection: grep for GAP, TODO, FIXME, stale phase references. Return: structural findings with heading-by-heading comparisons, term divergences, stale markers.
 
 **Explorer 3 — Audience + writing quality baseline** (`generalPurpose` subagent, `fast` model):
 

@@ -347,7 +347,7 @@ Lock file layout (`.session-start-lock`), merge options, and ordering with this 
 
 **MCP matcher — `conversationId` injection**
 
-**Purpose:** Ensure `aic_compile` receives `conversationId` (and related fields) in tool arguments when the model omits them. `settings.json.template` registers `aic-inject-conversation-id.cjs` only for matcher `mcp__.*__aic_compile` (there is no separate PreToolUse matcher for `aic_chat_summary`; chat-summary attribution relies on hooks passing `conversationId` from `transcript_path` and related paths).
+**Purpose:** Ensure `aic_compile` receives `conversationId` (and related fields) in tool arguments when the model omits them. `settings.json.template` registers `aic-inject-conversation-id.cjs` only for matcher `mcp__.*__aic_compile` (there is no separate PreToolUse matcher for `aic_chat_summary`; chat-summary attribution relies on hooks passing `conversationId` from `transcript_path` and related paths). Other MCP tools such as `aic_model_test` are not covered by this matcher.
 
 **File:** `.claude/hooks/aic-inject-conversation-id.cjs` (see §10 for registration)
 

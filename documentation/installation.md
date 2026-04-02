@@ -108,7 +108,7 @@ Typical flow:
 3. Without roots, the same steps run on the first `aic_compile`.
 4. After hooks are installed, enforcement and context injection match the tables below; until then the trigger rule alone asks the model to call `aic_compile`.
 
-No per-project MCP registration is needed. To verify the server: use `aic_status` or send a message so `aic_compile` runs.
+No per-project MCP registration is needed. To verify the server: use `aic_status`, send a message so `aic_compile` runs, or ask the model to **run aic model test** (MCP `aic_model_test` — end-to-end probe including `aic_compile`).
 
 ### Claude Code hooks from Cursor
 
@@ -267,16 +267,19 @@ The npm package `@jatbas/aic` ships `dist/` (the compiled MCP server with sheban
 
 The server is the primary interface. It exposes these MCP tools:
 
-| Tool               | Purpose                                                                         |
-| ------------------ | ------------------------------------------------------------------------------- |
-| `aic_compile`      | Compile context for the current AI message                                      |
-| `aic_inspect`      | Inspect pipeline trace (JSON metadata; no per-file bodies in the tool response) |
-| `aic_status`       | Project-level status and compilation aggregates                                 |
-| `aic_last`         | Most recent compilation details                                                 |
-| `aic_chat_summary` | Per-conversation compilation stats                                              |
-| `aic_projects`     | List all known AIC projects                                                     |
+| Tool               | Purpose                                                                                    |
+| ------------------ | ------------------------------------------------------------------------------------------ |
+| `aic_compile`      | Compile context for the current AI message                                                 |
+| `aic_inspect`      | Inspect pipeline trace (JSON metadata; no per-file bodies in the tool response)            |
+| `aic_status`       | Project-level status and compilation aggregates                                            |
+| `aic_last`         | Most recent compilation details                                                            |
+| `aic_chat_summary` | Per-conversation compilation stats                                                         |
+| `aic_projects`     | List all known AIC projects                                                                |
+| `aic_model_test`   | Optional agent capability probe (challenges, embedded `aic_compile`, structured pass/fail) |
 
-The four prompt commands ("show aic status", "show aic last", "show aic chat summary", "show aic projects") map to the same formatted tables whether you run the **CLI** (`npx @jatbas/aic <subcommand>`, or `pnpm aic <subcommand>` from the repo root when developing) or the model follows the **Cursor trigger rule**, which instructs calling the MCP tools `aic_status`, `aic_last`, `aic_chat_summary`, and `aic_projects` instead of shell. The output shape matches `mcp/src/format-diagnostic-output.ts`.
+The four **show aic …** prompt commands ("show aic status", "show aic last", "show aic chat summary", "show aic projects") map to the same formatted tables whether you run the **CLI** (`npx @jatbas/aic <subcommand>`, or `pnpm aic <subcommand>` from the repo root when developing) or the model follows the **Cursor trigger rule**, which instructs calling the MCP tools `aic_status`, `aic_last`, `aic_chat_summary`, and `aic_projects` instead of shell. The output shape matches `mcp/src/format-diagnostic-output.ts`.
+
+A fifth prompt — **run aic model test** — is **MCP-only** (no matching CLI subcommand): the model calls `aic_model_test`, completes the challenges (including an `aic_compile` with a specific intent), calls `aic_model_test` again with answers, and presents the pass/fail result. Full wording for editors lives in the installed trigger rules (for example `.cursor/rules/AIC-architect.mdc` and `.claude/CLAUDE.md`).
 
 ### CLI Standalone Usage
 

@@ -86,11 +86,14 @@ Complete every item. Two batches minimize sequential tool-call rounds.
 18. **`shared/package.json`** — record dependencies and pinned versions.
 19. **`eslint.config.mjs`** — record restricted-import rules for target layer. Determine exact structural change if needed.
 20. **Installer-managed content sync** (conditional — touches `.cursor/rules/AIC-architect.mdc`, `.claude/CLAUDE.md`, install.cjs templates, or `mcp/src/install-trigger-rule.ts`) — diff shared sections. Drifted → add "Modify" rows. Record in INSTALLER SYNC. Source of truth: `AIC-architect.mdc`.
-21. **Documentation impact analysis** (mandatory — all non-documentation task types) — grep `documentation/` for every entity the task creates, modifies, or renames: component names, interface names, function names, class names, file paths, type names. For each match, read the surrounding context (5 lines before and after) and classify the reference:
+21. **Documentation impact analysis** (mandatory — all non-documentation task types) — grep `documentation/`, `README.md`, and `CONTRIBUTING.md` for every entity the task creates, modifies, or renames: component names, interface names, function names, class names, file paths, type names. For each match, read the surrounding context (5 lines before and after) and classify the reference:
     - **WILL BECOME STALE** — the document describes specific details (behavior, signature, wiring, file path) that the task changes. After the task executes, the document will contain incorrect information.
     - **NEEDS UPDATE** — the document references the entity by a name or path being renamed, or describes behavior being modified. The reference is not yet wrong but will be after the task.
     - **UNAFFECTED** — generic mention that does not depend on the specific details being changed (e.g., the entity appears in a high-level architecture list but no detail is given).
-      Record all findings in the DOCUMENTATION IMPACT field of the Exploration Report. For each file classified as WILL BECOME STALE or NEEDS UPDATE, determine the change complexity:
+
+    **Enumerated-set impact** (supplementary check — run when the task adds a new member to a group): When the task adds a new member to a group that documentation enumerates — MCP tools, CLI subcommands, prompt commands, pipeline steps, config fields, error codes, branded types, editor hooks — also grep `documentation/`, `README.md`, and `CONTRIBUTING.md` for: (a) the group's current count as a word or digit (e.g., "Six MCP tools", "6 tools", "four prompt commands"), (b) exhaustive listings of the group (tables with one row per member, bullet lists, code block inventories), and (c) prose that references "all" members of the group. Each hit follows the same WILL BECOME STALE / NEEDS UPDATE / UNAFFECTED classification. Entity-name search alone misses this case because the new name has zero hits in existing docs — but every count and exhaustive listing is now incomplete.
+
+    Record all findings in the DOCUMENTATION IMPACT field of the Exploration Report. For each file classified as WILL BECOME STALE or NEEDS UPDATE, determine the change complexity:
     - **MECHANICAL** — the fix is a name/path text replacement with no surrounding prose changes needed.
     - **SECTION EDIT** — the surrounding prose describes behavior, architecture, or usage that must be rewritten to reflect the new state.
 
@@ -281,14 +284,16 @@ INSTALLER SYNC (conditional — item 20):
 - Or: N/A
 
 DOCUMENTATION IMPACT (mandatory — all non-documentation task types, from item 21):
-- Entities searched: [list of component/interface/function/type names grepped in documentation/]
+- Entities searched: [list of component/interface/function/type names grepped in documentation/, README.md, CONTRIBUTING.md]
   - [doc file]:[line] — "[excerpt of matching text]" — WILL BECOME STALE / NEEDS UPDATE / UNAFFECTED
   - Reason: [why this reference will or will not become incorrect after the task]
+- Enumerated-set impact: [YES — group: (name), current count/listings found in (files) | NO — task does not add to an enumerated group]
+  - [doc file]:[line] — "[excerpt: count or listing]" — WILL BECOME STALE / NEEDS UPDATE / UNAFFECTED
 - Documentation files requiring changes: [count] — [list of file paths]
 - Change complexity per file:
   - [doc file] — MECHANICAL (name/path replacement only) / SECTION EDIT (prose rewrite needed)
-- Or: No documentation impact — grep returned 0 relevant matches for all entities.
-  Source: [verified via Grep of documentation/ for each entity name]
+- Or: No documentation impact — grep returned 0 relevant matches for all entities and no enumerated-set impact.
+  Source: [verified via Grep of documentation/, README.md, CONTRIBUTING.md for each entity name and group listings]
 
 SPECULATIVE TOOL EXECUTION (mandatory — item 18):
 - [tool] — run: [YES (summary) | NO (static analysis: result) | BLOCKER (reason)]

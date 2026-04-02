@@ -168,6 +168,7 @@ show aic status        # project-level status and lifetime stats
 show aic last          # most recent compilation
 show aic chat summary  # per-conversation compilation stats for this workspace
 show aic projects      # known AIC projects (IDs, paths, last seen, compilation counts)
+run aic model test     # MCP-only: agent capability probe (aic_model_test + aic_compile)
 ```
 
 ---
@@ -184,6 +185,7 @@ What to look for:
 - selected file count, compiled tokens, and exclusion rate figures that make sense for the task
 - AIC blocking sensitive or excluded content
 - your project path listed in `show aic projects` after AIC has seen the workspace
+- optional: **run aic model test** returns a pass/fail table if the agent can call `aic_model_test` and `aic_compile` in sequence (see [Installation — AIC Server](documentation/installation.md#aic-server))
 
 > If there is no recent compilation, the model may not be calling AIC automatically. Check that the AIC tools are approved in your editor's MCP settings and try starting a new chat.
 

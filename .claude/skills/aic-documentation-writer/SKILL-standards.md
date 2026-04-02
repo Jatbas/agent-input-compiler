@@ -217,7 +217,7 @@ The fix: trim the prose to one sentence introducing the table (e.g. "The script 
 
 ### Cross-reference instead of duplication
 
-When a topic is already covered by a dedicated document in `documentation/`, do NOT write the content inline. Instead:
+When a topic is already covered by a dedicated document in `documentation/` or a root-level file (`README.md`, `CONTRIBUTING.md`), do NOT write the content inline. Instead:
 
 - **Full coverage by sibling:** Write a single cross-reference sentence: `For [topic details], see [Document Title](relative-path-to-document.md).` Place it where the inline content would have gone, under an appropriate heading if one exists.
 - **Partial coverage by sibling:** Write only the aspects specific to the target document's context. For everything the sibling already covers, link to it: `[Document Title](relative-path-to-document.md) covers [X and Y]. This document addresses [Z] specifically for [context].`
@@ -514,7 +514,7 @@ These dimensions are run during Phase 4 (direct invocation) or by the executor's
 | 8   | Scope-adjacent consistency      | Grep full document for key concepts from edited sections                         | Informational     |
 | 9   | Pre-existing issue scan         | Grep for GAP, TODO, FIXME, stale phase references                                | Informational     |
 | 10  | Content format compliance       | Tables for 3+ definitions, ToC entries for new sections, section placement logic | Yes               |
-| 11  | Cross-doc term ripple           | Grep `documentation/` for old terms that were replaced                           | Blocking in scope |
+| 11  | Cross-doc term ripple           | Grep all sibling docs for old terms that were replaced                           | Blocking in scope |
 | 12  | Intra-document consistency      | Grep full document for same-mechanism descriptions, verify agreement             | Yes               |
 | 13  | Blockquote integrity            | Grep for disconnected blockquotes and note density violations                    | Yes               |
 
@@ -540,7 +540,7 @@ These dimensions are run during Phase 4 (direct invocation) or by the executor's
 
 **Dimension 10 — Content format compliance:** Verify: (a) any group of 3+ definitions uses a table; (b) any new section has a ToC entry; (c) new section placement follows document flow logic.
 
-**Dimension 11 — Cross-doc term ripple:** For every term that was replaced (old value to new value), grep ALL files in `documentation/` for the old value. Classify each match as non-historical (should use new value) or historical (leave as-is). Non-historical matches within the task's scoped files must be fixed. Out-of-scope matches are reported as follow-up items.
+**Dimension 11 — Cross-doc term ripple:** For every term that was replaced (old value to new value), grep ALL sibling documents (`documentation/`, `README.md`, `CONTRIBUTING.md`) for the old value. Classify each match as non-historical (should use new value) or historical (leave as-is). Non-historical matches within the task's scoped files must be fixed. Out-of-scope matches are reported as follow-up items.
 
 **Dimension 12 — Intra-document consistency:** For each concept described in the edited sections, grep the FULL document for other sections describing the same concept. Verify they agree. Flag contradictions where sections use different verbs or descriptions for the same mechanism.
 

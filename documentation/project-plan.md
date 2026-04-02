@@ -346,7 +346,7 @@ If neither mechanism resolves a model, `GenericModelAdapter` is used. This is sa
 
 ### MCP Server Interface
 
-Six MCP tools are registered in `mcp/src/server.ts` today. Diagnostics (`aic_status`, `aic_last`, `aic_projects`, `aic_chat_summary`) are **tools** that return JSON as MCP text content — not MCP resource subscriptions.
+Seven MCP tools are registered in `mcp/src/server.ts` today. Diagnostics (`aic_status`, `aic_last`, `aic_projects`, `aic_chat_summary`) are **tools** that return JSON as MCP text content — not MCP resource subscriptions. `aic_model_test` is a separate optional probe (challenges plus an embedded `aic_compile` check); see the `aic_model_test` row below.
 
 **Tools:**
 
@@ -357,6 +357,7 @@ Six MCP tools are registered in `mcp/src/server.ts` today. Diagnostics (`aic_sta
 | `aic_projects`                  | _(none)_                                                                                                                                                                                                                                                                                                                                                                                                                | Project list JSON                                                                                                                                                   | Diagnostics — known projects                |
 | `aic_status`                    | _(none)_                                                                                                                                                                                                                                                                                                                                                                                                                | Status JSON                                                                                                                                                         | Diagnostics — project-level aggregates      |
 | `aic_last`                      | _(none)_                                                                                                                                                                                                                                                                                                                                                                                                                | Last compilation JSON                                                                                                                                               | Diagnostics — most recent run               |
+| `aic_model_test`                | `projectRoot`; optional `probeId` (8 uppercase `A`–`Z`) and `answers` (`[number, string]`) together for validation                                                                                                                                                                                                                                                                                                      | JSON with `probeId` / `challenges` / `instructions` (generate) or pass/fail `steps` / errors (validate)                                                             | Optional — agent capability probe           |
 | `aic_chat_summary`              | optional `conversationId`                                                                                                                                                                                                                                                                                                                                                                                               | Per-conversation summary JSON                                                                                                                                       | Prompt command — "show aic chat summary"    |
 | `aic_compile_spec` _(Phase 1+)_ | `{ spec: SpecificationInput, budget?: TokenCount }` (see [§2.7](#27-agentic-workflow-support))                                                                                                                                                                                                                                                                                                                          | `{ compiledSpec: string, meta: SpecCompilationMeta }`                                                                                                               | Agentic — structured spec within a budget   |
 
@@ -1497,18 +1498,21 @@ There is no separate CLI package. Primary use is MCP tools plus prompt commands 
 | `aic_status`       | Project-level summary: compilations, exclusion rate, budget utilization, guard                                                                                                     |
 | `aic_last`         | Most recent compilation: meta, prompt summary, compilation count                                                                                                                   |
 | `aic_chat_summary` | Per-conversation compilation stats                                                                                                                                                 |
+| `aic_model_test`   | Optional agent capability probe (challenges, embedded `aic_compile` check, structured pass/fail)                                                                                   |
 
-Diagnostics (`aic_status`, `aic_last`, `aic_projects`, `aic_chat_summary`) are MCP **tools** that return JSON text — not MCP resource subscriptions. A planned `aic://rules-analysis` resource is described in [§2.2](#22-mcp-server--primary-interface).
+Diagnostics (`aic_status`, `aic_last`, `aic_projects`, `aic_chat_summary`) are MCP **tools** that return JSON text — not MCP resource subscriptions. `aic_model_test` is MCP-only and does not mirror a CLI subcommand. A planned `aic://rules-analysis` resource is described in [§2.2](#22-mcp-server--primary-interface).
 
 ### Prompt Commands
 
 Users ask these inside the editor:
 
-| Command                 | What it shows                                                       |
-| ----------------------- | ------------------------------------------------------------------- |
-| "show aic status"       | Formatted table from `aic_status` tool                              |
-| "show aic last"         | Formatted table from `aic_last` tool                                |
-| "show aic chat summary" | Formatted table from `aic_chat_summary` tool (current conversation) |
+| Command                 | What it shows                                                                                          |
+| ----------------------- | ------------------------------------------------------------------------------------------------------ |
+| "show aic status"       | Formatted table from `aic_status` tool                                                                 |
+| "show aic last"         | Formatted table from `aic_last` tool                                                                   |
+| "show aic chat summary" | Formatted table from `aic_chat_summary` tool (current conversation)                                    |
+| "show aic projects"     | Formatted table from `aic_projects` tool                                                               |
+| "run aic model test"    | MCP-only flow via `aic_model_test` — challenges, then `aic_compile`, then validation (pass/fail table) |
 
 ---
 

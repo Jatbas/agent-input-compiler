@@ -73,6 +73,7 @@ describe("MCP server", () => {
     expect(names).toContain("aic_projects");
     expect(names).toContain("aic_status");
     expect(names).toContain("aic_last");
+    expect(names).toContain("aic_model_test");
   });
 
   it("server_tools_json_unchanged", async () => {

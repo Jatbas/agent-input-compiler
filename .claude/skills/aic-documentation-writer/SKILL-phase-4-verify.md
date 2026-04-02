@@ -28,7 +28,7 @@ Run all 13 dimensions from the executor's `4-doc-c` table:
 | 8   | Scope-adjacent consistency      | Grep full document for key concepts                  |
 | 9   | Pre-existing issue scan         | Grep for GAP, TODO, FIXME, stale phases              |
 | 10  | Content format compliance       | Tables for definitions, ToC entries for new sections |
-| 11  | Cross-doc term ripple           | Grep all documentation/ for old terms replaced       |
+| 11  | Cross-doc term ripple           | Grep all sibling docs for old terms replaced         |
 | 12  | Intra-document consistency      | Grep full document for same-mechanism descriptions   |
 | 13  | Blockquote integrity            | Grep for disconnected blockquotes and note density   |
 
