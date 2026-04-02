@@ -74,6 +74,21 @@ for (const name of sharedEntries) {
   }
 }
 
+for (const deployedName of sharedDeployedNamesSet) {
+  const filePath = path.join(hooksDir, deployedName);
+  const content = fs.readFileSync(filePath, "utf8");
+  const rewritten = content.replace(
+    /require\("\.\/([^"]+\.cjs)"\)/g,
+    (match, basename) =>
+      sharedSourceNamesSet.has(basename)
+        ? `require("./${sharedDeployedName(basename)}")`
+        : match,
+  );
+  if (rewritten !== content) {
+    fs.writeFileSync(filePath, rewritten, "utf8");
+  }
+}
+
 for (const name of AIC_SCRIPT_NAMES) {
   const srcPath = path.join(sourceHooksDir, name);
   const destPath = path.join(hooksDir, name);
