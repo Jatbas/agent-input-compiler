@@ -7,6 +7,12 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.7] - 2026-04-02
+
+### Fixed
+
+- Correct sibling `require()` paths in published integration hook bundles so shared modules load after npm install
+
 ## [0.11.6] - 2026-04-02
 
 ### Added
