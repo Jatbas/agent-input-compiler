@@ -35,6 +35,8 @@ Files in `.cursor/hooks/` that correspond to `integrations/shared/` modules:
 - `resolve-project-root.cjs`
 - `session-log.cjs`
 - `session-markers.cjs`
+- `read-session-model-jsonl.cjs`
+- `select-session-model-from-jsonl.cjs`
 - `session-model-cache.cjs`
 
 `integrations/cursor/hooks/subagent-start-model-id.cjs` is a Cursor hook script (not duplicated from `integrations/shared/`). At runtime in `.cursor/hooks/` it imports `./session-model-cache.cjs`; in the repository tree it uses `require("../../shared/session-model-cache.cjs")` and calls `normalizeModelId` only.
@@ -57,7 +59,9 @@ Every file in `integrations/claude/plugin/scripts/*.cjs` is a one-line re-export
 | `read-project-dev-mode.cjs` | `isDevModeTrue`, `isCompileGateSkipped` | Reads `<project>/aic.config.json`. `isDevModeTrue` returns `true` only when `devMode === true` after `JSON.parse`; otherwise `false` (missing file or parse error). `isCompileGateSkipped` returns `true` only when both `devMode === true` and `skipCompileGate === true`; used by the Cursor compile gate and the Claude Code compile helper for emergency bypass. |
 | `session-log.cjs` | `appendSessionLog` | Validates session telemetry fields, appends to `.aic/session-log.jsonl`. |
 | `session-markers.cjs` | `acquireSessionLock`, `releaseSessionLock`, `writeSessionMarker`, `readSessionMarker`, `clearSessionMarker`, `isSessionAlreadyInjected` | Manages `.aic/.session-start-lock` and `.aic/.session-context-injected`; creates `.aic` with mode `0o700` inline. |
-| `session-model-cache.cjs` | `isValidModelId`, `normalizeModelId`, `readSessionModelCache`, `writeSessionModelCache` | Reads and appends `.aic/session-models.jsonl`; `isValidModelId` is re-exported from `cache-field-validators.cjs`; `normalizeModelId` maps `"default"` to `"auto"`. |
+| `read-session-model-jsonl.cjs` | `readSessionModelIdFromSessionModelsJsonl` | Bounded tail read of `.aic/session-models.jsonl` with deterministic full-file fallback; uses `select-session-model-from-jsonl.cjs` for the fold; mirrors TypeScript in `shared/src/maintenance/read-session-model-jsonl.ts`. |
+| `select-session-model-from-jsonl.cjs` | `reduceSessionModelJsonlState`, `selectSessionModelIdFromJsonlContent` | Parses JSONL text and returns the selected model id; mirrors TypeScript in `shared/src/maintenance/select-session-model-from-jsonl.ts`. |
+| `session-model-cache.cjs` | `isValidModelId`, `normalizeModelId`, `readSessionModelCache`, `writeSessionModelCache` | Reads and appends `.aic/session-models.jsonl`; `readSessionModelCache` delegates to `read-session-model-jsonl.cjs`; `isValidModelId` is re-exported from `cache-field-validators.cjs`; `normalizeModelId` maps `"default"` to `"auto"`. |
 
 ## Filesystem artifacts
 
@@ -79,7 +83,9 @@ Paths in the table below are relative to the resolved project root; the edited-f
 | ------ | ----------------------------------- |
 | `prompt-log.cjs` | `./aic-dir.cjs`, `./cache-field-validators.cjs` |
 | `session-log.cjs` | `./aic-dir.cjs`, `./cache-field-validators.cjs` |
-| `session-model-cache.cjs` | `./aic-dir.cjs`, `./cache-field-validators.cjs` |
+| `read-session-model-jsonl.cjs` | `./select-session-model-from-jsonl.cjs` |
+| `select-session-model-from-jsonl.cjs` | `./cache-field-validators.cjs` |
+| `session-model-cache.cjs` | `./aic-dir.cjs`, `./cache-field-validators.cjs`, `./read-session-model-jsonl.cjs` |
 | All other shared modules | — |
 
 Hook scripts never import `aic-dir.cjs` or `cache-field-validators.cjs` directly from `integrations/shared/`; they import them indirectly through `prompt-log.cjs`, `session-log.cjs`, or `session-model-cache.cjs`, or through peer copies under `.cursor/hooks/`.

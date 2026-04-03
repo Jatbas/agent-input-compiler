@@ -50,27 +50,17 @@ import {
   runEditorBootstrapIfNeeded,
 } from "../editor-integration-dispatch.js";
 import { validateProjectRoot, validateConfigPath } from "../validate-project-root.js";
-import {
-  isValidModelId,
-  isValidConversationId,
-  isValidEditorId,
-} from "@jatbas/aic-core/maintenance/cache-field-validators.js";
+import { readSessionModelIdFromSessionModelsJsonl } from "@jatbas/aic-core/maintenance/read-session-model-jsonl.js";
 import {
   MCP_INTENT_OMITTED_DEFAULT,
   SanitisedCacheIdsSchema,
   type SanitisedCacheIds,
 } from "../schemas/compilation-request.js";
 
-const SESSION_MODELS_FILE = "session-models.jsonl";
-
 const MAX_SANITIZED_FINDINGS = 20;
 
 function normalizeModelId(raw: string): string {
   return raw.toLowerCase() === "default" ? "auto" : raw;
-}
-
-function sessionModelsPath(projectRoot: AbsolutePath): string {
-  return path.join(projectRoot, ".aic", SESSION_MODELS_FILE);
 }
 
 function readSessionModelCache(
@@ -79,35 +69,11 @@ function readSessionModelCache(
   editorId: string,
 ): string | null {
   try {
-    const raw = fs.readFileSync(sessionModelsPath(projectRoot), "utf8");
-    const lines = raw.split("\n").filter((l) => l.trim().length > 0);
-    const cid = typeof conversationId === "string" ? conversationId.trim() : "";
-    const state = lines.reduce<Readonly<{ match: string | null; last: string | null }>>(
-      (s, line) => {
-        try {
-          const entry = JSON.parse(line) as { m?: string; c?: string; e?: string };
-          if (
-            typeof entry.m !== "string" ||
-            !isValidModelId(entry.m) ||
-            typeof entry.c !== "string" ||
-            !isValidConversationId(entry.c) ||
-            typeof entry.e !== "string" ||
-            !isValidEditorId(entry.e) ||
-            entry.e !== editorId
-          ) {
-            return s;
-          }
-          return {
-            last: entry.m,
-            match: cid.length > 0 && entry.c === cid ? entry.m : s.match,
-          };
-        } catch {
-          return s;
-        }
-      },
-      { match: null, last: null },
+    return readSessionModelIdFromSessionModelsJsonl(
+      projectRoot,
+      conversationId,
+      editorId,
     );
-    return state.match ?? state.last;
   } catch {
     return null;
   }

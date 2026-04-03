@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-const { appendJsonl } = require("./aic-dir.cjs");
-const { isValidModelId } = require("./cache-field-validators.cjs");
+const { appendJsonl } = require("./AIC-dir.cjs");
+const { isValidModelId } = require("./AIC-cache-field-validators.cjs");
 const {
   readSessionModelIdFromSessionModelsJsonl,
-} = require("./read-session-model-jsonl.cjs");
+} = require("./AIC-read-session-model-jsonl.cjs");
 
 function normalizeModelId(raw) {
   return raw.toLowerCase() === "default" ? "auto" : raw;

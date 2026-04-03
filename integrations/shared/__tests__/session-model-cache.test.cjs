@@ -12,6 +12,9 @@ const {
   readSessionModelCache,
   writeSessionModelCache,
 } = require("../session-model-cache.cjs");
+const {
+  selectSessionModelIdFromJsonlContent,
+} = require("../select-session-model-from-jsonl.cjs");
 
 function normalizeModelId_default() {
   assert.strictEqual(normalizeModelId("default"), "auto");
@@ -105,6 +108,45 @@ function read_skips_invalid_line() {
   }
 }
 
+function read_fallback_matches_full_file_when_conv_line_only_in_prefix() {
+  const dir = path.join(os.tmpdir(), `aic-session-cache-test-${Date.now()}`);
+  const aicDir = path.join(dir, ".aic");
+  fs.mkdirSync(aicDir, { recursive: true });
+  const filePath = path.join(aicDir, "session-models.jsonl");
+  const wanted = JSON.stringify({
+    m: "prefix-hit",
+    c: "conv-prefix",
+    e: "cursor",
+    timestamp: "2026-01-01T00:00:00.000Z",
+  });
+  const filler = `${JSON.stringify({
+    m: "other",
+    c: "other-conv",
+    e: "cursor",
+    timestamp: "2026-01-02T00:00:00.000Z",
+  })}\n`.repeat(8000);
+  fs.writeFileSync(filePath, `${wanted}\n${filler}`, "utf8");
+  try {
+    const rawFull = fs.readFileSync(filePath, "utf8");
+    const expected = selectSessionModelIdFromJsonlContent(
+      rawFull,
+      "conv-prefix",
+      "cursor",
+    );
+    const got = readSessionModelCache(dir, "conv-prefix", "cursor");
+    assert.strictEqual(got, expected);
+    assert.strictEqual(got, "prefix-hit");
+  } finally {
+    try {
+      fs.rmSync(filePath, { force: true });
+      fs.rmdirSync(aicDir, { recursive: true });
+      fs.rmdirSync(dir, { recursive: true });
+    } catch {
+      // ignore
+    }
+  }
+}
+
 const cases = [
   normalizeModelId_default,
   normalizeModelId_passthrough,
@@ -114,6 +156,7 @@ const cases = [
   write_read_roundtrip,
   read_filters_editorId,
   read_skips_invalid_line,
+  read_fallback_matches_full_file_when_conv_line_only_in_prefix,
 ];
 
 let failed = 0;

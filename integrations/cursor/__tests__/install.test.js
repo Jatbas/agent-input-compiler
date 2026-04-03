@@ -312,6 +312,10 @@ function cursor_install_deploys_shared_as_AIC_prefix() {
       "AIC-session-model-cache.cjs deployed",
     );
     assert(
+      names.includes("AIC-read-session-model-jsonl.cjs"),
+      "AIC-read-session-model-jsonl.cjs deployed",
+    );
+    assert(
       !names.includes("session-model-cache.cjs"),
       "session-model-cache.cjs not deployed under old name",
     );

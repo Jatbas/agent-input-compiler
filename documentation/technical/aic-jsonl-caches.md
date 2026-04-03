@@ -18,11 +18,11 @@ Marker-file layout under `.aic/` for Claude SessionStart is documented in [Sessi
 
 ## Layout and wiring
 
-| File                        | Append path                                                       | Read API in shared CJS                      | Prune                                                                        |
-| --------------------------- | ----------------------------------------------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------- |
-| `.aic/session-models.jsonl` | `integrations/shared/session-model-cache.cjs` calls `appendJsonl` | `readSessionModelCache` scans the full file | MCP startup via `pruneJsonlByTimestamp` with filename `session-models.jsonl` |
-| `.aic/prompt-log.jsonl`     | `integrations/shared/prompt-log.cjs`                              | none (append-only from shared CJS)          | MCP startup via `prunePromptLog` delegating to `pruneJsonlByTimestamp`       |
-| `.aic/session-log.jsonl`    | `integrations/shared/session-log.cjs`                             | none (append-only from shared CJS)          | MCP startup via `pruneSessionLog` delegating to `pruneJsonlByTimestamp`      |
+| File                        | Append path                                                       | Read API in shared CJS                                                                                                       | Prune                                                                        |
+| --------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `.aic/session-models.jsonl` | `integrations/shared/session-model-cache.cjs` calls `appendJsonl` | `readSessionModelCache` uses a bounded tail read with deterministic full-file fallback while preserving last-match selection | MCP startup via `pruneJsonlByTimestamp` with filename `session-models.jsonl` |
+| `.aic/prompt-log.jsonl`     | `integrations/shared/prompt-log.cjs`                              | none (append-only from shared CJS)                                                                                           | MCP startup via `prunePromptLog` delegating to `pruneJsonlByTimestamp`       |
+| `.aic/session-log.jsonl`    | `integrations/shared/session-log.cjs`                             | none (append-only from shared CJS)                                                                                           | MCP startup via `pruneSessionLog` delegating to `pruneJsonlByTimestamp`      |
 
 Pruning is scheduled from `mcp/src/server.ts` inside `createMcpServer` using `setImmediate` alongside cache purge. Implementation lives under `shared/src/maintenance/`.
 
@@ -44,7 +44,7 @@ All three schemas expose a `timestamp` string that `pruneJsonlByTimestamp` can p
 
 ## Read paths versus append-only writers
 
-Only `session-model-cache.cjs` implements integration-layer reads. It scans all lines to pick the latest model for an editor, preferring a line whose conversation id matches when the caller supplies one. Prompt and session logs are write-only from `integrations/shared/`; historical analysis reads the JSONL files on disk outside these modules.
+Only `session-model-cache.cjs` implements integration-layer reads. On the hot path it reads only a bounded tail of `.aic/session-models.jsonl`, then applies the same reducer as a full-file read; when the tail omits the winning line (for example a conversation-specific match earlier in the file), it falls back to reading the entire file so results stay identical to a full scan. Prompt and session logs are write-only from `integrations/shared/`; historical analysis reads the JSONL files on disk outside these modules.
 
 ## Why there is no single JsonlCache type
 
@@ -52,7 +52,7 @@ Append uses `fs.appendFileSync` in UTF-8 text mode with one JSON object serializ
 
 **Schemas differ:** One shared class with a single record shape would need wide unions or would drop the per-file validation that runs before append.
 
-**Read semantics differ:** Session models need full-file scan and last-match selection. A generic cache focused on append and prune still needs a dedicated reader for session models; uniform query APIs would misrepresent prompt and session logs, which have no shared read helper in shared CJS.
+**Read semantics differ:** Session models use last-match selection (and conversation-specific preference) shared with MCP via `select-session-model-from-jsonl` / `read-session-model-jsonl`, while prompt and session logs have no shared read helper in shared CJS. A generic cache focused on append and prune still needs that dedicated reader path; uniform query APIs would misrepresent prompt and session logs.
 
 **Runtime split:** Hooks run CommonJS without the MCP `Clock`. Pruning uses `Clock` in TypeScript maintenance. One abstraction spanning both sides would blur the boundary between editor integration scripts and the MCP composition root unless split into thin adapters on each side.
 

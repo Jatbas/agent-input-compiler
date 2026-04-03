@@ -1,7 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import { describe, it, expect, vi, afterEach, beforeAll } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeAll, beforeEach } from "vitest";
+
+const compileHandlerSessionModelsFullReads = vi.hoisted((): string[] => []);
+
+vi.mock("node:fs", async (importOriginal) => {
+  const mod = (await importOriginal()) as Record<string, unknown>;
+  const origReadFileSync = mod["readFileSync"] as (
+    path: unknown,
+    options?: unknown,
+  ) => string | Buffer;
+  return {
+    ...mod,
+    readFileSync(path: unknown, options?: unknown): string | Buffer {
+      if (String(path).endsWith("session-models.jsonl")) {
+        compileHandlerSessionModelsFullReads.push(String(path));
+      }
+      return origReadFileSync(path, options);
+    },
+  };
+});
+
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -1203,6 +1223,10 @@ describe("compile-handler", () => {
   });
 
   describe("model resolution integration", () => {
+    beforeEach(() => {
+      compileHandlerSessionModelsFullReads.length = 0;
+    });
+
     function writeSessionModelsCache(
       tmpDir: string,
       m: string,
@@ -1322,6 +1346,116 @@ describe("compile-handler", () => {
           .all(projectId) as readonly { model_id: string }[];
         expect(rows).toHaveLength(1);
         expect(rows[0]!.model_id).toBe("claude-sonnet-4");
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it("session_models_tail_read_avoids_readFileSync_when_match_in_tail", async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+      try {
+        writeSessionModelsCache(tmpDir, "tail-model", "conv-tail", "cursor");
+        const { scope, projectId } = createScopeWithRealDb(tmpDir);
+        const getScope = (_projectRoot: AbsolutePath) => scope;
+        const recordingRunner = createRecordingRunner(scope);
+        const getSessionId = (): ReturnType<typeof toSessionId> =>
+          toSessionId("00000000-0000-7000-8000-000000000002");
+        const getEditorId = () => EDITOR_ID.CURSOR;
+        const getModelId = (): string | null => null;
+        const handler = createCompileHandler(
+          getScope,
+          (_s: ProjectScope) => recordingRunner,
+          { hash: (): string => "" },
+          getSessionId,
+          getEditorId,
+          getModelId,
+          [],
+          enabledConfigLoader,
+          () => {},
+          () => null,
+          () => false,
+        );
+        await handler(
+          {
+            intent: "test",
+            projectRoot: tmpDir,
+            modelId: null,
+            configPath: null,
+            conversationId: "conv-tail",
+          },
+          undefined,
+        );
+        expect(compileHandlerSessionModelsFullReads).toHaveLength(0);
+        const rows = scope.db
+          .prepare(
+            "SELECT model_id FROM compilation_log WHERE project_id = ? ORDER BY created_at DESC LIMIT 1",
+          )
+          .all(projectId) as readonly { model_id: string }[];
+        expect(rows[0]!.model_id).toBe("tail-model");
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it("session_models_prefix_conversation_match_triggers_full_read_fallback", async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+      try {
+        const aicDir = path.join(tmpDir, ".aic");
+        fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
+        const wanted = JSON.stringify({
+          m: "prefix-model",
+          c: "conv-prefix-only",
+          e: "cursor",
+          timestamp: "2026-01-01T00:00:00.000Z",
+        });
+        const filler = `${JSON.stringify({
+          m: "other",
+          c: "other-conv",
+          e: "cursor",
+          timestamp: "2026-01-02T00:00:00.000Z",
+        })}\n`.repeat(8000);
+        fs.writeFileSync(
+          path.join(aicDir, "session-models.jsonl"),
+          `${wanted}\n${filler}`,
+          "utf8",
+        );
+        const { scope, projectId } = createScopeWithRealDb(tmpDir);
+        const getScope = (_projectRoot: AbsolutePath) => scope;
+        const recordingRunner = createRecordingRunner(scope);
+        const getSessionId = (): ReturnType<typeof toSessionId> =>
+          toSessionId("00000000-0000-7000-8000-000000000002");
+        const getEditorId = () => EDITOR_ID.CURSOR;
+        const getModelId = (): string | null => null;
+        const handler = createCompileHandler(
+          getScope,
+          (_s: ProjectScope) => recordingRunner,
+          { hash: (): string => "" },
+          getSessionId,
+          getEditorId,
+          getModelId,
+          [],
+          enabledConfigLoader,
+          () => {},
+          () => null,
+          () => false,
+        );
+        await handler(
+          {
+            intent: "test",
+            projectRoot: tmpDir,
+            modelId: null,
+            configPath: null,
+            conversationId: "conv-prefix-only",
+          },
+          undefined,
+        );
+        expect(compileHandlerSessionModelsFullReads.length).toBeGreaterThanOrEqual(1);
+        const rows = scope.db
+          .prepare(
+            "SELECT model_id FROM compilation_log WHERE project_id = ? ORDER BY created_at DESC LIMIT 1",
+          )
+          .all(projectId) as readonly { model_id: string }[];
+        expect(rows[0]!.model_id).toBe("prefix-model");
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
