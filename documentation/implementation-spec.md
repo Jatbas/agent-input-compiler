@@ -16,6 +16,7 @@
 2. [What ships](#2-what-ships)
 3. [Defaults](#3-defaults)
 4. [Core Pipeline — implementation detail](#4-core-pipeline--implementation-detail)
+   - [Model id resolution (aic_compile)](#model-id-resolution-aic_compile)
    - [Pipeline orchestration (`runPipelineSteps`)](#pipeline-orchestration-runpipelinesteps)
    - [Step 1: Task Classifier](#step-1-task-classifier)
    - [Step 2: Rule Pack Resolver](#step-2-rule-pack-resolver)
@@ -57,9 +58,13 @@
 
 ## 1. Goal
 
-Deliver a working **MCP server** that compiles optimal context for AI coding tools — with zero required configuration.
+Deliver a working **MCP (Model Context Protocol) server** that compiles optimal context for AI coding tools — with zero required configuration.
 
-**Success looks like:** A developer registers the MCP server (e.g. `npx -y @jatbas/aic@latest` in MCP config), opens a project, and their AI responses improve measurably — focused, bounded context, better file selection, and deterministic, reproducible compilation. Bootstrap runs automatically when the client lists roots or on first `aic_compile`. In editors with hook support (e.g. Cursor), the integration layer ensures compiled context is available from the first message of every session.
+**Success looks like:** A developer registers the server (for example `npx -y @jatbas/aic@latest` in the editor's MCP config) and opens a project. Responses gain focused, bounded context, better file selection, and deterministic, reproducible compilation.
+
+**Bootstrap** is split by code path ([§4c — Bootstrap](#bootstrap-project-setup)). When the MCP client lists workspace roots, `mcp/src/server.ts` runs `installTriggerRule` and `runEditorBootstrapIfNeeded` per root (trigger rule plus hook installers where applicable). **`aic.config.json`, `.aic/` with `0700`, and ignore-manifest lines** are created by `ensureProjectInit` in `mcp/src/init-project.ts` on the **first** `aic_compile` for a project that still has no config (`mcp/src/handlers/compile-handler.ts`).
+
+Editors with hook support run the integration layer: see [Cursor integration layer](technical/cursor-integration-layer.md) and [Claude Code integration layer](technical/claude-code-integration-layer.md). Those scripts call `aic_compile` at lifecycle checkpoints so compiled context can reach the model from the first message of a session.
 
 > **AIC is model-agnostic and editor-agnostic by design.** It detects the active model automatically and adapts. It works with Cursor, Claude Code, and any MCP-compatible editor. No API key, no cloud account, and no config file are required to start.
 >
@@ -79,36 +84,36 @@ Deliver a working **MCP server** that compiles optimal context for AI coding too
 
 **Primary: MCP Server (`@jatbas/aic`)**
 
-| Feature              | Detail                                                                                                                                            |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **MCP Server**       | Primary interface — exposes MCP tools including `aic_compile` (full set in **User interface** below); called by trigger rule or integration hooks |
-| Editor adapters      | Cursor, Claude Code, Generic MCP fallback                                                                                                         |
-| Model adapters       | OpenAI, Anthropic, Generic fallback (auto-detected from request)                                                                                  |
-| Task Classifier      | Heuristic keyword/pattern matching → 6 task classes                                                                                               |
-| HeuristicSelector    | File-path, import-graph, recency-based context selection                                                                                          |
-| Context Guard        | Scans selected files for secrets, excluded paths, and prompt injection; excludes sensitive content from the compiled context                      |
-| Summarisation Ladder | 4-tier compression: full → signatures+docs → signatures → names                                                                                   |
-| Default Rule Packs   | `default.json`, `refactor.json`, `bugfix.json`, `feature.json`, `docs.json`, `test.json`                                                          |
-| SQLite Storage       | Local telemetry + cache metadata                                                                                                                  |
-| Output Caching       | Hash-based, TTL-configurable, auto-invalidating                                                                                                   |
-| Config System        | `aic.config.json` — all fields optional; zero-config works out of the box                                                                         |
+| Feature              | Detail                                                                                                                                                |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **MCP Server**       | Primary interface: MCP tools (`aic_compile` plus the full set in **User interface** below). Invoked by the **trigger rule** or **integration hooks**. |
+| Editor adapters      | Cursor, Claude Code, Generic MCP fallback                                                                                                             |
+| Model adapters       | OpenAI, Anthropic, Generic fallback (auto-detected from request)                                                                                      |
+| Task Classifier      | Heuristic keyword/pattern matching → 6 task classes                                                                                                   |
+| HeuristicSelector    | File-path, import-graph, recency-based context selection                                                                                              |
+| Context Guard        | Scans selected files for secrets, excluded paths, and prompt injection; excludes sensitive content from the compiled context                          |
+| Summarisation Ladder | 4-tier compression: full → signatures+docs → signatures → names                                                                                       |
+| Default Rule Packs   | `default.json`, `refactor.json`, `bugfix.json`, `feature.json`, `docs.json`, `test.json`                                                              |
+| SQLite Storage       | Local telemetry + cache metadata                                                                                                                      |
+| Output Caching       | Hash-based, TTL-configurable, auto-invalidating                                                                                                       |
+| Config System        | `aic.config.json` — all fields optional; zero-config works out of the box                                                                             |
 
 **User interface (MCP tools; diagnostic CLI)**
 
-MCP is the primary interface when the model runs inside an editor. The same published entrypoint (`server.js`) also implements four read-only **CLI** subcommands (`status`, `last`, `chat-summary`, `projects`) that print formatted tables to stdout and exit; see [§8b](#8b-mcp-server-startup-sequence) and [installation.md — CLI Standalone Usage](installation.md#cli-standalone-usage).
+**MCP** (Model Context Protocol) is the primary interface when the model runs inside an editor: the client and server exchange JSON-RPC messages over stdio. The same published entrypoint (`server.js`) also implements four read-only **CLI** subcommands (`status`, `last`, `chat-summary`, `projects`) that print formatted tables to stdout and exit; see [§8b](#8b-mcp-server-startup-sequence) and [installation.md — CLI Standalone Usage](installation.md#cli-standalone-usage).
 
-| Interface                                         | Purpose                                                                                                        |
-| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `aic_compile` (MCP tool)                          | Compile intent into context; returns compiled prompt to the model                                              |
-| `aic_inspect` (MCP tool)                          | Show pipeline decision trace without executing; JSON omits per-file `resolvedContent` on `selectedFiles`       |
-| `aic_chat_summary` (MCP tool)                     | Compilation stats for the current conversation                                                                 |
-| `aic_status` (MCP tool)                           | Project-level summary: compilations, tokens excluded (context compression), budget utilization, guard blocks   |
-| `aic_last` (MCP tool)                             | Most recent compilation breakdown with prompt summary                                                          |
-| `aic_projects` (MCP tool)                         | Lists known projects from the global database (path, last seen, compilation count)                             |
-| `aic_model_test` (MCP tool)                       | Optional agent capability probe: challenges plus embedded `aic_compile` intent check against `compilation_log` |
-| Bootstrap (automatic on connect or first compile) | Scaffold config, trigger rule, hooks, `.aic/` directory                                                        |
+| Interface                                         | Purpose                                                                                                                                                                                    |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `aic_compile` (MCP tool)                          | Compile intent into context; returns JSON the model consumes (`compiledPrompt`, `meta`, and companion fields — [§4 Handler / MCP response shape](#4-core-pipeline--implementation-detail)) |
+| `aic_inspect` (MCP tool)                          | Show pipeline decision trace without executing; JSON omits per-file `resolvedContent` on `selectedFiles`                                                                                   |
+| `aic_chat_summary` (MCP tool)                     | Compilation stats for the current conversation                                                                                                                                             |
+| `aic_status` (MCP tool)                           | Project-level summary: compilations, tokens excluded (context compression), budget utilization, guard blocks                                                                               |
+| `aic_last` (MCP tool)                             | Most recent compilation breakdown with prompt summary                                                                                                                                      |
+| `aic_projects` (MCP tool)                         | Lists known projects from the global database (path, last seen, compilation count)                                                                                                         |
+| `aic_model_test` (MCP tool)                       | Optional agent capability probe: challenges plus embedded `aic_compile` intent check against `compilation_log`                                                                             |
+| Bootstrap (automatic on connect or first compile) | Scaffold config, trigger rule, hooks, `.aic/` directory ([§4c — Bootstrap](#bootstrap-project-setup))                                                                                      |
 
-The integration layer runs quality checks on edited files at stop time; see [Cursor integration layer](technical/cursor-integration-layer.md) and [Claude Code integration layer](technical/claude-code-integration-layer.md) for the full flow per editor.
+The integration layer also runs quality checks on edited files at stop time; see [Cursor integration layer](technical/cursor-integration-layer.md) and [Claude Code integration layer](technical/claude-code-integration-layer.md) for the full flow per editor.
 
 ### Excluded (deferred) ❌
 
@@ -130,29 +135,29 @@ The integration layer runs quality checks on edited files at stop time; see [Cur
 
 All defaults apply when no config file exists or a field is omitted.
 
-> **Loader truth:** Runtime validation for `aic.config.json` is the minimal Zod object in `load-config-from-file.ts` — see [§8c — `AicConfigSchema`](#aicconfigschema). Rows in the table below include product-level defaults and Project Plan fields that may not yet be read by that schema; use §8c when you need to know which keys are guaranteed to parse today.
+> **Loader truth:** Runtime validation for `aic.config.json` is the minimal **Zod** (schema-validation) object in `shared/src/config/load-config-from-file.ts` — see [§8c — `AicConfigSchema`](#aicconfigschema). Rows in the table below include product-level defaults and Project Plan fields that may not yet be read by that schema; use §8c when you need to know which keys are guaranteed to parse today.
 
-| Setting                                  | Default                                                                                                                                  | MCP override                                               | CLI flag override |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ----------------- |
-| Project root                             | Git root (walk up from CWD)                                                                                                              | Auto-detected per request                                  | `--root`          |
-| Config file                              | Auto-discovered (walk up from project root)                                                                                              | Auto-discovered                                            | `--config`        |
-| Database                                 | `~/.aic/aic.sqlite` (global)                                                                                                             | Auto-resolved                                              | `--db`            |
-| Context budget                           | 8,000 tokens                                                                                                                             | `aic.config.json` only                                     | `--budget`        |
-| Context selector                         | `heuristic`                                                                                                                              | `aic.config.json` only                                     | Config only       |
-| Model id                                 | Auto-detected from editor                                                                                                                | `aic.config.json` → `model.id` wins                        | Config only       |
-| Model provider                           | `null` (required only for the deferred executor path)                                                                                    | `aic.config.json` only                                     | Config only       |
-| Model endpoint                           | `null` (provider default)                                                                                                                | `aic.config.json` only                                     | Config only       |
-| Model API key env                        | `null` (env var name, not the key)                                                                                                       | `aic.config.json` only                                     | Config only       |
-| Cache enabled                            | `true`                                                                                                                                   | `aic.config.json` only                                     | `--no-cache`      |
-| Cache TTL                                | 60 minutes                                                                                                                               | `aic.config.json` only                                     | Config only       |
-| Compilation metrics (`telemetry_events`) | Persisted after a successful `runner.run` when the project is not disabled (`enabled !== false` in resolved config)                      | Not gated in minimal `load-config-from-file.ts` Zod schema | Config only       |
-| Anonymous aggregate telemetry queue      | `anonymous_telemetry_log` table exists in schema (`001-consolidated-schema.ts`); no writer or HTTPS client in shipped TypeScript sources | —                                                          | —                 |
-| Guard enabled                            | `true`                                                                                                                                   | `aic.config.json` only                                     | Config only       |
-| Guard additional exclusions              | `[]` (empty — built-in patterns always active)                                                                                           | `aic.config.json` only                                     | Config only       |
-| Guard allow patterns                     | `[]`                                                                                                                                     | `aic.config.json`                                          | Config only       |
-| Content transformers enabled             | `true`                                                                                                                                   | `aic.config.json` only                                     | Config only       |
-| Strip comments                           | `true`                                                                                                                                   | `aic.config.json` only                                     | Config only       |
-| Normalize whitespace                     | `true`                                                                                                                                   | `aic.config.json` only                                     | Config only       |
+| Setting                                  | Default                                                                                                                                                                                                 | MCP override                                                                                    | CLI flag override |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ----------------- |
+| Project root                             | Git root (walk up from current working directory)                                                                                                                                                       | Auto-detected per request                                                                       | `--root`          |
+| Config file                              | Auto-discovered (walk up from project root)                                                                                                                                                             | Auto-discovered                                                                                 | `--config`        |
+| Database                                 | `~/.aic/aic.sqlite` (global)                                                                                                                                                                            | Auto-resolved                                                                                   | `--db`            |
+| Context budget                           | 8,000 tokens                                                                                                                                                                                            | `aic.config.json` only                                                                          | `--budget`        |
+| Context selector                         | `heuristic`                                                                                                                                                                                             | `aic.config.json` only                                                                          | Config only       |
+| Model id                                 | On-disk cache `.aic/session-models.jsonl` (hooks) plus MCP `modelId` argument are consulted before `ModelDetector` / config; full order in [§4 — Model id resolution](#model-id-resolution-aic_compile) | Non-null `modelId` tool argument, then `.aic/session-models.jsonl`, then `model.id` or detector | Config only       |
+| Model provider                           | `null` (required only for the deferred executor path)                                                                                                                                                   | `aic.config.json` only                                                                          | Config only       |
+| Model endpoint                           | `null` (provider default)                                                                                                                                                                               | `aic.config.json` only                                                                          | Config only       |
+| Model API key env                        | `null` (env var name, not the key)                                                                                                                                                                      | `aic.config.json` only                                                                          | Config only       |
+| Cache enabled                            | `true`                                                                                                                                                                                                  | `aic.config.json` only                                                                          | `--no-cache`      |
+| Cache TTL                                | 60 minutes                                                                                                                                                                                              | `aic.config.json` only                                                                          | Config only       |
+| Compilation metrics (`telemetry_events`) | Written after a successful pipeline run when the project is not disabled (`enabled !== false` in resolved config); see [Step 10](#step-10-telemetry-logger)                                             | Not gated in minimal `load-config-from-file.ts` Zod schema                                      | Config only       |
+| Anonymous aggregate telemetry queue      | `anonymous_telemetry_log` table exists in schema (`shared/src/storage/migrations/001-consolidated-schema.ts`); no writer or HTTPS client in shipped TypeScript sources                                  | —                                                                                               | —                 |
+| Guard enabled                            | `true`                                                                                                                                                                                                  | `aic.config.json` only                                                                          | Config only       |
+| Guard additional exclusions              | `[]` (empty — built-in patterns always active)                                                                                                                                                          | `aic.config.json` only                                                                          | Config only       |
+| Guard allow patterns                     | `[]`                                                                                                                                                                                                    | `aic.config.json`                                                                               | Config only       |
+| Content transformers enabled             | `true`                                                                                                                                                                                                  | `aic.config.json` only                                                                          | Config only       |
+| Strip comments                           | `true`                                                                                                                                                                                                  | `aic.config.json` only                                                                          | Config only       |
+| Normalize whitespace                     | `true`                                                                                                                                                                                                  | `aic.config.json` only                                                                          | Config only       |
 
 ---
 
@@ -162,7 +167,26 @@ All defaults apply when no config file exists or a field is omitted.
 
 **Pre-step (before Step 1):** A **RepoMapSupplier** (`FileSystemRepoMapSupplier`, `WatchingRepoMapSupplier`) supplies the RepoMap. The project root is scanned (respecting `.gitignore`), per-file token estimates use tiktoken, and the result is cached in the `repomap_cache` SQLite table. The heuristic selector consumes a **discovered** RepoMap (after intent-aware file discovery). Cache is re-used until the file-tree hash (SHA-256 of in-scope paths + sizes + mtimes) changes.
 
-**Handler:** These stages run inside the `aic_compile` MCP tool handler (`mcp/src/handlers/compile-handler.ts`). The handler builds a `CompilationRequest` (including `sessionId` from server session state when hooks run), runs `runPipelineSteps`, and returns `{ compiledPrompt: string, meta: CompilationMeta }`. The editor uses `compiledPrompt` as the full model context. Step 9 (Executor) in this document is a deferred design path only. When the project is enabled and the run succeeds, the handler calls `writeCompilationTelemetry` (see Step 10).
+**Handler:** These stages run inside the `aic_compile` MCP tool handler (`mcp/src/handlers/compile-handler.ts`). The handler resolves and sanitises wire arguments, builds a `CompilationRequest` (including `sessionId` from server session state when hooks run), runs `runPipelineSteps`, and on success writes `last-compiled-prompt.txt` under `.aic/`. Step 9 (Executor) in this document is a deferred design path only. When the project is enabled and the run succeeds, the handler calls `writeCompilationTelemetry` (see Step 10).
+
+**MCP response shape (pipeline success):** The tool returns MCP text content whose JSON parse yields `compiledPrompt`, `meta` (compilation metadata with guard details sanitised for model consumption), `conversationId` (string or null), and `updateMessage` (string or null). The `compiledPrompt` string is the assembled context after optional install-scope warning prefix, optional exclusion-instruction prefix when the guard blocked or redacted at least one selected file, and a fixed reinforcement suffix that reminds the model to call `aic_compile` again on the next message (`mcp/src/handlers/compile-handler.ts`). When the server upgraded packaged MCP config to `@latest`, the object may include `configUpgraded` (human-readable reload instruction). When install-scope warnings were recorded at server start, the object may include `warnings` (string array). The alternate reparent-only JSON body (`{ reparented, rowsUpdated }`) is described under **Agentic workflows** below. Integrators use `compiledPrompt` as the primary model context; other fields support continuity, diagnostics, and UX.
+
+### Model id resolution (aic_compile)
+
+The value passed to the pipeline as `modelId` is resolved in `mcp/src/handlers/compile-handler.ts` before `runPipelineSteps` runs. Sources are consulted in order; a non-null result stops the chain.
+
+1. **MCP tool argument** — When `aic_compile` receives a non-null `modelId` that passes `CompilationRequestSchema` in `mcp/src/schemas/compilation-request.ts`, that string is used.
+2. **`.aic/session-models.jsonl`** —
+   - **Read API:** `readSessionModelIdFromSessionModelsJsonl` in `shared/src/maintenance/read-session-model-jsonl.ts` reads `<projectRoot>/.aic/session-models.jsonl`. Hooks append lines through `integrations/shared/session-model-cache.cjs` using fields `m`, `c`, `e`, and `timestamp`.
+   - **Tail read:** Read at most the last 262,144 bytes (`SESSION_MODEL_JSONL_MAX_TAIL_BYTES` in that module).
+   - **Partial first line:** When the slice starts after byte 0, discard text through the first newline so parsing starts on a whole JSONL record.
+   - **Selection:** `reduceSessionModelJsonlState` in `shared/src/maintenance/select-session-model-from-jsonl.ts` folds lines for the active `editorId` and optional `conversationId` (prefer the latest line whose `c` matches the non-empty trimmed `conversationId`, else the latest valid line for that `editorId`).
+   - **Full-file fallback:** When the file is non-empty but the tail scan cannot yield a model id — `conversationId` is non-empty and no matching `c` appears in the tail, or `conversationId` is empty and no per-editor line appears in the tail — read the entire file and apply the same selection logic.
+3. **Config versus detector** — `getModelId` in `mcp/src/server.ts` supplies `model.id` from `aic.config.json` loaded when the MCP server starts (`configLoader.load` with a null config path) when set, otherwise `modelDetector.detect(editorId)`.
+
+When the resolution chain yields a non-null string, `normalizeModelId` maps the value `default` to `auto` (case-insensitive). The resolved `modelId`, wire `conversationId`, and `editorId` then pass through `SanitisedCacheIdsSchema` in `mcp/src/schemas/compilation-request.ts`; on parse failure the handler substitutes null for model and conversation ids and uses `generic` as `editorId` when building `CompilationRequest` (`mcp/src/handlers/compile-handler.ts`). The pipeline receives those sanitised values.
+
+**Related docs:** [AIC JSONL caches under `.aic/`](technical/aic-jsonl-caches.md) covers append, retention, and read semantics for this log. [MCP server and shared CJS boundary](technical/mcp-and-shared-cjs-boundary.md) summarises how the MCP handler and integration modules share the read path.
 
 ### Pipeline orchestration (`runPipelineSteps`)
 
@@ -701,15 +725,17 @@ Full spec: [Project Plan §2.4](project-plan.md).
 
 ### Bootstrap (project setup)
 
-When the client lists workspace roots (e.g. when Cursor connects) or on first `aic_compile`, the server runs bootstrap: creates `aic.config.json` with all-default values, installs the trigger rule (e.g. `.cursor/rules/AIC.mdc`) and editor hooks, and creates `.aic/` with `0700` permissions. Also appends any missing lines from `shared/src/storage/aic-ignore-entries.json` to `.gitignore`, `.eslintignore`, and `.prettierignore` (creates each file if it does not exist).
+**MCP server — workspace roots:** When the client advertises roots support and lists workspace roots (e.g. Cursor on connect), `mcp/src/server.ts` calls `installTriggerRule` and `runEditorBootstrapIfNeeded` for each returned root. That path does **not** invoke `ensureProjectInit`, so it does not create `aic.config.json` or run the full `.aic/` + ignore-file scaffold by itself.
+
+**MCP server — first `aic_compile`:** On the first compile for a normalised project key, `mcp/src/handlers/compile-handler.ts` calls `ensureProjectInit` when `aic.config.json` is absent (`mcp/src/init-project.ts`): writes default `aic.config.json`, creates `.aic/` with mode `0700` via `ensureAicDir`, appends missing lines from `shared/src/storage/aic-ignore-entries.json` to `.gitignore`, `.eslintignore`, and `.prettierignore` (creates each file if needed), and calls `ensurePrettierignore` / `ensureEslintignore`. The same first-run block also calls `installTriggerRule` and `runEditorBootstrapIfNeeded`.
 
 Editor hook installation (`runEditorBootstrapIfNeeded` in `mcp/src/editor-integration-dispatch.ts`) uses **auto** heuristics (`.cursor` / `CURSOR_PROJECT_DIR` for Cursor; `.claude` / `CLAUDE_PROJECT_DIR` for Claude Code) unless overridden. Override with `--aic-bootstrap-integration=<mode>` on the MCP process or `AIC_BOOTSTRAP_INTEGRATION` in the environment; the CLI flag wins over the env var, and both win over auto detection. Modes: `auto`, `none` (skip installers), `cursor`, `claude-code`, `cursor-claude-code` (run each installer when its script resolves, without requiring the corresponding detection gates).
 
-**Behaviour:**
+**CLI `init` subcommand** (`mcp/src/server.ts` when argv is `init`; `runInit` in `mcp/src/init-project.ts`):
 
-- If `aic.config.json` already exists → bootstrap merges or skips as needed; config is not overwritten. Edit `aic.config.json` directly to change settings.
-- Exit code 0 on success, 1 on `ConfigError`, 2 on internal error
-- Prints: `Created aic.config.json. Edit to customise, or run a compile to use defaults.`
+- If `aic.config.json` already exists → `ConfigError`, exit code 1 (stderr message); config is never overwritten — edit the file directly to change settings.
+- On success → exit code 0; prints: `Created aic.config.json. Edit to customise, or run a compile to use defaults.`
+- Other failures → exit code 2
 - **Integration artifact reference** (`documentation/technical/`):
   - [Cursor integration layer](technical/cursor-integration-layer.md)
   - [Claude Code integration layer](technical/claude-code-integration-layer.md)

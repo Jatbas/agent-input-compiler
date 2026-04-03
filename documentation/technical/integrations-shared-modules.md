@@ -39,7 +39,7 @@ Files in `.cursor/hooks/` that correspond to `integrations/shared/` modules:
 - `select-session-model-from-jsonl.cjs`
 - `session-model-cache.cjs`
 
-`integrations/cursor/hooks/subagent-start-model-id.cjs` is a Cursor hook script (not duplicated from `integrations/shared/`). At runtime in `.cursor/hooks/` it imports `./session-model-cache.cjs`; in the repository tree it uses `require("../../shared/session-model-cache.cjs")` and calls `normalizeModelId` only.
+`integrations/cursor/hooks/AIC-subagent-start-model-id.cjs` is a Cursor hook script (not duplicated from `integrations/shared/`). In the repository tree it uses `require("../../shared/session-model-cache.cjs")` and calls `normalizeModelId` only. The install copy under `.cursor/hooks/` rewrites that require to `./AIC-session-model-cache.cjs`.
 
 ## Claude plugin scripts
 
@@ -102,12 +102,13 @@ Each row lists files that `require("../shared/…")` or `require("../../shared/�
 | `session-markers.cjs` | `integrations/claude/hooks/aic-prompt-compile.cjs`, `integrations/claude/hooks/aic-session-start.cjs`, `integrations/claude/hooks/aic-session-end.cjs` |
 | `prompt-log.cjs` | `integrations/cursor/hooks/AIC-before-submit-prewarm.cjs`, `integrations/claude/hooks/aic-session-end.cjs` |
 | `session-log.cjs` | `integrations/cursor/hooks/AIC-session-end.cjs` |
-| `session-model-cache.cjs` | `integrations/cursor/hooks/AIC-inject-conversation-id.cjs`, `integrations/cursor/hooks/AIC-before-submit-prewarm.cjs`, `integrations/cursor/hooks/AIC-compile-context.cjs`, `integrations/cursor/hooks/AIC-subagent-compile.cjs`, `integrations/cursor/hooks/subagent-start-model-id.cjs` (imports `normalizeModelId` only), `integrations/claude/hooks/aic-inject-conversation-id.cjs`, `integrations/claude/hooks/aic-compile-helper.cjs` |
+| `session-model-cache.cjs` | `integrations/cursor/hooks/AIC-inject-conversation-id.cjs`, `integrations/cursor/hooks/AIC-before-submit-prewarm.cjs`, `integrations/cursor/hooks/AIC-compile-context.cjs`, `integrations/cursor/hooks/AIC-subagent-compile.cjs`, `integrations/cursor/hooks/AIC-subagent-start-model-id.cjs` (imports `normalizeModelId` only), `integrations/claude/hooks/aic-inject-conversation-id.cjs`, `integrations/claude/hooks/aic-compile-helper.cjs` |
 | `read-stdin-sync.cjs` | `integrations/cursor/hooks/AIC-stop-quality-check.cjs`, `integrations/cursor/hooks/AIC-after-file-edit-tracker.cjs`, `integrations/claude/hooks/aic-stop-quality-check.cjs`, `integrations/claude/hooks/aic-after-file-edit-tracker.cjs`, `integrations/claude/hooks/aic-block-no-verify.cjs` |
 | `edited-files-cache.cjs` | `integrations/cursor/hooks/AIC-stop-quality-check.cjs`, `integrations/cursor/hooks/AIC-after-file-edit-tracker.cjs`, `integrations/cursor/hooks/AIC-session-end.cjs`, `integrations/claude/hooks/aic-stop-quality-check.cjs`, `integrations/claude/hooks/aic-after-file-edit-tracker.cjs`, `integrations/claude/hooks/aic-session-end.cjs` |
 
 ## Related documentation
 
+- [Implementation specification — Model id resolution](../implementation-spec.md#model-id-resolution-aic_compile)
 - [Cursor integration layer](cursor-integration-layer.md)
 - [Claude Code integration layer](claude-code-integration-layer.md)
 - [AIC JSONL caches under `.aic/`](aic-jsonl-caches.md)

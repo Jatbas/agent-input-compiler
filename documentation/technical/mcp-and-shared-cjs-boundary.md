@@ -61,5 +61,6 @@ Node allows loading CommonJS from an ESM TypeScript bundle through `module.creat
 
 ## Related documentation
 
+- [Implementation specification — Model id resolution](../implementation-spec.md#model-id-resolution-aic_compile)
 - [AIC JSONL caches under `.aic/`](aic-jsonl-caches.md) — append, prune, and read semantics for `.aic/*.jsonl` logs.
 - [Integrations shared modules reference](integrations-shared-modules.md)

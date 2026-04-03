@@ -101,6 +101,8 @@ When run from a project directory that is not the user home, it also removes leg
 | `input.transcript_path`                   | `conversationId` (via `path.basename(transcriptPath, ".jsonl")`)                                                                                                          |
 | `input.model` (SessionStart when present) | `modelId`; SessionStart passes it; other hooks use `readSessionModelCache` on `.aic/session-models.jsonl` (written when SessionStart or other hooks record a valid model) |
 
+`readSessionModelCache` uses the same bounded tail read and deterministic full-file fallback as the MCP compile handler ([Implementation specification — Model id resolution](../implementation-spec.md#model-id-resolution-aic_compile); [AIC JSONL caches](aic-jsonl-caches.md)).
+
 **`conversationId` must always be passed** from `transcript_path` so `compilation_log` rows are attributed to the correct conversation. Claude Code includes `transcript_path` in _every_ hook input ([common input fields](https://code.claude.com/docs/en/hooks#common-input-fields)). The UUID in the transcript filename (`path.basename(transcriptPath, ".jsonl")`) uniquely identifies the conversation and is stable across all hooks in the same chat. The `aic-compile-helper` accepts and forwards it.
 
 > Note: `session_id` is per-hook-invocation and is NOT suitable for conversation attribution.
@@ -268,7 +270,7 @@ AIC uses eight of them. Known product bugs and workarounds are called out per ho
 
 **Reference:** [hooks#sessionstart](https://code.claude.com/docs/en/hooks#sessionstart)
 
-**Purpose:** Inject architectural invariants and a broad project context snapshot at the start of a session. `model` from hook input is passed as `modelId` to `aic_compile`; other hooks that call the helper resolve model id via `readSessionModelCache` on `.aic/session-models.jsonl` when SessionStart (or another hook) has recorded a valid model. Also fires on `compact` — re-injecting context after compaction is the primary reliable use case.
+**Purpose:** Inject architectural invariants and a broad project context snapshot at the start of a session. `model` from hook input is passed as `modelId` to `aic_compile`; other hooks that call the helper resolve model id via `readSessionModelCache` on `.aic/session-models.jsonl` when SessionStart (or another hook) has recorded a valid model (same JSONL read semantics as the MCP handler — [Implementation specification](../implementation-spec.md#model-id-resolution-aic_compile)). Also fires on `compact` — re-injecting context after compaction is the primary reliable use case.
 
 **Matcher values:** `startup`, `resume`, `clear`, `compact`
 ([matcher reference](https://code.claude.com/docs/en/hooks#matcher-patterns)).
