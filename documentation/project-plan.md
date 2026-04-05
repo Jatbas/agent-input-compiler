@@ -1139,7 +1139,7 @@ Intent (natural language)
 │    → token budget (formula-derived or 8,000)     │
 ├──────────────────────────────────────────────────┤
 │ 4. ContextSelector                               │
-│    HeuristicSelector (shipped) or VectorSelector     │
+│    HeuristicSelector (shipped) or VectorSelector │
 │    → ranked list of files/chunks                 │
 ├──────────────────────────────────────────────────┤
 │ 5. Context Guard                                 │
@@ -1158,11 +1158,11 @@ Intent (natural language)
 │    → context that fits within budget             │
 ├──────────────────────────────────────────────────┤
 │ 7–8. Prompt Assembler                            │
-│    Merges constraints; combines task + context     │
+│    Merges constraints; combines task + context   │
 │    → compiled prompt (`string`)                  │
 ├──────────────────────────────────────────────────┤
 │ 9. Executor (deferred in MCP-only mode)          │
-│    Would send compiled prompt to a model           │
+│    Would send compiled prompt to a model         │
 │    → not invoked by shipped `aic_compile`        │
 └──────────────────────────────────────────────────┘
   │
@@ -2489,7 +2489,7 @@ The whole-prompt cache (§10) provides instant responses for identical inputs, b
 ### 16.1 Normal Flow (Cold Cache)
 
 ```
-Editor            MCP Server       Classifier     RuleResolver       Budget        HeuristicSel    CtxGuard       Transformer       Ladder         Assembler        Model
+Editor            MCP Server         Classifier     RuleResolver       Budget        HeuristicSel    CtxGuard       Transformer       Ladder         Assembler         Model
     │                │                   │               │               │               │               │               │               │               │               │
     │── aic_compile ▶│                   │               │               │               │               │               │               │               │               │
     │  "fix auth"    │── classify ──────▶│               │               │               │               │               │               │               │               │
@@ -2509,49 +2509,49 @@ Editor            MCP Server       Classifier     RuleResolver       Budget     
     │                │── assemble ──────────────────────────────────────────────────────────────────────────────────────────────────────▶│               │               │
     │                │◀── CompiledInput (7870t) ─────────────────────────────────────────────────────────────────────────────────────────│               │               │
     │                │── execute ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────▶│               │
-    │                │◀── response ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│              │
+    │                │◀── response ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│               │
     │◀── diff ───────│                   │               │               │               │               │               │               │               │               │
 ```
 
 ### 16.2 Cache Hit Flow
 
 ```
-Editor              MCP Server       Cache
-    │                    │                │
-    │── aic_compile ────▶│                │
-    │  "fix auth"        │── lookup ─────▶│
-    │                    │  key=hash(...) │
-    │                    │◀──── HIT ──────│
-    │◀───── cached ──────│                │
-    │       output       │                │
-    │                    │ (total: <100ms)│
+Editor              MCP Server        Cache
+  │                    │                │
+  │── aic_compile ────▶│                │
+  │  "fix auth"        │── lookup ─────▶│
+  │                    │  key=hash(...) │
+  │                    │◀──── HIT ──────│
+  │◀───── cached ──────│                │
+  │       output       │                │
+  │                    │ (total: <100ms)│
 ```
 
 ### 16.3 Budget Exceeded Flow
 
 ```
-Editor            MCP Server     Selector        CtxGuard       Transformer       Ladder
-    │                │               │               │               │               │
-    │── aic_compile ▶│               │               │               │               │
-    │                │──── selectContext ───────────▶│               │               │
-    │                │◀── 20 files ──│               │               │               │
-    │                │   (25,000 tokens)             │               │               │
-    │                │── guard ─────────────────────▶│               │               │
-    │                │◀── 20 safe files ─────────────│               │               │
-    │                │── transform ─────────────────────────────────▶│               │
-    │                │◀── 20 files (21,000t) ────────────────────────│               │
-    │                │────────────── compress ──────────────────────────────────────▶│
-    │                │   budget=8000                 │               │               │
-    │                │   Compress 20→15 to L1        │               │               │
-    │                │   Compress 15→12 to L2        │               │               │
-    │                │   Compress 12→10 to L3        │               │               │
-    │                │   Drop files 10→8             │               │               │
-    │                │◀──────── 8 files (7800t) ─────────────────────────────────────│
-    │                │               │               │               │               │
-    │◀─── output ────│               │               │               │               │
-    │   + Warning:   │               │               │               │               │
-    │   "Heavy       │               │               │               │               │
-    │   "truncation" │               │               │               │               │
+Editor         MCP Server       Selector        CtxGuard       Transformer       Ladder
+  │                │               │               │               │               │
+  │── aic_compile ▶│               │               │               │               │
+  │                │──── selectContext ───────────▶│               │               │
+  │                │◀── 20 files ──│               │               │               │
+  │                │   (25,000 tokens)             │               │               │
+  │                │── guard ─────────────────────▶│               │               │
+  │                │◀── 20 safe files ─────────────│               │               │
+  │                │── transform ─────────────────────────────────▶│               │
+  │                │◀── 20 files (21,000t) ────────────────────────│               │
+  │                │────────────── compress ──────────────────────────────────────▶│
+  │                │   budget=8000                 │               │               │
+  │                │   Compress 20→15 to L1        │               │               │
+  │                │   Compress 15→12 to L2        │               │               │
+  │                │   Compress 12→10 to L3        │               │               │
+  │                │   Drop files 10→8             │               │               │
+  │                │◀──────── 8 files (7800t) ─────────────────────────────────────│
+  │                │               │               │               │               │
+  │◀─── output ────│               │               │               │               │
+  │   + Warning:   │               │               │               │               │
+  │   "Heavy       │               │               │               │               │
+  │   "truncation" │               │               │               │               │
 ```
 
 ---
