@@ -175,6 +175,17 @@ process.stdout.write(
 );
 ```
 
+#### 6.1.1 Maintenance — #17550 workaround
+
+**Last verified (Claude Code build):** _[On first merge, leave this placeholder. After each checklist run, replace with the exact version line printed by `claude --version` on the host where you ran the repro, then add a short outcome note.]_
+
+**Re-verification at each Claude Code major or minor release:**
+
+1. Start a **new** session. Reproduce the [#17550](https://github.com/anthropics/claude-code/issues/17550) failure mode by emitting `hookSpecificOutput` JSON for `UserPromptSubmit` (same shape as the AVOID example above). Run the repro from a throwaway branch with experimental hook edits so production hooks stay on plain text.
+2. If Claude Code **no longer** surfaces a "UserPromptSubmit hook error" on the first message, open a follow-up task to reassess `integrations/claude/hooks/aic-prompt-compile.cjs` and whether the dual-path marker logic remains necessary. Keep JSON `hookSpecificOutput` off the production `UserPromptSubmit` path until that follow-up lands.
+3. If the error **still** appears, keep plain-text stdout. Update **Last verified** with the exact version string tested and a one-line outcome describing that the first-message error still reproduces.
+4. **Implementation reference:** `integrations/claude/hooks/aic-prompt-compile.cjs` uses `process.stdout.write` for hook output and `isSessionAlreadyInjected` from `integrations/shared/session-markers.cjs` for the SessionStart fallback (§7.2).
+
 ### 6.2 SessionStart — use `hookSpecificOutput` JSON
 
 For `SessionStart`, the [official docs](https://code.claude.com/docs/en/hooks#sessionstart-decision-control) only document the `hookSpecificOutput` format for `additionalContext` injection. There is no plain text path specified for this event. Use the documented format:
