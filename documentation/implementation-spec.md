@@ -265,17 +265,19 @@ See [Project Plan §3.1](project-plan.md) for the full annotated rule pack examp
 
 ### Step 3: Budget Allocator
 
-**Input:** Config + RulePack + request overrides
+**Input:** `BudgetConfig` (from resolved `aic.config.json`), resolved `RulePack`, and optional `SessionBudgetContext` (`shared/src/core/types/session-budget-context.ts` — optional `conversationTokens` only).
 
-**Resolution order (highest priority first):**
+**Session budget context:** Built in `deriveSessionContext` (`shared/src/core/run-pipeline-steps.ts`). If `PipelineStepsRequest.conversationTokens` is set, it becomes `SessionBudgetContext.conversationTokens`. Otherwise, when both `sessionId` is set and `agenticSessionState` is available, the context uses the sum of `tokensCompiled` over all steps returned by `getSteps(sessionId)`. If neither path applies, session context is omitted and no session clamp runs.
+
+**Resolution order for the base budget (highest priority first):**
 
 1. `budgetOverride` in resolved RulePack (if present)
-2. `contextBudget.perTaskClass[taskClass]` in config
-3. `contextBudget.maxTokens` in config
-4. Formula-derived `suggestedBudget` from model profile (see [Model-Specific Budget Profiles](#model-specific-budget-profiles)), when that path applies
-5. Hard-coded default: 8,000 tokens
+2. `contextBudget.perTaskClass[taskClass]` in config (if present for that task class)
+3. `contextBudget.maxTokens` in config (default **8,000** when the field is omitted — `shared/src/config/load-config-from-file.ts`, `shared/src/core/types/resolved-config.ts`)
 
-When `conversationTokens` is set on the request, `BudgetAllocator.allocate` may clamp the resolved budget against remaining context window (see `shared/src/pipeline/budget-allocator.ts`).
+The shipped config schema and `BudgetAllocator` do not apply a model-profile or `windowRatio` branch; the base budget comes only from the rule pack and those config keys. Roadmap for formula-derived budgets: [Project Plan §2.7](project-plan.md#27-agentic-workflow-support) and [Planned model-derived budgets](#planned-model-derived-budgets).
+
+**Session clamp:** When `sessionContext.conversationTokens` is defined, `BudgetAllocator.allocate` returns the lesser of the base budget and `max(0, 128_000 − 4_000 − conversationTokens − 500)`, using the fixed literals `CONTEXT_WINDOW_DEFAULT`, `RESERVED_RESPONSE_DEFAULT`, and `TEMPLATE_OVERHEAD_DEFAULT` in `shared/src/pipeline/budget-allocator.ts`. When session context is omitted, the allocated budget is the base budget unchanged.
 
 **Output:** `budget: TokenCount` (in tokens, counted via **tiktoken cl100k_base**)
 
@@ -630,21 +632,22 @@ Maximum retries: **1**. No exponential backoff in the shipped implementation (ma
 
 ### Model Context Window Guard
 
-The context budget is separate from the model's own context window. AIC enforces both:
+The **context budget** (`contextBudget.maxTokens`, rule-pack `budgetOverride`, and optional per-task-class overrides) caps how many tokens AIC may spend on selected repository context before summarisation. Separately, when `SessionBudgetContext.conversationTokens` is present, Step 3 applies the **session clamp** (fixed `128_000` / `4_000` / `500` literals in `shared/src/pipeline/budget-allocator.ts`) so long conversations leave headroom for the model beyond the compiled payload.
+
+Illustrative decomposition (numbers match the session-clamp literals; they are not additional `aic.config.json` fields):
 
 ```
-model_max_tokens (from provider)     e.g., 128,000
-  └─ reserved for response           e.g.,   4,000  (configurable)
-  └─ = available_for_prompt          e.g., 124,000
-      └─ prompt overhead (template)   e.g.,     500
-      └─ constraints block            e.g.,     200
-      └─ = max_allowed_context        e.g., 123,300
-          └─ context_budget (user)    e.g.,   8,000  ← AIC enforces this
+cap used in session clamp (fixed in code)     128,000
+  └─ reserved slice (fixed)                     4,000
+  └─ template overhead (fixed)                    500
+  └─ conversation already counted               = conversationTokens (wire or derived)
+  └─ remaining headroom before clamp            = max(0, 128_000 − 4_000 − 500 − conversationTokens)
+      └─ base context budget (config / rule pack) e.g. 8,000  ← AIC allocates min(base, remaining headroom)
 ```
 
-- `context_budget > max_allowed_context` → clamp + warn
-- `compiled_prompt > model_max_tokens` → fatal error with suggestion
-- Default `reserved_for_response`: 4,000 tokens (configurable via `model.reservedResponseTokens`)
+Shipped `aic.config.json` validation (`shared/src/config/load-config-from-file.ts`) includes `contextBudget.maxTokens`, optional `contextBudget.perTaskClass`, and optional `model.id` only — not per-provider window sizes, `model.reservedResponseTokens`, or `windowRatio` for Step 3.
+
+`BudgetExceededError` exists in `shared/src/core/errors/budget-exceeded-error.ts` but is not thrown from the shipped compilation pipeline (no `new BudgetExceededError` in compilation paths).
 
 ---
 
@@ -790,42 +793,11 @@ Returns the most recent compilation as JSON. Surfaced to the user via the "show 
 
 ---
 
-### Model-Specific Budget Profiles
+### Planned model-derived budgets
 
-AIC auto-detects the model from the editor's MCP request and derives an optimal budget from the model's context window. No user configuration required.
+> **Not implemented in shipped TypeScript.** Formula-derived budgets (`maxContextWindow × windowRatio`, floors/ceilings), Ollama `num_ctx` probing, utilization-based auto-tuning, and automated `windowRatio` recommendations are described as roadmap in [Project Plan §2.7](project-plan.md#27-agentic-workflow-support). They are not present in `shared/src/pipeline/budget-allocator.ts` or `shared/src/config/load-config-from-file.ts`.
 
-**Budget derivation formula:**
-
-```
-suggestedBudget = clamp(maxContextWindow × windowRatio, floor, ceiling)
-```
-
-- `windowRatio`: default `0.08` (8% of context window). Configurable via `contextBudget.windowRatio` in `aic.config.json`.
-- `floor`: 4,000 tokens. Below this, context is too compressed to be useful.
-- `ceiling`: 16,000 tokens. Above this, "Lost in the Middle" effects degrade model attention — research confirms models struggle with information buried in long contexts, and focused context outperforms a stuffed window.
-
-**Design principle:** Budget profiles derive from the model's context window size via formula — never hard-coded per model. When a new model ships with a larger context window, its budget scales automatically without code changes. The `windowRatio` is the single tuning knob: lower values produce more focused context (less noise, risk of missing relevant files), higher values include more context (better coverage, risk of attention degradation).
-
-| Model family                    | `maxContextWindow` | `windowRatio` | Derived `suggestedBudget` | `reservedForResponse` |
-| ------------------------------- | ------------------ | ------------- | ------------------------- | --------------------- |
-| OpenAI (GPT-4o, GPT-o3)         | 128,000            | 0.08          | 10,240                    | 4,000                 |
-| Claude Sonnet                   | 200,000            | 0.08          | 16,000 (ceiling)          | 4,000                 |
-| Claude Opus                     | 200,000            | 0.08          | 16,000 (ceiling)          | 4,000                 |
-| Ollama (Llama 3+)               | 128,000            | 0.03          | 4,000 (floor)             | 2,000                 |
-| Ollama (legacy / unknown model) | 8,192              | 0.03          | 4,000 (floor)             | 1,000                 |
-| Generic / unknown               | —                  | —             | 8,000 (hard-coded)        | 4,000                 |
-
-> **Ollama context window note:** Most modern Ollama models (Llama 3, Mistral, Gemma 2, etc.) support 128K+ context windows. AIC queries the Ollama `/api/show` endpoint at startup to read the model's actual `num_ctx` parameter. If the endpoint is unreachable or the model is unrecognised, the conservative 8,192 fallback is used. Ollama models use a lower `windowRatio` (0.03) because local models benefit from smaller, more focused context.
-
-> **Budget utilization feedback.** The `aic_status` tool includes `budgetMaxTokens` and `budgetUtilizationPct` so the model and user can see how much of the budget is being used. This leverages data already collected in `compilation_log`; no new schema required.
-
-> **Auto-tuning.** The Adaptive Budget Allocator ([Project Plan §2.7](project-plan.md#27-agentic-workflow-support)) learns the optimal budget per project/model/task-class from compilation history and adjusts automatically — no manual tuning needed.
-
-**Resolution order:** `budgetOverride` in rule pack > `contextBudget.perTaskClass` > `contextBudget.maxTokens` > formula-derived `suggestedBudget` from model profile > hard-coded 8,000 (then clamp when session conversation token counts are present).
-
-The formula-derived `suggestedBudget` slots in just above the hard-coded default — it is a smarter fallback, not a mandatory cap. Any explicit user configuration always wins. Users can also override `windowRatio` globally to tune the aggressiveness of the formula for their workflow.
-
-**`maxContextWindow` and `reservedForResponse`** are used by the [Model Context Window Guard](#model-context-window-guard). They replace the generic 128,000 / 4,000 defaults when the model is auto-detected.
+**Shipped utilization surface:** The `aic_status` tool returns `budgetMaxTokens` and `budgetUtilizationPct` using the configured budget ceiling and the last row in `compilation_log` (see [§4c — `aic_status`](#aic_status-mcp-tool)).
 
 ---
 
@@ -998,7 +970,7 @@ These are product **targets**, not hard runtime guarantees; they are tracked via
 
 Beyond the whole-prompt cache (cache-hit target <100ms), per-file incremental processing makes cache misses fast too:
 
-- **File system scan:** Cached RepoMap with `fs.watch` — subsequent `getRepoMap()` returns ~0ms instead of rescanning all files. Prerequisite stages: fast-glob `stats: true` (eliminate double-stat), async parallel I/O (unblock event loop).
+- **File system scan:** Cached RepoMap with `fs.watch` — subsequent `getRepoMap()` returns ~0ms instead of rescanning all files. Uses async fast-glob with `stats: true` (bundled stats per entry; no second full-tree stat pass) and in-process cache in `WatchingRepoMapSupplier`.
 - **Per-file transformation cache:** `SqliteFileTransformStore` keyed by `(file_path, content_hash)` — `ContentTransformerPipeline` and `SummarisationLadder` skip unchanged files entirely. On typical recompiles (1–3 files changed), 95%+ of CPU work (tree-sitter parsing, transformer chains, tokenizer calls) is eliminated.
 - **Targets:** After first compilation, intent-change-only recompiles (no file edits) complete in <500ms for repos <1,000 files. Recompiles with 1–3 file edits complete in <1s.
 
@@ -1058,13 +1030,13 @@ This section summarizes the test deliverables that ship with the scope described
 
 ### Integration Tests
 
-| Scenario                   | What is validated                                                           |
-| -------------------------- | --------------------------------------------------------------------------- |
-| Full pipeline (cold cache) | Intent → compiled output matches golden snapshot                            |
-| Full pipeline (cache hit)  | Second run returns identical output in <100ms                               |
-| Config variations          | Empty config, partial config, invalid config all produce expected behaviour |
-| Multi-project isolation    | Two projects in same test run share no state                                |
-| Model context window guard | Prompt never exceeds model max; oversized budget clamped with warning       |
+| Scenario                   | What is validated                                                                                                                 |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Full pipeline (cold cache) | Intent → compiled output matches golden snapshot                                                                                  |
+| Full pipeline (cache hit)  | Second run returns identical output in <100ms                                                                                     |
+| Config variations          | Empty config, partial config, invalid config all produce expected behaviour                                                       |
+| Multi-project isolation    | Two projects in same test run share no state                                                                                      |
+| Session budget clamp       | When `conversationTokens` is present (wire or derived), allocated budget respects fixed 128k/4k/500 math in `budget-allocator.ts` |
 
 ### Benchmark suite — CI regression gate
 

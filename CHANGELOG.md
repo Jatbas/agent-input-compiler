@@ -333,7 +333,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Adaptive budget allocation from session history
 - Context quality improvements: symbol-level intent matching, reverse dependency scoring, structural project map, chunk-level file inclusion, per-task-class scoring weights
 - Granular file-level transformation cache and cached RepoMap with file watcher for faster recompilation
-- Compilation scan performance improvements: async parallel I/O and single-stat file discovery
+- Compilation scan performance improvements: non-blocking async repo scan with fast-glob bundled stats (no extra full-tree stat pass) and in-memory cached RepoMap
 - Research-backed prompt assembly: constraints preamble to mitigate lost-in-the-middle, line-level pruner, context-completeness signal
 - Command-injection and markdown instruction guard scanners
 - Block- and line-level benchmark annotations and per-task-class precision/recall metrics
