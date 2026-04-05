@@ -13,7 +13,7 @@ import {
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toStepIndex, toTokenCount } from "@jatbas/aic-core/core/types/units.js";
-import { INCLUSION_TIER } from "@jatbas/aic-core/core/types/enums.js";
+import { INCLUSION_TIER, type InclusionTier } from "@jatbas/aic-core/core/types/enums.js";
 import { migration } from "../migrations/001-consolidated-schema.js";
 import { SqliteAgenticSessionStore } from "../sqlite-agentic-session-store.js";
 
@@ -185,6 +185,46 @@ describe("SqliteAgenticSessionStore", () => {
     const parsed = JSON.parse(row0.steps_json) as unknown[];
     expect(Array.isArray(parsed)).toBe(true);
     expect(parsed.length).toBe(1);
+  });
+
+  it("getPreviouslyShownFiles_last_wins_with_many_paths", () => {
+    const store = setup();
+    const sessionId = toSessionId("s-last-wins");
+    const paths = Array.from({ length: 8 }, (_, i) => toRelativePath(`src/f-${i}.ts`));
+    const tiersL0: Readonly<Record<string, InclusionTier>> = Object.fromEntries(
+      paths.map((p): [string, InclusionTier] => [p, INCLUSION_TIER.L0]),
+    );
+    const tiersL1: Readonly<Record<string, InclusionTier>> = Object.fromEntries(
+      paths.map((p): [string, InclusionTier] => [p, INCLUSION_TIER.L1]),
+    );
+    const reversedFiles = paths.toReversed();
+    store.recordStep(
+      sessionId,
+      makeStep({
+        stepIndex: toStepIndex(0),
+        filesSelected: paths,
+        tiers: tiersL0,
+        completedAt: toISOTimestamp("2026-01-01T10:00:00.000Z"),
+      }),
+    );
+    store.recordStep(
+      sessionId,
+      makeStep({
+        stepIndex: toStepIndex(1),
+        filesSelected: reversedFiles,
+        tiers: tiersL1,
+        completedAt: toISOTimestamp("2026-01-01T11:00:00.000Z"),
+      }),
+    );
+    const result = store.getPreviouslyShownFiles(sessionId, undefined);
+    expect(result.length).toBe(8);
+    for (const p of paths) {
+      const row = result.find((r) => r.path === p);
+      expect(row).toBeDefined();
+      expect(row?.lastStepIndex).toBe(toStepIndex(1));
+      expect(row?.lastTier).toBe(INCLUSION_TIER.L1);
+      expect(row?.modifiedSince).toBe(true);
+    }
   });
 
   it("sqlite_agentic_session_store_steps_and_record", () => {

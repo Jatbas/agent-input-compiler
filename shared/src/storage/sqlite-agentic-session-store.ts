@@ -144,29 +144,23 @@ export class SqliteAgenticSessionStore implements AgenticSessionState {
       readonly lastTier: InclusionTier;
       readonly completedAt: ISOTimestamp;
     };
-    const byPath = steps.reduce<Record<string, PathInfo>>((acc, step) => {
+    const pairs = steps.flatMap((step): [string, PathInfo][] => {
       const stepIdx = Number(step.stepIndex);
       const info: PathInfo = {
         lastStepIndex: stepIdx,
         lastTier: INCLUSION_TIER.L0,
         completedAt: step.completedAt,
       };
-      const fromTiers = Object.entries(step.tiers).reduce<Record<string, PathInfo>>(
-        (m, [path, tier]) => ({ ...m, [path]: { ...info, lastTier: tier } }),
-        {},
+      const tierPairs = Object.entries(step.tiers).map(
+        ([path, tier]): [string, PathInfo] => [path, { ...info, lastTier: tier }],
       );
-      const fromFiles = step.filesSelected.reduce<Record<string, PathInfo>>(
-        (m, p) => ({
-          ...m,
-          [p]: {
-            ...info,
-            lastTier: step.tiers[p] ?? INCLUSION_TIER.L0,
-          },
-        }),
-        {},
-      );
-      return { ...acc, ...fromTiers, ...fromFiles };
-    }, {});
+      const filePairs = step.filesSelected.map((p): [string, PathInfo] => [
+        p,
+        { ...info, lastTier: step.tiers[p] ?? INCLUSION_TIER.L0 },
+      ]);
+      return [...tierPairs, ...filePairs];
+    });
+    const byPath = Object.fromEntries(pairs) as Record<string, PathInfo>;
     const paths = Object.keys(byPath);
     return paths.map((pathStr): PreviousFile => {
       const info = byPath[pathStr];

@@ -9,17 +9,18 @@ import type {
 } from "@jatbas/aic-core/core/run-pipeline-steps.js";
 import type { TaskClassification } from "@jatbas/aic-core/core/types/task-classification.js";
 import type { RulePack } from "@jatbas/aic-core/core/types/rule-pack.js";
-import type { RepoMap } from "@jatbas/aic-core/core/types/repo-map.js";
+import type { FileEntry, RepoMap } from "@jatbas/aic-core/core/types/repo-map.js";
 import type { ContextResult } from "@jatbas/aic-core/core/types/selected-file.js";
 import type { GuardResult } from "@jatbas/aic-core/core/types/guard-types.js";
 import type { TransformResult } from "@jatbas/aic-core/core/types/transform-types.js";
 import type { AgenticSessionState } from "@jatbas/aic-core/core/interfaces/agentic-session-state.interface.js";
 import type { SessionStep } from "@jatbas/aic-core/core/types/session-dedup-types.js";
-import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
-import { toTokenCount, toStepIndex } from "@jatbas/aic-core/core/types/units.js";
+import type { SelectedFile } from "@jatbas/aic-core/core/types/selected-file.js";
+import { toAbsolutePath, toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toTokenCount, toStepIndex, toBytes } from "@jatbas/aic-core/core/types/units.js";
 import { toSessionId, toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
-import { TASK_CLASS } from "@jatbas/aic-core/core/types/enums.js";
-import { toConfidence } from "@jatbas/aic-core/core/types/scores.js";
+import { INCLUSION_TIER, TASK_CLASS } from "@jatbas/aic-core/core/types/enums.js";
+import { toConfidence, toRelevanceScore } from "@jatbas/aic-core/core/types/scores.js";
 
 const PROJECT_ROOT = toAbsolutePath("/tmp/proj");
 
@@ -293,5 +294,97 @@ describe("runPipelineSteps", () => {
     await runPipelineSteps(deps, request);
     expect(compressSpy).toHaveBeenCalledTimes(1);
     expect(compressSpy).toHaveBeenCalledWith(fiveSteps);
+  });
+
+  it("fileLastModified_matches_repoMap_at_scale", async () => {
+    const files: readonly FileEntry[] = Array.from({ length: 64 }, (_, i) => ({
+      path: toRelativePath(`src/scale-${i}.ts`),
+      language: "typescript",
+      sizeBytes: toBytes(10),
+      estimatedTokens: toTokenCount(1),
+      lastModified: toISOTimestamp(`2026-01-01T00:00:00.${String(i).padStart(3, "0")}Z`),
+    }));
+    const largeRepoMap: RepoMap = {
+      root: PROJECT_ROOT,
+      files,
+      totalFiles: 64,
+      totalTokens: toTokenCount(64),
+    };
+    const getPreviouslyShownFiles = vi.fn().mockReturnValue([]);
+    const agenticSessionState: AgenticSessionState = {
+      getPreviouslyShownFiles,
+      getSteps: vi.fn().mockReturnValue([]),
+      recordStep: vi.fn(),
+    };
+    const deps = createDeps({ agenticSessionState });
+    deps.repoMapSupplier.getRepoMap = vi.fn().mockResolvedValue(largeRepoMap);
+    deps.intentAwareFileDiscoverer.discover = vi
+      .fn()
+      .mockImplementation((m: RepoMap) => m);
+    const request: PipelineStepsRequest = {
+      intent: "fix bug",
+      projectRoot: PROJECT_ROOT,
+      sessionId: toSessionId("00000000-0000-7000-8000-000000000020"),
+    };
+    await runPipelineSteps(deps, request);
+    expect(getPreviouslyShownFiles).toHaveBeenCalled();
+    const firstCall = getPreviouslyShownFiles.mock.calls[0];
+    expect(firstCall).toBeDefined();
+    const fileLastModifiedArg = firstCall?.[1];
+    expect(fileLastModifiedArg).toEqual(
+      Object.fromEntries(files.map((f) => [f.path, f.lastModified])),
+    );
+  });
+
+  it("agentic_dedup_preserves_previouslyShownAtStep_when_not_modified", async () => {
+    const paths = Array.from({ length: 8 }, (_, i) =>
+      toRelativePath(`src/dedup-${i}.ts`),
+    );
+    const previous = paths.map((path, i) => ({
+      path,
+      lastTier: INCLUSION_TIER.L0,
+      lastStepIndex: toStepIndex(i + 1),
+      modifiedSince: false,
+    }));
+    const getPreviouslyShownFiles = vi.fn().mockReturnValue(previous);
+    const agenticSessionState: AgenticSessionState = {
+      getPreviouslyShownFiles,
+      getSteps: vi.fn().mockReturnValue([]),
+      recordStep: vi.fn(),
+    };
+    const selectedFromContext: readonly SelectedFile[] = paths.map((path) => ({
+      path,
+      language: "typescript",
+      estimatedTokens: toTokenCount(10),
+      relevanceScore: toRelevanceScore(0.5),
+      tier: INCLUSION_TIER.L1,
+    }));
+    const scanSpy = vi.fn().mockResolvedValue({
+      result: minimalGuardResult(),
+      safeFiles: [],
+    });
+    const deps = createDeps({ agenticSessionState });
+    deps.contextSelector.selectContext = vi.fn().mockResolvedValue({
+      files: selectedFromContext,
+      totalTokens: toTokenCount(80),
+      truncated: false,
+    });
+    deps.contextGuard.scan = scanSpy;
+    const request: PipelineStepsRequest = {
+      intent: "fix bug",
+      projectRoot: PROJECT_ROOT,
+      sessionId: toSessionId("00000000-0000-7000-8000-000000000021"),
+    };
+    await runPipelineSteps(deps, request);
+    expect(scanSpy).toHaveBeenCalled();
+    const scanned = scanSpy.mock.calls[0]?.[0] as readonly SelectedFile[] | undefined;
+    expect(scanned).toBeDefined();
+    for (const path of paths) {
+      const file = scanned?.find((f) => f.path === path);
+      const prev = previous.find((p) => p.path === path);
+      expect(file).toBeDefined();
+      expect(prev).toBeDefined();
+      expect(file?.previouslyShownAtStep).toBe(prev?.lastStepIndex);
+    }
   });
 });

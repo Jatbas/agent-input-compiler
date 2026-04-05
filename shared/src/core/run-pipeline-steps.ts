@@ -141,9 +141,8 @@ export async function runPipelineSteps(
     budget,
     rulePack,
   );
-  const fileLastModified = repoMap.files.reduce<Record<string, ISOTimestamp>>(
-    (acc, f) => ({ ...acc, [f.path]: f.lastModified }),
-    {},
+  const fileLastModified: Record<string, ISOTimestamp> = Object.fromEntries(
+    repoMap.files.map((f): [string, ISOTimestamp] => [f.path, f.lastModified]),
   );
   const selectedFilesAfterDedup =
     request.sessionId && deps.agenticSessionState
@@ -152,9 +151,8 @@ export async function runPipelineSteps(
             request.sessionId,
             fileLastModified,
           );
-          const byPath = previous.reduce<Readonly<Record<string, PreviousFile>>>(
-            (acc, p) => ({ ...acc, [p.path]: p }),
-            {},
+          const byPath: Readonly<Record<string, PreviousFile>> = Object.fromEntries(
+            previous.map((p): [string, PreviousFile] => [p.path, p]),
           );
           return contextResult.files.map((f) => {
             const prev = byPath[f.path];

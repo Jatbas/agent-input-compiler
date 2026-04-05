@@ -22,14 +22,15 @@ export function sumTransformTokens(
 export function buildSummarisationTiers(
   files: readonly SelectedFile[],
 ): Readonly<Record<InclusionTier, number>> {
-  const initial: Record<InclusionTier, number> = {
-    [INCLUSION_TIER.L0]: 0,
-    [INCLUSION_TIER.L1]: 0,
-    [INCLUSION_TIER.L2]: 0,
-    [INCLUSION_TIER.L3]: 0,
-  };
-  return files.reduce(
-    (acc, f) => ({ ...acc, [f.tier]: acc[f.tier] + 1 }),
-    initial,
-  ) as Readonly<Record<InclusionTier, number>>;
+  const tiers: readonly InclusionTier[] = [
+    INCLUSION_TIER.L0,
+    INCLUSION_TIER.L1,
+    INCLUSION_TIER.L2,
+    INCLUSION_TIER.L3,
+  ];
+  const entries = tiers.map((tier): [InclusionTier, number] => [
+    tier,
+    files.reduce((n, f) => (f.tier === tier ? n + 1 : n), 0),
+  ]);
+  return Object.fromEntries(entries) as Readonly<Record<InclusionTier, number>>;
 }

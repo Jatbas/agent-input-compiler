@@ -256,9 +256,8 @@ export class SqliteStatusStore implements StatusStore, GlobalStatusQueries {
       type: string;
       cnt: number;
     }[];
-    const guardByType = guardRows.reduce<Record<string, number>>(
-      (acc, row) => ({ ...acc, [row.type]: row.cnt }),
-      {},
+    const guardByType = Object.fromEntries(
+      guardRows.map((row): [string, number] => [row.type, row.cnt]),
     );
     const topRows = this.db
       .prepare(
