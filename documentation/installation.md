@@ -237,6 +237,8 @@ Hooks run as Claude Code spawns them — they are independent processes, not par
 
 See [Claude Code integration layer](technical/claude-code-integration-layer.md) for how hooks are packaged and delivered in each path.
 
+For how hook-spawned helper calls relate to Claude Code's registered `aic` MCP server and tool-result size limits, see [§4.1 — Why no AIC core changes are needed](technical/claude-code-integration-layer.md#41-why-no-aic-core-changes-are-needed).
+
 ### Update Notifications
 
 AIC checks for newer published versions during compilation. When a newer version is available, the `aic_compile` response includes an `updateMessage` that the model surfaces to the user in the chat. This works identically to the Cursor update notification — no additional setup is needed.

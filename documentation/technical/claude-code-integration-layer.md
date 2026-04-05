@@ -82,6 +82,13 @@ mcp/src/server.ts → CompilationRunner.run()
 Claude Code runtime → injects as context
 ```
 
+> **Two transports to the same server**
+>
+> The diagram above shows the hook-driven path end-to-end. The same `mcp/src/server.ts` pipeline and `aic_compile` tool also appear when **Claude Code's registered MCP client** invokes the tool; **caller, framing, and host limits differ**:
+>
+> 1. **Hook-driven path (context hooks):** Hooks invoke `aic-compile-helper.cjs`, which **spawns** a short-lived server process and exchanges MCP-style JSON-RPC over that process's **stdio** (`initialize`, `notifications/initialized`, `tools/call` for `aic_compile` — see `integrations/claude/hooks/aic-compile-helper.cjs`). The registered MCP client is **not** on this path; only the hook-spawned child performs JSON-RPC to the server.
+> 2. **Registered MCP tool path:** When tool execution uses the **`aic`** MCP server from `~/.claude/settings.json` (see §10), **`aic_compile`** runs through Claude Code's MCP client with normal tool-result handling. **Host-level result-size limits apply.** From **Claude Code 2.1.91**, large tool results may declare `_meta["anthropic/maxResultSizeChars"]` (up to **500,000** characters) on the tool result; that applies to **registered MCP tool results**, not to the hook-driven pipe in item 1. See the [Claude Code changelog](https://docs.anthropic.com/en/docs/claude-code/changelog) (v2.1.91 notes) and [anthropics/claude-code#42869](https://github.com/anthropics/claude-code/issues/42869) for `_meta` context where official MCP docs lag.
+
 ### 4.2 Where the adapter lives
 
 The adapter (`aic-compile-helper.cjs`) and all event hooks are **authored** in
@@ -477,15 +484,19 @@ JSON.stringify({
     arguments: {
       intent,
       projectRoot,
+      editorId,
       ...(conversationId ? { conversationId } : {}),
+      // optional: triggerSource, modelId (hook args and helper-side model resolution)
     },
   },
 });
 ```
 
+The snippet omits the outer `jsonrpc` / `id` envelope; the helper always supplies `editorId` via `detectEditorId()` in the same file.
+
 Without `conversationId`, `compilation_log` rows from Claude Code hooks have null `conversation_id`, and `aic_chat_summary` cannot aggregate them. The `session_id` field is per-hook-invocation and must NOT be used for conversation attribution.
 
-**Cold start:** Each hook invocation spawns a new Node process and runs `npx tsx` to compile TypeScript before executing. On a cold filesystem cache this is ~500–1500ms. The 30-second hook timeout provides ample headroom, but §11 describes the HTTP hook path that eliminates the overhead entirely.
+**Cold start:** Each hook invocation spawns a new process. Resolution order in `integrations/claude/hooks/aic-compile-helper.cjs`: when `mcp/src/server.ts` and `shared/package.json` both exist, the helper runs `sh -c` with `pnpm --filter @jatbas/aic-core build` (stderr to the shell's stderr) then `npx tsx` on `mcp/src/server.ts`. When only `mcp/src/server.ts` exists, it runs `npx` with arguments `tsx` and that path. Otherwise it runs `npx` with `@jatbas/aic` (published package). On a cold filesystem cache the dev-oriented path is often ~500–1500ms before the first response. §10 hook entries use **30s**; the helper uses **25s** only when `timeoutMs` is omitted — shipped compile hooks pass **30s**, so runtime matches §10. For hook-spawned stdio versus Claude Code's registered MCP client, see §4.1 **Two transports to the same server**. §11 describes the HTTP hook path that avoids per-invocation spawn cost.
 
 ---
 

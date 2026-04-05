@@ -102,6 +102,8 @@ Editors with hook support run the integration layer: see [Cursor integration lay
 
 **MCP** (Model Context Protocol) is the primary interface when the model runs inside an editor: the client and server exchange JSON-RPC messages over stdio. The same published entrypoint (`server.js`) also implements four read-only **CLI** subcommands (`status`, `last`, `chat-summary`, `projects`) that print formatted tables to stdout and exit; see [§8b](#8b-mcp-server-startup-sequence) and [installation.md — CLI Standalone Usage](installation.md#cli-standalone-usage).
 
+On Claude Code, lifecycle hooks use `aic-compile-helper.cjs`, which spawns a short-lived server subprocess and exchanges JSON-RPC over **that** process's stdio; the editor's registered `aic` MCP server uses the normal client tool path with different framing and host tool-result limits — see [Claude Code integration layer §4.1](technical/claude-code-integration-layer.md#41-why-no-aic-core-changes-are-needed).
+
 | Interface                                         | Purpose                                                                                                                                                                                    |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `aic_compile` (MCP tool)                          | Compile intent into context; returns JSON the model consumes (`compiledPrompt`, `meta`, and companion fields — [§4 Handler / MCP response shape](#4-core-pipeline--implementation-detail)) |
