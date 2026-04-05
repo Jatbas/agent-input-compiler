@@ -176,8 +176,8 @@ AC. **FILE CONVENTION CONSISTENCY (mandatory — "Modify" rows adding code):** S
 
 After C.5 passes 100%, spawn a `generalPurpose` subagent with:
 
-1. **Role:** "Independent task-file reviewer. No prior context. Find factual errors by cross-checking against source files."
-2. **Inputs:** Task file path + every referenced source file path (interfaces, types, migrations, `.d.ts`, modified files).
+1. **Role:** "Independent task-file reviewer. No prior context. Find factual errors by cross-checking against source files and the exploration report."
+2. **Inputs:** Task file path + every referenced source file path (interfaces, types, migrations, `.d.ts`, modified files) + the Exploration Report (as a read-only appendix for evidence comparison — the reviewer checks task claims against this primary evidence but does not anchor on exploration framing).
 3. **Checks** (report FOUND/NOT_FOUND, MATCH/MISMATCH, COMPATIBLE/INVALIDATED):
    - API calls: extract `.methodName(`/`new ClassName(` → Grep interface/`.d.ts`
    - SQL columns: verify against migration `CREATE TABLE`
@@ -191,6 +191,7 @@ After C.5 passes 100%, spawn a `generalPurpose` subagent with:
    - Test impact completeness: invalidated tests → in Files table
    - Caller chain completeness: chain files → in Files table
    - Copy target audit, binding reuse, behavior change completeness, doc impact completeness
+   - **Synthesis-vs-exploration check:** Compare each Step and Architecture Note against the Exploration Report. Flag: steps that overstate exploration evidence (e.g., exploration said "uncertain" but step treats as established), steps that omit explored edge cases or caveats, and facts referenced in steps that do not appear in the exploration report.
 4. **Output:** Structured findings list. Summary: "PASS — all N confirmed" or "FAIL — M of N errors" with specifics.
 
 **FAIL:** Fix root cause, re-run corresponding C.5 check, re-spawn. Do NOT proceed until PASS.
@@ -221,6 +222,16 @@ Spawn a `generalPurpose` subagent with task file path, project root, `.cursor/ru
 **When triggered:** Spawn `generalPurpose` subagent with component goal, project root, `project-plan.md`, `implementation-spec.md`, `AIC-architect.mdc`. Instruction: "Independent planner — derive Files table from goal and codebase. Do NOT read existing task files."
 
 **Compare:** Both lists = confirmed. Shadow-only = investigate (genuine miss → add). Planner-only = verify justification. Re-run C.5 for changes. No discrepancies → C.6.
+
+## C.5e Handoff accounting
+
+After each verification stage completes (C.5b, C.5c, C.5d), produce a one-line structured summary before proceeding:
+
+- "C.5b: [N] findings ([M] MISMATCH, [K] NOT_FOUND, [J] INVALIDATED). Synthesis-vs-exploration issues: [count]."
+- "C.5c: [N] findings ([M] dependency, [K] convention). Overlap with C.5b: [count] shared root causes."
+- "C.5d: [N] discrepancies ([M] shadow-only, [K] planner-only). [J] confirmed."
+
+If C.5b and C.5c both flag the same file or interface, note the overlap — shared findings have higher confidence than single-stage findings.
 
 ## C.6 Score and act
 

@@ -421,7 +421,7 @@ When the same concept appears in multiple documents, use the SAME term everywher
 
 ### Status alignment
 
-If a document claims a component's status (Done, In Progress, Not started), it must match `documentation/tasks/progress/mvp-progress.md` (main workspace only — gitignored). The progress file is the single source of truth for status. If a discrepancy is found, the progress file wins.
+If a document claims a component's status (Done, In Progress, Not started), it must match `documentation/tasks/progress/aic-progress.md` (main workspace only — gitignored). The progress file is the single source of truth for status. If a discrepancy is found, the progress file wins.
 
 ### Architecture claim alignment
 
@@ -512,7 +512,7 @@ These dimensions are run during Phase 4 (direct invocation) or by the executor's
 | 6   | No regressions                  | `git diff` — verify only intended sections changed                               | Yes               |
 | 7   | ToC-body structure match        | Parse ToC and body headings. Verify every entry matches.                         | Yes               |
 | 8   | Scope-adjacent consistency      | Grep full document for key concepts from edited sections                         | Informational     |
-| 9   | Pre-existing issue scan         | Grep for GAP, TODO, FIXME, stale phase references                                | Informational     |
+| 9   | Pre-existing issue scan         | Grep for GAP, TODO, FIXME, stale phase headings (regex in Dimension 9 detail)    | Informational     |
 | 10  | Content format compliance       | Tables for 3+ definitions, ToC entries for new sections, section placement logic | Yes               |
 | 11  | Cross-doc term ripple           | Grep all sibling docs for old terms that were replaced                           | Blocking in scope |
 | 12  | Intra-document consistency      | Grep full document for same-mechanism descriptions, verify agreement             | Yes               |
@@ -536,7 +536,7 @@ These dimensions are run during Phase 4 (direct invocation) or by the executor's
 
 **Dimension 8 — Scope-adjacent consistency:** For every key concept in the edited sections (package names, commands, component names), grep the FULL document for other occurrences. Verify they are consistent with the edited text. Report: `[concept] — [location] — CONSISTENT / STALE / CONTRADICTED`.
 
-**Dimension 9 — Pre-existing issue scan:** Grep the full document for: "GAP", "TODO", "FIXME", "will be added", "future task", task references ("task [0-9]+", "task [A-Z][0-9]+", "as per task", "implemented in task", "this task adds") (cross-reference against `documentation/tasks/progress/mvp-progress.md` in main workspace). Also grep for "Phase [A-Z0-9]" — **but only flag these as stale for prescriptive and normal documents; for planning documents (`documentation/project-plan.md`), skip the phase-name grep only — still run all other Dimension 9 checks (GAP, TODO, FIXME, task numbers) on planning documents as normal.** Report: `[marker] at [location] — IN TARGET (should fix) / OUTSIDE TARGET (informational)`.
+**Dimension 9 — Pre-existing issue scan:** Grep the full document for: "GAP", "TODO", "FIXME", "will be added", "future task", task references ("task [0-9]+", "task [A-Z][0-9]+", "as per task", "implemented in task", "this task adds") (cross-reference against `documentation/tasks/progress/aic-progress.md` in main workspace). Also grep for phase heading references with `Phase (?:[A-Z]{1,2}|[0-9]+(?:\.[0-9]+)?)\b` (e.g. Phase AP, Phase O, Phase 0, Phase 1.5) — **but only flag these as stale for prescriptive and normal documents; for planning documents (`documentation/project-plan.md`), skip the phase-name grep only — still run all other Dimension 9 checks (GAP, TODO, FIXME, task numbers) on planning documents as normal.** Report: `[marker] at [location] — IN TARGET (should fix) / OUTSIDE TARGET (informational)`.
 
 **Dimension 10 — Content format compliance:** Verify: (a) any group of 3+ definitions uses a table; (b) any new section has a ToC entry; (c) new section placement follows document flow logic.
 

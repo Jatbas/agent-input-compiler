@@ -32,6 +32,8 @@ git worktree add -b feat/$EPOCH .git-worktrees/$EPOCH main
 
 **Install + build** in the worktree: `pnpm install && pnpm build` (set `working_directory` to worktree path).
 
+**Worktree caveat — `pnpm knip`:** Knip mis-resolves entry files when cwd is under `.git-worktrees/` (reports false "unused files" for scripts and tests that are fine on the real repo root). Whenever a task step or §4a requires `pnpm knip`, run it from the **main workspace root** — not the worktree. All other toolchain commands (`pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm lint:clones`) work correctly in the worktree. If knip passes on the main workspace root, record it as passed and move on — do not investigate worktree-specific knip failures.
+
 **Verify HEAD:** `git rev-parse --abbrev-ref HEAD` in worktree. Must match created branch — if not, stop.
 
 **Store** the worktree absolute path and branch name for use throughout.

@@ -21,9 +21,22 @@ For technology evaluation: one explorer uses `WebSearch` and `WebFetch` for exte
 
 **Codebase investigation depth:** When the investigation touches the AIC codebase (classifications: codebase analysis, gap/improvement analysis, documentation analysis with code cross-checks), explorer prompts MUST include the **Codebase Investigation Depth** requirements from `../shared/SKILL-investigation.md`. These are read-only — explorers read, query, and trace, but never modify files. These depth requirements do NOT activate for technology evaluations that only involve external technologies (no AIC codebase code).
 
+**Framing challenger (concurrent with explorers):** Spawn one additional `fast` subagent in the same parallel batch as the explorers. This agent receives ONLY the §2 hypotheses — not the investigation plan, explorer assignments, or any findings. Its prompt:
+
+> "You are a framing challenger. You received hypotheses that an investigation team will explore. Your job is NOT to investigate — it is to attack the framing itself. For each hypothesis: (1) identify the unstated assumption, (2) propose a counter-hypothesis that could be true, (3) name a blind spot — what would the investigators miss if they only tested the stated hypothesis? Return a structured table: Hypothesis | Unstated assumption | Counter-hypothesis | Blind spot."
+
+The framing challenger's output is NOT merged into explorer findings. It is passed to the §5 critic as additional input — the critic uses it to verify whether the synthesis addressed or ignored the challenger's counter-hypotheses and blind spots.
+
 ### 3b. Collect explorer results
 
-**Handoff accounting (before processing).** Enumerate each explorer's output before analyzing content: Explorer 1: N findings, M with citations, confidence distribution (H/M/L). Explorer 2: ... If any explorer returned 0 findings, investigate whether the explorer ran correctly before proceeding.
+**Handoff accounting (before processing).** Enumerate each explorer's output before analyzing content using this template:
+
+- "Explorer 1: [N] findings, [M] with citations, confidence: [H/M/L counts]. Format: [table/prose/mixed]."
+- "Explorer 2: [N] findings, [M] with citations, confidence: [H/M/L counts]. Format: [table/prose/mixed]."
+- "Framing challenger: [N] counter-hypotheses, [M] blind spots." (if spawned)
+- "Cross-agent overlap: [N] findings appear in 2+ explorers."
+
+If any explorer returned 0 findings, investigate whether the explorer ran correctly before proceeding.
 
 Read each explorer's output. For each finding:
 

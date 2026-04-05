@@ -9,7 +9,7 @@ description: Generates new phases and roadmap entries for the progress file by s
 
 Synthesize what the project _should_ become next. Reads documentation, analyzes the codebase, and researches the external ecosystem to propose new phases and component entries for `documentation/tasks/progress/aic-progress.md`.
 
-The deliverable is a **draft phase proposal** — header, description, and component table rows in the exact format used by aic-progress.md — shown to the user for approval before any write.
+The deliverable is a **dual-category draft** — **Category A (Quick Wins)** for fixes, cleanup, and broken references plannable immediately; **Category B (Strategic Phase)** for the next meaningful capability or positioning move — both in the exact format used by aic-progress.md, shown to the user for approval before any write.
 
 **Announce at start:** "Using the roadmap-forge skill."
 
@@ -20,19 +20,19 @@ The deliverable is a **draft phase proposal** — header, description, and compo
 
 ## Process Overview
 
-| Step                      | Deliverable                                                                        | User gate?                  |
-| ------------------------- | ---------------------------------------------------------------------------------- | --------------------------- |
-| Input Routing             | Resolved input source (Tier 1/2/3)                                                 | No                          |
-| §0 Strategic framing      | 3-5 direction hypotheses (before reading any file)                                 | No                          |
-| §1 Current state          | Gap candidate list + phase inventory                                               | No                          |
-| §2 Pre-spawn setup        | SKILL-investigation sections extracted                                             | No                          |
-| §3 Parallel investigation | Explorer findings with evidence, disconfirmation, and value scores                 | No                          |
-| §4 Synthesize             | Scored, ranked, grouped phase proposals (named, deduped, normalized, second-order) | No                          |
-| §4i Self-review           | Mechanical consistency check before critic dispatch                                | No                          |
-| §5 Adversarial review     | Feasibility critic + strategic fit critic + adjudication                           | No                          |
-| §5b Convergence detection | Re-spawn if explorers over-agreed or no disconfirmation found                      | No                          |
-| §6 Present                | Draft phases displayed to user                                                     | **Yes — wait for approval** |
-| §7 Write                  | Approved phases inserted into aic-progress.md                                      | No (post-approval)          |
+| Step                      | Deliverable                                                                             | User gate?                  |
+| ------------------------- | --------------------------------------------------------------------------------------- | --------------------------- |
+| Input Routing             | Resolved input source (Tier 1/2/3)                                                      | No                          |
+| §0 Strategic framing      | 3-5 direction hypotheses (before reading any file)                                      | No                          |
+| §1 Current state          | Gap candidate list + phase inventory                                                    | No                          |
+| §2 Pre-spawn setup        | SKILL-investigation sections extracted                                                  | No                          |
+| §3 Parallel investigation | Explorer findings with evidence, disconfirmation, and value scores                      | No                          |
+| §4 Synthesize             | Dual-category proposals: Quick Wins (fixes/cleanup) + Strategic Phase (next capability) | No                          |
+| §4i Self-review           | Mechanical consistency check before critic dispatch                                     | No                          |
+| §5 Adversarial review     | Feasibility critic + strategic fit critic + adjudication                                | No                          |
+| §5b Convergence detection | Re-spawn if explorers over-agreed or no disconfirmation found                           | No                          |
+| §6 Present                | Draft phases displayed to user                                                          | **Yes — wait for approval** |
+| §7 Write                  | Approved phases inserted into aic-progress.md                                           | No (post-approval)          |
 
 ## Autonomous Execution
 
@@ -106,7 +106,7 @@ After Input Routing, read and execute the phase files in order. Each phase file 
 - Deps column: use `—` for no deps; component name for intra-phase deps; phase letter for cross-phase deps
 - Package column: shortest accurate path (`mcp/`, `shared/src/adapters/`, `./`)
 - This skill is the only entry point for adding new phases to aic-progress.md — status updates on existing entries go through `aic-update-progress`
-- After a maintainer approves and ships a new skill (including this one), add an entry to `documentation/contributor-agent-skills.md` with Type: Internal and a one-sentence role description matching the skill's Purpose section
+- After a maintainer approves and ships a new skill (including this one), update `CONTRIBUTING.md` if the skill changes contributor workflows
 
 ---
 
@@ -129,3 +129,5 @@ After Input Routing, read and execute the phase files in order. Each phase file 
 | Shallow task detail                          | Evidence density gate (§4a) + escape hatch floor (§4f)                     |
 | Short-term thinking                          | §4g second-order implications                                              |
 | Hallucinated codebase state                  | Runtime Evidence Checklist + Critic A reads source files                   |
+| Critics kill all strategic work              | §4e mandatory dual-output + §5 per-category protection                     |
+| Only trivial fixes survive review            | Category B minimum-1 guarantee in adjudication                             |

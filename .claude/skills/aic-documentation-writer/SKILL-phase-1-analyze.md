@@ -25,7 +25,7 @@ If 3+ claims are UNCERTAIN, escalate: delegate to the `aic-researcher` skill for
 
 **Explorer 2 — Structure + consistency** (`explore` subagent, `fast` model):
 
-Parallel section analysis: identify sections describing the same concept for different targets, compare heading structure, content parity, information density. Mirror document detection: find structural siblings in `documentation/` and root-level files (`README.md`, `CONTRIBUTING.md`). Cross-documentation term ripple: grep all sibling docs for terms being modified. ToC-body structure match. Stale marker detection: grep for GAP, TODO, FIXME, stale phase references. Return: structural findings with heading-by-heading comparisons, term divergences, stale markers.
+Parallel section analysis: identify sections describing the same concept for different targets, compare heading structure, content parity, information density. Mirror document detection: find structural siblings in `documentation/` and root-level files (`README.md`, `CONTRIBUTING.md`). Cross-documentation term ripple: grep all sibling docs for terms being modified. ToC-body structure match. Stale marker detection: grep for GAP, TODO, FIXME, stale phase heading references (`Phase (?:[A-Z]{1,2}|[0-9]+(?:\.[0-9]+)?)\b` — Dimension 9). Return: structural findings with heading-by-heading comparisons, term divergences, stale markers.
 
 **Explorer 3 — Audience + writing quality baseline** (`generalPurpose` subagent, `fast` model):
 
@@ -37,7 +37,15 @@ Compare document coverage against codebase reality: glob for files/components/in
 
 ### 1c. Collect and merge explorer findings
 
-**Handoff accounting (before processing).** Enumerate each explorer's output before analyzing content: Explorer 1: N findings, M with citations. Explorer 2: N findings, M with citations. Explorer 3: N findings, M with citations. Explorer 4: N findings, M with citations. If any explorer returned 0 findings, investigate whether the explorer ran correctly before proceeding.
+**Handoff accounting (before processing).** Enumerate each explorer's output before analyzing content using this template:
+
+- "Explorer 1: [N] findings, [M] with citations. Format: [structured/prose/mixed]."
+- "Explorer 2: [N] findings, [M] with citations. Format: [structured/prose/mixed]."
+- "Explorer 3: [N] findings, [M] with citations. Format: [structured/prose/mixed]."
+- "Explorer 4: [N] findings, [M] with citations. Format: [structured/prose/mixed]."
+- "Cross-agent overlap: [N] findings appear in 2+ explorers."
+
+If any explorer returned 0 findings, investigate whether the explorer ran correctly before proceeding.
 
 Read all 4 explorer outputs. For each finding:
 

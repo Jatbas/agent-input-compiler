@@ -53,3 +53,11 @@ Each explorer must enforce across all candidates they score on a given dimension
 ### Score Inflation Detection
 
 If the §4d aggregated scores show **more than 40% of candidates with composite above 8.0**, scores are inflated. Re-examine the highest-scored dimension across all candidates and apply forced distribution more strictly — at least one candidate must score 1 on that dimension.
+
+### Disconfirmation Strength (DS)
+
+After adversarial review (§5), apply a disconfirmation adjustment to the post-critic composite score:
+
+- **Strong disconfirmation with evidence:** If Explorer 1 reported disconfirming evidence against a candidate AND neither critic refuted the disconfirmation, apply −0.5 to the composite score.
+- **Survived disconfirmation:** If a candidate had strong disconfirming evidence but both critics found it insufficient or wrong, note "Survived disconfirmation" in the §6 presentation. This is a positive signal — the candidate was stress-tested and held.
+- **No disconfirmation attempted:** No adjustment. Candidates that were never challenged by disconfirming evidence are neither penalized nor rewarded — note their absence from disconfirmation in §6 as an advisory caveat.

@@ -2,9 +2,23 @@
 
 ## §6. Present Draft + User Approval Gate
 
-Present the refined proposal:
+Present the refined proposal in two distinct sections so the user can act on Quick Wins immediately while deliberating on the Strategic Phase:
 
 > **Roadmap Forge complete.** Input source: [tier]. Explorers: [count]. Proposals: [N phases, M components].
+>
+> ---
+>
+> ### Category A — Quick Wins
+>
+> [1 sentence: what these fix and why they are immediately actionable]
+>
+> [Display the Category A phase in full (header + description + table). Each component should be scoped for a single `aic-task-planner` invocation.]
+>
+> **Task-planner prompts:** For each Category A component, provide a ready-to-use prompt the user can copy-paste into a new chat with `@aic-task-planner` attached. Format: quoted block starting with "Plan a task for:" followed by a specific description with file paths, line numbers, and the exact problem to fix.
+>
+> ---
+>
+> ### Category B — Strategic Phase
 >
 > **Value scorecard** (top 5 by composite, post-critic SA scores applied):
 >
@@ -12,9 +26,11 @@ Present the refined proposal:
 > | --- | --------- | --------- | ----- | ----- | ----- | ----- | ----- | ----- |
 > | 1   | [name]    | [n.n]     | [1-5] | [1-5] | [1-5] | [1-5] | [1-5] | [1-5] |
 >
-> **Proposed phases:** [list phase names + component counts]
+> [Display the Category B phase(s) in full (header + description + table + task details).]
 >
 > **Priority rationale:** [2-3 sentences referencing composite scores — "Phase X leads because its components average composite Y, driven by high Unblock Potential and User Impact"]
+>
+> ---
 >
 > **Adversarial challenges addressed:** [N incorporated, M rejected — one line summary]
 >
@@ -22,7 +38,7 @@ Present the refined proposal:
 >
 > **From external research:** [key finding and impact, or "None — all proposals from internal sources"]
 
-**Large proposal handling:** If the proposal exceeds 3 phases or 15 total components, present phases one at a time. After each: "Approve, request changes, or reject? (Type `next` to move to the next phase without deciding now.)" Do not present all phases simultaneously when the total exceeds this threshold.
+**Large proposal handling:** If Category B exceeds 2 phases or 12 total components, present Category B phases one at a time. After each: "Approve, request changes, or reject? (Type `next` to move to the next phase without deciding now.)" Category A is always presented in full (it is capped at 4 components).
 
 Otherwise, display all proposed phases in full (header + description + table).
 

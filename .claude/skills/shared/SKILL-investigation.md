@@ -39,7 +39,7 @@ When investigating the AIC codebase, apply these depth requirements. These are r
 4. **Deployed vs source artifact diffing:** When the investigation involves files copied/installed at runtime (hooks, configs, templates), read BOTH the source file AND the deployed copy. Report any differences.
 5. **Database evidence:** Query `~/.aic/aic.sqlite`. Show concrete rows, counts, and column values. Do not speculate about what the database contains.
 6. **Sibling and consumer analysis:** Grep for all importers and string-literal references across the codebase. Report the component's full footprint — not just its own code.
-7. **Stale marker scan:** In every file read during investigation, note `TODO`, `FIXME`, `HACK` markers and phase references. Cross-reference phase references against `documentation/tasks/progress/mvp-progress.md` (main workspace only — gitignored). Report actionable markers.
+7. **Stale marker scan:** In every file read during investigation, note `TODO`, `FIXME`, `HACK` markers and phase heading references (`Phase (?:[A-Z]{1,2}|[0-9]+(?:\.[0-9]+)?)\b` — documentation-writer Dimension 9). Cross-reference those references against `documentation/tasks/progress/aic-progress.md` (main workspace only — gitignored). Report actionable markers.
 8. **Documentation cross-reference:** Check `documentation/` for docs describing the mechanism under investigation. Compare doc claims against code evidence. Report discrepancies.
 
 These depth requirements do NOT activate for technology evaluations involving only external technologies (no AIC codebase code).

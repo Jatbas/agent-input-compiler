@@ -60,7 +60,7 @@ Run each command in sequence. Stop on any failure and report the exact error out
 
 1. **Gitignore leak check.** Run `git ls-files documentation/future/ documentation/tasks/ documentation/notes/ documentation/research/ 2>/dev/null`. If any files are listed, stop: "The following gitignored files are tracked in git and would be published: [list]. Run `git rm --cached [files]` and commit before proceeding."
 2. **Internal language scan.** For each file in the public documentation set (all `.md` files in `documentation/` excluding gitignored subdirectories, plus `documentation/technical/*.md`), scan for these patterns:
-   - `Phase [A-Z]{1,2}\b` (e.g. "Phase O", "Phase CL") — in non-code-block lines
+   - `Phase (?:[A-Z]{1,2}|[0-9]+(?:\.[0-9]+)?)\b` (e.g. Phase AP, Phase O, Phase 0, Phase 1.5) — in non-code-block lines; same pattern as documentation-writer Dimension 9
    - `\bTask \d+\b` — in non-code-block lines
    - `\bT\d{2}:` — in non-code-block lines
    - `\| (Pending|In progress|Not started) \|` — in any line

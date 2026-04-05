@@ -16,21 +16,21 @@ For each change in the Change Specification:
 
 Run all 13 dimensions from the executor's `4-doc-c` table:
 
-| #   | Dimension                       | Method                                               |
-| --- | ------------------------------- | ---------------------------------------------------- |
-| 1   | Change specification compliance | Re-read Change Spec vs actual document               |
-| 2   | Factual accuracy                | Grep codebase for every technical claim              |
-| 3   | Cross-document consistency      | Grep sibling docs for key terms                      |
-| 4   | Link validity                   | Glob for every markdown link target                  |
-| 5   | Writing quality                 | Critic 1 output — all issues resolved                |
-| 6   | No regressions                  | git diff — only intended sections changed            |
-| 7   | ToC-body structure match        | Parse ToC and body headings, verify match            |
-| 8   | Scope-adjacent consistency      | Grep full document for key concepts                  |
-| 9   | Pre-existing issue scan         | Grep for GAP, TODO, FIXME, stale phases              |
-| 10  | Content format compliance       | Tables for definitions, ToC entries for new sections |
-| 11  | Cross-doc term ripple           | Grep all sibling docs for old terms replaced         |
-| 12  | Intra-document consistency      | Grep full document for same-mechanism descriptions   |
-| 13  | Blockquote integrity            | Grep for disconnected blockquotes and note density   |
+| #   | Dimension                       | Method                                                                |
+| --- | ------------------------------- | --------------------------------------------------------------------- |
+| 1   | Change specification compliance | Re-read Change Spec vs actual document                                |
+| 2   | Factual accuracy                | Grep codebase for every technical claim                               |
+| 3   | Cross-document consistency      | Grep sibling docs for key terms                                       |
+| 4   | Link validity                   | Glob for every markdown link target                                   |
+| 5   | Writing quality                 | Critic 1 output — all issues resolved                                 |
+| 6   | No regressions                  | git diff — only intended sections changed                             |
+| 7   | ToC-body structure match        | Parse ToC and body headings, verify match                             |
+| 8   | Scope-adjacent consistency      | Grep full document for key concepts                                   |
+| 9   | Pre-existing issue scan         | Grep for GAP, TODO, FIXME, stale phase headings (Dimension 9 pattern) |
+| 10  | Content format compliance       | Tables for definitions, ToC entries for new sections                  |
+| 11  | Cross-doc term ripple           | Grep all sibling docs for old terms replaced                          |
+| 12  | Intra-document consistency      | Grep full document for same-mechanism descriptions                    |
+| 13  | Blockquote integrity            | Grep for disconnected blockquotes and note density                    |
 
 Dimensions 1-7, 10, 12, and 13 must be clean. Dimensions 8-9 are informational. Dimension 11 is blocking within scoped files only.
 

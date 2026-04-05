@@ -389,7 +389,7 @@ Release-pipeline tasks do not implement a core interface. Instead, the task must
 - **`exports` field mapping:** If a published package is consumed via subpath imports (consumers write `import { X } from "@scope/pkg/some/path.js"`), the `exports` field in `package.json` must map those subpaths to built output, not source. Check current `exports` values — if they point at `./src/*`, the task must change them to `./dist/*`. For packages with a single entry point (no subpath imports), `main` + `types` suffice and `exports` can match.
 - **Workspace dependency and publish order:** If the published package depends on another workspace package (`"@jatbas/aic-core": "workspace:*"`), both packages must be published. `workspace:*` is a pnpm protocol that does not resolve on the npm registry. Use `pnpm publish` (not `npm publish`) — pnpm automatically replaces `workspace:*` with the resolved version at publish time. The dependency must be published first. Record the exact publish order.
 - **Existing CI:** Read `.github/workflows/*.yml`. If a publish workflow already exists, the task Modifies it; otherwise Create. Record the exact trigger and job names.
-- **SBOM / provenance (Phase 1+):** SBOM generation, `npm publish --provenance` — include in the task only if the mvp-progress or project-plan explicitly calls for them in this component.
+- **SBOM / provenance (Phase 1+):** SBOM generation, `npm publish --provenance` — include in the task only if `documentation/tasks/progress/aic-progress.md` (main workspace only — gitignored) or `documentation/project-plan.md` explicitly calls for them in this component.
 - **Publish inclusion strategy:** AIC uses the `files` field in `package.json` to control what goes into the npm tarball — not `.npmignore`. The `files` field is a whitelist: only listed paths are included. This is safer than `.npmignore` (a blacklist that can accidentally ship dev artifacts). During exploration, determine the exact `files` array for each published package.
 
 **Exploration Report — non-applicable fields:** For release-pipeline tasks, the following standard Exploration Report fields do not apply. Mark each as "N/A — release pipeline; no production code":
@@ -1060,7 +1060,7 @@ Every change must have all three parts: current text (so the executor can locate
 
 ### Pre-verification self-check
 
-Before proceeding to verification, scan the Change Specification target text for temporal references. Grep all target text blocks for: phase names ("Phase [A-Z]"), task identifiers ("[A-Z][0-9]{2}:"), temporal phrases ("will be added", "in the next", "recently", "upcoming", "future task"). Rewrite any found to use timeless capability descriptions. This ensures the planner's own output does not introduce the staleness it was designed to detect.
+Before proceeding to verification, scan the Change Specification target text for temporal references. Grep all target text blocks for: phase heading references (`Phase (?:[A-Z]{1,2}|[0-9]+(?:\.[0-9]+)?)\b` — documentation-writer Dimension 9), task identifiers ("[A-Z][0-9]{2}:"), temporal phrases ("will be added", "in the next", "recently", "upcoming", "future task"). Rewrite any found to use timeless capability descriptions. This ensures the planner's own output does not introduce the staleness it was designed to detect.
 
 ### Verification (C.5 equivalent) — delegated to documentation-writer skill Phase 3
 

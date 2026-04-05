@@ -10,6 +10,8 @@ Before merging: count evidence citations (file:line or URL) across all explorer 
 
 If two candidates from different explorers share more than 60% of their name words or describe the same implementation surface, merge them into one component, combining the best description and citing both explorers as sources.
 
+**Cross-explorer convergence boost:** When two or more explorers independently identify the same candidate (before deduplication merges them), add +1 to the merged candidate's Unblock Potential (UP) score (capped at 5). Note "Cross-explorer convergence: Explorer N + Explorer M" in the Source column of the §4d table. Independent identification by separate agents with different mandates signals a real, multi-faceted need — reward it.
+
 ### 4c. Name normalization
 
 Before grouping, scan all candidate names against the convention: (1) title-cased, (2) identifies a specific implementation surface, (3) noun-form naming the thing (not "Improve X" — use "X Optimization" or "X Enforcement"). Rewrite violating names. Document rewrites in a note included in the critic's input at §5.
@@ -38,7 +40,17 @@ Sort by composite descending. This table is advisory input to critics and to the
 
 ### 4e. Group into phases
 
-**Grouping heuristics:**
+**Mandatory dual-output:** Always produce exactly two output categories:
+
+**Category A — Quick Wins:** Fixes, dead code, broken references, performance patches, and documentation repairs that can be planned and executed immediately without architectural decisions. Source: primarily Explorer 2 (codebase optimizer) findings, Explorer 1 disconfirmation findings (broken cross-references, dead patterns), and any explorer finding with IS ≤ 2 (low implementation surface). Minimum 1 component, maximum 4. These are plannable via `aic-task-planner` directly — each component should be scoped to a single task-planner invocation.
+
+**Category B — Strategic Phase:** The next meaningful capability, positioning move, or architectural evolution that advances the project's roadmap. Source: Explorer 1 verified gaps, Explorer 3 ecosystem findings, and §0 hypothesis-driven candidates with composite score above the median. Minimum 1 component. This is the "real phase" — it gets a full phase header, description, and component table in aic-progress.md with task details per §4g.
+
+If investigation yields zero Quick Wins, the forge must still produce Category B. If investigation yields zero strategic candidates, announce: "No strategic phase candidates survived adversarial review. Consider running with Tier 2/3 input or providing a research document." and produce Category A only.
+
+Categories A and B use separate phase letters in aic-progress.md. Category A uses the naming pattern `Phase [letter] — [Scope] Fixes` (e.g., "Phase AP — Compile Hot-Path Fixes"). Category B uses the standard naming convention for strategic phases.
+
+**Grouping heuristics (apply within each category):**
 
 - Candidates sharing an architectural layer belong together (e.g., all storage improvements → one phase)
 - Candidates with hard dependencies should be ordered within a phase (note in Deps column)
@@ -82,7 +94,6 @@ For each proposed code component, identify which documentation files will need u
 - **`documentation/architecture.md`** — feature changes the core pipeline or integration layer model
 - **`documentation/implementation-spec.md`** — feature changes pipeline behavior, step contracts, or data flow
 - **`documentation/technical/[file].md`** — feature touches a technical subsystem with its own reference doc (cursor integration layer, Claude Code integration layer, JSONL caches, etc.)
-- **`documentation/contributor-agent-skills.md`** — feature ships or changes a skill
 
 For each identified impact, add a companion row to the phase table:
 

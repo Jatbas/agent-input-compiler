@@ -22,6 +22,14 @@ Write a structured analysis covering:
 
 When called by the planner, this report becomes the documentation-specific fields in the Exploration Report (DOCUMENT PROFILE, FACTUAL ACCURACY, COMPLETENESS, CONSISTENCY, etc.).
 
+### 2b½. Extract structured verification inputs
+
+Before writing target text, extract two artifacts from Phase 1 findings to strengthen Phase 3 review:
+
+1. **Critical claims list:** Extract from the analysis report every technical claim that, if wrong, would make the documentation misleading or harmful — interface names, file paths, configuration behavior, command output, and security properties. Format: `[claim] — [source explorer] — [confidence]`. Pass this list to Critic 2 in Phase 3 as priority verification targets.
+
+2. **Term registry:** From Explorer 2's structural findings, extract a list of key terms and their canonical definitions used across sibling documents. Format: `[term] — [canonical definition] — [source document]`. Pass this registry to Critic 3 in Phase 3 for cross-document term consistency checks. Also use the registry during §2c writing to ensure target text uses canonical terms.
+
 ### 2c. Write the Change Specification target text
 
 **Deduplication gate (Cardinal Rule 5) — run BEFORE writing gap-fill content:**
@@ -60,7 +68,7 @@ For each identified change, write all three parts:
 
 Before proceeding to Phase 3:
 
-- Grep all target text blocks for temporal references: phase names ("Phase [A-Z]"), task identifiers ("[A-Z][0-9]{2}:", "task [0-9]+", "task [A-Z][0-9]+"), task-existence phrases ("as per task", "implemented in task", "this task adds", "the task"), temporal phrases ("will be added", "in the next", "recently", "upcoming", "future task"). Rewrite any found — describe capabilities directly, never attribute to a task.
+- Grep all target text blocks for temporal references: phase heading references (`Phase (?:[A-Z]{1,2}|[0-9]+(?:\.[0-9]+)?)\b` — Dimension 9), task identifiers ("[A-Z][0-9]{2}:", "task [0-9]+", "task [A-Z][0-9]+"), task-existence phrases ("as per task", "implemented in task", "this task adds", "the task"), temporal phrases ("will be added", "in the next", "recently", "upcoming", "future task"). Rewrite any found — describe capabilities directly, never attribute to a task.
 - For each technical claim in target text, annotate it inline with the Explorer 1 finding that backs it (e.g. `[E1: InterfaceName at shared/src/core/interfaces/foo.interface.ts:12]`). Any claim you cannot annotate has no backing evidence — investigate further before including it in target text, or remove it. Strip these inline annotations before presenting the final Change Specification.
 
 ### 2e. Audit mode: Build the Structured Audit Report

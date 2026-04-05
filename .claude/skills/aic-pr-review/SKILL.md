@@ -141,11 +141,24 @@ Each subagent returns a list of findings in this format:
 - [SEVERITY] CHECKLIST_ID: file:line — description
 ```
 
+**Handoff accounting:** After all subagents return, produce a structured summary before synthesis:
+
+- "Subagent 1 (Arch & Safety): [N] findings ([breakdown by severity])."
+- "Subagent 2 (Storage & Security): [N] findings ([breakdown by severity])."
+- "Subagent 3 (Testing & Conventions): [N] findings ([breakdown by severity])."
+- "Cross-agent overlap: [N] findings flagged by 2+ subagents."
+
+If any subagent returned 0 findings, trigger the anti-agreement re-spawn before proceeding.
+
 After all subagents complete, proceed to §3.
 
 ### §3 — Synthesis
 
 Merge findings from all sources (inline review or subagents + mechanical checks). Deduplicate — same root cause appearing in multiple files counts as one finding with multiple locations.
+
+**Cross-agent convergence boost:** When 2+ subagents independently flag the same issue (same file, same root cause), that finding's severity cannot be downgraded during synthesis. Independent confirmation is a strong quality signal — note "confirmed by N/3 reviewers" in the finding description.
+
+**Anti-downgrade rule:** No finding's severity may be reduced from the subagent's classification without re-checking the relevant diff lines. If you believe a subagent over-classified, re-read the diff excerpt before downgrading. Document the re-check: "[Downgraded from X to Y — re-read file:line, reasoning]." This prevents the orchestrator from unconsciously softening findings during synthesis.
 
 **Produce the report** using this structure:
 

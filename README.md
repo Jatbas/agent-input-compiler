@@ -234,17 +234,16 @@ AIC's Context Guard excludes the following from compiled context before it reach
 
 Use the README for orientation. Use the docs below for implementation detail.
 
-| Document                                                                   | Description                                                        |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| [`installation.md`](documentation/installation.md)                         | Installation, delivery, bootstrap, and per-editor details          |
-| [`CHANGELOG.md`](CHANGELOG.md)                                             | Version history and release notes                                  |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md)                                       | Development setup, run from source, contribution process           |
-| [`architecture.md`](documentation/architecture.md)                         | Core pipeline, integration layer, editor capability model          |
-| [`best-practices.md`](documentation/best-practices.md)                     | Practical usage guidance                                           |
-| [`security.md`](documentation/security.md)                                 | Security model and hardening details                               |
-| [`implementation-spec.md`](documentation/implementation-spec.md)           | Detailed pipeline and implementation behavior                      |
-| [`project-plan.md`](documentation/project-plan.md)                         | Product architecture, ADRs, and full configuration reference       |
-| [`contributor-agent-skills.md`](documentation/contributor-agent-skills.md) | Contributors: optional Claude Code agent skills for repo workflows |
+| Document                                                         | Description                                                  |
+| ---------------------------------------------------------------- | ------------------------------------------------------------ |
+| [`installation.md`](documentation/installation.md)               | Installation, delivery, bootstrap, and per-editor details    |
+| [`CHANGELOG.md`](CHANGELOG.md)                                   | Version history and release notes                            |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md)                             | Development setup, run from source, contribution process     |
+| [`architecture.md`](documentation/architecture.md)               | Core pipeline, integration layer, editor capability model    |
+| [`best-practices.md`](documentation/best-practices.md)           | Practical usage guidance                                     |
+| [`security.md`](documentation/security.md)                       | Security model and hardening details                         |
+| [`implementation-spec.md`](documentation/implementation-spec.md) | Detailed pipeline and implementation behavior                |
+| [`project-plan.md`](documentation/project-plan.md)               | Product architecture, ADRs, and full configuration reference |
 
 ---
 
