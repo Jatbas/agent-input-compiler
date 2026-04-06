@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -170 680 680" width="100%" height="100%">
+  <defs>
+    <!-- Background Grid Pattern -->
+    <pattern id="grid" width="30" height="30" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.5" fill="#FFFFFF" opacity="0.03"/>
+      <path d="M 0,30 L 30,30 L 30,0" fill="none" class="grid-lines" stroke="#FFFFFF" stroke-opacity="0.015" stroke-width="0.5"/>
+    </pattern>
+
+    <!-- Glowing Funnel Gradient -->
+    <linearGradient id="iGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="50%" stop-color="#6366F1"/>
+      <stop offset="100%" stop-color="#818CF8"/>
+    </linearGradient>
+
+    <!-- Token Glow Effect -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Base Canvas Removed for Transparency -->
+
+  <!-- Particles (Tokens being compressed) -->
+  <g fill="#38BDF8">
+    <circle cx="370" cy="35" r="2.5" opacity="0.7"/>
+    <circle cx="350" cy="45" r="1.5" opacity="0.5"/>
+    <circle cx="390" cy="48" r="2" opacity="0.6"/>
+    <circle cx="330" cy="65" r="2" opacity="0.4"/>
+    <circle cx="410" cy="60" r="1.5" opacity="0.3"/>
+    <circle cx="365" cy="55" r="3" opacity="0.8"/>
+    <circle cx="385" cy="65" r="2" opacity="0.7"/>
+    <circle cx="345" cy="70" r="1.5" opacity="0.6"/>
+    <circle cx="400" cy="72" r="2" opacity="0.5"/>
+    
+    <!-- Higher scattered elements -->
+    <circle cx="320" cy="50" r="1" opacity="0.2"/>
+    <circle cx="420" cy="45" r="1.5" opacity="0.2"/>
+    <circle cx="335" cy="35" r="1.5" opacity="0.3"/>
+    <circle cx="405" cy="32" r="2" opacity="0.4"/>
+  </g>
+
+  <!-- Letter A -->
+  <path d="M 190,80 L 250,80 L 310,220 L 266,220 L 243,166 L 197,166 L 174,220 L 130,220 Z M 220,113 L 230,136 L 210,136 Z" fill="#F8FAFC" fill-rule="evenodd"/>
+
+  <!-- Funnel (I) -->
+  <rect x="328" y="80" width="84" height="26" rx="13" fill="url(#iGrad)" opacity="0.35"/>
+  <rect x="338" y="118" width="64" height="26" rx="13" fill="url(#iGrad)" opacity="0.6"/>
+  <rect x="348" y="156" width="44" height="26" rx="13" fill="url(#iGrad)" opacity="0.85"/>
+  <rect x="358" y="194" width="24" height="26" rx="12" fill="#38BDF8"/>
+
+  <!-- Letter C -->
+  <path d="M 550,96.4 A 70,70 0 1,0 550,203.6 L 521.7,169.9 A 26,26 0 1,1 521.7,130.1 Z" fill="#F8FAFC"/>
+
+  <!-- Output Token (The extracted, flawless context package) -->
+  <path d="M 370,228 L 376,236 L 370,244 L 364,236 Z" fill="#FFFFFF" filter="url(#glow)"/>
+
+  <!-- Typography -->
+  <text x="370" y="295" font-family="'Inter', system-ui, -apple-system, sans-serif" font-size="20" font-weight="700" fill="#94A3B8" letter-spacing="9" text-anchor="middle">
+    AGENT INPUT COMPILER
+  </text>
+  
+
+</svg>
