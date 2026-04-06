@@ -255,16 +255,18 @@ Task files are gitignored — finalization copies from worktree to main workspac
 
    Add 1 to result. Zero-pad to 3 digits if under 100. No files → start at `001`. **Guard:** NNN > 9999 or 10+ digits = you used the epoch — redo.
 
-2. **Update heading and copy to main workspace:**
-   - In the worktree task file, update the `# Task` heading: replace `# Task $EPOCH:` with `# Task NNN:`.
-   - Copy the task file to the main workspace: `cp <worktree>/documentation/tasks/$EPOCH-name.md <main-workspace>/documentation/tasks/NNN-name.md` (use absolute paths for both source and target).
+2. **Update heading in worktree file.** Use StrReplace on the worktree task file to change the `# Task $EPOCH:` heading to `# Task NNN:`.
 
-3. **Clean up worktree and exploration file.** From the **main workspace root**:
+3. **Copy to main workspace AND remove worktree — one chained command (do NOT split these):**
 
    ```
-   rm -f documentation/tasks/.exploration-$EPOCH*.md
-   git worktree remove .git-worktrees/plan-$EPOCH && git branch -D plan/$EPOCH
+   cp <worktree>/documentation/tasks/$EPOCH-name.md <main-workspace>/documentation/tasks/NNN-name.md && \
+   cd <main-workspace> && \
+   git worktree remove .git-worktrees/plan-$EPOCH && \
+   git branch -D plan/$EPOCH
    ```
+
+   Use absolute paths. If `git worktree remove` reports untracked/modified files, add `--force`. **The worktree must be gone before step 4.** Verify: `git worktree list` must not show `plan-$EPOCH`.
 
 4. **Announce:** "Task saved to `documentation/tasks/NNN-name.md`. Score: N/M (X%). Use the @aic-task-executor skill to execute it."
 

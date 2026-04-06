@@ -47,7 +47,7 @@ Run each pass as a single continuous flow. Do NOT pause mid-pass to report statu
 
 **Everything else runs without pausing.** A.1→A.4b is one flow. C.1→C.6 is one flow. After C.6, §6 runs immediately — the task is NOT complete until §6 finishes.
 
-**Anti-patterns:** Do NOT send status messages between A.5 approval and Pass 2. Do NOT stop after Pass 2 — §6 copies the file to main workspace. Always run §6.
+**Anti-patterns:** Do NOT send status messages between A.5 approval and Pass 2. Do NOT stop after Pass 2 — §6 copies the file to main workspace. Always run §6. Do NOT announce ("Task saved…") before the worktree removal command completes — §6 step 3 chains copy + worktree removal as one command; if you split them and announce first, the worktree is never removed.
 
 ## When to Use
 
