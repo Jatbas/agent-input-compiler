@@ -1,3 +1,4 @@
+// @aic-managed
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 // SessionEnd hook — append telemetry line, delete dual-path marker and temp edited-files list. Exit 0 always.

@@ -7,6 +7,17 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.9] - 2026-04-07
+
+### Changed
+
+- Mark Cursor and Claude hooks installed from the package with `@aic-managed` comments so upgrades can replace hook files predictably
+
+### Fixed
+
+- Restore npm OIDC trusted publishing in CI using Node 24 and remove the global npm upgrade step that broke the publish job
+- Tolerate transient npm 404 responses during publish verification
+
 ## [0.11.8] - 2026-04-07
 
 ### Added

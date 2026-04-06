@@ -179,6 +179,15 @@ function normalizeClaudeMdNewlines(text) {
   return String(text).replaceAll("\r\n", "\n").replaceAll("\r", "\n");
 }
 
+function isAicManagedFile(filePath) {
+  try {
+    const head = fs.readFileSync(filePath, "utf8").slice(0, 512);
+    return head.includes("@aic-managed") || head.includes("AIC Contributors");
+  } catch {
+    return false;
+  }
+}
+
 function buildClaudeMdManagedFileContent() {
   let inner = CLAUDE_MD_TEMPLATE;
   if (!inner.endsWith("\n")) inner += "\n";
@@ -387,12 +396,18 @@ try {
       !AIC_SCRIPT_NAMES.includes(name) &&
       !deployedSharedNames.has(name)
     ) {
-      fs.unlinkSync(path.join(globalHooksDir, name));
+      const filePath = path.join(globalHooksDir, name);
+      if (isAicManagedFile(filePath)) {
+        fs.unlinkSync(filePath);
+      }
     } else if (sharedSourceNamesSet.has(name) && !deployedSharedNames.has(name)) {
       // migrate: remove old-style shared file deployed without aic- prefix
-      try {
-        fs.unlinkSync(path.join(globalHooksDir, name));
-      } catch {}
+      const filePath = path.join(globalHooksDir, name);
+      if (isAicManagedFile(filePath)) {
+        try {
+          fs.unlinkSync(filePath);
+        } catch {}
+      }
     }
   }
 

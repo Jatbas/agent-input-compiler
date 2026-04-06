@@ -1,3 +1,4 @@
+// @aic-managed
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 // PostToolUse (Edit|Write) — records edited file path to session-keyed temp file for Stop hook.

@@ -1,3 +1,4 @@
+// @aic-managed
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 // PreCompact hook — plain text stdout per CC §6.1, §7.7; no marker file.

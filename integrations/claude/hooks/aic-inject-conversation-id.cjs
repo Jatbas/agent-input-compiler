@@ -1,3 +1,4 @@
+// @aic-managed
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 // PreToolUse hook — inject conversationId, editorId, and modelId (from cache) into aic_compile MCP calls.

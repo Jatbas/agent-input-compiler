@@ -1,3 +1,4 @@
+// @aic-managed
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 // UserPromptSubmit hook — plain text stdout, dual-path fallback per CC §7.1, §7.2.

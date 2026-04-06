@@ -27,7 +27,7 @@ for (const name of PLUGIN_SCRIPT_NAMES) {
     !content.includes("../../../shared"),
     `expected no ../../../shared in ${name}`,
   );
-  const expected = `module.exports = require("../../hooks/${name}");`;
+  const expected = `// @aic-managed\nmodule.exports = require("../../hooks/${name}");`;
   assert.strictEqual(content.trim(), expected);
 }
 

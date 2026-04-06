@@ -1,3 +1,4 @@
+// @aic-managed
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 // PreToolUse (Bash) — blocks git commands with --no-verify or -n so agents cannot bypass pre-commit hooks.

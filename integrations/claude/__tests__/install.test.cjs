@@ -311,7 +311,11 @@ function claude_install_migrates_old_style_shared_files() {
   try {
     const globalHooksDir = path.join(tmpDir, ".claude", "hooks");
     fs.mkdirSync(globalHooksDir, { recursive: true });
-    fs.writeFileSync(path.join(globalHooksDir, "conversation-id.cjs"), "old", "utf8");
+    fs.writeFileSync(
+      path.join(globalHooksDir, "conversation-id.cjs"),
+      "// @aic-managed\n// Copyright (c) 2025 AIC Contributors\nold content",
+      "utf8",
+    );
     execFileSync("node", [installScript], {
       cwd: tmpDir,
       env: { ...process.env, HOME: tmpDir },

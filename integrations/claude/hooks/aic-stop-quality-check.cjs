@@ -1,3 +1,4 @@
+// @aic-managed
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 // Stop hook — runs eslint and tsc on edited files from T06 temp file; outputs decision: "block" on failure (CC §6.5).

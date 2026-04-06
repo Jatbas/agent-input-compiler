@@ -1,3 +1,4 @@
+// @aic-managed
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 // SubagentStart hook — hookSpecificOutput JSON per CC §6.3; no marker file.
