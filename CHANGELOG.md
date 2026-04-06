@@ -19,7 +19,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 - Fix uninstall so user-owned hooks are preserved and uninstall/plugin packaging stays in sync with published releases
 
-## [0.11.9] - 2026-04-07
+## [0.11.9] - 2026-04-07 (Deprecated)
 
 ### Changed
 
