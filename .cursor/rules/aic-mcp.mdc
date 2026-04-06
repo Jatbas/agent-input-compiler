@@ -67,12 +67,12 @@ server.setRequestHandler("aic_compile", async (args) => {
 
 Error code mapping:
 
-| Scenario | MCP code |
-|----------|----------|
-| Malformed arguments (missing intent, bad types) | `-32602` (Invalid params) |
-| Unknown tool name | `-32601` (Method not found) |
-| Pipeline error (`AicError` subclass) | `-32603` (Internal error) |
-| Compilation timeout (>30s) | `-32603` (Internal error) |
+| Scenario                                        | MCP code                    |
+| ----------------------------------------------- | --------------------------- |
+| Malformed arguments (missing intent, bad types) | `-32602` (Invalid params)   |
+| Unknown tool name                               | `-32601` (Method not found) |
+| Pipeline error (`AicError` subclass)            | `-32603` (Internal error)   |
+| Compilation timeout (>30s)                      | `-32603` (Internal error)   |
 
 ## Error Response Sanitization
 
@@ -88,11 +88,11 @@ See `AIC-errors.mdc §Error response sanitization` for the full rules.
 
 ## Composition Root Discipline
 
-`mcp/src/server.ts` is the only file in `mcp/` that uses `new`:
+`mcp/src/server.ts` is the **primary** composition root for the shipped MCP process: scope registry, compilation runner cache, inspect runner, MCP tool registration, startup maintenance, and most long-lived adapters and stores.
 
-- Every pipeline class, adapter, and store is instantiated here
-- Dependencies are wired via constructor injection
-- No `new` anywhere else in `mcp/src/`
+Other modules under `mcp/src/` still use `new` for concrete types at **delegated boundaries**—for example `SqliteToolInvocationLogStore` in `mcp/src/handlers/compile-handler.ts`, and `SqliteStatusStore` plus small helpers in `mcp/src/diagnostic-payloads.ts` and `mcp/src/cli-diagnostics.ts`. Prefer extending wiring through `server.ts` or existing patterns when adding similar construction; do not introduce ad-hoc service `new` in `shared/src` pipeline code.
+
+Pipeline `PipelineStepsDeps` assembly stays in `shared/src/bootstrap/create-pipeline-deps.ts`; the MCP entrypoint invokes that factory when building runners.
 
 ## Import Restrictions
 

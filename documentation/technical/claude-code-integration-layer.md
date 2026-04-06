@@ -28,10 +28,15 @@ What this means concretely:
   `mcp/src/handlers/compile-handler.ts`). It does not duplicate copy/merge logic. Manual run:
   `node integrations/claude/install.cjs`. Idempotent (writes only when content differs).
 
-- **The `aic_compile` MCP tool is neutral.** It accepts `intent`, `projectRoot`, and
-  `conversationId`. It does not know who called it. The hook adapter in
+- **The `aic_compile` MCP tool is neutral.** It requires `intent` and `projectRoot`; shipped Claude Code hooks also send `editorId`, `triggerSource`, and often `conversationId` / `modelId`. It does not know who called it. The hook adapter in
   `integrations/claude/hooks/` translates Claude Code's hook protocol into that call —
-  that translation is integration-layer work only.
+  that translation is integration-layer work only. Optional wire fields beyond what hooks send are listed in §2.1.
+
+### 2.1 Optional `aic_compile` arguments (`toolOutputs` and agentic fields)
+
+The MCP schema (`mcp/src/schemas/compilation-request.ts`, summarized in [Implementation specification §8c](../implementation-spec.md#8c-input-validation-zod-schemas)) accepts optional agentic fields such as `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, and `conversationTokens`. When callers supply structured `toolOutputs[].relatedFiles` (repo-relative paths by convention), the pipeline merges them into heuristic `boostPatterns` before scoring; when the deduplicated related-path set is non-empty, a sorted NUL-separated canonical encoding of those paths is included in the cache preimage that `compilation-runner` hashes ([Step 4 — ContextSelector](../implementation-spec.md#step-4-contextselector-relatedfilesboostcontextselector)).
+
+**Shipped hooks** that call `aic_compile` through `aic-compile-helper.cjs` do not set `toolOutputs` or `relatedFiles` (that helper sends `intent`, `projectRoot`, `editorId`, and optional `conversationId`, `triggerSource`, `modelId` only). Custom integrations may forward `toolOutputs` when the MCP client exposes prior tool results in that shape.
 
 - **Shared utilities are welcome** in `shared/` only when they are genuinely editor-agnostic
   (e.g. a `buildSessionContext()` helper that any editor integration could use). If a
@@ -69,7 +74,7 @@ Claude Code runtime
   ▼
 ~/.claude/hooks/aic-compile-helper.cjs   ← shared MCP caller (used by several hooks)
   │
-  │  JSON-RPC: tools/call aic_compile { intent, projectRoot, conversationId }
+  │  JSON-RPC: tools/call aic_compile (intent, projectRoot, editorId, optional session fields — §2.1)
   ▼
 mcp/src/server.ts → CompilationRunner.run()
   │

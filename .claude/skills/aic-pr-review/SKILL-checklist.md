@@ -4,20 +4,20 @@ Reference checklist for the `aic-pr-review` skill. Each dimension maps to a rule
 
 ## A — Architecture & Layering
 
-| ID  | Check                                                                                                           | Rule           |
-| --- | --------------------------------------------------------------------------------------------------------------- | -------------- |
-| A1  | `core/` and `pipeline/` have zero imports from `adapters/`, `storage/`, `mcp/`, Node APIs, or external packages | AIC-pipeline   |
-| A2  | Core interfaces use domain language — no SQL, HTTP, or file-system concepts                                     | AIC-interfaces |
-| A3  | One public method per class; one class per file                                                                 | AIC-architect  |
-| A4  | One interface per `*.interface.ts` file; max 5 methods per interface (ISP)                                      | AIC-interfaces |
-| A5  | Pipeline constructors receive only interfaces via `private readonly` — no concrete classes, no `public` params  | AIC-pipeline   |
-| A6  | No exported interfaces inside pipeline files — extract to `core/interfaces/`                                    | AIC-pipeline   |
-| A7  | Max 60 lines per function in pipeline                                                                           | AIC-pipeline   |
-| A8  | No `new` for infrastructure outside composition root (`mcp/src/server.ts`)                                      | AIC-architect  |
-| A9  | Each external library wrapped by exactly one adapter/storage file                                               | AIC-architect  |
-| A10 | No if/else-if with 3+ branches — use dispatch pattern (`Record<Enum, Handler>`)                                 | AIC-architect  |
-| A11 | New capabilities via new classes, never modifying existing pipeline classes (OCP)                               | AIC-architect  |
-| A12 | Events via `PipelineEventBus` — no direct `TelemetryLogger` calls from steps                                    | AIC-pipeline   |
+| ID  | Check                                                                                                                         | Rule                   |
+| --- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| A1  | `core/` and `pipeline/` have zero imports from `adapters/`, `storage/`, `mcp/`, Node APIs, or external packages               | AIC-pipeline           |
+| A2  | Core interfaces use domain language — no SQL, HTTP, or file-system concepts                                                   | AIC-interfaces         |
+| A3  | One public method per class; one class per file                                                                               | AIC-architect          |
+| A4  | One interface per `*.interface.ts` file; max 5 methods per interface (ISP)                                                    | AIC-interfaces         |
+| A5  | Pipeline constructors receive only interfaces via `private readonly` — no concrete classes, no `public` params                | AIC-pipeline           |
+| A6  | No exported interfaces inside pipeline files — extract to `core/interfaces/`                                                  | AIC-pipeline           |
+| A7  | Max 60 lines per function in pipeline                                                                                         | AIC-pipeline           |
+| A8  | No `new` for infrastructure outside MCP composition boundary (primary `mcp/src/server.ts`; delegated `new` per `aic-mcp.mdc`) | AIC-architect, AIC-mcp |
+| A9  | Each external library wrapped by exactly one adapter/storage file                                                             | AIC-architect          |
+| A10 | No if/else-if with 3+ branches — use dispatch pattern (`Record<Enum, Handler>`)                                               | AIC-architect          |
+| A11 | New capabilities via new classes, never modifying existing pipeline classes (OCP)                                             | AIC-architect          |
+| A12 | Events via `PipelineEventBus` — no direct `TelemetryLogger` calls from steps                                                  | AIC-pipeline           |
 
 ## T — Type Safety
 

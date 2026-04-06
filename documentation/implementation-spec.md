@@ -21,7 +21,7 @@
    - [Step 1: Task Classifier](#step-1-task-classifier)
    - [Step 2: Rule Pack Resolver](#step-2-rule-pack-resolver)
    - [Step 3: Budget Allocator](#step-3-budget-allocator)
-   - [Step 4: ContextSelector (HeuristicSelector)](#step-4-contextselector-heuristicselector)
+   - [Step 4: ContextSelector (RelatedFilesBoostContextSelector)](#step-4-contextselector-relatedfilesboostcontextselector)
    - [Step 5: Context Guard](#step-5-context-guard)
    - [Step 5.5: Content Transformer](#step-55-content-transformer)
    - [Step 6: Summarisation Ladder](#step-6-summarisation-ladder)
@@ -84,19 +84,19 @@ Editors with hook support run the integration layer: see [Cursor integration lay
 
 **Primary: MCP Server (`@jatbas/aic`)**
 
-| Feature              | Detail                                                                                                                                                |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **MCP Server**       | Primary interface: MCP tools (`aic_compile` plus the full set in **User interface** below). Invoked by the **trigger rule** or **integration hooks**. |
-| Editor adapters      | Cursor, Claude Code, Generic MCP fallback                                                                                                             |
-| Model adapters       | OpenAI, Anthropic, Generic fallback (auto-detected from request)                                                                                      |
-| Task Classifier      | Heuristic keyword/pattern matching → 6 task classes                                                                                                   |
-| HeuristicSelector    | File-path, import-graph, recency-based context selection                                                                                              |
-| Context Guard        | Scans selected files for secrets, excluded paths, and prompt injection; excludes sensitive content from the compiled context                          |
-| Summarisation Ladder | 4-tier compression: full → signatures+docs → signatures → names                                                                                       |
-| Default Rule Packs   | `default.json`, `refactor.json`, `bugfix.json`, `feature.json`, `docs.json`, `test.json`                                                              |
-| SQLite Storage       | Local telemetry + cache metadata                                                                                                                      |
-| Output Caching       | Hash-based, TTL-configurable, auto-invalidating                                                                                                       |
-| Config System        | `aic.config.json` — all fields optional; zero-config works out of the box                                                                             |
+| Feature              | Detail                                                                                                                                                                                                                                              |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **MCP Server**       | Primary interface: MCP tools (`aic_compile` plus the full set in **User interface** below). Invoked by the **trigger rule** or **integration hooks**.                                                                                               |
+| Editor adapters      | Cursor, Claude Code, Generic MCP fallback                                                                                                                                                                                                           |
+| Model adapters       | OpenAI, Anthropic, Generic fallback (auto-detected from request)                                                                                                                                                                                    |
+| Task Classifier      | Heuristic keyword/pattern matching → 6 task classes                                                                                                                                                                                                 |
+| Context selection    | `RelatedFilesBoostContextSelector` wrapping `HeuristicSelector` — path, import-graph, and recency signals; optional `toolOutputs.relatedFiles` merge into `heuristic.boostPatterns` before scoring (`shared/src/bootstrap/create-pipeline-deps.ts`) |
+| Context Guard        | Scans selected files for secrets, excluded paths, and prompt injection; excludes sensitive content from the compiled context                                                                                                                        |
+| Summarisation Ladder | 4-tier compression: full → signatures+docs → signatures → names                                                                                                                                                                                     |
+| Default Rule Packs   | `default.json`, `refactor.json`, `bugfix.json`, `feature.json`, `docs.json`, `test.json`                                                                                                                                                            |
+| SQLite Storage       | Local telemetry + cache metadata                                                                                                                                                                                                                    |
+| Output Caching       | Hash-based, TTL-configurable, auto-invalidating                                                                                                                                                                                                     |
+| Config System        | `aic.config.json` — all fields optional; zero-config works out of the box                                                                                                                                                                           |
 
 **User interface (MCP tools; diagnostic CLI)**
 
@@ -199,7 +199,7 @@ The numbered steps below explain the main concepts. The **authoritative executio
 3. **BudgetAllocator** (Step 3) — token budget for this compile.
 4. **RepoMap** — from `repoMapSupplier.getRepoMap` (pre-step above).
 5. **IntentAwareFileDiscoverer** — extends the RepoMap with intent-scored files before selection.
-6. **HeuristicSelector** (Step 4) — chooses context files within budget.
+6. **ContextSelector** (Step 4) — chooses context files within budget. Shipped wiring: `RelatedFilesBoostContextSelector` around `HeuristicSelector` (`shared/src/bootstrap/create-pipeline-deps.ts`).
 7. **SpecFileDiscoverer** — parallel branch over a **filtered copy of the supplier `RepoMap`** (paths under `documentation/`, `.cursor/rules/`, `.claude/skills/`, or `adr-` prefixes — see `isSpecPath` in `run-pipeline-steps.ts`), not the post–intent-aware map. If non-empty, that set runs **Context Guard → Content Transformer → Summarisation Ladder** with a cap of ~20% of the main budget, then feeds **PromptAssembler** as `specLadderFiles`.
 8. **Context Guard** (Step 5) on the main selected set — then **Content Transformer** (Step 5.5) — then **Summarisation Ladder** (Step 6).
 9. **LineLevelPruner** — when `subjectTokens` is non-empty, prunes line-level detail on ladder output.
@@ -209,7 +209,7 @@ The numbered steps below explain the main concepts. The **authoritative executio
 
 Merged rule-pack constraints are emitted during assembly (Step 8), not via separate `runPipelineSteps` calls. Steps 7 (Constraint Injector) and 8 (Prompt Assembler) in the subsections below describe that single assembly stage.
 
-**Agentic workflows:** The internal `CompilationRequest` type carries optional session fields (`sessionId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens`) plus `triggerSource` and `conversationId`. The MCP Zod schema in `mcp/src/schemas/compilation-request.ts` validates optional wire fields that map into these (`editorId`, `triggerSource`, `conversationId`, `reparentFromConversationId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens`). The compile handler maps them into `CompilationRequest`, except when `triggerSource` is `subagent_stop` with a non-empty `reparentFromConversationId` and `conversationId`: then it runs `reparentSubagentCompilations` only and returns JSON `{ reparented: true, rowsUpdated: N }` without invoking the pipeline. When an `aic_compile` request has a weak intent (empty after trim, matching the known “provide context for …” prefix list, or equal to the MCP Zod omitted-intent placeholder default) and a non-null `conversationId`, the handler may resolve `CompilationRequest.intent` from the most recent non-`general` compilation for that conversation instead of using the raw request intent, so that file selection reflects the last meaningful task description. On Cursor, the MCP `preToolUse` hook (`AIC-inject-conversation-id.cjs`) may replace a weak `aic_compile` intent from the prewarmed prompt file under `os.tmpdir()` named `aic-prompt-<generation_id>` when `input.generation_id` is present and that file holds non-empty text after the same trim and `<ide_selection>` stripping as the compile gate, before the MCP request is sent. `sessionId` is not an MCP client argument; the composition root sets it from MCP server session state when applicable. Hook integrations supply `conversationId` and related fields where the editor exposes them (see [Project Plan §2.7](project-plan.md#27-agentic-workflow-support)). Optional `toolOutputs` is forwarded on the pipeline request but does not affect file selection today; stored tool outputs are summarised into the deterministic `Steps completed:` header on later compiles (last 10 steps in the prompt; see Project Plan §2.7).
+**Agentic workflows:** The internal `CompilationRequest` type carries optional session fields (`sessionId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens`) plus `triggerSource` and `conversationId`. The MCP Zod schema in `mcp/src/schemas/compilation-request.ts` validates optional wire fields that map into these (`editorId`, `triggerSource`, `conversationId`, `reparentFromConversationId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens`). The compile handler maps them into `CompilationRequest`, except when `triggerSource` is `subagent_stop` with a non-empty `reparentFromConversationId` and `conversationId`: then it runs `reparentSubagentCompilations` only and returns JSON `{ reparented: true, rowsUpdated: N }` without invoking the pipeline. When an `aic_compile` request has a weak intent (empty after trim, matching the known “provide context for …” prefix list, or equal to the MCP Zod omitted-intent placeholder default) and a non-null `conversationId`, the handler may resolve `CompilationRequest.intent` from the most recent non-`general` compilation for that conversation instead of using the raw request intent, so that file selection reflects the last meaningful task description. On Cursor, the MCP `preToolUse` hook (`AIC-inject-conversation-id.cjs`) may replace a weak `aic_compile` intent from the prewarmed prompt file under `os.tmpdir()` named `aic-prompt-<generation_id>` when `input.generation_id` is present and that file holds non-empty text after the same trim and `<ide_selection>` stripping as the compile gate, before the MCP request is sent. `sessionId` is not an MCP client argument; the composition root sets it from MCP server session state when applicable. Hook integrations supply `conversationId` and related fields where the editor exposes them (see [Project Plan §2.7](project-plan.md#27-agentic-workflow-support)). Optional `toolOutputs` is forwarded on `PipelineStepsRequest` (`shared/src/core/run-pipeline-steps.ts`). Structured `relatedFiles` on each entry (`ToolOutput` in `shared/src/core/types/compilation-types.ts`) can change selection and compilation cache keys as described under Step 4; `type` and `content` do not affect selection scoring. Stored tool outputs are summarised into the deterministic `Steps completed:` header on later compiles (last 10 steps in the prompt; see Project Plan §2.7).
 
 ### Step 1: Task Classifier
 
@@ -285,9 +285,15 @@ The shipped config schema and `BudgetAllocator` do not apply a model-profile or 
 
 ---
 
-### Step 4: ContextSelector (HeuristicSelector)
+### Step 4: ContextSelector (RelatedFilesBoostContextSelector)
 
-**Input:** TaskClassification + RepoMap + budget + RulePack (for include/exclude/boost/penalize patterns) + config.contextSelector (injected via `HeuristicSelector` constructor; carries `maxFiles` and scoring weights)
+**Composition:** `PipelineStepsDeps.contextSelector` is `RelatedFilesBoostContextSelector` delegating to `HeuristicSelector` (`shared/src/bootstrap/create-pipeline-deps.ts`). The sections below describe scoring inside `HeuristicSelector`; tool-output path boosts are merged into `heuristic.boostPatterns` in the outer wrapper before that logic runs.
+
+**Input:** TaskClassification + RepoMap + budget + RulePack (for include/exclude/boost/penalize patterns) + optional `toolOutputs` from `PipelineStepsRequest` + `config.contextSelector` (injected via `HeuristicSelector` constructor; carries `maxFiles` and scoring weights)
+
+**Tool-output related paths:** When `toolOutputs` is defined and `dedupeRelatedPathsInOrder` yields at least one path (`shared/src/pipeline/related-files-boost-context-selector.ts`), each path is escaped for glob metacharacters, converted with `toGlobPattern`, and appended to `heuristic.boostPatterns` via `mergeRulePackWithRelatedBoosts`. Candidates are scored after `includePatterns` / `excludePatterns` filtering; each **file** gains +0.2 per `boostPatterns` entry that matches its path via `matchesGlob` (including patterns derived from tool-output related paths) and −0.2 per matching `penalizePatterns` entry, clamped in `scoreCandidate` (`shared/src/pipeline/heuristic-selector.ts`). The inner `HeuristicSelector.selectContext` accepts an optional `toolOutputs` parameter but does not read it (`_toolOutputs`); boosting from tool outputs happens only in the wrapper. When `toolOutputs` is omitted or yields no related paths, the wrapper forwards the original rule pack unchanged.
+
+**Compilation cache key:** When the deduplicated related-path set is non-empty, `computeCompilationCacheKey` (`shared/src/pipeline/compilation-runner.ts`) appends `canonicalRelatedPathsForSelectionCache`: the same paths **sorted** with `localeCompare` and joined by `\0`, so the same multiset of paths in any wire order maps to one cache segment.
 
 **Heuristic scoring algorithm:**
 
@@ -1015,18 +1021,18 @@ This section summarizes the test deliverables that ship with the scope described
 
 ### Unit Tests (per pipeline step)
 
-| Step                         | Key assertions                                                                                                                                                                        |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Step 1 (IntentClassifier)    | Correct task class for each keyword set; `general` fallback when no match; tie-breaking                                                                                               |
-| Step 2 (RulePackResolver)    | Built-in packs load; project packs merge correctly; malformed JSON produces error                                                                                                     |
-| Step 3 (BudgetAllocator)     | Resolution order respected (rulePack override > perTaskClass > maxTokens; clamp when session tokens present)                                                                          |
-| Step 4 (HeuristicSelector)   | Scoring formula verified against fixture repos; `maxFiles` cap respected; include/exclude patterns applied                                                                            |
-| Step 5 (ContextGuard)        | Exclusion, Secret, PromptInjection, MarkdownInstruction, CommandInjection scanners — known-safe and known-flagged fixtures; all-blocked edge case handled                             |
-| Step 6 (SummarisationLadder) | Each tier produces expected compression; over-budget triggers next tier; lowest-score files compressed first                                                                          |
-| Step 7 (ConstraintInjector)  | Deduplication; empty list omits block; ordering preserved                                                                                                                             |
-| Step 8 (PromptAssembler)     | Sections ordered as in `prompt-assembler.ts`; optional blocks omitted when empty; never emits `## Output Format` or format-instruction prose; regression tests lock assembly shape    |
-| Step 9 (Executor)            | Retry policy honoured; non-retryable errors fail immediately (mocked endpoint)                                                                                                        |
-| Step 10 (TelemetryLogger)    | After successful `runner.run` when `enabled !== false`, `writeCompilationTelemetry` persists to `telemetry_events`; handler catches store errors without failing the compile response |
+| Step                                         | Key assertions                                                                                                                                                                                                                                 |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Step 1 (IntentClassifier)                    | Correct task class for each keyword set; `general` fallback when no match; tie-breaking                                                                                                                                                        |
+| Step 2 (RulePackResolver)                    | Built-in packs load; project packs merge correctly; malformed JSON produces error                                                                                                                                                              |
+| Step 3 (BudgetAllocator)                     | Resolution order respected (rulePack override > perTaskClass > maxTokens; clamp when session tokens present)                                                                                                                                   |
+| Step 4 (ContextSelector / HeuristicSelector) | Scoring formula verified against fixture repos; related-files boost from `toolOutputs.relatedFiles` (`shared/src/pipeline/__tests__/related-files-boost-context-selector.test.ts`); `maxFiles` cap respected; include/exclude patterns applied |
+| Step 5 (ContextGuard)                        | Exclusion, Secret, PromptInjection, MarkdownInstruction, CommandInjection scanners — known-safe and known-flagged fixtures; all-blocked edge case handled                                                                                      |
+| Step 6 (SummarisationLadder)                 | Each tier produces expected compression; over-budget triggers next tier; lowest-score files compressed first                                                                                                                                   |
+| Step 7 (ConstraintInjector)                  | Deduplication; empty list omits block; ordering preserved                                                                                                                                                                                      |
+| Step 8 (PromptAssembler)                     | Sections ordered as in `prompt-assembler.ts`; optional blocks omitted when empty; never emits `## Output Format` or format-instruction prose; regression tests lock assembly shape                                                             |
+| Step 9 (Executor)                            | Retry policy honoured; non-retryable errors fail immediately (mocked endpoint)                                                                                                                                                                 |
+| Step 10 (TelemetryLogger)                    | After successful `runner.run` when `enabled !== false`, `writeCompilationTelemetry` persists to `telemetry_events`; handler catches store errors without failing the compile response                                                          |
 
 ### Integration Tests
 

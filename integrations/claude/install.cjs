@@ -35,7 +35,7 @@ You do **not** need to call \`aic_compile\` manually — hooks handle it. If you
 - **SOLID:** One public method per class; one class per file; one interface per \`*.interface.ts\` file. Constructor receives only interfaces — never concrete classes. No \`public\` constructor params in pipeline — use \`private readonly\`. No exported interfaces in pipeline files — extract to \`core/interfaces/\`. Max 60 lines per function in pipeline (enforced by ESLint). No exceptions in pipeline steps.
 - **Hexagonal:** \`core/\` and \`pipeline/\` have zero imports from \`adapters/\`, \`storage/\`, \`mcp/\`, Node.js APIs, or external packages. All I/O through interfaces only. Core interfaces must NOT expose infrastructure concepts (SQL syntax, HTTP verbs, file-system paths) — use domain terminology.
 - **Adapter wrapping:** Every external library has exactly ONE adapter or storage file that wraps it behind a core interface. No other file imports the library directly — enforced by ESLint \`no-restricted-imports\`. To swap a library, change one file.
-- **DIP:** No \`new\` for infrastructure/service classes outside the composition root (\`mcp/src/server.ts\`). All dependencies via constructor injection. Storage classes receive the database instance — never construct it. Adapters inject \`Clock\` for time, never call \`Date.now()\` directly.
+- **DIP:** No \`new\` for infrastructure/service classes outside the MCP composition boundary: \`mcp/src/server.ts\` is the primary wiring site; delegated \`new\` in other \`mcp/src\` modules follows \`aic-mcp.mdc\` (Composition Root Discipline). All dependencies via constructor injection. Storage classes receive the database instance — never construct it. Adapters inject \`Clock\` for time, never call \`Date.now()\` directly.
 - **OCP:** New capabilities via new classes implementing existing interfaces — never modify existing pipeline classes. The core pipeline is frozen once correct; all evolution happens at the edges.
 - **Dispatch pattern:** No if/else-if chains with 3+ branches — enforced by ESLint. Use \`Record<Enum, Handler>\` for enum dispatch, handler arrays for predicate dispatch. Extend by adding entries (OCP), not modifying branches.
 - **Errors:** Never throw bare \`Error\`. Use \`AicError\` subclasses with machine-readable \`code\` property. Pipeline steps never catch-and-ignore — errors propagate to composition root. MCP server never crashes on a single bad request.
@@ -98,7 +98,7 @@ shared/src/core/         ← interfaces and types (no implementations)
 shared/src/pipeline/     ← pipeline steps (pure transformations)
 shared/src/adapters/     ← external library wrappers
 shared/src/storage/      ← SQLite access (only place for SQL)
-mcp/src/                 ← MCP server (sole composition root)
+mcp/src/                 ← MCP server (primary composition root; see \`aic-mcp.mdc\`)
 \`\`\`
 
 ## ESLint

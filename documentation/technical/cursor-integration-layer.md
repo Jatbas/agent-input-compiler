@@ -20,9 +20,14 @@ What this means concretely:
   (`integrations/cursor/install.cjs`) is standalone. `mcp/src/editor-integration-dispatch.ts`
   runs it with `execFileSync` when the bootstrap gate passes (see that file — not only `.cursor/` / `CURSOR_PROJECT_DIR` may open the gate). Installer resolution matches [installation.md](../installation.md#first-compile-bootstrap): `<project>/integrations/cursor/install.cjs` when that file exists under the opened workspace root, otherwise the copy bundled inside the published `@jatbas/aic` package at package-relative `integrations/cursor/install.cjs`. Triggers: workspace roots listed (if the client supports roots) or **first** `aic_compile` for that project. No copy/merge logic duplicated in `mcp/src/`. For a one-off refresh, diagnostics, or nonstandard layouts, run `node` on the resolved installer path with cwd at the project root (see [installation.md](../installation.md#first-compile-bootstrap)).
 
-- **The `aic_compile` MCP tool is neutral.** It accepts `intent`, `projectRoot`, and
-  `conversationId`. It does not know who called it. The hook adapter in `integrations/cursor/hooks/`
-  translates Cursor's hook protocol into that call — that translation is integration-layer work only.
+- **The `aic_compile` MCP tool is neutral.** It requires `intent` and `projectRoot`; shipped Cursor hooks also send `editorId`, `triggerSource`, and often `conversationId` / `modelId`. It does not know who called it. The hook adapter in `integrations/cursor/hooks/`
+  translates Cursor's hook protocol into that call — that translation is integration-layer work only. Optional wire fields beyond what hooks send are listed in §2.1.
+
+### 2.1 Optional `aic_compile` arguments (`toolOutputs` and agentic fields)
+
+The MCP schema (`mcp/src/schemas/compilation-request.ts`, summarized in [Implementation specification §8c](../implementation-spec.md#8c-input-validation-zod-schemas)) accepts optional agentic fields such as `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, and `conversationTokens`. When callers supply structured `toolOutputs[].relatedFiles` (repo-relative paths by convention), the pipeline merges them into heuristic `boostPatterns` before scoring; when the deduplicated related-path set is non-empty, a sorted NUL-separated canonical encoding of those paths is included in the cache preimage that `compilation-runner` hashes ([Step 4 — ContextSelector](../implementation-spec.md#step-4-contextselector-relatedfilesboostcontextselector)).
+
+**Shipped hooks** in `integrations/cursor/hooks/` that invoke `aic_compile` do not set `toolOutputs` or `relatedFiles` (for example `AIC-compile-context.cjs`, `AIC-subagent-compile.cjs`, and `AIC-subagent-stop.cjs`). Custom integrations may forward `toolOutputs` when the MCP client exposes prior tool results in that shape.
 
 - **Shared utilities are welcome** in `shared/` only when they are genuinely editor-agnostic
   (e.g. a `buildSessionContext()` helper that any editor integration could use). If a
@@ -61,7 +66,7 @@ Cursor runtime
   ▼
 .cursor/hooks/AIC-<role>.cjs   ← one hook process per registration
   │
-  │  (session compile / subagent telemetry / subagent reparent) JSON-RPC: tools/call aic_compile …
+  │  (session compile / subagent telemetry / subagent reparent) JSON-RPC: tools/call aic_compile — §2.1
   ▼
 mcp/src/server.ts → CompilationRunner.run()
   │

@@ -7,6 +7,10 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Cursor and Claude integration-layer guides document optional `aic_compile` agentic fields and `toolOutputs.relatedFiles` (selection + cache preimage), and note that shipped hook scripts omit `toolOutputs`
+
 ## [0.11.7] - 2026-04-02
 
 ### Fixed

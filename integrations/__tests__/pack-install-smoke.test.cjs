@@ -29,31 +29,9 @@ const sharedCjsFiles = fs
   .readdirSync(path.join(repoRoot, "integrations", "shared"))
   .filter((f) => f.endsWith(".cjs"));
 
-// Count from build output — bundle script may generate additional files (e.g. .txt)
+// Bundle output paths — file lists are read after bundle scripts run (see try block)
 const bundledSharedDir = path.join(repoRoot, "mcp", "integrations", "shared");
-const bundledSharedFiles = fs.existsSync(bundledSharedDir)
-  ? fs.readdirSync(bundledSharedDir).filter((f) => {
-      const full = path.join(bundledSharedDir, f);
-      return fs.statSync(full).isFile();
-    })
-  : [];
-
-// Dynamic: top-level .cjs files in the bundled integrations directory
 const bundledIntegrationsDir = path.join(repoRoot, "mcp", "integrations");
-const bundledTopLevelCjs = fs.existsSync(bundledIntegrationsDir)
-  ? fs.readdirSync(bundledIntegrationsDir).filter((f) => {
-      return (
-        f.endsWith(".cjs") && fs.statSync(path.join(bundledIntegrationsDir, f)).isFile()
-      );
-    })
-  : [];
-
-// Dynamic: subdirectories expected in the bundled integrations
-const bundledSubdirs = fs.existsSync(bundledIntegrationsDir)
-  ? fs
-      .readdirSync(bundledIntegrationsDir)
-      .filter((f) => fs.statSync(path.join(bundledIntegrationsDir, f)).isDirectory())
-  : [];
 
 // mcp/package.json files field — every positive entry must resolve in the installed package
 const mcpPkg = JSON.parse(fs.readFileSync(path.join(mcpDir, "package.json"), "utf8"));
@@ -85,6 +63,25 @@ try {
   execFileSync("node", [path.join(mcpDir, "scripts", "bundle-cursor-installer.cjs")], {
     cwd: repoRoot,
   });
+
+  const bundledSharedFiles = fs.existsSync(bundledSharedDir)
+    ? fs.readdirSync(bundledSharedDir).filter((f) => {
+        const full = path.join(bundledSharedDir, f);
+        return fs.statSync(full).isFile();
+      })
+    : [];
+  const bundledTopLevelCjs = fs.existsSync(bundledIntegrationsDir)
+    ? fs.readdirSync(bundledIntegrationsDir).filter((f) => {
+        return (
+          f.endsWith(".cjs") && fs.statSync(path.join(bundledIntegrationsDir, f)).isFile()
+        );
+      })
+    : [];
+  const bundledSubdirs = fs.existsSync(bundledIntegrationsDir)
+    ? fs
+        .readdirSync(bundledIntegrationsDir)
+        .filter((f) => fs.statSync(path.join(bundledIntegrationsDir, f)).isDirectory())
+    : [];
 
   execSync("pnpm pack --pack-destination " + JSON.stringify(tarballs), {
     cwd: sharedDir,

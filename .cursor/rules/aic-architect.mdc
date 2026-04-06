@@ -9,18 +9,18 @@ Use this map to decide which rules apply to the current task. The **critical rem
 
 ## Context → Rules to Apply
 
-| Context                                                       | Rules to apply (file in .cursor/rules/)       |
-| ------------------------------------------------------------- | --------------------------------------------- |
-| **Any task (before coding)**                                  | AIC-architect (this file, always active)      |
-| **Editing `shared/src/core/**`or`shared/src/pipeline/**`**    | AIC-pipeline, AIC-interfaces, AIC-errors      |
-| **Editing `shared/src/adapters/**`or`shared/src/storage/**`** | AIC-storage, AIC-errors                       |
-| **Editing `shared/src/**/interfaces/**`**                     | AIC-interfaces                                |
-| **Editing `mcp/src/**`\*\*                                    | AIC-mcp, AIC-errors                           |
+| Context                                                                                                                                         | Rules to apply (file in .cursor/rules/)                                  |
+| ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| **Any task (before coding)**                                                                                                                    | AIC-architect (this file, always active)                                 |
+| **Editing `shared/src/core/**`or`shared/src/pipeline/**`**                                                                                      | AIC-pipeline, AIC-interfaces, AIC-errors                                 |
+| **Editing `shared/src/adapters/**`or`shared/src/storage/**`**                                                                                   | AIC-storage, AIC-errors                                                  |
+| **Editing `shared/src/**/interfaces/**`**                                                                                                       | AIC-interfaces                                                           |
+| **Editing `mcp/src/**`\*\*                                                                                                                      | AIC-mcp, AIC-errors                                                      |
 | **Editing `mcp/src/install-trigger-rule.ts`, `integrations/claude/install.cjs`, or AIC-managed `.claude/CLAUDE.md` / uninstall snapshot paths** | AIC-claude-md-managed-section, AIC-mcp (if under `mcp/src/`), AIC-errors |
-| **Editing `integrations/**`, `mcp/scripts/bundle-*`, or `mcp/package.json` `files` field** | AIC-tests (smoke test section)                |
-| **Editing `**/\*.test.ts`or`**/**tests**/**`\*\*              | AIC-tests                                     |
-| **Fixing lint errors or type assertions in `**/\*.ts`\*\*     | AIC-type-safety                               |
-| **Suggesting or writing commit messages**                     | AIC-architect (critical reminders cover this) |
+| **Editing `integrations/**`, `mcp/scripts/bundle-\*`, or `mcp/package.json` `files` field\*\*                                                   | AIC-tests (smoke test section)                                           |
+| **Editing `**/\*.test.ts`or`**/**tests**/**`\*\*                                                                                                | AIC-tests                                                                |
+| **Fixing lint errors or type assertions in `**/\*.ts`\*\*                                                                                       | AIC-type-safety                                                          |
+| **Suggesting or writing commit messages**                                                                                                       | AIC-architect (critical reminders cover this)                            |
 
 ## Critical reminders (safeguard when rule not in context)
 
@@ -31,7 +31,7 @@ These bullets are the single source of truth: the sessionStart hook (`.cursor/ho
 - **SOLID:** One public method per class; one class per file; one interface per `*.interface.ts` file. Constructor receives only interfaces — never concrete classes. No `public` constructor params in pipeline — use `private readonly`. No exported interfaces in pipeline files — extract to `core/interfaces/`. Max 60 lines per function in pipeline (enforced by ESLint). No exceptions in pipeline steps.
 - **Hexagonal:** `core/` and `pipeline/` have zero imports from `adapters/`, `storage/`, `mcp/`, Node.js APIs, or external packages. All I/O through interfaces only. Core interfaces must NOT expose infrastructure concepts (SQL syntax, HTTP verbs, file-system paths) — use domain terminology.
 - **Adapter wrapping:** Every external library has exactly ONE adapter or storage file that wraps it behind a core interface. No other file imports the library directly — enforced by ESLint `no-restricted-imports`. To swap a library, change one file.
-- **DIP:** No `new` for infrastructure/service classes outside composition root (`mcp/src/server.ts`). All dependencies via constructor injection. Storage classes receive the database instance — never construct it. Adapters inject `Clock` for time, never call `Date.now()` directly.
+- **DIP:** No `new` for infrastructure/service classes outside the MCP composition boundary: `mcp/src/server.ts` is the primary wiring site; delegated `new` in other `mcp/src` modules follows `aic-mcp.mdc` (Composition Root Discipline). All dependencies via constructor injection. Storage classes receive the database instance — never construct it. Adapters inject `Clock` for time, never call `Date.now()` directly.
 - **OCP:** New capabilities via new classes implementing existing interfaces — never modify existing pipeline classes. The core pipeline is frozen once correct; all evolution happens at the edges.
 - **Dispatch pattern:** No if/else-if chains with 3+ branches — enforced by ESLint. Use `Record<Enum, Handler>` for enum dispatch, handler arrays for predicate dispatch. Extend by adding entries (OCP), not modifying branches.
 - **Errors:** Never throw bare `Error`. Use `AicError` subclasses with machine-readable `code` property. Pipeline steps never catch-and-ignore — errors propagate to composition root. MCP server never crashes on a single bad request.
@@ -109,18 +109,18 @@ Use these rules for all five AIC prompt commands. Present data like a polished d
 
 - **"show aic chat summary"** — When the user says "show aic chat summary" or asks for this workspace's AIC compilation stats, run Bash with `npx @jatbas/aic chat-summary --project <absolute workspace root>` (or `pnpm aic chat-summary --project <absolute workspace root>` when `"devMode": true` is set in `aic.config.json`), then relay stdout. Start the reply with one short line: **Chat = this conversation's AIC compilations.** Then display a formatted table using these labels and formats:
 
-  | JSON key                      | Label               | Format                                         |
-  | ----------------------------- | ------------------- | ---------------------------------------------- |
-  | projectRoot                   | Project path        | text                                           |
-  | compilationsInConversation    | Compilations        | number                                         |
-  | totalTokensRaw                | Tokens (raw)        | formatted with commas                          |
-  | totalTokensCompiled           | Tokens (compiled)   | formatted with commas                          |
-  | totalTokensSaved              | Tokens excluded     | formatted with commas                          |
-  | cacheHitRatePct               | Cache hit rate      | percentage, 1 decimal                          |
-  | avgReductionPct               | Avg exclusion rate  | percentage, 1 decimal                          |
-  | budgetUtilizationPct          | Budget utilization  | percentage, 1 decimal                          |
-  | lastCompilationInConversation | Last compilation    | intent text + relative time (e.g. "5 min ago") |
-  | topTaskClasses                | Top task classes    | taskClass (count), comma-separated             |
+  | JSON key                      | Label              | Format                                         |
+  | ----------------------------- | ------------------ | ---------------------------------------------- |
+  | projectRoot                   | Project path       | text                                           |
+  | compilationsInConversation    | Compilations       | number                                         |
+  | totalTokensRaw                | Tokens (raw)       | formatted with commas                          |
+  | totalTokensCompiled           | Tokens (compiled)  | formatted with commas                          |
+  | totalTokensSaved              | Tokens excluded    | formatted with commas                          |
+  | cacheHitRatePct               | Cache hit rate     | percentage, 1 decimal                          |
+  | avgReductionPct               | Avg exclusion rate | percentage, 1 decimal                          |
+  | budgetUtilizationPct          | Budget utilization | percentage, 1 decimal                          |
+  | lastCompilationInConversation | Last compilation   | intent text + relative time (e.g. "5 min ago") |
+  | topTaskClasses                | Top task classes   | taskClass (count), comma-separated             |
 
 - **"show aic last"** — When the user says this (or similar), run Bash with `npx @jatbas/aic last` (or `pnpm aic last` when `"devMode": true` is set in `aic.config.json`) from the project directory, then relay stdout. Start the reply with one short line: **Last = most recent compilation.** Then display using these labels and formats:
 
