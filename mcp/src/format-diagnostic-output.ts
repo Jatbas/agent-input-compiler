@@ -208,7 +208,9 @@ export function formatLastTable(
   const tc = payload.promptSummary.tokenCount;
   const promptRow = padRow(
     "Compiled prompt",
-    tc === null ? "—" : `Available (${formatInt(tc)} tokens) — ask to see it`,
+    tc === null
+      ? "—"
+      : `Available (${formatInt(tc)} tokens) — see ~/.aic/last-compiled-prompt.txt`,
     w,
   );
   const rows: readonly string[] = [

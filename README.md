@@ -90,7 +90,7 @@ Last = most recent compilation.
 | Compiled           | 4 sec ago                                                       |
 | Editor             | cursor                                                          |
 | Guard              | —                                                               |
-| Compiled prompt    | Available (1,988 tokens) — ask to see it                        |
+| Compiled prompt    | Available (1,988 tokens) — see ~/.aic/last-compiled-prompt.txt  |
 
 Exclusion rate: % of total repo tokens not included in the compiled prompt.
 Budget utilization: % of token budget filled.
