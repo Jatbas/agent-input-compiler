@@ -56,17 +56,17 @@ Status = project-level AIC status.
 
 | Field                    | Value                                                                               |
 | ------------------------ | ----------------------------------------------------------------------------------- |
-| Compilations (total)     | 4,685                                                                               |
-| Compilations (today)     | 146                                                                                 |
-| Tokens: raw → compiled   | 3,155,126,860 → 10,735,685                                                          |
-| Tokens excluded          | 3,144,391,175                                                                       |
-| Budget limit             | 8,000                                                                               |
-| Budget utilization       | 24.9%                                                                               |
-| Cache hit rate           | 35.2%                                                                               |
-| Avg exclusion rate       | 99.7%                                                                               |
-| Guard findings           | command-injection: 475,367, excluded-file: 59, prompt-injection: 121, secret: 12    |
-| Top task classes         | general (2,856), docs (550), bugfix (533)                                           |
-| Last compilation         | Sync templates to improve...                                                        |
+| Compilations (total)     | 6,192                                                                               |
+| Compilations (today)     | 119                                                                                 |
+| Tokens: raw → compiled   | 4,419,588,970 → 16,433,450                                                         |
+| Tokens excluded          | 4,403,155,520                                                                       |
+| Budget limit             | 123,500                                                                             |
+| Budget utilization       | 0.5%                                                                                |
+| Cache hit rate           | 35.7%                                                                               |
+| Avg exclusion rate       | 99.6%                                                                               |
+| Guard findings           | command-injection: 581,444, excluded-file: 59, prompt-injection: 157, secret: 12    |
+| Top task classes         | general (3,690), docs (776), bugfix (706)                                           |
+| Last compilation         | fix HeuristicSelector scoring...                                                    |
 | Installation             | OK                                                                                  |
 | Update available         | —                                                                                   |
 
@@ -79,18 +79,18 @@ Budget utilization: % of token budget filled.
 ```text
 Last = most recent compilation.
 
-| Field              | Value                                                           |
-| ------------------ | --------------------------------------------------------------- |
-| Compilations       | 4,673                                                           |
-| Intent             | Validate inputs to detect...                                    |
-| Files              | 0 selected / 704 total                                          |
-| Tokens compiled    | 1,988                                                           |
-| Budget utilization | 24.9%                                                           |
-| Exclusion rate     | 99.8%                                                           |
-| Compiled           | 4 sec ago                                                       |
-| Editor             | cursor                                                          |
-| Guard              | —                                                               |
-| Compiled prompt    | Available (1,988 tokens) — see ~/.aic/last-compiled-prompt.txt  |
+| Field              | Value                                                                     |
+| ------------------ | ------------------------------------------------------------------------- |
+| Compilations       | 6,158                                                                     |
+| Intent             | task 284 auto-adaptive budget documentation...                            |
+| Files              | 10 selected / 519 total                                                   |
+| Tokens compiled    | 70,384                                                                    |
+| Budget utilization | 57.0%                                                                     |
+| Exclusion rate     | 89.6%                                                                     |
+| Compiled           | 39 sec ago                                                                |
+| Editor             | cursor                                                                    |
+| Guard              | —                                                                         |
+| Compiled prompt    | Available (70,384 tokens) — see ~/.aic/last-compiled-prompt.txt           |
 
 Exclusion rate: % of total repo tokens not included in the compiled prompt.
 Budget utilization: % of token budget filled.

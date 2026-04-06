@@ -144,7 +144,7 @@ All defaults apply when no config file exists or a field is omitted.
 | Project root                             | Git root (walk up from current working directory)                                                                                                                                                       | Auto-detected per request                                                                       | `--root`          |
 | Config file                              | Auto-discovered (walk up from project root)                                                                                                                                                             | Auto-discovered                                                                                 | `--config`        |
 | Database                                 | `~/.aic/aic.sqlite` (global)                                                                                                                                                                            | Auto-resolved                                                                                   | `--db`            |
-| Context budget                           | 8,000 tokens                                                                                                                                                                                            | `aic.config.json` only                                                                          | `--budget`        |
+| Context budget                           | Auto (default **`maxTokens` 0** → fixed model headroom in `BudgetAllocator`; positive values = manual cap)                                                                                              | `aic.config.json` only                                                                          | `--budget`        |
 | Context selector                         | `heuristic`                                                                                                                                                                                             | `aic.config.json` only                                                                          | Config only       |
 | Model id                                 | On-disk cache `.aic/session-models.jsonl` (hooks) plus MCP `modelId` argument are consulted before `ModelDetector` / config; full order in [§4 — Model id resolution](#model-id-resolution-aic_compile) | Non-null `modelId` tool argument, then `.aic/session-models.jsonl`, then `model.id` or detector | Config only       |
 | Model provider                           | `null` (required only for the deferred executor path)                                                                                                                                                   | `aic.config.json` only                                                                          | Config only       |
@@ -196,18 +196,18 @@ The numbered steps below explain the main concepts. The **authoritative executio
 
 1. **IntentClassifier** (Step 1) — task class + subject tokens.
 2. **RulePackResolver** (Step 2) — merged `RulePack`.
-3. **BudgetAllocator** (Step 3) — token budget for this compile.
+3. **BudgetAllocator** (Step 3) — **total** token budget for this compile (`maxTokens` **0** = auto headroom; see Step 3 subsection).
 4. **RepoMap** — from `repoMapSupplier.getRepoMap` (pre-step above).
-5. **IntentAwareFileDiscoverer** — extends the RepoMap with intent-scored files before selection.
-6. **ContextSelector** (Step 4) — chooses context files within budget. Shipped wiring: `RelatedFilesBoostContextSelector` around `HeuristicSelector` (`shared/src/bootstrap/create-pipeline-deps.ts`).
-7. **SpecFileDiscoverer** — parallel branch over a **filtered copy of the supplier `RepoMap`** (paths under `documentation/`, `.cursor/rules/`, `.claude/skills/`, or `adr-` prefixes — see `isSpecPath` in `run-pipeline-steps.ts`), not the post–intent-aware map. If non-empty, that set runs **Context Guard → Content Transformer → Summarisation Ladder** with a cap of ~20% of the main budget, then feeds **PromptAssembler** as `specLadderFiles`.
-8. **Context Guard** (Step 5) on the main selected set — then **Content Transformer** (Step 5.5) — then **Summarisation Ladder** (Step 6).
+5. **Overhead + code budget** — structural map, optional session summary, spec-ladder slice (capped at ~20% of total budget), constraints text, and a fixed 100-token task header are token-counted; **codeBudget** = max(0, totalBudget − overhead). **maxFiles:** when configured `heuristic.maxFiles` is **0**, effective cap = `ceil(sqrt(totalFiles))` clamped to **[5, 40]**.
+6. **IntentAwareFileDiscoverer** — extends the RepoMap with intent-scored files before selection (uses `maxFilesOverride` from the resolved cap).
+7. **ContextSelector** (Step 4) — chooses context files within **codeBudget**. Shipped wiring: `RelatedFilesBoostContextSelector` around `HeuristicSelector` (`shared/src/bootstrap/create-pipeline-deps.ts`).
+8. **Context Guard** (Step 5) on the main selected set — then **Content Transformer** (Step 5.5) — then **Summarisation Ladder** (Step 6) on **codeBudget**.
 9. **LineLevelPruner** — when `subjectTokens` is non-empty, prunes line-level detail on ladder output.
-10. **ConversationCompressor** — when agentic session state is present, builds the `Steps completed:` header snippet from recent steps.
-11. **StructuralMapBuilder** — builds structural map metadata for assembly, ignoring VCS internals such as `.git/`.
-12. **PromptAssembler** (Step 8) — final prompt string.
+10. **PromptAssembler** (Step 8) — final prompt string (receives structural map, session summary snippet, spec ladder files, and main pruned files).
 
-Merged rule-pack constraints are emitted during assembly (Step 8), not via separate `runPipelineSteps` calls. Steps 7 (Constraint Injector) and 8 (Prompt Assembler) in the subsections below describe that single assembly stage.
+**Note:** `StructuralMapBuilder`, `ConversationCompressor` (session summary), and **SpecFileDiscoverer** (spec ladder under `isSpecPath`, capped at ~20% of **totalBudget**) run **before** Step 4 in `runPipelineSteps` so their token costs feed **overhead** and **codeBudget**; the same spec ladder output is passed through to **PromptAssembler**.
+
+Merged rule-pack constraints are emitted during assembly (PromptAssembler / Step 8 in the subsections below), not via separate `runPipelineSteps` calls.
 
 **Agentic workflows:** The internal `CompilationRequest` type carries optional session fields (`sessionId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens`) plus `triggerSource` and `conversationId`. The MCP Zod schema in `mcp/src/schemas/compilation-request.ts` validates optional wire fields that map into these (`editorId`, `triggerSource`, `conversationId`, `reparentFromConversationId`, `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, `conversationTokens`). The compile handler maps them into `CompilationRequest`, except when `triggerSource` is `subagent_stop` with a non-empty `reparentFromConversationId` and `conversationId`: then it runs `reparentSubagentCompilations` only and returns JSON `{ reparented: true, rowsUpdated: N }` without invoking the pipeline. When an `aic_compile` request has a weak intent (empty after trim, matching the known “provide context for …” prefix list, or equal to the MCP Zod omitted-intent placeholder default) and a non-null `conversationId`, the handler may resolve `CompilationRequest.intent` from the most recent non-`general` compilation for that conversation instead of using the raw request intent, so that file selection reflects the last meaningful task description. On Cursor, the MCP `preToolUse` hook (`AIC-inject-conversation-id.cjs`) may replace a weak `aic_compile` intent from the prewarmed prompt file under `os.tmpdir()` named `aic-prompt-<generation_id>` when `input.generation_id` is present and that file holds non-empty text after the same trim and `<ide_selection>` stripping as the compile gate, before the MCP request is sent. `sessionId` is not an MCP client argument; the composition root sets it from MCP server session state when applicable. Hook integrations supply `conversationId` and related fields where the editor exposes them (see [Project Plan §2.7](project-plan.md#27-agentic-workflow-support)). Optional `toolOutputs` is forwarded on `PipelineStepsRequest` (`shared/src/core/run-pipeline-steps.ts`). Structured `relatedFiles` on each entry (`ToolOutput` in `shared/src/core/types/compilation-types.ts`) can change selection and compilation cache keys as described under Step 4; `type` and `content` do not affect selection scoring. Stored tool outputs are summarised into the deterministic `Steps completed:` header on later compiles (last 10 steps in the prompt; see Project Plan §2.7).
 
@@ -273,13 +273,17 @@ See [Project Plan §3.1](project-plan.md) for the full annotated rule pack examp
 
 1. `budgetOverride` in resolved RulePack (if present)
 2. `contextBudget.perTaskClass[taskClass]` in config (if present for that task class)
-3. `contextBudget.maxTokens` in config (default **8,000** when the field is omitted — `shared/src/config/load-config-from-file.ts`, `shared/src/core/types/resolved-config.ts`)
+3. `contextBudget.maxTokens` in config (default **0** = auto when the field is omitted — `shared/src/config/load-config-from-file.ts`, `shared/src/core/types/resolved-config.ts`)
 
-The shipped config schema and `BudgetAllocator` do not apply a model-profile or `windowRatio` branch; the base budget comes only from the rule pack and those config keys. Roadmap for formula-derived budgets: [Project Plan §2.7](project-plan.md#27-agentic-workflow-support) and [Planned model-derived budgets](#planned-model-derived-budgets).
+**Auto mode (`maxTokens` resolves to numeric 0):** After the three-way resolution above, if the resulting base is **0**, `BudgetAllocator.allocate` returns **headroom** = `max(0, 128_000 − 4_000 − conversationTokens − 500)` (same literals as below), i.e. the full remaining window slice — not a separate `AdaptiveBudgetAllocator` class.
 
-**Session clamp:** When `sessionContext.conversationTokens` is defined, `BudgetAllocator.allocate` returns the lesser of the base budget and `max(0, 128_000 − 4_000 − conversationTokens − 500)`, using the fixed literals `CONTEXT_WINDOW_DEFAULT`, `RESERVED_RESPONSE_DEFAULT`, and `TEMPLATE_OVERHEAD_DEFAULT` in `shared/src/pipeline/budget-allocator.ts`. When session context is omitted, the allocated budget is the base budget unchanged.
+**Session clamp (positive manual base):** When the resolved base is **positive** and `sessionContext.conversationTokens` is defined, `BudgetAllocator.allocate` returns the lesser of that base and the same headroom expression, using `CONTEXT_WINDOW_DEFAULT`, `RESERVED_RESPONSE_DEFAULT`, and `TEMPLATE_OVERHEAD_DEFAULT` in `shared/src/pipeline/budget-allocator.ts`. When session context is omitted and the base is positive, the allocated **total** budget is the base unchanged.
 
-**Output:** `budget: TokenCount` (in tokens, counted via **tiktoken cl100k_base**)
+The shipped config schema and `BudgetAllocator` do not apply a per-model-profile or `windowRatio` branch beyond this fixed window math; optional manual caps come only from the rule pack and config keys. Richer formula-derived bases: [Project Plan §2.7](project-plan.md#27-agentic-workflow-support) and [Model-derived budgets (shipped subset and roadmap)](#model-derived-budgets-shipped-subset-and-roadmap).
+
+**Downstream code budget:** `runPipelineSteps` subtracts measured pipeline overhead (structural map, session summary, spec ladder slice, constraints, fixed 100-token task header) from this **total** allocation to produce **codeBudget** for Step 4 and the main summarisation ladder.
+
+**Output:** `budget: TokenCount` (total budget, in tokens, counted via **tiktoken cl100k_base**); `codeBudget` on `PipelineStepsResult` is the remainder after overhead.
 
 **Tokenizer:** All token counts in AIC use **tiktoken** with the **cl100k_base** encoding (OpenAI/Claude compatible). Fallback: `word_count × 1.3` if tiktoken is unavailable.
 
@@ -289,7 +293,7 @@ The shipped config schema and `BudgetAllocator` do not apply a model-profile or 
 
 **Composition:** `PipelineStepsDeps.contextSelector` is `RelatedFilesBoostContextSelector` delegating to `HeuristicSelector` (`shared/src/bootstrap/create-pipeline-deps.ts`). The sections below describe scoring inside `HeuristicSelector`; tool-output path boosts are merged into `heuristic.boostPatterns` in the outer wrapper before that logic runs.
 
-**Input:** TaskClassification + RepoMap + budget + RulePack (for include/exclude/boost/penalize patterns) + optional `toolOutputs` from `PipelineStepsRequest` + `config.contextSelector` (injected via `HeuristicSelector` constructor; carries `maxFiles` and scoring weights)
+**Input:** TaskClassification + RepoMap + **codeBudget** (not raw total budget) + RulePack (for include/exclude/boost/penalize patterns) + optional `toolOutputs` from `PipelineStepsRequest` + `config.contextSelector` (injected via `HeuristicSelector` constructor; carries `maxFiles` and scoring weights) + effective `maxFilesOverride` from `runPipelineSteps` when auto mode applies
 
 **Tool-output related paths:** When `toolOutputs` is defined and `dedupeRelatedPathsInOrder` yields at least one path (`shared/src/pipeline/related-files-boost-context-selector.ts`), each path is escaped for glob metacharacters, converted with `toGlobPattern`, and appended to `heuristic.boostPatterns` via `mergeRulePackWithRelatedBoosts`. Candidates are scored after `includePatterns` / `excludePatterns` filtering; each **file** gains +0.2 per `boostPatterns` entry that matches its path via `matchesGlob` (including patterns derived from tool-output related paths) and −0.2 per matching `penalizePatterns` entry, clamped in `scoreCandidate` (`shared/src/pipeline/heuristic-selector.ts`). The inner `HeuristicSelector.selectContext` accepts an optional `toolOutputs` parameter but does not read it (`_toolOutputs`); boosting from tool outputs happens only in the wrapper. When `toolOutputs` is omitted or yields no related paths, the wrapper forwards the original rule pack unchanged.
 
@@ -305,7 +309,7 @@ Full scoring detail with normalisation methods: [Project Plan §8](project-plan.
 
 - `includePatterns` from rule pack (whitelist)
 - `excludePatterns` from rule pack + config (blacklist)
-- `maxFiles` from config (default: 20)
+- `maxFiles` from config (default **0** = auto: `ceil(sqrt(totalFiles))` clamped **[5, 40]**; positive = fixed cap), merged via `maxFilesOverride` on the `RulePack` passed to discovery/selection
 
 **Language awareness:** Import-graph walking and symbol relevance delegate to the registered `LanguageProvider` list. For files with no provider, those signals score `0` and the file relies on the remaining signals. File language detection is extension-based with a filename fallback for extensionless files; see [Project Plan §8 — Language Detection](project-plan.md) for the full mapping table.
 
@@ -638,20 +642,21 @@ Maximum retries: **1**. No exponential backoff in the shipped implementation (ma
 
 ### Model Context Window Guard
 
-The **context budget** (`contextBudget.maxTokens`, rule-pack `budgetOverride`, and optional per-task-class overrides) caps how many tokens AIC may spend on selected repository context before summarisation. Separately, when `SessionBudgetContext.conversationTokens` is present, Step 3 applies the **session clamp** (fixed `128_000` / `4_000` / `500` literals in `shared/src/pipeline/budget-allocator.ts`) so long conversations leave headroom for the model beyond the compiled payload.
+The **total** context budget from Step 3 (`contextBudget.maxTokens`, rule-pack `budgetOverride`, and optional per-task-class overrides) caps tokens before pipeline overhead is subtracted. **Auto mode** (`maxTokens` **0**): Step 3 allocates the full **headroom** below as the total budget. **Manual mode** (positive `maxTokens`): when `SessionBudgetContext.conversationTokens` is present, Step 3 applies the **session clamp** so long conversations leave headroom — `min(positiveBase, headroom)` using the same fixed literals in `shared/src/pipeline/budget-allocator.ts`. **codeBudget** for file selection and the main ladder is **totalBudget − overhead** ([Project Plan §2.7](project-plan.md#27-agentic-workflow-support)).
 
-Illustrative decomposition (numbers match the session-clamp literals; they are not additional `aic.config.json` fields):
+Illustrative decomposition (numbers match the literals in `budget-allocator.ts`; they are not additional `aic.config.json` fields):
 
 ```
-cap used in session clamp (fixed in code)     128,000
+cap used in headroom / clamp (fixed in code)    128,000
   └─ reserved slice (fixed)                     4,000
   └─ template overhead (fixed)                    500
   └─ conversation already counted               = conversationTokens (wire or derived)
-  └─ remaining headroom before clamp            = max(0, 128_000 − 4_000 − 500 − conversationTokens)
-      └─ base context budget (config / rule pack) e.g. 8,000  ← AIC allocates min(base, remaining headroom)
+  └─ headroom                                   = max(0, 128_000 − 4_000 − 500 − conversationTokens)
+      ├─ auto (base == 0): totalBudget          = headroom
+      └─ manual (base > 0): totalBudget         = min(base, headroom) when session context set; else base
 ```
 
-Shipped `aic.config.json` validation (`shared/src/config/load-config-from-file.ts`) includes `contextBudget.maxTokens`, optional `contextBudget.perTaskClass`, and optional `model.id` only — not per-provider window sizes, `model.reservedResponseTokens`, or `windowRatio` for Step 3.
+Shipped `aic.config.json` validation (`shared/src/config/load-config-from-file.ts`) includes `contextBudget`, `contextSelector`, `model.id`, `enabled`, `guard.allowPatterns`, `devMode`, and `skipCompileGate` — but Step 3 window math does **not** read per-provider window sizes, `model.reservedResponseTokens`, or `windowRatio` from config; those remain roadmap.
 
 `BudgetExceededError` exists in `shared/src/core/errors/budget-exceeded-error.ts` but is not thrown from the shipped compilation pipeline (no `new BudgetExceededError` in compilation paths).
 
@@ -799,9 +804,11 @@ Returns the most recent compilation as JSON. Surfaced to the user via the "show 
 
 ---
 
-### Planned model-derived budgets
+### Model-derived budgets (shipped subset and roadmap)
 
-> **Not implemented in shipped TypeScript.** Formula-derived budgets (`maxContextWindow × windowRatio`, floors/ceilings), Ollama `num_ctx` probing, utilization-based auto-tuning, and automated `windowRatio` recommendations are described as roadmap in [Project Plan §2.7](project-plan.md#27-agentic-workflow-support). They are not present in `shared/src/pipeline/budget-allocator.ts` or `shared/src/config/load-config-from-file.ts`.
+> **Shipped today.** Default **`maxTokens` 0** turns on **auto headroom** in `BudgetAllocator` (fixed `128_000` / `4_000` / `500` math — see Step 3). **`runPipelineSteps`** subtracts **overhead** and passes **codeBudget** to selection and the main summarisation ladder; **`maxFiles` 0** enables the dynamic cap (`ceil(sqrt(totalFiles))` in **[5, 40]**). Implemented in `budget-allocator.ts`, `run-pipeline-steps.ts`, `resolved-config.ts`, `load-config-from-file.ts`.
+
+> **Roadmap:** Per-model formula-derived bases (`maxContextWindow × windowRatio`, floors/ceilings), Ollama `num_ctx` probing, utilization-based **auto-tuning** of caps, and automated `windowRatio` recommendations — described in [Project Plan §2.7](project-plan.md#27-agentic-workflow-support) — are not implemented beyond the fixed headroom auto mode.
 
 **Shipped utilization surface:** The `aic_status` tool returns `budgetMaxTokens` and `budgetUtilizationPct` using the configured budget ceiling and the last row in `compilation_log` (see [§4c — `aic_status`](#aic_status-mcp-tool)).
 
@@ -1021,18 +1028,18 @@ This section summarizes the test deliverables that ship with the scope described
 
 ### Unit Tests (per pipeline step)
 
-| Step                                         | Key assertions                                                                                                                                                                                                                                 |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Step 1 (IntentClassifier)                    | Correct task class for each keyword set; `general` fallback when no match; tie-breaking                                                                                                                                                        |
-| Step 2 (RulePackResolver)                    | Built-in packs load; project packs merge correctly; malformed JSON produces error                                                                                                                                                              |
-| Step 3 (BudgetAllocator)                     | Resolution order respected (rulePack override > perTaskClass > maxTokens; clamp when session tokens present)                                                                                                                                   |
-| Step 4 (ContextSelector / HeuristicSelector) | Scoring formula verified against fixture repos; related-files boost from `toolOutputs.relatedFiles` (`shared/src/pipeline/__tests__/related-files-boost-context-selector.test.ts`); `maxFiles` cap respected; include/exclude patterns applied |
-| Step 5 (ContextGuard)                        | Exclusion, Secret, PromptInjection, MarkdownInstruction, CommandInjection scanners — known-safe and known-flagged fixtures; all-blocked edge case handled                                                                                      |
-| Step 6 (SummarisationLadder)                 | Each tier produces expected compression; over-budget triggers next tier; lowest-score files compressed first                                                                                                                                   |
-| Step 7 (ConstraintInjector)                  | Deduplication; empty list omits block; ordering preserved                                                                                                                                                                                      |
-| Step 8 (PromptAssembler)                     | Sections ordered as in `prompt-assembler.ts`; optional blocks omitted when empty; never emits `## Output Format` or format-instruction prose; regression tests lock assembly shape                                                             |
-| Step 9 (Executor)                            | Retry policy honoured; non-retryable errors fail immediately (mocked endpoint)                                                                                                                                                                 |
-| Step 10 (TelemetryLogger)                    | After successful `runner.run` when `enabled !== false`, `writeCompilationTelemetry` persists to `telemetry_events`; handler catches store errors without failing the compile response                                                          |
+| Step                                         | Key assertions                                                                                                                                                                                                                                                             |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Step 1 (IntentClassifier)                    | Correct task class for each keyword set; `general` fallback when no match; tie-breaking                                                                                                                                                                                    |
+| Step 2 (RulePackResolver)                    | Built-in packs load; project packs merge correctly; malformed JSON produces error                                                                                                                                                                                          |
+| Step 3 (BudgetAllocator)                     | Resolution order respected; **`maxTokens` 0 → headroom**; positive base **session clamp** when `conversationTokens` present; `codeBudget` derived from total minus overhead in `run-pipeline-steps` tests                                                                  |
+| Step 4 (ContextSelector / HeuristicSelector) | Scoring formula verified against fixture repos; related-files boost from `toolOutputs.relatedFiles` (`shared/src/pipeline/__tests__/related-files-boost-context-selector.test.ts`); **`maxFiles` 0 → auto cap** and fixed caps respected; include/exclude patterns applied |
+| Step 5 (ContextGuard)                        | Exclusion, Secret, PromptInjection, MarkdownInstruction, CommandInjection scanners — known-safe and known-flagged fixtures; all-blocked edge case handled                                                                                                                  |
+| Step 6 (SummarisationLadder)                 | Each tier produces expected compression; over-budget triggers next tier; lowest-score files compressed first                                                                                                                                                               |
+| Step 7 (ConstraintInjector)                  | Deduplication; empty list omits block; ordering preserved                                                                                                                                                                                                                  |
+| Step 8 (PromptAssembler)                     | Sections ordered as in `prompt-assembler.ts`; optional blocks omitted when empty; never emits `## Output Format` or format-instruction prose; regression tests lock assembly shape                                                                                         |
+| Step 9 (Executor)                            | Retry policy honoured; non-retryable errors fail immediately (mocked endpoint)                                                                                                                                                                                             |
+| Step 10 (TelemetryLogger)                    | After successful `runner.run` when `enabled !== false`, `writeCompilationTelemetry` persists to `telemetry_events`; handler catches store errors without failing the compile response                                                                                      |
 
 ### Integration Tests
 
@@ -1181,8 +1188,8 @@ const InspectRequestSchema = z.object({
 
 `shared/src/config/load-config-from-file.ts` validates `aic.config.json` with a **minimal** Zod object (current subset only). All top-level keys are optional; `{}` is valid. The schema currently allows:
 
-- `contextBudget.maxTokens`, optional `contextBudget.perTaskClass`
-- `contextSelector.heuristic.maxFiles` (optional nesting)
+- `contextBudget.maxTokens` (optional; omitted → **0** auto headroom), optional `contextBudget.perTaskClass`
+- `contextSelector.heuristic.maxFiles` (optional; omitted → **0** auto cap from project file count)
 - `model.id` (optional)
 - `enabled` (boolean)
 - `guard.allowPatterns` (array of non-empty strings, max 64 entries)
