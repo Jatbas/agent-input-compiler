@@ -67,7 +67,7 @@ Run each command in sequence. Stop on any failure and report the exact error out
 
    If any match is found, stop: "Internal language found in public docs: [file:line — match]. Fix before proceeding."
 
-3. **Version consistency.** Read `package.json`, `shared/package.json`, and `mcp/package.json`. Extract the `version` field from each. If all three do not match, stop: "Version mismatch: [root: X], [shared: Y], [mcp: Z]. All three must match before release."
+3. **Version consistency.** Read `package.json`, `shared/package.json`, `mcp/package.json`, and `integrations/claude/plugin/.claude-plugin/plugin.json`. Extract the `version` field from each. If all four do not match, stop: "Version mismatch: [root: X], [shared: Y], [mcp: Z], [plugin: W]. All four must match before release."
 4. **Branch and tree.** Already confirmed in Pre-flight — no re-check needed.
 
 If all Phase 2 checks pass: "Phase 2 passed."
@@ -115,15 +115,15 @@ Show the proposed version to the user: "Based on the unreleased entries, the nex
 
 ### Phase 5 — Release cut
 
-Read `.claude/skills/aic-update-changelog/SKILL.md` and follow its **Release cut** steps. Skip the branch check from step 0a (already confirmed in Pre-flight). Run step 0b explicitly before proceeding: run `git diff --cached --name-only` and verify no files other than `CHANGELOG.md`, `README.md`, `package.json`, `shared/package.json`, `mcp/package.json`, and `pnpm-lock.yaml` are staged. If unexpected staged files are found, stop: "Unexpected staged files: [list]. Unstage them before proceeding." Use the version confirmed in Phase 4.
+Read `.claude/skills/aic-update-changelog/SKILL.md` and follow its **Release cut** steps. Skip the branch check from step 0a (already confirmed in Pre-flight). Run step 0b explicitly before proceeding: run `git diff --cached --name-only` and verify no files other than `CHANGELOG.md`, `README.md`, `package.json`, `shared/package.json`, `mcp/package.json`, `integrations/claude/plugin/.claude-plugin/plugin.json`, and `pnpm-lock.yaml` are staged. If unexpected staged files are found, stop: "Unexpected staged files: [list]. Unstage them before proceeding." Use the version confirmed in Phase 4.
 
 The release cut steps cover:
 
 - Rename `[Unreleased]` to `[X.Y.Z] - YYYY-MM-DD`
-- Bump version in `package.json`, `shared/package.json`, `mcp/package.json`
+- Bump version in `package.json`, `shared/package.json`, `mcp/package.json`, `integrations/claude/plugin/.claude-plugin/plugin.json`
 - Run `pnpm install` to update `pnpm-lock.yaml`
 - Run `pnpm build && pnpm typecheck` (build gate)
-- Commit: `git add CHANGELOG.md README.md package.json shared/package.json mcp/package.json pnpm-lock.yaml && git commit -m "chore(release): X.Y.Z"`
+- Commit: `git add CHANGELOG.md README.md package.json shared/package.json mcp/package.json integrations/claude/plugin/.claude-plugin/plugin.json pnpm-lock.yaml && git commit -m "chore(release): X.Y.Z"`
 - Push and tag remotely: `git push origin main && git push origin HEAD:refs/tags/vX.Y.Z` (no local tag — keeps the branch picker clean)
 - **Prune prior versions on GitHub:** After the new tag is on `origin`, delete every other semver `v*` tag on the remote and its GitHub release so only `vX.Y.Z` remains — follow Release cut step 9 in `.claude/skills/aic-update-changelog/SKILL.md` (npm registry versions are not deleted).
 - Poll CI: `gh run list --repo Jatbas/agent-input-compiler --workflow publish.yml --limit 5` — find the run triggered by `refs/tags/vX.Y.Z`, poll up to 20 times until complete
