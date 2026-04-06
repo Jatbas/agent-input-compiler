@@ -90,9 +90,9 @@ function parseAndValidate(content: string): AicConfigParsed {
 }
 
 function buildResolvedConfig(parsed: AicConfigParsed): ResolvedConfig {
-  const maxTokens = toTokenCount(parsed.contextBudget?.maxTokens ?? 8000);
+  const maxTokens = toTokenCount(parsed.contextBudget?.maxTokens ?? 0);
   const perTaskClass = buildPerTaskClass(parsed.contextBudget?.perTaskClass);
-  const maxFiles = parsed.contextSelector?.heuristic?.maxFiles ?? 20;
+  const maxFiles = parsed.contextSelector?.heuristic?.maxFiles ?? 0;
   const guardAllowPatterns = parsed.guard?.allowPatterns ?? [];
   return {
     contextBudget: { maxTokens, perTaskClass },

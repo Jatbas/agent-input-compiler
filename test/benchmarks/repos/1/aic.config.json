@@ -1,0 +1,10 @@
+{
+  "contextBudget": {
+    "maxTokens": 8000
+  },
+  "contextSelector": {
+    "heuristic": {
+      "maxFiles": 20
+    }
+  }
+}

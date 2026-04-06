@@ -28,8 +28,8 @@ describe("LoadConfigFromFile", () => {
     const projectRoot = toAbsolutePath(tmpDir);
     const loader = new LoadConfigFromFile();
     const result = loader.load(projectRoot, null);
-    expect(result.config.contextBudget.maxTokens).toBe(toTokenCount(8000));
-    expect(result.config.heuristic.maxFiles).toBe(20);
+    expect(result.config.contextBudget.maxTokens).toBe(toTokenCount(0));
+    expect(result.config.heuristic.maxFiles).toBe(0);
     expect(result.config.devMode).toBe(false);
     expect(result.rawJson).toBeUndefined();
   });

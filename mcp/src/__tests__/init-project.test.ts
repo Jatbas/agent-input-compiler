@@ -28,10 +28,11 @@ describe("runInit", () => {
     expect(mode).toBe(0o700);
     const configPath = path.join(tmpDir, "aic.config.json");
     expect(fs.existsSync(configPath)).toBe(true);
-    const config = JSON.parse(fs.readFileSync(configPath, "utf8")) as {
-      contextBudget: { maxTokens: number };
-    };
-    expect(config.contextBudget.maxTokens).toBe(8000);
+    const config = JSON.parse(fs.readFileSync(configPath, "utf8")) as Record<
+      string,
+      unknown
+    >;
+    expect(config).toEqual({});
     const gitignorePath = path.join(tmpDir, ".gitignore");
     expect(fs.existsSync(gitignorePath)).toBe(true);
     expect(fs.readFileSync(gitignorePath, "utf8")).toContain(".aic/");

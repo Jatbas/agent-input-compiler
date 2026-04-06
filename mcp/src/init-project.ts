@@ -14,9 +14,7 @@ import {
 import { PROJECT_ID_FILENAME } from "@jatbas/aic-core/storage/ensure-project-id.js";
 import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
 
-const DEFAULT_CONFIG = {
-  contextBudget: { maxTokens: 8000 },
-} as const;
+const DEFAULT_CONFIG = {} as const;
 
 export const CONFIG_FILENAME = "aic.config.json";
 

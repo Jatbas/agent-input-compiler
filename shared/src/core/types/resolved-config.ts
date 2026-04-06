@@ -22,10 +22,10 @@ export interface ResolvedConfig {
 export function defaultResolvedConfig(): ResolvedConfig {
   return {
     contextBudget: {
-      maxTokens: toTokenCount(8000),
+      maxTokens: toTokenCount(0),
       perTaskClass: {},
     },
-    heuristic: { maxFiles: 20 },
+    heuristic: { maxFiles: 0 },
     enabled: true,
     guardAllowPatterns: [],
     devMode: false,

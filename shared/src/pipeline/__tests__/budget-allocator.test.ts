@@ -112,4 +112,69 @@ describe("BudgetAllocator", () => {
     });
     expect(result).toBe(toTokenCount(0));
   });
+
+  it("auto_mode_returns_headroom_when_no_session", () => {
+    const config = makeConfig(0);
+    const allocator = new BudgetAllocator(config);
+    const rulePack: RulePack = {
+      constraints: [],
+      includePatterns: [],
+      excludePatterns: [],
+    };
+    const result = allocator.allocate(rulePack, TASK_CLASS.GENERAL);
+    expect(result).toBe(toTokenCount(123_500));
+  });
+
+  it("auto_mode_subtracts_conversation_tokens", () => {
+    const config = makeConfig(0);
+    const allocator = new BudgetAllocator(config);
+    const rulePack: RulePack = {
+      constraints: [],
+      includePatterns: [],
+      excludePatterns: [],
+    };
+    const result = allocator.allocate(rulePack, TASK_CLASS.FEATURE, {
+      conversationTokens: toTokenCount(100_000),
+    });
+    expect(result).toBe(toTokenCount(23_500));
+  });
+
+  it("auto_mode_clamps_headroom_to_zero", () => {
+    const config = makeConfig(0);
+    const allocator = new BudgetAllocator(config);
+    const rulePack: RulePack = {
+      constraints: [],
+      includePatterns: [],
+      excludePatterns: [],
+    };
+    const result = allocator.allocate(rulePack, TASK_CLASS.FEATURE, {
+      conversationTokens: toTokenCount(200_000),
+    });
+    expect(result).toBe(toTokenCount(0));
+  });
+
+  it("auto_mode_with_budget_override_uses_override", () => {
+    const config = makeConfig(0);
+    const allocator = new BudgetAllocator(config);
+    const rulePack: RulePack = {
+      constraints: [],
+      includePatterns: [],
+      excludePatterns: [],
+      budgetOverride: toTokenCount(5000),
+    };
+    const result = allocator.allocate(rulePack, TASK_CLASS.FEATURE);
+    expect(result).toBe(toTokenCount(5000));
+  });
+
+  it("explicit_maxTokens_preserves_manual_behavior", () => {
+    const config = makeConfig(8000);
+    const allocator = new BudgetAllocator(config);
+    const rulePack: RulePack = {
+      constraints: [],
+      includePatterns: [],
+      excludePatterns: [],
+    };
+    const result = allocator.allocate(rulePack, TASK_CLASS.GENERAL);
+    expect(result).toBe(toTokenCount(8000));
+  });
 });

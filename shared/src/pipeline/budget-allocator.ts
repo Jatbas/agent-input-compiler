@@ -9,9 +9,9 @@ import type { TokenCount } from "@jatbas/aic-core/core/types/units.js";
 import type { SessionBudgetContext } from "@jatbas/aic-core/core/types/session-budget-context.js";
 import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 
-const CONTEXT_WINDOW_DEFAULT = 128_000;
-const RESERVED_RESPONSE_DEFAULT = 4_000;
-const TEMPLATE_OVERHEAD_DEFAULT = 500;
+export const CONTEXT_WINDOW_DEFAULT = 128_000;
+export const RESERVED_RESPONSE_DEFAULT = 4_000;
+export const TEMPLATE_OVERHEAD_DEFAULT = 500;
 
 function resolveBaseBudget(
   rulePack: RulePack,
@@ -34,6 +34,17 @@ export class BudgetAllocator implements IBudgetAllocator {
     sessionContext?: SessionBudgetContext,
   ): TokenCount {
     const base = resolveBaseBudget(rulePack, taskClass, this.config);
+    const conversationTokens = Number(sessionContext?.conversationTokens ?? 0);
+    if (Number(base) === 0) {
+      const headroom = Math.max(
+        0,
+        CONTEXT_WINDOW_DEFAULT -
+          RESERVED_RESPONSE_DEFAULT -
+          conversationTokens -
+          TEMPLATE_OVERHEAD_DEFAULT,
+      );
+      return toTokenCount(headroom);
+    }
     if (sessionContext?.conversationTokens === undefined) {
       return base;
     }
@@ -41,7 +52,7 @@ export class BudgetAllocator implements IBudgetAllocator {
       0,
       CONTEXT_WINDOW_DEFAULT -
         RESERVED_RESPONSE_DEFAULT -
-        Number(sessionContext.conversationTokens) -
+        conversationTokens -
         TEMPLATE_OVERHEAD_DEFAULT,
     );
     return toTokenCount(Math.min(Number(base), availableBudget));

@@ -21,6 +21,11 @@ import {
   listProjectsFromDb,
 } from "@jatbas/aic-core/storage/sqlite-status-store.js";
 import type { LoadConfigFromFile } from "@jatbas/aic-core/config/load-config-from-file.js";
+import {
+  CONTEXT_WINDOW_DEFAULT,
+  RESERVED_RESPONSE_DEFAULT,
+  TEMPLATE_OVERHEAD_DEFAULT,
+} from "@jatbas/aic-core/pipeline/budget-allocator.js";
 import type { InstallScope } from "./detect-install-scope.js";
 import type { UpdateInfo } from "./latest-version-check.js";
 
@@ -46,7 +51,11 @@ export function buildStatusPayload(input: {
             -Number(input.timeRangeDays) * 24 * 60,
           ),
         });
-  const budgetMaxTokens = input.budgetConfig.getMaxTokens();
+  const rawMaxTokens = input.budgetConfig.getMaxTokens();
+  const budgetMaxTokens =
+    Number(rawMaxTokens) === 0
+      ? CONTEXT_WINDOW_DEFAULT - RESERVED_RESPONSE_DEFAULT - TEMPLATE_OVERHEAD_DEFAULT
+      : Number(rawMaxTokens);
   const budgetUtilizationPct =
     summary.lastCompilation !== null
       ? (summary.lastCompilation.tokensCompiled / budgetMaxTokens) * 100

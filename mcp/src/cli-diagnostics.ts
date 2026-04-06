@@ -16,7 +16,13 @@ import {
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
 import type { BudgetConfig } from "@jatbas/aic-core/core/interfaces/budget-config.interface.js";
 import type { TaskClass } from "@jatbas/aic-core/core/types/enums.js";
+import type { TokenCount } from "@jatbas/aic-core/core/types/units.js";
 import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
+import {
+  CONTEXT_WINDOW_DEFAULT,
+  RESERVED_RESPONSE_DEFAULT,
+  TEMPLATE_OVERHEAD_DEFAULT,
+} from "@jatbas/aic-core/pipeline/budget-allocator.js";
 import { SystemClock } from "@jatbas/aic-core/adapters/system-clock.js";
 import { NodePathAdapter } from "@jatbas/aic-core/adapters/node-path-adapter.js";
 import {
@@ -61,10 +67,17 @@ export function readPackageVersion(): {
   }
 }
 
+function effectiveBudgetCeilingForDisplay(rawMaxTokens: TokenCount): number {
+  const n = Number(rawMaxTokens);
+  return n === 0
+    ? CONTEXT_WINDOW_DEFAULT - RESERVED_RESPONSE_DEFAULT - TEMPLATE_OVERHEAD_DEFAULT
+    : n;
+}
+
 export function createDefaultBudgetConfig(): BudgetConfig {
   return {
     getMaxTokens(): ReturnType<typeof toTokenCount> {
-      return toTokenCount(8000);
+      return toTokenCount(0);
     },
     getBudgetForTaskClass(_taskClass: TaskClass): ReturnType<typeof toTokenCount> | null {
       return null;
@@ -271,7 +284,13 @@ async function runLastCli(argv: readonly string[]): Promise<number> {
         conversationIdForLast: null,
       });
       const budget = createDefaultBudgetConfig();
-      process.stdout.write(formatLastTable(payload, clock, budget.getMaxTokens()));
+      process.stdout.write(
+        formatLastTable(
+          payload,
+          clock,
+          effectiveBudgetCeilingForDisplay(budget.getMaxTokens()),
+        ),
+      );
       return 0;
     }),
   );
@@ -284,7 +303,13 @@ async function runChatSummaryCli(argv: readonly string[]): Promise<number> {
       const summary = store.getSummary();
       const row = buildProjectScopedChatSummaryCliRow(String(projectRoot), summary);
       const budget = createDefaultBudgetConfig();
-      process.stdout.write(formatChatSummaryTable(row, clock, budget.getMaxTokens()));
+      process.stdout.write(
+        formatChatSummaryTable(
+          row,
+          clock,
+          effectiveBudgetCeilingForDisplay(budget.getMaxTokens()),
+        ),
+      );
       return 0;
     }),
   );
