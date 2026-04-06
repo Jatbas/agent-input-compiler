@@ -190,6 +190,7 @@ describe("InspectRunner", () => {
         }),
       } as SpecFileDiscoverer,
       conversationCompressor: new ConversationCompressorImpl() as ConversationCompressor,
+      heuristicMaxFiles: 0,
       structuralMapBuilder: new StructuralMapBuilder(),
     };
     const runner = new InspectRunner(deps, mockClock as Clock);
@@ -255,6 +256,7 @@ describe("InspectRunner", () => {
         }),
       } as SpecFileDiscoverer,
       conversationCompressor: new ConversationCompressorImpl() as ConversationCompressor,
+      heuristicMaxFiles: 0,
       structuralMapBuilder: new StructuralMapBuilder(),
     };
     const runner = new InspectRunner(deps, mockClock as Clock);
@@ -312,6 +314,7 @@ describe("InspectRunner", () => {
         }),
       } as SpecFileDiscoverer,
       conversationCompressor: new ConversationCompressorImpl() as ConversationCompressor,
+      heuristicMaxFiles: 0,
       structuralMapBuilder: new StructuralMapBuilder(),
     };
     const runner = new InspectRunner(deps, mockClock as Clock);

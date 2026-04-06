@@ -104,7 +104,7 @@ export function createPipelineDeps(
   );
   const heuristicSelector = new HeuristicSelector(
     languageProviders,
-    heuristicSelectorConfig ?? { maxFiles: 20 },
+    heuristicSelectorConfig ?? { maxFiles: 0 },
     importProximityScorer,
     symbolRelevanceScorer,
   );
@@ -196,6 +196,7 @@ export function createPipelineDeps(
     tokenCounter: tiktokenAdapter,
     specFileDiscoverer,
     conversationCompressor,
+    heuristicMaxFiles: heuristicSelectorConfig?.maxFiles ?? 0,
   };
 }
 

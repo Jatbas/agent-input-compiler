@@ -12,6 +12,7 @@ export interface RulePack {
   readonly includePatterns: readonly GlobPattern[];
   readonly excludePatterns: readonly GlobPattern[];
   readonly budgetOverride?: TokenCount;
+  readonly maxFilesOverride?: number;
   readonly heuristic?: {
     readonly boostPatterns: readonly GlobPattern[];
     readonly penalizePatterns: readonly GlobPattern[];

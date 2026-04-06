@@ -188,6 +188,7 @@ function createRunner(fixtureRoot: ReturnType<typeof toAbsolutePath>): InspectRu
     tokenCounter: tiktokenAdapter,
     specFileDiscoverer: new SpecFileDiscoverer(),
     conversationCompressor: new ConversationCompressorImpl(),
+    heuristicMaxFiles: 0,
     structuralMapBuilder: new StructuralMapBuilder(),
   };
   return new InspectRunner(deps, mockClock);

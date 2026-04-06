@@ -30,6 +30,8 @@ import type { TokenCount, StepIndex } from "@jatbas/aic-core/core/types/units.js
 import type { SessionId, ISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
 import type { ToolOutput } from "@jatbas/aic-core/core/types/compilation-types.js";
 import type { SessionBudgetContext } from "@jatbas/aic-core/core/types/session-budget-context.js";
+import type { ProjectProfile } from "@jatbas/aic-core/core/types/project-profile.js";
+import { computeProjectProfile } from "@jatbas/aic-core/pipeline/compute-project-profile.js";
 import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 
 export interface PipelineStepsDeps {
@@ -49,6 +51,7 @@ export interface PipelineStepsDeps {
   readonly conversationCompressor: ConversationCompressor;
   readonly structuralMapBuilder: StructuralMapBuilder;
   readonly agenticSessionState?: AgenticSessionState | null;
+  readonly heuristicMaxFiles: number;
 }
 
 export interface PipelineStepsRequest {
@@ -65,6 +68,7 @@ export interface PipelineStepsResult {
   readonly task: TaskClassification;
   readonly rulePack: RulePack;
   readonly budget: TokenCount;
+  readonly codeBudget: TokenCount;
   readonly repoMap: RepoMap;
   readonly contextResult: ContextResult;
   readonly selectedFiles: readonly SelectedFile[];
@@ -119,6 +123,59 @@ function deriveSessionContext(
 
 const RECENT_STEPS_LIMIT = 10;
 
+function resolveAutoMaxFiles(
+  profile: ProjectProfile,
+  configuredMaxFiles: number,
+): number {
+  if (configuredMaxFiles === 0) {
+    return Math.max(5, Math.min(40, Math.ceil(Math.sqrt(profile.totalFiles))));
+  }
+  return configuredMaxFiles;
+}
+
+function computeOverheadTokens(
+  structuralMapTokens: number,
+  sessionContextTokens: number,
+  specTokens: number,
+  constraintsTokens: number,
+): number {
+  return (
+    structuralMapTokens + sessionContextTokens + specTokens + constraintsTokens + 100
+  );
+}
+
+async function loadSpecLadderFiles(
+  deps: PipelineStepsDeps,
+  task: TaskClassification,
+  rulePack: RulePack,
+  repoMap: RepoMap,
+  totalBudget: TokenCount,
+): Promise<readonly SelectedFile[]> {
+  const specRepoMap = buildSpecRepoMap(repoMap);
+  const specContextResult = deps.specFileDiscoverer.discover(specRepoMap, task, rulePack);
+  if (specContextResult.files.length === 0) {
+    return [];
+  }
+  const { safeFiles: specSafeFiles } = await deps.contextGuard.scan(
+    specContextResult.files,
+  );
+  const specTransformResult = await deps.contentTransformerPipeline.transform(
+    specSafeFiles,
+    TRANSFORM_CONTEXT,
+  );
+  const specBudget = toTokenCount(
+    Math.min(
+      Number(specContextResult.totalTokens),
+      Math.floor(Number(totalBudget) * 0.2),
+    ),
+  );
+  return deps.summarisationLadder.compress(
+    specTransformResult.files,
+    specBudget,
+    task.subjectTokens,
+  );
+}
+
 export async function runPipelineSteps(
   deps: PipelineStepsDeps,
   request: PipelineStepsRequest,
@@ -127,19 +184,58 @@ export async function runPipelineSteps(
   const task = deps.intentClassifier.classify(request.intent);
   const rulePack = deps.rulePackResolver.resolve(task, request.projectRoot);
   const sessionContext = deriveSessionContext(request, deps);
-  const budget = deps.budgetAllocator.allocate(rulePack, task.taskClass, sessionContext);
+  const totalBudget = deps.budgetAllocator.allocate(
+    rulePack,
+    task.taskClass,
+    sessionContext,
+  );
   const repoMap =
     repoMapOverride ?? (await deps.repoMapSupplier.getRepoMap(request.projectRoot));
+  const profile = computeProjectProfile(repoMap);
+  const structuralMap = deps.structuralMapBuilder.build(repoMap);
+  const structuralMapTokens = Number(deps.tokenCounter.countTokens(structuralMap));
+  const sessionContextSummary =
+    request.sessionId && deps.agenticSessionState
+      ? deps.conversationCompressor.compress(
+          deps.agenticSessionState.getSteps(request.sessionId).slice(-RECENT_STEPS_LIMIT),
+        )
+      : "";
+  const sessionContextTokens = Number(
+    deps.tokenCounter.countTokens(sessionContextSummary),
+  );
+  const specLadderFiles = await loadSpecLadderFiles(
+    deps,
+    task,
+    rulePack,
+    repoMap,
+    totalBudget,
+  );
+  const specTokens = specLadderFiles.reduce(
+    (sum, f) => sum + Number(f.estimatedTokens),
+    0,
+  );
+  const constraintsTokens = Number(
+    deps.tokenCounter.countTokens(rulePack.constraints.join("\n")),
+  );
+  const overhead = computeOverheadTokens(
+    structuralMapTokens,
+    sessionContextTokens,
+    specTokens,
+    constraintsTokens,
+  );
+  const codeBudget = toTokenCount(Math.max(0, Number(totalBudget) - overhead));
+  const effectiveMaxFiles = resolveAutoMaxFiles(profile, deps.heuristicMaxFiles);
+  const mergedRulePack: RulePack = { ...rulePack, maxFilesOverride: effectiveMaxFiles };
   const discoveredRepoMap = deps.intentAwareFileDiscoverer.discover(
     repoMap,
     task,
-    rulePack,
+    mergedRulePack,
   );
   const contextResult = await deps.contextSelector.selectContext(
     task,
     discoveredRepoMap,
-    budget,
-    rulePack,
+    codeBudget,
+    mergedRulePack,
     request.toolOutputs,
   );
   const fileLastModified: Record<string, ISOTimestamp> = Object.fromEntries(
@@ -165,31 +261,6 @@ export async function runPipelineSteps(
         })()
       : contextResult.files;
   const selectedFiles = selectedFilesAfterDedup;
-  const specRepoMap = buildSpecRepoMap(repoMap);
-  const specContextResult = deps.specFileDiscoverer.discover(specRepoMap, task, rulePack);
-  const specLadderFiles =
-    specContextResult.files.length === 0
-      ? []
-      : await (async () => {
-          const { safeFiles: specSafeFiles } = await deps.contextGuard.scan(
-            specContextResult.files,
-          );
-          const specTransformResult = await deps.contentTransformerPipeline.transform(
-            specSafeFiles,
-            TRANSFORM_CONTEXT,
-          );
-          const specBudget = toTokenCount(
-            Math.min(
-              Number(specContextResult.totalTokens),
-              Math.floor(Number(budget) * 0.2),
-            ),
-          );
-          return deps.summarisationLadder.compress(
-            specTransformResult.files,
-            specBudget,
-            task.subjectTokens,
-          );
-        })();
   const { result: guardResult, safeFiles } = await deps.contextGuard.scan(selectedFiles);
   const transformResult = await deps.contentTransformerPipeline.transform(
     safeFiles,
@@ -197,20 +268,13 @@ export async function runPipelineSteps(
   );
   const ladderFiles = await deps.summarisationLadder.compress(
     transformResult.files,
-    budget,
+    codeBudget,
     task.subjectTokens,
   );
   const prunedFiles =
     task.subjectTokens.length > 0
       ? await deps.lineLevelPruner.prune(ladderFiles, task.subjectTokens)
       : ladderFiles;
-  const sessionContextSummary =
-    request.sessionId && deps.agenticSessionState
-      ? deps.conversationCompressor.compress(
-          deps.agenticSessionState.getSteps(request.sessionId).slice(-RECENT_STEPS_LIMIT),
-        )
-      : "";
-  const structuralMap = deps.structuralMapBuilder.build(repoMap);
   const assembledPrompt = await deps.promptAssembler.assemble(
     task,
     prunedFiles,
@@ -223,7 +287,8 @@ export async function runPipelineSteps(
   return {
     task,
     rulePack,
-    budget,
+    budget: totalBudget,
+    codeBudget,
     repoMap,
     contextResult,
     selectedFiles,

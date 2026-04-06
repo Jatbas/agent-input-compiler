@@ -1,22 +1,24 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { ContextSelector } from "@jatbas/aic-core/core/interfaces/context-selector.interface.js";
 import type { ImportProximityScorer } from "@jatbas/aic-core/core/interfaces/import-proximity-scorer.interface.js";
 import type { LanguageProvider } from "@jatbas/aic-core/core/interfaces/language-provider.interface.js";
-import type { TaskClassification } from "@jatbas/aic-core/core/types/task-classification.js";
-import type { RepoMap } from "@jatbas/aic-core/core/types/repo-map.js";
-import type { RulePack } from "@jatbas/aic-core/core/types/rule-pack.js";
-import type { TokenCount } from "@jatbas/aic-core/core/types/units.js";
-import type { ContextResult } from "@jatbas/aic-core/core/types/selected-file.js";
-import type { ToolOutput } from "@jatbas/aic-core/core/types/compilation-types.js";
-import type { FileEntry } from "@jatbas/aic-core/core/types/repo-map.js";
-import type { SelectedFile } from "@jatbas/aic-core/core/types/selected-file.js";
 import type {
   HeuristicSelectorConfig,
   ScoringWeights,
 } from "@jatbas/aic-core/core/interfaces/heuristic-selector-config.interface.js";
-import type { RelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import type { FileEntry } from "@jatbas/aic-core/core/types/repo-map.js";
+import type { SelectedFile } from "@jatbas/aic-core/core/types/selected-file.js";
+import type {
+  ContextResult,
+  ContextSelector,
+  RelativePath,
+  RepoMap,
+  RulePack,
+  TaskClassification,
+  TokenCount,
+  ToolOutput,
+} from "./context-selector-shared-types.js";
 import { INCLUSION_TIER, TASK_CLASS } from "@jatbas/aic-core/core/types/enums.js";
 import type { TaskClass } from "@jatbas/aic-core/core/types/enums.js";
 import { toRelevanceScore } from "@jatbas/aic-core/core/types/scores.js";
@@ -205,7 +207,7 @@ export class HeuristicSelector implements ContextSelector {
     const { files, totalTokens: totalTokensNum } = fitToBudget(
       sorted,
       budget,
-      this.config.maxFiles,
+      rulePack.maxFilesOverride ?? this.config.maxFiles,
     );
     const truncated = files.length < candidates.length || totalTokensNum >= budget;
     return {

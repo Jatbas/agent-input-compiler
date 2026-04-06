@@ -96,6 +96,7 @@ function createDeps(overrides: {
   budgetAllocatorAllocate?: ReturnType<typeof vi.fn>;
   conversationCompressorCompress?: ReturnType<typeof vi.fn>;
   agenticSessionState?: AgenticSessionState | null;
+  heuristicMaxFiles?: number;
 }): PipelineStepsDeps {
   const allocateSpy =
     overrides.budgetAllocatorAllocate ?? vi.fn().mockReturnValue(toTokenCount(10000));
@@ -146,6 +147,7 @@ function createDeps(overrides: {
     tokenCounter: {
       countTokens: vi.fn().mockReturnValue(toTokenCount(0)),
     },
+    heuristicMaxFiles: overrides.heuristicMaxFiles ?? 20,
     agenticSessionState: overrides.agenticSessionState ?? null,
   } as unknown as PipelineStepsDeps;
 }
@@ -411,5 +413,65 @@ describe("runPipelineSteps", () => {
       expect(prev).toBeDefined();
       expect(file?.previouslyShownAtStep).toBe(prev?.lastStepIndex);
     }
+  });
+
+  it("overhead_subtracted_from_budget_for_code_selection", async () => {
+    const STRUCTURAL = "structural map text";
+    const deps = createDeps({});
+    deps.structuralMapBuilder.build = vi.fn().mockReturnValue(STRUCTURAL);
+    deps.tokenCounter.countTokens = vi
+      .fn()
+      .mockImplementation((text: string) =>
+        text === STRUCTURAL ? toTokenCount(500) : toTokenCount(0),
+      );
+    const request: PipelineStepsRequest = {
+      intent: "fix bug",
+      projectRoot: PROJECT_ROOT,
+    };
+    await runPipelineSteps(deps, request);
+    const selectContext = deps.contextSelector.selectContext as ReturnType<typeof vi.fn>;
+    const passedBudget = selectContext.mock.calls[0]?.[2];
+    expect(Number(passedBudget)).toBe(10000 - 500 - 100);
+  });
+
+  it("auto_maxfiles_derived_from_repo_map", async () => {
+    const files: readonly FileEntry[] = Array.from({ length: 400 }, (_, i) => ({
+      path: toRelativePath(`src/f-${i}.ts`),
+      language: "typescript",
+      sizeBytes: toBytes(1),
+      estimatedTokens: toTokenCount(1),
+      lastModified: toISOTimestamp("2026-01-01T00:00:00.000Z"),
+    }));
+    const largeRepo: RepoMap = {
+      root: PROJECT_ROOT,
+      files,
+      totalFiles: 400,
+      totalTokens: toTokenCount(400),
+    };
+    const deps = createDeps({ heuristicMaxFiles: 0 });
+    deps.repoMapSupplier.getRepoMap = vi.fn().mockResolvedValue(largeRepo);
+    deps.intentAwareFileDiscoverer.discover = vi
+      .fn()
+      .mockImplementation((m: RepoMap) => m);
+    const request: PipelineStepsRequest = {
+      intent: "fix bug",
+      projectRoot: PROJECT_ROOT,
+    };
+    await runPipelineSteps(deps, request);
+    const selectContext = deps.contextSelector.selectContext as ReturnType<typeof vi.fn>;
+    const rp = selectContext.mock.calls[0]?.[3] as RulePack;
+    expect(rp.maxFilesOverride).toBe(20);
+  });
+
+  it("explicit_maxfiles_passes_through", async () => {
+    const deps = createDeps({ heuristicMaxFiles: 15 });
+    const request: PipelineStepsRequest = {
+      intent: "fix bug",
+      projectRoot: PROJECT_ROOT,
+    };
+    await runPipelineSteps(deps, request);
+    const selectContext = deps.contextSelector.selectContext as ReturnType<typeof vi.fn>;
+    const rp = selectContext.mock.calls[0]?.[3] as RulePack;
+    expect(rp.maxFilesOverride).toBe(15);
   });
 });

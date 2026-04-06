@@ -108,6 +108,41 @@ describe("HeuristicSelector", () => {
     expect(result.files.length).toBe(5);
   });
 
+  it("maxfiles_override_from_rulepack_takes_precedence", async () => {
+    const repo = makeRepo(
+      Array.from({ length: 10 }, (_, i) => ({
+        path: `src/n${i}.ts`,
+        tokens: 5,
+        lastModified: "2024-01-01T00:00:00.000Z",
+      })),
+    );
+    const task: TaskClassification = {
+      taskClass: TASK_CLASS.GENERAL,
+      confidence: toConfidence(0),
+      matchedKeywords: [],
+      subjectTokens: [],
+    };
+    const rulePack: RulePack = {
+      constraints: [],
+      includePatterns: [],
+      excludePatterns: [],
+      maxFilesOverride: 3,
+    };
+    const selector = new HeuristicSelector(
+      noProviders,
+      { maxFiles: 20 },
+      stubScorer,
+      stubScorer,
+    );
+    const result = await selector.selectContext(
+      task,
+      repo,
+      toTokenCount(10000),
+      rulePack,
+    );
+    expect(result.files.length).toBe(3);
+  });
+
   it("filters by includePatterns whitelist", async () => {
     const repo = makeRepo([
       { path: "src/a.ts", tokens: 50, lastModified: "2024-01-01T00:00:00.000Z" },

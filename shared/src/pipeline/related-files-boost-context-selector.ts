@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import type { ContextSelector } from "@jatbas/aic-core/core/interfaces/context-selector.interface.js";
-import type { TaskClassification } from "@jatbas/aic-core/core/types/task-classification.js";
-import type { RepoMap } from "@jatbas/aic-core/core/types/repo-map.js";
-import type { RulePack } from "@jatbas/aic-core/core/types/rule-pack.js";
-import type { TokenCount } from "@jatbas/aic-core/core/types/units.js";
-import type { ContextResult } from "@jatbas/aic-core/core/types/selected-file.js";
-import type { ToolOutput } from "@jatbas/aic-core/core/types/compilation-types.js";
-import type { RelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { GlobPattern } from "@jatbas/aic-core/core/types/paths.js";
+import type {
+  ContextResult,
+  ContextSelector,
+  RelativePath,
+  RepoMap,
+  RulePack,
+  TaskClassification,
+  TokenCount,
+  ToolOutput,
+} from "./context-selector-shared-types.js";
 import { toGlobPattern } from "@jatbas/aic-core/core/types/paths.js";
 
 const GLOB_REGEX_METACHARS = /[\\^$.*+?()|[\]{}]/g;

@@ -292,6 +292,7 @@ describe("CompilationRunner", () => {
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
       conversationCompressor: new ConversationCompressorImpl(),
+      heuristicMaxFiles: 0,
       structuralMapBuilder: new StructuralMapBuilder(),
     };
     const runner = new CompilationRunner(
@@ -339,6 +340,7 @@ describe("CompilationRunner", () => {
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
       conversationCompressor: new ConversationCompressorImpl(),
+      heuristicMaxFiles: 0,
       structuralMapBuilder: new StructuralMapBuilder(),
     };
     const runner = new CompilationRunner(
@@ -388,6 +390,7 @@ describe("CompilationRunner", () => {
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
       conversationCompressor: new ConversationCompressorImpl(),
+      heuristicMaxFiles: 0,
       structuralMapBuilder: new StructuralMapBuilder(),
     };
     const runner = new CompilationRunner(
@@ -465,6 +468,7 @@ describe("CompilationRunner", () => {
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
       conversationCompressor: new ConversationCompressorImpl(),
+      heuristicMaxFiles: 0,
       structuralMapBuilder: new StructuralMapBuilder(),
     };
     const runner = new CompilationRunner(
@@ -558,6 +562,7 @@ describe("CompilationRunner", () => {
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
       conversationCompressor: new ConversationCompressorImpl(),
+      heuristicMaxFiles: 0,
       structuralMapBuilder: new StructuralMapBuilder(),
     };
     const runner = new CompilationRunner(
@@ -610,6 +615,7 @@ describe("CompilationRunner", () => {
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
       conversationCompressor: new ConversationCompressorImpl(),
+      heuristicMaxFiles: 0,
       structuralMapBuilder: new StructuralMapBuilder(),
     };
     const runner = new CompilationRunner(
@@ -655,6 +661,7 @@ describe("CompilationRunner", () => {
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
       conversationCompressor: new ConversationCompressorImpl(),
+      heuristicMaxFiles: 0,
       structuralMapBuilder: new StructuralMapBuilder(),
     };
     const runner = new CompilationRunner(
@@ -717,6 +724,7 @@ describe("CompilationRunner", () => {
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
       conversationCompressor: new ConversationCompressorImpl(),
+      heuristicMaxFiles: 0,
       structuralMapBuilder: new StructuralMapBuilder(),
     };
     const runner = new CompilationRunner(
@@ -769,6 +777,7 @@ describe("CompilationRunner", () => {
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
       conversationCompressor: new ConversationCompressorImpl(),
+      heuristicMaxFiles: 0,
       structuralMapBuilder: new StructuralMapBuilder(),
     };
     const runner = new CompilationRunner(
@@ -824,6 +833,7 @@ describe("CompilationRunner", () => {
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
       conversationCompressor: new ConversationCompressorImpl(),
+      heuristicMaxFiles: 0,
       structuralMapBuilder: new StructuralMapBuilder(),
     };
     const runner = new CompilationRunner(
@@ -886,6 +896,7 @@ describe("CompilationRunner", () => {
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
       conversationCompressor: new ConversationCompressorImpl(),
+      heuristicMaxFiles: 0,
       structuralMapBuilder: new StructuralMapBuilder(),
     };
     const runner = new CompilationRunner(
@@ -950,6 +961,7 @@ describe("CompilationRunner", () => {
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
       conversationCompressor: new ConversationCompressorImpl(),
+      heuristicMaxFiles: 0,
       structuralMapBuilder: new StructuralMapBuilder(),
     };
     const runner = new CompilationRunner(
@@ -1010,6 +1022,7 @@ describe("CompilationRunner", () => {
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
       conversationCompressor: new ConversationCompressorImpl(),
+      heuristicMaxFiles: 0,
       structuralMapBuilder: new StructuralMapBuilder(),
     };
     const runner = new CompilationRunner(
@@ -1079,6 +1092,7 @@ describe("CompilationRunner", () => {
       tokenCounter: tiktokenAdapter,
       specFileDiscoverer: new SpecFileDiscoverer(),
       conversationCompressor: new ConversationCompressorImpl(),
+      heuristicMaxFiles: 0,
       structuralMapBuilder: new StructuralMapBuilder(),
     };
     const runner = new CompilationRunner(
