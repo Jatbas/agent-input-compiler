@@ -62,7 +62,11 @@ import {
   LoadConfigFromFile,
   applyConfigResult,
 } from "@jatbas/aic-core/config/load-config-from-file.js";
-import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
+import {
+  McpError,
+  ErrorCode,
+  type ToolAnnotations,
+} from "@modelcontextprotocol/sdk/types.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CompilationRunner as CompilationRunnerImpl } from "@jatbas/aic-core/pipeline/compilation-runner.js";
@@ -354,10 +358,16 @@ export function createMcpServer(
     intent: CompilationRequestSchema.intent.default(MCP_INTENT_OMITTED_DEFAULT),
     projectRoot: CompilationRequestSchema.projectRoot.default(projectRoot),
   };
+  const toolAnnotationsReadOnly: ToolAnnotations = { readOnlyHint: true };
+  const toolAnnotationsWritesTelemetry: ToolAnnotations = {
+    readOnlyHint: false,
+    destructiveHint: false,
+  };
   server.tool(
     "aic_compile",
     "Compile intent-specific project context. MUST be called as your FIRST action on EVERY message — including follow-ups in the same chat. Each message has a different intent that needs fresh context. Never skip.",
     compileSchemaWithDefaults,
+    toolAnnotationsWritesTelemetry,
     aicCompileHandler,
   );
   const compileSpecHandler = createCompileSpecHandler({
@@ -370,23 +380,30 @@ export function createMcpServer(
     "aic_compile_spec",
     "Compile structured specification input: Zod validates CompileSpecRequestSchema (required spec; budget absent when omitted), records tool_invocation_log, returns MCP text JSON with compiledSpec foundation stub and meta totals (totalTokensRaw, totalTokensCompiled, reductionPct, typeTiers, transformTokensSaved). SpecificationCompiler is not invoked.",
     CompileSpecRequestSchema,
+    toolAnnotationsWritesTelemetry,
     compileSpecHandler,
   );
-  server.tool("aic_inspect", InspectRequestSchema, (args) =>
-    handleInspect(
-      args,
-      inspectRunner,
-      toolInvocationLogStore,
-      startupScope.clock,
-      startupScope.idGenerator,
-      getSessionId,
-    ),
+  server.tool(
+    "aic_inspect",
+    "Inspect a compilation run: returns the full pipeline trace (file selection, token counts, guard results) without writing a compilation record.",
+    InspectRequestSchema,
+    toolAnnotationsWritesTelemetry,
+    (args) =>
+      handleInspect(
+        args,
+        inspectRunner,
+        toolInvocationLogStore,
+        startupScope.clock,
+        startupScope.idGenerator,
+        getSessionId,
+      ),
   );
   const aicProjectsParams: z.ZodRawShape = {};
   server.tool(
     "aic_projects",
     "List all known AIC projects (project ID, path, last seen, compilation count).",
     aicProjectsParams,
+    toolAnnotationsReadOnly,
     () => {
       const list = buildProjectsPayload(startupScope.db);
       return Promise.resolve({
@@ -398,6 +415,7 @@ export function createMcpServer(
     "aic_status",
     "Project-level AIC status: compilations, token savings, budget utilization, guard findings, top task classes.",
     StatusRequestSchema,
+    toolAnnotationsReadOnly,
     (args) =>
       Promise.resolve({
         content: [
@@ -429,6 +447,7 @@ export function createMcpServer(
     "aic_last",
     "Most recent AIC compilation: intent, files selected, tokens compiled, budget utilization, exclusion rate, guard status.",
     aicLastParams,
+    toolAnnotationsReadOnly,
     () =>
       Promise.resolve({
         content: [{ type: "text" as const, text: JSON.stringify(getLastPayload()) }],
@@ -439,12 +458,14 @@ export function createMcpServer(
     "aic_model_test",
     "Agent capability probe: call this tool to receive challenges, solve them, then call it again with your answers to verify your agent can use AIC.",
     ModelTestRequestSchema,
+    toolAnnotationsWritesTelemetry,
     modelTestHandler,
   );
   server.tool(
     "aic_chat_summary",
     "Get per-conversation AIC compilation summary.",
     ConversationSummaryRequestSchema,
+    toolAnnotationsWritesTelemetry,
     (args) => {
       try {
         const parsed = z.object(ConversationSummaryRequestSchema).parse(args);

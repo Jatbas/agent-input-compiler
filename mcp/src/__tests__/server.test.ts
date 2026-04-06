@@ -83,6 +83,24 @@ describe("MCP server", () => {
     expect(names).toContain("aic_last");
     expect(names).toContain("aic_model_test");
     expect(names).toContain("aic_compile_spec");
+    const byName = Object.fromEntries(result.tools.map((t) => [t.name, t]));
+    const readOnlyTools = ["aic_projects", "aic_status", "aic_last"] as const;
+    for (const n of readOnlyTools) {
+      expect(byName[n]?.annotations).toEqual({ readOnlyHint: true });
+    }
+    const writesTelemetryTools = [
+      "aic_compile",
+      "aic_compile_spec",
+      "aic_inspect",
+      "aic_model_test",
+      "aic_chat_summary",
+    ] as const;
+    for (const n of writesTelemetryTools) {
+      expect(byName[n]?.annotations).toEqual({
+        readOnlyHint: false,
+        destructiveHint: false,
+      });
+    }
   });
 
   it("server_tools_json_unchanged", async () => {
