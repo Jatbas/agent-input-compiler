@@ -18,6 +18,10 @@ Deterministic context compiler for AI coding tools. AIC is a local-first MCP ser
 
 AIC does **not** replace your editor. It runs alongside MCP-compatible editors and improves the context they send to the model.
 
+<p align="center">
+  <img src="aic_demo.gif" alt="AIC in action" width="800" />
+</p>
+
 ---
 
 ## Why developers use AIC
@@ -58,7 +62,7 @@ Status = project-level AIC status.
 | ------------------------ | ----------------------------------------------------------------------------------- |
 | Compilations (total)     | 6,192                                                                               |
 | Compilations (today)     | 119                                                                                 |
-| Tokens: raw → compiled   | 4,419,588,970 → 16,433,450                                                         |
+| Tokens: raw → compiled   | 4,419,588,970 → 16,433,450                                                          |
 | Tokens excluded          | 4,403,155,520                                                                       |
 | Budget limit             | 123,500                                                                             |
 | Budget utilization       | 0.5%                                                                                |
