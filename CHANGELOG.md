@@ -7,9 +7,26 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.8] - 2026-04-07
+
+### Added
+
+- `aic_compile_spec` MCP tool for structured specification input with a foundation stub response
+- `aic_model_test` MCP tool for agent capability probing
+- `readOnly` and `destructive` metadata on MCP tool registrations
+
 ### Changed
 
-- Cursor and Claude integration-layer guides document optional `aic_compile` agentic fields and `toolOutputs.relatedFiles` (selection + cache preimage), and note that shipped hook scripts omit `toolOutputs`
+- Derive compile token budget from the active model window when `maxTokens` is 0; subtract structural overhead before selection and auto-scale heuristic `maxFiles` from repository size when `maxFiles` is 0
+- Boost heuristic scores using `toolOutputs.relatedFiles`; fold a canonical related-path segment into the compilation cache key when non-empty
+- Read session model id from a bounded JSONL tail with deterministic full-file fallback
+- Replace nested merges with single-pass map construction on hot paths in core and SQLite-backed stores
+- Refresh integration-layer and architecture documentation for eight MCP tools, agentic compile fields, `toolOutputs.relatedFiles`, and compile entrypoints
+
+### Fixed
+
+- Show concrete excluded paths in compiled prompt rows instead of a generic hint
+- Relax integration benchmark duration limits for slower CI hosts
 
 ## [0.11.7] - 2026-04-02
 
