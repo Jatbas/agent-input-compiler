@@ -1,3 +1,4 @@
+// @aic-managed
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 // Keep in sync with shared/src/maintenance/select-session-model-from-jsonl.ts

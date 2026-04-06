@@ -142,6 +142,34 @@ for (const name of hookNames) {
   }
 }
 
+// Pre-rename hooks superseded by AIC-* equivalents; removed only when AIC-owned
+const LEGACY_HOOK_FILENAMES = [
+  "session-init.js",
+  "record-edit.js",
+  "stop-check.js",
+  "subagent-start-model-id.cjs",
+];
+
+function isAicManagedFile(filePath) {
+  try {
+    const head = fs.readFileSync(filePath, "utf8").slice(0, 512);
+    return head.includes("@aic-managed") || head.includes("AIC Contributors");
+  } catch {
+    return false;
+  }
+}
+
+for (const name of LEGACY_HOOK_FILENAMES) {
+  const filePath = path.join(hooksDir, name);
+  if (isAicManagedFile(filePath)) {
+    try {
+      fs.unlinkSync(filePath);
+    } catch {
+      // already gone
+    }
+  }
+}
+
 const defaultPayload = JSON.parse(fs.readFileSync(templatePath, "utf8"));
 const hooksJsonPath = path.join(cursorDir, "hooks.json");
 
@@ -150,7 +178,15 @@ function commandIncludes(entry, scriptName) {
 }
 
 function isAicScriptInManifest(entry) {
-  const m = (entry.command ?? "").match(/AIC-[a-z0-9-]+\.cjs/);
+  const cmd = entry.command ?? "";
+  const legacyMatch = LEGACY_HOOK_FILENAMES.find((name) => cmd.includes(name));
+  if (legacyMatch !== undefined) {
+    const filePath = path.join(hooksDir, legacyMatch);
+    // Dead reference or AIC-owned → remove; user-owned file → keep
+    if (!fs.existsSync(filePath)) return false;
+    return !isAicManagedFile(filePath);
+  }
+  const m = cmd.match(/AIC-[a-z0-9-]+\.cjs/);
   const scriptName = m ? m[0] : undefined;
   if (scriptName === undefined) return true;
   return AIC_SCRIPT_NAMES.includes(scriptName);
