@@ -7,6 +7,18 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.50.0] - 2026-04-07
+
+### Added
+
+- Add privacy policy and link it from the README
+- Add square logotype assets for marketplace listings
+- Add root `mcp.json` for discovery on Open Plugins and cursor.directory
+
+### Fixed
+
+- Fix uninstall so user-owned hooks are preserved and uninstall/plugin packaging stays in sync with published releases
+
 ## [0.11.9] - 2026-04-07
 
 ### Changed

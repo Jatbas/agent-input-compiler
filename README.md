@@ -246,6 +246,7 @@ Use the README for orientation. Use the docs below for implementation detail.
 | [`architecture.md`](documentation/architecture.md)               | Core pipeline, integration layer, editor capability model    |
 | [`best-practices.md`](documentation/best-practices.md)           | Practical usage guidance                                     |
 | [`security.md`](documentation/security.md)                       | Security model and hardening details                         |
+| [`privacy.md`](privacy.md)                                       | Privacy overview — local data, telemetry, and network use    |
 | [`implementation-spec.md`](documentation/implementation-spec.md) | Detailed pipeline and implementation behavior                |
 | [`project-plan.md`](documentation/project-plan.md)               | Product architecture, ADRs, and full configuration reference |
 
