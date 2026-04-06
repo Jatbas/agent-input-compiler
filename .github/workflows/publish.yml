@@ -26,7 +26,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
           registry-url: "https://registry.npmjs.org"
 
@@ -36,17 +36,34 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Ensure npm for Trusted Publishing
-        run: npm install -g npm@latest
-
       - name: Pack and publish @jatbas/aic-core
         run: |
           pnpm pack
           npm publish *.tgz --access public --provenance
         working-directory: shared
+        continue-on-error: true
+
+      - name: Verify @jatbas/aic-core published
+        run: |
+          VERSION=$(node -p "require('./shared/package.json').version")
+          for i in 1 2 3 4 5; do
+            npm view @jatbas/aic-core@$VERSION version 2>/dev/null && exit 0
+            sleep 10
+          done
+          echo "ERROR: @jatbas/aic-core@$VERSION not found in registry after retries" && exit 1
 
       - name: Pack and publish @jatbas/aic
         run: |
           pnpm pack
           npm publish *.tgz --access public --provenance
         working-directory: mcp
+        continue-on-error: true
+
+      - name: Verify @jatbas/aic published
+        run: |
+          VERSION=$(node -p "require('./mcp/package.json').version")
+          for i in 1 2 3 4 5; do
+            npm view @jatbas/aic@$VERSION version 2>/dev/null && exit 0
+            sleep 10
+          done
+          echo "ERROR: @jatbas/aic@$VERSION not found in registry after retries" && exit 1
