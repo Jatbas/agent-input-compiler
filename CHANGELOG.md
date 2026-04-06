@@ -30,7 +30,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Restore npm OIDC trusted publishing in CI using Node 24 and remove the global npm upgrade step that broke the publish job
 - Tolerate transient npm 404 responses during publish verification
 
-## [0.11.8] - 2026-04-07
+## [0.11.8] - 2026-04-07 (Deprecated)
 
 ### Added
 
@@ -51,13 +51,13 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Show concrete excluded paths in compiled prompt rows instead of a generic hint
 - Relax integration benchmark duration limits for slower CI hosts
 
-## [0.11.7] - 2026-04-02
+## [0.11.7] - 2026-04-02 (Deprecated)
 
 ### Fixed
 
 - Correct sibling `require()` paths in published integration hook bundles so shared modules load after npm install
 
-## [0.11.6] - 2026-04-02
+## [0.11.6] - 2026-04-02 (Deprecated)
 
 ### Added
 
@@ -75,7 +75,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 - Align npm OIDC provenance metadata and publish workflow with trusted publishing requirements
 
-## [0.11.5] - 2026-04-01
+## [0.11.5] - 2026-04-01 (Deprecated)
 
 ## [0.11.0] - 2026-03-31 (Deprecated)
 
