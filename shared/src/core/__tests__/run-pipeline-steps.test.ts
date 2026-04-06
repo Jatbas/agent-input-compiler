@@ -16,10 +16,15 @@ import type { TransformResult } from "@jatbas/aic-core/core/types/transform-type
 import type { AgenticSessionState } from "@jatbas/aic-core/core/interfaces/agentic-session-state.interface.js";
 import type { SessionStep } from "@jatbas/aic-core/core/types/session-dedup-types.js";
 import type { SelectedFile } from "@jatbas/aic-core/core/types/selected-file.js";
+import type { ToolOutput } from "@jatbas/aic-core/core/types/compilation-types.js";
 import { toAbsolutePath, toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toTokenCount, toStepIndex, toBytes } from "@jatbas/aic-core/core/types/units.js";
 import { toSessionId, toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
-import { INCLUSION_TIER, TASK_CLASS } from "@jatbas/aic-core/core/types/enums.js";
+import {
+  INCLUSION_TIER,
+  TASK_CLASS,
+  TOOL_OUTPUT_TYPE,
+} from "@jatbas/aic-core/core/types/enums.js";
 import { toConfidence, toRelevanceScore } from "@jatbas/aic-core/core/types/scores.js";
 
 const PROJECT_ROOT = toAbsolutePath("/tmp/proj");
@@ -334,6 +339,26 @@ describe("runPipelineSteps", () => {
     expect(fileLastModifiedArg).toEqual(
       Object.fromEntries(files.map((f) => [f.path, f.lastModified])),
     );
+  });
+
+  it("run_pipeline_steps_forwards_tool_outputs", async () => {
+    const deps = createDeps({});
+    const toolOutputs: readonly ToolOutput[] = [
+      {
+        type: TOOL_OUTPUT_TYPE.COMMAND_OUTPUT,
+        content: "x",
+        relatedFiles: [toRelativePath("src/b.ts")],
+      },
+    ];
+    const request: PipelineStepsRequest = {
+      intent: "fix bug",
+      projectRoot: PROJECT_ROOT,
+      toolOutputs,
+    };
+    await runPipelineSteps(deps, request);
+    const selectContext = deps.contextSelector.selectContext as ReturnType<typeof vi.fn>;
+    expect(selectContext).toHaveBeenCalledTimes(1);
+    expect(selectContext.mock.calls[0]?.[4]).toBe(toolOutputs);
   });
 
   it("agentic_dedup_preserves_previouslyShownAtStep_when_not_modified", async () => {

@@ -14,6 +14,7 @@ import { IntentClassifier } from "@jatbas/aic-core/pipeline/intent-classifier.js
 import { RulePackResolver } from "@jatbas/aic-core/pipeline/rule-pack-resolver.js";
 import { BudgetAllocator } from "@jatbas/aic-core/pipeline/budget-allocator.js";
 import { HeuristicSelector } from "@jatbas/aic-core/pipeline/heuristic-selector.js";
+import { RelatedFilesBoostContextSelector } from "@jatbas/aic-core/pipeline/related-files-boost-context-selector.js";
 import { ImportGraphProximityScorer } from "@jatbas/aic-core/pipeline/import-graph-proximity-scorer.js";
 import { SymbolRelevanceScorer } from "@jatbas/aic-core/pipeline/symbol-relevance-scorer.js";
 import { ExclusionScanner } from "@jatbas/aic-core/pipeline/exclusion-scanner.js";
@@ -184,7 +185,7 @@ export function createPipelineDeps(
     intentClassifier,
     rulePackResolver,
     budgetAllocator,
-    contextSelector: heuristicSelector,
+    contextSelector: new RelatedFilesBoostContextSelector(heuristicSelector),
     contextGuard,
     contentTransformerPipeline,
     summarisationLadder,

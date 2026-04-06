@@ -6,6 +6,7 @@ import type { RepoMap } from "@jatbas/aic-core/core/types/repo-map.js";
 import type { RulePack } from "@jatbas/aic-core/core/types/rule-pack.js";
 import type { TokenCount } from "@jatbas/aic-core/core/types/units.js";
 import type { ContextResult } from "@jatbas/aic-core/core/types/selected-file.js";
+import type { ToolOutput } from "@jatbas/aic-core/core/types/compilation-types.js";
 
 export interface ContextSelector {
   selectContext(
@@ -13,5 +14,6 @@ export interface ContextSelector {
     repo: RepoMap,
     budget: TokenCount,
     rulePack: RulePack,
+    toolOutputs?: readonly ToolOutput[],
   ): Promise<ContextResult>;
 }

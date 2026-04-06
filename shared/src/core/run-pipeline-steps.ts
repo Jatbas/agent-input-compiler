@@ -140,6 +140,7 @@ export async function runPipelineSteps(
     discoveredRepoMap,
     budget,
     rulePack,
+    request.toolOutputs,
   );
   const fileLastModified: Record<string, ISOTimestamp> = Object.fromEntries(
     repoMap.files.map((f): [string, ISOTimestamp] => [f.path, f.lastModified]),

@@ -9,6 +9,7 @@ import type { RepoMap } from "@jatbas/aic-core/core/types/repo-map.js";
 import type { RulePack } from "@jatbas/aic-core/core/types/rule-pack.js";
 import type { TokenCount } from "@jatbas/aic-core/core/types/units.js";
 import type { ContextResult } from "@jatbas/aic-core/core/types/selected-file.js";
+import type { ToolOutput } from "@jatbas/aic-core/core/types/compilation-types.js";
 import type { FileEntry } from "@jatbas/aic-core/core/types/repo-map.js";
 import type { SelectedFile } from "@jatbas/aic-core/core/types/selected-file.js";
 import type {
@@ -171,6 +172,7 @@ export class HeuristicSelector implements ContextSelector {
     repo: RepoMap,
     budget: TokenCount,
     rulePack: RulePack,
+    _toolOutputs?: readonly ToolOutput[],
   ): Promise<ContextResult> {
     const weights = this.config.weights ?? DEFAULT_WEIGHTS_BY_TASK_CLASS[task.taskClass];
     const importProximityScores = await this.importProximityScorer.getScores(repo, task);
