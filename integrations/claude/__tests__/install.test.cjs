@@ -334,6 +334,60 @@ function claude_install_migrates_old_style_shared_files() {
   }
 }
 
+function claude_install_preserves_user_wrapper_with_matcher() {
+  const tmpDir = fs.mkdtempSync(
+    path.join(require("node:os").tmpdir(), "aic-install-test-"),
+  );
+  try {
+    const settingsPath = path.join(tmpDir, ".claude", "settings.json");
+    fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+    fs.writeFileSync(
+      settingsPath,
+      JSON.stringify(
+        {
+          hooks: {
+            UserPromptSubmit: [
+              {
+                matcher: "agent",
+                hooks: [{ type: "command", command: "node myHook.js" }],
+              },
+            ],
+          },
+        },
+        null,
+        2,
+      ) + "\n",
+      "utf8",
+    );
+    execFileSync("node", [installScript], {
+      cwd: tmpDir,
+      env: { ...process.env, HOME: tmpDir },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const data = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    const wrappers = (data.hooks || {}).UserPromptSubmit || [];
+    const userWrapper = wrappers.find((w) => w.matcher === "agent");
+    if (userWrapper === undefined) {
+      throw new Error("User wrapper with matcher was destroyed by install");
+    }
+    const userHook = (userWrapper.hooks || []).find((h) =>
+      (h.command || "").includes("myHook.js"),
+    );
+    if (userHook === undefined) {
+      throw new Error("User hook inside wrapper was removed by install");
+    }
+    const aicWrapper = wrappers.find((w) =>
+      (w.hooks || []).some((h) => /aic-[a-z0-9-]+\.cjs/i.test(h.command || "")),
+    );
+    if (aicWrapper === undefined) {
+      throw new Error("AIC wrapper missing after install");
+    }
+    console.log("claude_install_preserves_user_wrapper_with_matcher: pass");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
 fresh_install_creates_global_settings();
 merge_preserves_non_aic_entries();
 legacy_project_local_cleanup();
@@ -342,3 +396,4 @@ merge_preserves_existing_custom_mcp_server();
 claude_install_deploys_shared_as_aic_prefix();
 claude_install_rewrites_require_to_aic_prefix();
 claude_install_migrates_old_style_shared_files();
+claude_install_preserves_user_wrapper_with_matcher();

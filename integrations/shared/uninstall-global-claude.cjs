@@ -22,14 +22,26 @@ function tryRemoveFromSettings(settingsPath) {
     const newHooks = {};
     for (const eventKey of Object.keys(hooks)) {
       const wrappers = hooks[eventKey] || [];
-      newHooks[eventKey] = wrappers.map((w) => {
-        const inner = w.hooks || [];
-        const filtered = inner.filter(
+      const nextWrappers = [];
+      for (const w of wrappers) {
+        if (!Array.isArray(w.hooks)) {
+          nextWrappers.push(w);
+          continue;
+        }
+        const filtered = w.hooks.filter(
           (entry) => !commandReferencesAicHook(entry.command),
         );
-        if (filtered.length !== inner.length) changed = true;
-        return { ...w, hooks: filtered };
-      });
+        if (filtered.length !== w.hooks.length) {
+          changed = true;
+          if (filtered.length > 0) {
+            nextWrappers.push({ ...w, hooks: filtered });
+          }
+          // else: wrapper was AIC-only → drop it entirely
+        } else {
+          nextWrappers.push(w);
+        }
+      }
+      newHooks[eventKey] = nextWrappers;
     }
     if (!changed) return false;
     data.hooks = newHooks;

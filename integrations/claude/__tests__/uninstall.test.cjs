@@ -442,6 +442,58 @@ function claude_dev_mode_force_uninstalls() {
   console.log("claude_dev_mode_force_uninstalls: pass");
 }
 
+function claude_uninstall_preserves_user_wrapper() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-uninstall-user-wrap-"));
+  try {
+    const settingsPath = path.join(tmpDir, ".claude", "settings.json");
+    fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+    fs.writeFileSync(
+      settingsPath,
+      JSON.stringify(
+        {
+          hooks: {
+            UserPromptSubmit: [
+              // user wrapper with matcher — must survive
+              {
+                matcher: "agent",
+                hooks: [{ type: "command", command: "node myHook.js" }],
+              },
+              // AIC-only wrapper — must be removed entirely
+              {
+                hooks: [
+                  {
+                    type: "command",
+                    command: 'node "$HOME/.claude/hooks/aic-prompt-compile.cjs"',
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        null,
+        2,
+      ) + "\n",
+      "utf8",
+    );
+    runUninstall(envTmpHome(tmpDir), tmpDir, ["--global"]);
+    const data = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+    const wrappers = (data.hooks || {}).UserPromptSubmit || [];
+    const hasAicWrapper = wrappers.some((w) =>
+      (w.hooks || []).some((h) => /aic-[a-z0-9-]+\.cjs/i.test(h.command || "")),
+    );
+    assert(!hasAicWrapper, "AIC-only wrapper removed from settings.json");
+    const userWrapper = wrappers.find((w) => w.matcher === "agent");
+    assert(userWrapper !== undefined, "user wrapper with matcher preserved");
+    const userHook = (userWrapper.hooks || []).find((h) =>
+      (h.command || "").includes("myHook.js"),
+    );
+    assert(userHook !== undefined, "user hook inside wrapper preserved");
+    console.log("claude_uninstall_preserves_user_wrapper: pass");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
 claude_uninstall_removes_hooks_and_files();
 claude_idempotent();
 claude_settings_only_no_scripts_line();
@@ -455,3 +507,4 @@ claude_uninstall_keep_project_artifacts_skips_project_files();
 claude_remove_database_without_global_warns_stderr();
 claude_dev_mode_skips_uninstall();
 claude_dev_mode_force_uninstalls();
+claude_uninstall_preserves_user_wrapper();

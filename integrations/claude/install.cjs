@@ -255,39 +255,10 @@ function planProjectClaudeMdWrite(existingNormalized) {
   return { skipWrite: false, nextContent: `${prefix}${managed}${suffix}` };
 }
 
-function isAicCommand(command) {
-  const m = String(command || "").match(/aic-[a-z0-9-]+\.cjs/);
-  return m ? AIC_SCRIPT_NAMES.includes(m[0]) : false;
-}
+const AIC_HOOK_CMD_RE = /aic-[a-z0-9-]+\.cjs/i;
 
-function filterStaleAic(existingArr) {
-  const seen = new Set();
-  return (existingArr || []).filter((entry) => {
-    if (!isAicCommand(entry.command)) return true;
-    const m = String(entry.command || "").match(/aic-[a-z0-9-]+\.cjs/);
-    if (!m || !AIC_SCRIPT_NAMES.includes(m[0])) return false;
-    // deduplicate: keep only the first occurrence of each AIC script
-    if (seen.has(m[0])) return false;
-    seen.add(m[0]);
-    return true;
-  });
-}
-
-function mergeHookArrays(existingArr, rewrittenArr) {
-  const filtered = filterStaleAic(existingArr);
-  const aicFromRewritten = (rewrittenArr || []).filter((entry) =>
-    isAicCommand(entry.command),
-  );
-  const existingScripts = new Set(
-    filtered
-      .filter((e) => isAicCommand(e.command))
-      .map((e) => (String(e.command || "").match(/aic-[a-z0-9-]+\.cjs/) || [])[0]),
-  );
-  const toAppend = aicFromRewritten.filter((entry) => {
-    const name = (String(entry.command || "").match(/aic-[a-z0-9-]+\.cjs/) || [])[0];
-    return name && !existingScripts.has(name);
-  });
-  return toAppend.length > 0 ? [...filtered, ...toAppend] : filtered;
+function isAicHookEntry(entry) {
+  return AIC_HOOK_CMD_RE.test(String(entry.command || ""));
 }
 
 function findAicMcpKey(servers) {
@@ -318,10 +289,20 @@ function mergeNestedHooksPayload(existing, template) {
   for (const eventKey of Object.keys(templateHooks)) {
     const existingWrappers = result.hooks[eventKey] ?? [];
     const templateWrappers = templateHooks[eventKey] ?? [];
-    const existingArr = existingWrappers.flatMap((w) => w.hooks ?? []);
-    const templateArr = templateWrappers.flatMap((w) => w.hooks ?? []);
-    const mergedArr = mergeHookArrays(existingArr, templateArr);
-    result.hooks[eventKey] = [{ hooks: mergedArr }];
+    // Preserve user wrappers; drop wrappers that only contained AIC hooks
+    const userWrappers = existingWrappers.reduce((acc, w) => {
+      if (!Array.isArray(w.hooks)) {
+        acc.push(w);
+        return acc;
+      }
+      const nonAic = w.hooks.filter((entry) => !isAicHookEntry(entry));
+      if (nonAic.length > 0) {
+        acc.push({ ...w, hooks: nonAic });
+      }
+      return acc;
+    }, []);
+    // Append fresh template wrappers, preserving their matchers and structure
+    result.hooks[eventKey] = [...userWrappers, ...templateWrappers];
   }
   return result;
 }

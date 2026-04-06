@@ -219,22 +219,27 @@ const hookKeys = [
 let mergedHooks;
 let mergedContent;
 
-try {
-  const existingRaw = fs.readFileSync(hooksJsonPath, "utf8");
-  const existing = JSON.parse(existingRaw);
-  const merged = { version: existing.version ?? 1, hooks: { ...existing.hooks } };
-  for (const key of hookKeys) {
-    const existingArr = (existing.hooks && existing.hooks[key]) ?? [];
-    const filtered = existingArr.filter(isAicScriptInManifest);
-    const defaults = defaultPayload.hooks[key] ?? [];
-    merged.hooks[key] = mergeHookArray(filtered, defaults);
+const hooksFileExisted = fs.existsSync(hooksJsonPath);
+if (hooksFileExisted) {
+  try {
+    const existingRaw = fs.readFileSync(hooksJsonPath, "utf8");
+    const existing = JSON.parse(existingRaw);
+    const merged = { version: existing.version ?? 1, hooks: { ...existing.hooks } };
+    for (const key of hookKeys) {
+      const existingArr = (existing.hooks && existing.hooks[key]) ?? [];
+      const filtered = existingArr.filter(isAicScriptInManifest);
+      const defaults = defaultPayload.hooks[key] ?? [];
+      merged.hooks[key] = mergeHookArray(filtered, defaults);
+    }
+    mergedHooks = merged;
+    mergedContent = JSON.stringify(mergedHooks, null, 2) + "\n";
+    if (mergedContent !== existingRaw) {
+      fs.writeFileSync(hooksJsonPath, mergedContent, "utf8");
+    }
+  } catch {
+    // merge error — leave existing file untouched to preserve user hooks
   }
-  mergedHooks = merged;
-  mergedContent = JSON.stringify(mergedHooks, null, 2) + "\n";
-  if (mergedContent !== existingRaw) {
-    fs.writeFileSync(hooksJsonPath, mergedContent, "utf8");
-  }
-} catch {
+} else {
   fs.mkdirSync(cursorDir, { recursive: true });
   mergedContent = JSON.stringify(defaultPayload, null, 2) + "\n";
   fs.writeFileSync(hooksJsonPath, mergedContent, "utf8");

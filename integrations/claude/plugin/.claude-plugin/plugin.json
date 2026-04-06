@@ -1,6 +1,6 @@
 {
   "name": "aic",
-  "version": "0.11.8",
+  "version": "0.11.9",
   "description": "Agent Input Compiler — compiles project context and specs into structured prompts for Claude via MCP.",
   "author": { "name": "AIC Contributors" },
   "homepage": "https://github.com/Jatbas/agent-input-compiler",

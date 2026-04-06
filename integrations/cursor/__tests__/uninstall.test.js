@@ -583,6 +583,71 @@ function cursor_dev_mode_force_uninstalls() {
   }
 }
 
+function cursor_uninstall_preserves_user_hooks() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-uninstall-user-hooks-"));
+  try {
+    const cursorDir = path.join(tmpDir, ".cursor");
+    const hooksDir = path.join(cursorDir, "hooks");
+    fs.mkdirSync(hooksDir, { recursive: true });
+    const hooksJson = {
+      version: 1,
+      hooks: {
+        afterFileEdit: [
+          { command: "node /my/user-hook.js" },
+          { command: "node .cursor/hooks/AIC-after-file-edit-tracker.cjs" },
+        ],
+      },
+    };
+    fs.writeFileSync(
+      path.join(cursorDir, "hooks.json"),
+      JSON.stringify(hooksJson, null, 2) + "\n",
+      "utf8",
+    );
+    runUninstall(envWithTmpHome(tmpDir), [], tmpDir);
+    const data = JSON.parse(fs.readFileSync(path.join(cursorDir, "hooks.json"), "utf8"));
+    const cmds = collectHookCommands(data);
+    assert(
+      cmds.some((c) => c.includes("user-hook.js")),
+      "user hook survives uninstall",
+    );
+    assert(
+      !cmds.some((c) => /AIC-[a-z0-9-]+\.cjs/.test(c)),
+      "AIC hook removed by uninstall",
+    );
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+function cursor_uninstall_cleans_stale_aic_hooks() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-uninstall-stale-"));
+  try {
+    const cursorDir = path.join(tmpDir, ".cursor");
+    const hooksDir = path.join(cursorDir, "hooks");
+    fs.mkdirSync(hooksDir, { recursive: true });
+    const hooksJson = {
+      version: 1,
+      hooks: {
+        sessionStart: [{ command: "node .cursor/hooks/AIC-old-removed-hook.cjs" }],
+      },
+    };
+    fs.writeFileSync(
+      path.join(cursorDir, "hooks.json"),
+      JSON.stringify(hooksJson, null, 2) + "\n",
+      "utf8",
+    );
+    runUninstall(envWithTmpHome(tmpDir), [], tmpDir);
+    const data = JSON.parse(fs.readFileSync(path.join(cursorDir, "hooks.json"), "utf8"));
+    const cmds = collectHookCommands(data);
+    assert(
+      !cmds.some((c) => c.includes("AIC-old-removed-hook.cjs")),
+      "stale AIC hook removed even when not in manifest",
+    );
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
 cursor_global_removal_top_level_aic();
 console.log("ok: cursor_global_removal_top_level_aic");
 cursor_global_removal_mcp_servers();
@@ -619,3 +684,7 @@ cursor_dev_mode_skips_uninstall();
 console.log("ok: cursor_dev_mode_skips_uninstall");
 cursor_dev_mode_force_uninstalls();
 console.log("ok: cursor_dev_mode_force_uninstalls");
+cursor_uninstall_preserves_user_hooks();
+console.log("ok: cursor_uninstall_preserves_user_hooks");
+cursor_uninstall_cleans_stale_aic_hooks();
+console.log("ok: cursor_uninstall_cleans_stale_aic_hooks");

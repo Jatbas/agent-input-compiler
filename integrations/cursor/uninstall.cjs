@@ -56,10 +56,7 @@ function tryStripMcp(mcpPath) {
 }
 
 function isAicScriptEntry(entry) {
-  const m = (entry.command ?? "").match(/AIC-[a-z0-9-]+\.cjs/);
-  const scriptName = m ? m[0] : undefined;
-  if (scriptName === undefined) return false;
-  return AIC_SCRIPT_NAMES.includes(scriptName);
+  return (entry.command ?? "").match(/AIC-[a-z0-9-]+\.cjs/) !== null;
 }
 
 function tryCleanProjectHooks(projectRoot) {
