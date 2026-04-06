@@ -9,7 +9,7 @@ import type { AbsolutePath, FilePath } from "@jatbas/aic-core/core/types/paths.j
 import type { RulePack } from "@jatbas/aic-core/core/types/rule-pack.js";
 import type { RulePackProvider } from "@jatbas/aic-core/core/interfaces/rule-pack-provider.interface.js";
 import type { LanguageProvider } from "@jatbas/aic-core/core/interfaces/language-provider.interface.js";
-import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toAbsolutePath, toFilePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { TaskClass, EditorId } from "@jatbas/aic-core/core/types/enums.js";
 import { InspectRunner } from "@jatbas/aic-core/pipeline/inspect-runner.js";
 import {
@@ -20,7 +20,9 @@ import { StatusRequestSchema } from "./schemas/status-request.schema.js";
 import { ConversationSummaryRequestSchema } from "./schemas/conversation-summary-request.js";
 import { InspectRequestSchema } from "./schemas/inspect-request.schema.js";
 import { ModelTestRequestSchema } from "./schemas/model-test-request.schema.js";
+import { CompileSpecRequestSchema } from "./schemas/compile-spec-request.schema.js";
 import { createCompileHandler } from "./handlers/compile-handler.js";
+import { createCompileSpecHandler } from "./handlers/compile-spec-handler.js";
 import { createModelTestHandler } from "./handlers/model-test-handler.js";
 import { SessionContext } from "./handlers/session-context-cache.js";
 import { handleInspect } from "./handlers/inspect-handler.js";
@@ -358,6 +360,18 @@ export function createMcpServer(
     compileSchemaWithDefaults,
     aicCompileHandler,
   );
+  const compileSpecHandler = createCompileSpecHandler({
+    toolInvocationLogStore,
+    clock: startupScope.clock,
+    idGenerator: startupScope.idGenerator,
+    getSessionId,
+  });
+  server.tool(
+    "aic_compile_spec",
+    "Compile structured specification input: Zod validates CompileSpecRequestSchema (required spec; budget absent when omitted), records tool_invocation_log, returns MCP text JSON with compiledSpec foundation stub and meta totals (totalTokensRaw, totalTokensCompiled, reductionPct, typeTiers, transformTokensSaved). SpecificationCompiler is not invoked.",
+    CompileSpecRequestSchema,
+    compileSpecHandler,
+  );
   server.tool("aic_inspect", InspectRequestSchema, (args) =>
     handleInspect(
       args,
@@ -490,6 +504,43 @@ function resolveBootstrapMode(): BootstrapIntegrationMode {
   }
 }
 
+export const LIST_ROOTS_BOOTSTRAP_SIGNAL = {
+  LIST_ROOTS_FAILED: "list_roots_failed",
+  ROOT_PROCESSING_SKIPPED: "root_processing_skipped",
+} as const;
+
+export type ListRootsBootstrapSignal =
+  (typeof LIST_ROOTS_BOOTSTRAP_SIGNAL)[keyof typeof LIST_ROOTS_BOOTSTRAP_SIGNAL];
+
+function writeListRootsBootstrapObservability(signal: ListRootsBootstrapSignal): void {
+  process.stderr.write(`[aic] bootstrap ${signal}\n`);
+}
+
+export function notifyListRootsBootstrapFetchFailed(): void {
+  writeListRootsBootstrapObservability(LIST_ROOTS_BOOTSTRAP_SIGNAL.LIST_ROOTS_FAILED);
+}
+
+export function processListedWorkspaceRootsForBootstrap(
+  roots: readonly { readonly uri: string }[],
+  homeDirectoryPath: FilePath,
+  getEditorId: () => EditorId,
+  bootstrapMode: BootstrapIntegrationMode,
+): void {
+  for (const root of roots) {
+    try {
+      const rootPath = fileURLToPath(root.uri);
+      if (toFilePath(rootPath) === homeDirectoryPath) continue;
+      const absRoot = toAbsolutePath(rootPath);
+      installTriggerRule(absRoot, getEditorId());
+      runEditorBootstrapIfNeeded(absRoot, bootstrapMode);
+    } catch {
+      writeListRootsBootstrapObservability(
+        LIST_ROOTS_BOOTSTRAP_SIGNAL.ROOT_PROCESSING_SKIPPED,
+      );
+    }
+  }
+}
+
 export async function main(): Promise<void> {
   const bootstrapMode = resolveBootstrapMode();
   const projectRoot = toAbsolutePath(process.cwd());
@@ -515,26 +566,22 @@ export async function main(): Promise<void> {
     bootstrapMode,
   );
   const homedir = os.homedir();
+  const homeDirectoryPath = toFilePath(homedir);
   server.server.oninitialized = (): void => {
     const caps = server.server.getClientCapabilities();
     if (caps?.roots !== undefined) {
       server.server
         .listRoots()
         .then((result) => {
-          for (const root of result.roots) {
-            try {
-              const rootPath = fileURLToPath(root.uri);
-              if (rootPath === homedir) continue;
-              const absRoot = toAbsolutePath(rootPath);
-              installTriggerRule(absRoot, server.getEditorId());
-              runEditorBootstrapIfNeeded(absRoot, bootstrapMode);
-            } catch {
-              // skip invalid roots
-            }
-          }
+          processListedWorkspaceRootsForBootstrap(
+            result.roots,
+            homeDirectoryPath,
+            () => server.getEditorId(),
+            bootstrapMode,
+          );
         })
-        .catch(() => {
-          // client may not support roots despite advertising
+        .catch((): void => {
+          notifyListRootsBootstrapFetchFailed();
         });
     }
   };

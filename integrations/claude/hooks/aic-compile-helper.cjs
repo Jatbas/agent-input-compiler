@@ -5,7 +5,9 @@
 // Uses async spawn to keep stdin open until the tools/call response arrives;
 // server.ts exits on stdin EOF before async handlers complete (race condition).
 const { spawn } = require("child_process");
+const crypto = require("crypto");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const {
   isValidModelId,
@@ -14,6 +16,50 @@ const {
   writeSessionModelCache,
 } = require("../../shared/session-model-cache.cjs");
 const { isCompileGateSkipped } = require("../../shared/read-project-dev-mode.cjs");
+
+function getStampPath(projectRoot) {
+  const key = crypto.createHash("sha1").update(projectRoot).digest("hex").slice(0, 12);
+  return path.join(os.tmpdir(), `aic-dev-build-${key}`);
+}
+
+function hasNewerTs(dir, stampMtime) {
+  let entries;
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return false;
+  }
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (hasNewerTs(full, stampMtime)) return true;
+    } else if (entry.name.endsWith(".ts")) {
+      try {
+        if (fs.statSync(full).mtimeMs > stampMtime) return true;
+      } catch {
+        // skip unreadable
+      }
+    }
+  }
+  return false;
+}
+
+function isRebuildNeeded(projectRoot) {
+  const stampPath = getStampPath(projectRoot);
+  let stampMtime = 0;
+  try {
+    stampMtime = fs.statSync(stampPath).mtimeMs;
+  } catch {
+    return true;
+  }
+  for (const dir of [
+    path.join(projectRoot, "shared", "src"),
+    path.join(projectRoot, "mcp", "src"),
+  ]) {
+    if (hasNewerTs(dir, stampMtime)) return true;
+  }
+  return false;
+}
 
 // conversationId must be conversation-scoped (not session_id) for correct chat summary attribution.
 // modelId: string with content, or null, or undefined; undefined: resolve from sixth param first; if empty, read projectRoot/.aic/session-models.jsonl
@@ -37,11 +83,15 @@ function callAicCompile(
   const timeout = timeoutMs || 25000;
   const serverPath = path.join(projectRoot, "mcp", "src", "server.ts");
   const isDev = fs.existsSync(serverPath);
-  const needsBuild =
+  const hasSharedPkg =
     isDev && fs.existsSync(path.join(projectRoot, "shared", "package.json"));
+  const needsBuild = hasSharedPkg && isRebuildNeeded(projectRoot);
   const spawnCmd = needsBuild ? "sh" : "npx";
   const spawnArgs = needsBuild
-    ? ["-c", "pnpm --filter @jatbas/aic-core build >&2 && npx tsx " + serverPath]
+    ? [
+        "-c",
+        `pnpm --filter @jatbas/aic-core build >&2 && touch '${getStampPath(projectRoot)}' && npx tsx '${serverPath}'`,
+      ]
     : isDev
       ? ["tsx", serverPath]
       : ["@jatbas/aic"];

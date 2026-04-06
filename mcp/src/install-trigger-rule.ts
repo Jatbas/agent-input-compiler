@@ -46,13 +46,11 @@ If \`aic_compile\` is not available (tool not found, MCP server disabled, or too
 Then continue responding normally without compiled context.
 
 
-> **Dev:** When \`"devMode": true\` is set in \`aic.config.json\` at the project root, use \`pnpm aic\` from the repo root instead of \`npx @jatbas/aic\` for the shell commands below.
-
-Prompt commands (run Bash with \`npx @jatbas/aic …\`, then relay stdout; human-readable labels, commas for large numbers, percentages 1 decimal, relative timestamps, em dash for nulls):
-- "show aic status" → \`npx @jatbas/aic status\` from the project directory, or \`npx @jatbas/aic status <N>d\` for a rolling **N**-day window (**N** integer 1..3660); table shows **Time range** as **Last 1 day** or **Last N days** when a window is used.
-- "show aic last" → \`npx @jatbas/aic last\` from the project directory.
-- "show aic chat summary" → \`npx @jatbas/aic chat-summary --project <absolute workspace root>\`.
-- "show aic projects" → \`npx @jatbas/aic projects\`.
+Prompt commands (run Bash, relay stdout; human-readable labels, commas for large numbers, percentages 1 decimal, relative timestamps, em dash for nulls):
+- "show aic status" → \`(grep -q '"devMode": true' aic.config.json 2>/dev/null && pnpm aic status) || npx @jatbas/aic status\` from the project directory, or substitute \`status <N>d\` for a rolling **N**-day window (**N** integer 1..3660); table shows **Time range** as **Last 1 day** or **Last N days** when a window is used.
+- "show aic last" → \`(grep -q '"devMode": true' aic.config.json 2>/dev/null && pnpm aic last) || npx @jatbas/aic last\` from the project directory.
+- "show aic chat summary" → \`(grep -q '"devMode": true' aic.config.json 2>/dev/null && pnpm aic chat-summary --project <absolute workspace root>) || npx @jatbas/aic chat-summary --project <absolute workspace root>\`.
+- "show aic projects" → \`(grep -q '"devMode": true' aic.config.json 2>/dev/null && pnpm aic projects) || npx @jatbas/aic projects\`.
 `;
 
 const CLAUDE_MD_TEMPLATE = `# AIC — Claude Code Rules

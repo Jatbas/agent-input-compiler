@@ -5,16 +5,24 @@ import { describe, it, beforeAll, beforeEach, afterEach, expect, vi } from "vite
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
+import { pathToFileURL } from "node:url";
 import { toSessionId, toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
-import { createMcpServer, registerShutdownHandler } from "../server.js";
+import {
+  createMcpServer,
+  notifyListRootsBootstrapFetchFailed,
+  processListedWorkspaceRootsForBootstrap,
+  registerShutdownHandler,
+} from "../server.js";
+import { BOOTSTRAP_INTEGRATION } from "../editor-integration-dispatch.js";
 import { openDatabase, closeDatabase } from "@jatbas/aic-core/storage/open-database.js";
 import { SystemClock } from "@jatbas/aic-core/adapters/system-clock.js";
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
-import { STOP_REASON } from "@jatbas/aic-core/core/types/enums.js";
+import { EDITOR_ID, STOP_REASON } from "@jatbas/aic-core/core/types/enums.js";
 import { NodePathAdapter } from "@jatbas/aic-core/adapters/node-path-adapter.js";
 import { createProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
 import { ensureAicDir } from "@jatbas/aic-core/storage/ensure-aic-dir.js";
-import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
+import { toAbsolutePath, toFilePath } from "@jatbas/aic-core/core/types/paths.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 
@@ -74,6 +82,7 @@ describe("MCP server", () => {
     expect(names).toContain("aic_status");
     expect(names).toContain("aic_last");
     expect(names).toContain("aic_model_test");
+    expect(names).toContain("aic_compile_spec");
   });
 
   it("server_tools_json_unchanged", async () => {
@@ -176,6 +185,64 @@ describe("MCP server", () => {
       expect(parsed["updateMessage"]).toBe(
         "A newer AIC version (99.0.0) is available. Run `rm -rf ~/.npm/_npx` then reload Cursor to update.",
       );
+    } finally {
+      stderrSpy.mockRestore();
+    }
+  });
+
+  it("list_roots_bootstrap_fetch_failed_writes_signal", () => {
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    try {
+      notifyListRootsBootstrapFetchFailed();
+      const matched = stderrSpy.mock.calls.some((call) => {
+        const chunk = call[0];
+        return (
+          typeof chunk === "string" &&
+          chunk.includes("[aic] bootstrap") &&
+          chunk.includes("list_roots_failed")
+        );
+      });
+      expect(matched).toBe(true);
+    } finally {
+      stderrSpy.mockRestore();
+    }
+  });
+
+  it("list_roots_bootstrap_skipped_does_not_emit_throw_message", async () => {
+    const rootDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
+    const mod = await import("../install-trigger-rule.js");
+    const triggerSpy = vi.spyOn(mod, "installTriggerRule").mockImplementation(() => {
+      throw new ConfigError("aic-fake-bootstrap-leak-token");
+    });
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    try {
+      processListedWorkspaceRootsForBootstrap(
+        [{ uri: pathToFileURL(rootDir).href }],
+        toFilePath(os.homedir()),
+        () => EDITOR_ID.GENERIC,
+        BOOTSTRAP_INTEGRATION.NONE,
+      );
+      const combined = stderrSpy.mock.calls.map((c) => String(c[0])).join("");
+      expect(combined).toContain("root_processing_skipped");
+      expect(combined).not.toContain("aic-fake-bootstrap-leak-token");
+    } finally {
+      stderrSpy.mockRestore();
+      triggerSpy.mockRestore();
+      fs.rmSync(rootDir, { recursive: true, force: true });
+    }
+  });
+
+  it("list_roots_bootstrap_invalid_uri_writes_skipped_signal", () => {
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    try {
+      processListedWorkspaceRootsForBootstrap(
+        [{ uri: "not-a-valid-file-url" }],
+        toFilePath(os.homedir()),
+        () => EDITOR_ID.GENERIC,
+        BOOTSTRAP_INTEGRATION.NONE,
+      );
+      const combined = stderrSpy.mock.calls.map((c) => String(c[0])).join("");
+      expect(combined).toContain("root_processing_skipped");
     } finally {
       stderrSpy.mockRestore();
     }

@@ -70,8 +70,6 @@ When in doubt, open the specific rule file listed above for the full text.
 
 ## Prompt Commands
 
-> **Dev:** When `"devMode": true` is set in `aic.config.json` at the project root, substitute `pnpm aic` for `npx @jatbas/aic` in every command below (run from the repo root).
-
 Use these rules for all five AIC prompt commands. Present data like a polished dashboard, not raw JSON.
 
 **General formatting (all commands):**
@@ -84,10 +82,11 @@ Use these rules for all five AIC prompt commands. Present data like a polished d
 - Keep the one-line summary at the top of each command as specified below.
 - Output only the summary line, the table, and (for status, last, chat-summary) the metric footnote below. **Do not add commentary, notes, interpretation, or explanations after the output.**
 - **Metric footnote** (append after the table for status, last, and chat-summary — one line per metric; **never** append to any other response): `Exclusion rate: % of total repo tokens not included in the compiled prompt.` then `Budget utilization: % of token budget filled.`
+- **No preamble:** Go directly to the Bash tool call. Do not narrate what you are about to do. Do not show reasoning steps. First action = tool call.
 
 ---
 
-- **"show aic status"** — When the user says this (or similar), run Bash with `npx @jatbas/aic status` (or `pnpm aic status` when `"devMode": true` is set in `aic.config.json`) from the project directory (or the `<N>d` variant when the user asks for a rolling **N**-day window, with **N** an integer from 1 through 3660), then relay stdout. Start the reply with one short line: **Status = project-level AIC status.** When a window is used, the table includes a **Time range** row: **Last 1 day** if **N** is 1, otherwise **Last N days**. Then display a formatted table using these labels and formats:
+- **"show aic status"** — When the user says this (or similar), run Bash with `(grep -q '"devMode": true' aic.config.json 2>/dev/null && pnpm aic status) || npx @jatbas/aic status` from the project directory (or substitute `status <N>d` for the rolling window variant when the user asks for a rolling **N**-day window, with **N** an integer from 1 through 3660), then relay stdout. Start the reply with one short line: **Status = project-level AIC status.** When a window is used, the table includes a **Time range** row: **Last 1 day** if **N** is 1, otherwise **Last N days**. Then display a formatted table using these labels and formats:
 
   | JSON key                             | Label                  | Format                                                                 |
   | ------------------------------------ | ---------------------- | ---------------------------------------------------------------------- |
@@ -107,7 +106,7 @@ Use these rules for all five AIC prompt commands. Present data like a polished d
 
   When `installationOk` is false and `installationNotes` is a non-empty string, add a **Notes** row whose text is `installationNotes`. JSON still includes `installationNotes` and `projectEnabled` for programmatic use; omit **Project** from the formatted table.
 
-- **"show aic chat summary"** — When the user says "show aic chat summary" or asks for this workspace's AIC compilation stats, run Bash with `npx @jatbas/aic chat-summary --project <absolute workspace root>` (or `pnpm aic chat-summary --project <absolute workspace root>` when `"devMode": true` is set in `aic.config.json`), then relay stdout. Start the reply with one short line: **Chat = this conversation's AIC compilations.** Then display a formatted table using these labels and formats:
+- **"show aic chat summary"** — When the user says "show aic chat summary" or asks for this workspace's AIC compilation stats, run Bash with `(grep -q '"devMode": true' aic.config.json 2>/dev/null && pnpm aic chat-summary --project <absolute workspace root>) || npx @jatbas/aic chat-summary --project <absolute workspace root>`, then relay stdout. Start the reply with one short line: **Chat = this conversation's AIC compilations.** Then display a formatted table using these labels and formats:
 
   | JSON key                      | Label              | Format                                         |
   | ----------------------------- | ------------------ | ---------------------------------------------- |
@@ -122,7 +121,7 @@ Use these rules for all five AIC prompt commands. Present data like a polished d
   | lastCompilationInConversation | Last compilation   | intent text + relative time (e.g. "5 min ago") |
   | topTaskClasses                | Top task classes   | taskClass (count), comma-separated             |
 
-- **"show aic last"** — When the user says this (or similar), run Bash with `npx @jatbas/aic last` (or `pnpm aic last` when `"devMode": true` is set in `aic.config.json`) from the project directory, then relay stdout. Start the reply with one short line: **Last = most recent compilation.** Then display using these labels and formats:
+- **"show aic last"** — When the user says this (or similar), run Bash with `(grep -q '"devMode": true' aic.config.json 2>/dev/null && pnpm aic last) || npx @jatbas/aic last` from the project directory, then relay stdout. Start the reply with one short line: **Last = most recent compilation.** Then display using these labels and formats:
 
   | JSON key                   | Label              | Format                                                        |
   | -------------------------- | ------------------ | ------------------------------------------------------------- |
@@ -136,7 +135,7 @@ Use these rules for all five AIC prompt commands. Present data like a polished d
   | guard status               | Guard              | "Passed" or "N findings (types)"                              |
   | compiledPrompt             | Compiled prompt    | "Available (N chars) — see ~/.aic/last-compiled-prompt.txt", or omit if not present |
 
-- **"show aic projects"** — When the user says this (or similar), run Bash with `npx @jatbas/aic projects` (or `pnpm aic projects` when `"devMode": true` is set in `aic.config.json`), then relay stdout. Start the reply with one short line: **Projects = known AIC projects.** Display a formatted table with columns: Project ID, Path, Last seen, Compilation count. Use same general formatting rules (human-readable labels, commas for numbers, relative time for last seen, — for null).
+- **"show aic projects"** — When the user says this (or similar), run Bash with `(grep -q '"devMode": true' aic.config.json 2>/dev/null && pnpm aic projects) || npx @jatbas/aic projects`, then relay stdout. Start the reply with one short line: **Projects = known AIC projects.** Display a formatted table with columns: Project ID, Path, Last seen, Compilation count. Use same general formatting rules (human-readable labels, commas for numbers, relative time for last seen, — for null).
 
 - **"run aic model test"** — When the user says this (or similar), call the `aic_model_test` MCP tool with `{ "projectRoot": "<absolute workspace root>" }`. The tool returns a `probeId`, three challenges, and instructions. Solve challenge 1 (arithmetic) and challenge 2 (string-reverse). Then call `aic_compile` with intent exactly equal to `"model-test-<answer1>-<answer2>"` (replace with your computed answers). Finally call `aic_model_test` again with `{ "projectRoot": "<absolute workspace root>", "probeId": "<probeId from step 1>", "answers": [<arithmetic answer>, "<reversed string>"] }`. Display the result as a table with columns: Test, Result (Pass/Fail), Notes. Start the reply with one short line: **Model test = agent capability probe.**
 
