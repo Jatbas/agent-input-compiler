@@ -269,15 +269,16 @@ The npm package `@jatbas/aic` ships `dist/` (the compiled MCP server with sheban
 
 The server is the primary interface. It exposes these MCP tools:
 
-| Tool               | Purpose                                                                                    |
-| ------------------ | ------------------------------------------------------------------------------------------ |
-| `aic_compile`      | Compile context for the current AI message                                                 |
-| `aic_inspect`      | Inspect pipeline trace (JSON metadata; no per-file bodies in the tool response)            |
-| `aic_status`       | Project-level status and compilation aggregates                                            |
-| `aic_last`         | Most recent compilation details                                                            |
-| `aic_chat_summary` | Per-conversation compilation stats                                                         |
-| `aic_projects`     | List all known AIC projects                                                                |
-| `aic_model_test`   | Optional agent capability probe (challenges, embedded `aic_compile`, structured pass/fail) |
+| Tool               | Purpose                                                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `aic_compile`      | Compile context for the current AI message                                                                                     |
+| `aic_inspect`      | Inspect pipeline trace (JSON metadata; no per-file bodies in the tool response)                                                |
+| `aic_status`       | Project-level status and compilation aggregates                                                                                |
+| `aic_last`         | Most recent compilation details                                                                                                |
+| `aic_chat_summary` | Per-conversation compilation stats                                                                                             |
+| `aic_projects`     | List all known AIC projects                                                                                                    |
+| `aic_model_test`   | Optional agent capability probe (challenges, embedded `aic_compile`, structured pass/fail)                                     |
+| `aic_compile_spec` | Structured spec compilation (`spec` required, optional `budget`); foundation stub response until `SpecificationCompiler` ships |
 
 The four **show aic …** prompt commands ("show aic status", "show aic last", "show aic chat summary", "show aic projects") map to the same formatted tables whether you run the **CLI** (`npx @jatbas/aic <subcommand>`, or `pnpm aic <subcommand>` from the repo root when developing) or the model follows the **Cursor trigger rule**, which instructs calling the MCP tools `aic_status`, `aic_last`, `aic_chat_summary`, and `aic_projects` instead of shell. The output shape matches `mcp/src/format-diagnostic-output.ts`.
 
