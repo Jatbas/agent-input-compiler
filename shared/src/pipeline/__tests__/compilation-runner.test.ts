@@ -28,7 +28,11 @@ import type { TaskClass } from "@jatbas/aic-core/core/types/enums.js";
 import type { CompilationLogEntry } from "@jatbas/aic-core/core/types/compilation-log-entry.js";
 import type { GuardFinding } from "@jatbas/aic-core/core/types/guard-types.js";
 import type { UUIDv7 } from "@jatbas/aic-core/core/types/identifiers.js";
-import { EDITOR_ID, TRIGGER_SOURCE } from "@jatbas/aic-core/core/types/enums.js";
+import {
+  EDITOR_ID,
+  TRIGGER_SOURCE,
+  TOOL_OUTPUT_TYPE,
+} from "@jatbas/aic-core/core/types/enums.js";
 import {
   toUUIDv7,
   toConversationId,
@@ -353,6 +357,170 @@ describe("CompilationRunner", () => {
     const second = await runner.run(request);
     expect(second.meta.cacheHit).toBe(true);
     expect(second.compiledPrompt).toBe(first.compiledPrompt);
+  }, 30_000);
+
+  it("compilation_runner_cache_key_differs_when_related_files_change", async () => {
+    const cacheStore = createInMemoryCacheStore();
+    const configStore: ConfigStore = {
+      getLatestHash: () => null,
+      writeSnapshot() {},
+    };
+    const preimages: string[] = [];
+    const stringHasher: StringHasher = {
+      hash(input: string) {
+        preimages.push(input);
+        return `h-${input.length}`;
+      },
+    };
+    const { guardStore, compilationLogStore } = createGuardAndLogMocks();
+    const deps = {
+      intentClassifier,
+      rulePackResolver,
+      budgetAllocator,
+      contextSelector: heuristicSelector,
+      contextGuard,
+      contentTransformerPipeline,
+      summarisationLadder,
+      lineLevelPruner: new LineLevelPruner(tiktokenAdapter, fileContentReader),
+      promptAssembler,
+      intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
+      repoMapSupplier: mockRepoMapSupplier,
+      tokenCounter: tiktokenAdapter,
+      specFileDiscoverer: new SpecFileDiscoverer(),
+      conversationCompressor: new ConversationCompressorImpl(),
+      structuralMapBuilder: new StructuralMapBuilder(),
+    };
+    const runner = new CompilationRunner(
+      deps,
+      mockClock,
+      cacheStore,
+      configStore,
+      stringHasher,
+      guardStore,
+      compilationLogStore,
+      mockIdGenerator,
+      null,
+    );
+    const sessionId = toSessionId("task-281-session");
+    const stepIndex = toStepIndex(0);
+    const base = makeRequest(fixtureRoot);
+    const firstRequest: CompilationRequest = {
+      ...base,
+      sessionId,
+      stepIndex,
+      toolOutputs: [
+        {
+          type: TOOL_OUTPUT_TYPE.COMMAND_OUTPUT,
+          content: "",
+          relatedFiles: [toRelativePath("src/auth/service.ts")],
+        },
+      ],
+    };
+    const secondRequest: CompilationRequest = {
+      ...base,
+      sessionId,
+      stepIndex,
+      toolOutputs: [
+        {
+          type: TOOL_OUTPUT_TYPE.COMMAND_OUTPUT,
+          content: "",
+          relatedFiles: [toRelativePath("src/index.ts")],
+        },
+      ],
+    };
+    await runner.run(firstRequest);
+    expect(preimages.length).toBe(2);
+    const second = await runner.run(secondRequest);
+    expect(preimages.length).toBe(3);
+    expect(preimages[1]).not.toBe(preimages[2]);
+    expect(second.meta.cacheHit).toBe(false);
+  }, 30_000);
+
+  it("compilation_runner_cache_hit_when_related_files_permuted", async () => {
+    const cacheStore = createInMemoryCacheStore();
+    const configStore: ConfigStore = {
+      getLatestHash: () => null,
+      writeSnapshot() {},
+    };
+    const preimages: string[] = [];
+    const stringHasher: StringHasher = {
+      hash(input: string) {
+        preimages.push(input);
+        return `h-${input.length}`;
+      },
+    };
+    const { guardStore, compilationLogStore } = createGuardAndLogMocks();
+    const deps = {
+      intentClassifier,
+      rulePackResolver,
+      budgetAllocator,
+      contextSelector: heuristicSelector,
+      contextGuard,
+      contentTransformerPipeline,
+      summarisationLadder,
+      lineLevelPruner: new LineLevelPruner(tiktokenAdapter, fileContentReader),
+      promptAssembler,
+      intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
+      repoMapSupplier: mockRepoMapSupplier,
+      tokenCounter: tiktokenAdapter,
+      specFileDiscoverer: new SpecFileDiscoverer(),
+      conversationCompressor: new ConversationCompressorImpl(),
+      structuralMapBuilder: new StructuralMapBuilder(),
+    };
+    const runner = new CompilationRunner(
+      deps,
+      mockClock,
+      cacheStore,
+      configStore,
+      stringHasher,
+      guardStore,
+      compilationLogStore,
+      mockIdGenerator,
+      null,
+    );
+    const sessionId = toSessionId("task-281-permute-session");
+    const stepIndex = toStepIndex(0);
+    const base = makeRequest(fixtureRoot);
+    const firstRequest: CompilationRequest = {
+      ...base,
+      sessionId,
+      stepIndex,
+      toolOutputs: [
+        {
+          type: TOOL_OUTPUT_TYPE.COMMAND_OUTPUT,
+          content: "",
+          relatedFiles: [toRelativePath("src/auth/service.ts")],
+        },
+        {
+          type: TOOL_OUTPUT_TYPE.COMMAND_OUTPUT,
+          content: "",
+          relatedFiles: [toRelativePath("src/index.ts")],
+        },
+      ],
+    };
+    const secondRequest: CompilationRequest = {
+      ...base,
+      sessionId,
+      stepIndex,
+      toolOutputs: [
+        {
+          type: TOOL_OUTPUT_TYPE.COMMAND_OUTPUT,
+          content: "",
+          relatedFiles: [toRelativePath("src/index.ts")],
+        },
+        {
+          type: TOOL_OUTPUT_TYPE.COMMAND_OUTPUT,
+          content: "",
+          relatedFiles: [toRelativePath("src/auth/service.ts")],
+        },
+      ],
+    };
+    await runner.run(firstRequest);
+    expect(preimages.length).toBe(2);
+    const second = await runner.run(secondRequest);
+    expect(preimages.length).toBe(3);
+    expect(preimages[1]).toBe(preimages[2]);
+    expect(second.meta.cacheHit).toBe(true);
   }, 30_000);
 
   it("cache_hit_same_repo_map_reference", async () => {

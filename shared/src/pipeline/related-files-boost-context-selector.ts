@@ -35,6 +35,16 @@ export function dedupeRelatedPathsInOrder(
   }, []);
 }
 
+export function canonicalRelatedPathsForSelectionCache(
+  toolOutputs: readonly ToolOutput[] | undefined,
+): string {
+  const ordered = dedupeRelatedPathsInOrder(toolOutputs ?? []);
+  if (ordered.length === 0) {
+    return "";
+  }
+  return [...ordered].toSorted((a, b) => a.localeCompare(b)).join("\0");
+}
+
 export function mergeRulePackWithRelatedBoosts(
   rulePack: RulePack,
   patterns: readonly GlobPattern[],

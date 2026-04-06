@@ -41,6 +41,7 @@ import {
   sumTransformTokens,
   buildSummarisationTiers,
 } from "@jatbas/aic-core/core/token-summary.js";
+import { canonicalRelatedPathsForSelectionCache } from "./related-files-boost-context-selector.js";
 
 // Uses conversationId as the session key when present so each editor conversation
 // gets its own session_state rows and cache entries instead of sharing by process sessionId.
@@ -117,8 +118,9 @@ function buildCacheKey(
   fileTreeHash: string,
   configHash: string,
   hasher: StringHasher,
-  sessionId?: SessionId | null,
-  stepIndex?: StepIndex | null,
+  sessionId: SessionId | null | undefined,
+  stepIndex: StepIndex | null | undefined,
+  toolRelatedCanonical: string,
 ): string {
   const base = [taskClass, projectRoot, fileTreeHash, configHash];
   const parts =
@@ -128,7 +130,27 @@ function buildCacheKey(
     stepIndex !== null
       ? [...base, sessionId, String(stepIndex)]
       : base;
-  return hasher.hash(parts.join("\0"));
+  const withTool = toolRelatedCanonical !== "" ? [...parts, toolRelatedCanonical] : parts;
+  return hasher.hash(withTool.join("\0"));
+}
+
+function computeCompilationCacheKey(
+  request: CompilationRequest,
+  taskClass: string,
+  fileTreeHash: string,
+  configHash: string,
+  hasher: StringHasher,
+): string {
+  return buildCacheKey(
+    taskClass,
+    request.projectRoot,
+    fileTreeHash,
+    configHash,
+    hasher,
+    resolveEffectiveSessionId(request),
+    request.stepIndex,
+    canonicalRelatedPathsForSelectionCache(request.toolOutputs),
+  );
 }
 
 function buildLogEntry(
@@ -330,14 +352,12 @@ export class CompilationRunner implements ICompilationRunner {
     const configHashOrNull = configHash === "" ? null : configHash;
     const sessionId = request.sessionId ?? null;
     const task = this.deps.intentClassifier.classify(request.intent);
-    const key = buildCacheKey(
+    const key = computeCompilationCacheKey(
+      request,
       task.taskClass,
-      request.projectRoot,
       fileTreeHash,
       configHash,
       this.stringHasher,
-      resolveEffectiveSessionId(request),
-      request.stepIndex,
     );
     const cached = this.cacheStore.get(key);
     if (cached !== null) {
