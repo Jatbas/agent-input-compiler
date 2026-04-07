@@ -1,6 +1,6 @@
 {
   "name": "@jatbas/aic-core",
-  "version": "0.50.0",
+  "version": "0.50.1",
   "description": "Core library for Agent Input Compiler — deterministic context compilation pipeline and SQLite-backed storage",
   "author": "Jorge Santos <jatbas@gmail.com> (https://github.com/Jatbas)",
   "license": "Apache-2.0",

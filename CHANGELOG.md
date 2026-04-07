@@ -7,6 +7,12 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.50.1] - 2026-04-07
+
+### Fixed
+
+- Fix race in MCP bundle scripts when writing standalone uninstall and Cursor installer outputs
+
 ## [0.50.0] - 2026-04-07
 
 ### Added
