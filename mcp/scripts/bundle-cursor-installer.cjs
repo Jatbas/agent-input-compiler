@@ -28,11 +28,8 @@ const standaloneUninstallSrc = path.join(
 const standaloneUninstallDest = path.join(destRoot, "aic-uninstall-standalone.cjs");
 
 fs.mkdirSync(destRoot, { recursive: true });
-fs.rmSync(cursorDest, { recursive: true, force: true });
 fs.cpSync(cursorSrc, cursorDest, { recursive: true, force: true, filter });
-fs.rmSync(sharedDest, { recursive: true, force: true });
 fs.cpSync(sharedSrc, sharedDest, { recursive: true, force: true, filter });
-fs.rmSync(claudeDest, { recursive: true, force: true });
 fs.cpSync(claudeSrc, claudeDest, { recursive: true, force: true, filter });
 fs.copyFileSync(cleanGlobalSrc, cleanGlobalDest);
 fs.copyFileSync(standaloneUninstallSrc, standaloneUninstallDest);
