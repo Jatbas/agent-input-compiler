@@ -403,6 +403,29 @@ When a task creates or renames hook files under `integrations/`, the planner mus
 
 **Enforced by:** Exploration (A.1) when the task touches `integrations/*/hooks/` and mechanical review C.5.
 
+## Cross-editor hook parity
+
+When a task adds, renames, or removes a hook in `integrations/<editor>/hooks/`, the planner must check every other editor directory under `integrations/` for the same hook name. If an equivalent hook is absent from any sibling editor, it is a **blocker** — the task must either (a) include the sibling hook as an in-scope deliverable, or (b) include an explicit Architecture Note explaining why the sibling is intentionally excluded.
+
+**Required during exploration (item 8c):**
+
+1. List the hook name being added/changed.
+2. For each directory under `integrations/` that is not the target editor, check whether a hook with the same logical name exists (`ls integrations/<sibling>/hooks/`).
+3. If absent: record as a gap. Decide scope (include or document exclusion) before Pass 2.
+
+**Required in the task file:**
+
+- The Files table must include the sibling hook file(s), OR the Architecture Notes must state the explicit reason the sibling is out of scope for this task (e.g. "Cursor already has the equivalent at `integrations/cursor/hooks/AIC-subagent-stop.cjs`").
+- Tests must verify parity by asserting that `integrations/cursor/hooks/` and `integrations/claude/hooks/` both contain hook files for every event that either editor handles.
+
+**Red flags:**
+
+- A task adds `integrations/cursor/hooks/AIC-subagent-stop.cjs` without mentioning `integrations/claude/hooks/aic-subagent-stop.cjs`
+- A task adds a Claude hook without checking whether Cursor has the same hook (or vice versa)
+- The exploration report lists one editor's hook directory but not the other's
+
+**Enforced by:** Exploration (A.1 item 8c) and mechanical review C.5.
+
 ## Rename/move: transitive reference rewriting
 
 When a task renames, moves, or copies-with-rename any file, the planner must trace the **full transitive dependency graph** — not just direct consumers of the renamed file, but also internal references between files in the renamed set.
