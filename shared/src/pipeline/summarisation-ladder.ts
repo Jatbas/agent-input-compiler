@@ -141,7 +141,7 @@ function sumTokens(files: readonly SelectedFile[]): number {
   return files.reduce((s, f) => s + f.estimatedTokens, 0);
 }
 
-function byRelevanceThenSize(a: SelectedFile, b: SelectedFile): number {
+function compareDemotionPriority(a: SelectedFile, b: SelectedFile): number {
   const scoreA = a.relevanceScore;
   const scoreB = b.relevanceScore;
   if (scoreA !== scoreB) return scoreA - scoreB;
@@ -151,17 +151,101 @@ function byRelevanceThenSize(a: SelectedFile, b: SelectedFile): number {
   return a.path.localeCompare(b.path);
 }
 
-function findLowestIdx(files: readonly SelectedFile[]): number {
-  return files.reduce((best, _f, i) => {
-    const fi = files[i];
-    const fb = files[best];
-    if (fi === undefined || fb === undefined) return best;
-    const score = fi.relevanceScore - fb.relevanceScore;
-    if (score !== 0) return score < 0 ? i : best;
-    const tok = fb.estimatedTokens - fi.estimatedTokens;
-    if (tok !== 0) return tok > 0 ? best : i;
-    return fi.path.localeCompare(fb.path) < 0 ? i : best;
-  }, 0);
+function byRelevanceThenSize(a: SelectedFile, b: SelectedFile): number {
+  return compareDemotionPriority(a, b);
+}
+
+type RowIndexHeap = { readonly indices: number[] };
+
+function demotionSmallerHeapSlot(
+  heap: RowIndexHeap,
+  working: SelectedFile[],
+  slotA: number,
+  slotB: number,
+): number {
+  const { indices } = heap;
+  const rowIdxA = indices[slotA];
+  const rowIdxB = indices[slotB];
+  if (rowIdxA === undefined) return slotB;
+  if (rowIdxB === undefined) return slotA;
+  const fileA = working[rowIdxA];
+  const fileB = working[rowIdxB];
+  if (fileA === undefined) return slotB;
+  if (fileB === undefined) return slotA;
+  return compareDemotionPriority(fileA, fileB) <= 0 ? slotA : slotB;
+}
+
+function swapHeap(heap: RowIndexHeap, i: number, j: number): void {
+  const { indices } = heap;
+  const rowAtI = indices[i];
+  const rowAtJ = indices[j];
+  if (rowAtI === undefined || rowAtJ === undefined) return;
+  indices[i] = rowAtJ;
+  indices[j] = rowAtI;
+}
+
+function siftDownHeap(
+  heap: RowIndexHeap,
+  working: SelectedFile[],
+  heapPos: number,
+): void {
+  const left = 2 * heapPos + 1;
+  const right = 2 * heapPos + 2;
+  const n = heap.indices.length;
+  const withLeft =
+    left < n ? demotionSmallerHeapSlot(heap, working, heapPos, left) : heapPos;
+  const best =
+    right < n ? demotionSmallerHeapSlot(heap, working, withLeft, right) : withLeft;
+  if (best !== heapPos) {
+    swapHeap(heap, heapPos, best);
+    siftDownHeap(heap, working, best);
+  }
+}
+
+function siftUpHeap(heap: RowIndexHeap, working: SelectedFile[], heapPos: number): void {
+  if (heapPos <= 0) return;
+  const parent = Math.floor((heapPos - 1) / 2);
+  const { indices } = heap;
+  const rowChildIdx = indices[heapPos];
+  const rowParentIdx = indices[parent];
+  if (rowChildIdx === undefined || rowParentIdx === undefined) return;
+  const childFile = working[rowChildIdx];
+  const parentFile = working[rowParentIdx];
+  if (childFile === undefined || parentFile === undefined) return;
+  if (compareDemotionPriority(childFile, parentFile) >= 0) return;
+  swapHeap(heap, parent, heapPos);
+  siftUpHeap(heap, working, parent);
+}
+
+function heapRestoreAt(
+  heap: RowIndexHeap,
+  working: SelectedFile[],
+  heapPos: number,
+): void {
+  siftUpHeap(heap, working, heapPos);
+  siftDownHeap(heap, working, heapPos);
+}
+
+function heapifyPositions(
+  heap: RowIndexHeap,
+  working: SelectedFile[],
+  pos: number,
+): void {
+  if (pos < 0) return;
+  siftDownHeap(heap, working, pos);
+  heapifyPositions(heap, working, pos - 1);
+}
+
+function buildMinHeapIndices(working: SelectedFile[]): RowIndexHeap {
+  const indices = Array.from({ length: working.length }, (_, i) => i);
+  const heap: RowIndexHeap = { indices };
+  const lastParent = Math.floor(indices.length / 2) - 1;
+  heapifyPositions(heap, working, lastParent);
+  return heap;
+}
+
+function heapPeekMin(heap: RowIndexHeap): number | undefined {
+  return heap.indices[0];
 }
 
 function demoteLoop(
@@ -172,16 +256,23 @@ function demoteLoop(
 ): readonly SelectedFile[] {
   if (remainingRounds <= 0) return files;
   if (sumTokens(files) <= budgetNum) return files;
-  const lowestIdx = findLowestIdx(files);
-  const file = files[lowestIdx];
-  if (file === undefined) return files;
-  const next = nextTier(file.tier);
-  if (next === null) return files;
-  const newTokens = tokenAtTier(file, next);
-  const updated = files.map((f, i) =>
-    i === lowestIdx ? { ...f, tier: next, estimatedTokens: newTokens } : f,
-  );
-  return demoteLoop(updated, budgetNum, tokenAtTier, remainingRounds - 1);
+  const working: SelectedFile[] = files.map((f) => ({ ...f }));
+  const rowHeap = buildMinHeapIndices(working);
+  const step = (rounds: number): readonly SelectedFile[] => {
+    if (rounds <= 0) return working;
+    if (sumTokens(working) <= budgetNum) return working;
+    const lowestIdx = heapPeekMin(rowHeap);
+    if (lowestIdx === undefined) return working;
+    const file = working[lowestIdx];
+    if (file === undefined) return working;
+    const next = nextTier(file.tier);
+    if (next === null) return working;
+    const newTokens = tokenAtTier(file, next);
+    working[lowestIdx] = { ...file, tier: next, estimatedTokens: newTokens };
+    heapRestoreAt(rowHeap, working, 0);
+    return step(rounds - 1);
+  };
+  return step(remainingRounds);
 }
 
 function dropToFit(

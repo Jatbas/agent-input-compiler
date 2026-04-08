@@ -19,9 +19,8 @@ function computeKeepSet(
   lines: readonly string[],
   subjectTokens: readonly string[],
 ): ReadonlySet<number> {
-  const matchIndices = lines.reduce<readonly number[]>(
-    (acc, line, i) => (lineMatchesToken(line, subjectTokens) ? [...acc, i] : acc),
-    [],
+  const matchIndices = lines.flatMap((line, i) =>
+    lineMatchesToken(line, subjectTokens) ? [i] : [],
   );
   const expanded = matchIndices.flatMap((i) => [i - 1, i, i + 1]);
   return new Set(expanded.filter((i) => i >= 0 && i < lines.length));
