@@ -613,6 +613,52 @@ describe("compile-handler", () => {
     }
   });
 
+  it("sanitise_conversationId_preserved_when_modelId_invalid", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+    try {
+      const runCalls: CompilationRequest[] = [];
+      const captureRunner = {
+        run: (req: CompilationRequest) => {
+          runCalls.push(req);
+          return Promise.resolve({
+            compiledPrompt: "ok",
+            meta: STUB_COMPILATION_META,
+            compilationId: toUUIDv7("00000000-0000-7000-8000-000000000099"),
+          });
+        },
+      };
+      const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
+      const handler = createCompileHandler(
+        getScope,
+        (_scope: ProjectScope) => captureRunner,
+        { hash: (): string => "" },
+        getSessionId,
+        getEditorId,
+        getModelId,
+        [],
+        enabledConfigLoader,
+        () => {},
+        () => null,
+        () => false,
+      );
+      await handler(
+        {
+          intent: "test",
+          projectRoot: tmpDir,
+          modelId: "a".repeat(257),
+          configPath: null,
+          conversationId: "conv-preserved",
+        },
+        undefined,
+      );
+      expect(runCalls).toHaveLength(1);
+      expect(runCalls[0]!.modelId).toBeNull();
+      expect(runCalls[0]!.conversationId).toBe(toConversationId("conv-preserved"));
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   const EXCLUSION_INSTRUCTION =
     "Do not attempt to read excluded or redacted files (e.g. .env, secrets) directly via editor tools. Use only the context provided below.";
 

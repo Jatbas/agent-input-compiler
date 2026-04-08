@@ -87,7 +87,6 @@ export const SanitisedCacheIdsSchema = z.object({
     .enum(["cursor", "cursor-claude-code", "claude-code", "generic"])
     .default("generic"),
 });
-export type SanitisedCacheIds = z.infer<typeof SanitisedCacheIdsSchema>;
 
 export const CompilationRequestSchema: typeof compilationRequestShape =
   compilationRequestShape;

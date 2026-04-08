@@ -10,6 +10,7 @@ const PLUGIN_SCRIPT_NAMES = [
   "aic-block-no-verify.cjs",
   "aic-pre-compact.cjs",
   "aic-subagent-inject.cjs",
+  "aic-subagent-stop.cjs",
   "aic-stop-quality-check.cjs",
   "aic-session-end.cjs",
   "aic-session-start.cjs",

@@ -54,7 +54,6 @@ import { readSessionModelIdFromSessionModelsJsonl } from "@jatbas/aic-core/maint
 import {
   MCP_INTENT_OMITTED_DEFAULT,
   SanitisedCacheIdsSchema,
-  type SanitisedCacheIds,
 } from "../schemas/compilation-request.js";
 
 const MAX_SANITIZED_FINDINGS = 20;
@@ -328,25 +327,19 @@ export function createCompileHandler(
       scope.db,
       scope.projectId,
     );
-    const parsed = SanitisedCacheIdsSchema.safeParse({
-      modelId: resolvedModelId,
-      conversationId: resolvedConversationId,
-      editorId: resolvedEditorId,
-    });
-    const safe:
-      | SanitisedCacheIds
-      | {
-          modelId: string | null;
-          conversationId: string | null;
-          editorId: EditorId;
-        } =
-      parsed.success === true
-        ? parsed.data
-        : {
-            modelId: null as string | null,
-            conversationId: null as string | null,
-            editorId: EDITOR_ID.GENERIC as EditorId,
-          };
+    const safe = {
+      modelId: SanitisedCacheIdsSchema.shape.modelId.safeParse(resolvedModelId).success
+        ? resolvedModelId
+        : null,
+      conversationId: SanitisedCacheIdsSchema.shape.conversationId.safeParse(
+        resolvedConversationId,
+      ).success
+        ? resolvedConversationId
+        : null,
+      editorId: SanitisedCacheIdsSchema.shape.editorId.safeParse(resolvedEditorId).success
+        ? resolvedEditorId
+        : (EDITOR_ID.GENERIC as EditorId),
+    };
     const request: CompilationRequest = {
       intent: effectiveIntent,
       projectRoot,
@@ -355,9 +348,7 @@ export function createCompileHandler(
       configPath,
       sessionId: getSessionId(),
       triggerSource: args.triggerSource ?? TRIGGER_SOURCE.TOOL_GATE,
-      ...(safe.conversationId !== null &&
-      safe.conversationId !== undefined &&
-      safe.conversationId !== ""
+      ...(safe.conversationId !== null && safe.conversationId !== ""
         ? { conversationId: toConversationId(safe.conversationId) }
         : {}),
       ...(args.stepIndex !== undefined ? { stepIndex: toStepIndex(args.stepIndex) } : {}),

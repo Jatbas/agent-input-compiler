@@ -93,6 +93,7 @@ var require_aic_hook_scripts = __commonJS({
         "aic-session-start.cjs",
         "aic-prompt-compile.cjs",
         "aic-subagent-inject.cjs",
+        "aic-subagent-stop.cjs",
         "aic-pre-compact.cjs",
         "aic-after-file-edit-tracker.cjs",
         "aic-stop-quality-check.cjs",
