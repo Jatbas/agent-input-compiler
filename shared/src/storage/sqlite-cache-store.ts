@@ -158,27 +158,32 @@ export class SqliteCacheStore implements CacheStore {
 
   purgeExpired(): void {
     const nowSql = isoToSqliteDatetime(this.clock.now());
-    const rows = this.db
-      .prepare(
-        "SELECT file_path FROM cache_metadata WHERE expires_at <= ? AND project_id = ?",
-      )
-      .all(nowSql, this.projectId) as readonly { file_path: string }[];
-    for (const row of rows) {
+    const snapshot = ((): readonly {
+      readonly file_path: string;
+      readonly expires_at: string;
+    }[] => {
+      this.db.exec("BEGIN IMMEDIATE");
       try {
-        fs.unlinkSync(row.file_path);
-      } catch {
-        // Blob may already be missing
-      }
-    }
-    this.db
-      .prepare("DELETE FROM cache_metadata WHERE expires_at <= ? AND project_id = ?")
-      .run(nowSql, this.projectId);
-    const validPaths = new Set(
-      (
+        const snap = this.db
+          .prepare(
+            "SELECT file_path, expires_at FROM cache_metadata WHERE project_id = ?",
+          )
+          .all(this.projectId) as readonly {
+          readonly file_path: string;
+          readonly expires_at: string;
+        }[];
         this.db
-          .prepare("SELECT file_path FROM cache_metadata WHERE project_id = ?")
-          .all(this.projectId) as readonly { file_path: string }[]
-      ).map((r) => r.file_path),
+          .prepare("DELETE FROM cache_metadata WHERE expires_at <= ? AND project_id = ?")
+          .run(nowSql, this.projectId);
+        this.db.exec("COMMIT");
+        return snap;
+      } catch (caught: unknown) {
+        this.db.exec("ROLLBACK");
+        throw caught;
+      }
+    })();
+    const validPaths = new Set(
+      snapshot.filter((r) => r.expires_at > nowSql).map((r) => r.file_path),
     );
     const names = fs.readdirSync(this.cacheDir);
     for (const name of names) {
