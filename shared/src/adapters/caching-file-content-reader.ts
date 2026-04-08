@@ -21,6 +21,7 @@ export function createCachingFileContentReader(
       const mtimeMs = stat.mtimeMs;
       const cached = cache.get(pathRel);
       if (cached !== undefined && cached.mtimeMs === mtimeMs) {
+        // Map keeps insertion order; delete then set moves this key to the end so iterator start stays LRU for eviction.
         cache.delete(pathRel);
         cache.set(pathRel, cached);
         return cached.content;
