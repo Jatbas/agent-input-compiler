@@ -17,7 +17,7 @@ Run after §0b confirms task planning. **Skip** if §0b classified as analysis-o
    git worktree add -b plan/$EPOCH .git-worktrees/plan-$EPOCH main
    ```
 
-   **Store the epoch value** — used in branch/directory names throughout.
+   **Store the epoch value** — used in branch/directory names throughout. If worktree creation fails because the path or branch already exists (stale), remove it fully: `rm -rf .git-worktrees/plan-$EPOCH && git worktree prune && git branch -D plan/$EPOCH 2>/dev/null` then retry.
 
 3. Install dependencies in the worktree (needed for `.d.ts` reads during exploration):
 

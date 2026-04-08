@@ -33,6 +33,14 @@ Ask: **"Rewrite all, rewrite specific tasks (list numbers), or skip?"**
 
 When rewriting: read original, apply fixes, re-read source files. Write in place (same path, same NNN). Fix every failing check. Re-run full 4-stage pipeline. Iterate until PASS. N/A only when precondition structurally unmet.
 
-Clean up: `git worktree remove .git-worktrees/plan-$EPOCH && git branch -D plan/$EPOCH`
+Clean up: `rm -rf .git-worktrees/plan-$EPOCH && git worktree prune && git branch -D plan/$EPOCH`
 
 Announce: **"Task NNN rewritten. Score: N/M (X%). [Summary of changes]."**
+
+**Final sweep (MANDATORY — last shell command in the session).** Editors may recreate directory stubs for files they were tracking:
+
+```
+rm -rf .git-worktrees/plan-$EPOCH 2>/dev/null; rmdir .git-worktrees 2>/dev/null || true
+```
+
+Verify: `ls .git-worktrees/plan-$EPOCH 2>&1` must report "No such file or directory".

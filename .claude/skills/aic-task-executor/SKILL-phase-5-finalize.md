@@ -98,11 +98,30 @@ git worktree prune
 git branch -D <branch>
 ```
 
+Verify: `git worktree list` must not show the worktree and `ls <worktree-dir>` must fail.
+
+**Step 3 — Final sweep (MANDATORY — last shell command in the session).** Editors may recreate directory stubs for files they were tracking. Run this idempotent cleanup after any announcement or user-facing output:
+
+```
+rm -rf <worktree-dir> 2>/dev/null; rmdir <main-workspace>/.git-worktrees 2>/dev/null || true
+```
+
+Verify: `ls <worktree-dir> 2>&1` must report "No such file or directory". If `.git-worktrees` is empty it is removed; if other worktrees exist the `rmdir` is a harmless no-op.
+
 **6c — If the user says "discard":**
 
 ```
-git worktree remove <worktree-dir>
+rm -rf <worktree-dir>
+git worktree prune
 git branch -D <branch>
+```
+
+Verify: `git worktree list` must not show the worktree and `ls <worktree-dir>` must fail.
+
+**Final sweep (same as 6b Step 3):**
+
+```
+rm -rf <worktree-dir> 2>/dev/null; rmdir <main-workspace>/.git-worktrees 2>/dev/null || true
 ```
 
 Report that the worktree and branch were deleted and no changes were merged.

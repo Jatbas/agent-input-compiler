@@ -262,13 +262,23 @@ Task files are gitignored — finalization copies from worktree to main workspac
    ```
    cp <worktree>/documentation/tasks/$EPOCH-name.md <main-workspace>/documentation/tasks/NNN-name.md && \
    cd <main-workspace> && \
-   git worktree remove .git-worktrees/plan-$EPOCH && \
+   rm -rf .git-worktrees/plan-$EPOCH && \
+   git worktree prune && \
    git branch -D plan/$EPOCH
    ```
 
-   Use absolute paths. If `git worktree remove` reports untracked/modified files, add `--force`. **The worktree must be gone before step 4.** Verify: `git worktree list` must not show `plan-$EPOCH`.
+   Use absolute paths. `rm -rf` removes the directory unconditionally (including untracked files that `git worktree remove` leaves behind), `git worktree prune` cleans stale Git metadata, and `git branch -D` deletes the planning branch. **The worktree must be gone before step 4.**
 
 4. **Announce:** "Task saved to `documentation/tasks/NNN-name.md`. Score: N/M (X%). Use the @aic-task-executor skill to execute it."
+
+5. **Final sweep (MANDATORY — last shell command in the session).** Editors may recreate directory stubs for files they were tracking. Run this idempotent cleanup after the announcement:
+
+   ```
+   rm -rf <main-workspace>/.git-worktrees/plan-$EPOCH 2>/dev/null; \
+   rmdir <main-workspace>/.git-worktrees 2>/dev/null || true
+   ```
+
+   Verify: `ls <main-workspace>/.git-worktrees/plan-$EPOCH 2>&1` must report "No such file or directory". If `.git-worktrees` is empty it is removed; if other worktrees exist the `rmdir` is a harmless no-op.
 
 ---
 

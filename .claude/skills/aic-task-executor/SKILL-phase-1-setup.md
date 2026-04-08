@@ -28,7 +28,7 @@ git worktree add -b feat/task-NNN-$EPOCH .git-worktrees/task-NNN-$EPOCH main
 git worktree add -b feat/$EPOCH .git-worktrees/$EPOCH main
 ```
 
-**Store the epoch value** for branch/directory names. If worktree exists (stale), `git worktree prune` then retry.
+**Store the epoch value** for branch/directory names. If worktree creation fails because the path or branch already exists (stale), remove it fully: `rm -rf .git-worktrees/<stale-dir> && git worktree prune && git branch -D <stale-branch> 2>/dev/null` then retry.
 
 **Install + build** in the worktree: `pnpm install && pnpm build` (set `working_directory` to worktree path).
 
