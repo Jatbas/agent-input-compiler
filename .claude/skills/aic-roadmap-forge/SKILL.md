@@ -105,6 +105,7 @@ After Input Routing, read and execute the phase files in order. Each phase file 
 - Description column: one sentence, imperative, technical (matches the style of adjacent entries)
 - Deps column: use `—` for no deps; component name for intra-phase deps; phase letter for cross-phase deps
 - Package column: shortest accurate path (`mcp/`, `shared/src/adapters/`, `./`)
+- Skill column: always present; value is the skill the developer must invoke to execute this component — `aic-task-planner` for code tasks, `aic-documentation-writer` for documentation tasks, `aic-task-executor` when a planner task file already exists
 - This skill is the only entry point for adding new phases to aic-progress.md — status updates on existing entries go through `aic-update-progress`
 - After a maintainer approves and ships a new skill (including this one), update `CONTRIBUTING.md` if the skill changes contributor workflows
 

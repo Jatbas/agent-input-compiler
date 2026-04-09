@@ -68,7 +68,7 @@ Otherwise, display all proposed phases in full (header + description + table).
 
 1. **Determine insertion point:** Insert after the last existing phase in the same version group. If a new version group, insert immediately before the `## Daily Log` section — never at the literal end of file.
 
-2. **Determine table schema:** Read the phase immediately preceding the insertion point. Use the same column names. If the new phase is documentation-focused (no source files), use a `Skill` column instead of `Package` (matching the Phase VA pattern).
+2. **Determine table schema:** Every phase table must include a `Skill` column. The standard column order is: `Component | Status | Package | Deps | Skill | Description`. For documentation-only phases with no source files, omit the `Package` column: `Component | Status | Deps | Skill | Description`. Populate `Skill` with `aic-task-planner` for code components and `aic-documentation-writer` for documentation components.
 
 3. **Update header metrics:** Following the update-progress recounting algorithm — recount `Done` rows per named header field (`**Phase 1.0:**`, `**Phase 1.5:**`), scoped to that version group only. New `Not started` entries increase M but not N. Also update `**Current phase:**` if the active phase letter has advanced. Update `**Status:**` with a one-sentence description of current progress state. Do NOT touch `**Version target:**` or `**Previous:**` unless explicitly asked. If a new version group is introduced, add a new `**Phase X.Y:** 0/M done` header field above the new section.
 

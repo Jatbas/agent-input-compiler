@@ -47,7 +47,7 @@ Run all steps (1 through 9) as a single continuous flow. Do NOT pause between st
      - `Not started` or `Pending` → `In progress` (partially done)
      - `Not started`, `Pending`, or `In progress` → `Done` (fully complete)
    - Use exactly these status values: `Not started`, `Pending`, `In progress`, `Done`.
-   - Note: some phase tables have a `Deps` column — leave it unchanged.
+   - Note: some phase tables have `Deps` and `Skill` columns — leave both unchanged.
 
 5. **Update the header metrics.** The header has these exact fields — update only the ones that changed:
    - `**Phase 1.0:** N/M done` — recount `Done` rows across all Phase 1.0 tables; update N.
