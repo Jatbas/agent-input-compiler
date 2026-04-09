@@ -46,33 +46,30 @@ The result is a smaller, more relevant, and more inspectable input.
 | Inconsistent context quality          | Produces deterministic compiled context for the same task and codebase                                                                                                                                              |
 | Wasted tokens                         | Strips noise and progressively compresses content to stay within budget                                                                                                                                             |
 | Secret exposure risk                  | Blocks secrets, excluded paths, and suspicious prompt injection strings locally                                                                                                                                     |
-| No visibility into what the model saw | Lets you inspect the latest compilation from inside the editor                                                                                                                                                      |
+| No visibility into what the model saw | Shows compilation summaries, the on-disk compiled prompt under `.aic/` in the project, and optional per-file selection scores via MCP `aic_last` (see **Selection detail** after the samples below)                 |
 | Editor lag from context compaction    | Compiled context is bounded by a hard token budget, so its contribution to window fill is predictable regardless of repo size; this leaves stable headroom in the context window and reduces pressure on compaction |
 
 ### Real captured output
 
-The example below is **real captured output from AIC's own development usage**. It is useful as a concrete datapoint, not as a universal benchmark for every repository. Totals and guard counts come from your **local** database (`~/.aic/aic.sqlite`) and the **current project**; they change on every compilation, so your table will not match these figures exactly.
+The examples below mirror the **fixed-width layout** printed by the diagnostic CLI (`aic status`, `aic last` — or `pnpm aic` when developing this repo with `devMode`). Values are **representative of this repository’s development usage** (not a single verbatim session); totals and guard counts come from your **local** database (`~/.aic/aic.sqlite`) and the **current project**, so your output will not match these figures exactly.
 
 #### `show aic status`
 
 ```text
 Status = project-level AIC status.
-
-| Field                    | Value                                                                               |
-| ------------------------ | ----------------------------------------------------------------------------------- |
-| Compilations (total)     | 6,192                                                                               |
-| Compilations (today)     | 119                                                                                 |
-| Tokens: raw → compiled   | 4,419,588,970 → 16,433,450                                                          |
-| Tokens excluded          | 4,403,155,520                                                                       |
-| Budget limit             | 123,500                                                                             |
-| Budget utilization       | 0.5%                                                                                |
-| Cache hit rate           | 35.7%                                                                               |
-| Avg exclusion rate       | 99.6%                                                                               |
-| Guard findings           | command-injection: 581,444, excluded-file: 59, prompt-injection: 157, secret: 12    |
-| Top task classes         | general (3,690), docs (776), bugfix (706)                                           |
-| Last compilation         | fix HeuristicSelector scoring...                                                    |
-| Installation             | OK                                                                                  |
-| Update available         | —                                                                                   |
+Compilations (total)          6,192
+Compilations (today)          119
+Tokens: raw → compiled        4,419,588,970 → 16,433,450
+Tokens excluded               4,403,155,520
+Budget limit                  123,500
+Budget utilization            0.5%
+Cache hit rate                35.7%
+Avg exclusion rate            99.6%
+Guard findings                command-injection: 581,444, excluded-file: 59, prompt-injection: 157, secret: 12
+Top task classes              general (3,690), docs (776), bugfix (706)
+Last compilation              fix HeuristicSelector scoring · 10 / 519 files · 70,384 tokens · 39 sec ago
+Installation                  OK
+Update available              —
 
 Exclusion rate: % of total repo tokens not included in the compiled prompt.
 Budget utilization: % of token budget filled.
@@ -82,23 +79,24 @@ Budget utilization: % of token budget filled.
 
 ```text
 Last = most recent compilation.
-
-| Field              | Value                                                                     |
-| ------------------ | ------------------------------------------------------------------------- |
-| Compilations       | 6,158                                                                     |
-| Intent             | task 284 auto-adaptive budget documentation...                            |
-| Files              | 10 selected / 519 total                                                   |
-| Tokens compiled    | 70,384                                                                    |
-| Budget utilization | 57.0%                                                                     |
-| Exclusion rate     | 89.6%                                                                     |
-| Compiled           | 39 sec ago                                                                |
-| Editor             | cursor                                                                    |
-| Guard              | —                                                                         |
-| Compiled prompt    | Available (70,384 tokens) — see ~/.aic/last-compiled-prompt.txt           |
+Compilations            6,158
+Intent                  task 284 auto-adaptive budget documentation
+Files                   10 selected / 519 total
+Tokens compiled         70,384
+Budget utilization      57.0%
+Exclusion rate          89.6%
+Compiled                39 sec ago
+Editor                  cursor
+Guard                   —
+Compiled prompt         Available (70,384 tokens) — .aic/last-compiled-prompt.txt (project root)
 
 Exclusion rate: % of total repo tokens not included in the compiled prompt.
 Budget utilization: % of token budget filled.
 ```
+
+**Selection detail:** Natural-language phrases like `show aic last` ask the agent to print the same **summary** the **`aic_last` MCP tool** exposes as JSON. That JSON may include top-level **`selection`**: a persisted **selection trace** (per-file scores and scoring signals for included paths, plus excluded paths with machine-readable reasons). The summary table does not list those rows. **`selection`** is JSON **`null`** when the latest compilation row has no stored trace—including when a run is **served from the compilation cache**. For a **fresh** pipeline decision trace on demand, use MCP **`aic_inspect`** (shape differs from persisted **`selection`**). See [Selection trace (persistence and tools)](documentation/implementation-spec.md#selection-trace-persistence-and-tools) and [Implementation Spec — `aic_last`](documentation/implementation-spec.md#aic_last-mcp-tool).
+
+The compiled prompt file is written under **`.aic/last-compiled-prompt.txt`** at the project root.
 
 ---
 
@@ -169,7 +167,7 @@ These are natural-language prompts for your editor's AI, not terminal commands. 
 
 ```text
 show aic status        # project-level status and lifetime stats
-show aic last          # most recent compilation
+show aic last          # most recent compilation (table); MCP JSON may include selection trace
 show aic chat summary  # per-conversation compilation stats for this workspace
 show aic projects      # known AIC projects (IDs, paths, last seen, compilation counts)
 run aic model test     # MCP-only: agent capability probe (aic_model_test + aic_compile)

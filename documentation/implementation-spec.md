@@ -112,7 +112,7 @@ Per-tool **MCP wire arguments and return shapes** are tabulated under [Project P
 | `aic_inspect` (MCP tool)                          | Show pipeline decision trace without executing; JSON omits per-file `resolvedContent` on `selectedFiles`                                                                                                                                                                                                                                                                                                                                                                                            |
 | `aic_chat_summary` (MCP tool)                     | Compilation stats for the current conversation                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `aic_status` (MCP tool)                           | Project-level summary: compilations, tokens excluded (context compression), budget utilization, guard blocks; optional MCP argument `timeRangeDays` (1..3660) for rolling-window aggregates — [§4c — `aic_status`](#aic_status-mcp-tool)                                                                                                                                                                                                                                                            |
-| `aic_last` (MCP tool)                             | Most recent compilation breakdown with prompt summary                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `aic_last` (MCP tool)                             | Most recent compilation snapshot, prompt summary, and optional persisted **`selection`** trace ([§4c — `aic_last`](#aic_last-mcp-tool))                                                                                                                                                                                                                                                                                                                                                             |
 | `aic_projects` (MCP tool)                         | Lists known projects from the global database (path, last seen, compilation count)                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `aic_model_test` (MCP tool)                       | Optional agent capability probe: challenges plus embedded `aic_compile` intent check against `compilation_log`                                                                                                                                                                                                                                                                                                                                                                                      |
 | `aic_compile_spec` (MCP tool)                     | Zod validates `CompileSpecRequestSchema` in `mcp/src/schemas/compile-spec-request.schema.ts` (`spec` required; `budget` absent when omitted). MCP text JSON on success: `compiledSpec` foundation stub string and `meta` (`totalTokensRaw`, `totalTokensCompiled`, `reductionPct`, `typeTiers`, `transformTokensSaved`); on validation failure JSON `{ error, code: "validation-error" }` (`mcp/src/handlers/compile-spec-handler.ts`). Agentic — structured specification compilation (foundation) |
@@ -191,7 +191,7 @@ All defaults apply when no config file exists or a field is omitted.
 
 **Handler:** These stages run inside the `aic_compile` MCP tool handler (`mcp/src/handlers/compile-handler.ts`). The handler resolves and sanitises wire arguments, builds a `CompilationRequest` (including `sessionId` from server session state when hooks run), runs `runPipelineSteps`, and on success writes `last-compiled-prompt.txt` under `.aic/`. Step 9 (Executor) in this document is a deferred design path only. When the project is enabled and the run succeeds, the handler calls `writeCompilationTelemetry` (see Step 10).
 
-**MCP response shape (pipeline success):** The tool returns MCP text content whose JSON parse yields `compiledPrompt`, `meta` (compilation metadata with guard details sanitised for model consumption), `conversationId` (string or null), and `updateMessage` (string or null). The `compiledPrompt` string is the assembled context after optional install-scope warning prefix, optional exclusion-instruction prefix when the guard blocked or redacted at least one selected file, and a fixed reinforcement suffix that reminds the model to call `aic_compile` again on the next message (`mcp/src/handlers/compile-handler.ts`). When the server upgraded packaged MCP config to `@latest`, the object may include `configUpgraded` (human-readable reload instruction). When install-scope warnings were recorded at server start, the object may include `warnings` (string array). The alternate reparent-only JSON body (`{ reparented, rowsUpdated }`) is described under **Agentic workflows** below. Integrators use `compiledPrompt` as the primary model context; other fields support continuity, diagnostics, and UX.
+**MCP response shape (pipeline success):** The tool returns MCP text content whose JSON parse yields `compiledPrompt`, `meta`, `conversationId` (string or null), and `updateMessage` (string or null). `meta` is typed as `CompilationMeta` in `shared/src/core/types/compilation-types.ts` (aggregate fields such as file and token counts, `transformTokensSaved`, `summarisationTiers`, and sanitised `guard`); it does **not** include the persisted per-file selection trace — that surface is `aic_last` ([§4c — `aic_last`](#aic_last-mcp-tool)) and [Selection trace (persistence and tools)](#selection-trace-persistence-and-tools). The `compiledPrompt` string is the assembled context after optional install-scope warning prefix, optional exclusion-instruction prefix when the guard blocked or redacted at least one selected file, and a fixed reinforcement suffix that reminds the model to call `aic_compile` again on the next message (`mcp/src/handlers/compile-handler.ts`). When the server upgraded packaged MCP config to `@latest`, the object may include `configUpgraded` (human-readable reload instruction). When install-scope warnings were recorded at server start, the object may include `warnings` (string array). The alternate reparent-only JSON body (`{ reparented, rowsUpdated }`) is described under **Agentic workflows** below. Integrators use `compiledPrompt` as the primary model context; other fields support continuity, diagnostics, and UX.
 
 ### Model id resolution (aic_compile)
 
@@ -335,6 +335,18 @@ Full scoring detail with normalisation methods: [Project Plan §8](project-plan.
 
 **Output:** `ContextResult { files: SelectedFile[], totalTokens: TokenCount, truncated: boolean }`
 
+#### Selection trace (persistence and tools)
+
+Integrators read the persisted selection trace from the **`aic_last`** MCP tool: top-level **`selection`** is a parsed `SelectionTrace` or JSON **`null`** when the latest `compilation_log` row has no stored trace (including **compilation cache hits**, which persist `selection_trace_json` as null). The trace is **not** included in **`aic_compile`**'s **`meta`**. Live inspection without reading the database uses **`aic_inspect`**, which returns `{ trace: PipelineTrace }`; that JSON shape differs from persisted `selection`.
+
+After a compilation **cache miss**, `buildSelectionTraceForLog` in `shared/src/core/build-selection-trace-for-log.ts` builds `SelectionTrace` (`shared/src/core/types/selection-trace.ts`) from the pipeline result: `selectedFiles` lists each **pruned** path with numeric score and the same signal dimensions as Step 4 (`pathRelevance`, `importProximity`, `symbolRelevance`, `recency`, `sizePenalty`, `ruleBoostCount`, `rulePenaltyCount`). `excludedFiles` merges context-selector trace rows (`ContextResult.traceExcludedFiles`) with paths removed by Context Guard (`EXCLUSION_REASON.GUARD_BLOCKED`), sorted by descending score then path; at most **50** excluded rows are kept.
+
+Exclusion reason strings on trace rows match `EXCLUSION_REASON` in `selection-trace.ts`: `include_pattern_mismatch`, `exclude_pattern_match`, `max_files`, `budget_exceeded`, `guard_blocked`. `aic_last` validates persisted JSON with `SelectionTraceSchema` in `mcp/src/schemas/selection-trace.schema.ts`.
+
+The trace is stored as JSON on `compilation_log.selection_trace_json` (`shared/src/storage/sqlite-compilation-log-store.ts`; column added in `shared/src/storage/migrations/003-compilation-selection-trace.ts`).
+
+> **Compilation cache hit:** `runCacheHitPath` in `shared/src/pipeline/compilation-runner.ts` passes `selectionTrace: null` into the log row, so `aic_last.selection` is **null** even though the compile succeeded from cache.
+
 ---
 
 ### Step 5: Context Guard
@@ -368,7 +380,7 @@ Wiring order for content scanners: `create-pipeline-deps.ts` builds the `content
 
 - Excluded files are removed from the file list before it is passed to the Summarisation Ladder
 - The pipeline never fails due to Guard findings — it filters and continues
-- `GuardResult` is attached to `CompilationMeta.guard`; the editor can surface a warning to the developer, and inspection tools (`aic_last`, `aic_inspect`) surface the full finding set. MCP tool responses expose a sanitised subset where duplicate findings by `(type, pattern)` are merged and at most twenty findings are returned to the model.
+- `GuardResult` is attached to `CompilationMeta.guard`. `aic_compile` returns a **sanitised** `meta.guard` for model consumption (duplicate findings by `(type, pattern)` merged; at most twenty findings). **`aic_inspect`** returns a full pipeline `trace` including guard details. **`aic_last`** does not repeat guard findings; it exposes a compact `lastCompilation` snapshot plus optional **`selection`** (selection trace — [Selection trace (persistence and tools)](#selection-trace-persistence-and-tools)).
 - If all selected files are excluded, the pipeline returns an empty context with a `guard.passed: false` indicator
 
 **Guard allow patterns (shipped):**
@@ -490,7 +502,7 @@ A file is considered a direct target and bypasses all format-specific transforme
 
 All transformer flags default to `true`. Set `contentTransformers.enabled: false` to bypass the entire step (raw content passes through unchanged).
 
-**Metadata:** `CompilationMeta.transforms` records per-file: `{ originalTokens, transformedTokens, transformersApplied[] }`. Visible via `aic_inspect` and `aic_last` tool.
+**Metadata:** Per-file transform rows live on `TransformResult.metadata` (`TransformMetadata[]` — see interfaces above). `aic_inspect` includes them on the pipeline trace as `transforms` (`shared/src/pipeline/inspect-runner.ts`). `CompilationMeta` carries aggregate **`transformTokensSaved`** only, not per-file transform arrays. `aic_last` does not expose transform metadata.
 
 ---
 
@@ -641,8 +653,8 @@ This section describes a future direct-execution path that is not part of the cu
 
 **Behaviour:**
 
-- `aic_compile` → stops after Step 8 (Assembler); returns the **raw compiled prompt** (no model-specific formatting applied). No provider configuration required.
-- The compiled prompt may also be written to `.aic/last-compiled-prompt.txt` for local hook use, but `aic_last` tool exposes only summary metadata, not the raw prompt.
+- `aic_compile` → stops after Step 8 (Assembler). The MCP JSON field `compiledPrompt` is the Step 8 assembler string **plus** handler-applied prefix/suffix (install-scope warnings, guard exclusion instruction when applicable, reinforcement — see [MCP response shape (pipeline success)](#4-core-pipeline--implementation-detail)); it is not byte-identical to the file below. No provider configuration required.
+- The **pipeline** compiled string (without those MCP-only wrappers) is written to `.aic/last-compiled-prompt.txt` for local hook use (`mcp/src/handlers/compile-handler.ts`). The `aic_last` tool exposes summary fields and optional **`selection`**, not the raw prompt text.
 
 **Retry policy:**
 
@@ -699,7 +711,7 @@ When the project is not disabled (`enabled !== false`), after **`runner.run` suc
 | `tiers_json`        | TEXT | JSON object — tier counts from `summarisationTiers` (same shape as `CompilationMeta`) |
 | `created_at`        | TEXT | ISO 8601 UTC ms — same instant as `TelemetryEvent.timestamp`                          |
 
-**Not in `telemetry_events`:** `task_class`, `tokens_raw`, `tokens_compiled`, `files_selected`, `files_total`, `cache_hit`, `duration_ms`, `model_id` / editor fields live on **`compilation_log`** for the same `compilation_id` (see schema in the same migration file). `token_reduction_pct` is derived when presenting status/inspect — not stored as a column on either table.
+**Not in `telemetry_events`:** `task_class`, `tokens_raw`, `tokens_compiled`, `files_selected`, `files_total`, `cache_hit`, `duration_ms`, `model_id` / editor fields live on **`compilation_log`** for the same `compilation_id` (see schema in the same migration file). `token_reduction_pct` is derived when presenting status/inspect — not stored as a column on either table. Per-compile **selection trace** JSON lives on **`compilation_log.selection_trace_json`** (added in `shared/src/storage/migrations/003-compilation-selection-trace.ts` — [Selection trace (persistence and tools)](#selection-trace-persistence-and-tools)).
 
 ---
 
@@ -810,9 +822,16 @@ The human-facing status table (CLI and "show aic status" prompt command) does no
 
 ### `aic_last` (MCP tool)
 
-Returns the most recent compilation as JSON. Surfaced to the user via the "show aic last" prompt command.
+Returns the most recent compilation as JSON. Surfaced to the user via the "show aic last" prompt command. Payload from `buildLastPayload` in `mcp/src/diagnostic-payloads.ts`.
 
-**Fields returned:** `compilationCount`, `lastCompilation` (full `CompilationMeta` from the most recent `aic_compile` call), `promptSummary` (`tokenCount` and guard summary for the most recent prompt).
+| Field              | Meaning                                                                                                                                                                                                                          |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `compilationCount` | Total compilations for the scoped project (same basis as status store summary).                                                                                                                                                  |
+| `lastCompilation`  | Snapshot of the latest row: `intent`, `filesSelected`, `filesTotal`, `tokensCompiled`, `tokenReductionPct`, `created_at`, `editorId`, `modelId` (`snapshotToConversationLast`). This is **not** a full `CompilationMeta` object. |
+| `promptSummary`    | `tokenCount` from the last row’s `tokensCompiled`; `guardPassed` is **`null`** in the shipped code (reserved for future use).                                                                                                    |
+| `selection`        | Parsed `SelectionTrace` from `compilation_log.selection_trace_json`, or **`null`** when the column is null, JSON is invalid, or `SelectionTraceSchema` rejects the payload (first parse failure logs once to stderr).            |
+
+The diagnostic CLI `last` subcommand prints a formatted table; it does not currently render `selection` columns — use MCP JSON when you need the trace.
 
 ---
 
@@ -944,22 +963,22 @@ Each canonical task runs against a synthetic fixture repository stored at `test/
 
 ## 6. Error handling
 
-| Scenario                             | User-facing message                                                                                                                                                                                                              | Exit code |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| No config file                       | _(silent, use defaults)_                                                                                                                                                                                                         | 0         |
-| Invalid config JSON                  | `Error: Invalid config at line X: {detail}. Re-run bootstrap or create a valid aic.config.json.`                                                                                                                                 | 1         |
-| Unknown task class                   | _(silent fallback to `general`)_                                                                                                                                                                                                 | 0         |
-| Missing rule pack file               | `Warning: Rule pack '{name}' not found, skipping.`                                                                                                                                                                               | 0         |
-| Zero files selected                  | `Error: No relevant files found. Broaden your intent or check includePatterns in config.`                                                                                                                                        | 1         |
-| Guard blocks all selected files      | `Error: Context Guard blocked all selected files ({N} blocked). Review findings via aic_last tool or use aic_inspect to see what was excluded. Add 'guard.additionalExclusions' patterns if legitimate files are being blocked.` | 1         |
-| Guard blocks some files              | _(silent — blocked files removed from context, pipeline continues with remaining files; findings attached to CompilationMeta.guard)_                                                                                             | 0         |
-| All files at L3 + still over budget  | `Warning: Heavy truncation applied. {N} files dropped. Consider increasing contextBudget.maxTokens.`                                                                                                                             | 0         |
-| Compiled prompt exceeds model window | `Error: Compiled prompt ({N} tokens) exceeds model limit ({M}). Reduce contextBudget.maxTokens or use a larger-context model.`                                                                                                   | 1         |
-| Model unreachable                    | `Error: Cannot reach {provider} at {endpoint}. Check your API key ({apiKeyEnv}) and network.`                                                                                                                                    | 1         |
-| Model returns error                  | `Error: Model returned {status}: {message}`                                                                                                                                                                                      | 1         |
-| SQLite write failure                 | `Warning: Telemetry write failed ({reason}). Continuing without telemetry.`                                                                                                                                                      | 0         |
-| Corrupt cache                        | `Warning: Cache entry corrupt, recomputing.`                                                                                                                                                                                     | 0         |
-| Bootstrap — config already exists    | `Config already exists. Edit aic.config.json directly to change settings.`                                                                                                                                                       | 1         |
+| Scenario                             | User-facing message                                                                                                                                                                                                                                              | Exit code |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| No config file                       | _(silent, use defaults)_                                                                                                                                                                                                                                         | 0         |
+| Invalid config JSON                  | `Error: Invalid config at line X: {detail}. Re-run bootstrap or create a valid aic.config.json.`                                                                                                                                                                 | 1         |
+| Unknown task class                   | _(silent fallback to `general`)_                                                                                                                                                                                                                                 | 0         |
+| Missing rule pack file               | `Warning: Rule pack '{name}' not found, skipping.`                                                                                                                                                                                                               | 0         |
+| Zero files selected                  | `Error: No relevant files found. Broaden your intent or check includePatterns in config.`                                                                                                                                                                        | 1         |
+| Guard blocks all selected files      | `Error: Context Guard blocked all selected files ({N} blocked). Review findings with aic_inspect (full trace) or sanitised meta.guard from aic_compile when the run completes. Add 'guard.additionalExclusions' patterns if legitimate files are being blocked.` | 1         |
+| Guard blocks some files              | _(silent — blocked files removed from context, pipeline continues with remaining files; findings attached to CompilationMeta.guard)_                                                                                                                             | 0         |
+| All files at L3 + still over budget  | `Warning: Heavy truncation applied. {N} files dropped. Consider increasing contextBudget.maxTokens.`                                                                                                                                                             | 0         |
+| Compiled prompt exceeds model window | `Error: Compiled prompt ({N} tokens) exceeds model limit ({M}). Reduce contextBudget.maxTokens or use a larger-context model.`                                                                                                                                   | 1         |
+| Model unreachable                    | `Error: Cannot reach {provider} at {endpoint}. Check your API key ({apiKeyEnv}) and network.`                                                                                                                                                                    | 1         |
+| Model returns error                  | `Error: Model returned {status}: {message}`                                                                                                                                                                                                                      | 1         |
+| SQLite write failure                 | `Warning: Telemetry write failed ({reason}). Continuing without telemetry.`                                                                                                                                                                                      | 0         |
+| Corrupt cache                        | `Warning: Cache entry corrupt, recomputing.`                                                                                                                                                                                                                     | 0         |
+| Bootstrap — config already exists    | `Config already exists. Edit aic.config.json directly to change settings.`                                                                                                                                                                                       | 1         |
 
 Exit codes: `0` = success (may include warnings); `1` = fatal error.
 
