@@ -25,11 +25,21 @@ try {
 
 const projectRoot = resolveProjectRoot(null, { env: process.env });
 
-const parentConversationId =
-  typeof hookInput.conversation_id === "string" &&
-  hookInput.conversation_id.trim().length > 0
-    ? hookInput.conversation_id.trim()
-    : null;
+const parentConversationId = (() => {
+  if (
+    typeof hookInput.conversation_id === "string" &&
+    hookInput.conversation_id.trim().length > 0
+  ) {
+    return hookInput.conversation_id.trim();
+  }
+  if (
+    typeof hookInput.parent_conversation_id === "string" &&
+    hookInput.parent_conversation_id.trim().length > 0
+  ) {
+    return hookInput.parent_conversation_id.trim();
+  }
+  return null;
+})();
 
 const childConversationId = conversationIdFromAgentTranscriptPath(
   hookInput.agent_transcript_path,
@@ -75,9 +85,11 @@ if (
 
   const stdinPayload = `${initRequest}\n${initNotification}\n${compileRequest}\n`;
   const serverScript = path.join(projectRoot, "mcp", "src", "server.ts");
+  const isDev = fs.existsSync(serverScript);
+  const serverCmd = isDev ? 'npx tsx "' + serverScript + '"' : "npx -y @jatbas/aic";
 
   try {
-    execSync('npx tsx "' + serverScript + '"', {
+    execSync(serverCmd, {
       cwd: projectRoot,
       timeout: 10000,
       encoding: "utf-8",

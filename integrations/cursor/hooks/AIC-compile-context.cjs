@@ -88,7 +88,9 @@ const stdinPayload = `${initRequest}\n${initNotification}\n${compileRequest}\n`;
 
 try {
   const serverScript = path.join(projectRoot, "mcp", "src", "server.ts");
-  const raw = execSync(`npx tsx "${serverScript}"`, {
+  const isDev = fs.existsSync(serverScript);
+  const serverCmd = isDev ? `npx tsx "${serverScript}"` : "npx -y @jatbas/aic";
+  const raw = execSync(serverCmd, {
     cwd: projectRoot,
     timeout: TIMEOUT_MS,
     encoding: "utf-8",

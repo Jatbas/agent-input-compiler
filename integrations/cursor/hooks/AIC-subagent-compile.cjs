@@ -79,9 +79,11 @@ const compileRequest = JSON.stringify({
 
 const stdinPayload = `${initRequest}\n${initNotification}\n${compileRequest}\n`;
 const serverScript = path.join(projectRoot, "mcp", "src", "server.ts");
+const isDev = fs.existsSync(serverScript);
+const serverCmd = isDev ? 'npx tsx "' + serverScript + '"' : "npx -y @jatbas/aic";
 
 try {
-  execSync('npx tsx "' + serverScript + '"', {
+  execSync(serverCmd, {
     cwd: projectRoot,
     timeout: 20000,
     encoding: "utf-8",
