@@ -16,6 +16,7 @@ import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 import { toBytes } from "@jatbas/aic-core/core/types/units.js";
 import { toConfidence } from "@jatbas/aic-core/core/types/scores.js";
 import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import { EXCLUSION_REASON } from "@jatbas/aic-core/core/types/selection-trace.js";
 
 function makeRepo(
   files: { path: string; tokens: number; lastModified: string }[],
@@ -480,6 +481,62 @@ describe("HeuristicSelector", () => {
     );
     expect(docsResult.files[0]?.path).toBe(toRelativePath("readme.md"));
     expect(generalResult.files[0]?.path).toBe(toRelativePath("src/util.ts"));
+  });
+
+  it("heuristic_selector_populates_trace_exclusions", async () => {
+    const repo = makeRepo([
+      { path: "src/a.ts", tokens: 50, lastModified: "2024-01-01T00:00:00.000Z" },
+      { path: "lib/b.ts", tokens: 50, lastModified: "2024-01-01T00:00:00.000Z" },
+    ]);
+    const task: TaskClassification = {
+      taskClass: TASK_CLASS.GENERAL,
+      confidence: toConfidence(0),
+      matchedKeywords: [],
+      subjectTokens: [],
+    };
+    const includeRulePack: RulePack = {
+      constraints: [],
+      includePatterns: [toGlobPattern("src/**")],
+      excludePatterns: [],
+    };
+    const selector = new HeuristicSelector(
+      noProviders,
+      { maxFiles: 20 },
+      stubScorer,
+      stubScorer,
+    );
+    const includeResult = await selector.selectContext(
+      task,
+      repo,
+      toTokenCount(1000),
+      includeRulePack,
+    );
+    const libExcluded = includeResult.traceExcludedFiles.find(
+      (r) => r.path === toRelativePath("lib/b.ts"),
+    );
+    expect(libExcluded?.reason).toBe(EXCLUSION_REASON.INCLUDE_PATTERN_MISMATCH);
+
+    const budgetRepo = makeRepo([
+      { path: "a.ts", tokens: 400, lastModified: "2024-01-01T00:00:00.000Z" },
+      { path: "b.ts", tokens: 400, lastModified: "2024-01-01T00:00:00.000Z" },
+      { path: "c.ts", tokens: 400, lastModified: "2024-01-01T00:00:00.000Z" },
+    ]);
+    const budgetPack: RulePack = {
+      constraints: [],
+      includePatterns: [],
+      excludePatterns: [],
+    };
+    const budgetResult = await selector.selectContext(
+      task,
+      budgetRepo,
+      toTokenCount(500),
+      budgetPack,
+    );
+    expect(
+      budgetResult.traceExcludedFiles.some(
+        (r) => r.reason === EXCLUSION_REASON.BUDGET_EXCEEDED,
+      ),
+    ).toBe(true);
   });
 
   it("config_weights_override_per_task_defaults", async () => {

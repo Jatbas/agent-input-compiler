@@ -361,6 +361,56 @@ describe("CompilationRunner", () => {
     expect(second.compiledPrompt).toBe(first.compiledPrompt);
   }, 30_000);
 
+  it("compilation_runner_fresh_vs_cache_trace", async () => {
+    const cacheStore = createInMemoryCacheStore();
+    const configStore: ConfigStore = {
+      getLatestHash: () => null,
+      writeSnapshot() {},
+    };
+    const stringHasher: StringHasher = {
+      hash(input: string) {
+        return `h-${input.length}`;
+      },
+    };
+    const { recordedLogEntries, guardStore, compilationLogStore } =
+      createGuardAndLogMocks();
+    const deps = {
+      intentClassifier,
+      rulePackResolver,
+      budgetAllocator,
+      contextSelector: heuristicSelector,
+      contextGuard,
+      contentTransformerPipeline,
+      summarisationLadder,
+      lineLevelPruner: new LineLevelPruner(tiktokenAdapter, fileContentReader),
+      promptAssembler,
+      intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
+      repoMapSupplier: mockRepoMapSupplier,
+      tokenCounter: tiktokenAdapter,
+      specFileDiscoverer: new SpecFileDiscoverer(),
+      conversationCompressor: new ConversationCompressorImpl(),
+      heuristicMaxFiles: 0,
+      structuralMapBuilder: new StructuralMapBuilder(),
+    };
+    const runner = new CompilationRunner(
+      deps,
+      mockClock,
+      cacheStore,
+      configStore,
+      stringHasher,
+      guardStore,
+      compilationLogStore,
+      mockIdGenerator,
+      null,
+    );
+    const request = makeRequest(fixtureRoot);
+    await runner.run(request);
+    await runner.run(request);
+    expect(recordedLogEntries.length).toBe(2);
+    expect(recordedLogEntries[0]?.selectionTrace).not.toBeNull();
+    expect(recordedLogEntries[1]?.selectionTrace).toBeNull();
+  }, 30_000);
+
   it("compilation_runner_cache_key_differs_when_related_files_change", async () => {
     const cacheStore = createInMemoryCacheStore();
     const configStore: ConfigStore = {

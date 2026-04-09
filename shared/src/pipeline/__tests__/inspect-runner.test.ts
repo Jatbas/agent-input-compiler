@@ -96,6 +96,7 @@ const contextResult: ContextResult = {
   files: twoFiles,
   totalTokens: toTokenCount(250),
   truncated: false,
+  traceExcludedFiles: [],
 };
 
 const guardResult: GuardResult = {
@@ -187,6 +188,7 @@ describe("InspectRunner", () => {
           files: [],
           totalTokens: toTokenCount(0),
           truncated: false,
+          traceExcludedFiles: [],
         }),
       } as SpecFileDiscoverer,
       conversationCompressor: new ConversationCompressorImpl() as ConversationCompressor,
@@ -253,6 +255,7 @@ describe("InspectRunner", () => {
           files: [],
           totalTokens: toTokenCount(0),
           truncated: false,
+          traceExcludedFiles: [],
         }),
       } as SpecFileDiscoverer,
       conversationCompressor: new ConversationCompressorImpl() as ConversationCompressor,
@@ -311,6 +314,7 @@ describe("InspectRunner", () => {
           files: [],
           totalTokens: toTokenCount(0),
           truncated: false,
+          traceExcludedFiles: [],
         }),
       } as SpecFileDiscoverer,
       conversationCompressor: new ConversationCompressorImpl() as ConversationCompressor,

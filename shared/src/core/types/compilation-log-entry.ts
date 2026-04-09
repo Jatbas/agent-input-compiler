@@ -14,6 +14,7 @@ import type {
   EditorId,
   TriggerSource,
 } from "@jatbas/aic-core/core/types/enums.js";
+import type { SelectionTrace } from "@jatbas/aic-core/core/types/selection-trace.js";
 
 export interface CompilationLogEntry {
   readonly id: UUIDv7;
@@ -33,4 +34,5 @@ export interface CompilationLogEntry {
   readonly createdAt: ISOTimestamp;
   readonly triggerSource?: TriggerSource | null;
   readonly conversationId: ConversationId | null;
+  readonly selectionTrace: SelectionTrace | null;
 }

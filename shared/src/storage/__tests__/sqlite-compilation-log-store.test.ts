@@ -19,7 +19,13 @@ import {
   TRIGGER_SOURCE,
 } from "@jatbas/aic-core/core/types/enums.js";
 import { migration } from "../migrations/001-consolidated-schema.js";
+import { migration as migration003 } from "../migrations/003-compilation-selection-trace.js";
 import { SqliteCompilationLogStore } from "../sqlite-compilation-log-store.js";
+import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import {
+  EXCLUSION_REASON,
+  type SelectionTrace,
+} from "@jatbas/aic-core/core/types/selection-trace.js";
 
 const TEST_PROJECT_ID = toProjectId("018f0000-0000-7000-8000-000000000001");
 
@@ -33,6 +39,7 @@ describe("SqliteCompilationLogStore", () => {
   function setup(): SqliteCompilationLogStore {
     db = new Database(":memory:");
     migration.up(db);
+    migration003.up(db);
     db.prepare(
       "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
     ).run(
@@ -64,6 +71,7 @@ describe("SqliteCompilationLogStore", () => {
       createdAt: toISOTimestamp("2026-02-27T12:00:00.000Z"),
       conversationId: null,
       triggerSource: TRIGGER_SOURCE.INTERNAL_TEST,
+      selectionTrace: null,
     };
     store.record(entry);
     const row = db
@@ -93,6 +101,7 @@ describe("SqliteCompilationLogStore", () => {
       createdAt: toISOTimestamp("2026-02-27T12:00:00.000Z"),
       conversationId: null,
       triggerSource: TRIGGER_SOURCE.INTERNAL_TEST,
+      selectionTrace: null,
     };
     store.record(entry);
     const row = db
@@ -146,6 +155,7 @@ describe("SqliteCompilationLogStore", () => {
       createdAt: toISOTimestamp("2026-02-27T12:00:00.000Z"),
       conversationId: null,
       triggerSource: TRIGGER_SOURCE.INTERNAL_TEST,
+      selectionTrace: null,
     };
     store.record(entry);
     const row = db
@@ -189,6 +199,7 @@ describe("SqliteCompilationLogStore", () => {
       createdAt: toISOTimestamp("2026-02-28T12:00:00.000Z"),
       conversationId: null,
       triggerSource: TRIGGER_SOURCE.INTERNAL_TEST,
+      selectionTrace: null,
     };
     store.record(entry);
     const row = db
@@ -219,6 +230,7 @@ describe("SqliteCompilationLogStore", () => {
       createdAt: toISOTimestamp("2026-02-28T12:00:00.000Z"),
       triggerSource: TRIGGER_SOURCE.CLI,
       conversationId: null,
+      selectionTrace: null,
     };
     store.record(entry);
     const row = db
@@ -249,6 +261,7 @@ describe("SqliteCompilationLogStore", () => {
       createdAt: toISOTimestamp("2026-02-28T12:00:00.000Z"),
       conversationId: convId,
       triggerSource: TRIGGER_SOURCE.INTERNAL_TEST,
+      selectionTrace: null,
     };
     store.record(entry);
     const row = db
@@ -277,6 +290,7 @@ describe("SqliteCompilationLogStore", () => {
       configHash: null,
       createdAt: toISOTimestamp("2026-02-28T12:00:00.000Z"),
       conversationId: null,
+      selectionTrace: null,
     };
     store.record(entry);
     const row = db
@@ -284,5 +298,82 @@ describe("SqliteCompilationLogStore", () => {
       .get(entry.id) as { trigger_source: string | null };
     expect(row).toBeDefined();
     expect(row.trigger_source).toBeNull();
+  });
+
+  it("sqlite_compilation_log_store_selection_trace_round_trip", () => {
+    const store = setup();
+    const trace: SelectionTrace = {
+      selectedFiles: [
+        {
+          path: toRelativePath("src/a.ts"),
+          score: 0.9,
+          signals: {
+            pathRelevance: 0.1,
+            importProximity: 0.2,
+            symbolRelevance: 0.3,
+            recency: 0.4,
+            sizePenalty: 0.5,
+            ruleBoostCount: 0,
+            rulePenaltyCount: 0,
+          },
+        },
+      ],
+      excludedFiles: [
+        {
+          path: toRelativePath("src/b.ts"),
+          score: 0,
+          reason: EXCLUSION_REASON.BUDGET_EXCEEDED,
+        },
+      ],
+    };
+    const entry: CompilationLogEntry = {
+      id: toUUIDv7("00000000-0000-7000-8000-000000000098"),
+      intent: "trace test",
+      taskClass: TASK_CLASS.GENERAL,
+      filesSelected: 1,
+      filesTotal: 2,
+      tokensRaw: toTokenCount(100),
+      tokensCompiled: toTokenCount(50),
+      tokenReductionPct: toPercentage(50),
+      cacheHit: false,
+      durationMs: toMilliseconds(1),
+      editorId: EDITOR_ID.GENERIC,
+      modelId: "",
+      sessionId: null,
+      configHash: null,
+      createdAt: toISOTimestamp("2026-02-28T12:00:00.000Z"),
+      conversationId: null,
+      triggerSource: TRIGGER_SOURCE.INTERNAL_TEST,
+      selectionTrace: trace,
+    };
+    store.record(entry);
+    const raw = db
+      .prepare("SELECT selection_trace_json FROM compilation_log WHERE id = ?")
+      .get(entry.id) as { selection_trace_json: string | null };
+    expect(raw.selection_trace_json).not.toBeNull();
+    expect(JSON.parse(raw.selection_trace_json ?? "")).toEqual({
+      selectedFiles: [
+        {
+          path: "src/a.ts",
+          score: 0.9,
+          signals: {
+            pathRelevance: 0.1,
+            importProximity: 0.2,
+            symbolRelevance: 0.3,
+            recency: 0.4,
+            sizePenalty: 0.5,
+            ruleBoostCount: 0,
+            rulePenaltyCount: 0,
+          },
+        },
+      ],
+      excludedFiles: [
+        {
+          path: "src/b.ts",
+          score: 0,
+          reason: "budget_exceeded",
+        },
+      ],
+    });
   });
 });

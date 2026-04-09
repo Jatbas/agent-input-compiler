@@ -93,6 +93,13 @@ export type {
 } from "./transform-types.js";
 export type { FileEntry, RepoMap } from "./repo-map.js";
 export type { CompilationLogEntry } from "./compilation-log-entry.js";
+export {
+  EXCLUSION_REASON,
+  type ExclusionReason,
+  type SelectionTrace,
+  type SelectionTraceExcludedRow,
+  type SelectionTraceSelectedRow,
+} from "./selection-trace.js";
 export type {
   ToolOutput,
   CompilationRequest,

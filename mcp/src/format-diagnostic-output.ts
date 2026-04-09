@@ -195,6 +195,7 @@ export function formatLastTable(
       readonly tokenCount: number | null;
       readonly guardPassed: null;
     };
+    readonly selection?: unknown;
   },
   clock: Clock,
   budgetMaxTokens: number,

@@ -147,6 +147,7 @@ export class SpecFileDiscoverer implements ISpecFileDiscoverer {
       files,
       totalTokens: toTokenCount(totalTokensNum),
       truncated: false,
+      traceExcludedFiles: [],
     };
   }
 }

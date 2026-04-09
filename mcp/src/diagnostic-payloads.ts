@@ -20,6 +20,10 @@ import {
   SqliteStatusStore,
   listProjectsFromDb,
 } from "@jatbas/aic-core/storage/sqlite-status-store.js";
+import {
+  SelectionTraceSchema,
+  type SelectionTraceParsed,
+} from "./schemas/selection-trace.schema.js";
 import type { LoadConfigFromFile } from "@jatbas/aic-core/config/load-config-from-file.js";
 import {
   CONTEXT_WINDOW_DEFAULT,
@@ -88,23 +92,55 @@ function snapshotToConversationLast(
   };
 }
 
-function summaryForLastTool(
-  statusStore: SqliteStatusStore,
+const selectionTraceParseFailureState = { logged: false };
+
+function logSelectionTraceParseFailureOnce(): void {
+  if (selectionTraceParseFailureState.logged) return;
+  selectionTraceParseFailureState.logged = true;
+  process.stderr.write("aic_last: selection_trace_json rejected or invalid JSON\n");
+}
+
+function parseSelectionTraceColumn(raw: string | null): SelectionTraceParsed | null {
+  if (raw === null) return null;
+  const jsonResult:
+    | { readonly ok: true; readonly value: unknown }
+    | { readonly ok: false } = (():
+    | { readonly ok: true; readonly value: unknown }
+    | { readonly ok: false } => {
+    try {
+      return { ok: true, value: JSON.parse(raw) as unknown };
+    } catch {
+      return { ok: false };
+    }
+  })();
+  if (!jsonResult.ok) {
+    logSelectionTraceParseFailureOnce();
+    return null;
+  }
+  const result = SelectionTraceSchema.safeParse(jsonResult.value);
+  if (!result.success) {
+    logSelectionTraceParseFailureOnce();
+    return null;
+  }
+  return result.data;
+}
+
+function resolveSqliteStatusStoreForLastTool(
+  startupStore: SqliteStatusStore,
   db: ExecutableDb,
   clock: Clock,
-  lastConvId: string | null,
-): ReturnType<SqliteStatusStore["getSummary"]> {
-  if (lastConvId === null) {
-    return statusStore.getSummary();
+  conversationIdForLast: string | null,
+): SqliteStatusStore {
+  if (conversationIdForLast === null) {
+    return startupStore;
   }
-  const scopedProjectId = statusStore.getProjectIdForConversation(
-    toConversationId(lastConvId),
+  const scopedProjectId = startupStore.getProjectIdForConversation(
+    toConversationId(conversationIdForLast),
   );
   if (scopedProjectId === null) {
-    return statusStore.getSummary();
+    return startupStore;
   }
-  const scopedStore = new SqliteStatusStore(scopedProjectId, db, clock);
-  return scopedStore.getSummary();
+  return new SqliteStatusStore(scopedProjectId, db, clock);
 }
 
 export function buildLastPayload(input: {
@@ -119,18 +155,23 @@ export function buildLastPayload(input: {
     readonly tokenCount: number | null;
     readonly guardPassed: null;
   };
+  readonly selection: SelectionTraceParsed | null;
 } {
-  const statusStore = new SqliteStatusStore(input.projectId, input.db, input.clock);
-  const summary = summaryForLastTool(
-    statusStore,
+  const startupStore = new SqliteStatusStore(input.projectId, input.db, input.clock);
+  const store = resolveSqliteStatusStoreForLastTool(
+    startupStore,
     input.db,
     input.clock,
     input.conversationIdForLast,
   );
+  const summary = store.getSummary();
+  const traceRow = store.getLastCompilationRowWithTraceForLastTool();
   const last = summary.lastCompilation;
   const mapped = last === null ? null : snapshotToConversationLast(last);
   const lastPayload: Record<string, unknown> | null =
     mapped === null ? null : { ...mapped };
+  const selection =
+    traceRow === null ? null : parseSelectionTraceColumn(traceRow.selection_trace_json);
   return {
     compilationCount: summary.compilationsTotal,
     lastCompilation: lastPayload,
@@ -138,6 +179,7 @@ export function buildLastPayload(input: {
       tokenCount: last?.tokensCompiled ?? null,
       guardPassed: null,
     },
+    selection,
   };
 }
 

@@ -295,11 +295,34 @@ describe("MCP server", () => {
         modelId: string | null;
       } | null;
       promptSummary: { tokenCount: number | null; guardPassed: null };
+      selection: { selectedFiles: unknown; excludedFiles: unknown } | null;
+    };
+    const assertNoResolvedContentKey = (value: unknown): void => {
+      if (value === null || typeof value !== "object") return;
+      if (Array.isArray(value)) {
+        value.forEach(assertNoResolvedContentKey);
+        return;
+      }
+      expect(Object.prototype.hasOwnProperty.call(value, "resolvedContent")).toBe(false);
+      Object.values(value).forEach(assertNoResolvedContentKey);
     };
     expect(parsed["compilationCount"]).toBeGreaterThanOrEqual(1);
     expect(parsed["lastCompilation"]).not.toBeNull();
     expect(parsed["promptSummary"]).toBeDefined();
     expect(Object.prototype.hasOwnProperty.call(parsed, "compiledPrompt")).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(parsed, "selection")).toBe(true);
+    expect(parsed["selection"]).not.toBeUndefined();
+    const selectionPayload = parsed["selection"];
+    expect(selectionPayload).not.toBeNull();
+    if (selectionPayload !== null) {
+      expect(Array.isArray(selectionPayload.selectedFiles)).toBe(true);
+      const ex = selectionPayload.excludedFiles;
+      expect(Array.isArray(ex)).toBe(true);
+      if (Array.isArray(ex)) {
+        expect(ex.length).toBeLessThanOrEqual(50);
+      }
+      assertNoResolvedContentKey(selectionPayload);
+    }
     if (parsed["lastCompilation"] !== null) {
       expect(parsed["lastCompilation"].intent).toBe("fix bug");
       expect(typeof parsed["lastCompilation"].filesSelected).toBe("number");
@@ -335,6 +358,9 @@ describe("MCP server", () => {
         "tokenCount" in (parsed["promptSummary"] as object),
     ).toBe(true);
     expect(Object.prototype.hasOwnProperty.call(parsed, "compiledPrompt")).toBe(false);
+    expect(parsed["selection"] === null || typeof parsed["selection"] === "object").toBe(
+      true,
+    );
   });
 
   it("aic_status_global_with_breakdown", async () => {

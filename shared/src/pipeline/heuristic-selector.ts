@@ -23,6 +23,10 @@ import { INCLUSION_TIER, TASK_CLASS } from "@jatbas/aic-core/core/types/enums.js
 import type { TaskClass } from "@jatbas/aic-core/core/types/enums.js";
 import { toRelevanceScore } from "@jatbas/aic-core/core/types/scores.js";
 import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
+import {
+  EXCLUSION_REASON,
+  type ExclusionReason,
+} from "@jatbas/aic-core/core/types/selection-trace.js";
 import { matchesGlob } from "./glob-match.js";
 import { minMaxNorm } from "./min-max-norm.js";
 import { pathRelevance } from "./path-relevance.js";
@@ -72,22 +76,62 @@ const DEFAULT_WEIGHTS_BY_TASK_CLASS: Record<TaskClass, ScoringWeights> = {
   },
 };
 
-function filterCandidates(
+type TraceExcludedRow = {
+  readonly path: RelativePath;
+  readonly score: number;
+  readonly reason: ExclusionReason;
+};
+
+function partitionCandidatesByRules(
   files: readonly FileEntry[],
   rulePack: RulePack,
-): readonly FileEntry[] {
-  return files.filter((f) => {
-    if (
-      rulePack.includePatterns.length > 0 &&
-      !rulePack.includePatterns.some((pat) => matchesGlob(f.path, pat))
-    )
-      return false;
-    if (rulePack.excludePatterns.some((pat) => matchesGlob(f.path, pat))) return false;
-    return true;
-  });
+): {
+  readonly candidates: readonly FileEntry[];
+  readonly traceExcluded: readonly TraceExcludedRow[];
+} {
+  return files.reduce<{
+    readonly candidates: readonly FileEntry[];
+    readonly traceExcluded: readonly TraceExcludedRow[];
+  }>(
+    (acc, f) => {
+      if (
+        rulePack.includePatterns.length > 0 &&
+        !rulePack.includePatterns.some((pat) => matchesGlob(f.path, pat))
+      ) {
+        return {
+          candidates: acc.candidates,
+          traceExcluded: [
+            ...acc.traceExcluded,
+            {
+              path: f.path,
+              score: 0,
+              reason: EXCLUSION_REASON.INCLUDE_PATTERN_MISMATCH,
+            },
+          ],
+        };
+      }
+      if (rulePack.excludePatterns.some((pat) => matchesGlob(f.path, pat))) {
+        return {
+          candidates: acc.candidates,
+          traceExcluded: [
+            ...acc.traceExcluded,
+            {
+              path: f.path,
+              score: 0,
+              reason: EXCLUSION_REASON.EXCLUDE_PATTERN_MATCH,
+            },
+          ],
+        };
+      }
+      return {
+        candidates: [...acc.candidates, f],
+        traceExcluded: acc.traceExcluded,
+      };
+    },
+    { candidates: [], traceExcluded: [] },
+  );
 }
 
-// One sort for all candidates; rank by first occurrence in sorted order (matches prior indexOf semantics).
 function recencyRanksFromValues(recencyValues: readonly string[]): readonly number[] {
   if (recencyValues.length === 0) return [];
   const sortedRec = recencyValues.toSorted();
@@ -99,7 +143,9 @@ function recencyRanksFromValues(recencyValues: readonly string[]): readonly numb
   return recencyValues.map((v) => rankByVal.get(v) ?? 0);
 }
 
-function scoreCandidate(
+type ScoreSignals = NonNullable<SelectedFile["scoreSignals"]>;
+
+function scoreAndSignalsForCandidate(
   entry: FileEntry,
   index: number,
   pathRelevances: readonly number[],
@@ -109,7 +155,7 @@ function scoreCandidate(
   symbolRelevanceScores: ReadonlyMap<RelativePath, number>,
   weights: ScoringWeights,
   rulePack: RulePack,
-): number {
+): { readonly score: number; readonly signals: ScoreSignals } {
   const pathRel = pathRelevances[index] ?? 0;
   const rec = recencyRanks[index] ?? 0;
   const sizeP = 1 - minMaxNorm(tokenValues, tokenValues[index] ?? 0);
@@ -127,37 +173,102 @@ function scoreCandidate(
   const penaltyCount =
     rulePack.heuristic?.penalizePatterns.filter((pat) => matchesGlob(entry.path, pat))
       .length ?? 0;
-  return Math.max(0, Math.min(1, baseScore + boostCount * 0.2 - penaltyCount * 0.2));
+  const score = Math.max(
+    0,
+    Math.min(1, baseScore + boostCount * 0.2 - penaltyCount * 0.2),
+  );
+  return {
+    score,
+    signals: {
+      pathRelevance: pathRel,
+      importProximity: importProx,
+      symbolRelevance: symbolRel,
+      recency: rec,
+      sizePenalty: sizeP,
+      ruleBoostCount: boostCount,
+      rulePenaltyCount: penaltyCount,
+    },
+  };
 }
 
-function fitToBudget(
-  scored: readonly { entry: FileEntry; score: number }[],
+type BudgetFitAcc = {
+  readonly files: readonly SelectedFile[];
+  readonly totalTokens: number;
+  readonly traceExcluded: readonly TraceExcludedRow[];
+};
+
+type ScoredCandidate = {
+  readonly entry: FileEntry;
+  readonly score: number;
+  readonly signals: ScoreSignals;
+};
+
+function reduceFitStep(
+  acc: BudgetFitAcc,
+  item: ScoredCandidate,
+  maxFiles: number,
+  budgetNum: number,
+): BudgetFitAcc {
+  if (acc.files.length >= maxFiles) {
+    return {
+      files: acc.files,
+      totalTokens: acc.totalTokens,
+      traceExcluded: [
+        ...acc.traceExcluded,
+        {
+          path: item.entry.path,
+          score: item.score,
+          reason: EXCLUSION_REASON.MAX_FILES,
+        },
+      ],
+    };
+  }
+  const tokens = item.entry.estimatedTokens;
+  if (acc.totalTokens + Number(tokens) > budgetNum) {
+    return {
+      files: acc.files,
+      totalTokens: acc.totalTokens,
+      traceExcluded: [
+        ...acc.traceExcluded,
+        {
+          path: item.entry.path,
+          score: item.score,
+          reason: EXCLUSION_REASON.BUDGET_EXCEEDED,
+        },
+      ],
+    };
+  }
+  return {
+    files: [
+      ...acc.files,
+      {
+        path: item.entry.path,
+        language: item.entry.language,
+        estimatedTokens: item.entry.estimatedTokens,
+        relevanceScore: toRelevanceScore(item.score),
+        tier: INCLUSION_TIER.L0,
+        scoreSignals: item.signals,
+      },
+    ],
+    totalTokens: acc.totalTokens + Number(tokens),
+    traceExcluded: acc.traceExcluded,
+  };
+}
+
+function fitToBudgetWithTrace(
+  sorted: readonly ScoredCandidate[],
   budget: TokenCount,
   maxFiles: number,
-): { files: readonly SelectedFile[]; totalTokens: number } {
-  return scored.reduce<{
-    readonly files: readonly SelectedFile[];
-    readonly totalTokens: number;
-  }>(
-    (acc, { entry, score }) => {
-      if (acc.files.length >= maxFiles) return acc;
-      const tokens = entry.estimatedTokens;
-      if (acc.totalTokens + tokens > budget) return acc;
-      return {
-        files: [
-          ...acc.files,
-          {
-            path: entry.path,
-            language: entry.language,
-            estimatedTokens: entry.estimatedTokens,
-            relevanceScore: toRelevanceScore(score),
-            tier: INCLUSION_TIER.L0,
-          },
-        ],
-        totalTokens: acc.totalTokens + tokens,
-      };
-    },
-    { files: [], totalTokens: 0 },
+): {
+  readonly files: readonly SelectedFile[];
+  readonly totalTokens: number;
+  readonly traceExcluded: readonly TraceExcludedRow[];
+} {
+  const budgetNum = Number(budget);
+  const initial: BudgetFitAcc = { files: [], totalTokens: 0, traceExcluded: [] };
+  return sorted.reduce<BudgetFitAcc>(
+    (acc, item) => reduceFitStep(acc, item, maxFiles, budgetNum),
+    initial,
   );
 }
 
@@ -179,16 +290,18 @@ export class HeuristicSelector implements ContextSelector {
     const weights = this.config.weights ?? DEFAULT_WEIGHTS_BY_TASK_CLASS[task.taskClass];
     const importProximityScores = await this.importProximityScorer.getScores(repo, task);
     const symbolRelevanceScores = await this.symbolRelevanceScorer.getScores(repo, task);
-    const candidates = filterCandidates(repo.files, rulePack);
+    const { candidates, traceExcluded: ruleTraceExcluded } = partitionCandidatesByRules(
+      repo.files,
+      rulePack,
+    );
     const pathRelevances = candidates.map((f) =>
       pathRelevance(f.path, task.matchedKeywords),
     );
     const recencyValues = candidates.map((f) => f.lastModified);
     const recencyRanks = recencyRanksFromValues(recencyValues);
     const tokenValues = candidates.map((f) => f.estimatedTokens);
-    const scored = candidates.map((entry, i) => ({
-      entry,
-      score: scoreCandidate(
+    const scored = candidates.map((entry, i) => {
+      const { score, signals } = scoreAndSignalsForCandidate(
         entry,
         i,
         pathRelevances,
@@ -198,22 +311,26 @@ export class HeuristicSelector implements ContextSelector {
         symbolRelevanceScores,
         weights,
         rulePack,
-      ),
-    }));
-    // Secondary sort by path so tie-breaking is deterministic (glob order is not).
+      );
+      return { entry, score, signals };
+    });
     const sorted = scored.toSorted(
       (a, b) => b.score - a.score || a.entry.path.localeCompare(b.entry.path),
     );
-    const { files, totalTokens: totalTokensNum } = fitToBudget(
-      sorted,
-      budget,
-      rulePack.maxFilesOverride ?? this.config.maxFiles,
-    );
-    const truncated = files.length < candidates.length || totalTokensNum >= budget;
+    const maxFiles = rulePack.maxFilesOverride ?? this.config.maxFiles;
+    const budgetNum = Number(budget);
+    const {
+      files,
+      totalTokens: totalTokensNum,
+      traceExcluded: budgetTraceExcluded,
+    } = fitToBudgetWithTrace(sorted, budget, maxFiles);
+    const traceExcludedFiles = [...ruleTraceExcluded, ...budgetTraceExcluded];
+    const truncated = files.length < candidates.length || totalTokensNum >= budgetNum;
     return {
       files,
       totalTokens: toTokenCount(totalTokensNum),
       truncated,
+      traceExcludedFiles,
     };
   }
 }

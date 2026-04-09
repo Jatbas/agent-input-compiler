@@ -12,6 +12,8 @@ import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import { SqliteMigrationRunner } from "../sqlite-migration-runner.js";
 import { migration } from "../migrations/001-consolidated-schema.js";
+import { migration as migration002 } from "../migrations/002-add-conversation-id-index.js";
+import { migration as migration003 } from "../migrations/003-compilation-selection-trace.js";
 
 const clock: Clock = {
   now(): ReturnType<typeof toISOTimestamp> {
@@ -100,7 +102,8 @@ describe("SqliteMigrationRunner", () => {
 
   it("compilation_log has final column set — includes project_id, excludes project_root and token_reduction_pct", () => {
     const db = new Database(":memory:");
-    migration.up(db);
+    const runner = new SqliteMigrationRunner(clock);
+    runner.run(db, [migration, migration002, migration003]);
     const cols = db.prepare("PRAGMA table_info(compilation_log)").all() as readonly {
       name: string;
     }[];
@@ -110,6 +113,7 @@ describe("SqliteMigrationRunner", () => {
     expect(names).toContain("config_hash");
     expect(names).toContain("conversation_id");
     expect(names).toContain("trigger_source");
+    expect(names).toContain("selection_trace_json");
     expect(names).not.toContain("project_root");
     expect(names).not.toContain("token_reduction_pct");
     db.close();

@@ -60,6 +60,7 @@ function minimalContextResult(): ContextResult {
     files: [],
     totalTokens: toTokenCount(0),
     truncated: false,
+    traceExcludedFiles: [],
   };
 }
 

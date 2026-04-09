@@ -12,6 +12,7 @@ import {
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
 import { migration } from "../migrations/001-consolidated-schema.js";
+import { migration as migration003 } from "../migrations/003-compilation-selection-trace.js";
 import { SqliteStatusStore, listProjectsFromDb } from "../sqlite-status-store.js";
 
 const stubClock: Clock = {
@@ -96,6 +97,7 @@ describe("SqliteStatusStore", () => {
   function setup(): void {
     db = new Database(":memory:");
     migration.up(db);
+    migration003.up(db);
     db.prepare(
       "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
     ).run(
@@ -693,5 +695,24 @@ describe("SqliteStatusStore", () => {
     );
     expect(testEntry?.compilationCount).toBe(1);
     expect(otherEntry?.compilationCount).toBe(1);
+  });
+
+  it("status_store_trace_reader", () => {
+    setup();
+    expect(store.getLastCompilationRowWithTraceForLastTool()).toBeNull();
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-0000000000e1", {});
+    const traceJson = JSON.stringify({
+      selectedFiles: [],
+      excludedFiles: [],
+    });
+    db.prepare("UPDATE compilation_log SET selection_trace_json = ? WHERE id = ?").run(
+      traceJson,
+      "018c3d4e-0000-7000-8000-0000000000e1",
+    );
+    const row = store.getLastCompilationRowWithTraceForLastTool();
+    expect(row).not.toBeNull();
+    if (row === null) return;
+    expect(row.selection_trace_json).toBe(traceJson);
+    expect(row.intent).toBe("test");
   });
 });

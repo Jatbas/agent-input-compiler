@@ -55,6 +55,10 @@ type LastCompilationRow = {
   model_id: string | null;
 };
 
+type LastCompilationRowWithTrace = LastCompilationRow & {
+  selection_trace_json: string | null;
+};
+
 function mapLastCompilationRow(row: LastCompilationRow): {
   intent: string;
   filesSelected: number;
@@ -387,5 +391,18 @@ export class SqliteStatusStore implements StatusStore, GlobalStatusQueries {
 
   getSummary(filter?: StatusSummaryFilter): StatusAggregates {
     return this.getAggregatesForScope(this.projectId, filter?.notBeforeInclusive ?? null);
+  }
+
+  getLastCompilationRowWithTraceForLastTool(): LastCompilationRowWithTrace | null {
+    const lastRows = this.db
+      .prepare(
+        `SELECT intent, files_selected, files_total, tokens_compiled,
+         COALESCE(CAST((tokens_raw - tokens_compiled) AS REAL) * 100.0 / NULLIF(tokens_raw, 0), 0) AS token_reduction_pct,
+         created_at, editor_id, model_id, selection_trace_json
+         FROM compilation_log WHERE (trigger_source IS NULL OR trigger_source != ?) AND project_id = ?
+         ORDER BY created_at DESC LIMIT 1`,
+      )
+      .all(TRIGGER_SOURCE.INTERNAL_TEST, this.projectId) as LastCompilationRowWithTrace[];
+    return lastRows[0] ?? null;
   }
 }

@@ -1340,6 +1340,7 @@ describe("compile-handler", () => {
             createdAt: scope.clock.now(),
             conversationId: request.conversationId ?? null,
             triggerSource: null,
+            selectionTrace: null,
           };
           scope.compilationLogStore.record(entry);
           return Promise.resolve({

@@ -36,6 +36,8 @@ import { toTokenCount, toStepIndex } from "@jatbas/aic-core/core/types/units.js"
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
 import { toPercentage, toConfidence } from "@jatbas/aic-core/core/types/scores.js";
 import { runPipelineSteps } from "@jatbas/aic-core/core/run-pipeline-steps.js";
+import { buildSelectionTraceForLog } from "@jatbas/aic-core/core/build-selection-trace-for-log.js";
+import type { SelectionTrace } from "@jatbas/aic-core/core/types/selection-trace.js";
 import {
   sumFileTokens,
   sumTransformTokens,
@@ -161,6 +163,7 @@ function buildLogEntry(
   configHash: string | null,
   triggerSource: TriggerSource | null,
   conversationId: ConversationId | null,
+  selectionTrace: SelectionTrace | null,
 ): CompilationLogEntry {
   return {
     id: compilationId,
@@ -180,6 +183,7 @@ function buildLogEntry(
     createdAt,
     triggerSource,
     conversationId,
+    selectionTrace,
   };
 }
 
@@ -194,6 +198,7 @@ function recordCompilationAndFindings(
   configHash: string | null,
   triggerSource: TriggerSource | null,
   conversationId: ConversationId | null,
+  selectionTrace: SelectionTrace | null,
 ): UUIDv7 {
   const compilationId = idGenerator.generate();
   const createdAt = clock.now();
@@ -205,6 +210,7 @@ function recordCompilationAndFindings(
     configHash,
     triggerSource,
     conversationId,
+    selectionTrace,
   );
   compilationLogStore.record(entry);
   guardStore.write(compilationId, findings);
@@ -235,6 +241,7 @@ function runCacheHitPath(
     configHashOrNull,
     request.triggerSource ?? null,
     request.conversationId ?? null,
+    null,
   );
   return { compiledPrompt: cached.compiledPrompt, meta, compilationId };
 }
@@ -304,6 +311,7 @@ function runFreshPath(
       configHash,
     });
     const meta = buildFreshMeta(request, r, durationMs);
+    const trace = buildSelectionTraceForLog(r);
     const compilationId = recordCompilationAndFindings(
       compilationLogStore,
       guardStore,
@@ -315,6 +323,7 @@ function runFreshPath(
       configHashOrNull,
       request.triggerSource ?? null,
       request.conversationId ?? null,
+      trace,
     );
     recordSessionStepIfNeeded(agenticSessionState, request, r, clock);
     return { compiledPrompt: r.assembledPrompt, meta, compilationId };
