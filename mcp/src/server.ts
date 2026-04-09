@@ -21,6 +21,10 @@ import { ConversationSummaryRequestSchema } from "./schemas/conversation-summary
 import { InspectRequestSchema } from "./schemas/inspect-request.schema.js";
 import { ModelTestRequestSchema } from "./schemas/model-test-request.schema.js";
 import { CompileSpecRequestSchema } from "./schemas/compile-spec-request.schema.js";
+import {
+  AicCompileSpecToolRegisteredOutputSchema,
+  AicCompileToolRegisteredOutputSchema,
+} from "./schemas/compile-tool-outputs.schema.js";
 import { createCompileHandler } from "./handlers/compile-handler.js";
 import { createCompileSpecHandler } from "./handlers/compile-spec-handler.js";
 import { createModelTestHandler } from "./handlers/model-test-handler.js";
@@ -358,16 +362,22 @@ export function createMcpServer(
     intent: CompilationRequestSchema.intent.default(MCP_INTENT_OMITTED_DEFAULT),
     projectRoot: CompilationRequestSchema.projectRoot.default(projectRoot),
   };
+  const compileInputValidated = z.object(compileSchemaWithDefaults);
   const toolAnnotationsReadOnly: ToolAnnotations = { readOnlyHint: true };
   const toolAnnotationsWritesTelemetry: ToolAnnotations = {
     readOnlyHint: false,
     destructiveHint: false,
   };
-  server.tool(
+  // @ts-expect-error TS2589 — registerTool generic depth with compile input object schema (MCP SDK + Zod).
+  server.registerTool(
     "aic_compile",
-    "Compile intent-specific project context. MUST be called as your FIRST action on EVERY message — including follow-ups in the same chat. Each message has a different intent that needs fresh context. Never skip.",
-    compileSchemaWithDefaults,
-    toolAnnotationsWritesTelemetry,
+    {
+      description:
+        "Compile intent-specific project context. MUST be called as your FIRST action on EVERY message — including follow-ups in the same chat. Each message has a different intent that needs fresh context. Never skip.",
+      inputSchema: compileInputValidated,
+      outputSchema: AicCompileToolRegisteredOutputSchema,
+      annotations: toolAnnotationsWritesTelemetry,
+    },
     aicCompileHandler,
   );
   const compileSpecHandler = createCompileSpecHandler({
@@ -376,11 +386,16 @@ export function createMcpServer(
     idGenerator: startupScope.idGenerator,
     getSessionId,
   });
-  server.tool(
+  const compileSpecInputValidated = z.object(CompileSpecRequestSchema);
+  server.registerTool(
     "aic_compile_spec",
-    "Compile structured specification input: Zod validates CompileSpecRequestSchema (required spec; budget absent when omitted), records tool_invocation_log, returns MCP text JSON with compiledSpec foundation stub and meta totals (totalTokensRaw, totalTokensCompiled, reductionPct, typeTiers, transformTokensSaved). SpecificationCompiler is not invoked.",
-    CompileSpecRequestSchema,
-    toolAnnotationsWritesTelemetry,
+    {
+      description:
+        "Compile structured specification input: Zod validates CompileSpecRequestSchema (required spec; budget absent when omitted), records tool_invocation_log, returns MCP text JSON with compiledSpec foundation stub and meta totals (totalTokensRaw, totalTokensCompiled, reductionPct, typeTiers, transformTokensSaved). SpecificationCompiler is not invoked.",
+      inputSchema: compileSpecInputValidated,
+      outputSchema: AicCompileSpecToolRegisteredOutputSchema,
+      annotations: toolAnnotationsWritesTelemetry,
+    },
     compileSpecHandler,
   );
   server.tool(

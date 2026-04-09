@@ -594,6 +594,36 @@ describe("MCP server", () => {
     expect((result as { isError?: boolean }).isError).not.toBe(true);
     const parsed = JSON.parse(text) as { conversationId: string | null };
     expect(parsed.conversationId).toBeNull();
+    const structured = (result as { structuredContent?: unknown }).structuredContent;
+    expect(structured).toEqual(parsed);
+  });
+
+  it("aic_compile_spec_returns_structured_content_matching_text_json", async () => {
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
+    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+    await server.connect(transportServer);
+    const client = new Client({ name: "test", version: "1.0" });
+    await client.connect(transportClient);
+    const specResult = await client.callTool({
+      name: "aic_compile_spec",
+      arguments: {
+        spec: { types: [], codeBlocks: [], prose: [] },
+      },
+    });
+    type ContentItem = { type: string; text?: string };
+    const raw = (specResult as { content?: ContentItem[] }).content;
+    const content: ContentItem[] = Array.isArray(raw) ? raw : [];
+    const specText = content
+      .filter((c): c is { type: "text"; text: string } => c.type === "text")
+      .map((c) => c.text)
+      .join("");
+    const specParsed = JSON.parse(specText) as Record<string, unknown>;
+    expect((specResult as { structuredContent?: unknown }).structuredContent).toEqual(
+      specParsed,
+    );
   });
 
   it("mcp_accepts_optional_trigger_source", async () => {

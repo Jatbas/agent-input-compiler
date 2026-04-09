@@ -211,7 +211,7 @@ export function formatLastTable(
     "Compiled prompt",
     tc === null
       ? "—"
-      : `Available (${formatInt(tc)} tokens) — see ~/.aic/last-compiled-prompt.txt`,
+      : `Available (${formatInt(tc)} tokens) — .aic/last-compiled-prompt.txt (project root)`,
     w,
   );
   const rows: readonly string[] = [

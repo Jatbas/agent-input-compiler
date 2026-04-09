@@ -197,25 +197,23 @@ function buildSuccessResponse(
     (hadExclusions ? EXCLUSION_INSTRUCTION : "") +
     result.compiledPrompt +
     reinforcement;
+  const payload = {
+    compiledPrompt,
+    meta: metaForModel,
+    conversationId: request.conversationId ?? null,
+    updateMessage: getUpdateMessage() ?? null,
+    ...(getConfigUpgraded()
+      ? {
+          configUpgraded:
+            "AIC updated your MCP config to @latest. Reload Cursor (Cmd+Shift+P → Reload Window) to start using the new version.",
+        }
+      : {}),
+    ...(installScopeWarnings.length > 0 ? { warnings: installScopeWarnings } : {}),
+  };
+  const text = JSON.stringify(payload);
   return {
-    content: [
-      {
-        type: "text" as const,
-        text: JSON.stringify({
-          compiledPrompt,
-          meta: metaForModel,
-          conversationId: request.conversationId ?? null,
-          updateMessage: getUpdateMessage() ?? null,
-          ...(getConfigUpgraded()
-            ? {
-                configUpgraded:
-                  "AIC updated your MCP config to @latest. Reload Cursor (Cmd+Shift+P → Reload Window) to start using the new version.",
-              }
-            : {}),
-          ...(installScopeWarnings.length > 0 ? { warnings: installScopeWarnings } : {}),
-        }),
-      },
-    ],
+    content: [{ type: "text" as const, text }],
+    structuredContent: payload,
   };
 }
 
@@ -415,13 +413,15 @@ export function createCompileHandler(
           toConversationId(args.reparentFromConversationId.trim()),
           toConversationId(args.conversationId.trim()),
         );
+        const reparentPayload = { reparented: true as const, rowsUpdated: count };
         return {
           content: [
             {
               type: "text" as const,
-              text: JSON.stringify({ reparented: true, rowsUpdated: count }),
+              text: JSON.stringify(reparentPayload),
             },
           ],
+          structuredContent: reparentPayload,
         };
       }
       const configPath =
@@ -430,18 +430,20 @@ export function createCompileHandler(
           : null;
       const configResult = configLoader.load(projectRoot, configPath);
       if (configResult.config.enabled === false) {
+        const disabledPayload = {
+          compiledPrompt:
+            'AIC is disabled for this project. Set "enabled": true in aic.config.json to re-enable.',
+          meta: {},
+          conversationId: resolveConversationId(args.conversationId) ?? null,
+        };
         return {
           content: [
             {
               type: "text" as const,
-              text: JSON.stringify({
-                compiledPrompt:
-                  'AIC is disabled for this project. Set "enabled": true in aic.config.json to re-enable.',
-                meta: {},
-                conversationId: resolveConversationId(args.conversationId) ?? null,
-              }),
+              text: JSON.stringify(disabledPayload),
             },
           ],
+          structuredContent: disabledPayload,
         };
       }
       return await runWhenEnabled(args, projectRoot, scope, configPath);

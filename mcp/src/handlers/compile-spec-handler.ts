@@ -83,12 +83,14 @@ export function createCompileSpecHandler(
   return async (args: unknown): Promise<CallToolResult> => {
     const parsed = compileSpecRequestParser.safeParse(args);
     if (!parsed.success) {
-      const text: string = JSON.stringify({
+      const validationPayload = {
         error: "Invalid aic_compile_spec request",
-        code: "validation-error",
-      });
+        code: "validation-error" as const,
+      };
+      const text: string = JSON.stringify(validationPayload);
       return Promise.resolve({
         content: [{ type: "text", text }],
+        structuredContent: validationPayload,
       });
     }
     const data = parsed.data;
@@ -113,7 +115,7 @@ export function createCompileSpecHandler(
       budgetValue: data.budget,
       totalTokensRaw,
     });
-    const text: string = JSON.stringify({
+    const successPayload = {
       compiledSpec,
       meta: {
         totalTokensRaw,
@@ -122,9 +124,11 @@ export function createCompileSpecHandler(
         typeTiers,
         transformTokensSaved: 0,
       },
-    });
+    };
+    const text: string = JSON.stringify(successPayload);
     return Promise.resolve({
       content: [{ type: "text", text }],
+      structuredContent: successPayload,
     });
   };
 }

@@ -25,7 +25,11 @@ vi.mock("node:fs", async (importOriginal) => {
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { McpError, ErrorCode } from "@modelcontextprotocol/sdk/types.js";
+import {
+  McpError,
+  ErrorCode,
+  type CallToolResult,
+} from "@modelcontextprotocol/sdk/types.js";
 import * as initProject from "../../init-project.js";
 import { createCompileHandler } from "../compile-handler.js";
 import { MCP_INTENT_OMITTED_DEFAULT } from "../../schemas/compilation-request.js";
@@ -49,6 +53,7 @@ import {
   GUARD_SEVERITY,
   GUARD_FINDING_TYPE,
   TASK_CLASS,
+  TRIGGER_SOURCE,
 } from "@jatbas/aic-core/core/types/enums.js";
 import type {
   CompilationMeta,
@@ -60,6 +65,7 @@ import { NodePathAdapter } from "@jatbas/aic-core/adapters/node-path-adapter.js"
 import { STUB_COMPILATION_META } from "@jatbas/aic-core/testing/stub-compilation-meta.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import type { ProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
+import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
 import { openDatabase } from "@jatbas/aic-core/storage/open-database.js";
 import { createProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
 
@@ -91,6 +97,16 @@ function mockScopeForHandler(
     sessionTracker: {} as ProjectScope["sessionTracker"],
     fileTransformStore: {} as ProjectScope["fileTransformStore"],
   };
+}
+
+function expectStructuredContentMatchesText(result: CallToolResult): void {
+  const items = result.content as readonly { type: string; text: string }[];
+  const first = items[0];
+  if (first === undefined) {
+    throw new ConfigError("compile-handler test: expected tool result text content");
+  }
+  const fromText: unknown = JSON.parse(first.text);
+  expect(result.structuredContent).toEqual(fromText);
 }
 
 describe("compile-handler", () => {
@@ -287,6 +303,7 @@ describe("compile-handler", () => {
       const first = items[0]!;
       const parsed = JSON.parse(first.text) as { conversationId: string | null };
       expect(parsed.conversationId).toBe("conv-echo-test");
+      expectStructuredContentMatchesText(result);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -317,7 +334,56 @@ describe("compile-handler", () => {
       const first = items[0]!;
       const parsed = JSON.parse(first.text) as { conversationId: string | null };
       expect(parsed.conversationId).toBeNull();
+      expectStructuredContentMatchesText(result);
     } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("compile_handler_reparent_structured_content_matches_text_json", async () => {
+    const reparentMod =
+      await import("@jatbas/aic-core/storage/reparent-subagent-compilations.js");
+    const reparentSpy = vi
+      .spyOn(reparentMod, "reparentSubagentCompilations")
+      .mockReturnValue(4);
+    const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+    try {
+      const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
+      const handler = createCompileHandler(
+        getScope,
+        (_scope: ProjectScope) => makeSuccessRunner("unused"),
+        { hash: (): string => "" },
+        getSessionId,
+        getEditorId,
+        getModelId,
+        [],
+        enabledConfigLoader,
+        () => {},
+        () => null,
+        () => false,
+      );
+      const result = await handler(
+        {
+          intent: "test",
+          projectRoot: tmpDir,
+          modelId: null,
+          configPath: null,
+          triggerSource: TRIGGER_SOURCE.SUBAGENT_STOP,
+          reparentFromConversationId: "child-conv-id",
+          conversationId: "parent-conv-id",
+        },
+        undefined,
+      );
+      expectStructuredContentMatchesText(result);
+      const items = result.content as readonly { type: string; text: string }[];
+      const parsed = JSON.parse(items[0]!.text) as {
+        reparented: boolean;
+        rowsUpdated: number;
+      };
+      expect(parsed).toEqual({ reparented: true, rowsUpdated: 4 });
+      expect(reparentSpy).toHaveBeenCalled();
+    } finally {
+      reparentSpy.mockRestore();
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
@@ -365,6 +431,7 @@ describe("compile-handler", () => {
       expect(parsed.compiledPrompt).toContain("AIC is disabled for this project");
       expect(parsed.compiledPrompt).toContain('"enabled": true');
       expect(runCalls).toHaveLength(0);
+      expectStructuredContentMatchesText(result);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }

@@ -16,12 +16,17 @@ import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
 import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
 
 function parseResult(result: unknown): Record<string, unknown> {
-  const r = result as { content: readonly { text: string }[] };
+  const r = result as {
+    content: readonly { text: string }[];
+    structuredContent?: unknown;
+  };
   const first = r.content[0];
   if (first === undefined) {
     throw new ConfigError("compile-spec-handler test: expected tool result content");
   }
-  return JSON.parse(first.text) as Record<string, unknown>;
+  const fromText = JSON.parse(first.text) as Record<string, unknown>;
+  expect(r.structuredContent).toEqual(fromText);
+  return fromText;
 }
 
 describe("compile-spec-handler", () => {
