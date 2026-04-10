@@ -80,8 +80,7 @@ Use these rules for all five AIC prompt commands. Present data like a polished d
 - Timestamps: show as relative time (e.g. "2 min ago"); add ISO in parentheses only if helpful.
 - Null or missing values: show as "—" (em dash), never "null".
 - Keep the one-line summary at the top of each command as specified below.
-- Output only the summary line, the table, and (for status, last, chat-summary) the metric footnote below. **Do not add commentary, notes, interpretation, or explanations after the output.**
-- **Metric footnote** (append after the table for status, last, and chat-summary — one line per metric; **never** append to any other response): `Exclusion rate: % of total repo tokens not included in the compiled prompt.` then `Budget utilization: % of token budget filled.`
+- Output only the summary line and the table. **Do not add commentary, notes, interpretation, or explanations after the output.**
 - **No preamble:** Go directly to the Bash tool call. Do not narrate what you are about to do. Do not show reasoning steps. First action = tool call.
 
 ---
@@ -106,6 +105,8 @@ Use these rules for all five AIC prompt commands. Present data like a polished d
 
   When `installationOk` is false and `installationNotes` is a non-empty string, add a **Notes** row whose text is `installationNotes`. JSON still includes `installationNotes` and `projectEnabled` for programmatic use; omit **Project** from the formatted table.
 
+  After the table, append: `Exclusion rate: % of total repo tokens not included in the compiled prompt.` then `Budget utilization: % of token budget filled.`
+
 - **"show aic chat summary"** — When the user says "show aic chat summary" or asks for this workspace's AIC compilation stats, run Bash with `(grep -q '"devMode": true' aic.config.json 2>/dev/null && pnpm aic chat-summary --project <absolute workspace root>) || npx @jatbas/aic chat-summary --project <absolute workspace root>`, then relay stdout. Start the reply with one short line: **Chat = this conversation's AIC compilations.** Then display a formatted table using these labels and formats:
 
   | JSON key                      | Label              | Format                                         |
@@ -121,19 +122,23 @@ Use these rules for all five AIC prompt commands. Present data like a polished d
   | lastCompilationInConversation | Last compilation   | intent text + relative time (e.g. "5 min ago") |
   | topTaskClasses                | Top task classes   | taskClass (count), comma-separated             |
 
+  After the table, append: `Exclusion rate: % of total repo tokens not included in the compiled prompt.` then `Budget utilization: % of token budget filled.`
+
 - **"show aic last"** — When the user says this (or similar), run Bash with `(grep -q '"devMode": true' aic.config.json 2>/dev/null && pnpm aic last) || npx @jatbas/aic last` from the project directory, then relay stdout. Start the reply with one short line: **Last = most recent compilation.** Then display using these labels and formats:
 
-  | JSON key                   | Label              | Format                                                        |
-  | -------------------------- | ------------------ | ------------------------------------------------------------- |
-  | intent                     | Intent             | text                                                          |
-  | filesSelected / filesTotal | Files              | "N selected / M total"                                        |
-  | tokensCompiled             | Tokens compiled    | formatted with commas                                         |
-  | budgetUtilizationPct       | Budget utilization | percentage, 1 decimal                                         |
-  | tokenReductionPct          | Exclusion rate     | percentage, 1 decimal                                         |
-  | created_at                 | Compiled           | relative time (e.g. "3 min ago")                              |
-  | editorId                   | Editor             | text                                                          |
-  | guard status               | Guard              | "Passed" or "N findings (types)"                              |
+  | JSON key                   | Label              | Format                                                                                       |
+  | -------------------------- | ------------------ | -------------------------------------------------------------------------------------------- |
+  | intent                     | Intent             | text                                                                                         |
+  | filesSelected / filesTotal | Files              | "N selected / M total"                                                                       |
+  | tokensCompiled             | Tokens compiled    | formatted with commas                                                                        |
+  | budgetUtilizationPct       | Budget utilization | percentage, 1 decimal                                                                        |
+  | tokenReductionPct          | Exclusion rate     | percentage, 1 decimal                                                                        |
+  | created_at                 | Compiled           | relative time (e.g. "3 min ago")                                                             |
+  | editorId                   | Editor             | text                                                                                         |
+  | guard status               | Guard              | "Passed" or "N findings (types)"                                                             |
   | compiledPrompt             | Compiled prompt    | "Available (N chars) — .aic/last-compiled-prompt.txt (project root)", or omit if not present |
+
+  After the table, append: `Exclusion rate: % of total repo tokens not included in the compiled prompt.` then `Budget utilization: % of token budget filled.`
 
 - **"show aic projects"** — When the user says this (or similar), run Bash with `(grep -q '"devMode": true' aic.config.json 2>/dev/null && pnpm aic projects) || npx @jatbas/aic projects`, then relay stdout. Start the reply with one short line: **Projects = known AIC projects.** Display a formatted table with columns: Project ID, Path, Last seen, Compilation count. Use same general formatting rules (human-readable labels, commas for numbers, relative time for last seen, — for null).
 
