@@ -42,8 +42,9 @@ async function plugin_path_forwards_model_to_callAicCompile_sixth_param() {
   delete require.cache[resolvedHelper];
   delete require.cache[require.resolve(pluginPromptPath)];
   assert.ok(Array.isArray(capturedArgs));
-  assert.strictEqual(capturedArgs.length, 6);
+  assert.strictEqual(capturedArgs.length, 7);
   assert.strictEqual(capturedArgs[5], "claude-opus-4");
+  assert.strictEqual(capturedArgs[6], "claude-code");
   console.log("plugin_path_forwards_model_to_callAicCompile_sixth_param: pass");
 }
 

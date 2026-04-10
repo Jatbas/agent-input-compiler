@@ -232,6 +232,7 @@ export function createMcpServer(
     heuristicConfig,
     modelId: configModelId,
     guardAllowPatterns,
+    contextWindow: _contextWindow,
   } = applyConfigResult(configResult, startupScope.configStore, sha256Adapter);
   const fileContentReader = createCachingFileContentReader(projectRoot);
   const rulePackProvider = createRulePackProvider(projectRoot);
@@ -260,6 +261,7 @@ export function createMcpServer(
       budgetConfig: scopeBudgetConfig,
       heuristicConfig: scopeHeuristicConfig,
       guardAllowPatterns: scopeGuardAllowPatterns,
+      contextWindow: _scopeContextWindow,
     } = applyConfigResult(scopeConfigResult, scope.configStore, sha256Adapter);
     const scopeFileContentReader = createCachingFileContentReader(scope.projectRoot);
     const scopeRulePackProvider = createRulePackProvider(scope.projectRoot);

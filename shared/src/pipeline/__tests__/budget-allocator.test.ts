@@ -18,6 +18,7 @@ function makeConfig(
       const v = perTaskClass[taskClass];
       return v !== undefined && v !== null ? toTokenCount(v) : null;
     },
+    getContextWindow: () => null,
   };
 }
 

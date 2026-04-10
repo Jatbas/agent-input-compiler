@@ -82,6 +82,9 @@ export function createDefaultBudgetConfig(): BudgetConfig {
     getBudgetForTaskClass(_taskClass: TaskClass): ReturnType<typeof toTokenCount> | null {
       return null;
     },
+    getContextWindow(): ReturnType<typeof toTokenCount> | null {
+      return null;
+    },
   };
 }
 

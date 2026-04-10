@@ -46,6 +46,15 @@ Do **not** run inside a worktree. Run from the main workspace root on branch `ma
 1. Run `git branch --show-current`. If the result is not `main`, stop: "Switch to `main` before running aic-release."
 2. Run `git status --porcelain`. If output is non-empty, stop: "Working tree has uncommitted changes. Stash or commit them before running aic-release."
 
+### Phase 0 — Model context window data
+
+Run `node mcp/scripts/fetch-model-context-windows.cjs` from the repo root.
+
+- If the script reports "NEW models detected", review the list in the output. These are models from Anthropic, OpenAI, or Google that were not in the previous data file. They are included automatically — no action required unless the reported context window looks wrong (in which case set `contextBudget.contextWindow` in the project's `aic.config.json` as a per-project override and proceed).
+- If the script exits 0 and reports "unchanged" → proceed to Phase 1.
+- If the script exits 0 and reports "updated" → the file `shared/src/data/model-context-windows.ts` has changed. Stage it and commit: `git add shared/src/data/model-context-windows.ts && git commit -m "chore(data): refresh model context windows"`. Then proceed to Phase 1.
+- If the script exits non-zero → stop: "Phase 0 failed. Fix the fetch script before proceeding."
+
 ### Phase 1 — Codebase validation
 
 Run each command in sequence. Stop on any failure and report the exact error output before asking the user how to proceed.

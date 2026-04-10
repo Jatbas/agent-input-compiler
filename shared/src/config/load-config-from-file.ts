@@ -28,6 +28,7 @@ const AicConfigSchema = z.object({
     .object({
       maxTokens: z.number(),
       perTaskClass: z.record(z.string(), z.number()).optional(),
+      contextWindow: z.number().optional(),
     })
     .optional(),
   contextSelector: z
@@ -92,10 +93,18 @@ function parseAndValidate(content: string): AicConfigParsed {
 function buildResolvedConfig(parsed: AicConfigParsed): ResolvedConfig {
   const maxTokens = toTokenCount(parsed.contextBudget?.maxTokens ?? 0);
   const perTaskClass = buildPerTaskClass(parsed.contextBudget?.perTaskClass);
+  const contextWindow =
+    parsed.contextBudget?.contextWindow !== undefined
+      ? toTokenCount(parsed.contextBudget.contextWindow)
+      : undefined;
   const maxFiles = parsed.contextSelector?.heuristic?.maxFiles ?? 0;
   const guardAllowPatterns = parsed.guard?.allowPatterns ?? [];
   return {
-    contextBudget: { maxTokens, perTaskClass },
+    contextBudget: {
+      maxTokens,
+      perTaskClass,
+      ...(contextWindow !== undefined ? { contextWindow } : {}),
+    },
     heuristic: { maxFiles },
     ...(parsed.model !== undefined && {
       model: parsed.model.id !== undefined ? { id: parsed.model.id } : {},
@@ -127,6 +136,9 @@ export function createBudgetConfigFromResolved(config: ResolvedConfig): BudgetCo
     getBudgetForTaskClass(taskClass: TaskClass): TokenCount | null {
       return config.contextBudget.perTaskClass[taskClass] ?? null;
     },
+    getContextWindow(): TokenCount | null {
+      return config.contextBudget.contextWindow ?? null;
+    },
   };
 }
 
@@ -141,6 +153,7 @@ export function applyConfigResult(
   heuristicConfig: HeuristicSelectorConfig;
   modelId: string | null;
   guardAllowPatterns: readonly GlobPattern[];
+  contextWindow: TokenCount | null;
 } {
   const content = result.rawJson ?? DEFAULT_CONFIG_JSON;
   configStore.writeSnapshot(stringHasher.hash(content), content);
@@ -152,5 +165,6 @@ export function applyConfigResult(
     heuristicConfig: { maxFiles: result.config.heuristic.maxFiles },
     modelId: result.config.model?.id ?? null,
     guardAllowPatterns,
+    contextWindow: result.config.contextBudget.contextWindow ?? null,
   };
 }

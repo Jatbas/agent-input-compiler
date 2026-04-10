@@ -7,4 +7,5 @@ import type { TaskClass } from "@jatbas/aic-core/core/types/enums.js";
 export interface BudgetConfig {
   getMaxTokens(): TokenCount;
   getBudgetForTaskClass(taskClass: TaskClass): TokenCount | null;
+  getContextWindow(): TokenCount | null;
 }

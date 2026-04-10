@@ -9,6 +9,7 @@ export interface ResolvedConfig {
   readonly contextBudget: {
     readonly maxTokens: TokenCount;
     readonly perTaskClass: Readonly<{ [K in TaskClass]?: TokenCount }>;
+    readonly contextWindow?: TokenCount;
   };
   readonly heuristic: {
     readonly maxFiles: number;

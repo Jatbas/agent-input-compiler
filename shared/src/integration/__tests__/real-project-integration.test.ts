@@ -62,11 +62,12 @@ function createRunner(repoMapOverride?: RepoMapSupplier): CompilationRunner {
   const scope = lastScope;
   const sha256Adapter = new Sha256Adapter();
   const configResult = new LoadConfigFromFile().load(projectRoot, null);
-  const { budgetConfig, heuristicConfig, guardAllowPatterns } = applyConfigResult(
-    configResult,
-    scope.configStore,
-    sha256Adapter,
-  );
+  const {
+    budgetConfig,
+    heuristicConfig,
+    guardAllowPatterns,
+    contextWindow: _integrationContextWindow,
+  } = applyConfigResult(configResult, scope.configStore, sha256Adapter);
   const fileContentReader = createCachingFileContentReader(projectRoot);
   const rulePackProvider = createRulePackProvider();
   const deps = createPipelineDeps(

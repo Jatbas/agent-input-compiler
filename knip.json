@@ -1,6 +1,8 @@
 {
   "ignore": [
+    "mcp/scripts/fetch-model-context-windows.cjs",
     "scripts/**",
+    "shared/src/data/**",
     ".cursor/**",
     "test/benchmarks/**",
     "integrations/cursor/hooks/**",

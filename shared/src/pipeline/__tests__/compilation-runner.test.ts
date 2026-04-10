@@ -181,6 +181,9 @@ describe("CompilationRunner", () => {
     getBudgetForTaskClass(_taskClass: TaskClass) {
       return null;
     },
+    getContextWindow() {
+      return null;
+    },
   };
   const tiktokenAdapter = new TiktokenAdapter();
   const tokenCounter = (text: string) => tiktokenAdapter.countTokens(text);

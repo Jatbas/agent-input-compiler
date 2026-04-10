@@ -12,6 +12,7 @@ import { toFilePath } from "@jatbas/aic-core/core/types/paths.js";
 import { matchesGlob } from "@jatbas/aic-core/pipeline/glob-match.js";
 import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
+import { defaultResolvedConfig } from "@jatbas/aic-core/core/types/resolved-config.js";
 import { LoadConfigFromFile, applyConfigResult } from "../load-config-from-file.js";
 
 describe("LoadConfigFromFile", () => {
@@ -193,5 +194,63 @@ describe("LoadConfigFromFile", () => {
     );
     expect(result.config.contextBudget.maxTokens).toBe(toTokenCount(12000));
     expect(result.config.heuristic.maxFiles).toBe(25);
+  });
+
+  it("contextWindow_parsed_from_contextBudget", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-config-test-"));
+    fs.writeFileSync(
+      path.join(tmpDir, "aic.config.json"),
+      '{"contextBudget":{"maxTokens":10000,"contextWindow":500000}}',
+      "utf8",
+    );
+    const projectRoot = toAbsolutePath(tmpDir);
+    const loader = new LoadConfigFromFile();
+    const result = loader.load(projectRoot, null);
+    expect(result.config.contextBudget.contextWindow).toBe(toTokenCount(500000));
+  });
+
+  it("contextWindow_absent_when_not_in_config", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-config-test-"));
+    fs.writeFileSync(
+      path.join(tmpDir, "aic.config.json"),
+      '{"contextBudget":{"maxTokens":10000}}',
+      "utf8",
+    );
+    const projectRoot = toAbsolutePath(tmpDir);
+    const loader = new LoadConfigFromFile();
+    const result = loader.load(projectRoot, null);
+    expect(result.config.contextBudget.contextWindow).toBeUndefined();
+  });
+
+  it("applyConfigResult_returns_contextWindow_when_set", () => {
+    const mockStore: ConfigStore = {
+      getLatestHash: () => null,
+      writeSnapshot: () => {},
+    };
+    const mockHasher: StringHasher = { hash: () => "h" };
+    const base = defaultResolvedConfig();
+    const result = {
+      config: {
+        ...base,
+        contextBudget: {
+          ...base.contextBudget,
+          maxTokens: toTokenCount(10000),
+          contextWindow: toTokenCount(500000),
+        },
+      },
+    };
+    const applied = applyConfigResult(result, mockStore, mockHasher);
+    expect(applied.contextWindow).toBe(toTokenCount(500000));
+  });
+
+  it("applyConfigResult_returns_null_contextWindow_when_absent", () => {
+    const mockStore: ConfigStore = {
+      getLatestHash: () => null,
+      writeSnapshot: () => {},
+    };
+    const mockHasher: StringHasher = { hash: () => "h" };
+    const result = { config: defaultResolvedConfig() };
+    const applied = applyConfigResult(result, mockStore, mockHasher);
+    expect(applied.contextWindow).toBeNull();
   });
 });

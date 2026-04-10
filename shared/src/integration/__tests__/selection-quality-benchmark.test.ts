@@ -88,11 +88,12 @@ describe("selection quality benchmarks", () => {
     scope = createProjectScope(fixtureRoot, new NodePathAdapter(), db, clock);
     const sha256Adapter = new Sha256Adapter();
     const configResult = new LoadConfigFromFile().load(fixtureRoot, null);
-    const { budgetConfig, heuristicConfig, guardAllowPatterns } = applyConfigResult(
-      configResult,
-      scope.configStore,
-      sha256Adapter,
-    );
+    const {
+      budgetConfig,
+      heuristicConfig,
+      guardAllowPatterns,
+      contextWindow: _benchContextWindow,
+    } = applyConfigResult(configResult, scope.configStore, sha256Adapter);
     const fileContentReader = createCachingFileContentReader(fixtureRoot);
     const rulePackProvider = createRulePackProvider();
     const deps = createFullPipelineDeps(
@@ -151,11 +152,12 @@ describe("selection quality benchmarks", () => {
       scope = createProjectScope(fixtureRoot, new NodePathAdapter(), db, clock);
       const sha256Adapter = new Sha256Adapter();
       const configResult = new LoadConfigFromFile().load(fixtureRoot, null);
-      const { budgetConfig, heuristicConfig, guardAllowPatterns } = applyConfigResult(
-        configResult,
-        scope.configStore,
-        sha256Adapter,
-      );
+      const {
+        budgetConfig,
+        heuristicConfig,
+        guardAllowPatterns,
+        contextWindow: _benchContextWindow,
+      } = applyConfigResult(configResult, scope.configStore, sha256Adapter);
       const fileContentReader = createCachingFileContentReader(fixtureRoot);
       const rulePackProvider = createRulePackProvider();
       const deps = createFullPipelineDeps(
