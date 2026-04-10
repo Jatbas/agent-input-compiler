@@ -100,6 +100,17 @@ All event hooks are **authored** in `integrations/cursor/hooks/`. The installer 
 | `AIC_PROJECT_ROOT` env var                      | injected via `env:` when `AIC-compile-context.cjs` completes a successful `aic_compile` (§7.1); not emitted by `AIC-session-init.cjs`                                   |
 | `AIC_CONVERSATION_ID` env var                   | same `env:` path as `AIC_PROJECT_ROOT`; `AIC-inject-conversation-id.cjs` also falls back to `process.env.AIC_CONVERSATION_ID`; stdin `conversation_id` when present     |
 | `input.agent_transcript_path`                   | `subagentStop` only — path to the subagent transcript `.jsonl`; child session id is the basename without `.jsonl` (see §7.11)                                           |
+| `cursor_version` / `input.cursor_version`       | Discriminator injected by Cursor’s hook runtime — see §4.4                                                                                                              |
+
+### 4.4 Runtime boundary guards (`cursor_version`)
+
+Shipped hooks use `cursor_version` to tell **Cursor-native** invocations apart from **Claude Code** invocations when both runtimes can execute overlapping hook registrations (for example Cursor 3 may invoke `~/.claude/settings.json` hooks alongside `.cursor/hooks.json`).
+
+- **Cursor hooks** (`integrations/cursor/hooks/AIC-*.cjs`): After parsing stdin JSON, if neither `cursor_version` nor `input.cursor_version` is present, the hook exits immediately with no side effects (empty stdout or `process.exit(0)`). Defensive: only Cursor’s infrastructure supplies this field.
+
+- **Claude Code hooks** (`integrations/claude/hooks/aic-*.cjs`): If `cursor_version` or `input.cursor_version` is present, the hook returns immediately without calling `aic_compile`, session markers, or other side effects. Claude Code (standalone or extension) does not set this field.
+
+Treat these guards as part of the integration contract — do not remove them in refactors without re-validating cross-runtime behavior.
 
 ---
 
@@ -347,6 +358,7 @@ AIC registers **12** hook **command** entries across **10** event types (some ty
 **Input fields used:**
 
 - `input.conversation_id` → preferred source
+- `input.conversationId` → alternate camelCase field (same role as `conversation_id`)
 - `AIC_CONVERSATION_ID` env var → fallback when `AIC-compile-context` has set `env` after a successful compile, else `process.env` may be unset until then
 - `input.generation_id` → key for the prewarmed prompt temp file `aic-prompt-<generation_id>` (see purpose below)
 - `input.tool_name` → to scope injection to `aic_compile` and `aic_chat_summary`
@@ -356,11 +368,19 @@ AIC registers **12** hook **command** entries across **10** event types (some ty
 
 **Output:**
 
+Resolution order for the conversation id string: `input.conversation_id ?? input.conversationId ?? process.env.AIC_CONVERSATION_ID`.
+
+For `aic_chat_summary`, when a non-empty id is resolved, `updated_input` adds `conversationId`. When the id is missing, the hook allows the call unchanged.
+
+For `aic_compile`, the hook builds an augmented `toolInput` with `editorId: "cursor"` and optionally `conversationId`, `modelId`, or a replaced `intent` (from the prewarmed prompt file when the tool intent is weak). It emits `updated_input` only when at least one of those changes applies (resolved id, valid `input.model`, or intent replacement); otherwise it returns `{ permission: "allow" }` with no `updated_input`. See `integrations/cursor/hooks/AIC-inject-conversation-id.cjs` (`shouldEmitUpdatedInput`).
+
 ```js
-{ permission: "allow", updated_input: { ...toolInput, conversationId } }
+{ permission: "allow", updated_input: { ...toolInput, editorId: "cursor", /* optional: conversationId, modelId, intent */ } }
+// or, when nothing to change:
+{ permission: "allow" }
 ```
 
-Without this, `compilation_log` rows from this Cursor session have `conversation_id = null`, breaking `aic_chat_summary` for this conversation.
+Without this hook, `compilation_log` rows from this Cursor session often have `conversation_id = null`, breaking `aic_chat_summary` for this conversation.
 
 **File:** `.cursor/hooks/AIC-inject-conversation-id.cjs`
 
@@ -511,7 +531,8 @@ The model then sees this as a new prompt, fixes the errors, and tries to stop ag
 
 **Input fields used:**
 
-- `input.conversation_id` → parent chat id; passed as `conversationId` on `aic_compile`
+- `input.conversation_id` → parent chat id when present; passed as `conversationId` on `aic_compile`
+- `input.parent_conversation_id` → alternate field for the parent id when `conversation_id` is absent (first match wins: `conversation_id`, then `parent_conversation_id`)
 - `input.agent_transcript_path` → path to the subagent transcript `.jsonl`; `conversationIdFromAgentTranscriptPath` in `integrations/shared/conversation-id.cjs` yields the child session id (basename without `.jsonl`)
 
 **Purpose:** Subagents run under a separate session id. Compilations inside the subagent would otherwise stay on that child id. When parent and child ids differ, the hook calls `aic_compile` with `triggerSource: "subagent_stop"`, `conversationId` (parent), and `reparentFromConversationId` (child). The MCP compile handler runs `reparentSubagentCompilations` in `shared/src/storage/reparent-subagent-compilations.ts` only — no full compile pipeline — so existing `compilation_log` rows move to the parent. That keeps `aic_chat_summary` and per-conversation diagnostics on one thread for the whole chat.
