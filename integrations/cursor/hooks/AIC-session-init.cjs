@@ -13,6 +13,7 @@
 const fs = require("fs");
 const path = require("path");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
+const { conversationIdFromTranscriptPath } = require("../../shared/conversation-id.cjs");
 
 let hookInput = {};
 try {
@@ -26,7 +27,7 @@ if (!hookInput.cursor_version && !hookInput.input?.cursor_version) {
   process.exit(0);
 }
 
-const conversationId = hookInput.conversation_id || "";
+const conversationId = conversationIdFromTranscriptPath(hookInput) ?? "";
 
 const ROUTER_PATH = path.join(__dirname, "..", "rules", "AIC-architect.mdc");
 const SECTION_START = "## Critical reminders";

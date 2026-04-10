@@ -17,6 +17,7 @@ const {
   writeSessionModelCache,
 } = require("../../shared/session-model-cache.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
+const { conversationIdFromTranscriptPath } = require("../../shared/conversation-id.cjs");
 
 const projectRoot = resolveProjectRoot(null, { env: process.env });
 const INTENT = "understand project structure, architecture, and recent changes";
@@ -34,7 +35,7 @@ if (!hookInput.cursor_version && !hookInput.input?.cursor_version) {
   process.exit(0);
 }
 
-const conversationId = hookInput.conversation_id || null;
+const conversationId = conversationIdFromTranscriptPath(hookInput);
 
 let modelId = null;
 if (typeof hookInput.model === "string") {

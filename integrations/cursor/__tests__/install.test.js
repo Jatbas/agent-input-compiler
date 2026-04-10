@@ -79,6 +79,10 @@ function install_creates_all_artifacts() {
       compileContextContent.includes('require("./AIC-session-model-cache.cjs")'),
       "installed hook uses local require for AIC-session-model-cache",
     );
+    assert(
+      compileContextContent.includes('require("./AIC-conversation-id.cjs")'),
+      "installed hook imports AIC-conversation-id.cjs for conversationId extraction",
+    );
     const hooksJsonPath = path.join(tmpDir, ".cursor", "hooks.json");
     assert(fs.existsSync(hooksJsonPath), ".cursor/hooks.json exists");
     const hooksJson = JSON.parse(fs.readFileSync(hooksJsonPath, "utf8"));
