@@ -12,6 +12,19 @@ const OUTPUT_PATH = path.join(
   "../../shared/src/data/model-context-windows.ts",
 );
 
+// Normalized IDs must match this pattern — rejects any character that could break
+// out of a TS string literal (quotes, backslashes, newlines, etc.).
+const SAFE_ID_RE = /^[a-z0-9][a-z0-9.\-]*[a-z0-9]$/;
+
+function isSafeNormalizedId(id) {
+  return SAFE_ID_RE.test(id);
+}
+
+// Upper bound guards against absurd values from a compromised API response.
+const MAX_CONTEXT_WINDOW = 10_000_000;
+// Cap response body to avoid memory exhaustion on a malicious or broken response.
+const MAX_RESPONSE_BYTES = 10 * 1024 * 1024; // 10 MB
+
 // NORMALIZATION CONTRACT — must match normalizeForLookup in compilation-runner.ts exactly:
 // 1. Strip first vendor/ prefix if present.
 // 2. Strip trailing 8-digit date suffix (-YYYYMMDD) if present.
@@ -69,8 +82,20 @@ function fetchJson(url) {
   return new Promise((resolve, reject) => {
     https
       .get(url, { headers: { "User-Agent": "aic-release-script/1.0" } }, (res) => {
+        if (res.statusCode !== 200) {
+          res.resume();
+          reject(new Error(`HTTP ${String(res.statusCode)} from ${url}`));
+          return;
+        }
+        let totalBytes = 0;
         let data = "";
         res.on("data", (chunk) => {
+          totalBytes += chunk.length;
+          if (totalBytes > MAX_RESPONSE_BYTES) {
+            res.destroy();
+            reject(new Error(`Response exceeded ${MAX_RESPONSE_BYTES} bytes — aborting`));
+            return;
+          }
           data += chunk;
         });
         res.on("end", () => {
@@ -94,9 +119,19 @@ async function fetchAndNormalize(existingKeys) {
     if (typeof model.id !== "string") continue;
     if (!shouldInclude(model.id)) continue;
     const normalizedId = normalizeModelId(model.id);
+    if (!isSafeNormalizedId(normalizedId)) {
+      console.warn(`[aic-release] SKIP unsafe model id: ${JSON.stringify(model.id)}`);
+      continue;
+    }
     const contextLength =
       typeof model.context_length === "number" ? model.context_length : 0;
-    if (contextLength <= 0) continue;
+    if (
+      !Number.isFinite(contextLength) ||
+      !Number.isInteger(contextLength) ||
+      contextLength <= 0 ||
+      contextLength > MAX_CONTEXT_WINDOW
+    )
+      continue;
     const window = resolveContextWindow(model.id, normalizedId, contextLength);
     if (result[normalizedId] === undefined || window > result[normalizedId]) {
       result[normalizedId] = window;
@@ -110,7 +145,7 @@ async function fetchAndNormalize(existingKeys) {
 
 function buildTsFileContent(windows) {
   const entries = Object.entries(windows)
-    .toSorted(([a], [b]) => a.localeCompare(b))
+    .sort(([a], [b]) => a.localeCompare(b))
     .map(([id, size]) => `  "${id}": ${size},`)
     .join("\n");
   return [
