@@ -32,7 +32,10 @@ import type { ToolOutput } from "@jatbas/aic-core/core/types/compilation-types.j
 import type { SessionBudgetContext } from "@jatbas/aic-core/core/types/session-budget-context.js";
 import type { ProjectProfile } from "@jatbas/aic-core/core/types/project-profile.js";
 import { computeProjectProfile } from "@jatbas/aic-core/pipeline/compute-project-profile.js";
+import { CONTEXT_WINDOW_DEFAULT } from "@jatbas/aic-core/pipeline/budget-allocator.js";
 import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
+
+export const MAX_FILES_UPPER_BOUND = 300;
 
 export interface PipelineStepsDeps {
   readonly intentClassifier: IntentClassifier;
@@ -61,6 +64,7 @@ export interface PipelineStepsRequest {
   readonly stepIndex?: StepIndex;
   readonly stepIntent?: string;
   readonly conversationTokens?: TokenCount;
+  readonly contextWindow?: TokenCount;
   readonly toolOutputs?: readonly ToolOutput[];
 }
 
@@ -110,13 +114,23 @@ function deriveSessionContext(
   request: PipelineStepsRequest,
   deps: PipelineStepsDeps,
 ): SessionBudgetContext | undefined {
+  const contextWindow = request.contextWindow;
   if (request.conversationTokens !== undefined) {
+    if (contextWindow !== undefined) {
+      return { conversationTokens: request.conversationTokens, contextWindow };
+    }
     return { conversationTokens: request.conversationTokens };
   }
   if (request.sessionId !== undefined && deps.agenticSessionState) {
     const steps = deps.agenticSessionState.getSteps(request.sessionId);
     const sum = steps.reduce((acc, step) => acc + Number(step.tokensCompiled), 0);
+    if (contextWindow !== undefined) {
+      return { conversationTokens: toTokenCount(sum), contextWindow };
+    }
     return { conversationTokens: toTokenCount(sum) };
+  }
+  if (contextWindow !== undefined) {
+    return { contextWindow };
   }
   return undefined;
 }
@@ -126,11 +140,12 @@ const RECENT_STEPS_LIMIT = 10;
 function resolveAutoMaxFiles(
   profile: ProjectProfile,
   configuredMaxFiles: number,
+  effectiveContextWindow: TokenCount,
 ): number {
-  if (configuredMaxFiles === 0) {
-    return Math.max(5, Math.min(40, Math.ceil(Math.sqrt(profile.totalFiles))));
-  }
-  return configuredMaxFiles;
+  if (configuredMaxFiles !== 0) return configuredMaxFiles;
+  const baseMax = Math.max(5, Math.min(40, Math.ceil(Math.sqrt(profile.totalFiles))));
+  const scale = Number(effectiveContextWindow) / CONTEXT_WINDOW_DEFAULT;
+  return Math.max(5, Math.min(MAX_FILES_UPPER_BOUND, Math.ceil(baseMax * scale)));
 }
 
 function computeOverheadTokens(
@@ -224,7 +239,13 @@ export async function runPipelineSteps(
     constraintsTokens,
   );
   const codeBudget = toTokenCount(Math.max(0, Number(totalBudget) - overhead));
-  const effectiveMaxFiles = resolveAutoMaxFiles(profile, deps.heuristicMaxFiles);
+  const effectiveContextWindow =
+    sessionContext?.contextWindow ?? toTokenCount(CONTEXT_WINDOW_DEFAULT);
+  const effectiveMaxFiles = resolveAutoMaxFiles(
+    profile,
+    deps.heuristicMaxFiles,
+    effectiveContextWindow,
+  );
   const mergedRulePack: RulePack = { ...rulePack, maxFilesOverride: effectiveMaxFiles };
   const discoveredRepoMap = deps.intentAwareFileDiscoverer.discover(
     repoMap,

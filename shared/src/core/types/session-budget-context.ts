@@ -5,4 +5,5 @@ import type { TokenCount } from "@jatbas/aic-core/core/types/units.js";
 
 export interface SessionBudgetContext {
   readonly conversationTokens?: TokenCount;
+  readonly contextWindow?: TokenCount;
 }

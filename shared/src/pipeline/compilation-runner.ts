@@ -21,7 +21,11 @@ import type {
   PipelineStepsResult,
 } from "@jatbas/aic-core/core/run-pipeline-steps.js";
 import type { RepoMap, FileEntry } from "@jatbas/aic-core/core/types/repo-map.js";
-import type { Milliseconds, StepIndex } from "@jatbas/aic-core/core/types/units.js";
+import type {
+  Milliseconds,
+  StepIndex,
+  TokenCount,
+} from "@jatbas/aic-core/core/types/units.js";
 import type { CompilationLogEntry } from "@jatbas/aic-core/core/types/compilation-log-entry.js";
 import type { GuardFinding } from "@jatbas/aic-core/core/types/guard-types.js";
 import type {
@@ -44,6 +48,7 @@ import {
   buildSummarisationTiers,
 } from "@jatbas/aic-core/core/token-summary.js";
 import { canonicalRelatedPathsForSelectionCache } from "./related-files-boost-context-selector.js";
+import { MODEL_CONTEXT_WINDOWS } from "@jatbas/aic-core/data/model-context-windows.js";
 
 // Uses conversationId as the session key when present so each editor conversation
 // gets its own session_state rows and cache entries instead of sharing by process sessionId.
@@ -269,6 +274,84 @@ function recordSessionStepIfNeeded(
   });
 }
 
+// NORMALIZATION CONTRACT — must match normalizeModelId in fetch-model-context-windows.cjs exactly:
+export function normalizeForLookup(id: string): string {
+  const withoutVendor = id.includes("/") ? id.slice(id.indexOf("/") + 1) : id;
+  return withoutVendor.toLowerCase().replace(/-\d{8}$/, "");
+}
+
+export function lookupContextWindow(normalizedId: string): number | undefined {
+  const walk = (candidate: string): number | undefined => {
+    if (candidate.length === 0) return undefined;
+    const found = MODEL_CONTEXT_WINDOWS[candidate];
+    if (found !== undefined) return found;
+    const lastDash = candidate.lastIndexOf("-");
+    if (lastDash === -1) return undefined;
+    return walk(candidate.slice(0, lastDash));
+  };
+  return walk(normalizedId);
+}
+
+function resolveModelDerivedContextWindow(
+  modelId: string | null,
+): TokenCount | undefined {
+  const MODEL_EFFECTIVE_FACTOR = 0.65;
+  const lookupId = modelId !== null ? normalizeForLookup(modelId) : null;
+  const rawWindow = lookupId !== null ? lookupContextWindow(lookupId) : undefined;
+  if (rawWindow === undefined && lookupId !== null && lookupId !== "auto") {
+    process.stderr.write(
+      `[aic] unknown model context window: ${modelId ?? ""} (normalized: ${lookupId}) — falling back to 128K\n`,
+    );
+  }
+  if (rawWindow === undefined) return undefined;
+  return toTokenCount(Math.floor(rawWindow * MODEL_EFFECTIVE_FACTOR));
+}
+
+function completeFreshPathAfterPipeline(
+  r: PipelineStepsResult,
+  start: ISOTimestamp,
+  clock: Clock,
+  cacheStore: CacheStore,
+  key: string,
+  fileTreeHash: string,
+  configHash: string,
+  request: CompilationRequest,
+  compilationLogStore: CompilationLogStore,
+  guardStore: GuardStore,
+  idGenerator: IdGenerator,
+  sessionId: SessionId | null,
+  configHashOrNull: string | null,
+  agenticSessionState: AgenticSessionState | null,
+): { compiledPrompt: string; meta: CompilationMeta; compilationId: UUIDv7 } {
+  const durationMs = clock.durationMs(start, clock.now());
+  cacheStore.set({
+    key,
+    compiledPrompt: r.assembledPrompt,
+    tokenCount: r.promptTotal,
+    createdAt: start,
+    expiresAt: clock.addMinutes(60),
+    fileTreeHash,
+    configHash,
+  });
+  const meta = buildFreshMeta(request, r, durationMs);
+  const trace = buildSelectionTraceForLog(r);
+  const compilationId = recordCompilationAndFindings(
+    compilationLogStore,
+    guardStore,
+    idGenerator,
+    clock,
+    meta,
+    r.guardResult.findings,
+    sessionId,
+    configHashOrNull,
+    request.triggerSource ?? null,
+    request.conversationId ?? null,
+    trace,
+  );
+  recordSessionStepIfNeeded(agenticSessionState, request, r, clock);
+  return { compiledPrompt: r.assembledPrompt, meta, compilationId };
+}
+
 function runFreshPath(
   deps: PipelineStepsDeps,
   agenticSessionState: AgenticSessionState | null,
@@ -288,6 +371,7 @@ function runFreshPath(
   const start = clock.now();
   const depsWithSession = { ...deps, agenticSessionState };
   const effectiveSessionId = resolveEffectiveSessionId(request);
+  const contextWindow = resolveModelDerivedContextWindow(request.modelId);
   const pipelineRequest = {
     intent: request.intent,
     projectRoot: request.projectRoot,
@@ -297,37 +381,27 @@ function runFreshPath(
     ...(request.conversationTokens !== undefined
       ? { conversationTokens: request.conversationTokens }
       : {}),
+    ...(contextWindow !== undefined ? { contextWindow } : {}),
     ...(request.toolOutputs !== undefined ? { toolOutputs: request.toolOutputs } : {}),
   };
-  return runPipelineSteps(depsWithSession, pipelineRequest, repoMap).then((r) => {
-    const durationMs = clock.durationMs(start, clock.now());
-    cacheStore.set({
+  return runPipelineSteps(depsWithSession, pipelineRequest, repoMap).then((r) =>
+    completeFreshPathAfterPipeline(
+      r,
+      start,
+      clock,
+      cacheStore,
       key,
-      compiledPrompt: r.assembledPrompt,
-      tokenCount: r.promptTotal,
-      createdAt: start,
-      expiresAt: clock.addMinutes(60),
       fileTreeHash,
       configHash,
-    });
-    const meta = buildFreshMeta(request, r, durationMs);
-    const trace = buildSelectionTraceForLog(r);
-    const compilationId = recordCompilationAndFindings(
+      request,
       compilationLogStore,
       guardStore,
       idGenerator,
-      clock,
-      meta,
-      r.guardResult.findings,
       sessionId,
       configHashOrNull,
-      request.triggerSource ?? null,
-      request.conversationId ?? null,
-      trace,
-    );
-    recordSessionStepIfNeeded(agenticSessionState, request, r, clock);
-    return { compiledPrompt: r.assembledPrompt, meta, compilationId };
-  });
+      agenticSessionState,
+    ),
+  );
 }
 
 export class CompilationRunner implements ICompilationRunner {

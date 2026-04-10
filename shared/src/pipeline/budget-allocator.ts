@@ -35,22 +35,28 @@ export class BudgetAllocator implements IBudgetAllocator {
   ): TokenCount {
     const base = resolveBaseBudget(rulePack, taskClass, this.config);
     const conversationTokens = Number(sessionContext?.conversationTokens ?? 0);
+    const configuredWindow = this.config.getContextWindow();
+    const derivedWindow = sessionContext?.contextWindow;
+    const hasWindowInfo = configuredWindow !== null || derivedWindow !== undefined;
+    const effectiveWindow = Number(
+      configuredWindow ?? derivedWindow ?? toTokenCount(CONTEXT_WINDOW_DEFAULT),
+    );
     if (Number(base) === 0) {
       const headroom = Math.max(
         0,
-        CONTEXT_WINDOW_DEFAULT -
+        effectiveWindow -
           RESERVED_RESPONSE_DEFAULT -
           conversationTokens -
           TEMPLATE_OVERHEAD_DEFAULT,
       );
       return toTokenCount(headroom);
     }
-    if (sessionContext?.conversationTokens === undefined) {
+    if (sessionContext?.conversationTokens === undefined && !hasWindowInfo) {
       return base;
     }
     const availableBudget = Math.max(
       0,
-      CONTEXT_WINDOW_DEFAULT -
+      effectiveWindow -
         RESERVED_RESPONSE_DEFAULT -
         conversationTokens -
         TEMPLATE_OVERHEAD_DEFAULT,

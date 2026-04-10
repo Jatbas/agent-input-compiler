@@ -475,4 +475,34 @@ describe("runPipelineSteps", () => {
     const rp = selectContext.mock.calls[0]?.[3] as RulePack;
     expect(rp.maxFilesOverride).toBe(15);
   });
+
+  it("resolveAutoMaxFiles_scales_for_large_context", async () => {
+    const files: readonly FileEntry[] = Array.from({ length: 1600 }, (_, i) => ({
+      path: toRelativePath(`src/f-${i}.ts`),
+      language: "typescript",
+      sizeBytes: toBytes(1),
+      estimatedTokens: toTokenCount(1),
+      lastModified: toISOTimestamp("2026-01-01T00:00:00.000Z"),
+    }));
+    const largeRepo: RepoMap = {
+      root: PROJECT_ROOT,
+      files,
+      totalFiles: 1600,
+      totalTokens: toTokenCount(1600),
+    };
+    const deps = createDeps({ heuristicMaxFiles: 0 });
+    deps.repoMapSupplier.getRepoMap = vi.fn().mockResolvedValue(largeRepo);
+    deps.intentAwareFileDiscoverer.discover = vi
+      .fn()
+      .mockImplementation((m: RepoMap) => m);
+    const request: PipelineStepsRequest = {
+      intent: "fix bug",
+      projectRoot: PROJECT_ROOT,
+      contextWindow: toTokenCount(650_000),
+    };
+    await runPipelineSteps(deps, request);
+    const selectContext = deps.contextSelector.selectContext as ReturnType<typeof vi.fn>;
+    const rp = selectContext.mock.calls[0]?.[3] as RulePack;
+    expect(rp.maxFilesOverride).toBe(204);
+  });
 });

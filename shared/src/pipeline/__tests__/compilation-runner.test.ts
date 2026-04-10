@@ -45,7 +45,12 @@ import type {
   PreviousFile,
   SessionStep,
 } from "@jatbas/aic-core/core/types/session-dedup-types.js";
-import { CompilationRunner } from "../compilation-runner.js";
+import {
+  CompilationRunner,
+  lookupContextWindow,
+  normalizeForLookup,
+} from "../compilation-runner.js";
+import { MODEL_CONTEXT_WINDOWS } from "@jatbas/aic-core/data/model-context-windows.js";
 import { IntentClassifier } from "../intent-classifier.js";
 import { RulePackResolver } from "../rule-pack-resolver.js";
 import { BudgetAllocator } from "../budget-allocator.js";
@@ -1166,4 +1171,46 @@ describe("CompilationRunner", () => {
     const result = await runner.run(request);
     expect(result.compiledPrompt).toContain("Previously shown in step");
   }, 30_000);
+});
+
+describe("normalizeForLookup", () => {
+  it("normalize_strips_vendor_prefix", () => {
+    expect(normalizeForLookup("anthropic/claude-sonnet-4-6")).toBe("claude-sonnet-4-6");
+  });
+
+  it("normalize_strips_date_suffix", () => {
+    expect(normalizeForLookup("claude-sonnet-4-6-20250722")).toBe("claude-sonnet-4-6");
+  });
+
+  it("normalize_strips_both", () => {
+    expect(normalizeForLookup("anthropic/claude-sonnet-4-6-20250722")).toBe(
+      "claude-sonnet-4-6",
+    );
+  });
+
+  it("normalize_passthrough_clean_id", () => {
+    expect(normalizeForLookup("claude-sonnet-4-6")).toBe("claude-sonnet-4-6");
+  });
+
+  it("normalize_returns_auto_for_auto", () => {
+    expect(normalizeForLookup("auto")).toBe("auto");
+  });
+});
+
+describe("lookupContextWindow", () => {
+  it("lookup_exact_match", () => {
+    expect(lookupContextWindow("claude-opus-4-6")).toBe(
+      MODEL_CONTEXT_WINDOWS["claude-opus-4-6"],
+    );
+  });
+
+  it("lookup_prefix_walk_strips_suffix", () => {
+    expect(lookupContextWindow("claude-sonnet-4-6-preview")).toBe(
+      MODEL_CONTEXT_WINDOWS["claude-sonnet-4-6"],
+    );
+  });
+
+  it("lookup_returns_undefined_for_unknown", () => {
+    expect(lookupContextWindow("unknown-model-xyz")).toBeUndefined();
+  });
 });

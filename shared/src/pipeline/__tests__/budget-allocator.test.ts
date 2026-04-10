@@ -11,6 +11,7 @@ import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 function makeConfig(
   maxTokens: number,
   perTaskClass: Record<string, number | null> = {},
+  contextWindow: number | null = null,
 ): BudgetConfig {
   return {
     getMaxTokens: () => toTokenCount(maxTokens),
@@ -18,7 +19,7 @@ function makeConfig(
       const v = perTaskClass[taskClass];
       return v !== undefined && v !== null ? toTokenCount(v) : null;
     },
-    getContextWindow: () => null,
+    getContextWindow: () => (contextWindow !== null ? toTokenCount(contextWindow) : null),
   };
 }
 
@@ -177,5 +178,60 @@ describe("BudgetAllocator", () => {
     };
     const result = allocator.allocate(rulePack, TASK_CLASS.GENERAL);
     expect(result).toBe(toTokenCount(8000));
+  });
+
+  it("model_window_from_sessionContext_used_when_base_zero", () => {
+    const config = makeConfig(0);
+    const allocator = new BudgetAllocator(config);
+    const rulePack: RulePack = {
+      constraints: [],
+      includePatterns: [],
+      excludePatterns: [],
+    };
+    const result = allocator.allocate(rulePack, TASK_CLASS.GENERAL, {
+      contextWindow: toTokenCount(200_000),
+    });
+    expect(result).toBe(toTokenCount(195_500));
+  });
+
+  it("user_config_window_overrides_session_contextWindow", () => {
+    const config = makeConfig(0, {}, 300_000);
+    const allocator = new BudgetAllocator(config);
+    const rulePack: RulePack = {
+      constraints: [],
+      includePatterns: [],
+      excludePatterns: [],
+    };
+    const result = allocator.allocate(rulePack, TASK_CLASS.GENERAL, {
+      contextWindow: toTokenCount(200_000),
+    });
+    expect(result).toBe(toTokenCount(295_500));
+  });
+
+  it("default_128k_used_when_no_model_and_no_config_window", () => {
+    const config = makeConfig(0);
+    const allocator = new BudgetAllocator(config);
+    const rulePack: RulePack = {
+      constraints: [],
+      includePatterns: [],
+      excludePatterns: [],
+    };
+    const result = allocator.allocate(rulePack, TASK_CLASS.GENERAL);
+    expect(result).toBe(toTokenCount(123_500));
+  });
+
+  it("model_window_caps_base_budget_correctly", () => {
+    const config = makeConfig(0);
+    const allocator = new BudgetAllocator(config);
+    const rulePack: RulePack = {
+      constraints: [],
+      includePatterns: [],
+      excludePatterns: [],
+    };
+    const result = allocator.allocate(rulePack, TASK_CLASS.FEATURE, {
+      conversationTokens: toTokenCount(100_000),
+      contextWindow: toTokenCount(130_000),
+    });
+    expect(result).toBe(toTokenCount(25_500));
   });
 });
