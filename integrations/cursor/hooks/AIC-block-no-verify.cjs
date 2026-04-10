@@ -16,6 +16,9 @@ process.stdin.on("data", (chunk) => {
 process.stdin.on("end", () => {
   try {
     const input = JSON.parse(raw);
+    if (!input.cursor_version && !input.input?.cursor_version) {
+      process.exit(0);
+    }
     const cmd = (input.command || "").trim();
     const cmdWithoutQuotes = stripQuoted(cmd);
 

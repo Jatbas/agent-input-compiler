@@ -43,6 +43,10 @@ function runTsc() {
 try {
   const raw = readStdinSync();
   const input = raw.trim() ? JSON.parse(raw) : {};
+  if (!input.cursor_version && !input.input?.cursor_version) {
+    process.stdout.write("{}");
+    process.exit(0);
+  }
   const key =
     input.conversation_id ??
     input.conversationId ??

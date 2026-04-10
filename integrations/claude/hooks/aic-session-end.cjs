@@ -21,6 +21,8 @@ function run(stdinStr) {
       return {};
     }
   })();
+  const isCursorNative = (parsed.cursor_version ?? parsed.input?.cursor_version) != null;
+  if (isCursorNative) return;
   const sessionId =
     parsed.session_id != null ? parsed.session_id : (parsed.input?.session_id ?? "");
   const reason = parsed.reason != null ? parsed.reason : (parsed.input?.reason ?? "");

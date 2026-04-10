@@ -178,6 +178,36 @@ async function subagent_strips_ide_selection_from_prompt() {
   console.log("subagent_strips_ide_selection_from_prompt: pass");
 }
 
+async function subagent_inject_noop_when_cursor_version_present() {
+  let callCount = 0;
+  const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
+    paths: [hooksDir],
+  });
+  require.cache[resolvedHelper] = {
+    exports: {
+      callAicCompile: () => {
+        callCount += 1;
+        return Promise.resolve("x");
+      },
+    },
+    loaded: true,
+    id: resolvedHelper,
+  };
+  delete require.cache[hookPath];
+  const { run } = require(hookPath);
+  const result = await run(
+    JSON.stringify({ agent_type: "Explore", cwd: "/tmp", cursor_version: "3" }),
+  );
+  cleanup(resolvedHelper);
+  if (callCount !== 0) {
+    throw new Error(`Expected no compile call, got ${callCount}`);
+  }
+  if (result !== null) {
+    throw new Error(`Expected null, got ${JSON.stringify(result)}`);
+  }
+  console.log("subagent_inject_noop_when_cursor_version_present: pass");
+}
+
 (async () => {
   await hookSpecificOutput_json_when_helper_returns_text();
   await output_empty_object_when_helper_returns_null();
@@ -185,5 +215,6 @@ async function subagent_strips_ide_selection_from_prompt() {
   await null_conversationId_when_no_transcript_path();
   await subagent_uses_prompt_as_intent_when_present();
   await subagent_strips_ide_selection_from_prompt();
+  await subagent_inject_noop_when_cursor_version_present();
   console.log("All tests passed.");
 })();

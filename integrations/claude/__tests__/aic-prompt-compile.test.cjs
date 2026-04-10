@@ -234,6 +234,113 @@ async function prompt_compile_uses_transcript_path_as_conversationId() {
   console.log("prompt_compile_uses_transcript_path_as_conversationId: pass");
 }
 
+async function prompt_compile_uses_conversation_id_when_transcript_path_missing() {
+  const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
+    paths: [hooksDir],
+  });
+  let capturedConversationId;
+  require.cache[resolvedHelper] = {
+    exports: {
+      callAicCompile: (_intent, _root, conversationId) => {
+        capturedConversationId = conversationId;
+        return Promise.resolve("compiled text");
+      },
+    },
+    loaded: true,
+    id: resolvedHelper,
+  };
+  delete require.cache[require.resolve(hookPath)];
+  const { run } = require(hookPath);
+  await run(
+    JSON.stringify({
+      prompt: "hello",
+      cwd: "/tmp",
+      conversation_id: "cursor-style-conv-id",
+    }),
+  );
+  delete require.cache[resolvedHelper];
+  if (capturedConversationId !== "cursor-style-conv-id") {
+    throw new Error(
+      `Expected "cursor-style-conv-id", got ${JSON.stringify(capturedConversationId)}`,
+    );
+  }
+  console.log("prompt_compile_uses_conversation_id_when_transcript_path_missing: pass");
+}
+
+async function prompt_compile_sets_cursor_claude_editor_id_for_cursor_envelope() {
+  const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
+    paths: [hooksDir],
+  });
+  let capturedEditorId;
+  const savedTrace = process.env.CURSOR_TRACE_ID;
+  delete process.env.CURSOR_TRACE_ID;
+  require.cache[resolvedHelper] = {
+    exports: {
+      callAicCompile: (_i, _p, _c, _t, _ts, _m, editorId) => {
+        capturedEditorId = editorId;
+        return Promise.resolve("ok");
+      },
+    },
+    loaded: true,
+    id: resolvedHelper,
+  };
+  delete require.cache[require.resolve(hookPath)];
+  const { run } = require(hookPath);
+  try {
+    await run(
+      JSON.stringify({
+        prompt: "x",
+        cwd: "/tmp",
+        conversation_id: "env-conv-only",
+      }),
+    );
+  } finally {
+    if (savedTrace !== undefined) process.env.CURSOR_TRACE_ID = savedTrace;
+    else delete process.env.CURSOR_TRACE_ID;
+  }
+  delete require.cache[resolvedHelper];
+  if (capturedEditorId !== "cursor-claude-code") {
+    throw new Error(
+      `Expected editorId cursor-claude-code, got ${JSON.stringify(capturedEditorId)}`,
+    );
+  }
+  console.log("prompt_compile_sets_cursor_claude_editor_id_for_cursor_envelope: pass");
+}
+
+async function prompt_compile_noop_when_cursor_version_present() {
+  let callCount = 0;
+  const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
+    paths: [hooksDir],
+  });
+  require.cache[resolvedHelper] = {
+    exports: {
+      callAicCompile: () => {
+        callCount += 1;
+        return Promise.resolve("x");
+      },
+    },
+    loaded: true,
+    id: resolvedHelper,
+  };
+  delete require.cache[require.resolve(hookPath)];
+  const { run } = require(hookPath);
+  const out = await run(
+    JSON.stringify({
+      prompt: "hello",
+      cwd: "/tmp",
+      cursor_version: "3",
+    }),
+  );
+  delete require.cache[resolvedHelper];
+  if (callCount !== 0) {
+    throw new Error(`Expected no compile call, got ${callCount}`);
+  }
+  if (out !== null) {
+    throw new Error(`Expected null, got ${JSON.stringify(out)}`);
+  }
+  console.log("prompt_compile_noop_when_cursor_version_present: pass");
+}
+
 (async () => {
   await plain_text_stdout_when_helper_returns_prompt();
   await exit_0_silent_when_helper_returns_null();
@@ -242,5 +349,8 @@ async function prompt_compile_uses_transcript_path_as_conversationId() {
   await prompt_compile_includes_AIC_CONVERSATION_ID_when_conversationId_truthy();
   await intent_stripped_when_prompt_contains_ide_tags();
   await prompt_compile_uses_transcript_path_as_conversationId();
+  await prompt_compile_uses_conversation_id_when_transcript_path_missing();
+  await prompt_compile_sets_cursor_claude_editor_id_for_cursor_envelope();
+  await prompt_compile_noop_when_cursor_version_present();
   console.log("All tests passed.");
 })();

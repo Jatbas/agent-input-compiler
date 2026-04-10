@@ -51,13 +51,18 @@ function main() {
   let sessionId = "";
   let reason = "";
   let durationMs = 0;
+  let parseOk = false;
   try {
     input = JSON.parse(raw);
+    parseOk = true;
     sessionId = input.session_id ?? "";
     reason = input.reason ?? "";
     durationMs = input.duration_ms ?? 0;
   } catch {
     // invalid JSON — still cleanup and exit 0
+  }
+  if (parseOk && !input.cursor_version && !input.input?.cursor_version) {
+    process.exit(0);
   }
   const key =
     input.conversation_id ??

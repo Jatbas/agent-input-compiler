@@ -146,6 +146,44 @@ async function helper_passes_editor_id_cursor_claude_code_when_CURSOR_TRACE_ID_s
   }
 }
 
+async function helper_uses_explicit_editor_id_when_provided() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-helper-test-"));
+  const mockDir = path.join(tmpDir, "mcp", "src");
+  fs.mkdirSync(mockDir, { recursive: true });
+  const argsFile = path.join(os.tmpdir(), `aic-mock-args-${process.pid}-explicit.json`);
+  fs.copyFileSync(mockRecordsArgs, path.join(mockDir, "server.ts"));
+  const savedTrace = process.env.CURSOR_TRACE_ID;
+  delete process.env.CURSOR_TRACE_ID;
+  try {
+    delete require.cache[require.resolve(helperPath)];
+    const { callAicCompile } = require(helperPath);
+    process.env.AIC_MOCK_ARGS_FILE = argsFile;
+    await callAicCompile("intent", tmpDir, null, 10000, null, null, "cursor-claude-code");
+    delete process.env.AIC_MOCK_ARGS_FILE;
+    if (!fs.existsSync(argsFile)) {
+      throw new Error("Mock did not write args file");
+    }
+    const recorded = JSON.parse(fs.readFileSync(argsFile, "utf8"));
+    const parsed = JSON.parse(recorded.stdin);
+    const args = parsed.params && parsed.params.arguments ? parsed.params.arguments : {};
+    if (args.editorId !== "cursor-claude-code") {
+      throw new Error(
+        `Expected explicit editorId "cursor-claude-code", got ${JSON.stringify(args.editorId)}`,
+      );
+    }
+    console.log("helper_uses_explicit_editor_id_when_provided: pass");
+  } finally {
+    if (savedTrace !== undefined) process.env.CURSOR_TRACE_ID = savedTrace;
+    else delete process.env.CURSOR_TRACE_ID;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    try {
+      fs.unlinkSync(argsFile);
+    } catch {
+      // ignore
+    }
+  }
+}
+
 async function helper_passes_editor_id_claude_code_when_CURSOR_TRACE_ID_unset() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-helper-test-"));
   const mockDir = path.join(tmpDir, "mcp", "src");
@@ -556,6 +594,7 @@ async function helper_malicious_cache_rejected() {
   await triggerSource_forwarded_when_provided();
   await returns_null_on_spawn_error();
   await helper_passes_editor_id_cursor_claude_code_when_CURSOR_TRACE_ID_set();
+  await helper_uses_explicit_editor_id_when_provided();
   await helper_passes_editor_id_claude_code_when_CURSOR_TRACE_ID_unset();
   await modelId_sixth_param_forwarded();
   await modelId_from_cache_when_sixth_absent();

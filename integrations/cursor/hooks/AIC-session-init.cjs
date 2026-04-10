@@ -22,6 +22,10 @@ try {
   // Non-fatal — proceed without conversation_id
 }
 
+if (!hookInput.cursor_version && !hookInput.input?.cursor_version) {
+  process.exit(0);
+}
+
 const conversationId = hookInput.conversation_id || "";
 
 const ROUTER_PATH = path.join(__dirname, "..", "rules", "AIC-architect.mdc");

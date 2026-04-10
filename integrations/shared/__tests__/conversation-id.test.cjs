@@ -53,9 +53,34 @@ function from_agent_transcript_path_null_when_missing() {
   assert.strictEqual(actual, null);
 }
 
+function from_conversation_id_top_level() {
+  const actual = conversationIdFromTranscriptPath({
+    conversation_id: "  direct-uuid-1  ",
+  });
+  assert.strictEqual(actual, "direct-uuid-1");
+}
+
+function from_conversation_id_input() {
+  const actual = conversationIdFromTranscriptPath({
+    input: { conversation_id: "nested-id-2" },
+  });
+  assert.strictEqual(actual, "nested-id-2");
+}
+
+function transcript_path_precedence_over_conversation_id() {
+  const actual = conversationIdFromTranscriptPath({
+    transcript_path: "/dir/from-path.jsonl",
+    conversation_id: "ignored-id",
+  });
+  assert.strictEqual(actual, "from-path");
+}
+
 const cases = [
   from_transcript_path_top_level,
   from_transcript_path_input,
+  from_conversation_id_top_level,
+  from_conversation_id_input,
+  transcript_path_precedence_over_conversation_id,
   null_when_missing,
   null_when_parsed_null,
   null_when_empty_string,

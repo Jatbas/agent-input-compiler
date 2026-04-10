@@ -25,73 +25,77 @@ try {
   // Non-fatal — proceed with default intent
 }
 
-const projectRoot = resolveProjectRoot(null, { env: process.env });
-const intent =
-  typeof hookInput.task === "string" && hookInput.task.trim().length > 0
-    ? String(hookInput.task).slice(0, 200)
-    : "provide context for subagent";
-
-const conversationId =
-  typeof hookInput.parent_conversation_id === "string" &&
-  hookInput.parent_conversation_id.trim().length > 0
-    ? hookInput.parent_conversation_id.trim()
-    : null;
-
-const compileArgs = {
-  intent,
-  projectRoot,
-  editorId: "cursor",
-  triggerSource: "subagent_start",
-};
-if (conversationId) compileArgs.conversationId = conversationId;
-
-const mid = modelIdFromSubagentStartPayload(hookInput);
-if (mid !== null) {
-  compileArgs.modelId = mid;
-  writeSessionModelCache(projectRoot, mid, conversationId, "cursor");
+if (!hookInput.cursor_version && !hookInput.input?.cursor_version) {
+  process.stdout.write(JSON.stringify({ permission: "allow" }));
 } else {
-  const cached = readSessionModelCache(projectRoot, conversationId, "cursor");
-  if (cached !== null) compileArgs.modelId = cached;
-}
+  const projectRoot = resolveProjectRoot(null, { env: process.env });
+  const intent =
+    typeof hookInput.task === "string" && hookInput.task.trim().length > 0
+      ? String(hookInput.task).slice(0, 200)
+      : "provide context for subagent";
 
-const initRequest = JSON.stringify({
-  jsonrpc: "2.0",
-  id: 1,
-  method: "initialize",
-  params: {
-    protocolVersion: "2024-11-05",
-    capabilities: {},
-    clientInfo: { name: "AIC-hook", version: "0.1.0" },
-  },
-});
+  const conversationId =
+    typeof hookInput.parent_conversation_id === "string" &&
+    hookInput.parent_conversation_id.trim().length > 0
+      ? hookInput.parent_conversation_id.trim()
+      : null;
 
-const initNotification = JSON.stringify({
-  jsonrpc: "2.0",
-  method: "notifications/initialized",
-});
+  const compileArgs = {
+    intent,
+    projectRoot,
+    editorId: "cursor",
+    triggerSource: "subagent_start",
+  };
+  if (conversationId) compileArgs.conversationId = conversationId;
 
-const compileRequest = JSON.stringify({
-  jsonrpc: "2.0",
-  id: 2,
-  method: "tools/call",
-  params: { name: "aic_compile", arguments: compileArgs },
-});
+  const mid = modelIdFromSubagentStartPayload(hookInput);
+  if (mid !== null) {
+    compileArgs.modelId = mid;
+    writeSessionModelCache(projectRoot, mid, conversationId, "cursor");
+  } else {
+    const cached = readSessionModelCache(projectRoot, conversationId, "cursor");
+    if (cached !== null) compileArgs.modelId = cached;
+  }
 
-const stdinPayload = `${initRequest}\n${initNotification}\n${compileRequest}\n`;
-const serverScript = path.join(projectRoot, "mcp", "src", "server.ts");
-const isDev = fs.existsSync(serverScript);
-const serverCmd = isDev ? 'npx tsx "' + serverScript + '"' : "npx -y @jatbas/aic";
-
-try {
-  execSync(serverCmd, {
-    cwd: projectRoot,
-    timeout: 20000,
-    encoding: "utf-8",
-    input: stdinPayload,
-    stdio: ["pipe", "pipe", "pipe"],
+  const initRequest = JSON.stringify({
+    jsonrpc: "2.0",
+    id: 1,
+    method: "initialize",
+    params: {
+      protocolVersion: "2024-11-05",
+      capabilities: {},
+      clientInfo: { name: "AIC-hook", version: "0.1.0" },
+    },
   });
-} catch {
-  // Best-effort — never block subagent start
-}
 
-process.stdout.write(JSON.stringify({ permission: "allow" }));
+  const initNotification = JSON.stringify({
+    jsonrpc: "2.0",
+    method: "notifications/initialized",
+  });
+
+  const compileRequest = JSON.stringify({
+    jsonrpc: "2.0",
+    id: 2,
+    method: "tools/call",
+    params: { name: "aic_compile", arguments: compileArgs },
+  });
+
+  const stdinPayload = `${initRequest}\n${initNotification}\n${compileRequest}\n`;
+  const serverScript = path.join(projectRoot, "mcp", "src", "server.ts");
+  const isDev = fs.existsSync(serverScript);
+  const serverCmd = isDev ? 'npx tsx "' + serverScript + '"' : "npx -y @jatbas/aic";
+
+  try {
+    execSync(serverCmd, {
+      cwd: projectRoot,
+      timeout: 20000,
+      encoding: "utf-8",
+      input: stdinPayload,
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+  } catch {
+    // Best-effort — never block subagent start
+  }
+
+  process.stdout.write(JSON.stringify({ permission: "allow" }));
+}

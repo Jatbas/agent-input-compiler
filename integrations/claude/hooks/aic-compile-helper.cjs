@@ -72,6 +72,22 @@ function detectEditorId() {
   return "claude-code";
 }
 
+function resolveEditorId(explicitEditorId) {
+  if (typeof explicitEditorId !== "string") {
+    return detectEditorId();
+  }
+  const trimmed = explicitEditorId.trim();
+  if (
+    trimmed === "cursor" ||
+    trimmed === "cursor-claude-code" ||
+    trimmed === "claude-code" ||
+    trimmed === "generic"
+  ) {
+    return trimmed;
+  }
+  return detectEditorId();
+}
+
 function callAicCompile(
   intent,
   projectRoot,
@@ -79,6 +95,7 @@ function callAicCompile(
   timeoutMs,
   triggerSource,
   modelId,
+  explicitEditorId,
 ) {
   if (isCompileGateSkipped(projectRoot)) return Promise.resolve(null);
   const timeout = timeoutMs || 25000;
@@ -96,7 +113,7 @@ function callAicCompile(
     : isDev
       ? ["tsx", serverPath]
       : ["@jatbas/aic"];
-  const editorId = detectEditorId();
+  const editorId = resolveEditorId(explicitEditorId);
   let resolved = null;
   if (isValidModelId(modelId)) {
     resolved = normalizeModelId(String(modelId).trim());

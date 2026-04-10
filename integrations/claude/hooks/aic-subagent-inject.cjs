@@ -14,6 +14,8 @@ async function run(stdinStr) {
   } catch {
     parsed = {};
   }
+  const isCursorNative = (parsed.cursor_version ?? parsed.input?.cursor_version) != null;
+  if (isCursorNative) return null;
   const agentType = parsed.agent_type ?? parsed.input?.agent_type ?? "unknown";
   const projectRoot = resolveProjectRoot(parsed);
   const conversationId = conversationIdFromTranscriptPath(parsed);

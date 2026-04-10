@@ -62,6 +62,33 @@ function exit_0_always() {
   console.log("exit_0_always: pass");
 }
 
+function session_end_noop_when_cursor_version_present() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-session-end-test-"));
+  const aicDir = path.join(tmpDir, ".aic");
+  const markerPath = path.join(aicDir, ".session-context-injected");
+  fs.mkdirSync(aicDir, { recursive: true });
+  fs.writeFileSync(markerPath, "keep-me", "utf8");
+  run(
+    JSON.stringify({
+      session_id: "sid-x",
+      reason: "test",
+      cwd: tmpDir,
+      cursor_version: "3",
+    }),
+  );
+  if (!fs.existsSync(markerPath)) {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    throw new Error("Expected marker preserved when cursor_version present");
+  }
+  const content = fs.readFileSync(markerPath, "utf8");
+  if (content.trim() !== "keep-me") {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    throw new Error("Expected marker unchanged");
+  }
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+  console.log("session_end_noop_when_cursor_version_present: pass");
+}
+
 function plugin_session_end_removes_session_start_lock() {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-session-end-test-"));
   const aicDir = path.join(tmpDir, ".aic");
@@ -81,4 +108,5 @@ marker_and_temp_deleted_after_run();
 plugin_session_end_removes_session_start_lock();
 prompt_log_jsonl_appended();
 exit_0_always();
+session_end_noop_when_cursor_version_present();
 console.log("All tests passed.");

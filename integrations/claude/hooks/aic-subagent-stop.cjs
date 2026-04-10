@@ -20,6 +20,9 @@ function run(stdinStr) {
     parsed = {};
   }
 
+  const isCursorNative = (parsed.cursor_version ?? parsed.input?.cursor_version) != null;
+  if (isCursorNative) return null;
+
   const projectRoot = resolveProjectRoot(parsed);
   const parentConversationId = conversationIdFromTranscriptPath(parsed);
   const childConversationId = conversationIdFromAgentTranscriptPath(

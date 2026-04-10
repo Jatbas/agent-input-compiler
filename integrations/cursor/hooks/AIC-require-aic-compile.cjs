@@ -110,6 +110,9 @@ process.stdin.on("data", (chunk) => {
 process.stdin.on("end", () => {
   try {
     const input = JSON.parse(raw);
+    if (!input.cursor_version && !input.input?.cursor_version) {
+      process.exit(0);
+    }
     const generationId = input.generation_id || "unknown";
     const toolName = input.tool_name || "";
     const toolInput = input.tool_input || {};

@@ -121,7 +121,33 @@ function skips_reparent_when_no_agent_transcript_path() {
   }
 }
 
+function subagent_stop_noop_when_cursor_version_present() {
+  const originalExecSync = childProcess.execSync;
+  let called = false;
+  childProcess.execSync = () => {
+    called = true;
+  };
+  try {
+    const { run } = freshHook();
+    run(
+      JSON.stringify({
+        cwd: "/tmp/test-project",
+        cursor_version: "3",
+        transcript_path: "/home/user/.claude/conversations/parent-abc.jsonl",
+        agent_transcript_path: "/home/user/.claude/conversations/child-xyz.jsonl",
+      }),
+    );
+    if (called) {
+      throw new Error("Expected execSync NOT to be called when cursor_version present");
+    }
+    console.log("subagent_stop_noop_when_cursor_version_present: pass");
+  } finally {
+    childProcess.execSync = originalExecSync;
+  }
+}
+
 reparents_when_both_ids_present();
 skips_reparent_when_no_transcript_path();
 skips_reparent_when_ids_identical();
 skips_reparent_when_no_agent_transcript_path();
+subagent_stop_noop_when_cursor_version_present();

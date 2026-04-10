@@ -242,6 +242,109 @@ async function aic_dir_created_with_0700() {
   }
 }
 
+async function session_start_uses_conversation_id_when_transcript_path_missing() {
+  const captured = { thirdArg: null };
+  const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
+    paths: [hooksDir],
+  });
+  require.cache[resolvedHelper] = {
+    exports: {
+      callAicCompile: (_intent, _root, conversationId) => {
+        captured.thirdArg = conversationId;
+        return Promise.resolve("ok");
+      },
+    },
+    loaded: true,
+    id: resolvedHelper,
+  };
+  delete require.cache[hookPath];
+  const { run } = require(hookPath);
+  await run(
+    JSON.stringify({
+      session_id: "s1",
+      cwd: "/tmp",
+      conversation_id: "direct-conv-for-session",
+    }),
+  );
+  cleanup(resolvedHelper);
+  if (captured.thirdArg !== "direct-conv-for-session") {
+    throw new Error(
+      `Expected third arg "direct-conv-for-session", got ${JSON.stringify(captured.thirdArg)}`,
+    );
+  }
+  console.log("session_start_uses_conversation_id_when_transcript_path_missing: pass");
+}
+
+async function session_start_sets_cursor_claude_editor_id_for_cursor_envelope() {
+  const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
+    paths: [hooksDir],
+  });
+  let capturedEditorId;
+  const savedTrace = process.env.CURSOR_TRACE_ID;
+  delete process.env.CURSOR_TRACE_ID;
+  require.cache[resolvedHelper] = {
+    exports: {
+      callAicCompile: (_i, _p, _c, _t, _ts, _m, editorId) => {
+        capturedEditorId = editorId;
+        return Promise.resolve("ok");
+      },
+    },
+    loaded: true,
+    id: resolvedHelper,
+  };
+  delete require.cache[hookPath];
+  const { run } = require(hookPath);
+  try {
+    await run(
+      JSON.stringify({
+        session_id: "s1",
+        cwd: "/tmp",
+        conversation_id: "only-conv",
+      }),
+    );
+  } finally {
+    if (savedTrace !== undefined) process.env.CURSOR_TRACE_ID = savedTrace;
+    else delete process.env.CURSOR_TRACE_ID;
+  }
+  cleanup(resolvedHelper);
+  if (capturedEditorId !== "cursor-claude-code") {
+    throw new Error(
+      `Expected editorId cursor-claude-code, got ${JSON.stringify(capturedEditorId)}`,
+    );
+  }
+  console.log("session_start_sets_cursor_claude_editor_id_for_cursor_envelope: pass");
+}
+
+async function session_start_noop_when_cursor_version_present() {
+  let callCount = 0;
+  const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
+    paths: [hooksDir],
+  });
+  require.cache[resolvedHelper] = {
+    exports: {
+      callAicCompile: () => {
+        callCount += 1;
+        return Promise.resolve("x");
+      },
+    },
+    loaded: true,
+    id: resolvedHelper,
+  };
+  delete require.cache[hookPath];
+  const { run } = require(hookPath);
+  const result = await run(
+    JSON.stringify({ session_id: "s1", cwd: "/tmp", cursor_version: "3" }),
+  );
+  cleanup(resolvedHelper);
+  if (callCount !== 0) {
+    throw new Error(`Expected no compile call, got ${callCount}`);
+  }
+  if (result !== null) {
+    throw new Error(`Expected null, got ${JSON.stringify(result)}`);
+  }
+  console.log("session_start_noop_when_cursor_version_present: pass");
+}
+
 (async () => {
   await output_format_hookSpecificOutput_when_helper_returns_text();
   await session_start_passes_conversationId_when_in_input();
@@ -252,5 +355,8 @@ async function aic_dir_created_with_0700() {
   await marker_file_written_with_session_id();
   await exit_0_silent_when_helper_returns_null();
   await aic_dir_created_with_0700();
+  await session_start_uses_conversation_id_when_transcript_path_missing();
+  await session_start_sets_cursor_claude_editor_id_for_cursor_envelope();
+  await session_start_noop_when_cursor_version_present();
   console.log("All tests passed.");
 })();

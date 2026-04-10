@@ -30,6 +30,10 @@ try {
   // Non-fatal — proceed without conversation_id
 }
 
+if (!hookInput.cursor_version && !hookInput.input?.cursor_version) {
+  process.exit(0);
+}
+
 const conversationId = hookInput.conversation_id || null;
 
 let modelId = null;

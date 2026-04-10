@@ -8,7 +8,10 @@ const os = require("os");
 const path = require("path");
 const { isSessionAlreadyInjected } = require("../../shared/session-markers.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
-const { conversationIdFromTranscriptPath } = require("../../shared/conversation-id.cjs");
+const {
+  conversationIdFromTranscriptPath,
+  explicitEditorIdFromClaudeHookEnvelope,
+} = require("../../shared/conversation-id.cjs");
 
 async function run(stdinStr) {
   const { callAicCompile } = require("./aic-compile-helper.cjs");
@@ -18,6 +21,8 @@ async function run(stdinStr) {
   } catch {
     parsed = {};
   }
+  const isCursorNative = (parsed.cursor_version ?? parsed.input?.cursor_version) != null;
+  if (isCursorNative) return null;
   // Claude Code sends fields at top level; legacy spec nested under `input`
   const top = parsed || {};
   const input = top.input || {};
@@ -84,6 +89,7 @@ async function run(stdinStr) {
     }
   }
 
+  const editorId = explicitEditorIdFromClaudeHookEnvelope(parsed);
   const promptContext = await callAicCompile(
     intent,
     projectRoot,
@@ -91,6 +97,7 @@ async function run(stdinStr) {
     30000,
     "prompt_submit",
     modelArg,
+    editorId,
   );
   if (promptContext == null) return null;
 

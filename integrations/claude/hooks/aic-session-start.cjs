@@ -11,7 +11,10 @@ const {
   writeSessionMarker,
 } = require("../../shared/session-markers.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
-const { conversationIdFromTranscriptPath } = require("../../shared/conversation-id.cjs");
+const {
+  conversationIdFromTranscriptPath,
+  explicitEditorIdFromClaudeHookEnvelope,
+} = require("../../shared/conversation-id.cjs");
 const { callAicCompile } = require("./aic-compile-helper.cjs");
 
 async function run(stdinStr) {
@@ -21,6 +24,8 @@ async function run(stdinStr) {
   } catch {
     parsed = {};
   }
+  const isCursorNative = (parsed.cursor_version ?? parsed.input?.cursor_version) != null;
+  if (isCursorNative) return null;
   const sessionId =
     parsed.session_id != null ? parsed.session_id : (parsed.input?.session_id ?? null);
   const conversationId = conversationIdFromTranscriptPath(parsed);
@@ -38,6 +43,7 @@ async function run(stdinStr) {
   if (!acquireSessionLock(projectRoot)) return null;
 
   try {
+    const editorId = explicitEditorIdFromClaudeHookEnvelope(parsed);
     const text = await callAicCompile(
       "understand project structure, architecture, and recent changes",
       projectRoot,
@@ -45,6 +51,7 @@ async function run(stdinStr) {
       30000,
       "session_start",
       modelArg,
+      editorId,
     );
     if (text == null) return null;
     writeSessionMarker(projectRoot, sessionId);

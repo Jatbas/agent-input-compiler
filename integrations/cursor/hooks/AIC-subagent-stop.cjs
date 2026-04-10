@@ -23,82 +23,86 @@ try {
   // Non-fatal — proceed without input
 }
 
-const projectRoot = resolveProjectRoot(null, { env: process.env });
+if (!hookInput.cursor_version && !hookInput.input?.cursor_version) {
+  process.stdout.write(JSON.stringify({}));
+} else {
+  const projectRoot = resolveProjectRoot(null, { env: process.env });
 
-const parentConversationId = (() => {
+  const parentConversationId = (() => {
+    if (
+      typeof hookInput.conversation_id === "string" &&
+      hookInput.conversation_id.trim().length > 0
+    ) {
+      return hookInput.conversation_id.trim();
+    }
+    if (
+      typeof hookInput.parent_conversation_id === "string" &&
+      hookInput.parent_conversation_id.trim().length > 0
+    ) {
+      return hookInput.parent_conversation_id.trim();
+    }
+    return null;
+  })();
+
+  const childConversationId = conversationIdFromAgentTranscriptPath(
+    hookInput.agent_transcript_path,
+  );
+
   if (
-    typeof hookInput.conversation_id === "string" &&
-    hookInput.conversation_id.trim().length > 0
+    parentConversationId !== null &&
+    childConversationId !== null &&
+    parentConversationId !== childConversationId
   ) {
-    return hookInput.conversation_id.trim();
-  }
-  if (
-    typeof hookInput.parent_conversation_id === "string" &&
-    hookInput.parent_conversation_id.trim().length > 0
-  ) {
-    return hookInput.parent_conversation_id.trim();
-  }
-  return null;
-})();
-
-const childConversationId = conversationIdFromAgentTranscriptPath(
-  hookInput.agent_transcript_path,
-);
-
-if (
-  parentConversationId !== null &&
-  childConversationId !== null &&
-  parentConversationId !== childConversationId
-) {
-  const initRequest = JSON.stringify({
-    jsonrpc: "2.0",
-    id: 1,
-    method: "initialize",
-    params: {
-      protocolVersion: "2024-11-05",
-      capabilities: {},
-      clientInfo: { name: "AIC-hook", version: "0.1.0" },
-    },
-  });
-
-  const initNotification = JSON.stringify({
-    jsonrpc: "2.0",
-    method: "notifications/initialized",
-  });
-
-  const compileRequest = JSON.stringify({
-    jsonrpc: "2.0",
-    id: 2,
-    method: "tools/call",
-    params: {
-      name: "aic_compile",
-      arguments: {
-        intent: "reparent subagent compilations",
-        projectRoot,
-        editorId: "cursor",
-        triggerSource: "subagent_stop",
-        conversationId: parentConversationId,
-        reparentFromConversationId: childConversationId,
+    const initRequest = JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2024-11-05",
+        capabilities: {},
+        clientInfo: { name: "AIC-hook", version: "0.1.0" },
       },
-    },
-  });
-
-  const stdinPayload = `${initRequest}\n${initNotification}\n${compileRequest}\n`;
-  const serverScript = path.join(projectRoot, "mcp", "src", "server.ts");
-  const isDev = fs.existsSync(serverScript);
-  const serverCmd = isDev ? 'npx tsx "' + serverScript + '"' : "npx -y @jatbas/aic";
-
-  try {
-    execSync(serverCmd, {
-      cwd: projectRoot,
-      timeout: 10000,
-      encoding: "utf-8",
-      input: stdinPayload,
-      stdio: ["pipe", "pipe", "pipe"],
     });
-  } catch {
-    // Best-effort — never block returning from subagent
-  }
-}
 
-process.stdout.write(JSON.stringify({}));
+    const initNotification = JSON.stringify({
+      jsonrpc: "2.0",
+      method: "notifications/initialized",
+    });
+
+    const compileRequest = JSON.stringify({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: {
+        name: "aic_compile",
+        arguments: {
+          intent: "reparent subagent compilations",
+          projectRoot,
+          editorId: "cursor",
+          triggerSource: "subagent_stop",
+          conversationId: parentConversationId,
+          reparentFromConversationId: childConversationId,
+        },
+      },
+    });
+
+    const stdinPayload = `${initRequest}\n${initNotification}\n${compileRequest}\n`;
+    const serverScript = path.join(projectRoot, "mcp", "src", "server.ts");
+    const isDev = fs.existsSync(serverScript);
+    const serverCmd = isDev ? 'npx tsx "' + serverScript + '"' : "npx -y @jatbas/aic";
+
+    try {
+      execSync(serverCmd, {
+        cwd: projectRoot,
+        timeout: 10000,
+        encoding: "utf-8",
+        input: stdinPayload,
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+    } catch {
+      // Best-effort — never block returning from subagent
+    }
+  }
+
+  process.stdout.write(JSON.stringify({}));
+}

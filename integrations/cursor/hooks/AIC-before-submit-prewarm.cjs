@@ -34,6 +34,10 @@ process.stdin.on("data", (chunk) => {
 process.stdin.on("end", () => {
   try {
     const input = JSON.parse(raw);
+    if (!input.cursor_version && !input.input?.cursor_version) {
+      process.stdout.write(JSON.stringify({ continue: true }));
+      return;
+    }
     const conversationId = input.conversation_id || "unknown";
     const generationId = input.generation_id || "unknown";
     const prompt = (input.prompt || "").trim();

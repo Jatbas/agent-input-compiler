@@ -8,6 +8,10 @@ const fs = require("fs");
 
 const hookPath = path.join(__dirname, "..", "hooks", "AIC-subagent-stop.cjs");
 
+function withCv(obj) {
+  return JSON.stringify({ cursor_version: "1", ...obj });
+}
+
 function runHook(stdinJson) {
   const originalExecSync = childProcess.execSync;
   let capturedCmd = null;
@@ -38,7 +42,7 @@ function runHook(stdinJson) {
 
 function reparents_when_conversation_id_present() {
   const { capturedCmd, capturedInput } = runHook(
-    JSON.stringify({
+    withCv({
       cwd: "/tmp/test-project",
       conversation_id: "parent-abc",
       agent_transcript_path: "/home/user/.cursor/conversations/child-xyz.jsonl",
@@ -56,7 +60,7 @@ function reparents_when_conversation_id_present() {
 
 function reparents_using_parent_conversation_id_fallback() {
   const { capturedCmd, capturedInput } = runHook(
-    JSON.stringify({
+    withCv({
       cwd: "/tmp/test-project",
       parent_conversation_id: "parent-fallback",
       agent_transcript_path: "/home/user/.cursor/conversations/child-xyz.jsonl",
@@ -77,7 +81,7 @@ function reparents_using_parent_conversation_id_fallback() {
 
 function skips_when_both_id_fields_absent() {
   const { capturedCmd } = runHook(
-    JSON.stringify({
+    withCv({
       cwd: "/tmp/test-project",
       agent_transcript_path: "/home/user/.cursor/conversations/child-xyz.jsonl",
     }),
@@ -92,7 +96,7 @@ function skips_when_both_id_fields_absent() {
 
 function skips_when_ids_identical() {
   const { capturedCmd } = runHook(
-    JSON.stringify({
+    withCv({
       cwd: "/tmp/test-project",
       conversation_id: "same-id",
       agent_transcript_path: "/home/user/.cursor/conversations/same-id.jsonl",
@@ -108,7 +112,7 @@ function skips_when_ids_identical() {
 
 function skips_when_no_agent_transcript_path() {
   const { capturedCmd } = runHook(
-    JSON.stringify({
+    withCv({
       cwd: "/tmp/test-project",
       conversation_id: "parent-abc",
     }),
@@ -126,5 +130,23 @@ reparents_using_parent_conversation_id_fallback();
 skips_when_both_id_fields_absent();
 skips_when_ids_identical();
 skips_when_no_agent_transcript_path();
+
+function cursor_subagent_stop_noop_when_no_cursor_version() {
+  const { capturedCmd } = runHook(
+    JSON.stringify({
+      cwd: "/tmp/test-project",
+      conversation_id: "parent-abc",
+      agent_transcript_path: "/home/user/.cursor/conversations/child-xyz.jsonl",
+    }),
+  );
+  assert.strictEqual(
+    capturedCmd,
+    null,
+    "Expected execSync NOT to be called without cursor_version",
+  );
+  console.log("cursor_subagent_stop_noop_when_no_cursor_version: pass");
+}
+
+cursor_subagent_stop_noop_when_no_cursor_version();
 
 console.log("All AIC-subagent-stop tests passed.");

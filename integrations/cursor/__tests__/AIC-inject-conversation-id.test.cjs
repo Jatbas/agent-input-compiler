@@ -25,8 +25,12 @@ function runHook(stdinStr) {
   return result.stdout.trim();
 }
 
+function hookPayload(obj) {
+  return JSON.stringify({ cursor_version: "1", ...obj });
+}
+
 function inject_modelId_when_model_present() {
-  const stdin = JSON.stringify({
+  const stdin = hookPayload({
     tool_name: "aic_compile",
     tool_input: {
       intent: "test intent",
@@ -49,7 +53,7 @@ function inject_modelId_when_model_present() {
 }
 
 function inject_allow_when_no_conversation_but_model() {
-  const stdin = JSON.stringify({
+  const stdin = hookPayload({
     tool_name: "aic_compile",
     tool_input: {
       intent: "test intent",
@@ -82,7 +86,7 @@ function inject_replaces_weak_intent_with_prewarm_prompt() {
   const prewarmPath = path.join(os.tmpdir(), "aic-prompt-gen-inject-test");
   fs.writeFileSync(prewarmPath, "fix auth module for oauth", "utf8");
   try {
-    const stdin = JSON.stringify({
+    const stdin = hookPayload({
       generation_id: "gen-inject-test",
       tool_name: "aic_compile",
       tool_input: {
@@ -115,7 +119,7 @@ function inject_strips_ide_selection_from_prewarm() {
     "utf8",
   );
   try {
-    const stdin = JSON.stringify({
+    const stdin = hookPayload({
       generation_id: "gen-ide-strip",
       tool_name: "aic_compile",
       tool_input: {
@@ -141,7 +145,7 @@ function inject_strips_ide_selection_from_prewarm() {
 }
 
 function inject_skips_when_prewarm_missing() {
-  const stdin = JSON.stringify({
+  const stdin = hookPayload({
     conversation_id: "conv-skip-prewarm",
     generation_id: "gen-no-file-xyz",
     tool_name: "aic_compile",
@@ -169,7 +173,7 @@ function inject_skips_when_prewarm_missing() {
 }
 
 function inject_normalizes_default_to_auto() {
-  const stdin = JSON.stringify({
+  const stdin = hookPayload({
     tool_name: "aic_compile",
     tool_input: {
       intent: "test intent",
@@ -197,4 +201,24 @@ inject_replaces_weak_intent_with_prewarm_prompt();
 inject_strips_ide_selection_from_prewarm();
 inject_skips_when_prewarm_missing();
 inject_normalizes_default_to_auto();
+
+function cursor_inject_conversation_id_noop_when_no_cursor_version() {
+  const result = spawnSync("node", [hookPath], {
+    input: JSON.stringify({
+      tool_name: "aic_compile",
+      tool_input: { intent: "x", projectRoot: "/tmp" },
+    }),
+    encoding: "utf8",
+    env: { ...process.env },
+  });
+  if (result.stdout.trim() !== "") {
+    throw new Error(`Expected empty stdout, got ${JSON.stringify(result.stdout)}`);
+  }
+  if (result.status !== 0) {
+    throw new Error(`Expected exit 0, got ${result.status}`);
+  }
+  console.log("cursor_inject_conversation_id_noop_when_no_cursor_version: pass");
+}
+
+cursor_inject_conversation_id_noop_when_no_cursor_version();
 console.log("All tests passed.");

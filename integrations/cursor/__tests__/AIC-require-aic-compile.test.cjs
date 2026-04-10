@@ -55,6 +55,10 @@ function cleanupRecency(projectRoot) {
   }
 }
 
+function hookPayload(obj) {
+  return JSON.stringify({ cursor_version: "1", ...obj });
+}
+
 // Isolate from the real repo aic.config.json by pointing CURSOR_PROJECT_DIR at a temp dir.
 const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-gate-empty-"));
 
@@ -75,7 +79,7 @@ function deny_message_intent_stripped_when_saved_prompt_has_ide_selection() {
   const promptContent = "hello <ide_selection>V8</ide_selection> world";
   fs.writeFileSync(promptPath, promptContent, "utf8");
   try {
-    const stdin = JSON.stringify({
+    const stdin = hookPayload({
       generation_id: generationId,
       tool_name: "other_tool",
       tool_input: {},
@@ -119,7 +123,7 @@ function hook_emergency_bypass_allows() {
     "utf8",
   );
   const result = spawnSync("node", [hookPath], {
-    input: JSON.stringify({
+    input: hookPayload({
       generation_id: "test-gen",
       tool_name: "other_tool",
       tool_input: {},
@@ -146,7 +150,7 @@ function hook_dev_mode_alone_denies() {
   );
   const generationId = crypto.randomBytes(8).toString("hex");
   const result = spawnSync("node", [hookPath], {
-    input: JSON.stringify({
+    input: hookPayload({
       generation_id: generationId,
       tool_name: "other_tool",
       tool_input: {},
@@ -175,7 +179,7 @@ function hook_dev_mode_false_or_absent_denies() {
   const genFalse = crypto.randomBytes(8).toString("hex");
   const outFalse = JSON.parse(
     runHook(
-      JSON.stringify({
+      hookPayload({
         generation_id: genFalse,
         tool_name: "other_tool",
         tool_input: {},
@@ -198,7 +202,7 @@ function hook_dev_mode_false_or_absent_denies() {
   const genAbsent = crypto.randomBytes(8).toString("hex");
   const outAbsent = JSON.parse(
     runHook(
-      JSON.stringify({
+      hookPayload({
         generation_id: genAbsent,
         tool_name: "other_tool",
         tool_input: {},
@@ -220,7 +224,7 @@ function hook_missing_aic_config_denies() {
   try {
     const out = JSON.parse(
       runHook(
-        JSON.stringify({
+        hookPayload({
           generation_id: generationId,
           tool_name: "other_tool",
           tool_input: {},
@@ -241,7 +245,7 @@ function hook_missing_aic_config_denies() {
 function gate_denies_first_unknown_tool() {
   const generationId = crypto.randomBytes(8).toString("hex");
   try {
-    const stdin = JSON.stringify({
+    const stdin = hookPayload({
       generation_id: generationId,
       tool_name: "some_other_tool",
       tool_input: {},
@@ -259,7 +263,7 @@ function gate_denies_first_unknown_tool() {
 function gate_keeps_denying_without_compile() {
   const generationId = crypto.randomBytes(8).toString("hex");
   try {
-    const stdin = JSON.stringify({
+    const stdin = hookPayload({
       generation_id: generationId,
       tool_name: "some_other_tool",
       tool_input: {},
@@ -284,7 +288,7 @@ function gate_allows_after_aic_compile() {
   const generationId = crypto.randomBytes(8).toString("hex");
   try {
     // Call aic_compile first
-    const compileStdin = JSON.stringify({
+    const compileStdin = hookPayload({
       generation_id: generationId,
       tool_name: "mcp",
       tool_input: { toolName: "aic_compile" },
@@ -294,7 +298,7 @@ function gate_allows_after_aic_compile() {
       throw new Error(`Expected "allow" for aic_compile, got ${compileOut.permission}`);
     }
     // Subsequent tool should be allowed via state file
-    const toolStdin = JSON.stringify({
+    const toolStdin = hookPayload({
       generation_id: generationId,
       tool_name: "some_other_tool",
       tool_input: {},
@@ -315,7 +319,7 @@ function deny_message_uses_dynamic_project_root() {
   const env = { ...process.env, CURSOR_PROJECT_DIR: customDir };
   try {
     const result = spawnSync("node", [hookPath], {
-      input: JSON.stringify({
+      input: hookPayload({
         generation_id: generationId,
         tool_name: "other_tool",
         tool_input: {},
@@ -346,7 +350,7 @@ function gate_allows_with_recent_compile() {
   const recencyFile = getRecencyFile(emptyDir);
   fs.writeFileSync(recencyFile, String(Date.now()));
   try {
-    const stdin = JSON.stringify({
+    const stdin = hookPayload({
       generation_id: generationId,
       tool_name: "some_other_tool",
       tool_input: {},
@@ -367,7 +371,7 @@ function gate_denies_with_stale_recency() {
   const recencyFile = getRecencyFile(emptyDir);
   fs.writeFileSync(recencyFile, String(Date.now() - 200_000));
   try {
-    const stdin = JSON.stringify({
+    const stdin = hookPayload({
       generation_id: generationId,
       tool_name: "some_other_tool",
       tool_input: {},
@@ -387,7 +391,7 @@ function gate_allows_after_max_denies() {
   const generationId = crypto.randomBytes(8).toString("hex");
   cleanupRecency(emptyDir);
   try {
-    const stdin = JSON.stringify({
+    const stdin = hookPayload({
       generation_id: generationId,
       tool_name: "some_other_tool",
       tool_input: {},
@@ -414,7 +418,7 @@ function aic_compile_resets_deny_counter() {
   const generationId = crypto.randomBytes(8).toString("hex");
   cleanupRecency(emptyDir);
   try {
-    const toolStdin = JSON.stringify({
+    const toolStdin = hookPayload({
       generation_id: generationId,
       tool_name: "some_other_tool",
       tool_input: {},
@@ -426,7 +430,7 @@ function aic_compile_resets_deny_counter() {
     if (r2.permission !== "deny")
       throw new Error(`Deny 2: expected deny, got ${r2.permission}`);
 
-    const compileStdin = JSON.stringify({
+    const compileStdin = hookPayload({
       generation_id: generationId,
       tool_name: "mcp",
       tool_input: { toolName: "aic_compile" },
@@ -437,7 +441,7 @@ function aic_compile_resets_deny_counter() {
 
     cleanupRecency(emptyDir);
     const newGenId = crypto.randomBytes(8).toString("hex");
-    const toolStdin2 = JSON.stringify({
+    const toolStdin2 = hookPayload({
       generation_id: newGenId,
       tool_name: "some_other_tool",
       tool_input: {},
@@ -478,7 +482,7 @@ function cleanup_removes_stale_gate_files() {
   fs.utimesSync(stalePrompt, past, past);
 
   try {
-    const stdin = JSON.stringify({
+    const stdin = hookPayload({
       generation_id: crypto.randomBytes(8).toString("hex"),
       tool_name: "mcp",
       tool_input: { toolName: "aic_compile" },
@@ -516,4 +520,25 @@ gate_denies_with_stale_recency();
 gate_allows_after_max_denies();
 aic_compile_resets_deny_counter();
 cleanup_removes_stale_gate_files();
+
+function cursor_require_compile_noop_when_no_cursor_version() {
+  const result = spawnSync("node", [hookPath], {
+    input: JSON.stringify({
+      generation_id: "gen-no-cv",
+      tool_name: "other_tool",
+      tool_input: {},
+    }),
+    encoding: "utf8",
+    env: { ...process.env, CURSOR_PROJECT_DIR: emptyDir },
+  });
+  if (result.stdout.trim() !== "") {
+    throw new Error(`Expected empty stdout, got ${JSON.stringify(result.stdout)}`);
+  }
+  if (result.status !== 0) {
+    throw new Error(`Expected exit 0, got ${result.status}`);
+  }
+  console.log("cursor_require_compile_noop_when_no_cursor_version: pass");
+}
+
+cursor_require_compile_noop_when_no_cursor_version();
 console.log("All tests passed.");
