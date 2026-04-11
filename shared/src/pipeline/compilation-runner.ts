@@ -50,8 +50,7 @@ import {
 import { canonicalRelatedPathsForSelectionCache } from "./related-files-boost-context-selector.js";
 import { MODEL_CONTEXT_WINDOWS } from "@jatbas/aic-core/data/model-context-windows.js";
 
-// Uses conversationId as the session key when present so each editor conversation
-// gets its own session_state rows and cache entries instead of sharing by process sessionId.
+// conversationId as session key gives each editor conversation its own cache entries.
 function resolveEffectiveSessionId(request: CompilationRequest): SessionId | null {
   if (request.conversationId !== undefined && request.conversationId !== null) {
     return toSessionId(request.conversationId);
@@ -274,12 +273,7 @@ function recordSessionStepIfNeeded(
   });
 }
 
-// NORMALIZATION CONTRACT — must match normalizeModelId in fetch-model-context-windows.cjs exactly:
-// 1. Strip first vendor/ prefix if present.
-// 2. Strip trailing 8-digit date suffix (-YYYYMMDD) if present.
-// 3. Lowercase.
-// 4. Reorder claude-{semver}-{role} to claude-{role}-{semver} (e.g. "claude-4.6-sonnet-medium-thinking" → "claude-sonnet-4.6").
-// If this logic changes, update fetch-model-context-windows.cjs in lockstep.
+// Must match normalizeModelId in fetch-model-context-windows.cjs exactly — update both in lockstep.
 export function normalizeForLookup(id: string): string {
   const withoutVendor = id.includes("/") ? id.slice(id.indexOf("/") + 1) : id;
   const base = withoutVendor.toLowerCase().replace(/-\d{8}$/, "");

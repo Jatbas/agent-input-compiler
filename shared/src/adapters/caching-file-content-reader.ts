@@ -6,8 +6,7 @@ import * as path from "node:path";
 import type { FileContentReader } from "@jatbas/aic-core/core/interfaces/file-content-reader.interface.js";
 import type { AbsolutePath, RelativePath } from "@jatbas/aic-core/core/types/paths.js";
 
-// Wraps fs with mtime-based LRU cache so repeated reads of the same
-// unchanged file hit memory; cap prevents unbounded growth.
+// mtime-based LRU: repeated reads of unchanged files hit memory; cap prevents unbounded growth.
 export function createCachingFileContentReader(
   projectRoot: AbsolutePath,
   options?: { readonly maxEntries?: number },

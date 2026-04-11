@@ -5,8 +5,7 @@ import type { EditorId } from "@jatbas/aic-core/core/types/enums.js";
 import { EDITOR_ID } from "@jatbas/aic-core/core/types/enums.js";
 import type { SessionId } from "@jatbas/aic-core/core/types/identifiers.js";
 
-// Single place for session and editor resolution before we persist.
-// Editor: detect from client; if generic, use last known (cursor/claude-code). Session: server's primary only.
+// Falls back to last known editor when generic — prevents per-call editor ID oscillation.
 export class SessionContext {
   private lastEditorId: EditorId | null = null;
 

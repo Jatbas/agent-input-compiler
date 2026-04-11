@@ -236,6 +236,55 @@ const BAN_RELATIVE_PARENT = {
     "Use #alias subpath imports (#core/, #adapters/, #storage/, #pipeline/) instead of relative parent paths.",
 };
 
+// ─── Custom inline rules ─────────────────────────────────────────────
+
+const localPlugin = {
+  rules: {
+    "no-multi-line-comment-block": {
+      meta: {
+        type: "suggestion",
+        docs: { description: "One // line per comment block — explain why, not what." },
+        messages: {
+          tooManyLines: "Comment block spans {{count}} lines. One // line max.",
+        },
+        schema: [],
+      },
+      create(context) {
+        return {
+          Program() {
+            const src = context.sourceCode;
+            // Only standalone // lines (no code before comment on the same line).
+            const comments = src.getAllComments().filter((c) => {
+              if (c.type !== "Line") return false;
+              const lineText = src.lines[c.loc.start.line - 1];
+              return lineText.slice(0, c.loc.start.column).trim() === "";
+            });
+            let i = 0;
+            while (i < comments.length) {
+              let j = i + 1;
+              while (
+                j < comments.length &&
+                comments[j].loc.start.line === comments[j - 1].loc.start.line + 1
+              ) {
+                j++;
+              }
+              const count = j - i;
+              if (count > 1 && !comments[i].value.trim().startsWith("SPDX-")) {
+                context.report({
+                  loc: { start: comments[i].loc.start, end: comments[j - 1].loc.end },
+                  messageId: "tooManyLines",
+                  data: { count },
+                });
+              }
+              i = j;
+            }
+          },
+        };
+      },
+    },
+  },
+};
+
 // ─── Config ─────────────────────────────────────────────────────────
 
 export default tseslint.config(
@@ -285,6 +334,7 @@ export default tseslint.config(
       "check-file": checkFile,
       sonarjs: sonarjs,
       "max-methods-per-class": maxMethodsPerClass,
+      local: localPlugin,
     },
     rules: {
       // ── File naming: kebab-case ──
@@ -370,8 +420,9 @@ export default tseslint.config(
         },
       ],
 
-      // ── Comments: single-line only, no block comments, no JSDoc ──
+      // ── Comments: single-line only, no block comments, no JSDoc, one line max ──
       "multiline-comment-style": ["error", "separate-lines", { checkJSDoc: true }],
+      "local/no-multi-line-comment-block": "error",
       "no-warning-comments": [
         "warn",
         { terms: ["fixme", "hack", "xxx"], location: "start" },

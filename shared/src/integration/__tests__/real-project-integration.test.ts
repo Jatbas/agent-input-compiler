@@ -94,8 +94,7 @@ function createRunner(repoMapOverride?: RepoMapSupplier): CompilationRunner {
   );
 }
 
-// Caches the first getRepoMap result so subsequent calls return the same
-// object — prevents cache-key drift from concurrent filesystem changes
+// Caches first result — prevents cache-key drift from concurrent filesystem changes.
 function createStableRepoMapSupplier(): RepoMapSupplier {
   let cached: RepoMap | null = null;
   return {

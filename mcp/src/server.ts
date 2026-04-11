@@ -355,10 +355,7 @@ export function createMcpServer(
           }
         }
       : compileHandler;
-  // Safety net: if the model omits intent/projectRoot, fall back to the
-  // startup project root and a generic intent so the call succeeds rather
-  // than returning -32602. Normal calls are unaffected (defaults are only
-  // applied when the value is undefined).
+  // Defaults only applied when undefined — model-omitted fields would otherwise return -32602.
   const compileSchemaWithDefaults = {
     ...CompilationRequestSchema,
     intent: CompilationRequestSchema.intent.default(MCP_INTENT_OMITTED_DEFAULT),
@@ -630,8 +627,7 @@ export async function main(): Promise<void> {
   transport.onerror = (_err: Error): void => {
     process.exit(1);
   };
-  // Batch stdin (e.g. subagentStart hook): exit only when stdin has ended and
-  // no tool call is in progress, so the compile can finish and write to the DB.
+  // Defer exit until pending compile finishes — batched stdin (e.g. subagentStart) must write to DB first.
   process.stdin.on("end", () => {
     batchExitRef.stdinEnded = true;
     if (batchExitRef.pendingToolCalls === 0) process.exit(0);
