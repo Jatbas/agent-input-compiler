@@ -1195,18 +1195,28 @@ describe("normalizeForLookup", () => {
   it("normalize_returns_auto_for_auto", () => {
     expect(normalizeForLookup("auto")).toBe("auto");
   });
+
+  it("normalize_reorders_cursor_version_role_format", () => {
+    expect(normalizeForLookup("claude-4.6-sonnet-medium-thinking")).toBe(
+      "claude-sonnet-4.6",
+    );
+  });
+
+  it("normalize_reorders_cursor_format_strips_variant", () => {
+    expect(normalizeForLookup("claude-4.6-opus")).toBe("claude-opus-4.6");
+  });
 });
 
 describe("lookupContextWindow", () => {
   it("lookup_exact_match", () => {
-    expect(lookupContextWindow("claude-opus-4-6")).toBe(
-      MODEL_CONTEXT_WINDOWS["claude-opus-4-6"],
+    expect(lookupContextWindow("claude-opus-4.6")).toBe(
+      MODEL_CONTEXT_WINDOWS["claude-opus-4.6"],
     );
   });
 
   it("lookup_prefix_walk_strips_suffix", () => {
-    expect(lookupContextWindow("claude-sonnet-4-6-preview")).toBe(
-      MODEL_CONTEXT_WINDOWS["claude-sonnet-4-6"],
+    expect(lookupContextWindow("claude-sonnet-4.6-preview")).toBe(
+      MODEL_CONTEXT_WINDOWS["claude-sonnet-4.6"],
     );
   });
 

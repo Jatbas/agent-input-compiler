@@ -29,6 +29,7 @@ const MAX_RESPONSE_BYTES = 10 * 1024 * 1024; // 10 MB
 // 1. Strip first vendor/ prefix if present.
 // 2. Strip trailing 8-digit date suffix (-YYYYMMDD) if present.
 // 3. Lowercase.
+// 4. Reorder claude-{semver}-{role} to claude-{role}-{semver} (handles version-role order from some editors).
 // If this logic changes, update compilation-runner.ts in lockstep.
 function stripVendorPrefix(id) {
   const slash = id.indexOf("/");
@@ -40,7 +41,10 @@ function stripDateSuffix(id) {
 }
 
 function normalizeModelId(id) {
-  return stripDateSuffix(stripVendorPrefix(id)).toLowerCase();
+  const base = stripDateSuffix(stripVendorPrefix(id)).toLowerCase();
+  const m = /^(claude)-(\d+\.\d+)-([a-z]+)/.exec(base);
+  if (m !== null) return `${m[1]}-${m[3]}-${m[2]}`;
+  return base;
 }
 
 // Filter by vendor of origin on the raw ID (before normalization) so future model

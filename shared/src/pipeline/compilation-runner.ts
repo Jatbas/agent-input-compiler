@@ -275,9 +275,17 @@ function recordSessionStepIfNeeded(
 }
 
 // NORMALIZATION CONTRACT — must match normalizeModelId in fetch-model-context-windows.cjs exactly:
+// 1. Strip first vendor/ prefix if present.
+// 2. Strip trailing 8-digit date suffix (-YYYYMMDD) if present.
+// 3. Lowercase.
+// 4. Reorder claude-{semver}-{role} to claude-{role}-{semver} (e.g. "claude-4.6-sonnet-medium-thinking" → "claude-sonnet-4.6").
+// If this logic changes, update fetch-model-context-windows.cjs in lockstep.
 export function normalizeForLookup(id: string): string {
   const withoutVendor = id.includes("/") ? id.slice(id.indexOf("/") + 1) : id;
-  return withoutVendor.toLowerCase().replace(/-\d{8}$/, "");
+  const base = withoutVendor.toLowerCase().replace(/-\d{8}$/, "");
+  const m = /^(claude)-(\d+\.\d+)-([a-z]+)/.exec(base);
+  if (m !== null) return `${m[1]}-${m[3]}-${m[2]}`;
+  return base;
 }
 
 export function lookupContextWindow(normalizedId: string): number | undefined {
