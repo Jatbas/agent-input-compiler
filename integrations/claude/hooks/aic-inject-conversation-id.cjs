@@ -49,7 +49,7 @@ function run(stdinStr) {
     ...toolInput,
     editorId: eid,
     ...(conversationId ? { conversationId } : {}),
-    ...(cachedModelId ? { modelId: cachedModelId } : {}),
+    ...(cachedModelId && cachedModelId !== "auto" ? { modelId: cachedModelId } : {}),
   };
   if (isWeakAicCompileIntent(toolInput?.intent) && conversationId) {
     const filled = readAicPrewarmPrompt(`cc-${conversationId}`);

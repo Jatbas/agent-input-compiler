@@ -147,6 +147,98 @@ function read_fallback_matches_full_file_when_conv_line_only_in_prefix() {
   }
 }
 
+function write_skips_auto() {
+  const dir = path.join(os.tmpdir(), `aic-session-cache-test-${Date.now()}`);
+  fs.mkdirSync(dir, { recursive: true });
+  try {
+    writeSessionModelCache(dir, "claude-sonnet-4.6", "conv-1", "cursor");
+    writeSessionModelCache(dir, "auto", "conv-1", "cursor");
+    const got = readSessionModelCache(dir, "conv-1", "cursor");
+    assert.strictEqual(got, "claude-sonnet-4.6");
+  } finally {
+    try {
+      fs.rmSync(path.join(dir, ".aic", "session-models.jsonl"), { force: true });
+      fs.rmdirSync(path.join(dir, ".aic"), { recursive: true });
+      fs.rmdirSync(dir, { recursive: true });
+    } catch {
+      // ignore cleanup errors
+    }
+  }
+}
+
+function read_skips_auto_entries_from_file() {
+  const dir = path.join(os.tmpdir(), `aic-session-cache-test-${Date.now()}`);
+  const aicDir = path.join(dir, ".aic");
+  fs.mkdirSync(aicDir, { recursive: true });
+  const filePath = path.join(aicDir, "session-models.jsonl");
+  fs.writeFileSync(
+    filePath,
+    JSON.stringify({
+      m: "auto",
+      c: "conv-1",
+      e: "cursor",
+      timestamp: "2026-01-01T00:00:00.000Z",
+    }) +
+      "\n" +
+      JSON.stringify({
+        m: "claude-sonnet-4.6",
+        c: "conv-1",
+        e: "cursor",
+        timestamp: "2026-01-02T00:00:00.000Z",
+      }) +
+      "\n" +
+      JSON.stringify({
+        m: "auto",
+        c: "conv-1",
+        e: "cursor",
+        timestamp: "2026-01-03T00:00:00.000Z",
+      }) +
+      "\n",
+    "utf8",
+  );
+  try {
+    const got = readSessionModelCache(dir, "conv-1", "cursor");
+    assert.strictEqual(got, "claude-sonnet-4.6");
+  } finally {
+    try {
+      fs.rmSync(filePath, { force: true });
+      fs.rmdirSync(aicDir, { recursive: true });
+      fs.rmdirSync(dir, { recursive: true });
+    } catch {
+      // ignore
+    }
+  }
+}
+
+function read_returns_null_when_only_auto_entries_exist() {
+  const dir = path.join(os.tmpdir(), `aic-session-cache-test-${Date.now()}`);
+  const aicDir = path.join(dir, ".aic");
+  fs.mkdirSync(aicDir, { recursive: true });
+  const filePath = path.join(aicDir, "session-models.jsonl");
+  fs.writeFileSync(
+    filePath,
+    JSON.stringify({
+      m: "auto",
+      c: "conv-1",
+      e: "cursor",
+      timestamp: "2026-01-01T00:00:00.000Z",
+    }) + "\n",
+    "utf8",
+  );
+  try {
+    const got = readSessionModelCache(dir, "conv-1", "cursor");
+    assert.strictEqual(got, null);
+  } finally {
+    try {
+      fs.rmSync(filePath, { force: true });
+      fs.rmdirSync(aicDir, { recursive: true });
+      fs.rmdirSync(dir, { recursive: true });
+    } catch {
+      // ignore
+    }
+  }
+}
+
 const cases = [
   normalizeModelId_default,
   normalizeModelId_passthrough,
@@ -157,6 +249,9 @@ const cases = [
   read_filters_editorId,
   read_skips_invalid_line,
   read_fallback_matches_full_file_when_conv_line_only_in_prefix,
+  write_skips_auto,
+  read_skips_auto_entries_from_file,
+  read_returns_null_when_only_auto_entries_exist,
 ];
 
 let failed = 0;

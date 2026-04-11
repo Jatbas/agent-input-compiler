@@ -23,6 +23,7 @@ function writeSessionModelCache(
   editorId,
   timestamp,
 ) {
+  if (modelId === "auto") return;
   const ts = timestamp !== undefined ? timestamp : new Date().toISOString();
   const entryObj = {
     c: typeof conversationId === "string" ? conversationId.trim() : "",

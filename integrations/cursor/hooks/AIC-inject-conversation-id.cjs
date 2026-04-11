@@ -72,18 +72,14 @@ process.stdin.on("end", () => {
     if (idStr) updated.conversationId = idStr;
     if (typeof input.model === "string") {
       const trimmed = input.model.trim();
-      if (isValidModelId(trimmed)) {
-        updated.modelId = normalizeModelId(trimmed);
+      const normalized = normalizeModelId(trimmed);
+      if (isValidModelId(trimmed) && normalized !== "auto") {
+        updated.modelId = normalized;
         const projectRoot = resolveProjectRoot(null, {
           env: process.env,
           toolInputOverride: toolInput?.projectRoot,
         });
-        writeSessionModelCache(
-          projectRoot,
-          normalizeModelId(trimmed),
-          idStr || "",
-          "cursor",
-        );
+        writeSessionModelCache(projectRoot, normalized, idStr || "", "cursor");
       }
     }
     const generationId = input.generation_id ?? input.generationId ?? "unknown";

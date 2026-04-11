@@ -40,8 +40,9 @@ const conversationId = conversationIdFromTranscriptPath(hookInput);
 let modelId = null;
 if (typeof hookInput.model === "string") {
   const trimmed = hookInput.model.trim();
-  if (isValidModelId(trimmed)) {
-    modelId = normalizeModelId(trimmed);
+  const normalized = normalizeModelId(trimmed);
+  if (isValidModelId(trimmed) && normalized !== "auto") {
+    modelId = normalized;
     writeSessionModelCache(projectRoot, modelId, conversationId || "", "cursor");
   }
 }

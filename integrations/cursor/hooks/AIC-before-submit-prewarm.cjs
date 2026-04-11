@@ -57,10 +57,11 @@ process.stdin.on("end", () => {
         timestamp: ts,
       });
 
-      if (isValidModelId(model)) {
+      const normalizedModel = normalizeModelId(model.trim());
+      if (isValidModelId(model) && normalizedModel !== "auto") {
         writeSessionModelCache(
           projectRoot,
-          normalizeModelId(model.trim()),
+          normalizedModel,
           conversationId,
           "cursor",
           ts,

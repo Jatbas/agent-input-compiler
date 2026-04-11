@@ -115,8 +115,11 @@ function callAicCompile(
       : ["@jatbas/aic"];
   const editorId = resolveEditorId(explicitEditorId);
   let resolved = null;
-  if (isValidModelId(modelId)) {
-    resolved = normalizeModelId(String(modelId).trim());
+  const normalizedModelId = isValidModelId(modelId)
+    ? normalizeModelId(String(modelId).trim())
+    : null;
+  if (normalizedModelId !== null && normalizedModelId !== "auto") {
+    resolved = normalizedModelId;
     writeSessionModelCache(projectRoot, resolved, conversationId || "", editorId);
   } else {
     const cached = readSessionModelCache(projectRoot, conversationId, editorId);

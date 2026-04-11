@@ -21,6 +21,7 @@ export function reduceSessionModelJsonlState(
         if (
           typeof entry.m !== "string" ||
           !isValidModelId(entry.m) ||
+          entry.m === "auto" ||
           typeof entry.c !== "string" ||
           !isValidConversationId(entry.c) ||
           typeof entry.e !== "string" ||

@@ -86,8 +86,10 @@ function resolveAndCacheModelId(
   conversationId: string | null,
   _timestamp: string,
 ): string | null {
+  const resolvedArgsModelId =
+    argsModelId !== null && argsModelId !== "auto" ? argsModelId : null;
   const raw: string | null =
-    argsModelId ??
+    resolvedArgsModelId ??
     readSessionModelCache(projectRoot, conversationId, editorId) ??
     getModelId(editorId);
   return raw !== null ? normalizeModelId(raw) : null;

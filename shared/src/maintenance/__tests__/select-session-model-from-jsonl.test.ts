@@ -54,6 +54,21 @@ describe("selectSessionModelIdFromJsonlContent", () => {
     expect(selectSessionModelIdFromJsonlContent(raw, null, cursor)).toBe("good");
   });
 
+  it("skips entries with model id 'auto'", () => {
+    const raw = [
+      line("auto", "conv-a", cursor),
+      line("claude-sonnet-4.6", "conv-a", cursor),
+    ].join("\n");
+    expect(selectSessionModelIdFromJsonlContent(raw, "conv-a", cursor)).toBe(
+      "claude-sonnet-4.6",
+    );
+  });
+
+  it("returns null when only 'auto' entries exist", () => {
+    const raw = `${line("auto", "conv-a", cursor)}\n`;
+    expect(selectSessionModelIdFromJsonlContent(raw, "conv-a", cursor)).toBeNull();
+  });
+
   it("reduceSessionModelJsonlState aligns with selectSessionModelIdFromJsonlContent on multi-line fixture", () => {
     const raw = [
       line("m1", "conv-a", cursor),
