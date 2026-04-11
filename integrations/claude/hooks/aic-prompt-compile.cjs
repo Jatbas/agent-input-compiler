@@ -12,6 +12,9 @@ const {
   conversationIdFromTranscriptPath,
   explicitEditorIdFromClaudeHookEnvelope,
 } = require("../../shared/conversation-id.cjs");
+const {
+  readModelFromTranscript,
+} = require("../../shared/read-model-from-transcript.cjs");
 
 async function run(stdinStr) {
   const { callAicCompile } = require("./aic-compile-helper.cjs");
@@ -56,12 +59,15 @@ async function run(stdinStr) {
   }
   const rawModel =
     top.model != null ? top.model : input.model != null ? input.model : null;
+  // Claude Code hook envelope omits model; fall back to transcript tail-read (available from turn 2+).
+  const transcriptPath = parsed.transcript_path ?? parsed.input?.transcript_path ?? null;
+  const effectiveRawModel = rawModel ?? readModelFromTranscript(transcriptPath);
   const modelArg =
-    typeof rawModel === "string" &&
-    rawModel.trim().length >= 1 &&
-    rawModel.trim().length <= 256 &&
-    /^[\x20-\x7E]+$/.test(rawModel.trim())
-      ? rawModel.trim()
+    typeof effectiveRawModel === "string" &&
+    effectiveRawModel.trim().length >= 1 &&
+    effectiveRawModel.trim().length <= 256 &&
+    /^[\x20-\x7E]+$/.test(effectiveRawModel.trim())
+      ? effectiveRawModel.trim()
       : undefined;
 
   const alreadyInjected = isSessionAlreadyInjected(projectRoot, sessionId);

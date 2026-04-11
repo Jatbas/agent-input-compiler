@@ -62,14 +62,19 @@ function shouldInclude(rawId) {
   return v !== null && INCLUDE_VENDORS.has(v);
 }
 
-// Anthropic models: use standard 200K window, not the 1M beta.
-// The 1M context requires the "context-1m-2025-08-07" beta header,
-// which only Claude Code sends. Cursor does not send this header.
+// Anthropic models that have a native 1M context window (GA, no beta header required).
+// All other Anthropic models are capped at CLAUDE_STANDARD_WINDOW because OpenRouter
+// data for Anthropic models is unreliable — older models report 1M incorrectly.
+const CLAUDE_1M_MODELS = new Set([
+  "claude-opus-4.6",
+  "claude-opus-4.6-fast",
+  "claude-sonnet-4.6",
+]);
 const CLAUDE_STANDARD_WINDOW = 200000;
 
-function resolveContextWindow(rawId, _normalizedId, apiContextLength) {
-  if (vendorOf(rawId) === "anthropic") return CLAUDE_STANDARD_WINDOW;
-  return apiContextLength;
+function resolveContextWindow(rawId, normalizedId, apiContextLength) {
+  if (vendorOf(rawId) !== "anthropic") return apiContextLength;
+  return CLAUDE_1M_MODELS.has(normalizedId) ? 1000000 : CLAUDE_STANDARD_WINDOW;
 }
 
 function readExistingKeys(filePath) {
