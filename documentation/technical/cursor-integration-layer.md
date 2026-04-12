@@ -598,7 +598,7 @@ Omitting `conversationId` when resolution fails leaves `compilation_log.conversa
 
 ### 9.2 Subagent telemetry — `AIC-subagent-compile.cjs`
 
-Same spawn pattern for a best-effort `compilation_log` row; on failure the hook still allows subagent start. §9.1’s `conversationId` resolution applies to parent attribution: use `parent_conversation_id` when present, otherwise the shared fallback chain so telemetry can roll up when synthetic ids are available.
+Same spawn pattern for a best-effort `compilation_log` row; on failure the hook still allows subagent start. **Unlike §9.1**, this hook does **not** use `conversationIdFromTranscriptPath` (no session transcript path on subagent start). It uses trimmed `parent_conversation_id` when present; otherwise `resolveConversationIdFallback` on the hook payload so telemetry can roll up when synthetic ids qualify ([Integrations shared modules](integrations-shared-modules.md)).
 
 ### 9.3 Subagent reparent — `AIC-subagent-stop.cjs`
 
@@ -743,7 +743,7 @@ All of the following must be verified for the Cursor integration to be complete:
 Context delivery:
 
 - [ ] `AIC-session-init.cjs` injects architectural invariants via `additional_context` (§7.1)
-- [ ] `AIC-compile-context.cjs` calls `aic_compile` with `conversationId` from `conversation_id` (§9.1)
+- [ ] `AIC-compile-context.cjs` calls `aic_compile` with `conversationId` resolved per §9.1 (transcript path, direct ids, `AIC_CONVERSATION_ID`, or `resolveConversationIdFallback`)
 - [ ] `AIC-before-submit-prewarm.cjs` saves prompt for gate deny message (§7.2)
 - [ ] `AIC-require-aic-compile.cjs` enforces `aic_compile` via per-generation marker, 120s recency fallback, and deny-count cap unless emergency bypass is active (§7.3)
 - [ ] `AIC-inject-conversation-id.cjs` injects `conversationId` into MCP args (§7.4)

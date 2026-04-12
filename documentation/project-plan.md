@@ -98,6 +98,8 @@ These are explicitly out of scope for the Phase 0 baseline described in this pla
 
 > **First agentic tranche** labels early-shipped agentic pieces (before Phase 1 roadmap items such as `aic_compile_spec`). **Phase 0 baseline** is the initial release boundary in this table — the two labels are not the same.
 
+> **Session layer vs §2.7:** The Non-goals row defers a full **Session Tracker** surface, stronger deduplication, utilization-based budget **auto-tuning** beyond fixed headroom, and a real `aic_compile_spec` compiler. [§2.7 Agentic workflow support](#27-agentic-workflow-support) still describes wire fields (`conversationId`, step index, summaries) and prompt assembly that already ship in the first agentic tranche — those are not the same as the deferred items in that row.
+
 ---
 
 ## 2. Core Principles
@@ -2184,12 +2186,12 @@ The MCP server is AIC's primary interface. Its error modes differ from CLI error
 
 AIC uses structured logging with four levels:
 
-| Level   | When                                                | Example                                                                                                        |
-| ------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `error` | Fatal failures that stop execution                  | `Error: Invalid config at line 12`                                                                             |
-| `warn`  | Non-fatal issues the user should know about         | `Warning: Rule pack 'team.json' not found, skipping`                                                           |
-| `info`  | Key pipeline events (default in normal mode)        | `Compiled 8 files (7,200 tokens) in 320ms`                                                                     |
-| `debug` | Detailed pipeline internals (only with `--verbose`) | `HeuristicSelector: auth.ts scored 0.87 (path: 1.00, imports: 1.00, symbols: 0.85, recency: 0.60, size: 0.55)` |
+| Level   | When                                                | Example                                                                                                                                        |
+| ------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `error` | Fatal failures that stop execution                  | `Error: Invalid config at line 12`                                                                                                             |
+| `warn`  | Non-fatal issues the user should know about         | `Warning: Rule pack 'team.json' not found, skipping`                                                                                           |
+| `info`  | Key pipeline events (default in normal mode)        | `Compiled 8 files (7,200 tokens) in 320ms`                                                                                                     |
+| `debug` | Detailed pipeline internals (only with `--verbose`) | `HeuristicSelector: auth.ts scored 0.87 (pathRelevance: 1.00, importProximity: 1.00, symbolRelevance: 0.85, recency: 0.60, sizePenalty: 0.55)` |
 
 ### `--verbose` Output
 
@@ -2204,9 +2206,9 @@ When `--verbose` is enabled, AIC prints the full decision trail:
 [pipeline]  Overhead: structural + session block + spec slice + constraints + task header → code budget 122,730 tokens _(illustrative)_
 [context]   Scanned 142 files, selected 12 (maxFiles auto: ceil(sqrt(142)) = 12)
 [context]   Top files:
-              src/auth/service.ts        score=0.91  tokens=1,240  (path: 1.00, imports: 1.00, symbols: 1.00, recency: 0.75, size: 0.38)
-              src/auth/middleware.ts     score=0.87  tokens=890    (path: 1.00, imports: 1.00, symbols: 0.85, recency: 0.60, size: 0.55)
-              src/auth/types.ts          score=0.82  tokens=340    (path: 1.00, imports: 0.59, symbols: 0.93, recency: 0.93, size: 0.92)
+              src/auth/service.ts        score=0.91  tokens=1,240  (pathRelevance: 1.00, importProximity: 1.00, symbolRelevance: 1.00, recency: 0.75, sizePenalty: 0.38)
+              src/auth/middleware.ts     score=0.87  tokens=890    (pathRelevance: 1.00, importProximity: 1.00, symbolRelevance: 0.85, recency: 0.60, sizePenalty: 0.55)
+              src/auth/types.ts          score=0.82  tokens=340    (pathRelevance: 1.00, importProximity: 0.59, symbolRelevance: 0.93, recency: 0.93, sizePenalty: 0.92)
               ...
 [guard]     Scanned 12 files | Status: clean (0 blocked)
 [transform] 12 files | 3 transformed | 1,840 tokens saved (CommentStripper: 180, LockFileSkipper: 1,388, HtmlToMarkdownTransformer: 272)

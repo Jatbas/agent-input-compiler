@@ -267,7 +267,7 @@ These hooks have no context-injection or decision output. Exit 0 with no stdout 
 
 All 18 Claude Code lifecycle events are documented at
 [code.claude.com/docs/en/hooks#hook-lifecycle](https://code.claude.com/docs/en/hooks#hook-lifecycle).
-AIC uses eight of them. Known product bugs and workarounds are called out per hook below.
+AIC uses nine of them for integration work (see §8). Known product bugs and workarounds are called out per hook below.
 
 ### 7.1 UserPromptSubmit — PRIMARY delivery
 
@@ -278,7 +278,7 @@ AIC uses eight of them. Known product bugs and workarounds are called out per ho
 **Input fields used:**
 
 - `input.prompt` → `intent` for `aic_compile`
-- `input.transcript_path` → `conversationId` for `aic_compile` (via `path.basename`)
+- `input.transcript_path` (and related fields) → `conversationId` for `aic_compile` via `conversation-id.cjs` (see §4.3)
 - `input.cwd` → `projectRoot` fallback
 
 **Output:** Plain text stdout (see §6.1).
@@ -376,7 +376,9 @@ Lock file layout (`.session-start-lock`), merge options, and ordering with this 
 
 **MCP matcher — `conversationId` injection**
 
-**Purpose:** Ensure `aic_compile` receives `conversationId` (and related fields) in tool arguments when the model omits them. `settings.json.template` registers `aic-inject-conversation-id.cjs` only for matcher `mcp__.*__aic_compile` (there is no separate PreToolUse matcher for `aic_chat_summary`; chat-summary attribution relies on hooks passing `conversationId` from `transcript_path` and related paths). Other MCP tools such as `aic_model_test` are not covered by this matcher.
+**Purpose:** Ensure `aic_compile` receives `conversationId`, `editorId`, and often `modelId` in tool arguments when the model omits them. `settings.json.template` registers `aic-inject-conversation-id.cjs` only for matcher `mcp__.*__aic_compile` (there is no separate PreToolUse matcher for `aic_chat_summary`; on Claude Code, chat-summary attribution relies on earlier hooks passing `conversationId` from transcript and fallback resolution — Cursor injects `aic_chat_summary` separately; see [Cursor integration layer §7.4](cursor-integration-layer.md#74-pretooluse-mcp-matcher--conversationid-injection)). Other MCP tools such as `aic_model_test` are not covered by this matcher.
+
+**Behaviour (implementation):** Parse stdin JSON. If `isCursorNativeHookPayload` (`integrations/shared/is-cursor-native-hook-payload.cjs`) is true — `cursor_version` or `input.cursor_version` present — return `permissionDecision: "allow"` with no `updatedInput` so Cursor-shaped invocations do not mutate MCP args on this hook path. Otherwise resolve `conversationId` as `conversationIdFromTranscriptPath(parsed) ?? resolveConversationIdFallback(parsed)` ([Integrations shared modules](integrations-shared-modules.md)). Treat the tool call as `aic_compile` when the tool name matches `aic_compile` or the payload looks like a compile request (`intent` and `projectRoot` strings). If not `aic_compile`, allow with no mutation. Set `editorId` to `cursor-claude-code` when `CURSOR_TRACE_ID` is set, else `claude-code`. Merge `conversationId`, `editorId`, and `modelId` from `readSessionModelCache` when the cached model normalises to something other than `auto`. When intent is weak (`isWeakAicCompileIntent`) and `conversationId` is set, replace intent from `readAicPrewarmPrompt(\`cc-${conversationId}\`)`(temp file under`os.tmpdir()`), matching the prewarm key used on this path.
 
 **File:** `.claude/hooks/aic-inject-conversation-id.cjs` (see §10 for registration)
 
@@ -451,30 +453,42 @@ No context injection — this hook produces no stdout. Exit 0 always (telemetry 
 
 ---
 
+### 7.9 SubagentStop — reparent `compilation_log`
+
+**Reference:** [hooks#subagentstop](https://code.claude.com/docs/en/hooks#subagentstop)
+
+**Purpose:** When a subagent finishes, reparent that subagent’s `compilation_log` rows to the parent conversation so `aic_chat_summary` and diagnostics roll up correctly. Implemented by calling `aic_compile` with `triggerSource: "subagent_stop"`, `conversationId` = parent id, and `reparentFromConversationId` = child id (handler reparent path in [implementation-spec](../implementation-spec.md) — **Agentic workflows** under Pipeline orchestration).
+
+**Input fields used:** Parent resolution uses the same transcript and fallback chain as other hooks (`conversationIdFromTranscriptPath` then `resolveConversationIdFallback`). Child id comes from `conversationIdFromAgentTranscriptPath` on `agent_transcript_path` / `input.agent_transcript_path`. Cursor-native envelopes (`cursor_version`) exit without MCP I/O.
+
+**File:** `.claude/hooks/aic-subagent-stop.cjs` (see §10). **Cursor** equivalent: [cursor-integration-layer §7.11](cursor-integration-layer.md#711-subagent-stop--reparent-compilation_log).
+
+---
+
 ## 8. Full event coverage
 
-**Claude Code:** Of 18 lifecycle events ([table](https://code.claude.com/docs/en/hooks#hook-lifecycle)), AIC registers eight and skips ten.
+**Claude Code:** Of 18 lifecycle events ([table](https://code.claude.com/docs/en/hooks#hook-lifecycle)), AIC registers nine and skips nine.
 
-| Event                               | AIC use | Reason skipped                                                                                                                                                                                                                                                |
-| ----------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `SessionStart`                      | §7.2    | —                                                                                                                                                                                                                                                             |
-| `UserPromptSubmit`                  | §7.1    | —                                                                                                                                                                                                                                                             |
-| `SubagentStart`                     | §7.3    | —                                                                                                                                                                                                                                                             |
-| `PreToolUse` (Bash + MCP)           | §7.4    | —                                                                                                                                                                                                                                                             |
-| `PostToolUse` (Edit\|Write)         | §7.5    | —                                                                                                                                                                                                                                                             |
-| `Stop`                              | §7.6    | —                                                                                                                                                                                                                                                             |
-| `PreCompact`                        | §7.7    | —                                                                                                                                                                                                                                                             |
-| `SessionEnd`                        | §7.8    | —                                                                                                                                                                                                                                                             |
-| `SubagentStop`                      | future  | Same logic as `Stop` but for subagents. Add if subagent quality gate is needed. **Cursor** implements `subagentStop` separately for `compilation_log` reparent to the parent conversation; see [cursor-integration-layer](cursor-integration-layer.md) §7.11. |
-| `PostToolUse` (aic_compile)         | skipped | `UserPromptSubmit` already runs `aic_compile` before the model starts. Model-triggered `aic_compile` calls are a fallback only; confirming them adds noise without value.                                                                                     |
-| `PostToolUseFailure`                | skipped | No AIC-specific recovery action on tool failure.                                                                                                                                                                                                              |
-| `PermissionRequest`                 | skipped | Not AIC's concern — no policy to enforce here.                                                                                                                                                                                                                |
-| `Notification`                      | skipped | Observational only; no value for AIC.                                                                                                                                                                                                                         |
-| `InstructionsLoaded`                | skipped | Fires when CLAUDE.md loads; AIC has no audit requirement here.                                                                                                                                                                                                |
-| `ConfigChange`                      | skipped | No AIC policy triggered by config changes.                                                                                                                                                                                                                    |
-| `TeammateIdle`                      | skipped | Agent teams feature, out of scope.                                                                                                                                                                                                                            |
-| `TaskCompleted`                     | skipped | Agent teams feature, out of scope.                                                                                                                                                                                                                            |
-| `WorktreeCreate` / `WorktreeRemove` | skipped | Out of scope for the current AIC integration (lifecycle hooks only; not Git worktrees).                                                                                                                                                                       |
+| Event                               | AIC use | Reason skipped                                                                                                                                                                                                      |
+| ----------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SessionStart`                      | §7.2    | —                                                                                                                                                                                                                   |
+| `UserPromptSubmit`                  | §7.1    | —                                                                                                                                                                                                                   |
+| `SubagentStart`                     | §7.3    | —                                                                                                                                                                                                                   |
+| `PreToolUse` (Bash + MCP)           | §7.4    | —                                                                                                                                                                                                                   |
+| `PostToolUse` (Edit\|Write)         | §7.5    | —                                                                                                                                                                                                                   |
+| `Stop`                              | §7.6    | —                                                                                                                                                                                                                   |
+| `PreCompact`                        | §7.7    | —                                                                                                                                                                                                                   |
+| `SessionEnd`                        | §7.8    | —                                                                                                                                                                                                                   |
+| `SubagentStop`                      | §7.9    | Reparents subagent `compilation_log` rows to the parent conversation via `aic_compile` (not the Stop quality gate). **Cursor:** same reparent role — [cursor-integration-layer](cursor-integration-layer.md) §7.11. |
+| `PostToolUse` (aic_compile)         | skipped | `UserPromptSubmit` already runs `aic_compile` before the model starts. Model-triggered `aic_compile` calls are a fallback only; confirming them adds noise without value.                                           |
+| `PostToolUseFailure`                | skipped | No AIC-specific recovery action on tool failure.                                                                                                                                                                    |
+| `PermissionRequest`                 | skipped | Not AIC's concern — no policy to enforce here.                                                                                                                                                                      |
+| `Notification`                      | skipped | Observational only; no value for AIC.                                                                                                                                                                               |
+| `InstructionsLoaded`                | skipped | Fires when CLAUDE.md loads; AIC has no audit requirement here.                                                                                                                                                      |
+| `ConfigChange`                      | skipped | No AIC policy triggered by config changes.                                                                                                                                                                          |
+| `TeammateIdle`                      | skipped | Agent teams feature, out of scope.                                                                                                                                                                                  |
+| `TaskCompleted`                     | skipped | Agent teams feature, out of scope.                                                                                                                                                                                  |
+| `WorktreeCreate` / `WorktreeRemove` | skipped | Out of scope for the current AIC integration (lifecycle hooks only; not Git worktrees).                                                                                                                             |
 
 ---
 
@@ -490,12 +504,15 @@ callAicCompile(intent, projectRoot, conversationId, timeoutMs, triggerSource, mo
 
 **Emergency bypass:** Before spawning the MCP server, the helper checks `aic.config.json` via `isCompileGateSkipped()` (from `integrations/shared/read-project-dev-mode.cjs`). When **both** `devMode` and `skipCompileGate` are `true`, it returns `null` immediately without any I/O. This prevents all compilation hooks (SessionStart, UserPromptSubmit, SubagentStart) from hanging on a broken MCP server. Remove `skipCompileGate` from the config immediately after resolving the issue.
 
-The `compileRequest` arguments object must include `conversationId` derived from
-`transcript_path`:
+Shipped hooks resolve `conversationId` before building MCP arguments from `integrations/shared/conversation-id.cjs` ([Integrations shared modules](integrations-shared-modules.md)). The example below matches that resolution order inside the JSON-RPC body real hooks build (outer `jsonrpc` / `id` omitted).
 
 ```js
-const transcriptPath = parsed.transcript_path ?? parsed.input?.transcript_path ?? null;
-const conversationId = transcriptPath ? path.basename(transcriptPath, ".jsonl") : null;
+const {
+  conversationIdFromTranscriptPath,
+  resolveConversationIdFallback,
+} = require("../../shared/conversation-id.cjs");
+const conversationId =
+  conversationIdFromTranscriptPath(parsed) ?? resolveConversationIdFallback(parsed);
 // ...
 JSON.stringify({
   method: "tools/call",
@@ -514,7 +531,7 @@ JSON.stringify({
 
 The snippet omits the outer `jsonrpc` / `id` envelope; the helper always supplies `editorId` via `detectEditorId()` in the same file.
 
-Without `conversationId`, `compilation_log` rows from Claude Code hooks have null `conversation_id`, and `aic_chat_summary` cannot aggregate them. The `session_id` field is per-hook-invocation and must NOT be used for conversation attribution.
+Without a resolvable `conversationId`, `compilation_log` rows from Claude Code hooks have null `conversation_id`, and `aic_chat_summary` cannot aggregate them. Prefer transcript- or direct-`conversation_id`-derived ids. `resolveConversationIdFallback` may use validated `session_id` or `generation_id` only when they pass printable-ASCII length checks — they stabilise telemetry when the transcript UUID is unavailable; they are not interchangeable with the transcript filename id as the long-term conversation key when the host supplies the latter.
 
 **Cold start:** Each hook invocation spawns a new process. Resolution order in `integrations/claude/hooks/aic-compile-helper.cjs`: when `mcp/src/server.ts` and `shared/package.json` both exist, the helper runs `sh -c` with `pnpm --filter @jatbas/aic-core build` (stderr to the shell's stderr) then `npx tsx` on `mcp/src/server.ts`. When only `mcp/src/server.ts` exists, it runs `npx` with arguments `tsx` and that path. Otherwise it runs `npx` with `@jatbas/aic` (published package). On a cold filesystem cache the dev-oriented path is often ~500–1500ms before the first response. §10 hook entries use **30s**; the helper uses **25s** only when `timeoutMs` is omitted — shipped compile hooks pass **30s**, so runtime matches §10. For hook-spawned stdio versus Claude Code's registered MCP client, see §4.1 **Two transports to the same server**. §11 describes the HTTP hook path that avoids per-invocation spawn cost.
 
@@ -730,7 +747,7 @@ All of the following must be verified for the Claude Code integration to be comp
 
 Context delivery:
 
-- [ ] `aic-prompt-compile.cjs` runs on UserPromptSubmit and passes `intent` and `conversationId` (from `transcript_path`) to `aic_compile` (§7.1)
+- [ ] `aic-prompt-compile.cjs` runs on UserPromptSubmit and passes `intent` and `conversationId` (transcript path, direct id, or `resolveConversationIdFallback`) to `aic_compile` (§7.1)
 - [ ] `aic-session-start.cjs` injects architectural invariants and project context via `hookSpecificOutput` (§7.2)
 - [ ] `aic-subagent-inject.cjs` injects context into subagents (§7.3)
 
@@ -742,7 +759,7 @@ Quality gate (Claude Code–specific):
 
 Settings:
 
-- [ ] `settings.json` (or plugin `hooks.json`) has all 8 hook registrations with correct matchers and options (§10)
+- [ ] `settings.json` (or plugin `hooks.json`) has all nine top-level hook keys (including `SubagentStop`) with correct matchers and options (§10)
 
 Plugin and direct-install:
 

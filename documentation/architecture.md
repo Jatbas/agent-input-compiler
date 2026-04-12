@@ -6,7 +6,7 @@ AIC has two distinct layers:
 
 For the two MCP compile tools and the in-pipeline spec ladder, see [MCP compile entrypoints](#mcp-compile-entrypoints).
 
-**2. Integration Layer (per-editor)** — Thin adapters that ensure the core pipeline runs at the right time and delivers its output to the model. Each editor exposes different hook capabilities, so each integration layer calls `aic_compile` at different points in the editor's lifecycle.
+**2. Integration Layer (per-editor)** — Thin adapters that ensure the core pipeline runs at the right time and delivers its output to the model. Each editor exposes different hook capabilities, so each integration layer calls `aic_compile` at different points in the editor's lifecycle. Shared CommonJS under `integrations/shared/` centralises `conversationId` resolution (`conversation-id.cjs`) and Cursor-native payload detection (`is-cursor-native-hook-payload.cjs`); see [Integrations shared modules reference](technical/integrations-shared-modules.md).
 
 > **What this means:** AIC's compilation capabilities are complete. Any perceived limitation in what AIC "can do" is actually a limitation of the editor's hook system — whether the editor gives AIC the opportunity to run at a given moment. Because AIC follows SOLID principles (dependency injection, interface segregation), adding a new integration layer for a new editor means writing thin hook scripts that call the same core pipeline. No core changes needed.
 
