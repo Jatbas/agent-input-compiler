@@ -1623,30 +1623,51 @@ interface SelectedFile {
 
 ### Implementations
 
-| Selector              | Strategy                                                                                   | When            |
-| --------------------- | ------------------------------------------------------------------------------------------ | --------------- |
-| **HeuristicSelector** | File-path matching, import-graph walking, recency weighting, pattern rules from rule packs | Shipped default |
-| **VectorSelector**    | Semantic embedding similarity (e.g., Zvec) with re-ranking                                 | Phase 2+        |
-| **HybridSelector**    | Heuristic pre-filter → vector re-rank → budget cutoff                                      | Phase 2+        |
+| Selector              | Strategy                                                                                                                                | When            |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| **HeuristicSelector** | File-path matching, import-graph walking, symbol relevance from subject tokens, recency and size signals, pattern rules from rule packs | Shipped default |
+| **VectorSelector**    | Semantic embedding similarity (e.g., Zvec) with re-ranking                                                                              | Phase 2+        |
+| **HybridSelector**    | Heuristic pre-filter → vector re-rank → budget cutoff                                                                                   | Phase 2+        |
 
 ### HeuristicSelector Scoring Detail
 
-The final relevance score for each file is a weighted sum of four normalised signals, always in the range `[0.0, 1.0]`:
+The selector computes a **base score** from five normalised signal values in `[0.0, 1.0]`, then applies rule-pack boost and penalize hits, then clamps to `[0.0, 1.0]`. Weights come from `DEFAULT_WEIGHTS_BY_TASK_CLASS` in `shared/src/pipeline/heuristic-selector.ts` keyed by the resolved `TaskClass`, unless the composition root passes `HeuristicSelectorConfig.weights` (`shared/src/core/interfaces/heuristic-selector-config.interface.ts`).
 
 ```
-score = (path × 0.4) + (imports × 0.3) + (recency × 0.2) + (size × 0.1)
+baseScore =
+  pathRelevance × w.pathRelevance +
+  importProximity × w.importProximity +
+  symbolRelevance × w.symbolRelevance +
+  recency × w.recency +
+  sizePenalty × w.sizePenalty
+
+finalScore = clamp01(
+  baseScore +
+    0.2 × (count of matching heuristic.boostPatterns) -
+    0.2 × (count of matching heuristic.penalizePatterns)
+)
 ```
 
-| Signal               | Weight | Normalisation method                                                                                                                                                                                                |
-| -------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Path relevance**   | 0.4    | Rule-based: exact task-keyword match in path = 1.0; partial segment match = 0.5; no match = 0.0. Boost/penalise patterns from rule pack applied as ±0.2 additive modifier (clamped to 0–1).                         |
-| **Import proximity** | 0.3    | BFS depth from a seed set of task-relevant files. Depth 0 (direct import) = 1.0; depth 1 = 0.6; depth 2 = 0.3; depth 3+ = 0.1; no path = 0.0. Skipped (scored 0.0) for files with no registered `LanguageProvider`. |
-| **Recency**          | 0.2    | Min-max normalised over the scanned file set: most recently modified = 1.0; oldest = 0.0. Source: `git log --format="%at" -1 <file>`, falling back to filesystem `mtime`.                                           |
-| **Size penalty**     | 0.1    | Inverted min-max normalised: smallest file = 1.0; largest file = 0.0. Computed on `estimatedTokens` from RepoMap.                                                                                                   |
+| TaskClass | pathRelevance | importProximity | symbolRelevance | recency | sizePenalty |
+| --------- | ------------- | --------------- | --------------- | ------- | ----------- |
+| refactor  | 0.20          | 0.36            | 0.20            | 0.16    | 0.08        |
+| bugfix    | 0.20          | 0.28            | 0.20            | 0.24    | 0.08        |
+| docs      | 0.40          | 0.16            | 0.20            | 0.16    | 0.08        |
+| feature   | 0.32          | 0.24            | 0.20            | 0.16    | 0.08        |
+| test      | 0.32          | 0.24            | 0.20            | 0.16    | 0.08        |
+| general   | 0.32          | 0.24            | 0.20            | 0.16    | 0.08        |
 
-**Weight rationale:** Path relevance carries the highest weight (0.4) because, in well-structured codebases, file path is the strongest single predictor of relevance — a file named `src/auth/service.ts` is almost certainly relevant to "refactor auth module." Import proximity (0.3) is second because direct dependencies are nearly always needed for context but can only fire for languages with a registered `LanguageProvider`, so it must not dominate. Recency (0.2) captures the working-set effect — recently modified files correlate with active development — but is a weaker signal than structural relevance. Size penalty (0.1) is a tiebreaker: smaller files are cheaper to include and more likely to be focused; it should never override a strong relevance signal. These weights were derived from empirical testing on 10 canonical tasks across TypeScript, Python, and Go repositories during design prototyping.
+| Signal               | Normalisation method                                                                                                                                                                                                                                                                                                                                                                         |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Path relevance**   | Fraction of task `matchedKeywords` whose lowercase form appears as a substring of the full lowercased path; 0 when the keyword list is empty; capped at 1.0 (`pathRelevance` in `shared/src/pipeline/path-relevance.ts`).                                                                                                                                                                    |
+| **Import proximity** | BFS from seeds with non-zero path relevance **and** a registered `LanguageProvider` (`ImportGraphProximityScorer`). Depth 0 = 1.0; depth 1 = 0.6; depth 2 = 0.3; depth 3+ = 0.1; unreachable = 0.0. Edges are emitted only from provider-backed import parsing; BFS walks forward and reverse edges, so a file with no provider can still receive a non-zero score when reached from a seed. |
+| **Symbol relevance** | For each `subjectToken`, any exported name from `LanguageProvider.extractNames` whose lowercase form contains that token (case-insensitive) counts as a hit; score = hits divided by `subjectTokens.length`, capped at 1.0; 0.0 when `subjectTokens` is empty, content read fails, or no provider applies (`SymbolRelevanceScorer` in `shared/src/pipeline/symbol-relevance-scorer.ts`).     |
+| **Recency**          | Normalised rank in `[0.0, 1.0]` from candidate `lastModified` values (`recencyRanksFromValues` in `shared/src/pipeline/heuristic-selector.ts`); shipped `FileSystemRepoMapSupplier` sets `FileEntry.lastModified` from filesystem stats on the glob scan (`shared/src/adapters/file-system-repo-map-supplier.ts`).                                                                           |
+| **Size penalty**     | Inverted min-max on `estimatedTokens` across candidates: smallest = 1.0; largest = 0.0 (`minMaxNorm` in `shared/src/pipeline/min-max-norm.ts`).                                                                                                                                                                                                                                              |
 
-**Tuneable weights:** The four weights are not currently configurable per-project. They may be exposed in `aic.config.json` under `contextSelector.heuristic.weights` in a future release. Weights must sum to 1.0; AIC validates this at startup if provided.
+**Weight rationale:** Defaults rebalance `TaskClass` toward the signals that matter most for that kind of work — higher `importProximity` for refactor, higher `recency` for bugfix, higher `pathRelevance` for docs, balanced code navigation weights for feature, test, and general. `symbolRelevance` stays at 0.20 across classes so intent tokens anchor to exported symbols without drowning path structure. `sizePenalty` stays 0.08 as a cheap tie-breaker. Canonical numeric defaults live in `DEFAULT_WEIGHTS_BY_TASK_CLASS`; the table above mirrors that source for readers.
+
+**Tuneable weights:** `HeuristicSelectorConfig` includes optional `weights` with five numeric fields (the shipped loader does not validate a 1.0 sum). The shipped `aic.config.json` loader (`shared/src/config/load-config-from-file.ts`) validates and applies `contextSelector.heuristic.maxFiles` only; `applyConfigResult` builds `heuristicConfig: { maxFiles }` without reading weight fields from disk. Running MCP and CLI therefore use `DEFAULT_WEIGHTS_BY_TASK_CLASS` unless a custom wiring path supplies `weights`.
 
 ---
 
@@ -1692,13 +1713,13 @@ interface ExportedSymbol {
 
 For files with **no registered LanguageProvider**, AIC applies a `GenericProvider`:
 
-| Tier                   | Fallback Behavior                                                                   |
-| ---------------------- | ----------------------------------------------------------------------------------- |
-| Import parsing         | Skipped — file relies on path relevance + recency scoring only                      |
-| L0 (Full)              | ✅ Works (language-agnostic)                                                        |
-| L1 (Signatures + Docs) | ❌ Skipped — falls through to L2                                                    |
-| L2 (Signatures Only)   | Best-effort regex: lines starting with `function`, `class`, `def`, `func`, `pub fn` |
-| L3 (Names Only)        | File path + regex-extracted names                                                   |
+| Tier                   | Fallback Behavior                                                                                                                                        |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Import parsing         | Skipped — import proximity scores 0.0 as a source; path relevance, symbol relevance via `extractNames` (L3 names), recency, and size penalty still apply |
+| L0 (Full)              | ✅ Works (language-agnostic)                                                                                                                             |
+| L1 (Signatures + Docs) | ❌ Skipped — falls through to L2                                                                                                                         |
+| L2 (Signatures Only)   | Best-effort regex: lines starting with `function`, `class`, `def`, `func`, `pub fn`                                                                      |
+| L3 (Names Only)        | File path + regex-extracted names                                                                                                                        |
 
 **Result:** AIC works for _any_ language at L0 and L3. L1/L2 precision requires a registered provider. This keeps the first release focused on TypeScript without blocking usage with other languages.
 
@@ -2163,12 +2184,12 @@ The MCP server is AIC's primary interface. Its error modes differ from CLI error
 
 AIC uses structured logging with four levels:
 
-| Level   | When                                                | Example                                                                                         |
-| ------- | --------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `error` | Fatal failures that stop execution                  | `Error: Invalid config at line 12`                                                              |
-| `warn`  | Non-fatal issues the user should know about         | `Warning: Rule pack 'team.json' not found, skipping`                                            |
-| `info`  | Key pipeline events (default in normal mode)        | `Compiled 8 files (7,200 tokens) in 320ms`                                                      |
-| `debug` | Detailed pipeline internals (only with `--verbose`) | `HeuristicSelector: auth.ts scored 0.87 (path: 1.00, imports: 1.00, recency: 0.75, size: 0.20)` |
+| Level   | When                                                | Example                                                                                                        |
+| ------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `error` | Fatal failures that stop execution                  | `Error: Invalid config at line 12`                                                                             |
+| `warn`  | Non-fatal issues the user should know about         | `Warning: Rule pack 'team.json' not found, skipping`                                                           |
+| `info`  | Key pipeline events (default in normal mode)        | `Compiled 8 files (7,200 tokens) in 320ms`                                                                     |
+| `debug` | Detailed pipeline internals (only with `--verbose`) | `HeuristicSelector: auth.ts scored 0.87 (path: 1.00, imports: 1.00, symbols: 0.85, recency: 0.60, size: 0.55)` |
 
 ### `--verbose` Output
 
@@ -2183,9 +2204,9 @@ When `--verbose` is enabled, AIC prints the full decision trail:
 [pipeline]  Overhead: structural + session block + spec slice + constraints + task header → code budget 122,730 tokens _(illustrative)_
 [context]   Scanned 142 files, selected 12 (maxFiles auto: ceil(sqrt(142)) = 12)
 [context]   Top files:
-              src/auth/service.ts        score=0.91  tokens=1,240  (path: 1.00, imports: 1.00, recency: 0.75, size: 0.20)
-              src/auth/middleware.ts     score=0.87  tokens=890    (path: 1.00, imports: 1.00, recency: 0.60, size: 0.50)
-              src/auth/types.ts          score=0.82  tokens=340    (path: 1.00, imports: 0.60, recency: 0.90, size: 0.80)
+              src/auth/service.ts        score=0.91  tokens=1,240  (path: 1.00, imports: 1.00, symbols: 1.00, recency: 0.75, size: 0.38)
+              src/auth/middleware.ts     score=0.87  tokens=890    (path: 1.00, imports: 1.00, symbols: 0.85, recency: 0.60, size: 0.55)
+              src/auth/types.ts          score=0.82  tokens=340    (path: 1.00, imports: 0.59, symbols: 0.93, recency: 0.93, size: 0.92)
               ...
 [guard]     Scanned 12 files | Status: clean (0 blocked)
 [transform] 12 files | 3 transformed | 1,840 tokens saved (CommentStripper: 180, LockFileSkipper: 1,388, HtmlToMarkdownTransformer: 272)
@@ -2197,7 +2218,7 @@ When `--verbose` is enabled, AIC prints the full decision trail:
 [telemetry] Logged: token_reduction=82.5%, duration=310ms
 ```
 
-The four values in parentheses are **raw signal values** (`[0.0, 1.0]` each) before weighting. Final score = `(path × 0.4) + (imports × 0.3) + (recency × 0.2) + (size × 0.1)`.
+Parenthetical values are **raw signal values** in `[0.0, 1.0]` before weights. The `score=` column matches `baseScore` for **TaskClass: refactor** using the refactor weight row, before rule-pack boost or penalize counts. Rule-pack matches add +0.2 or −0.2 each, then the result clamps to `[0.0, 1.0]`, matching `scoreAndSignalsForCandidate` in `shared/src/pipeline/heuristic-selector.ts`.
 
 ### `aic_inspect` Output
 
@@ -2281,18 +2302,20 @@ The following walkthrough traces a single compilation request through every pipe
 
 - Effective **maxFiles** = 12 (auto: `ceil(sqrt(142))`, clamped to [5, 40])
 - 142 files filtered by include/exclude patterns → 87 candidates
-- Scoring example for `src/services/user.ts`:
-  - Path relevance: `"user"` matches `"user service"` in intent → exact segment match = 1.0
+- Scoring example for `src/services/user.ts` using **bugfix** weights (`pathRelevance` 0.20, `importProximity` 0.28, `symbolRelevance` 0.20, `recency` 0.24, `sizePenalty` 0.08):
+  - Path relevance: classifier `matchedKeywords` align with the path such that the substring-based `pathRelevance` score is **1.0** for this illustration
   - Import proximity: `src/services/user.ts` imports `src/types/user.ts` (depth 0 = 1.0) and `src/db/connection.ts` (depth 1 = 0.6) — seed file, so scored as depth 0 = 1.0
-  - Recency: modified 2 hours ago, most recent file was 30 min ago, oldest was 90 days ago → normalised = 0.95
-  - Size penalty: 1,800 tokens, largest file is 4,200 tokens, smallest is 45 tokens → inverted normalised = 0.57
-  - **Final score** = (1.0 × 0.4) + (1.0 × 0.3) + (0.95 × 0.2) + (0.57 × 0.1) = 0.40 + 0.30 + 0.19 + 0.057 = **0.95**
-- Scoring example for `src/utils/logger.ts`:
+  - Symbol relevance: subject tokens derived from intent match exported names in the file → 0.982
+  - Recency: modified 2 hours ago, most recent file was 30 min ago, oldest was 90 days ago → normalised rank = 0.95
+  - Size penalty: 1,800 tokens, largest file is 4,200 tokens, smallest is 45 tokens → inverted min-max = 0.57
+  - **Base score** = (1.0 × 0.20) + (1.0 × 0.28) + (0.982 × 0.20) + (0.95 × 0.24) + (0.57 × 0.08) = 0.20 + 0.28 + 0.1964 + 0.228 + 0.0456 = **0.95** (no rule-pack matches in this example)
+- Scoring example for `src/utils/logger.ts` with the same **bugfix** weights:
   - Path relevance: no keyword match in path → 0.0
   - Import proximity: not imported by any seed file within depth 3 → 0.0
-  - Recency: modified 45 days ago → normalised = 0.50
-  - Size penalty: 120 tokens → inverted normalised = 0.98
-  - **Final score** = (0.0 × 0.4) + (0.0 × 0.3) + (0.50 × 0.2) + (0.98 × 0.1) = 0.0 + 0.0 + 0.10 + 0.098 = **0.20** (below threshold, not selected)
+  - Symbol relevance: no subject-token match on exports → 0.0
+  - Recency: modified 45 days ago → normalised rank = 0.50
+  - Size penalty: 120 tokens → inverted min-max = 0.98
+  - **Base score** = (0.0 × 0.20) + (0.0 × 0.28) + (0.0 × 0.20) + (0.50 × 0.24) + (0.98 × 0.08) = 0.0 + 0.0 + 0.0 + 0.12 + 0.0784 = **0.20** (below threshold, not selected)
 - Output: 10 files selected, 9,200 total tokens, `truncated: false`
 
 **Step 5: Context Guard**
