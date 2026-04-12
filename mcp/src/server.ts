@@ -74,6 +74,7 @@ import {
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CompilationRunner as CompilationRunnerImpl } from "@jatbas/aic-core/pipeline/compilation-runner.js";
+import { SpecificationCompilerImpl } from "@jatbas/aic-core/pipeline/specification-compiler.js";
 import { SqliteAgenticSessionStore } from "@jatbas/aic-core/storage/sqlite-agentic-session-store.js";
 import { SqliteToolInvocationLogStore } from "@jatbas/aic-core/storage/sqlite-tool-invocation-log-store.js";
 import { Sha256Adapter } from "@jatbas/aic-core/adapters/sha256-adapter.js";
@@ -244,6 +245,9 @@ export function createMcpServer(
     heuristicConfig,
     guardAllowPatterns,
   );
+  const specificationCompiler = new SpecificationCompilerImpl((text) =>
+    deps.tokenCounter.countTokens(text),
+  );
   const toolInvocationLogStore = new SqliteToolInvocationLogStore(
     startupScope.projectId,
     startupScope.db,
@@ -384,13 +388,14 @@ export function createMcpServer(
     clock: startupScope.clock,
     idGenerator: startupScope.idGenerator,
     getSessionId,
+    specificationCompiler,
   });
   const compileSpecInputValidated = z.object(CompileSpecRequestSchema);
   server.registerTool(
     "aic_compile_spec",
     {
       description:
-        "Compile structured specification input: Zod validates CompileSpecRequestSchema (required spec; budget absent when omitted), records tool_invocation_log, returns MCP text JSON with compiledSpec foundation stub and meta totals (totalTokensRaw, totalTokensCompiled, reductionPct, typeTiers, transformTokensSaved). SpecificationCompiler is not invoked.",
+        "Compile structured specification input: Zod validates CompileSpecRequestSchema (required spec; budget absent defaults to sum of estimatedTokens). On success runs SpecificationCompiler and returns MCP text JSON with compiledSpec plus meta (totalTokensRaw, totalTokensCompiled, reductionPct, typeTiers, transformTokensSaved). Records tool_invocation_log.",
       inputSchema: compileSpecInputValidated,
       outputSchema: AicCompileSpecToolRegisteredOutputSchema,
       annotations: toolAnnotationsWritesTelemetry,

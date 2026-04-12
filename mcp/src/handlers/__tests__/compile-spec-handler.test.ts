@@ -12,8 +12,14 @@ import {
   toISOTimestamp,
   toUUIDv7,
 } from "@jatbas/aic-core/core/types/identifiers.js";
-import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
+import { toMilliseconds, toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
+import { SpecificationCompilerImpl } from "@jatbas/aic-core/pipeline/specification-compiler.js";
+import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import type { SpecificationInput } from "@jatbas/aic-core/core/types/specification-compilation.types.js";
+
+const measure = (s: string): ReturnType<typeof toTokenCount> =>
+  toTokenCount([...s].length);
 
 function parseResult(result: unknown): Record<string, unknown> {
   const r = result as {
@@ -34,6 +40,7 @@ describe("compile-spec-handler", () => {
   let idGenerator: IdGenerator;
   let records: ToolInvocationLogEntry[];
   let toolInvocationLogStore: ToolInvocationLogStore;
+  let specificationCompiler: SpecificationCompilerImpl;
 
   beforeEach(() => {
     records = [];
@@ -53,15 +60,17 @@ describe("compile-spec-handler", () => {
       generate: (): ReturnType<typeof toUUIDv7> =>
         toUUIDv7("018f0000-0000-7000-8000-000000000099"),
     };
+    specificationCompiler = new SpecificationCompilerImpl(measure);
   });
 
-  it("invalid budget rejects", async () => {
+  it("compile_spec_handler_invalid_budget", async () => {
     const handler = createCompileSpecHandler({
       toolInvocationLogStore,
       clock,
       idGenerator,
       getSessionId: (): ReturnType<typeof toSessionId> =>
         toSessionId("00000000-0000-7000-8000-000000000002"),
+      specificationCompiler,
     });
     const result = parseResult(
       await handler({
@@ -73,14 +82,29 @@ describe("compile-spec-handler", () => {
     expect(records.length).toBe(0);
   });
 
-  it("success records invocation and meta", async () => {
+  it("compile_spec_handler_success_compiler", async () => {
     const handler = createCompileSpecHandler({
       toolInvocationLogStore,
       clock,
       idGenerator,
       getSessionId: (): ReturnType<typeof toSessionId> =>
         toSessionId("00000000-0000-7000-8000-000000000002"),
+      specificationCompiler,
     });
+    const specificationInput: SpecificationInput = {
+      types: [
+        {
+          name: "Foo",
+          path: toRelativePath("src/foo.ts"),
+          content: "export {}",
+          usage: "implements",
+          estimatedTokens: toTokenCount(42),
+        },
+      ],
+      codeBlocks: [],
+      prose: [],
+    };
+    const expected = specificationCompiler.compile(specificationInput, toTokenCount(42));
     const payload = {
       spec: {
         types: [
@@ -99,15 +123,76 @@ describe("compile-spec-handler", () => {
     const result = parseResult(await handler(payload));
     expect(records.length).toBe(1);
     expect(records[0]?.toolName).toBe("aic_compile_spec");
-    const compiledSpec = result["compiledSpec"];
-    expect(typeof compiledSpec).toBe("string");
-    expect((compiledSpec as string).includes("foundation stub")).toBe(true);
-    expect(result["meta"]).toEqual({
-      totalTokensRaw: 42,
-      totalTokensCompiled: 0,
-      reductionPct: 0,
-      typeTiers: { "Foo\u0000src/foo.ts": "verbatim" },
-      transformTokensSaved: 0,
+    expect(result["compiledSpec"]).toBe(expected.compiledSpec);
+    expect(result["meta"]).toEqual(expected.meta);
+  });
+
+  it("compile_spec_handler_missing_spec_rejected", async () => {
+    const handler = createCompileSpecHandler({
+      toolInvocationLogStore,
+      clock,
+      idGenerator,
+      getSessionId: (): ReturnType<typeof toSessionId> =>
+        toSessionId("00000000-0000-7000-8000-000000000002"),
+      specificationCompiler,
     });
+    const result = parseResult(await handler({}));
+    expect(result["code"]).toBe("validation-error");
+    expect(result["error"]).toBe("Invalid aic_compile_spec request");
+    expect(records.length).toBe(0);
+  });
+
+  it("compile_spec_handler_oversize_types_array_rejected", async () => {
+    const handler = createCompileSpecHandler({
+      toolInvocationLogStore,
+      clock,
+      idGenerator,
+      getSessionId: (): ReturnType<typeof toSessionId> =>
+        toSessionId("00000000-0000-7000-8000-000000000002"),
+      specificationCompiler,
+    });
+    const types = Array.from({ length: 201 }, (_, i) => ({
+      name: `N${i}`,
+      path: `p/${i}.ts`,
+      content: "",
+      usage: "names-only" as const,
+      estimatedTokens: 0,
+    }));
+    const result = parseResult(
+      await handler({ spec: { types, codeBlocks: [], prose: [] } }),
+    );
+    expect(result["code"]).toBe("validation-error");
+    expect(result["error"]).toBe("Invalid aic_compile_spec request");
+    expect(records.length).toBe(0);
+  });
+
+  it("compile_spec_handler_invalid_type_usage_rejected", async () => {
+    const handler = createCompileSpecHandler({
+      toolInvocationLogStore,
+      clock,
+      idGenerator,
+      getSessionId: (): ReturnType<typeof toSessionId> =>
+        toSessionId("00000000-0000-7000-8000-000000000002"),
+      specificationCompiler,
+    });
+    const payload = {
+      spec: {
+        types: [
+          {
+            name: "x",
+            path: "y.ts",
+            content: "",
+            usage: "invalid-usage",
+            estimatedTokens: 0,
+          },
+        ],
+        codeBlocks: [],
+        prose: [],
+      },
+    } as unknown;
+    const result = parseResult(await handler(payload));
+    expect(result["code"]).toBe("validation-error");
+    expect(result["error"]).toBe("Invalid aic_compile_spec request");
+    expect(records.length).toBe(0);
   });
 });

@@ -6,76 +6,23 @@ import { z } from "zod";
 import type { ToolInvocationLogStore } from "@jatbas/aic-core/core/interfaces/tool-invocation-log-store.interface.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import type { IdGenerator } from "@jatbas/aic-core/core/interfaces/id-generator.interface.js";
+import type { SpecificationCompiler } from "@jatbas/aic-core/core/interfaces/specification-compiler.interface.js";
 import type { SessionId } from "@jatbas/aic-core/core/types/identifiers.js";
+import type { SpecificationInput } from "@jatbas/aic-core/core/types/specification-compilation.types.js";
+import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 import { CompileSpecRequestSchema } from "../schemas/compile-spec-request.schema.js";
 import { recordToolInvocation } from "../record-tool-invocation.js";
 
 const compileSpecRequestParser = z.object(CompileSpecRequestSchema);
-
-const USAGE_TO_INITIAL_TIER = {
-  implements: "verbatim",
-  "calls-methods": "verbatim",
-  constructs: "verbatim",
-  "passes-through": "signature-path",
-  "names-only": "path-only",
-} as const satisfies Readonly<
-  Record<
-    "implements" | "calls-methods" | "constructs" | "passes-through" | "names-only",
-    "verbatim" | "signature-path" | "path-only"
-  >
->;
 
 export type CompileSpecHandlerDeps = {
   readonly toolInvocationLogStore: ToolInvocationLogStore;
   readonly clock: Clock;
   readonly idGenerator: IdGenerator;
   readonly getSessionId: () => SessionId;
+  readonly specificationCompiler: SpecificationCompiler;
 };
-
-type InitialTier = (typeof USAGE_TO_INITIAL_TIER)[keyof typeof USAGE_TO_INITIAL_TIER];
-
-function sumEstimatedTokens(rows: readonly { estimatedTokens: number }[]): number {
-  return rows.reduce((acc, row) => acc + row.estimatedTokens, 0);
-}
-
-function buildTypeTiers(
-  types: readonly {
-    readonly name: string;
-    readonly path: string;
-    readonly usage: keyof typeof USAGE_TO_INITIAL_TIER;
-  }[],
-): Record<string, InitialTier> {
-  const sorted = types.toSorted((a, b) => {
-    const byPath = a.path.localeCompare(b.path);
-    return byPath !== 0 ? byPath : a.name.localeCompare(b.name);
-  });
-  return sorted.reduce<Record<string, InitialTier>>(
-    (acc, t) => ({
-      ...acc,
-      [`${t.name}\u0000${t.path}`]: USAGE_TO_INITIAL_TIER[t.usage],
-    }),
-    {},
-  );
-}
-
-function buildCompiledSpecStub(params: {
-  readonly typesCount: number;
-  readonly codeBlocksCount: number;
-  readonly proseCount: number;
-  readonly budgetPresent: boolean;
-  readonly budgetValue: number | undefined;
-  readonly totalTokensRaw: number;
-}): string {
-  const budgetSegment = params.budgetPresent ? String(params.budgetValue) : "none";
-  return [
-    "AIC aic_compile_spec: foundation stub; SpecificationCompiler not invoked.",
-    `types: ${params.typesCount}`,
-    `codeBlocks: ${params.codeBlocksCount}`,
-    `prose: ${params.proseCount}`,
-    `budget: ${budgetSegment}`,
-    `totalTokensRaw: ${params.totalTokensRaw}`,
-  ].join("\n");
-}
 
 export function createCompileSpecHandler(
   deps: CompileSpecHandlerDeps,
@@ -102,29 +49,36 @@ export function createCompileSpecHandler(
       "aic_compile_spec",
       data,
     );
-    const totalTokensRaw =
-      sumEstimatedTokens(data.spec.types) +
-      sumEstimatedTokens(data.spec.codeBlocks) +
-      sumEstimatedTokens(data.spec.prose);
-    const typeTiers = buildTypeTiers(data.spec.types);
-    const compiledSpec = buildCompiledSpecStub({
-      typesCount: data.spec.types.length,
-      codeBlocksCount: data.spec.codeBlocks.length,
-      proseCount: data.spec.prose.length,
-      budgetPresent: "budget" in data,
-      budgetValue: data.budget,
-      totalTokensRaw,
-    });
-    const successPayload = {
-      compiledSpec,
-      meta: {
-        totalTokensRaw,
-        totalTokensCompiled: 0,
-        reductionPct: 0,
-        typeTiers,
-        transformTokensSaved: 0,
-      },
+    const sumEstimated =
+      data.spec.types.reduce((acc, row) => acc + row.estimatedTokens, 0) +
+      data.spec.codeBlocks.reduce((acc, row) => acc + row.estimatedTokens, 0) +
+      data.spec.prose.reduce((acc, row) => acc + row.estimatedTokens, 0);
+    const budgetTokenCount =
+      data.budget !== undefined ? toTokenCount(data.budget) : toTokenCount(sumEstimated);
+    const specificationInput: SpecificationInput = {
+      types: data.spec.types.map((t) => ({
+        name: t.name,
+        path: toRelativePath(t.path),
+        content: t.content,
+        usage: t.usage,
+        estimatedTokens: toTokenCount(t.estimatedTokens),
+      })),
+      codeBlocks: data.spec.codeBlocks.map((b) => ({
+        label: b.label,
+        content: b.content,
+        estimatedTokens: toTokenCount(b.estimatedTokens),
+      })),
+      prose: data.spec.prose.map((p) => ({
+        label: p.label,
+        content: p.content,
+        estimatedTokens: toTokenCount(p.estimatedTokens),
+      })),
     };
+    const { compiledSpec, meta } = deps.specificationCompiler.compile(
+      specificationInput,
+      budgetTokenCount,
+    );
+    const successPayload = { compiledSpec, meta };
     const text: string = JSON.stringify(successPayload);
     return Promise.resolve({
       content: [{ type: "text", text }],

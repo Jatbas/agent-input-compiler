@@ -9,6 +9,7 @@ import {
 } from "@jatbas/aic-core/core/types/specification-compilation.types.js";
 import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
+import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
 
 const measure = (s: string): ReturnType<typeof toTokenCount> =>
   toTokenCount([...s].length);
@@ -199,5 +200,145 @@ describe("SpecificationCompilerImpl", () => {
         "\nAIC specification compiler: output truncated to satisfy budget.",
       ),
     ).toBe(true);
+  });
+
+  it("spec_compiler_code_blocks_sorted_by_label", () => {
+    const input: SpecificationInput = {
+      types: [],
+      codeBlocks: [
+        {
+          label: "z",
+          content: "ZZZ",
+          estimatedTokens: measure("ZZZ"),
+        },
+        {
+          label: "a",
+          content: "AAA",
+          estimatedTokens: measure("AAA"),
+        },
+      ],
+      prose: [],
+    };
+    const { compiledSpec } = new SpecificationCompilerImpl(measure).compile(
+      input,
+      toTokenCount(1_000_000),
+    );
+    expect(compiledSpec.indexOf("a\nAAA")).toBeLessThan(compiledSpec.indexOf("z\nZZZ"));
+  });
+
+  it("spec_compiler_prose_sorted_by_label", () => {
+    const input: SpecificationInput = {
+      types: [],
+      codeBlocks: [],
+      prose: [
+        {
+          label: "z",
+          content: "ZZZ",
+          estimatedTokens: measure("ZZZ"),
+        },
+        {
+          label: "a",
+          content: "AAA",
+          estimatedTokens: measure("AAA"),
+        },
+      ],
+    };
+    const { compiledSpec } = new SpecificationCompilerImpl(measure).compile(
+      input,
+      toTokenCount(1_000_000),
+    );
+    expect(compiledSpec.indexOf("a\nAAA")).toBeLessThan(compiledSpec.indexOf("z\nZZZ"));
+  });
+
+  it("spec_compiler_budget_removes_code_before_prose", () => {
+    const input: SpecificationInput = {
+      types: [
+        {
+          name: "T",
+          path: toRelativePath("t/x.ts"),
+          content: "",
+          usage: "names-only",
+          estimatedTokens: toTokenCount(1),
+        },
+      ],
+      codeBlocks: [
+        {
+          label: "c",
+          content: "<<<CODE>>>",
+          estimatedTokens: toTokenCount(100),
+        },
+      ],
+      prose: [
+        {
+          label: "p",
+          content: "<<<PROSE>>>",
+          estimatedTokens: toTokenCount(10),
+        },
+      ],
+    };
+    const impl = new SpecificationCompilerImpl(measure);
+    const full = impl.compile(input, toTokenCount(1_000_000));
+    expect(full.compiledSpec.includes("<<<CODE>>>")).toBe(true);
+    expect(full.compiledSpec.includes("<<<PROSE>>>")).toBe(true);
+    const L = [...full.compiledSpec].length;
+    const first = Array.from({ length: L + 1 }, (_, i) => {
+      const k = L - i;
+      return { k, trial: impl.compile(input, toTokenCount(k)) };
+    }).find(
+      ({ trial }) =>
+        trial.compiledSpec.includes("<<<PROSE>>>") &&
+        !trial.compiledSpec.includes("<<<CODE>>>"),
+    );
+    if (first === undefined) {
+      throw new ConfigError(
+        "specification-compiler test: expected budget where prose remains and code drops",
+      );
+    }
+    expect(first.trial.compiledSpec.includes("<<<PROSE>>>")).toBe(true);
+    expect(first.trial.compiledSpec.includes("<<<CODE>>>")).toBe(false);
+  });
+
+  it("spec_compiler_budget_demotion_signature_before_code_drop", () => {
+    const input: SpecificationInput = {
+      types: [
+        {
+          name: "A",
+          path: toRelativePath("a/a.ts"),
+          content: "export class A {}\nexport class B {}",
+          usage: "implements",
+          estimatedTokens: toTokenCount(50),
+        },
+        {
+          name: "B",
+          path: toRelativePath("b/b.ts"),
+          content: "export class A {}\nexport class B {}",
+          usage: "implements",
+          estimatedTokens: toTokenCount(50),
+        },
+      ],
+      codeBlocks: [
+        {
+          label: "cb",
+          content: "KEEP_CODE_BLOCK",
+          estimatedTokens: toTokenCount(5),
+        },
+      ],
+      prose: [],
+    };
+    const impl = new SpecificationCompilerImpl(measure);
+    const full = impl.compile(input, toTokenCount(1_000_000));
+    expect(full.meta.typeTiers["A\u0000a/a.ts"]).toBe("verbatim");
+    expect(full.meta.typeTiers["B\u0000b/b.ts"]).toBe("verbatim");
+    const budget = toTokenCount(Math.max(0, [...full.compiledSpec].length - 1));
+    const tight = impl.compile(input, budget);
+    expect(tight.compiledSpec.includes("KEEP_CODE_BLOCK")).toBe(true);
+    expect(
+      tight.meta.typeTiers["A\u0000a/a.ts"] === "signature-path" ||
+        tight.meta.typeTiers["B\u0000b/b.ts"] === "signature-path",
+    ).toBe(true);
+    expect(
+      tight.meta.typeTiers["A\u0000a/a.ts"] === "verbatim" &&
+        tight.meta.typeTiers["B\u0000b/b.ts"] === "verbatim",
+    ).toBe(false);
   });
 });
