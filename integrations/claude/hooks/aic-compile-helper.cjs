@@ -121,6 +121,8 @@ function callAicCompile(
   if (normalizedModelId !== null && normalizedModelId !== "auto") {
     resolved = normalizedModelId;
     writeSessionModelCache(projectRoot, resolved, conversationId || "", editorId);
+  } else if (normalizedModelId === "auto") {
+    resolved = "auto";
   } else {
     const cached = readSessionModelCache(projectRoot, conversationId, editorId);
     if (cached !== null) resolved = normalizeModelId(cached);
