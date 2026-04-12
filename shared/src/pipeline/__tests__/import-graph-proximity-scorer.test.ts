@@ -2,7 +2,10 @@
 // Copyright (c) 2025 AIC Contributors
 
 import { describe, it, expect } from "vitest";
-import { ImportGraphProximityScorer } from "../import-graph-proximity-scorer.js";
+import {
+  buildReverseEdges,
+  ImportGraphProximityScorer,
+} from "../import-graph-proximity-scorer.js";
 import type { FileContentReader } from "@jatbas/aic-core/core/interfaces/file-content-reader.interface.js";
 import type { LanguageProvider } from "@jatbas/aic-core/core/interfaces/language-provider.interface.js";
 import type { RepoMap } from "@jatbas/aic-core/core/types/repo-map.js";
@@ -12,6 +15,7 @@ import {
   toRelativePath,
   toAbsolutePath,
   toFileExtension,
+  type RelativePath,
 } from "@jatbas/aic-core/core/types/paths.js";
 import { toTokenCount, toBytes } from "@jatbas/aic-core/core/types/units.js";
 import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
@@ -187,5 +191,20 @@ describe("ImportGraphProximityScorer", () => {
     const task = makeTask(["seed"]);
     const scores = await scorer.getScores(repo, task);
     expect(scores.get(bPath)).toBe(0.3);
+  });
+
+  it("build_reverse_edges_wide_fan_in", () => {
+    const sharedTarget = toRelativePath("lib/shared.ts");
+    const edges = new Map<RelativePath, readonly RelativePath[]>(
+      Array.from({ length: 256 }, (_, i): [RelativePath, readonly RelativePath[]] => [
+        toRelativePath(`src/m/${i}.ts`),
+        [sharedTarget],
+      ]),
+    );
+    const reverseEdges = buildReverseEdges(edges);
+    expect(reverseEdges.size).toBe(1);
+    expect(reverseEdges.get(sharedTarget)?.length).toBe(256);
+    expect(reverseEdges.get(sharedTarget)?.[0]).toBe(toRelativePath("src/m/0.ts"));
+    expect(reverseEdges.get(sharedTarget)?.[255]).toBe(toRelativePath("src/m/255.ts"));
   });
 });
