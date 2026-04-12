@@ -110,3 +110,13 @@ export type { TelemetryEvent } from "./telemetry-types.js";
 export type { InspectRequest, PipelineTrace } from "./inspect-types.js";
 export type { ResolvedConfig } from "./resolved-config.js";
 export { defaultResolvedConfig } from "./resolved-config.js";
+export type {
+  SpecificationInput,
+  SpecCompilationResult,
+  SpecTypeRef,
+  SpecCodeBlock,
+  SpecProseBlock,
+  SpecTypeUsage,
+  SpecInclusionTier,
+} from "./specification-compilation.types.js";
+export { SPEC_USAGE_TO_INITIAL_TIER } from "./specification-compilation.types.js";
