@@ -8,28 +8,38 @@ import type { RepoMap } from "@jatbas/aic-core/core/types/repo-map.js";
 import type { TaskClassification } from "@jatbas/aic-core/core/types/task-classification.js";
 import type { RelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { FileEntry } from "@jatbas/aic-core/core/types/repo-map.js";
-import { resolveImportSpec } from "@jatbas/aic-core/core/types/paths.js";
+import { resolveImportSpec, toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import { getProvider } from "./get-provider.js";
 import { pathRelevance } from "./path-relevance.js";
 
 const INDEX_EXTS = [".ts", ".js", ".tsx", ".jsx"] as const;
 
+function buildRepoPathIndex(
+  files: readonly FileEntry[],
+): ReadonlyMap<RelativePath, RelativePath> {
+  const map = new Map<RelativePath, RelativePath>();
+  for (const f of files) {
+    if (!map.has(f.path)) {
+      map.set(f.path, f.path);
+    }
+  }
+  return map;
+}
+
 function findRepoPathForResolved(
   resolved: RelativePath,
-  files: readonly FileEntry[],
+  pathIndex: ReadonlyMap<RelativePath, RelativePath>,
 ): RelativePath | null {
-  const base = resolved.trim();
-  const exact = files.find((f) => f.path === base);
-  if (exact !== undefined) return exact.path;
+  const base = toRelativePath(resolved.trim());
+  const exact = pathIndex.get(base);
+  if (exact !== undefined) return exact;
   for (const ext of INDEX_EXTS) {
-    const withExt = base + ext;
-    const match = files.find((f) => f.path === withExt);
-    if (match !== undefined) return match.path;
+    const withExt = pathIndex.get(toRelativePath(base + ext));
+    if (withExt !== undefined) return withExt;
   }
   for (const ext of INDEX_EXTS) {
-    const indexPath = base + "/index" + ext;
-    const match = files.find((f) => f.path === indexPath);
-    if (match !== undefined) return match.path;
+    const indexPath = pathIndex.get(toRelativePath(base + "/index" + ext));
+    if (indexPath !== undefined) return indexPath;
   }
   return null;
 }
@@ -47,7 +57,8 @@ async function buildEdges(
   languageProviders: readonly LanguageProvider[],
 ): Promise<ReadonlyMap<RelativePath, readonly RelativePath[]>> {
   const edges = new Map<RelativePath, readonly RelativePath[]>();
-  const pathSet = new Set(repo.files.map((f) => f.path));
+  const pathIndex = buildRepoPathIndex(repo.files);
+  const pathSet = new Set(pathIndex.keys());
   for (const entry of repo.files) {
     const provider = getProvider(entry.path, languageProviders);
     if (provider === undefined) continue;
@@ -59,7 +70,7 @@ async function buildEdges(
         .reduce<readonly RelativePath[]>((acc, ref) => {
           const resolved = resolveImportSpec(entry.path, ref.source);
           if (resolved === null) return acc;
-          const target = findRepoPathForResolved(resolved, repo.files);
+          const target = findRepoPathForResolved(resolved, pathIndex);
           if (target === null || !pathSet.has(target)) return acc;
           if (acc.includes(target)) return acc;
           return [...acc, target];

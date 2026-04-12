@@ -113,6 +113,72 @@ describe("ImportGraphProximityScorer", () => {
     expect(scores.get(otherPath)).toBe(0.6);
   });
 
+  it("import_graph_path_index_large_repo", async () => {
+    const otherPath = toRelativePath("other.ts");
+    const seedPath = toRelativePath("seed.ts");
+    const decoys = Array.from({ length: 400 }, (_, i) => makeEntry(`lib/dummy/${i}.ts`));
+    const contentByPath = new Map<string, string>([
+      [seedPath, "import x from './other';"],
+      [otherPath, ""],
+    ]);
+    const reader: FileContentReader = {
+      getContent: (path) => Promise.resolve(contentByPath.get(path) ?? ""),
+    };
+    const refOther: ImportRef = {
+      source: "./other",
+      symbols: [],
+      isRelative: true,
+    };
+    const provider: LanguageProvider = {
+      id: "ts",
+      extensions: [toFileExtension(".ts")],
+      parseImports: (_content, path) => (path === seedPath ? [refOther] : []),
+      extractSignaturesWithDocs: () => [],
+      extractSignaturesOnly: () => [],
+      extractNames: () => [],
+    };
+    const scorer = new ImportGraphProximityScorer(reader, [provider]);
+    const repo = makeRepo([...decoys, makeEntry("seed.ts"), makeEntry("other.ts")]);
+    const task = makeTask(["seed"]);
+    const scores = await scorer.getScores(repo, task);
+    expect(scores.get(otherPath)).toBe(0.6);
+  });
+
+  it("import_graph_index_barrel_large_repo", async () => {
+    const indexPath = toRelativePath("pkg/foo/index.ts");
+    const seedPath = toRelativePath("seed.ts");
+    const decoys = Array.from({ length: 400 }, (_, i) => makeEntry(`lib/dummy/${i}.ts`));
+    const contentByPath = new Map<string, string>([
+      [seedPath, "import x from './pkg/foo';"],
+      [indexPath, ""],
+    ]);
+    const reader: FileContentReader = {
+      getContent: (path) => Promise.resolve(contentByPath.get(path) ?? ""),
+    };
+    const refFoo: ImportRef = {
+      source: "./pkg/foo",
+      symbols: [],
+      isRelative: true,
+    };
+    const provider: LanguageProvider = {
+      id: "ts",
+      extensions: [toFileExtension(".ts")],
+      parseImports: (_content, path) => (path === seedPath ? [refFoo] : []),
+      extractSignaturesWithDocs: () => [],
+      extractSignaturesOnly: () => [],
+      extractNames: () => [],
+    };
+    const scorer = new ImportGraphProximityScorer(reader, [provider]);
+    const repo = makeRepo([
+      ...decoys,
+      makeEntry("pkg/foo/index.ts"),
+      makeEntry("seed.ts"),
+    ]);
+    const task = makeTask(["seed"]);
+    const scores = await scorer.getScores(repo, task);
+    expect(scores.get(indexPath)).toBe(0.6);
+  });
+
   it("import_graph_no_provider_score_zero", async () => {
     const reader: FileContentReader = {
       getContent: () => Promise.resolve(""),
