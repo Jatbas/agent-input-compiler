@@ -13,7 +13,13 @@
 const fs = require("fs");
 const path = require("path");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
-const { conversationIdFromTranscriptPath } = require("../../shared/conversation-id.cjs");
+const {
+  isCursorNativeHookPayload,
+} = require("../../shared/is-cursor-native-hook-payload.cjs");
+const {
+  conversationIdFromTranscriptPath,
+  resolveConversationIdFallback,
+} = require("../../shared/conversation-id.cjs");
 
 let hookInput = {};
 try {
@@ -23,11 +29,14 @@ try {
   // Non-fatal — proceed without conversation_id
 }
 
-if (!hookInput.cursor_version && !hookInput.input?.cursor_version) {
+if (!isCursorNativeHookPayload(hookInput)) {
   process.exit(0);
 }
 
-const conversationId = conversationIdFromTranscriptPath(hookInput) ?? "";
+const conversationId =
+  conversationIdFromTranscriptPath(hookInput) ??
+  resolveConversationIdFallback(hookInput) ??
+  "";
 
 const ROUTER_PATH = path.join(__dirname, "..", "rules", "AIC-architect.mdc");
 const SECTION_START = "## Critical reminders";

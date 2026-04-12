@@ -18,6 +18,9 @@ const {
   normalizeModelId,
   writeSessionModelCache,
 } = require("../../shared/session-model-cache.cjs");
+const {
+  isCursorNativeHookPayload,
+} = require("../../shared/is-cursor-native-hook-payload.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 
 const projectRoot = resolveProjectRoot(null, { env: process.env });
@@ -34,7 +37,7 @@ process.stdin.on("data", (chunk) => {
 process.stdin.on("end", () => {
   try {
     const input = JSON.parse(raw);
-    if (!input.cursor_version && !input.input?.cursor_version) {
+    if (!isCursorNativeHookPayload(input)) {
       process.stdout.write(JSON.stringify({ continue: true }));
       return;
     }

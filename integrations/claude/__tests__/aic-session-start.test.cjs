@@ -77,7 +77,7 @@ async function session_start_passes_conversationId_when_in_input() {
   console.log("session_start_passes_conversationId_when_in_input: pass");
 }
 
-async function session_start_passes_null_when_no_conversation_id() {
+async function session_start_passes_session_id_fallback_when_no_transcript_or_direct_id() {
   const captured = { thirdArg: undefined };
   const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
     paths: [hooksDir],
@@ -96,10 +96,12 @@ async function session_start_passes_null_when_no_conversation_id() {
   const { run } = require(hookPath);
   await run(JSON.stringify({ session_id: "s1", cwd: "/tmp" }));
   cleanup(resolvedHelper);
-  if (captured.thirdArg !== null) {
-    throw new Error(`Expected third arg null, got ${JSON.stringify(captured.thirdArg)}`);
+  if (captured.thirdArg !== "s1") {
+    throw new Error(`Expected third arg "s1", got ${JSON.stringify(captured.thirdArg)}`);
   }
-  console.log("session_start_passes_null_when_no_conversation_id: pass");
+  console.log(
+    "session_start_passes_session_id_fallback_when_no_transcript_or_direct_id: pass",
+  );
 }
 
 async function lock_prevents_concurrent_session_start() {
@@ -348,7 +350,7 @@ async function session_start_noop_when_cursor_version_present() {
 (async () => {
   await output_format_hookSpecificOutput_when_helper_returns_text();
   await session_start_passes_conversationId_when_in_input();
-  await session_start_passes_null_when_no_conversation_id();
+  await session_start_passes_session_id_fallback_when_no_transcript_or_direct_id();
   await lock_prevents_concurrent_session_start();
   await lock_cleaned_up_after_success();
   await stale_lock_returns_null_when_marker_has_content();

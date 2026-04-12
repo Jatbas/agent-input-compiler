@@ -123,14 +123,13 @@ async function prompt_compile_no_AIC_CONVERSATION_ID_when_conversationId_null() 
     const { run } = require(hookPath);
     const stdin = JSON.stringify({
       prompt: "x",
-      session_id: "other-session",
       cwd: tmpDir,
     });
     const stdout = await run(stdin);
     cleanup(key);
     if (stdout && stdout.includes("AIC_CONVERSATION_ID=")) {
       throw new Error(
-        `Expected no AIC_CONVERSATION_ID in invariants when conversationId null, got: ${String(stdout).slice(0, 300)}`,
+        `Expected no AIC_CONVERSATION_ID when no transcript/direct id and no fallback candidates, got: ${String(stdout).slice(0, 300)}`,
       );
     }
     console.log("prompt_compile_no_AIC_CONVERSATION_ID_when_conversationId_null: pass");
@@ -167,6 +166,39 @@ async function prompt_compile_includes_AIC_CONVERSATION_ID_when_conversationId_t
     }
     console.log(
       "prompt_compile_includes_AIC_CONVERSATION_ID_when_conversationId_truthy: pass",
+    );
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+async function prompt_compile_includes_AIC_CONVERSATION_ID_from_session_fallback() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-prompt-compile-test-"));
+  try {
+    const cursorRules = path.join(tmpDir, ".cursor", "rules");
+    fs.mkdirSync(cursorRules, { recursive: true });
+    fs.writeFileSync(
+      path.join(cursorRules, "AIC-architect.mdc"),
+      "## Critical reminders\n\n- **foo:** bar\n\n",
+      "utf8",
+    );
+    const key = mockHelper("prompt part");
+    delete require.cache[require.resolve(hookPath)];
+    const { run } = require(hookPath);
+    const stdin = JSON.stringify({
+      prompt: "x",
+      session_id: "prompt-sess-fb",
+      cwd: tmpDir,
+    });
+    const stdout = await run(stdin);
+    cleanup(key);
+    if (!stdout || !stdout.includes("AIC_CONVERSATION_ID=prompt-sess-fb")) {
+      throw new Error(
+        `Expected session fallback in invariants, got: ${String(stdout).slice(0, 300)}`,
+      );
+    }
+    console.log(
+      "prompt_compile_includes_AIC_CONVERSATION_ID_from_session_fallback: pass",
     );
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -347,6 +379,7 @@ async function prompt_compile_noop_when_cursor_version_present() {
   await dual_path_prepends_invariants_when_marker_missing();
   await prompt_compile_no_AIC_CONVERSATION_ID_when_conversationId_null();
   await prompt_compile_includes_AIC_CONVERSATION_ID_when_conversationId_truthy();
+  await prompt_compile_includes_AIC_CONVERSATION_ID_from_session_fallback();
   await intent_stripped_when_prompt_contains_ide_tags();
   await prompt_compile_uses_transcript_path_as_conversationId();
   await prompt_compile_uses_conversation_id_when_transcript_path_missing();

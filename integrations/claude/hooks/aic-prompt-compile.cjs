@@ -9,8 +9,12 @@ const path = require("path");
 const { isSessionAlreadyInjected } = require("../../shared/session-markers.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 const {
+  isCursorNativeHookPayload,
+} = require("../../shared/is-cursor-native-hook-payload.cjs");
+const {
   conversationIdFromTranscriptPath,
   explicitEditorIdFromClaudeHookEnvelope,
+  resolveConversationIdFallback,
 } = require("../../shared/conversation-id.cjs");
 const {
   readModelFromTranscript,
@@ -24,7 +28,7 @@ async function run(stdinStr) {
   } catch {
     parsed = {};
   }
-  const isCursorNative = (parsed.cursor_version ?? parsed.input?.cursor_version) != null;
+  const isCursorNative = isCursorNativeHookPayload(parsed);
   if (isCursorNative) return null;
   // Claude Code sends fields at top level; legacy spec nested under `input`
   const top = parsed || {};
@@ -44,7 +48,8 @@ async function run(stdinStr) {
         ? input.session_id
         : null;
   const projectRoot = resolveProjectRoot(parsed);
-  const conversationId = conversationIdFromTranscriptPath(parsed);
+  const conversationId =
+    conversationIdFromTranscriptPath(parsed) ?? resolveConversationIdFallback(parsed);
   if (conversationId != null && String(conversationId).trim() !== "") {
     try {
       const ccId = String(conversationId).trim();

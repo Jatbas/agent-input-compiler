@@ -6,11 +6,16 @@
 const path = require("path");
 const { readStdinSync } = require("../../shared/read-stdin-sync.cjs");
 const { writeEditedFiles } = require("../../shared/edited-files-cache.cjs");
+const {
+  isCursorNativeHookPayload,
+} = require("../../shared/is-cursor-native-hook-payload.cjs");
 
 function run(stdinStr) {
   try {
     const input =
       typeof stdinStr === "string" && stdinStr.trim() ? JSON.parse(stdinStr) : {};
+    const isCursorNative = isCursorNativeHookPayload(input);
+    if (isCursorNative) return "{}";
     const sessionId =
       input.session_id != null
         ? input.session_id

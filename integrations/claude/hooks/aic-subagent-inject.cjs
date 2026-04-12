@@ -4,7 +4,13 @@
 // SubagentStart hook — hookSpecificOutput JSON per CC §6.3; no marker file.
 
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
-const { conversationIdFromTranscriptPath } = require("../../shared/conversation-id.cjs");
+const {
+  conversationIdFromTranscriptPath,
+  resolveConversationIdFallback,
+} = require("../../shared/conversation-id.cjs");
+const {
+  isCursorNativeHookPayload,
+} = require("../../shared/is-cursor-native-hook-payload.cjs");
 const { callAicCompile } = require("./aic-compile-helper.cjs");
 
 async function run(stdinStr) {
@@ -14,11 +20,12 @@ async function run(stdinStr) {
   } catch {
     parsed = {};
   }
-  const isCursorNative = (parsed.cursor_version ?? parsed.input?.cursor_version) != null;
+  const isCursorNative = isCursorNativeHookPayload(parsed);
   if (isCursorNative) return null;
   const agentType = parsed.agent_type ?? parsed.input?.agent_type ?? "unknown";
   const projectRoot = resolveProjectRoot(parsed);
-  const conversationId = conversationIdFromTranscriptPath(parsed);
+  const conversationId =
+    conversationIdFromTranscriptPath(parsed) ?? resolveConversationIdFallback(parsed);
 
   const rawPrompt = parsed.prompt ?? parsed.input?.prompt ?? null;
   const intent = rawPrompt

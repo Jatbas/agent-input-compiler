@@ -9,6 +9,9 @@ const { execFileSync } = require("child_process");
 const { readStdinSync } = require("../../shared/read-stdin-sync.cjs");
 const { readEditedFiles } = require("../../shared/edited-files-cache.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
+const {
+  isCursorNativeHookPayload,
+} = require("../../shared/is-cursor-native-hook-payload.cjs");
 
 function runEslint(paths, cwd) {
   if (paths.length === 0) return { exitCode: 0, stderr: "" };
@@ -61,6 +64,8 @@ function run(stdinStr) {
     } catch {
       return "";
     }
+    const isCursorNative = isCursorNativeHookPayload(parsed);
+    if (isCursorNative) return "";
     const sessionId = parsed.session_id ?? parsed.input?.session_id ?? "default";
     const projectRoot = resolveProjectRoot(parsed);
     const paths = readEditedFiles("claude_code", sessionId);

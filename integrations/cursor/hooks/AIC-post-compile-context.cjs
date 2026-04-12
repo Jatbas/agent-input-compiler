@@ -4,6 +4,9 @@
 
 // postToolUse hook — when aic_compile succeeded, inject additional_context so the model sees a short confirmation.
 // Input: tool_name, tool_input, tool_output, tool_use_id, duration. Output: updated_mcp_tool_output, additional_context.
+const {
+  isCursorNativeHookPayload,
+} = require("../../shared/is-cursor-native-hook-payload.cjs");
 
 function main() {
   let raw = "";
@@ -14,7 +17,7 @@ function main() {
   process.stdin.on("end", () => {
     try {
       const input = JSON.parse(raw);
-      if (!input.cursor_version && !input.input?.cursor_version) {
+      if (!isCursorNativeHookPayload(input)) {
         process.exit(0);
       }
       const toolName = input.tool_name;

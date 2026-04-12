@@ -11,6 +11,9 @@ const os = require("os");
 const { appendSessionLog } = require("../../shared/session-log.cjs");
 const { cleanupEditedFiles } = require("../../shared/edited-files-cache.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
+const {
+  isCursorNativeHookPayload,
+} = require("../../shared/is-cursor-native-hook-payload.cjs");
 
 const GATE_PREFIX = "aic-gate-";
 const DENY_PREFIX = "aic-deny-";
@@ -61,7 +64,7 @@ function main() {
   } catch {
     // invalid JSON — still cleanup and exit 0
   }
-  if (parseOk && !input.cursor_version && !input.input?.cursor_version) {
+  if (parseOk && !isCursorNativeHookPayload(input)) {
     process.exit(0);
   }
   const key =

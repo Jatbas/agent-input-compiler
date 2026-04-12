@@ -5,7 +5,13 @@
 
 const fs = require("fs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
-const { conversationIdFromTranscriptPath } = require("../../shared/conversation-id.cjs");
+const {
+  conversationIdFromTranscriptPath,
+  resolveConversationIdFallback,
+} = require("../../shared/conversation-id.cjs");
+const {
+  isCursorNativeHookPayload,
+} = require("../../shared/is-cursor-native-hook-payload.cjs");
 const { callAicCompile } = require("./aic-compile-helper.cjs");
 
 async function run(stdinStr) {
@@ -15,7 +21,10 @@ async function run(stdinStr) {
   } catch {
     parsed = {};
   }
-  const conversationId = conversationIdFromTranscriptPath(parsed);
+  const isCursorNative = isCursorNativeHookPayload(parsed);
+  if (isCursorNative) return null;
+  const conversationId =
+    conversationIdFromTranscriptPath(parsed) ?? resolveConversationIdFallback(parsed);
   const projectRoot = resolveProjectRoot(parsed);
 
   const text = await callAicCompile(

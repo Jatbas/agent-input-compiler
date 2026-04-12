@@ -23,6 +23,9 @@ const AIC_SCRIPT_NAMES = [
   "AIC-subagent-start-model-id.cjs",
   "AIC-stop-quality-check.cjs",
 ];
+const GUARDED_CURSOR_HOOKS = AIC_SCRIPT_NAMES.filter(
+  (name) => name !== "AIC-subagent-start-model-id.cjs",
+);
 
 const repoRoot = path.resolve(__dirname, "..", "..", "..");
 const installScript = path.join(repoRoot, "integrations", "cursor", "install.cjs");
@@ -129,6 +132,31 @@ function install_expected_scripts() {
     );
     for (const name of AIC_SCRIPT_NAMES) {
       assert(names.includes(name), `script ${name} present`);
+    }
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+function install_hooks_use_shared_cursor_runtime_guard() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-install-guard-cursor-"));
+  try {
+    runInstaller(tmpDir);
+    const hooksDir = path.join(tmpDir, ".cursor", "hooks");
+    for (const scriptName of GUARDED_CURSOR_HOOKS) {
+      const content = fs.readFileSync(path.join(hooksDir, scriptName), "utf8");
+      assert(
+        content.includes('require("./AIC-is-cursor-native-hook-payload.cjs")'),
+        `${scriptName} imports shared cursor runtime guard`,
+      );
+      assert(
+        content.includes("isCursorNativeHookPayload("),
+        `${scriptName} uses shared cursor runtime guard`,
+      );
+      assert(
+        !content.includes("cursor_version") && !content.includes("input?.cursor_version"),
+        `${scriptName} has no inline cursor_version checks`,
+      );
     }
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -469,6 +497,10 @@ const tests = [
   [
     "cursor_install_migrates_old_style_shared_files",
     cursor_install_migrates_old_style_shared_files,
+  ],
+  [
+    "install_hooks_use_shared_cursor_runtime_guard",
+    install_hooks_use_shared_cursor_runtime_guard,
   ],
 ];
 for (const [name, fn] of tests) {

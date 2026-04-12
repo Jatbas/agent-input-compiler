@@ -117,11 +117,11 @@ When run from a project directory that is not the user home, it also removes leg
 
 `readSessionModelCache` uses the same bounded tail read and deterministic full-file fallback as the MCP compile handler ([Implementation specification — Model id resolution](../implementation-spec.md#model-id-resolution-aic_compile); [AIC JSONL caches](aic-jsonl-caches.md)).
 
-**Resolving `conversationId`:** Hooks use `conversationIdFromTranscriptPath(parsed)` in `integrations/shared/conversation-id.cjs`. Claude Code normally includes `transcript_path` in hook input ([common input fields](https://code.claude.com/docs/en/hooks#common-input-fields)); the UUID in the transcript filename is stable across hooks in the same chat. When a non-empty `conversation_id` appears without a transcript path (mixed envelopes), the helper uses the trimmed id so `compilation_log.conversation_id` stays populated. `aic-compile-helper` forwards `conversationId` and explicit `editorId` from the caller.
+**Resolving `conversationId`:** Hooks use `conversationIdFromTranscriptPath(parsed)` in `integrations/shared/conversation-id.cjs` first (transcript basename, then trimmed direct `conversation_id`). When that returns `null`, compile/inject/reparent hooks call `resolveConversationIdFallback(parsed)` so `aic_compile` still receives a deterministic synthetic id when `parent_conversation_id`, `session_id`, or `generation_id` / camelCase variants yield a valid candidate (printable ASCII, max 128 chars — see [Integrations shared modules](integrations-shared-modules.md)). Claude Code normally includes `transcript_path` in hook input ([common input fields](https://code.claude.com/docs/en/hooks#common-input-fields)); the UUID in the transcript filename is stable across hooks in the same chat. `aic-compile-helper` forwards `conversationId` and explicit `editorId` from the caller.
 
 **Entry guard:** If `cursor_version` or `input.cursor_version` is present, Claude hooks return immediately without calling `aic_compile` — see [Runtime boundary guards (`cursor_version`)](cursor-integration-layer.md#44-runtime-boundary-guards-cursor_version).
 
-> Note: `session_id` is per-hook-invocation and is NOT suitable for conversation attribution.
+> Note: Synthetic fallbacks may use `session_id` or `generation_id` when transcript/direct ids are absent — they stabilize `compilation_log` attribution for those hook paths but are not the transcript UUID. Prefer transcript/direct ids when the host supplies them.
 
 ---
 

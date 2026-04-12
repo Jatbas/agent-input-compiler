@@ -80,9 +80,42 @@ async function pre_compact_uses_transcript_path_not_session_id() {
   console.log("pre_compact_uses_transcript_path_not_session_id: pass");
 }
 
+async function pre_compact_passes_session_id_when_transcript_missing() {
+  const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
+    paths: [hooksDir],
+  });
+  let capturedConversationId;
+  require.cache[resolvedHelper] = {
+    exports: {
+      callAicCompile: (_intent, _root, conversationId) => {
+        capturedConversationId = conversationId;
+        return Promise.resolve("compiled text");
+      },
+    },
+    loaded: true,
+    id: resolvedHelper,
+  };
+  delete require.cache[require.resolve(hookPath)];
+  const { run } = require(hookPath);
+  await run(
+    JSON.stringify({
+      session_id: "precompact-sess-fb",
+      cwd: "/tmp",
+    }),
+  );
+  cleanup(resolvedHelper);
+  if (capturedConversationId !== "precompact-sess-fb") {
+    throw new Error(
+      `Expected session fallback id, got ${JSON.stringify(capturedConversationId)}`,
+    );
+  }
+  console.log("pre_compact_passes_session_id_when_transcript_missing: pass");
+}
+
 (async () => {
   await plain_text_stdout_when_helper_returns_prompt();
   await exit_0_silent_when_helper_returns_null();
   await pre_compact_uses_transcript_path_not_session_id();
+  await pre_compact_passes_session_id_when_transcript_missing();
   console.log("All tests passed.");
 })();

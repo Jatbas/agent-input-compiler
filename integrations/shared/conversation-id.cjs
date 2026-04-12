@@ -3,6 +3,7 @@
 // Copyright (c) 2025 AIC Contributors
 
 const path = require("path");
+const { isValidConversationId } = require("./cache-field-validators.cjs");
 
 function conversationIdFromTranscriptPath(parsed) {
   if (parsed == null) return null;
@@ -36,8 +37,38 @@ function conversationIdFromAgentTranscriptPath(agentTranscriptPath) {
   return trimmed.length > 0 ? path.basename(trimmed, ".jsonl") : null;
 }
 
+function normalizedValidFallbackCandidate(raw) {
+  if (typeof raw !== "string") return null;
+  const t = raw.trim();
+  if (t.length === 0) return null;
+  return isValidConversationId(t) ? t : null;
+}
+
+function resolveConversationIdFallback(parsed) {
+  if (parsed == null) return null;
+  const input = parsed.input;
+  const orderedGroups = [
+    [parsed.parent_conversation_id, input?.parent_conversation_id],
+    [parsed.session_id, input?.session_id],
+    [
+      parsed.generation_id,
+      input?.generation_id,
+      parsed.generationId,
+      input?.generationId,
+    ],
+  ];
+  for (const group of orderedGroups) {
+    for (const raw of group) {
+      const v = normalizedValidFallbackCandidate(raw);
+      if (v != null) return v;
+    }
+  }
+  return null;
+}
+
 module.exports = {
   conversationIdFromTranscriptPath,
   conversationIdFromAgentTranscriptPath,
   explicitEditorIdFromClaudeHookEnvelope,
+  resolveConversationIdFallback,
 };

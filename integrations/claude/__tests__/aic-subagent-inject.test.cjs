@@ -89,6 +89,39 @@ async function transcript_path_used_as_conversationId() {
   console.log("transcript_path_used_as_conversationId: pass");
 }
 
+async function session_id_fallback_when_no_transcript_path() {
+  const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
+    paths: [hooksDir],
+  });
+  let capturedConversationId;
+  require.cache[resolvedHelper] = {
+    exports: {
+      callAicCompile: (_intent, _root, conversationId) => {
+        capturedConversationId = conversationId;
+        return Promise.resolve("compiled text");
+      },
+    },
+    loaded: true,
+    id: resolvedHelper,
+  };
+  delete require.cache[hookPath];
+  const { run } = require(hookPath);
+  await run(
+    JSON.stringify({
+      agent_type: "Explore",
+      cwd: "/tmp",
+      session_id: "subagent-sess-fb",
+    }),
+  );
+  cleanup(resolvedHelper);
+  if (capturedConversationId !== "subagent-sess-fb") {
+    throw new Error(
+      `Expected session fallback id, got ${JSON.stringify(capturedConversationId)}`,
+    );
+  }
+  console.log("session_id_fallback_when_no_transcript_path: pass");
+}
+
 async function null_conversationId_when_no_transcript_path() {
   const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
     paths: [hooksDir],
@@ -212,6 +245,7 @@ async function subagent_inject_noop_when_cursor_version_present() {
   await hookSpecificOutput_json_when_helper_returns_text();
   await output_empty_object_when_helper_returns_null();
   await transcript_path_used_as_conversationId();
+  await session_id_fallback_when_no_transcript_path();
   await null_conversationId_when_no_transcript_path();
   await subagent_uses_prompt_as_intent_when_present();
   await subagent_strips_ide_selection_from_prompt();

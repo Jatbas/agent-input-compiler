@@ -12,6 +12,9 @@ const {
 const { appendPromptLog } = require("../../shared/prompt-log.cjs");
 const { cleanupEditedFiles } = require("../../shared/edited-files-cache.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
+const {
+  isCursorNativeHookPayload,
+} = require("../../shared/is-cursor-native-hook-payload.cjs");
 
 function run(stdinStr) {
   const parsed = (() => {
@@ -21,7 +24,7 @@ function run(stdinStr) {
       return {};
     }
   })();
-  const isCursorNative = (parsed.cursor_version ?? parsed.input?.cursor_version) != null;
+  const isCursorNative = isCursorNativeHookPayload(parsed);
   if (isCursorNative) return;
   const sessionId =
     parsed.session_id != null ? parsed.session_id : (parsed.input?.session_id ?? "");

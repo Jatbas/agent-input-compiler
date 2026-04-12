@@ -52,6 +52,25 @@ function inject_modelId_when_model_present() {
   console.log("inject_modelId_when_model_present: pass");
 }
 
+function inject_uses_session_id_fallback_for_conversation_id() {
+  const stdin = hookPayload({
+    tool_name: "aic_compile",
+    tool_input: {
+      intent: "test intent",
+      projectRoot: "/some/project",
+    },
+    session_id: "sess-fallback-1",
+  });
+  const stdout = runHook(stdin);
+  const out = JSON.parse(stdout);
+  if (!out.updated_input || out.updated_input.conversationId !== "sess-fallback-1") {
+    throw new Error(
+      `Expected fallback conversationId sess-fallback-1, got ${JSON.stringify(out.updated_input)}`,
+    );
+  }
+  console.log("inject_uses_session_id_fallback_for_conversation_id: pass");
+}
+
 function inject_allow_when_no_conversation_but_model() {
   const stdin = hookPayload({
     tool_name: "aic_compile",
@@ -196,6 +215,7 @@ function inject_normalizes_default_to_auto() {
 }
 
 inject_modelId_when_model_present();
+inject_uses_session_id_fallback_for_conversation_id();
 inject_allow_when_no_conversation_but_model();
 inject_replaces_weak_intent_with_prewarm_prompt();
 inject_strips_ide_selection_from_prewarm();

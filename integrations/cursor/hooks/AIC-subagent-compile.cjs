@@ -15,7 +15,11 @@ const {
   writeSessionModelCache,
   readSessionModelCache,
 } = require("../../shared/session-model-cache.cjs");
+const {
+  isCursorNativeHookPayload,
+} = require("../../shared/is-cursor-native-hook-payload.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
+const { resolveConversationIdFallback } = require("../../shared/conversation-id.cjs");
 
 let hookInput = {};
 try {
@@ -25,7 +29,7 @@ try {
   // Non-fatal — proceed with default intent
 }
 
-if (!hookInput.cursor_version && !hookInput.input?.cursor_version) {
+if (!isCursorNativeHookPayload(hookInput)) {
   process.stdout.write(JSON.stringify({ permission: "allow" }));
 } else {
   const projectRoot = resolveProjectRoot(null, { env: process.env });
@@ -34,11 +38,15 @@ if (!hookInput.cursor_version && !hookInput.input?.cursor_version) {
       ? String(hookInput.task).slice(0, 200)
       : "provide context for subagent";
 
-  const conversationId =
-    typeof hookInput.parent_conversation_id === "string" &&
-    hookInput.parent_conversation_id.trim().length > 0
-      ? hookInput.parent_conversation_id.trim()
-      : null;
+  const conversationId = (() => {
+    if (
+      typeof hookInput.parent_conversation_id === "string" &&
+      hookInput.parent_conversation_id.trim().length > 0
+    ) {
+      return hookInput.parent_conversation_id.trim();
+    }
+    return resolveConversationIdFallback(hookInput);
+  })();
 
   const compileArgs = {
     intent,

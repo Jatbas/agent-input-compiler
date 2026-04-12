@@ -12,8 +12,12 @@ const {
 } = require("../../shared/session-markers.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 const {
+  isCursorNativeHookPayload,
+} = require("../../shared/is-cursor-native-hook-payload.cjs");
+const {
   conversationIdFromTranscriptPath,
   explicitEditorIdFromClaudeHookEnvelope,
+  resolveConversationIdFallback,
 } = require("../../shared/conversation-id.cjs");
 const {
   readModelFromTranscript,
@@ -27,11 +31,12 @@ async function run(stdinStr) {
   } catch {
     parsed = {};
   }
-  const isCursorNative = (parsed.cursor_version ?? parsed.input?.cursor_version) != null;
+  const isCursorNative = isCursorNativeHookPayload(parsed);
   if (isCursorNative) return null;
   const sessionId =
     parsed.session_id != null ? parsed.session_id : (parsed.input?.session_id ?? null);
-  const conversationId = conversationIdFromTranscriptPath(parsed);
+  const conversationId =
+    conversationIdFromTranscriptPath(parsed) ?? resolveConversationIdFallback(parsed);
   const projectRoot = resolveProjectRoot(parsed);
 
   const rawModel = parsed.model ?? parsed.input?.model ?? null;

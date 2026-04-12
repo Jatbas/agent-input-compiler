@@ -9,6 +9,9 @@ const path = require("path");
 const { execSync } = require("child_process");
 const { readStdinSync } = require("../../shared/read-stdin-sync.cjs");
 const { readEditedFiles } = require("../../shared/edited-files-cache.cjs");
+const {
+  isCursorNativeHookPayload,
+} = require("../../shared/is-cursor-native-hook-payload.cjs");
 
 function runEslint(paths) {
   if (paths.length === 0) return { exitCode: 0, stderr: "" };
@@ -43,7 +46,7 @@ function runTsc() {
 try {
   const raw = readStdinSync();
   const input = raw.trim() ? JSON.parse(raw) : {};
-  if (!input.cursor_version && !input.input?.cursor_version) {
+  if (!isCursorNativeHookPayload(input)) {
     process.stdout.write("{}");
     process.exit(0);
   }

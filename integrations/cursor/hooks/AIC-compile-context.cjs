@@ -6,7 +6,8 @@
 // Calls aic_compile via the MCP server's stdio JSON-RPC protocol and injects
 // the compiled project context into the conversation's system prompt via
 // additional_context. This runs before the model sees anything — deterministic.
-// conversationId is set only when a conversation-scoped id is present (never session_id).
+// conversationId uses transcript/direct resolution first, then deterministic fallback
+// (parent_conversation_id, session_id, generation_id) when primary fields are absent.
 const { execSync } = require("child_process");
 const fs = require("fs");
 const path = require("path");
@@ -16,12 +17,17 @@ const {
   normalizeModelId,
   writeSessionModelCache,
 } = require("../../shared/session-model-cache.cjs");
+const {
+  isCursorNativeHookPayload,
+} = require("../../shared/is-cursor-native-hook-payload.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
-const { conversationIdFromTranscriptPath } = require("../../shared/conversation-id.cjs");
+const {
+  conversationIdFromTranscriptPath,
+  resolveConversationIdFallback,
+} = require("../../shared/conversation-id.cjs");
 
 const projectRoot = resolveProjectRoot(null, { env: process.env });
 const INTENT = "understand project structure, architecture, and recent changes";
-const TIMEOUT_MS = 20000;
 
 let hookInput = {};
 try {
@@ -31,11 +37,12 @@ try {
   // Non-fatal — proceed without conversation_id
 }
 
-if (!hookInput.cursor_version && !hookInput.input?.cursor_version) {
+if (!isCursorNativeHookPayload(hookInput)) {
   process.exit(0);
 }
 
-const conversationId = conversationIdFromTranscriptPath(hookInput);
+const conversationId =
+  conversationIdFromTranscriptPath(hookInput) ?? resolveConversationIdFallback(hookInput);
 
 let modelId = null;
 if (typeof hookInput.model === "string") {
@@ -63,7 +70,7 @@ if (
 ) {
   compileArgs.conversationId = conversationId.trim();
 }
-// Build a JSON-RPC request to call aic_compile via the MCP server
+
 const initRequest = JSON.stringify({
   jsonrpc: "2.0",
   id: 1,
@@ -84,29 +91,26 @@ const compileRequest = JSON.stringify({
   jsonrpc: "2.0",
   id: 2,
   method: "tools/call",
-  params: {
-    name: "aic_compile",
-    arguments: compileArgs,
-  },
+  params: { name: "aic_compile", arguments: compileArgs },
 });
 
 const stdinPayload = `${initRequest}\n${initNotification}\n${compileRequest}\n`;
+const serverScript = path.join(projectRoot, "mcp", "src", "server.ts");
+const isDev = fs.existsSync(serverScript);
+const serverCmd = isDev ? 'npx tsx "' + serverScript + '"' : "npx -y @jatbas/aic";
 
 try {
-  const serverScript = path.join(projectRoot, "mcp", "src", "server.ts");
-  const isDev = fs.existsSync(serverScript);
-  const serverCmd = isDev ? `npx tsx "${serverScript}"` : "npx -y @jatbas/aic";
-  const raw = execSync(serverCmd, {
+  const stdout = execSync(serverCmd, {
     cwd: projectRoot,
-    timeout: TIMEOUT_MS,
+    timeout: 20000,
     encoding: "utf-8",
     input: stdinPayload,
     stdio: ["pipe", "pipe", "pipe"],
   });
 
-  // Parse JSON-RPC responses (may be multiple lines)
-  const lines = raw.split("\n").filter((l) => l.trim().length > 0);
-  for (const line of lines) {
+  let compiledPrompt = null;
+  for (const line of stdout.split("\n")) {
+    if (!line.trim()) continue;
     try {
       const msg = JSON.parse(line);
       if (msg.id === 2 && msg.result && msg.result.content) {
@@ -114,37 +118,38 @@ try {
         if (textContent) {
           const parsed = JSON.parse(textContent.text);
           if (parsed.compiledPrompt) {
-            const output = JSON.stringify({
-              env: {
-                AIC_PROJECT_ROOT: projectRoot,
-                AIC_CONVERSATION_ID:
-                  conversationId && typeof conversationId === "string"
-                    ? conversationId
-                    : "",
-              },
-              additional_context: [
-                "## AIC Compiled Context (auto-injected at session start)",
-                "The following is the most relevant project context, compiled by AIC.",
-                "Use this to inform your responses. For intent-specific context,",
-                "call the aic_compile MCP tool with the user's specific intent.",
-                "",
-                "REMINDER: You MUST call aic_compile as your FIRST action on EVERY",
-                "message in this chat — not just the first one. Each follow-up message",
-                "has a different intent that needs fresh context compilation.",
-                "",
-                parsed.compiledPrompt,
-              ].join("\n"),
-            });
-            process.stdout.write(output);
+            compiledPrompt = parsed.compiledPrompt;
             break;
           }
         }
       }
     } catch {
-      // skip unparseable lines
+      // ignore non-JSON lines
     }
+  }
+
+  if (compiledPrompt) {
+    const output = JSON.stringify({
+      env: {
+        AIC_PROJECT_ROOT: projectRoot,
+        AIC_CONVERSATION_ID:
+          conversationId && typeof conversationId === "string" ? conversationId : "",
+      },
+      additional_context: [
+        "## AIC Compiled Context (auto-injected at session start)",
+        "The following is the most relevant project context, compiled by AIC.",
+        "Use this to inform your responses. For intent-specific context,",
+        "call the aic_compile MCP tool with the user's specific intent.",
+        "",
+        "REMINDER: You MUST call aic_compile as your FIRST action on EVERY",
+        "message in this chat — not just the first one. Each follow-up message",
+        "has a different intent that needs fresh context compilation.",
+        "",
+        compiledPrompt,
+      ].join("\n"),
+    });
+    process.stdout.write(output);
   }
 } catch {
   // Non-fatal — never block session creation
-  process.exit(0);
 }

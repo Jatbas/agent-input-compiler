@@ -10,12 +10,23 @@ const path = require("path");
 const os = require("os");
 const crypto = require("crypto");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
+const {
+  isCursorNativeHookPayload,
+} = require("../../shared/is-cursor-native-hook-payload.cjs");
 const { readAicPrewarmPrompt } = require("../../shared/read-aic-prewarm-prompt.cjs");
 
 const RECENCY_WINDOW_MS = 120_000;
 const MAX_DENIES = 3;
 const CLEANUP_INTERVAL_MS = 600_000;
 const STALE_THRESHOLD_MS = 600_000;
+const GATE_REASON = {
+  COMPILE_REQUIRED: "compile_required",
+  PARSE_ERROR: "gate_parse_error",
+};
+
+function blockedMessage(reason, text) {
+  return `BLOCKED[${reason}]: ${text}`;
+}
 
 function cleanupStaleGateFiles() {
   const marker = path.join(os.tmpdir(), "aic-gate-cleanup-marker");
@@ -110,7 +121,8 @@ process.stdin.on("data", (chunk) => {
 process.stdin.on("end", () => {
   try {
     const input = JSON.parse(raw);
-    if (!input.cursor_version && !input.input?.cursor_version) {
+    if (!isCursorNativeHookPayload(input)) {
+      process.stdout.write(JSON.stringify({ permission: "allow" }));
       process.exit(0);
     }
     const generationId = input.generation_id || "unknown";
@@ -167,7 +179,10 @@ process.stdin.on("end", () => {
         ? savedPrompt.replace(/"/g, '\\"')
         : "<search query: name the files, components, or actions>";
 
-    const denyMsg = `BLOCKED: You must call the aic_compile MCP tool FIRST before using any other tool. Call it now with { "intent": "${intentArg}", "projectRoot": "${projectRoot}" }`;
+    const denyMsg = blockedMessage(
+      GATE_REASON.COMPILE_REQUIRED,
+      `You must call the aic_compile MCP tool FIRST before using any other tool. Call it now with { "intent": "${intentArg}", "projectRoot": "${projectRoot}" }`,
+    );
     process.stdout.write(
       JSON.stringify({
         permission: "deny",
@@ -180,10 +195,14 @@ process.stdin.on("end", () => {
     process.stdout.write(
       JSON.stringify({
         permission: "deny",
-        user_message:
-          "BLOCKED: aic_compile gate encountered an error. Call aic_compile first.",
-        agent_message:
-          "BLOCKED: aic_compile gate encountered an error. Call aic_compile first.",
+        user_message: blockedMessage(
+          GATE_REASON.PARSE_ERROR,
+          "aic_compile gate encountered an error. Call aic_compile first.",
+        ),
+        agent_message: blockedMessage(
+          GATE_REASON.PARSE_ERROR,
+          "aic_compile gate encountered an error. Call aic_compile first.",
+        ),
       }),
     );
   }

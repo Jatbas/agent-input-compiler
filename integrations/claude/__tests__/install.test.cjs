@@ -20,6 +20,9 @@ const AIC_SCRIPT_NAMES = [
   "aic-inject-conversation-id.cjs",
   "aic-session-end.cjs",
 ];
+const GUARDED_CLAUDE_HOOKS = AIC_SCRIPT_NAMES.filter(
+  (name) => name !== "aic-compile-helper.cjs",
+);
 
 function fresh_install_creates_global_settings() {
   const tmpDir = fs.mkdtempSync(
@@ -335,6 +338,38 @@ function claude_install_migrates_old_style_shared_files() {
   }
 }
 
+function claude_install_hooks_use_shared_cursor_runtime_guard() {
+  const tmpDir = fs.mkdtempSync(
+    path.join(require("node:os").tmpdir(), "aic-install-test-guard-"),
+  );
+  try {
+    execFileSync("node", [installScript], {
+      cwd: tmpDir,
+      env: { ...process.env, HOME: tmpDir },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const globalHooksDir = path.join(tmpDir, ".claude", "hooks");
+    for (const scriptName of GUARDED_CLAUDE_HOOKS) {
+      const content = fs.readFileSync(path.join(globalHooksDir, scriptName), "utf8");
+      if (!content.includes('require("./aic-is-cursor-native-hook-payload.cjs")')) {
+        throw new Error(`${scriptName} must import shared cursor runtime guard`);
+      }
+      if (!content.includes("isCursorNativeHookPayload(")) {
+        throw new Error(`${scriptName} must use shared cursor runtime guard`);
+      }
+      if (
+        content.includes("cursor_version") ||
+        content.includes("input?.cursor_version")
+      ) {
+        throw new Error(`${scriptName} still contains inline cursor_version checks`);
+      }
+    }
+    console.log("claude_install_hooks_use_shared_cursor_runtime_guard: pass");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
 function claude_install_preserves_user_wrapper_with_matcher() {
   const tmpDir = fs.mkdtempSync(
     path.join(require("node:os").tmpdir(), "aic-install-test-"),
@@ -397,4 +432,5 @@ merge_preserves_existing_custom_mcp_server();
 claude_install_deploys_shared_as_aic_prefix();
 claude_install_rewrites_require_to_aic_prefix();
 claude_install_migrates_old_style_shared_files();
+claude_install_hooks_use_shared_cursor_runtime_guard();
 claude_install_preserves_user_wrapper_with_matcher();

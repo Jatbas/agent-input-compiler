@@ -4,6 +4,9 @@
 // PreToolUse (Bash) — blocks git commands with --no-verify or -n so agents cannot bypass pre-commit hooks.
 
 const { readStdinSync } = require("../../shared/read-stdin-sync.cjs");
+const {
+  isCursorNativeHookPayload,
+} = require("../../shared/is-cursor-native-hook-payload.cjs");
 
 function stripQuoted(str) {
   return str.replace(/"[^"]*"/g, '""').replace(/'[^']*'/g, "''");
@@ -13,6 +16,8 @@ function run(stdinStr) {
   try {
     const input =
       typeof stdinStr === "string" && stdinStr.trim() ? JSON.parse(stdinStr) : {};
+    const isCursorNative = isCursorNativeHookPayload(input);
+    if (isCursorNative) return "{}";
     const cmd = (
       input.tool_input?.command ??
       input?.input?.tool_input?.command ??

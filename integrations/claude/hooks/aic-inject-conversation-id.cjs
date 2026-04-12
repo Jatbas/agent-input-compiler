@@ -9,7 +9,13 @@ const {
   normalizeModelId,
 } = require("../../shared/session-model-cache.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
-const { conversationIdFromTranscriptPath } = require("../../shared/conversation-id.cjs");
+const {
+  isCursorNativeHookPayload,
+} = require("../../shared/is-cursor-native-hook-payload.cjs");
+const {
+  conversationIdFromTranscriptPath,
+  resolveConversationIdFallback,
+} = require("../../shared/conversation-id.cjs");
 const { isWeakAicCompileIntent } = require("../../shared/is-weak-aic-compile-intent.cjs");
 const { readAicPrewarmPrompt } = require("../../shared/read-aic-prewarm-prompt.cjs");
 
@@ -20,6 +26,15 @@ function run(stdinStr) {
   } catch {
     parsed = {};
   }
+  const isCursorNative = isCursorNativeHookPayload(parsed);
+  if (isCursorNative) {
+    return {
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "allow",
+      },
+    };
+  }
   const top = parsed || {};
   const input = top.input || {};
   const toolName = top.tool_name ?? input.tool_name ?? "";
@@ -27,7 +42,8 @@ function run(stdinStr) {
   const projectRoot = resolveProjectRoot(parsed, {
     toolInputOverride: toolInput?.projectRoot,
   });
-  const conversationId = conversationIdFromTranscriptPath(parsed);
+  const conversationId =
+    conversationIdFromTranscriptPath(parsed) ?? resolveConversationIdFallback(parsed);
   const isAicCompile =
     /aic_compile/i.test(toolName) ||
     (toolInput.intent != null && toolInput.projectRoot != null);

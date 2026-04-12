@@ -5,6 +5,10 @@
 // beforeShellExecution hook — blocks git commands that use --no-verify or -n (skip hooks).
 // Prevents agents from bypassing pre-commit formatting and lint checks.
 // Strip quoted strings so --no-verify inside a commit message is not treated as a flag.
+const {
+  isCursorNativeHookPayload,
+} = require("../../shared/is-cursor-native-hook-payload.cjs");
+
 function stripQuoted(str) {
   return str.replace(/"[^"]*"/g, '""').replace(/'[^']*'/g, "''");
 }
@@ -16,7 +20,7 @@ process.stdin.on("data", (chunk) => {
 process.stdin.on("end", () => {
   try {
     const input = JSON.parse(raw);
-    if (!input.cursor_version && !input.input?.cursor_version) {
+    if (!isCursorNativeHookPayload(input)) {
       process.exit(0);
     }
     const cmd = (input.command || "").trim();

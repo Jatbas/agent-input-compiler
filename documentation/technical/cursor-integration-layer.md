@@ -269,11 +269,12 @@ AIC registers **12** hook **command** entries across **10** event types (some ty
 
 - Reads the `## Critical reminders` section from `.cursor/rules/AIC-architect.mdc` (path resolved as `../rules/` from `.cursor/hooks/`; on case-sensitive volumes the filename must match the hook’s expected name)
 - Extracts bullet points and outputs them as `additional_context`
-- Injects `AIC_CONVERSATION_ID=${conversationId}` into that text for the model when `conversation_id` is present in stdin — not as an `env` payload
+- Builds `conversationId` as `conversationIdFromTranscriptPath` then `resolveConversationIdFallback` from `integrations/shared/conversation-id.cjs` (transcript/direct id first; else deterministic synthetic id from `parent_conversation_id`, `session_id`, `generation_id` when valid — see [Integrations shared modules](integrations-shared-modules.md))
+- Injects `AIC_CONVERSATION_ID=${conversationId}` into that text when a non-empty resolved id exists — not as an `env` payload
 
 **AIC-compile-context.cjs:**
 
-- Reads `conversation_id` from stdin → passes as `conversationId` to `aic_compile`
+- Resolves `conversationId` with the same transcript/direct → synthetic fallback chain as `AIC-session-init.cjs` → passes to `aic_compile` when non-empty
 - Calls `aic_compile` with intent `"understand project structure, architecture, and recent changes"`
 - On success, outputs `additional_context` with the compiled project snapshot and **`env`** with `AIC_PROJECT_ROOT` and `AIC_CONVERSATION_ID` for downstream hooks
 - **If this hook times out (20s), it exits 0 silently** — session creation is never blocked
@@ -368,7 +369,7 @@ AIC registers **12** hook **command** entries across **10** event types (some ty
 
 **Output:**
 
-Resolution order for the conversation id string: `input.conversation_id ?? input.conversationId ?? process.env.AIC_CONVERSATION_ID`.
+Resolution order for the conversation id string: `input.conversation_id ?? input.conversationId ?? process.env.AIC_CONVERSATION_ID`; when still unset, `resolveConversationIdFallback` on the hook payload supplies a synthetic id (`parent_conversation_id` → `session_id` → `generation_id` / camelCase, validated — see [Integrations shared modules](integrations-shared-modules.md)).
 
 For `aic_chat_summary`, when a non-empty id is resolved, `updated_input` adds `conversationId`. When the id is missing, the hook allows the call unchanged.
 
@@ -380,7 +381,7 @@ For `aic_compile`, the hook builds an augmented `toolInput` with `editorId: "cur
 { permission: "allow" }
 ```
 
-Without this hook, `compilation_log` rows from this Cursor session often have `conversation_id = null`, breaking `aic_chat_summary` for this conversation.
+Without this hook (or when no real or synthetic id can be resolved), `compilation_log` rows from this Cursor session often have `conversation_id = null`, breaking `aic_chat_summary` for this conversation.
 
 **File:** `.cursor/hooks/AIC-inject-conversation-id.cjs`
 
@@ -511,7 +512,7 @@ The model then sees this as a new prompt, fixes the errors, and tries to stop ag
 **Input fields used:**
 
 - `input.task` → truncated to 200 chars as `intent` for `aic_compile` (or `"provide context for subagent"` when missing)
-- `input.parent_conversation_id` → passed as `conversationId` so the compile is attributed to the parent conversation
+- `input.parent_conversation_id` → passed as `conversationId` when present; otherwise `resolveConversationIdFallback` on the payload supplies a synthetic parent id for `compilation_log` attribution
 - `input.subagent_model` → when valid (trimmed length 1–256, printable ASCII), passed as `modelId` on the `aic_compile` JSON-RPC `arguments` for `compilation_log.model_id`; also appended to `.aic/session-models.jsonl` via `writeSessionModelCache` (same as other hooks that record model id)
 - **Cache fallback:** when `input.subagent_model` is missing or invalid, the hook uses `readSessionModelCache` on `.aic/session-models.jsonl` for this conversation and editor `cursor`, and uses that value as `modelId` if valid (same trimmed-length and printable-ASCII checks). This ensures `compilation_log.model_id` is populated even when Cursor omits `subagent_model` from the payload. The read path matches the MCP compile handler: bounded tail of the JSONL file with deterministic full-file fallback ([Implementation specification — Model id resolution](../implementation-spec.md#model-id-resolution-aic_compile); [AIC JSONL caches](aic-jsonl-caches.md)).
 
@@ -532,7 +533,7 @@ The model then sees this as a new prompt, fixes the errors, and tries to stop ag
 **Input fields used:**
 
 - `input.conversation_id` → parent chat id when present; passed as `conversationId` on `aic_compile`
-- `input.parent_conversation_id` → alternate field for the parent id when `conversation_id` is absent (first match wins: `conversation_id`, then `parent_conversation_id`)
+- `input.parent_conversation_id` → alternate field for the parent id when `conversation_id` is absent (first match wins: `conversation_id`, then `parent_conversation_id`); when both are absent, `resolveConversationIdFallback` supplies a synthetic parent id when valid candidates exist
 - `input.agent_transcript_path` → path to the subagent transcript `.jsonl`; `conversationIdFromAgentTranscriptPath` in `integrations/shared/conversation-id.cjs` yields the child session id (basename without `.jsonl`)
 
 **Purpose:** Subagents run under a separate session id. Compilations inside the subagent would otherwise stay on that child id. When parent and child ids differ, the hook calls `aic_compile` with `triggerSource: "subagent_stop"`, `conversationId` (parent), and `reparentFromConversationId` (child). The MCP compile handler runs `reparentSubagentCompilations` in `shared/src/storage/reparent-subagent-compilations.ts` only — no full compile pipeline — so existing `compilation_log` rows move to the parent. That keeps `aic_chat_summary` and per-conversation diagnostics on one thread for the whole chat.
@@ -573,7 +574,7 @@ telemetry only. `subagentStop` does not inject context; it exists for reparent o
 
 ### 9.1 Session compile — `AIC-compile-context.cjs`
 
-The JSON-RPC call must include `conversationId` when `conversation_id` is available:
+Resolve `conversationId` with `conversationIdFromTranscriptPath` then `resolveConversationIdFallback` (transcript/direct conversation fields first). The JSON-RPC call should include `conversationId` when that resolution yields a non-empty string:
 
 ```js
 // correct
@@ -591,13 +592,13 @@ if (
 }
 ```
 
-Without `conversationId`, `compilation_log` rows from this session have `conversation_id = null`, and `aic_chat_summary` cannot aggregate them.
+Omitting `conversationId` when resolution fails leaves `compilation_log.conversation_id` null and breaks `aic_chat_summary` rollups for that compile.
 
 **Cold start:** `execSync` spawns the MCP server (~500–1500ms TS compile on cold cache; **2–5s** warm round-trip, up to **~10s** first run; 20s hook timeout). The published package drops TS compile overhead (~200–500ms cold).
 
 ### 9.2 Subagent telemetry — `AIC-subagent-compile.cjs`
 
-Same spawn pattern for a best-effort `compilation_log` row; on failure the hook still allows subagent start. §9.1’s `conversationId` requirement applies to parent attribution: without `parent_conversation_id`, subagent telemetry rows cannot roll up for `aic_chat_summary`.
+Same spawn pattern for a best-effort `compilation_log` row; on failure the hook still allows subagent start. §9.1’s `conversationId` resolution applies to parent attribution: use `parent_conversation_id` when present, otherwise the shared fallback chain so telemetry can roll up when synthetic ids are available.
 
 ### 9.3 Subagent reparent — `AIC-subagent-stop.cjs`
 

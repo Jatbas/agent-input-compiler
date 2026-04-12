@@ -13,9 +13,13 @@ const {
   normalizeModelId,
   writeSessionModelCache,
 } = require("../../shared/session-model-cache.cjs");
+const {
+  isCursorNativeHookPayload,
+} = require("../../shared/is-cursor-native-hook-payload.cjs");
 const { isWeakAicCompileIntent } = require("../../shared/is-weak-aic-compile-intent.cjs");
 const { readAicPrewarmPrompt } = require("../../shared/read-aic-prewarm-prompt.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
+const { resolveConversationIdFallback } = require("../../shared/conversation-id.cjs");
 
 let raw = "";
 process.stdin.setEncoding("utf8");
@@ -25,20 +29,25 @@ process.stdin.on("data", (chunk) => {
 process.stdin.on("end", () => {
   try {
     const input = JSON.parse(raw);
-    if (!input.cursor_version && !input.input?.cursor_version) {
+    if (!isCursorNativeHookPayload(input)) {
       process.exit(0);
     }
     const conversationId =
       input.conversation_id ?? input.conversationId ?? process.env.AIC_CONVERSATION_ID;
     const toolInput = input.tool_input;
 
-    const idStr =
-      conversationId !== undefined &&
-      conversationId !== null &&
-      typeof conversationId === "string" &&
-      conversationId.trim() !== ""
-        ? conversationId.trim()
-        : null;
+    const idStr = (() => {
+      if (
+        conversationId !== undefined &&
+        conversationId !== null &&
+        typeof conversationId === "string" &&
+        conversationId.trim() !== ""
+      ) {
+        return conversationId.trim();
+      }
+      const fb = resolveConversationIdFallback(input);
+      return fb;
+    })();
 
     const toolName = (input.tool_name || "").toLowerCase();
     const isAicCompile =
@@ -73,13 +82,15 @@ process.stdin.on("end", () => {
     if (typeof input.model === "string") {
       const trimmed = input.model.trim();
       const normalized = normalizeModelId(trimmed);
-      if (isValidModelId(trimmed) && normalized !== "auto") {
+      if (isValidModelId(trimmed)) {
         updated.modelId = normalized;
-        const projectRoot = resolveProjectRoot(null, {
-          env: process.env,
-          toolInputOverride: toolInput?.projectRoot,
-        });
-        writeSessionModelCache(projectRoot, normalized, idStr || "", "cursor");
+        if (normalized !== "auto") {
+          const projectRoot = resolveProjectRoot(null, {
+            env: process.env,
+            toolInputOverride: toolInput?.projectRoot,
+          });
+          writeSessionModelCache(projectRoot, normalized, idStr || "", "cursor");
+        }
       }
     }
     const generationId = input.generation_id ?? input.generationId ?? "unknown";

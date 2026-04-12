@@ -12,7 +12,11 @@ const path = require("path");
 
 const {
   conversationIdFromAgentTranscriptPath,
+  resolveConversationIdFallback,
 } = require("../../shared/conversation-id.cjs");
+const {
+  isCursorNativeHookPayload,
+} = require("../../shared/is-cursor-native-hook-payload.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 
 let hookInput = {};
@@ -23,7 +27,7 @@ try {
   // Non-fatal — proceed without input
 }
 
-if (!hookInput.cursor_version && !hookInput.input?.cursor_version) {
+if (!isCursorNativeHookPayload(hookInput)) {
   process.stdout.write(JSON.stringify({}));
 } else {
   const projectRoot = resolveProjectRoot(null, { env: process.env });
@@ -41,7 +45,7 @@ if (!hookInput.cursor_version && !hookInput.input?.cursor_version) {
     ) {
       return hookInput.parent_conversation_id.trim();
     }
-    return null;
+    return resolveConversationIdFallback(hookInput);
   })();
 
   const childConversationId = conversationIdFromAgentTranscriptPath(
