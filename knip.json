@@ -44,7 +44,6 @@
     "shared/src/core/errors/index.ts": ["files"],
     "shared/src/core/errors/model-error.ts": ["files"],
     "shared/src/core/errors/no-files-selected-error.ts": ["files"],
-    "shared/src/core/interfaces/status-runner.interface.ts": ["files"],
     "shared/src/index.ts": ["files"],
     "shared/src/core/types/identifiers.ts": ["exports"],
     "shared/src/core/types/enums.ts": ["types"]
