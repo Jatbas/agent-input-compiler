@@ -15,8 +15,8 @@ const hookPath = path.join(
   "AIC-inject-conversation-id.cjs",
 );
 
-function runHook(stdinStr) {
-  const env = { ...process.env };
+function runHook(stdinStr, envOverrides = {}) {
+  const env = { ...process.env, ...envOverrides };
   const result = spawnSync("node", [hookPath], {
     input: stdinStr,
     encoding: "utf8",
@@ -214,6 +214,70 @@ function inject_normalizes_default_to_auto() {
   console.log("inject_normalizes_default_to_auto: pass");
 }
 
+function mcp_envelope_routes_aic_tools_to_aic_dev_in_dev_mode() {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aic-inject-devmode-"));
+  try {
+    fs.writeFileSync(
+      path.join(tempRoot, "aic.config.json"),
+      JSON.stringify({ devMode: true }),
+      "utf8",
+    );
+    const stdin = hookPayload({
+      tool_name: "mcp",
+      tool_input: {
+        server: "aic",
+        toolName: "aic_compile",
+        arguments: {
+          intent: "test intent",
+          projectRoot: tempRoot,
+        },
+      },
+    });
+    const stdout = runHook(stdin, { CURSOR_PROJECT_DIR: tempRoot });
+    const out = JSON.parse(stdout);
+    if (out.permission !== "allow") {
+      throw new Error(`Expected permission "allow", got ${out.permission}`);
+    }
+    if (out.updated_input?.server !== "aic-dev") {
+      throw new Error(
+        `Expected updated_input.server "aic-dev", got ${JSON.stringify(out.updated_input?.server)}`,
+      );
+    }
+    console.log("mcp_envelope_routes_aic_tools_to_aic_dev_in_dev_mode: pass");
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
+function mcp_envelope_routes_aic_tools_to_aic_outside_dev_mode() {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aic-inject-prodmode-"));
+  try {
+    const stdin = hookPayload({
+      tool_name: "mcp",
+      tool_input: {
+        server: "aic-dev",
+        toolName: "aic_status",
+        arguments: {
+          projectRoot: tempRoot,
+        },
+      },
+    });
+    const stdout = runHook(stdin, { CURSOR_PROJECT_DIR: tempRoot });
+    const out = JSON.parse(stdout);
+    if (out.permission !== "allow") {
+      throw new Error(`Expected permission "allow", got ${out.permission}`);
+    }
+    if (out.updated_input?.server !== "aic") {
+      throw new Error(
+        `Expected updated_input.server "aic", got ${JSON.stringify(out.updated_input?.server)}`,
+      );
+    }
+    console.log("mcp_envelope_routes_aic_tools_to_aic_outside_dev_mode: pass");
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
 inject_modelId_when_model_present();
 inject_uses_session_id_fallback_for_conversation_id();
 inject_allow_when_no_conversation_but_model();
@@ -221,6 +285,8 @@ inject_replaces_weak_intent_with_prewarm_prompt();
 inject_strips_ide_selection_from_prewarm();
 inject_skips_when_prewarm_missing();
 inject_normalizes_default_to_auto();
+mcp_envelope_routes_aic_tools_to_aic_dev_in_dev_mode();
+mcp_envelope_routes_aic_tools_to_aic_outside_dev_mode();
 
 function cursor_inject_conversation_id_noop_when_no_cursor_version() {
   const result = spawnSync("node", [hookPath], {

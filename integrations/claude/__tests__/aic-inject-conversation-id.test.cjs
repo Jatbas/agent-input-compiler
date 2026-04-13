@@ -82,7 +82,64 @@ function cc_inject_skips_when_prewarm_missing() {
   console.log("cc_inject_skips_when_prewarm_missing: pass");
 }
 
+function cc_inject_routes_mcp_aic_tools_to_aic_dev_in_dev_mode() {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aic-cc-inject-devmode-"));
+  try {
+    fs.writeFileSync(
+      path.join(tempRoot, "aic.config.json"),
+      JSON.stringify({ devMode: true }),
+      "utf8",
+    );
+    delete require.cache[require.resolve(hookPath)];
+    const { run } = require(hookPath);
+    const out = run(
+      JSON.stringify({
+        tool_name: "mcp",
+        tool_input: {
+          server: "aic",
+          toolName: "aic_compile",
+          arguments: { intent: "x", projectRoot: tempRoot },
+        },
+      }),
+    );
+    const server = out?.hookSpecificOutput?.updatedInput?.server;
+    if (server !== "aic-dev") {
+      throw new Error(`Expected aic-dev server, got ${JSON.stringify(server)}`);
+    }
+    console.log("cc_inject_routes_mcp_aic_tools_to_aic_dev_in_dev_mode: pass");
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
+function cc_inject_routes_mcp_aic_tools_to_aic_outside_dev_mode() {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aic-cc-inject-prodmode-"));
+  try {
+    delete require.cache[require.resolve(hookPath)];
+    const { run } = require(hookPath);
+    const out = run(
+      JSON.stringify({
+        tool_name: "mcp",
+        tool_input: {
+          server: "aic-dev",
+          toolName: "aic_status",
+          arguments: { projectRoot: tempRoot },
+        },
+      }),
+    );
+    const server = out?.hookSpecificOutput?.updatedInput?.server;
+    if (server !== "aic") {
+      throw new Error(`Expected aic server, got ${JSON.stringify(server)}`);
+    }
+    console.log("cc_inject_routes_mcp_aic_tools_to_aic_outside_dev_mode: pass");
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
 cc_inject_replaces_weak_intent_with_prewarm_prompt();
 cc_inject_applies_fallback_conversation_id_for_prewarm();
 cc_inject_skips_when_prewarm_missing();
+cc_inject_routes_mcp_aic_tools_to_aic_dev_in_dev_mode();
+cc_inject_routes_mcp_aic_tools_to_aic_outside_dev_mode();
 console.log("All tests passed.");

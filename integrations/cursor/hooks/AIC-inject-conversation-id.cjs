@@ -20,6 +20,7 @@ const { isWeakAicCompileIntent } = require("../../shared/is-weak-aic-compile-int
 const { readAicPrewarmPrompt } = require("../../shared/read-aic-prewarm-prompt.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 const { resolveConversationIdFallback } = require("../../shared/conversation-id.cjs");
+const { isDevModeTrue } = require("../../shared/read-project-dev-mode.cjs");
 
 let raw = "";
 process.stdin.setEncoding("utf8");
@@ -50,6 +51,9 @@ process.stdin.on("end", () => {
     })();
 
     const toolName = (input.tool_name || "").toLowerCase();
+    const mcpToolName =
+      typeof toolInput?.toolName === "string" ? toolInput.toolName.toLowerCase() : "";
+    const isAicMcpEnvelope = toolName === "mcp" && mcpToolName.startsWith("aic_");
     const isAicCompile =
       toolName.includes("aic_compile") ||
       (typeof toolInput === "object" &&
@@ -59,7 +63,44 @@ process.stdin.on("end", () => {
 
     const isAicChatSummary = toolName.includes("aic_chat_summary");
 
-    if (!isAicCompile && !isAicChatSummary) {
+    const normalizeMcpServer = () => {
+      if (!isAicMcpEnvelope) {
+        return { changed: false, nextToolInput: toolInput };
+      }
+      const projectRoot = resolveProjectRoot(null, {
+        env: process.env,
+        toolInputOverride:
+          typeof toolInput?.arguments?.projectRoot === "string"
+            ? toolInput.arguments.projectRoot
+            : toolInput?.projectRoot,
+      });
+      const preferredServer = isDevModeTrue(projectRoot) ? "aic-dev" : "aic";
+      if (toolInput.server === preferredServer) {
+        return { changed: false, nextToolInput: toolInput };
+      }
+      return {
+        changed: true,
+        nextToolInput: { ...toolInput, server: preferredServer },
+      };
+    };
+
+    const normalizedServer = normalizeMcpServer();
+
+    if (!isAicCompile && !isAicChatSummary && !isAicMcpEnvelope) {
+      process.stdout.write(JSON.stringify({ permission: "allow" }));
+      return;
+    }
+
+    if (!isAicCompile && !isAicChatSummary && isAicMcpEnvelope) {
+      if (normalizedServer.changed) {
+        process.stdout.write(
+          JSON.stringify({
+            permission: "allow",
+            updated_input: normalizedServer.nextToolInput,
+          }),
+        );
+        return;
+      }
       process.stdout.write(JSON.stringify({ permission: "allow" }));
       return;
     }

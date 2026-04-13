@@ -18,6 +18,7 @@ const {
 } = require("../../shared/conversation-id.cjs");
 const { isWeakAicCompileIntent } = require("../../shared/is-weak-aic-compile-intent.cjs");
 const { readAicPrewarmPrompt } = require("../../shared/read-aic-prewarm-prompt.cjs");
+const { isDevModeTrue } = require("../../shared/read-project-dev-mode.cjs");
 
 function run(stdinStr) {
   let parsed;
@@ -39,19 +40,47 @@ function run(stdinStr) {
   const input = top.input || {};
   const toolName = top.tool_name ?? input.tool_name ?? "";
   const toolInput = top.tool_input ?? input.tool_input ?? {};
+  const mcpToolName =
+    typeof toolInput?.toolName === "string" ? toolInput.toolName.toLowerCase() : "";
+  const isAicMcpEnvelope =
+    String(toolName).toLowerCase() === "mcp" && mcpToolName.startsWith("aic_");
   const projectRoot = resolveProjectRoot(parsed, {
-    toolInputOverride: toolInput?.projectRoot,
+    toolInputOverride:
+      typeof toolInput?.arguments?.projectRoot === "string"
+        ? toolInput.arguments.projectRoot
+        : toolInput?.projectRoot,
   });
   const conversationId =
     conversationIdFromTranscriptPath(parsed) ?? resolveConversationIdFallback(parsed);
   const isAicCompile =
     /aic_compile/i.test(toolName) ||
     (toolInput.intent != null && toolInput.projectRoot != null);
-  if (!isAicCompile) {
+  if (!isAicCompile && !isAicMcpEnvelope) {
     return {
       hookSpecificOutput: {
         hookEventName: "PreToolUse",
         permissionDecision: "allow",
+      },
+    };
+  }
+
+  if (!isAicCompile && isAicMcpEnvelope) {
+    const preferredServer = isDevModeTrue(projectRoot) ? "aic-dev" : "aic";
+    const currentServer =
+      typeof toolInput?.server === "string" ? toolInput.server : undefined;
+    if (currentServer === preferredServer) {
+      return {
+        hookSpecificOutput: {
+          hookEventName: "PreToolUse",
+          permissionDecision: "allow",
+        },
+      };
+    }
+    return {
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "allow",
+        updatedInput: { ...toolInput, server: preferredServer },
       },
     };
   }
