@@ -67,7 +67,7 @@ function generateProbe(clock: Clock): CallToolResult {
 
 function validateProbe(
   probeId: string,
-  answers: readonly [number, string],
+  answers: readonly (number | string)[],
   db: ExecutableDb,
   clock: Clock,
 ): CallToolResult {

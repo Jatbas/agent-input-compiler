@@ -22,6 +22,18 @@ const { readAicPrewarmPrompt } = require("../../shared/read-aic-prewarm-prompt.c
 
 const MAX_STOP_BLOCKS = 2;
 
+function findEffectiveProjectRoot(startDir) {
+  let dir = path.resolve(startDir);
+  const fsRoot = path.parse(dir).root;
+  while (dir !== fsRoot) {
+    if (fs.existsSync(path.join(dir, "aic.config.json"))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return startDir;
+}
+
 function stopBlockFile(conversationId) {
   return path.join(
     os.tmpdir(),
@@ -41,7 +53,7 @@ function run(stdinStr) {
 
     if (isCursorNativeHookPayload(parsed)) return "";
 
-    const projectRoot = resolveProjectRoot(parsed);
+    const projectRoot = findEffectiveProjectRoot(resolveProjectRoot(parsed));
 
     const conversationId =
       (

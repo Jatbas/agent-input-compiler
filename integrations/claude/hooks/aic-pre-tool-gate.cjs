@@ -26,6 +26,20 @@ const { readAicPrewarmPrompt } = require("../../shared/read-aic-prewarm-prompt.c
 
 const MAX_DENIES = 3;
 
+// Walk up parent directories to find the actual project root via aic.config.json.
+// Fixes the case where the Bash tool's cwd was changed to a subdirectory (e.g. /mcp).
+function findEffectiveProjectRoot(startDir) {
+  let dir = path.resolve(startDir);
+  const fsRoot = path.parse(dir).root;
+  while (dir !== fsRoot) {
+    if (fs.existsSync(path.join(dir, "aic.config.json"))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return startDir;
+}
+
 function denyCountFile(conversationId) {
   return path.join(
     os.tmpdir(),
@@ -35,6 +49,14 @@ function denyCountFile(conversationId) {
 
 function isAicCompileCall(toolName, toolInput) {
   if (typeof toolName === "string" && /aic_compile/i.test(toolName)) return true;
+  // Allow ToolSearch when searching for the aic_compile schema — needed when the
+  // MCP tool is deferred and the agent must load its schema before calling it.
+  if (
+    toolName === "ToolSearch" &&
+    typeof toolInput?.query === "string" &&
+    /aic_compile/i.test(toolInput.query)
+  )
+    return true;
   if (
     toolInput != null &&
     typeof toolInput.intent === "string" &&
@@ -60,7 +82,7 @@ function run(stdinStr) {
     const input = top.input || {};
     const toolName = top.tool_name ?? input.tool_name ?? "";
     const toolInput = top.tool_input ?? input.tool_input ?? {};
-    const projectRoot = resolveProjectRoot(parsed);
+    const projectRoot = findEffectiveProjectRoot(resolveProjectRoot(parsed));
     const conversationId =
       (
         conversationIdFromTranscriptPath(parsed) ??

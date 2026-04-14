@@ -201,6 +201,47 @@ function deny_when_turn_start_but_not_compiled() {
   console.log("deny_when_turn_start_but_not_compiled: pass");
 }
 
+function allow_tool_search_for_aic_compile_schema() {
+  setup();
+  const out = run(
+    JSON.stringify({
+      tool_name: "ToolSearch",
+      tool_input: { query: "select:mcp__aic-dev__aic_compile" },
+      cwd: TEST_ROOT,
+      conversation_id: TEST_CONV_ID,
+    }),
+  );
+  if (out !== "{}") {
+    throw new Error(`Expected allow for ToolSearch aic_compile query, got ${out}`);
+  }
+  console.log("allow_tool_search_for_aic_compile_schema: pass");
+}
+
+function allow_when_subdir_cwd_has_aic_config_in_parent() {
+  setup();
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-gate-subdir-test-"));
+  try {
+    const subDir = path.join(tmpDir, "mcp");
+    fs.mkdirSync(subDir);
+    fs.writeFileSync(path.join(tmpDir, "aic.config.json"), "{}");
+    writeCompileRecency(tmpDir);
+    const out = run(
+      JSON.stringify({
+        tool_name: "Read",
+        tool_input: { file_path: path.join(subDir, "server.ts") },
+        cwd: subDir,
+        conversation_id: TEST_CONV_ID,
+      }),
+    );
+    if (out !== "{}") {
+      throw new Error(`Expected allow when parent dir has recent compile, got ${out}`);
+    }
+    console.log("allow_when_subdir_cwd_has_aic_config_in_parent: pass");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
 allow_when_recent_compile();
 deny_when_no_compile();
 allow_after_max_denies();
@@ -211,4 +252,6 @@ allow_malformed_json();
 deny_count_cleared_on_recent_compile();
 allow_when_turn_compiled();
 deny_when_turn_start_but_not_compiled();
+allow_tool_search_for_aic_compile_schema();
+allow_when_subdir_cwd_has_aic_config_in_parent();
 console.log("All aic-pre-tool-gate tests passed.");

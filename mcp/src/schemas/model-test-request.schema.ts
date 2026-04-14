@@ -10,7 +10,11 @@ const modelTestRequestShape = {
     .length(8)
     .regex(/^[A-Z]{8}$/)
     .optional(),
-  answers: z.tuple([z.number().int(), z.string().min(1).max(32)]).optional(),
+  answers: z
+    .array(z.union([z.number().int(), z.string().min(1).max(32)]))
+    .min(2)
+    .max(2)
+    .optional(),
 } as const;
 
 export const ModelTestRequestSchema: typeof modelTestRequestShape = modelTestRequestShape;
