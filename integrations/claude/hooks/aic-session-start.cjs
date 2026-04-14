@@ -13,7 +13,7 @@ const {
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 const {
   isCursorNativeHookPayload,
-} = require("../../shared/is-cursor-native-hook-payload.cjs");
+} = require("../../cursor/is-cursor-native-hook-payload.cjs");
 const {
   conversationIdFromTranscriptPath,
   explicitEditorIdFromClaudeHookEnvelope,

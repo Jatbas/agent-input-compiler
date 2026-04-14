@@ -13,9 +13,7 @@
 const fs = require("fs");
 const path = require("path");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
-const {
-  isCursorNativeHookPayload,
-} = require("../../shared/is-cursor-native-hook-payload.cjs");
+const { isCursorNativeHookPayload } = require("../is-cursor-native-hook-payload.cjs");
 const {
   conversationIdFromTranscriptPath,
   resolveConversationIdFallback,

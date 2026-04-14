@@ -6,7 +6,7 @@
 const { readStdinSync } = require("../../shared/read-stdin-sync.cjs");
 const {
   isCursorNativeHookPayload,
-} = require("../../shared/is-cursor-native-hook-payload.cjs");
+} = require("../../cursor/is-cursor-native-hook-payload.cjs");
 
 function stripQuoted(str) {
   return str.replace(/"[^"]*"/g, '""').replace(/'[^']*'/g, "''");

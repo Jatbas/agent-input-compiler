@@ -8,7 +8,7 @@ const { readStdinSync } = require("../../shared/read-stdin-sync.cjs");
 const { writeEditedFiles } = require("../../shared/edited-files-cache.cjs");
 const {
   isCursorNativeHookPayload,
-} = require("../../shared/is-cursor-native-hook-payload.cjs");
+} = require("../../cursor/is-cursor-native-hook-payload.cjs");
 
 function run(stdinStr) {
   try {

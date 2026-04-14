@@ -11,6 +11,11 @@ const AIC_SCRIPT_NAMES = JSON.parse(
   fs.readFileSync(path.join(__dirname, "aic-hook-scripts.json"), "utf8"),
 ).hookScriptNames;
 
+// Cursor-local utility CJS files (integrations/cursor/*.cjs, not hook scripts).
+// Deployed with AIC- prefix alongside shared utilities; hook scripts reference
+// them via ../name.cjs which gets rewritten to ./AIC-name.cjs at install time.
+const CURSOR_LOCAL_UTILITIES = ["is-cursor-native-hook-payload.cjs"];
+
 const TRIGGER_RULE_TEMPLATE = `---
 description: MANDATORY — call aic_compile on EVERY message
 globs:
@@ -89,14 +94,34 @@ for (const deployedName of sharedDeployedNamesSet) {
   }
 }
 
+// Deploy cursor-local utilities: copy from integrations/cursor/*.cjs → .cursor/hooks/AIC-*.cjs
+// and rewrite their internal ../shared/ references to ./AIC- deployed names.
+for (const name of CURSOR_LOCAL_UTILITIES) {
+  const src = path.join(__dirname, name);
+  const deployedName = sharedDeployedName(name);
+  let content = fs.readFileSync(src, "utf8");
+  content = content.replace(
+    /require\("\.\.\/shared\/([^"]+\.cjs)"\)/g,
+    (_, basename) => `require("./${sharedDeployedName(basename)}")`,
+  );
+  fs.writeFileSync(path.join(hooksDir, deployedName), content, "utf8");
+  sharedDeployedNamesSet.add(deployedName);
+}
+
 for (const name of AIC_SCRIPT_NAMES) {
   const srcPath = path.join(sourceHooksDir, name);
   const destPath = path.join(hooksDir, name);
   const sourceContent = fs.readFileSync(srcPath, "utf8");
-  const installedContent = sourceContent.replace(
-    /require\("\.\.\/\.\.\/shared\/([^"]+)"\)/g,
-    (_, basename) => `require("./${sharedDeployedName(basename)}")`,
-  );
+  const installedContent = sourceContent
+    .replace(
+      /require\("\.\.\/\.\.\/shared\/([^"]+)"\)/g,
+      (_, basename) => `require("./${sharedDeployedName(basename)}")`,
+    )
+    .replace(/require\("\.\.\/([^"]+\.cjs)"\)/g, (match, basename) =>
+      CURSOR_LOCAL_UTILITIES.includes(basename)
+        ? `require("./${sharedDeployedName(basename)}")`
+        : match,
+    );
   let shouldWrite = true;
   try {
     const existing = fs.readFileSync(destPath, "utf8");

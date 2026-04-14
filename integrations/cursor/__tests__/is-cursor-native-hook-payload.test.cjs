@@ -5,7 +5,7 @@ const assert = require("assert");
 const fs = require("fs");
 const os = require("os");
 const path = require("path");
-const { touchEditorRuntimeMarker } = require("../editor-runtime-marker.cjs");
+const { touchEditorRuntimeMarker } = require("../../shared/editor-runtime-marker.cjs");
 const { isCursorNativeHookPayload } = require("../is-cursor-native-hook-payload.cjs");
 
 function recognizes_cursor_version_directly() {

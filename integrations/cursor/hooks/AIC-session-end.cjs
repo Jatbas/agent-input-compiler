@@ -11,9 +11,7 @@ const os = require("os");
 const { appendSessionLog } = require("../../shared/session-log.cjs");
 const { cleanupEditedFiles } = require("../../shared/edited-files-cache.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
-const {
-  isCursorNativeHookPayload,
-} = require("../../shared/is-cursor-native-hook-payload.cjs");
+const { isCursorNativeHookPayload } = require("../is-cursor-native-hook-payload.cjs");
 
 const GATE_PREFIX = "aic-gate-";
 const DENY_PREFIX = "aic-deny-";

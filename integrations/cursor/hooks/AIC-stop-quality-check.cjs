@@ -9,9 +9,7 @@ const path = require("path");
 const { execSync } = require("child_process");
 const { readStdinSync } = require("../../shared/read-stdin-sync.cjs");
 const { readEditedFiles } = require("../../shared/edited-files-cache.cjs");
-const {
-  isCursorNativeHookPayload,
-} = require("../../shared/is-cursor-native-hook-payload.cjs");
+const { isCursorNativeHookPayload } = require("../is-cursor-native-hook-payload.cjs");
 
 function runEslint(paths) {
   if (paths.length === 0) return { exitCode: 0, stderr: "" };

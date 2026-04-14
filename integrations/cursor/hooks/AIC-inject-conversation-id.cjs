@@ -13,9 +13,7 @@ const {
   normalizeModelId,
   writeSessionModelCache,
 } = require("../../shared/session-model-cache.cjs");
-const {
-  isCursorNativeHookPayload,
-} = require("../../shared/is-cursor-native-hook-payload.cjs");
+const { isCursorNativeHookPayload } = require("../is-cursor-native-hook-payload.cjs");
 const { isWeakAicCompileIntent } = require("../../shared/is-weak-aic-compile-intent.cjs");
 const { readAicPrewarmPrompt } = require("../../shared/read-aic-prewarm-prompt.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");

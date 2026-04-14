@@ -10,9 +10,7 @@ const path = require("path");
 const os = require("os");
 
 const { readStdinSync } = require("../../shared/read-stdin-sync.cjs");
-const {
-  isCursorNativeHookPayload,
-} = require("../../shared/is-cursor-native-hook-payload.cjs");
+const { isCursorNativeHookPayload } = require("../is-cursor-native-hook-payload.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 const { readAicPrewarmPrompt } = require("../../shared/read-aic-prewarm-prompt.cjs");
 const { isCompileRecent } = require("../../shared/compile-recency.cjs");

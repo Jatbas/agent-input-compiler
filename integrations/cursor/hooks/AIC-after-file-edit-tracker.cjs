@@ -8,9 +8,7 @@
 const path = require("path");
 const { readStdinSync } = require("../../shared/read-stdin-sync.cjs");
 const { writeEditedFiles } = require("../../shared/edited-files-cache.cjs");
-const {
-  isCursorNativeHookPayload,
-} = require("../../shared/is-cursor-native-hook-payload.cjs");
+const { isCursorNativeHookPayload } = require("../is-cursor-native-hook-payload.cjs");
 
 function extractPaths(input) {
   if (!input || typeof input !== "object") return [];

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-const { resolveProjectRoot } = require("./resolve-project-root.cjs");
-const { isEditorRuntimeMarkerFresh } = require("./editor-runtime-marker.cjs");
+const { resolveProjectRoot } = require("../shared/resolve-project-root.cjs");
+const { isEditorRuntimeMarkerFresh } = require("../shared/editor-runtime-marker.cjs");
 
 function pickConversationId(parsed) {
   const candidates = [

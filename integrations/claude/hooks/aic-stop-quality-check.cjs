@@ -11,7 +11,7 @@ const { readEditedFiles } = require("../../shared/edited-files-cache.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 const {
   isCursorNativeHookPayload,
-} = require("../../shared/is-cursor-native-hook-payload.cjs");
+} = require("../../cursor/is-cursor-native-hook-payload.cjs");
 
 function runEslint(paths, cwd) {
   if (paths.length === 0) return { exitCode: 0, stderr: "" };

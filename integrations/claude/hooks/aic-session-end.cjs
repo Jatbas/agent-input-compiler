@@ -14,7 +14,7 @@ const { cleanupEditedFiles } = require("../../shared/edited-files-cache.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 const {
   isCursorNativeHookPayload,
-} = require("../../shared/is-cursor-native-hook-payload.cjs");
+} = require("../../cursor/is-cursor-native-hook-payload.cjs");
 
 function run(stdinStr) {
   const parsed = (() => {
