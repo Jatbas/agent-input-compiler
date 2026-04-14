@@ -29,6 +29,16 @@ const sharedCjsFiles = fs
   .readdirSync(path.join(repoRoot, "integrations", "shared"))
   .filter((f) => f.endsWith(".cjs"));
 
+const CURSOR_NON_DEPLOYABLE_SMOKE = new Set(["install.cjs", "uninstall.cjs"]);
+const cursorLocalUtilFiles = fs
+  .readdirSync(path.join(repoRoot, "integrations", "cursor"))
+  .filter(
+    (f) =>
+      f.endsWith(".cjs") &&
+      !CURSOR_NON_DEPLOYABLE_SMOKE.has(f) &&
+      fs.statSync(path.join(repoRoot, "integrations", "cursor", f)).isFile(),
+  );
+
 // Bundle output paths — file lists are read after bundle scripts run (see try block)
 const bundledSharedDir = path.join(repoRoot, "mcp", "integrations", "shared");
 const bundledIntegrationsDir = path.join(repoRoot, "mcp", "integrations");
@@ -340,7 +350,10 @@ try {
   assertFileExists(projectDir, ".cursor/rules/AIC.mdc", "cursor_install_rule");
   const installedHooksDir = path.join(projectDir, ".cursor", "hooks");
   const installedHookFiles = fs.readdirSync(installedHooksDir);
-  const expectedTotal = cursorManifest.hookScriptNames.length + sharedCjsFiles.length;
+  const expectedTotal =
+    cursorManifest.hookScriptNames.length +
+    sharedCjsFiles.length +
+    cursorLocalUtilFiles.length;
   assert(
     installedHookFiles.length === expectedTotal,
     "cursor_install_hook_file_count (" +

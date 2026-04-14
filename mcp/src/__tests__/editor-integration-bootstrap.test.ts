@@ -37,6 +37,8 @@ function findRepoRoot(startDir: string): string {
   }
 }
 
+const CURSOR_NON_DEPLOYABLE = new Set(["install.cjs", "uninstall.cjs"]);
+
 function computeExpectedHookFileCount(root: string): number {
   const manifestPath = path.join(root, "integrations", "cursor", "aic-hook-scripts.json");
   const raw = fs.readFileSync(manifestPath, "utf8");
@@ -48,7 +50,12 @@ function computeExpectedHookFileCount(root: string): number {
     const src = path.join(sharedDir, name);
     return fs.statSync(src).isFile() ? acc + 1 : acc;
   }, 0);
-  return manifest.hookScriptNames.length + sharedCjsCount;
+  const cursorDir = path.join(root, "integrations", "cursor");
+  const cursorLocalCount = fs.readdirSync(cursorDir).reduce((acc, name) => {
+    if (!name.endsWith(".cjs") || CURSOR_NON_DEPLOYABLE.has(name)) return acc;
+    return fs.statSync(path.join(cursorDir, name)).isFile() ? acc + 1 : acc;
+  }, 0);
+  return manifest.hookScriptNames.length + sharedCjsCount + cursorLocalCount;
 }
 
 const startDir = path.dirname(fileURLToPath(import.meta.url));

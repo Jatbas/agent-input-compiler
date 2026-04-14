@@ -97,6 +97,8 @@ var require_aic_hook_scripts = __commonJS({
         "aic-pre-compact.cjs",
         "aic-after-file-edit-tracker.cjs",
         "aic-stop-quality-check.cjs",
+        "aic-pre-tool-gate.cjs",
+        "aic-stop-require-compile.cjs",
         "aic-block-no-verify.cjs",
         "aic-inject-conversation-id.cjs",
         "aic-session-end.cjs",
