@@ -17,7 +17,7 @@ const {
   conversationIdFromTranscriptPath,
   resolveConversationIdFallback,
 } = require("../../shared/conversation-id.cjs");
-const { isCompileRecent } = require("../../shared/compile-recency.cjs");
+const { isCompileRecent, isTurnCompiled } = require("../../shared/compile-recency.cjs");
 const { readAicPrewarmPrompt } = require("../../shared/read-aic-prewarm-prompt.cjs");
 
 const MAX_STOP_BLOCKS = 2;
@@ -43,8 +43,6 @@ function run(stdinStr) {
 
     const projectRoot = resolveProjectRoot(parsed);
 
-    if (isCompileRecent(projectRoot)) return "";
-
     const conversationId =
       (
         conversationIdFromTranscriptPath(parsed) ??
@@ -53,6 +51,9 @@ function run(stdinStr) {
       )
         .toString()
         .trim() || "unknown";
+
+    if (isTurnCompiled(projectRoot, conversationId) || isCompileRecent(projectRoot))
+      return "";
 
     const sbFile = stopBlockFile(conversationId);
     let blockCount = 0;

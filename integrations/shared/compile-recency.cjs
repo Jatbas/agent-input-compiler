@@ -31,9 +31,61 @@ function isCompileRecent(projectRoot, windowMs) {
   }
 }
 
+function turnMarkerPath(projectRoot, conversationId, kind) {
+  const hash = crypto
+    .createHash("md5")
+    .update(`${projectRoot}\0${conversationId}`)
+    .digest("hex")
+    .slice(0, 16);
+  return path.join(os.tmpdir(), `aic-turn-${kind}-${hash}`);
+}
+
+function writeTurnStart(projectRoot, conversationId) {
+  try {
+    fs.writeFileSync(
+      turnMarkerPath(projectRoot, conversationId, "start"),
+      String(Date.now()),
+    );
+  } catch {
+    // Non-fatal
+  }
+}
+
+function writeTurnCompiled(projectRoot, conversationId) {
+  try {
+    fs.writeFileSync(
+      turnMarkerPath(projectRoot, conversationId, "compiled"),
+      String(Date.now()),
+    );
+  } catch {
+    // Non-fatal
+  }
+}
+
+function isTurnCompiled(projectRoot, conversationId) {
+  try {
+    const start = Number(
+      fs
+        .readFileSync(turnMarkerPath(projectRoot, conversationId, "start"), "utf8")
+        .trim(),
+    );
+    const compiled = Number(
+      fs
+        .readFileSync(turnMarkerPath(projectRoot, conversationId, "compiled"), "utf8")
+        .trim(),
+    );
+    return Number.isFinite(start) && Number.isFinite(compiled) && compiled >= start;
+  } catch {
+    return false;
+  }
+}
+
 module.exports = {
   RECENCY_WINDOW_MS,
   recencyFilePath,
   writeCompileRecency,
   isCompileRecent,
+  writeTurnStart,
+  writeTurnCompiled,
+  isTurnCompiled,
 };

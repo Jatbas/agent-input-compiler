@@ -13,6 +13,7 @@ const {
   isCursorNativeHookPayload,
 } = require("../../cursor/is-cursor-native-hook-payload.cjs");
 const { callAicCompile } = require("./aic-compile-helper.cjs");
+const { writeCompileRecency } = require("../../shared/compile-recency.cjs");
 
 async function run(stdinStr) {
   let parsed;
@@ -33,6 +34,7 @@ async function run(stdinStr) {
     conversationId,
     30000,
   );
+  if (text != null) writeCompileRecency(projectRoot);
   return text;
 }
 

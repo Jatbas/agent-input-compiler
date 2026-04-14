@@ -560,6 +560,7 @@ var require_aic_hook_scripts2 = __commonJS({
         "AIC-subagent-compile.cjs",
         "AIC-subagent-stop.cjs",
         "AIC-subagent-start-model-id.cjs",
+        "AIC-stop-require-compile.cjs",
         "AIC-stop-quality-check.cjs",
       ],
     };

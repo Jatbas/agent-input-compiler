@@ -20,6 +20,7 @@ const {
 const {
   isCompileRecent,
   writeCompileRecency,
+  isTurnCompiled,
 } = require("../../shared/compile-recency.cjs");
 const { readAicPrewarmPrompt } = require("../../shared/read-aic-prewarm-prompt.cjs");
 
@@ -79,7 +80,7 @@ function run(stdinStr) {
       return "{}";
     }
 
-    if (isCompileRecent(projectRoot)) {
+    if (isTurnCompiled(projectRoot, conversationId) || isCompileRecent(projectRoot)) {
       try {
         fs.unlinkSync(denyCountFile(conversationId));
       } catch {

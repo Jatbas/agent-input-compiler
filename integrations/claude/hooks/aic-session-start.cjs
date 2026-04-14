@@ -23,6 +23,7 @@ const {
   readModelFromTranscript,
 } = require("../../shared/read-model-from-transcript.cjs");
 const { callAicCompile } = require("./aic-compile-helper.cjs");
+const { touchEditorRuntimeMarker } = require("../../shared/editor-runtime-marker.cjs");
 
 async function run(stdinStr) {
   let parsed;
@@ -38,6 +39,9 @@ async function run(stdinStr) {
   const conversationId =
     conversationIdFromTranscriptPath(parsed) ?? resolveConversationIdFallback(parsed);
   const projectRoot = resolveProjectRoot(parsed);
+  if (conversationId != null && String(conversationId).trim() !== "") {
+    touchEditorRuntimeMarker(projectRoot, "claude-code", String(conversationId).trim());
+  }
 
   const rawModel = parsed.model ?? parsed.input?.model ?? null;
   // Claude Code hook envelope omits model; fall back to transcript tail-read (available from turn 2+).

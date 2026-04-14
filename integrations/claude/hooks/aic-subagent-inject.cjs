@@ -12,6 +12,12 @@ const {
   isCursorNativeHookPayload,
 } = require("../../cursor/is-cursor-native-hook-payload.cjs");
 const { callAicCompile } = require("./aic-compile-helper.cjs");
+const { writeCompileRecency } = require("../../shared/compile-recency.cjs");
+const { touchEditorRuntimeMarker } = require("../../shared/editor-runtime-marker.cjs");
+const {
+  isValidModelId,
+  normalizeModelId,
+} = require("../../shared/session-model-cache.cjs");
 
 async function run(stdinStr) {
   let parsed;
@@ -33,14 +39,24 @@ async function run(stdinStr) {
         .replace(/<ide_[a-z_]+>[\s\S]*?<\/ide_[a-z_]+>/gi, "")
         .trim()
     : "provide context for " + agentType + " subagent";
+  const rawModel = parsed.model ?? parsed.input?.model ?? null;
+  const modelArg =
+    typeof rawModel === "string" && isValidModelId(rawModel.trim())
+      ? normalizeModelId(rawModel.trim())
+      : undefined;
   const text = await callAicCompile(
     intent,
     projectRoot,
     conversationId,
     30000,
     "subagent_start",
+    modelArg,
   );
   if (text == null) return null;
+  writeCompileRecency(projectRoot);
+  if (conversationId != null && String(conversationId).trim() !== "") {
+    touchEditorRuntimeMarker(projectRoot, "claude-code", String(conversationId).trim());
+  }
   return {
     hookSpecificOutput: {
       hookEventName: "SubagentStart",

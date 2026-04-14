@@ -19,7 +19,12 @@ const {
 const {
   readModelFromTranscript,
 } = require("../../shared/read-model-from-transcript.cjs");
-const { writeCompileRecency } = require("../../shared/compile-recency.cjs");
+const {
+  writeCompileRecency,
+  writeTurnStart,
+  writeTurnCompiled,
+} = require("../../shared/compile-recency.cjs");
+const { touchEditorRuntimeMarker } = require("../../shared/editor-runtime-marker.cjs");
 
 async function run(stdinStr) {
   const { callAicCompile } = require("./aic-compile-helper.cjs");
@@ -51,9 +56,12 @@ async function run(stdinStr) {
   const projectRoot = resolveProjectRoot(parsed);
   const conversationId =
     conversationIdFromTranscriptPath(parsed) ?? resolveConversationIdFallback(parsed);
-  if (conversationId != null && String(conversationId).trim() !== "") {
+  const ccId =
+    conversationId != null && String(conversationId).trim() !== ""
+      ? String(conversationId).trim()
+      : null;
+  if (ccId != null) {
     try {
-      const ccId = String(conversationId).trim();
       fs.writeFileSync(
         path.join(os.tmpdir(), `aic-prompt-cc-${ccId}`),
         intent.slice(0, 10000),
@@ -62,6 +70,8 @@ async function run(stdinStr) {
     } catch {
       /* non-fatal */
     }
+    writeTurnStart(projectRoot, ccId);
+    touchEditorRuntimeMarker(projectRoot, "claude-code", ccId);
   }
   const rawModel =
     top.model != null ? top.model : input.model != null ? input.model : null;
@@ -113,6 +123,7 @@ async function run(stdinStr) {
   );
   if (promptContext == null) return null;
   writeCompileRecency(projectRoot);
+  if (ccId != null) writeTurnCompiled(projectRoot, ccId);
 
   if (invariantsBlock.length > 0) {
     return invariantsBlock + "\n\n" + promptContext;
@@ -122,24 +133,12 @@ async function run(stdinStr) {
 
 if (require.main === module) {
   const raw = fs.readFileSync(0, "utf8");
-  const debugLog = path.join(require("os").tmpdir(), "aic-hook-debug.log");
-  fs.appendFileSync(
-    debugLog,
-    `[${new Date().toISOString()}] stdin: ${raw.slice(0, 500)}\n`,
-  );
   run(raw)
     .then((out) => {
-      fs.appendFileSync(
-        debugLog,
-        `[${new Date().toISOString()}] output: ${out != null ? out.slice(0, 200) : "null"}\n`,
-      );
       if (out != null) process.stdout.write(out);
       process.exit(0);
     })
-    .catch((err) => {
-      fs.appendFileSync(debugLog, `[${new Date().toISOString()}] error: ${err}\n`);
-      process.exit(0);
-    });
+    .catch(() => process.exit(0));
 }
 
 module.exports = { run };
