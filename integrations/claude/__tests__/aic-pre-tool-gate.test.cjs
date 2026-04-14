@@ -6,12 +6,18 @@ const fs = require("fs");
 const os = require("os");
 const crypto = require("crypto");
 const { run } = require(path.join(__dirname, "..", "hooks", "aic-pre-tool-gate.cjs"));
-const { recencyFilePath, writeCompileRecency } = require(
-  path.join(__dirname, "..", "..", "shared", "compile-recency.cjs"),
-);
+const {
+  recencyFilePath,
+  turnMarkerPath,
+  writeCompileRecency,
+  writeTurnStart,
+  writeTurnCompiled,
+} = require(path.join(__dirname, "..", "..", "shared", "compile-recency.cjs"));
 
 const TEST_ROOT = "/tmp/aic-test-gate-project";
 const TEST_CONV_ID = "test-gate-conv-1234-5678-9abc";
+const TURN_COMPILED_ID = "test-gate-turn-compiled-id-1111";
+const TURN_PARTIAL_ID = "test-gate-turn-partial-id-2222";
 
 function denyCountFile(conversationId) {
   return path.join(os.tmpdir(), `aic-gate-cc-deny-${conversationId.slice(0, 64)}`);
@@ -27,8 +33,17 @@ function makePayload(overrides = {}) {
   });
 }
 
+function cleanTurnMarkers(root, convId) {
+  for (const kind of ["start", "compiled"]) {
+    try {
+      fs.unlinkSync(turnMarkerPath(root, convId, kind));
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
 function setup() {
-  // Clean state
   try {
     fs.unlinkSync(recencyFilePath(TEST_ROOT));
   } catch {
@@ -39,6 +54,9 @@ function setup() {
   } catch {
     /* ignore */
   }
+  cleanTurnMarkers(TEST_ROOT, TEST_CONV_ID);
+  cleanTurnMarkers(TEST_ROOT, TURN_COMPILED_ID);
+  cleanTurnMarkers(TEST_ROOT, TURN_PARTIAL_ID);
 }
 
 function allow_when_recent_compile() {
@@ -151,6 +169,38 @@ function deny_count_cleared_on_recent_compile() {
   console.log("deny_count_cleared_on_recent_compile: pass");
 }
 
+function allow_when_turn_compiled() {
+  setup();
+  writeTurnStart(TEST_ROOT, TURN_COMPILED_ID);
+  writeTurnCompiled(TEST_ROOT, TURN_COMPILED_ID);
+  const out = run(
+    makePayload({
+      transcript_path: `/tmp/.claude/conversations/${TURN_COMPILED_ID}.jsonl`,
+    }),
+  );
+  if (out !== "{}") {
+    throw new Error(`Expected allow via isTurnCompiled, got ${out}`);
+  }
+  console.log("allow_when_turn_compiled: pass");
+}
+
+function deny_when_turn_start_but_not_compiled() {
+  setup();
+  writeTurnStart(TEST_ROOT, TURN_PARTIAL_ID);
+  const out = run(
+    makePayload({
+      transcript_path: `/tmp/.claude/conversations/${TURN_PARTIAL_ID}.jsonl`,
+    }),
+  );
+  const parsed = JSON.parse(out);
+  if (parsed.hookSpecificOutput?.permissionDecision !== "deny") {
+    throw new Error(
+      `Expected deny when turn started but not compiled, got ${JSON.stringify(parsed)}`,
+    );
+  }
+  console.log("deny_when_turn_start_but_not_compiled: pass");
+}
+
 allow_when_recent_compile();
 deny_when_no_compile();
 allow_after_max_denies();
@@ -159,4 +209,6 @@ deny_count_increments();
 allow_cursor_native_payload();
 allow_malformed_json();
 deny_count_cleared_on_recent_compile();
+allow_when_turn_compiled();
+deny_when_turn_start_but_not_compiled();
 console.log("All aic-pre-tool-gate tests passed.");

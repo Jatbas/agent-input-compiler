@@ -241,6 +241,66 @@ async function subagent_inject_noop_when_cursor_version_present() {
   console.log("subagent_inject_noop_when_cursor_version_present: pass");
 }
 
+async function subagent_forwards_model_id_when_present() {
+  const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
+    paths: [hooksDir],
+  });
+  let capturedModelId;
+  require.cache[resolvedHelper] = {
+    exports: {
+      callAicCompile: (_intent, _root, _convId, _timeout, _trigger, modelId) => {
+        capturedModelId = modelId;
+        return Promise.resolve("compiled text");
+      },
+    },
+    loaded: true,
+    id: resolvedHelper,
+  };
+  delete require.cache[hookPath];
+  const { run } = require(hookPath);
+  await run(
+    JSON.stringify({
+      agent_type: "general-purpose",
+      model: "claude-sonnet-4-6",
+      cwd: "/tmp",
+    }),
+  );
+  cleanup(resolvedHelper);
+  if (capturedModelId !== "claude-sonnet-4-6") {
+    throw new Error(
+      `Expected model ID "claude-sonnet-4-6", got ${JSON.stringify(capturedModelId)}`,
+    );
+  }
+  console.log("subagent_forwards_model_id_when_present: pass");
+}
+
+async function subagent_omits_model_id_when_absent() {
+  const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
+    paths: [hooksDir],
+  });
+  let capturedModelId = "sentinel";
+  require.cache[resolvedHelper] = {
+    exports: {
+      callAicCompile: (_intent, _root, _convId, _timeout, _trigger, modelId) => {
+        capturedModelId = modelId;
+        return Promise.resolve("compiled text");
+      },
+    },
+    loaded: true,
+    id: resolvedHelper,
+  };
+  delete require.cache[hookPath];
+  const { run } = require(hookPath);
+  await run(JSON.stringify({ agent_type: "general-purpose", cwd: "/tmp" }));
+  cleanup(resolvedHelper);
+  if (capturedModelId !== undefined) {
+    throw new Error(
+      `Expected undefined modelId when absent, got ${JSON.stringify(capturedModelId)}`,
+    );
+  }
+  console.log("subagent_omits_model_id_when_absent: pass");
+}
+
 (async () => {
   await hookSpecificOutput_json_when_helper_returns_text();
   await output_empty_object_when_helper_returns_null();
@@ -250,5 +310,7 @@ async function subagent_inject_noop_when_cursor_version_present() {
   await subagent_uses_prompt_as_intent_when_present();
   await subagent_strips_ide_selection_from_prompt();
   await subagent_inject_noop_when_cursor_version_present();
+  await subagent_forwards_model_id_when_present();
+  await subagent_omits_model_id_when_absent();
   console.log("All tests passed.");
 })();

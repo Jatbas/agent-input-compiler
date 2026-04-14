@@ -83,6 +83,7 @@ function isTurnCompiled(projectRoot, conversationId) {
 module.exports = {
   RECENCY_WINDOW_MS,
   recencyFilePath,
+  turnMarkerPath,
   writeCompileRecency,
   isCompileRecent,
   writeTurnStart,

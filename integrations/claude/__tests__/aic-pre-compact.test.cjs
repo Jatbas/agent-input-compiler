@@ -2,9 +2,14 @@
 // Copyright (c) 2025 AIC Contributors
 
 const path = require("path");
+const fs = require("fs");
 
 const hooksDir = path.join(__dirname, "..", "hooks");
 const hookPath = path.join(hooksDir, "aic-pre-compact.cjs");
+const { recencyFilePath } = require(
+  path.join(__dirname, "..", "..", "shared", "compile-recency.cjs"),
+);
+const TEST_ROOT = "/tmp/aic-test-precompact-project";
 
 function mockHelper(returnValue) {
   const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
@@ -112,10 +117,50 @@ async function pre_compact_passes_session_id_when_transcript_missing() {
   console.log("pre_compact_passes_session_id_when_transcript_missing: pass");
 }
 
+async function writes_compile_recency_on_success() {
+  const recencyPath = recencyFilePath(TEST_ROOT);
+  try {
+    fs.unlinkSync(recencyPath);
+  } catch {
+    /* ignore */
+  }
+  const key = mockHelper("compiled text");
+  delete require.cache[require.resolve(hookPath)];
+  const { run } = require(hookPath);
+  await run(JSON.stringify({ session_id: "s1", cwd: TEST_ROOT }));
+  cleanup(key);
+  if (!fs.existsSync(recencyPath)) {
+    throw new Error(
+      "Expected compile recency file to be written after successful compile",
+    );
+  }
+  console.log("writes_compile_recency_on_success: pass");
+}
+
+async function does_not_write_compile_recency_when_helper_returns_null() {
+  const recencyPath = recencyFilePath(TEST_ROOT);
+  try {
+    fs.unlinkSync(recencyPath);
+  } catch {
+    /* ignore */
+  }
+  const key = mockHelper(null);
+  delete require.cache[require.resolve(hookPath)];
+  const { run } = require(hookPath);
+  await run(JSON.stringify({ session_id: "s1", cwd: TEST_ROOT }));
+  cleanup(key);
+  if (fs.existsSync(recencyPath)) {
+    throw new Error("Expected no compile recency file when helper returns null");
+  }
+  console.log("does_not_write_compile_recency_when_helper_returns_null: pass");
+}
+
 (async () => {
   await plain_text_stdout_when_helper_returns_prompt();
   await exit_0_silent_when_helper_returns_null();
   await pre_compact_uses_transcript_path_not_session_id();
   await pre_compact_passes_session_id_when_transcript_missing();
+  await writes_compile_recency_on_success();
+  await does_not_write_compile_recency_when_helper_returns_null();
   console.log("All tests passed.");
 })();
