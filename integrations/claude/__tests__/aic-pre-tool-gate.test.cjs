@@ -49,14 +49,14 @@ function setup() {
   } catch {
     /* ignore */
   }
-  try {
-    fs.unlinkSync(denyCountFile(TEST_CONV_ID));
-  } catch {
-    /* ignore */
+  for (const convId of [TEST_CONV_ID, TURN_COMPILED_ID, TURN_PARTIAL_ID]) {
+    try {
+      fs.unlinkSync(denyCountFile(convId));
+    } catch {
+      /* ignore */
+    }
+    cleanTurnMarkers(TEST_ROOT, convId);
   }
-  cleanTurnMarkers(TEST_ROOT, TEST_CONV_ID);
-  cleanTurnMarkers(TEST_ROOT, TURN_COMPILED_ID);
-  cleanTurnMarkers(TEST_ROOT, TURN_PARTIAL_ID);
 }
 
 function allow_when_recent_compile() {

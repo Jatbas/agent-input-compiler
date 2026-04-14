@@ -7,6 +7,12 @@ const os = require("os");
 
 const hooksDir = path.join(__dirname, "..", "hooks");
 const hookPath = path.join(hooksDir, "aic-prompt-compile.cjs");
+const { recencyFilePath, turnMarkerPath, isTurnCompiled } = require(
+  path.join(__dirname, "..", "..", "shared", "compile-recency.cjs"),
+);
+const { isEditorRuntimeMarkerFresh } = require(
+  path.join(__dirname, "..", "..", "shared", "editor-runtime-marker.cjs"),
+);
 
 function mockHelper(returnValue) {
   const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
@@ -373,6 +379,66 @@ async function prompt_compile_noop_when_cursor_version_present() {
   console.log("prompt_compile_noop_when_cursor_version_present: pass");
 }
 
+async function writes_turn_markers_and_recency_on_success() {
+  const CONV_ID = "prompt-compile-turn-marker-test-id";
+  const PROJECT_ROOT = "/tmp/aic-prompt-compile-turn-test";
+  // Clean state
+  for (const kind of ["start", "compiled"]) {
+    try {
+      fs.unlinkSync(turnMarkerPath(PROJECT_ROOT, CONV_ID, kind));
+    } catch {
+      /* ignore */
+    }
+  }
+  try {
+    fs.unlinkSync(recencyFilePath(PROJECT_ROOT));
+  } catch {
+    /* ignore */
+  }
+  const key = mockHelper("compiled text");
+  delete require.cache[require.resolve(hookPath)];
+  const { run } = require(hookPath);
+  await run(
+    JSON.stringify({
+      prompt: "fix the bug",
+      cwd: PROJECT_ROOT,
+      transcript_path: `/tmp/.claude/conversations/${CONV_ID}.jsonl`,
+    }),
+  );
+  cleanup(key);
+  if (!isTurnCompiled(PROJECT_ROOT, CONV_ID)) {
+    throw new Error("Expected isTurnCompiled to be true after successful compile");
+  }
+  if (!fs.existsSync(recencyFilePath(PROJECT_ROOT))) {
+    throw new Error(
+      "Expected compile recency file to be written after successful compile",
+    );
+  }
+  console.log("writes_turn_markers_and_recency_on_success: pass");
+}
+
+async function writes_editor_runtime_marker_on_success() {
+  const CONV_ID = "prompt-compile-rt-marker-test-id";
+  const PROJECT_ROOT = "/tmp/aic-prompt-compile-rt-test";
+  const key = mockHelper("compiled text");
+  delete require.cache[require.resolve(hookPath)];
+  const { run } = require(hookPath);
+  await run(
+    JSON.stringify({
+      prompt: "refactor auth",
+      cwd: PROJECT_ROOT,
+      transcript_path: `/tmp/.claude/conversations/${CONV_ID}.jsonl`,
+    }),
+  );
+  cleanup(key);
+  if (!isEditorRuntimeMarkerFresh(PROJECT_ROOT, "claude-code", CONV_ID)) {
+    throw new Error(
+      "Expected editor runtime marker to be fresh after successful compile",
+    );
+  }
+  console.log("writes_editor_runtime_marker_on_success: pass");
+}
+
 (async () => {
   await plain_text_stdout_when_helper_returns_prompt();
   await exit_0_silent_when_helper_returns_null();
@@ -385,5 +451,7 @@ async function prompt_compile_noop_when_cursor_version_present() {
   await prompt_compile_uses_conversation_id_when_transcript_path_missing();
   await prompt_compile_sets_cursor_claude_editor_id_for_cursor_envelope();
   await prompt_compile_noop_when_cursor_version_present();
+  await writes_turn_markers_and_recency_on_success();
+  await writes_editor_runtime_marker_on_success();
   console.log("All tests passed.");
 })();

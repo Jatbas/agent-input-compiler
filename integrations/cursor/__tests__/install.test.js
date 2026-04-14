@@ -38,12 +38,18 @@ const hookManifest = JSON.parse(
 );
 const sharedDirForCount = path.join(repoRoot, "integrations", "shared");
 const sharedEntriesForCount = fs.readdirSync(sharedDirForCount);
+const CURSOR_NON_DEPLOYABLE = new Set(["install.cjs", "uninstall.cjs"]);
+const cursorDirForCount = path.join(repoRoot, "integrations", "cursor");
 const expectedHookFileCount =
   hookManifest.hookScriptNames.length +
   sharedEntriesForCount.reduce((acc, name) => {
     if (!name.endsWith(".cjs")) return acc;
     const src = path.join(sharedDirForCount, name);
     return fs.statSync(src).isFile() ? acc + 1 : acc;
+  }, 0) +
+  fs.readdirSync(cursorDirForCount).reduce((acc, name) => {
+    if (!name.endsWith(".cjs") || CURSOR_NON_DEPLOYABLE.has(name)) return acc;
+    return fs.statSync(path.join(cursorDirForCount, name)).isFile() ? acc + 1 : acc;
   }, 0);
 
 function runInstaller(cwd, env = {}) {
