@@ -24,11 +24,15 @@ process.stdin.on("end", () => {
       process.exit(0);
     }
     const cmd = (input.command || "").trim();
-    const cmdWithoutQuotes = stripQuoted(cmd);
-
-    const isGitCmd = /\bgit\b/.test(cmd);
+    // Extract only the git segment (before pipes/semicolons) to avoid false positives
+    // from piped commands like `git show ... | grep -n ...`
+    const gitSegment = cmd.split(/[|;&]/).find((seg) => /\bgit\b/.test(seg)) ?? "";
+    const gitSegmentStripped = stripQuoted(gitSegment);
+    const isGitCmd = gitSegment.trim().length > 0;
     const hasNoVerify =
-      /--no-verify\b/.test(cmdWithoutQuotes) || /\s-n\b/.test(cmdWithoutQuotes);
+      /--no-verify\b/.test(gitSegmentStripped) ||
+      // -n is short for --no-verify only in git commit, not other subcommands
+      /\bgit\s+commit\b.*\s-n\b/.test(gitSegmentStripped);
 
     if (isGitCmd && hasNoVerify) {
       process.stdout.write(
