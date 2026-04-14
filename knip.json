@@ -2,8 +2,6 @@
   "ignore": [
     "mcp/scripts/fetch-model-context-windows.cjs",
     "scripts/**",
-    "shared/src/data/**",
-    ".cursor/**",
     "test/benchmarks/**",
     "integrations/cursor/hooks/**",
     "integrations/cursor/install.cjs",
@@ -17,7 +15,9 @@
     "integrations/clean-global-aic-dir.cjs",
     "integrations/aic-uninstall-standalone.cjs",
     "integrations/standalone-uninstall-entry.cjs",
-    "integrations/shared/**"
+    "integrations/shared/**",
+    "integrations/cursor/is-cursor-native-hook-payload.cjs",
+    "integrations/claude/is-claude-native-hook-payload.cjs"
   ],
   "workspaces": {
     ".": {},

@@ -137,10 +137,3 @@ export const AicCompileSpecToolRegisteredOutputSchema = z
     code: z.literal("validation-error").optional(),
   })
   .passthrough();
-
-export type AicCompileStructuredContent = z.infer<
-  typeof AicCompileStructuredContentSchema
->;
-export type AicCompileSpecStructuredContent = z.infer<
-  typeof AicCompileSpecStructuredContentSchema
->;
