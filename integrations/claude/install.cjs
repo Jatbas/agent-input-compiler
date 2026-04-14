@@ -11,6 +11,11 @@ const AIC_SCRIPT_NAMES = JSON.parse(
   fs.readFileSync(path.join(__dirname, "aic-hook-scripts.json"), "utf8"),
 ).hookScriptNames;
 
+// Cursor-local utility CJS files consumed by Claude hooks via ../../cursor/name.cjs.
+// Deployed with aic- prefix alongside shared utilities; hook scripts have their
+// ../../cursor/name.cjs references rewritten to ./aic-name.cjs at install time.
+const CURSOR_LOCAL_UTILITIES = ["is-cursor-native-hook-payload.cjs"];
+
 const CLAUDE_MD_TEMPLATE = `# AIC — Claude Code Rules
 
 > This file is the Claude Code equivalent of \`.cursor/rules/AIC-architect.mdc\`.
@@ -350,14 +355,35 @@ try {
     }
   }
 
+  // Deploy cursor-local utilities: integrations/cursor/*.cjs → ~/.claude/hooks/aic-*.cjs
+  // with ../shared/ references rewritten to ./aic- deployed names.
+  const cursorDir = path.join(__dirname, "..", "cursor");
+  for (const name of CURSOR_LOCAL_UTILITIES) {
+    const src = path.join(cursorDir, name);
+    const deployedName = sharedDeployedName(name);
+    let content = fs.readFileSync(src, "utf8");
+    content = content.replace(
+      /require\("\.\.\/shared\/([^"]+\.cjs)"\)/g,
+      (_, basename) => `require("./${sharedDeployedName(basename)}")`,
+    );
+    fs.writeFileSync(path.join(globalHooksDir, deployedName), content, "utf8");
+    deployedSharedNames.add(deployedName);
+  }
+
   for (const name of AIC_SCRIPT_NAMES) {
     const srcPath = path.join(hooksSourceDir, name);
     const destPath = path.join(globalHooksDir, name);
     const sourceContent = fs.readFileSync(srcPath, "utf8");
-    const installedContent = sourceContent.replace(
-      /require\("\.\.\/\.\.\/shared\/([^"]+)"\)/g,
-      (_, basename) => `require("./${sharedDeployedName(basename)}")`,
-    );
+    const installedContent = sourceContent
+      .replace(
+        /require\("\.\.\/\.\.\/shared\/([^"]+)"\)/g,
+        (_, basename) => `require("./${sharedDeployedName(basename)}")`,
+      )
+      .replace(/require\("\.\.\/\.\.\/cursor\/([^"]+\.cjs)"\)/g, (_, basename) =>
+        CURSOR_LOCAL_UTILITIES.includes(basename)
+          ? `require("./${sharedDeployedName(basename)}")`
+          : `require("./${basename}")`,
+      );
     let shouldWrite = true;
     try {
       const existing = fs.readFileSync(destPath, "utf8");
