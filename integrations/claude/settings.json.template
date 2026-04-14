@@ -81,6 +81,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "node \"$HOME/.claude/hooks/aic-stop-require-compile.cjs\"",
+            "timeout": 10,
+            "statusMessage": "Checking AIC compile gate..."
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "node \"$HOME/.claude/hooks/aic-stop-quality-check.cjs\"",
             "timeout": 60,
             "statusMessage": "Running lint and typecheck..."
@@ -89,6 +99,16 @@
       }
     ],
     "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/hooks/aic-pre-tool-gate.cjs\"",
+            "timeout": 10,
+            "statusMessage": "Checking AIC compile gate..."
+          }
+        ]
+      },
       {
         "matcher": "Bash",
         "hooks": [

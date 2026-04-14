@@ -19,6 +19,7 @@ const {
 const {
   readModelFromTranscript,
 } = require("../../shared/read-model-from-transcript.cjs");
+const { writeCompileRecency } = require("../../shared/compile-recency.cjs");
 
 async function run(stdinStr) {
   const { callAicCompile } = require("./aic-compile-helper.cjs");
@@ -111,6 +112,7 @@ async function run(stdinStr) {
     editorId,
   );
   if (promptContext == null) return null;
+  writeCompileRecency(projectRoot);
 
   if (invariantsBlock.length > 0) {
     return invariantsBlock + "\n\n" + promptContext;
