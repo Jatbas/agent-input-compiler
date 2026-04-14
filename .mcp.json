@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "aic-dev": {
+      "command": "sh",
+      "args": [
+        "-c",
+        "cd /Users/jatbas/Desktop/AIC && pnpm --filter @jatbas/aic-core build >&2 && npx tsx mcp/src/server.ts"
+      ],
+      "env": {}
+    }
+  }
+}
