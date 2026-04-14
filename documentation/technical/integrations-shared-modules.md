@@ -1,6 +1,6 @@
 # Integrations shared modules reference
 
-This document lists every canonical CommonJS module under `integrations/shared/`, its exported API, filesystem artifacts, which other shared modules it imports, and which hook or install scripts in the repository load it. It supports integration-layer reviews of JSONL caches, session markers, and related hook state.
+This document lists every canonical CommonJS module under `integrations/shared/`, its exported API, filesystem artifacts, which other shared modules it imports, and which hook or install scripts in the repository load it. It supports integration-layer reviews of JSONL caches, session markers, and related hook state. The module inventory also includes `is-cursor-native-hook-payload.cjs`, which lives under `integrations/cursor/` (not `integrations/shared/`), because Cursor install and the caller matrix treat it alongside shared utilities under `.cursor/hooks/`.
 
 ## When to update this document
 
@@ -11,6 +11,7 @@ Update this document when:
 - You change non-test `require` edges from Cursor or Claude hooks or install scripts into shared modules (caller matrix).
 - You change filesystem artifacts under `.aic/`, temp patterns under `os.tmpdir()`, or the shared-internal `require` graph.
 - You add or remove a file under `.cursor/hooks/` that must stay a mirror of `integrations/shared/`.
+- You change `integrations/cursor/is-cursor-native-hook-payload.cjs` or Cursor install rules in `integrations/cursor/install.cjs` (`CURSOR_LOCAL_UTILITIES`) that copy it into `.cursor/hooks/`.
 
 ## Canonical location
 
@@ -30,7 +31,6 @@ Files in `.cursor/hooks/` that correspond to `integrations/shared/` modules:
 - `cache-field-validators.cjs`
 - `conversation-id.cjs`
 - `edited-files-cache.cjs`
-- `is-cursor-native-hook-payload.cjs`
 - `prompt-log.cjs`
 - `read-stdin-sync.cjs`
 - `resolve-project-root.cjs`
@@ -39,6 +39,8 @@ Files in `.cursor/hooks/` that correspond to `integrations/shared/` modules:
 - `read-session-model-jsonl.cjs`
 - `select-session-model-from-jsonl.cjs`
 - `session-model-cache.cjs`
+
+`is-cursor-native-hook-payload.cjs` is not under `integrations/shared/`; the canonical source is `integrations/cursor/is-cursor-native-hook-payload.cjs`. Cursor install lists it in `CURSOR_LOCAL_UTILITIES` inside `integrations/cursor/install.cjs` and copies it into `.cursor/hooks/` with the same `AIC-` filename prefix as shared modules; hook scripts resolve it via rewritten `require("./AIC-is-cursor-native-hook-payload.cjs")` paths after install.
 
 `integrations/cursor/hooks/AIC-subagent-start-model-id.cjs` is a Cursor hook script (not duplicated from `integrations/shared/`). In the repository tree it uses `require("../../shared/session-model-cache.cjs")` and calls `normalizeModelId` only. The install copy under `.cursor/hooks/` rewrites that require to `./AIC-session-model-cache.cjs`.
 
@@ -54,7 +56,7 @@ Every file in `integrations/claude/plugin/scripts/*.cjs` is a one-line re-export
 | `cache-field-validators.cjs` | `isValidModelId`, `isValidConversationId`, `isValidEditorId`, `isValidTimestamp`, `isValidPromptLogTitle`, `isValidPromptLogReason`, `isValidGenerationId` | Printable ASCII and length checks for cache and log fields; mirrors TypeScript in `shared/src/maintenance/cache-field-validators.ts`. |
 | `conversation-id.cjs` | `conversationIdFromTranscriptPath`, `conversationIdFromAgentTranscriptPath`, `explicitEditorIdFromClaudeHookEnvelope`, `resolveConversationIdFallback` | `conversationIdFromTranscriptPath(parsed)` resolves in order: non-empty `transcript_path` or `input.transcript_path` → basename without `.jsonl`; else non-empty `conversation_id` or `input.conversation_id` → trimmed string. When that returns `null`, hooks use `resolveConversationIdFallback(parsed)` for a deterministic synthetic id: non-empty trimmed printable-ASCII strings only, max length 128, in order `parent_conversation_id` (top then `input`), `session_id` (top then `input`), then `generation_id` / `generationId` (top, `input`, and camelCase on top/`input`). Invalid or empty candidates are skipped; all `null` if none qualify. `conversationIdFromAgentTranscriptPath` takes a string path (callers pass `agent_transcript_path` from Cursor `subagentStop`) and returns basename without `.jsonl` or `null`. `explicitEditorIdFromClaudeHookEnvelope` returns `cursor-claude-code` when the envelope has a direct `conversation_id` but no transcript path; otherwise `claude-code`. |
 | `edited-files-cache.cjs` | `getTempPath`, `readEditedFiles`, `writeEditedFiles`, `cleanupEditedFiles` | Persists edited-file path arrays in `os.tmpdir()` as `aic-edited-<editor>-<key>.json` with sanitized segments. |
-| `is-cursor-native-hook-payload.cjs` | `isCursorNativeHookPayload` | Returns `true` when `cursor_version` or `input.cursor_version` is present on the hook envelope so Cursor-shaped invocations can be skipped on Claude-registered hooks (and vice versa for early exits). See [Runtime boundary guards (`cursor_version`)](cursor-integration-layer.md#44-runtime-boundary-guards-cursor_version). |
+| `is-cursor-native-hook-payload.cjs` | `isCursorNativeHookPayload` | Canonical source path is `integrations/cursor/` (not `integrations/shared/`). Returns `true` when `cursor_version` or `input.cursor_version` is present on the hook envelope so Cursor-shaped invocations can be skipped on Claude-registered hooks (and vice versa for early exits). See [Runtime boundary guards (`cursor_version`)](cursor-integration-layer.md#44-runtime-boundary-guards-cursor_version). |
 | `prompt-log.cjs` | `appendPromptLog` | Validates `prompt` or `session_end` entries, then appends to `.aic/prompt-log.jsonl`. |
 | `read-stdin-sync.cjs` | `readStdinSync` | Reads entire stdin synchronously as UTF-8 string. |
 | `resolve-project-root.cjs` | `resolveProjectRoot` | Resolves absolute project root from Cursor env, Claude `cwd` or env, plus `options.env`, `options.toolInputOverride`, and `options.useAicProjectRoot` when supplied, falling back to `process.cwd()`. |
