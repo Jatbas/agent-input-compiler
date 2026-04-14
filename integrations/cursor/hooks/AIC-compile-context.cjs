@@ -25,6 +25,7 @@ const {
   conversationIdFromTranscriptPath,
   resolveConversationIdFallback,
 } = require("../../shared/conversation-id.cjs");
+const { writeCompileRecency } = require("../../shared/compile-recency.cjs");
 
 const projectRoot = resolveProjectRoot(null, { env: process.env });
 const INTENT = "understand project structure, architecture, and recent changes";
@@ -129,6 +130,7 @@ try {
   }
 
   if (compiledPrompt) {
+    writeCompileRecency(projectRoot);
     const output = JSON.stringify({
       env: {
         AIC_PROJECT_ROOT: projectRoot,

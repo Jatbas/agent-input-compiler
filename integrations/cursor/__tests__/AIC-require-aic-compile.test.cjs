@@ -521,7 +521,7 @@ gate_allows_after_max_denies();
 aic_compile_resets_deny_counter();
 cleanup_removes_stale_gate_files();
 
-function cursor_require_compile_noop_when_no_cursor_version() {
+function cursor_require_compile_allows_when_no_cursor_version() {
   const result = spawnSync("node", [hookPath], {
     input: JSON.stringify({
       generation_id: "gen-no-cv",
@@ -531,14 +531,17 @@ function cursor_require_compile_noop_when_no_cursor_version() {
     encoding: "utf8",
     env: { ...process.env, CURSOR_PROJECT_DIR: emptyDir },
   });
-  if (result.stdout.trim() !== "") {
-    throw new Error(`Expected empty stdout, got ${JSON.stringify(result.stdout)}`);
+  const out = JSON.parse(result.stdout.trim());
+  if (out.permission !== "allow") {
+    throw new Error(
+      `Expected permission "allow" for non-Cursor payload, got ${out.permission}`,
+    );
   }
   if (result.status !== 0) {
     throw new Error(`Expected exit 0, got ${result.status}`);
   }
-  console.log("cursor_require_compile_noop_when_no_cursor_version: pass");
+  console.log("cursor_require_compile_allows_when_no_cursor_version: pass");
 }
 
-cursor_require_compile_noop_when_no_cursor_version();
+cursor_require_compile_allows_when_no_cursor_version();
 console.log("All tests passed.");

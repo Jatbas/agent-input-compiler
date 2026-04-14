@@ -278,6 +278,38 @@ function mcp_envelope_routes_aic_tools_to_aic_outside_dev_mode() {
   }
 }
 
+function call_mcp_tool_envelope_routes_to_aic_dev_in_dev_mode() {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aic-inject-callmcp-dev-"));
+  try {
+    fs.writeFileSync(
+      path.join(tempRoot, "aic.config.json"),
+      JSON.stringify({ devMode: true }),
+      "utf8",
+    );
+    const stdin = hookPayload({
+      tool_name: "call_mcp_tool",
+      tool_input: {
+        server: "aic",
+        toolName: "aic_compile",
+        arguments: {
+          intent: "test intent",
+          projectRoot: tempRoot,
+        },
+      },
+    });
+    const stdout = runHook(stdin, { CURSOR_PROJECT_DIR: tempRoot });
+    const out = JSON.parse(stdout);
+    if (out.updated_input?.server !== "aic-dev") {
+      throw new Error(
+        `Expected updated_input.server "aic-dev", got ${JSON.stringify(out.updated_input?.server)}`,
+      );
+    }
+    console.log("call_mcp_tool_envelope_routes_to_aic_dev_in_dev_mode: pass");
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
 inject_modelId_when_model_present();
 inject_uses_session_id_fallback_for_conversation_id();
 inject_allow_when_no_conversation_but_model();
@@ -287,6 +319,7 @@ inject_skips_when_prewarm_missing();
 inject_normalizes_default_to_auto();
 mcp_envelope_routes_aic_tools_to_aic_dev_in_dev_mode();
 mcp_envelope_routes_aic_tools_to_aic_outside_dev_mode();
+call_mcp_tool_envelope_routes_to_aic_dev_in_dev_mode();
 
 function cursor_inject_conversation_id_noop_when_no_cursor_version() {
   const result = spawnSync("node", [hookPath], {
@@ -307,4 +340,282 @@ function cursor_inject_conversation_id_noop_when_no_cursor_version() {
 }
 
 cursor_inject_conversation_id_noop_when_no_cursor_version();
+
+const { toCursorProjectSlug } = require("../../shared/resolve-aic-server-id.cjs");
+
+function setupMockMcps(tempHome, tempRoot, serverId) {
+  const slug = toCursorProjectSlug(tempRoot);
+  const toolsDir = path.join(
+    tempHome,
+    ".cursor",
+    "projects",
+    slug,
+    "mcps",
+    serverId,
+    "tools",
+  );
+  fs.mkdirSync(toolsDir, { recursive: true });
+  fs.writeFileSync(path.join(toolsDir, "aic_compile.json"), "{}", "utf8");
+  return toolsDir;
+}
+
+function mcp_envelope_rewrites_to_cursor_runtime_server_id() {
+  const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "aic-inject-home-"));
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aic-inject-rt-"));
+  setupMockMcps(tempHome, tempRoot, "project-0-MyProject-aic-dev");
+  fs.writeFileSync(
+    path.join(tempRoot, "aic.config.json"),
+    JSON.stringify({ devMode: true }),
+    "utf8",
+  );
+  try {
+    const stdin = hookPayload({
+      tool_name: "mcp",
+      tool_input: {
+        server: "aic",
+        toolName: "aic_compile",
+        arguments: { intent: "test", projectRoot: tempRoot },
+      },
+    });
+    const stdout = runHook(stdin, { HOME: tempHome, CURSOR_PROJECT_DIR: tempRoot });
+    const out = JSON.parse(stdout);
+    if (out.updated_input?.server !== "project-0-MyProject-aic-dev") {
+      throw new Error(
+        `Expected runtime server id "project-0-MyProject-aic-dev", got ${JSON.stringify(out.updated_input?.server)}`,
+      );
+    }
+    console.log("mcp_envelope_rewrites_to_cursor_runtime_server_id: pass");
+  } finally {
+    fs.rmSync(tempHome, { recursive: true, force: true });
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
+function call_mcp_tool_envelope_rewrites_to_cursor_runtime_server_id() {
+  const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "aic-inject-home-"));
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aic-inject-rt-"));
+  setupMockMcps(tempHome, tempRoot, "project-0-Test-aic-dev");
+  fs.writeFileSync(
+    path.join(tempRoot, "aic.config.json"),
+    JSON.stringify({ devMode: true }),
+    "utf8",
+  );
+  try {
+    const stdin = hookPayload({
+      tool_name: "call_mcp_tool",
+      tool_input: {
+        server: "aic-dev",
+        toolName: "aic_status",
+        arguments: {},
+      },
+    });
+    const stdout = runHook(stdin, { HOME: tempHome, CURSOR_PROJECT_DIR: tempRoot });
+    const out = JSON.parse(stdout);
+    if (out.updated_input?.server !== "project-0-Test-aic-dev") {
+      throw new Error(
+        `Expected "project-0-Test-aic-dev", got ${JSON.stringify(out.updated_input?.server)}`,
+      );
+    }
+    console.log("call_mcp_tool_envelope_rewrites_to_cursor_runtime_server_id: pass");
+  } finally {
+    fs.rmSync(tempHome, { recursive: true, force: true });
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
+function callmcptool_envelope_rewrites_server() {
+  const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "aic-inject-home-"));
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aic-inject-rt-"));
+  setupMockMcps(tempHome, tempRoot, "user-aic");
+  try {
+    const stdin = hookPayload({
+      tool_name: "CallMcpTool",
+      tool_input: {
+        server: "aic",
+        toolName: "aic_compile",
+        arguments: { intent: "test", projectRoot: tempRoot },
+      },
+    });
+    const stdout = runHook(stdin, { HOME: tempHome, CURSOR_PROJECT_DIR: tempRoot });
+    const out = JSON.parse(stdout);
+    if (out.updated_input?.server !== "user-aic") {
+      throw new Error(
+        `Expected "user-aic", got ${JSON.stringify(out.updated_input?.server)}`,
+      );
+    }
+    console.log("callmcptool_envelope_rewrites_server: pass");
+  } finally {
+    fs.rmSync(tempHome, { recursive: true, force: true });
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
+function runtime_id_noop_when_server_already_correct() {
+  const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "aic-inject-home-"));
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aic-inject-rt-"));
+  setupMockMcps(tempHome, tempRoot, "project-0-AIC-aic-dev");
+  try {
+    const stdin = hookPayload({
+      tool_name: "mcp",
+      tool_input: {
+        server: "project-0-AIC-aic-dev",
+        toolName: "aic_inspect",
+        arguments: {},
+      },
+    });
+    const stdout = runHook(stdin, { HOME: tempHome, CURSOR_PROJECT_DIR: tempRoot });
+    const out = JSON.parse(stdout);
+    if (out.updated_input != null) {
+      throw new Error(
+        `Expected no updated_input when server already matches, got ${JSON.stringify(out.updated_input)}`,
+      );
+    }
+    console.log("runtime_id_noop_when_server_already_correct: pass");
+  } finally {
+    fs.rmSync(tempHome, { recursive: true, force: true });
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
+function non_aic_mcp_envelope_passes_through_unchanged() {
+  const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "aic-inject-home-"));
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aic-inject-rt-"));
+  setupMockMcps(tempHome, tempRoot, "project-0-AIC-aic-dev");
+  try {
+    const stdin = hookPayload({
+      tool_name: "mcp",
+      tool_input: {
+        server: "some-other-server",
+        toolName: "some_other_tool",
+        arguments: {},
+      },
+    });
+    const stdout = runHook(stdin, { HOME: tempHome, CURSOR_PROJECT_DIR: tempRoot });
+    const out = JSON.parse(stdout);
+    if (out.permission !== "allow") {
+      throw new Error(`Expected "allow", got ${out.permission}`);
+    }
+    if (out.updated_input != null) {
+      throw new Error(
+        `Expected no updated_input for non-AIC MCP, got ${JSON.stringify(out.updated_input)}`,
+      );
+    }
+    console.log("non_aic_mcp_envelope_passes_through_unchanged: pass");
+  } finally {
+    fs.rmSync(tempHome, { recursive: true, force: true });
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
+function fallback_to_config_name_when_no_cursor_mcps_dir() {
+  const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "aic-inject-home-"));
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aic-inject-rt-"));
+  fs.writeFileSync(
+    path.join(tempRoot, "aic.config.json"),
+    JSON.stringify({ devMode: true }),
+    "utf8",
+  );
+  try {
+    const stdin = hookPayload({
+      tool_name: "mcp",
+      tool_input: {
+        server: "aic",
+        toolName: "aic_compile",
+        arguments: { intent: "test", projectRoot: tempRoot },
+      },
+    });
+    const stdout = runHook(stdin, { HOME: tempHome, CURSOR_PROJECT_DIR: tempRoot });
+    const out = JSON.parse(stdout);
+    if (out.updated_input?.server !== "aic-dev") {
+      throw new Error(
+        `Expected fallback "aic-dev", got ${JSON.stringify(out.updated_input?.server)}`,
+      );
+    }
+    console.log("fallback_to_config_name_when_no_cursor_mcps_dir: pass");
+  } finally {
+    fs.rmSync(tempHome, { recursive: true, force: true });
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
+function payload_without_cursor_version_noop() {
+  const stdin = JSON.stringify({
+    tool_name: "mcp",
+    tool_input: {
+      server: "wrong-server",
+      toolName: "aic_compile",
+      arguments: { intent: "test", projectRoot: "/tmp" },
+    },
+  });
+  const result = spawnSync("node", [hookPath], {
+    input: stdin,
+    encoding: "utf8",
+    env: { ...process.env },
+  });
+  if (result.stdout.trim() !== "") {
+    throw new Error(
+      `Expected empty stdout for non-Cursor payload, got ${JSON.stringify(result.stdout)}`,
+    );
+  }
+  if (result.status !== 0) {
+    throw new Error(`Expected exit 0, got ${result.status}`);
+  }
+  console.log("payload_without_cursor_version_noop: pass");
+}
+
+function multi_session_runtime_ids_isolated() {
+  const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), "aic-inject-home-"));
+  const rootA = fs.mkdtempSync(path.join(os.tmpdir(), "aic-inject-projA-"));
+  const rootB = fs.mkdtempSync(path.join(os.tmpdir(), "aic-inject-projB-"));
+  setupMockMcps(tempHome, rootA, "project-0-ProjA-aic-dev");
+  setupMockMcps(tempHome, rootB, "user-aic");
+  try {
+    const stdinA = hookPayload({
+      tool_name: "mcp",
+      tool_input: {
+        server: "aic",
+        toolName: "aic_compile",
+        arguments: { intent: "test", projectRoot: rootA },
+      },
+    });
+    const outA = JSON.parse(
+      runHook(stdinA, { HOME: tempHome, CURSOR_PROJECT_DIR: rootA }),
+    );
+    if (outA.updated_input?.server !== "project-0-ProjA-aic-dev") {
+      throw new Error(
+        `Session A: expected project-0-ProjA-aic-dev, got ${JSON.stringify(outA.updated_input?.server)}`,
+      );
+    }
+    const stdinB = hookPayload({
+      tool_name: "mcp",
+      tool_input: {
+        server: "aic",
+        toolName: "aic_compile",
+        arguments: { intent: "test", projectRoot: rootB },
+      },
+    });
+    const outB = JSON.parse(
+      runHook(stdinB, { HOME: tempHome, CURSOR_PROJECT_DIR: rootB }),
+    );
+    if (outB.updated_input?.server !== "user-aic") {
+      throw new Error(
+        `Session B: expected user-aic, got ${JSON.stringify(outB.updated_input?.server)}`,
+      );
+    }
+    console.log("multi_session_runtime_ids_isolated: pass");
+  } finally {
+    fs.rmSync(tempHome, { recursive: true, force: true });
+    fs.rmSync(rootA, { recursive: true, force: true });
+    fs.rmSync(rootB, { recursive: true, force: true });
+  }
+}
+
+mcp_envelope_rewrites_to_cursor_runtime_server_id();
+call_mcp_tool_envelope_rewrites_to_cursor_runtime_server_id();
+callmcptool_envelope_rewrites_server();
+runtime_id_noop_when_server_already_correct();
+non_aic_mcp_envelope_passes_through_unchanged();
+fallback_to_config_name_when_no_cursor_mcps_dir();
+payload_without_cursor_version_noop();
+multi_session_runtime_ids_isolated();
 console.log("All tests passed.");

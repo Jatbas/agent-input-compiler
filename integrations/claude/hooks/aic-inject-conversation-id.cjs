@@ -40,10 +40,12 @@ function run(stdinStr) {
   const input = top.input || {};
   const toolName = top.tool_name ?? input.tool_name ?? "";
   const toolInput = top.tool_input ?? input.tool_input ?? {};
+  const normalizedToolName = String(toolName).toLowerCase();
   const mcpToolName =
     typeof toolInput?.toolName === "string" ? toolInput.toolName.toLowerCase() : "";
-  const isAicMcpEnvelope =
-    String(toolName).toLowerCase() === "mcp" && mcpToolName.startsWith("aic_");
+  const isMcpEnvelope =
+    normalizedToolName === "mcp" || normalizedToolName === "call_mcp_tool";
+  const isAicMcpEnvelope = isMcpEnvelope && mcpToolName.startsWith("aic_");
   const projectRoot = resolveProjectRoot(parsed, {
     toolInputOverride:
       typeof toolInput?.arguments?.projectRoot === "string"

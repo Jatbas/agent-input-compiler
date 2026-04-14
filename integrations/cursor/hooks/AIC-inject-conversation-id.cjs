@@ -21,6 +21,7 @@ const { readAicPrewarmPrompt } = require("../../shared/read-aic-prewarm-prompt.c
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 const { resolveConversationIdFallback } = require("../../shared/conversation-id.cjs");
 const { isDevModeTrue } = require("../../shared/read-project-dev-mode.cjs");
+const { resolveAicServerId } = require("../../shared/resolve-aic-server-id.cjs");
 
 let raw = "";
 process.stdin.setEncoding("utf8");
@@ -53,7 +54,9 @@ process.stdin.on("end", () => {
     const toolName = (input.tool_name || "").toLowerCase();
     const mcpToolName =
       typeof toolInput?.toolName === "string" ? toolInput.toolName.toLowerCase() : "";
-    const isAicMcpEnvelope = toolName === "mcp" && mcpToolName.startsWith("aic_");
+    const isMcpEnvelope =
+      toolName === "mcp" || toolName === "call_mcp_tool" || toolName === "callmcptool";
+    const isAicMcpEnvelope = isMcpEnvelope && mcpToolName.startsWith("aic_");
     const isAicCompile =
       toolName.includes("aic_compile") ||
       (typeof toolInput === "object" &&
@@ -74,7 +77,9 @@ process.stdin.on("end", () => {
             ? toolInput.arguments.projectRoot
             : toolInput?.projectRoot,
       });
-      const preferredServer = isDevModeTrue(projectRoot) ? "aic-dev" : "aic";
+      const runtimeId = resolveAicServerId(projectRoot);
+      const preferredServer =
+        runtimeId ?? (isDevModeTrue(projectRoot) ? "aic-dev" : "aic");
       if (toolInput.server === preferredServer) {
         return { changed: false, nextToolInput: toolInput };
       }

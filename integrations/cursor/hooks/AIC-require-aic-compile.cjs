@@ -8,14 +8,15 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const crypto = require("crypto");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 const {
   isCursorNativeHookPayload,
 } = require("../../shared/is-cursor-native-hook-payload.cjs");
 const { readAicPrewarmPrompt } = require("../../shared/read-aic-prewarm-prompt.cjs");
-
-const RECENCY_WINDOW_MS = 120_000;
+const {
+  writeCompileRecency,
+  isCompileRecent,
+} = require("../../shared/compile-recency.cjs");
 const MAX_DENIES = 3;
 const CLEANUP_INTERVAL_MS = 600_000;
 const STALE_THRESHOLD_MS = 600_000;
@@ -92,11 +93,6 @@ function getDenyCountFile(generationId) {
   return path.join(os.tmpdir(), `aic-gate-deny-${generationId}`);
 }
 
-function getRecencyFile(projectRoot) {
-  const hash = crypto.createHash("md5").update(projectRoot).digest("hex").slice(0, 12);
-  return path.join(os.tmpdir(), `aic-gate-recent-${hash}`);
-}
-
 function isAicCompileMcpCall(toolName, toolInput) {
   try {
     const input = typeof toolInput === "string" ? JSON.parse(toolInput) : toolInput;
@@ -131,11 +127,10 @@ process.stdin.on("end", () => {
     const stateFile = getStateFile(generationId);
 
     const projectRoot = resolveProjectRoot(null, { env: process.env });
-    const recencyFile = getRecencyFile(projectRoot);
 
     if (isAicCompileMcpCall(toolName, toolInput)) {
       fs.writeFileSync(stateFile, "1");
-      fs.writeFileSync(recencyFile, String(Date.now()));
+      writeCompileRecency(projectRoot);
       try {
         fs.unlinkSync(getDenyCountFile(generationId));
       } catch {
@@ -150,14 +145,9 @@ process.stdin.on("end", () => {
       return;
     }
 
-    try {
-      const ts = Number(fs.readFileSync(recencyFile, "utf8").trim());
-      if (Date.now() - ts < RECENCY_WINDOW_MS) {
-        process.stdout.write(JSON.stringify({ permission: "allow" }));
-        return;
-      }
-    } catch {
-      /* no recency marker or parse error */
+    if (isCompileRecent(projectRoot)) {
+      process.stdout.write(JSON.stringify({ permission: "allow" }));
+      return;
     }
 
     const denyCountFile = getDenyCountFile(generationId);
