@@ -417,6 +417,41 @@ async function writes_turn_markers_and_recency_on_success() {
   console.log("writes_turn_markers_and_recency_on_success: pass");
 }
 
+async function model_sourced_from_env_var_before_transcript() {
+  const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
+    paths: [hooksDir],
+  });
+  let capturedModel;
+  require.cache[resolvedHelper] = {
+    exports: {
+      callAicCompile: (_i, _p, _c, _t, _ts, modelArg) => {
+        capturedModel = modelArg;
+        return Promise.resolve("ok");
+      },
+    },
+    loaded: true,
+    id: resolvedHelper,
+  };
+  delete require.cache[require.resolve(hookPath)];
+  const { run } = require(hookPath);
+  const savedModel = process.env["ANTHROPIC_MODEL"];
+  process.env["ANTHROPIC_MODEL"] = "claude-opus-4-6";
+  try {
+    // No model in envelope, no transcript file — env var must win
+    await run(JSON.stringify({ prompt: "x", cwd: "/tmp" }));
+  } finally {
+    if (savedModel !== undefined) process.env["ANTHROPIC_MODEL"] = savedModel;
+    else delete process.env["ANTHROPIC_MODEL"];
+  }
+  delete require.cache[resolvedHelper];
+  if (capturedModel !== "claude-opus-4-6") {
+    throw new Error(
+      `Expected modelArg "claude-opus-4-6" from env var, got ${JSON.stringify(capturedModel)}`,
+    );
+  }
+  console.log("model_sourced_from_env_var_before_transcript: pass");
+}
+
 async function writes_editor_runtime_marker_on_success() {
   const CONV_ID = "prompt-compile-rt-marker-test-id";
   const PROJECT_ROOT = "/tmp/aic-prompt-compile-rt-test";
@@ -453,5 +488,6 @@ async function writes_editor_runtime_marker_on_success() {
   await prompt_compile_noop_when_cursor_version_present();
   await writes_turn_markers_and_recency_on_success();
   await writes_editor_runtime_marker_on_success();
+  await model_sourced_from_env_var_before_transcript();
   console.log("All tests passed.");
 })();

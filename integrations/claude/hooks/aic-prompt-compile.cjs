@@ -75,9 +75,10 @@ async function run(stdinStr) {
   }
   const rawModel =
     top.model != null ? top.model : input.model != null ? input.model : null;
-  // Claude Code hook envelope omits model; fall back to transcript tail-read (available from turn 2+).
+  // Claude Code hook envelope omits model; ANTHROPIC_MODEL env var reflects the active model for this turn.
+  // Transcript tail-read lags one turn behind — only use as last resort.
   const transcriptPath = parsed.transcript_path ?? parsed.input?.transcript_path ?? null;
-  const effectiveRawModel = rawModel ?? readModelFromTranscript(transcriptPath);
+  const effectiveRawModel = rawModel ?? process.env["ANTHROPIC_MODEL"] ?? readModelFromTranscript(transcriptPath);
   const modelArg =
     typeof effectiveRawModel === "string" &&
     effectiveRawModel.trim().length >= 1 &&
