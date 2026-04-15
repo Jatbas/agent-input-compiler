@@ -22,6 +22,8 @@ import type { SelectedFile } from "@jatbas/aic-core/core/types/selected-file.js"
 import type { TransformMetadata } from "@jatbas/aic-core/core/types/transform-types.js";
 import type { ContentTransformerPipeline } from "@jatbas/aic-core/core/interfaces/content-transformer-pipeline.interface.js";
 import type { SummarisationLadder } from "@jatbas/aic-core/core/interfaces/summarisation-ladder.interface.js";
+import type { SpecificationCompiler } from "@jatbas/aic-core/core/interfaces/specification-compiler.interface.js";
+import { toPercentage } from "@jatbas/aic-core/core/types/scores.js";
 
 const measure = (s: string): ReturnType<typeof toTokenCount> =>
   toTokenCount([...s].length);
@@ -66,7 +68,7 @@ describe("compile-spec-handler", () => {
         toUUIDv7("018f0000-0000-7000-8000-000000000099"),
     };
     const contentTransformerPipeline = {
-      transform: vi.fn(async (files: readonly SelectedFile[]) => ({
+      transform: vi.fn(async (files: readonly SelectedFile[], _ctx) => ({
         files: files.map((f) => ({ ...f })),
         metadata: files.map(
           (f): TransformMetadata => ({
@@ -220,6 +222,55 @@ describe("compile-spec-handler", () => {
       },
     } as unknown;
     const result = parseResult(await handler(payload));
+    expect(result["code"]).toBe("validation-error");
+    expect(result["error"]).toBe("Invalid aic_compile_spec request");
+    expect(records.length).toBe(0);
+  });
+
+  it("compile_spec_handler_awaits_mock_compiler_microtasks", async () => {
+    const order: string[] = [];
+    const mockCompiler: SpecificationCompiler = {
+      compile: vi.fn(async () => {
+        order.push("compile-enter");
+        await Promise.resolve();
+        order.push("compile-after-tick");
+        return {
+          compiledSpec: "ok",
+          meta: {
+            totalTokensRaw: toTokenCount(1),
+            totalTokensCompiled: toTokenCount(2),
+            reductionPct: toPercentage(0),
+            typeTiers: {},
+            transformTokensSaved: toTokenCount(0),
+          },
+        };
+      }),
+    };
+    const handler = createCompileSpecHandler({
+      toolInvocationLogStore,
+      clock,
+      idGenerator,
+      getSessionId: (): ReturnType<typeof toSessionId> =>
+        toSessionId("00000000-0000-7000-8000-000000000002"),
+      specificationCompiler: mockCompiler,
+    });
+    await handler({ spec: { types: [], codeBlocks: [], prose: [] } });
+    expect(order).toEqual(["compile-enter", "compile-after-tick"]);
+    expect(mockCompiler.compile).toHaveBeenCalledTimes(1);
+  });
+
+  it("compile_spec_handler_negative_budget_rejected", async () => {
+    const handler = createCompileSpecHandler({
+      toolInvocationLogStore,
+      clock,
+      idGenerator,
+      getSessionId: (): ReturnType<typeof toSessionId> =>
+        toSessionId("00000000-0000-7000-8000-000000000002"),
+      specificationCompiler,
+    });
+    const result = parseResult(
+      await handler({ spec: { types: [], codeBlocks: [], prose: [] }, budget: -1 }),
+    );
     expect(result["code"]).toBe("validation-error");
     expect(result["error"]).toBe("Invalid aic_compile_spec request");
     expect(records.length).toBe(0);

@@ -431,4 +431,125 @@ describe("SpecificationCompilerImpl", () => {
     await impl.compile(input, toTokenCount(1_000_000));
     expect(order).toEqual(["transform", "compress"]);
   });
+
+  it("spec_compiler_transform_receives_spec_compile_context", async () => {
+    const contentTransformerPipeline = {
+      transform: vi.fn(async (files: readonly SelectedFile[], _ctx) => ({
+        files: files.map((f) => ({ ...f })),
+        metadata: files.map(
+          (f): TransformMetadata => ({
+            filePath: f.path,
+            originalTokens: f.estimatedTokens,
+            transformedTokens: f.estimatedTokens,
+            transformersApplied: [],
+          }),
+        ),
+      })),
+    };
+    const summarisationLadder = {
+      compress: vi.fn(async (files: readonly SelectedFile[]) => files),
+    };
+    const impl = new SpecificationCompilerImpl(
+      measure,
+      contentTransformerPipeline as ContentTransformerPipeline,
+      summarisationLadder as SummarisationLadder,
+      languageProviders,
+    );
+    const input: SpecificationInput = {
+      types: [
+        {
+          name: "X",
+          path: toRelativePath("a.ts"),
+          content: "export const x = 1",
+          usage: "implements",
+          estimatedTokens: toTokenCount(100),
+        },
+      ],
+      codeBlocks: [],
+      prose: [],
+    };
+    await impl.compile(input, toTokenCount(1_000_000));
+    expect(contentTransformerPipeline.transform.mock.calls.length).toBeGreaterThanOrEqual(
+      1,
+    );
+    const call = contentTransformerPipeline.transform.mock.calls[0];
+    expect(call).toBeDefined();
+    if (call === undefined) {
+      throw new ConfigError("specification-compiler test: expected transform call");
+    }
+    expect(call[1]).toEqual({ directTargetPaths: [], rawMode: false });
+  });
+
+  it("spec_compiler_verbatim_inflate_shifts_budget_demotion", async () => {
+    const input: SpecificationInput = {
+      types: [
+        {
+          name: "A",
+          path: toRelativePath("a/a.ts"),
+          content: "export const a = 1",
+          usage: "implements",
+          estimatedTokens: toTokenCount(50),
+        },
+        {
+          name: "B",
+          path: toRelativePath("b/b.ts"),
+          content: "export const b = 1",
+          usage: "implements",
+          estimatedTokens: toTokenCount(50),
+        },
+      ],
+      codeBlocks: [],
+      prose: [],
+    };
+    const noopImpl = makeSpecCompiler(measure);
+    const contentTransformerPipeline = {
+      transform: vi.fn(async (files: readonly SelectedFile[], _ctx) => ({
+        files: files.map((f) =>
+          String(f.path) === "a/a.ts"
+            ? { ...f, resolvedContent: `${f.resolvedContent ?? ""}\n${"Q".repeat(200)}` }
+            : { ...f },
+        ),
+        metadata: files.map(
+          (f): TransformMetadata => ({
+            filePath: f.path,
+            originalTokens: f.estimatedTokens,
+            transformedTokens: f.estimatedTokens,
+            transformersApplied: [],
+          }),
+        ),
+      })),
+    };
+    const summarisationLadder = {
+      compress: vi.fn(async (files: readonly SelectedFile[]) => files),
+    };
+    const inflateImpl = new SpecificationCompilerImpl(
+      measure,
+      contentTransformerPipeline as ContentTransformerPipeline,
+      summarisationLadder as SummarisationLadder,
+      languageProviders,
+    );
+    const full = await noopImpl.compile(input, toTokenCount(1_000_000));
+    const L = [...full.compiledSpec].length;
+    const keyA = "A\u0000a/a.ts";
+    const keyB = "B\u0000b/b.ts";
+    let found = false;
+    for (let k = L; k >= 0; k -= 1) {
+      const bn = await noopImpl.compile(input, toTokenCount(k));
+      const bi = await inflateImpl.compile(input, toTokenCount(k));
+      if (
+        bn.meta.typeTiers[keyA] === "verbatim" &&
+        bn.meta.typeTiers[keyB] === "verbatim" &&
+        bi.meta.typeTiers[keyA] !== "verbatim" &&
+        bi.meta.typeTiers[keyB] === "verbatim"
+      ) {
+        found = true;
+        break;
+      }
+    }
+    if (!found) {
+      throw new ConfigError(
+        "specification-compiler test: no budget discriminates noop versus inflate demotion",
+      );
+    }
+  });
 });
