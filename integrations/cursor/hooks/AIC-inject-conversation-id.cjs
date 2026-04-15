@@ -30,7 +30,7 @@ process.stdin.on("end", () => {
   try {
     const input = JSON.parse(raw);
     if (!isCursorNativeHookPayload(input)) {
-      process.exit(0);
+      return;
     }
     const conversationId =
       input.conversation_id ?? input.conversationId ?? process.env.AIC_CONVERSATION_ID;
