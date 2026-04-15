@@ -307,7 +307,7 @@ Deep-dive references for compile-handler contract and model id resolution ([Impl
 
 **Key architectural insight:** Any perceived limitation in what AIC "can do" is a limitation of the editor's hook system, not of AIC's core pipeline. When an editor adds a new hook, AIC can wire it at the integration and MCP boundary without changing pipeline step implementations. This is why Claude Code — with its richer hook system — can enable per-prompt and subagent compilation that Cursor cannot.
 
-**Implementation note:** `CompilationRequest` includes an optional `triggerSource` field (e.g., `"session_start"`, `"prompt_submit"`, `"tool_gate"`, `"subagent_start"`, `"subagent_stop"`, `"cli"`, `"model_initiated"`). For normal values the field is telemetry metadata on the pipeline request. When `triggerSource` is `"subagent_stop"` and the MCP wire includes `reparentFromConversationId`, the compile handler repoints `compilation_log` rows in storage instead of running the pipeline (see `mcp/src/handlers/compile-handler.ts` and `shared/src/storage/reparent-subagent-compilations.ts`).
+**Implementation note:** `CompilationRequest` includes an optional `triggerSource` field (e.g., `"session_start"`, `"prompt_submit"`, `"tool_gate"`, `"subagent_start"`, `"subagent_stop"`, `"cli"`, `"model_initiated"`, `"internal_test"` — see `mcp/src/schemas/compilation-request.ts`). For normal values the field is telemetry metadata on the pipeline request. When `triggerSource` is `"subagent_stop"` and the MCP wire includes `reparentFromConversationId`, the compile handler repoints `compilation_log` rows in storage instead of running the pipeline (see `mcp/src/handlers/compile-handler.ts` and `shared/src/storage/reparent-subagent-compilations.ts`).
 
 ### Setup (zero-config)
 

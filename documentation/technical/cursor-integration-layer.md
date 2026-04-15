@@ -104,9 +104,9 @@ All event hooks are **authored** in `integrations/cursor/hooks/`. The installer 
 
 ### 4.4 Runtime boundary guards (`cursor_version`)
 
-Shipped hooks use `cursor_version` to tell **Cursor-native** invocations apart from **Claude Code** invocations when both runtimes can execute overlapping hook registrations (for example Cursor 3 may invoke `~/.claude/settings.json` hooks alongside `.cursor/hooks.json`).
+Shipped hooks use `isCursorNativeHookPayload` from `integrations/cursor/is-cursor-native-hook-payload.cjs` to tell **Cursor-native** invocations apart from **Claude Code** invocations when both runtimes can execute overlapping hook registrations (for example Cursor 3 may invoke `~/.claude/settings.json` hooks alongside `.cursor/hooks.json`).
 
-- **Cursor hooks** (`integrations/cursor/hooks/AIC-*.cjs`): After parsing stdin JSON, if neither `cursor_version` nor `input.cursor_version` is present, the hook exits immediately with no side effects (empty stdout or `process.exit(0)`). Defensive: only Cursor’s infrastructure supplies this field.
+- **Cursor hooks** (`integrations/cursor/hooks/AIC-*.cjs`): After parsing stdin JSON, the hook exits immediately with no side effects when `isCursorNativeHookPayload` is false (`process.exit(0)` or empty stdout). The predicate is true when `cursor_version` or `input.cursor_version` is present, or when a resolved `conversationId` exists and `integrations/shared/editor-runtime-marker.cjs` reports a fresh `"cursor"` marker for the project.
 
 - **Claude Code hooks** (`integrations/claude/hooks/aic-*.cjs`): If `cursor_version` or `input.cursor_version` is present, the hook returns immediately without calling `aic_compile`, session markers, or other side effects. Claude Code (standalone or extension) does not set this field.
 
@@ -125,7 +125,7 @@ integrations/cursor/               ← SOURCE (authored here)
     AIC-session-init.cjs           # sessionStart — architectural invariants (additional_context only)
     AIC-compile-context.cjs        # sessionStart — calls aic_compile, injects compiled context
     AIC-before-submit-prewarm.cjs  # beforeSubmitPrompt — prompt logging + gate prewarm
-    AIC-require-aic-compile.cjs    # preToolUse — compile gate (enforces aic_compile with recency fallback and deny-count cap; emergency bypass when both devMode and skipCompileGate are true)
+    AIC-require-aic-compile.cjs    # preToolUse — compile gate (enforces aic_compile with default 300s recency fallback, override via compileRecencyWindowSecs; deny-count cap; emergency bypass when both devMode and skipCompileGate are true)
     AIC-inject-conversation-id.cjs # preToolUse (MCP) — injects conversationId into MCP args
     AIC-post-compile-context.cjs   # postToolUse (MCP) — confirmation after aic_compile
     AIC-block-no-verify.cjs        # beforeShellExecution (git) — blocks --no-verify
@@ -328,14 +328,14 @@ AIC registers **12** hook **command** entries across **10** event types (some ty
 - `input.tool_name` → to detect if the call is `aic_compile`
 - `input.tool_input` → alternative detection for `aic_compile`
 
-**Purpose (enforcement path):** Ensure `aic_compile` runs before other tools. The gate combines per-generation state tracking, a 120-second project-scoped recency window, and a deny-count cap.
+**Purpose (enforcement path):** Ensure `aic_compile` runs before other tools. The gate combines per-generation state tracking, a project-scoped recency window (default **300** seconds from `RECENCY_WINDOW_MS` in `integrations/shared/compile-recency.cjs`; override with positive `compileRecencyWindowSecs` in `aic.config.json`), and a deny-count cap.
 
 **Mechanics (enforcement path):**
 
 1. When the tool call is `aic_compile`: write `os.tmpdir()/aic-gate-<generation_id>`, update the project-scoped recency marker `os.tmpdir()/aic-gate-recent-<project_hash>` with the current timestamp, and delete any deny counter for this generation. Allow the call.
 2. On any other tool call, evaluate in order:
    - **Per-generation marker:** if `aic-gate-<generation_id>` exists, allow.
-   - **Recency fallback:** if `aic-gate-recent-<project_hash>` exists and its timestamp is within 120 seconds (`RECENCY_WINDOW_MS`), allow. This covers `generation_id` changes within the same project.
+   - **Recency fallback:** if `aic-gate-recent-<project_hash>` exists and its timestamp is within the window from `integrations/shared/compile-recency.cjs` (default 300 seconds unless `compileRecencyWindowSecs` in `aic.config.json` overrides), allow. This covers `generation_id` changes within the same project.
    - **Deny-count cap:** if `aic-gate-deny-<generation_id>` records 3 or more prior denials (`MAX_DENIES`), allow. This prevents infinite denial loops when per-generation state is lost.
    - Otherwise: increment the deny counter in `aic-gate-deny-<generation_id>` and deny.
 3. The deny message includes the exact user prompt (from the prewarm temp file) as the
@@ -745,7 +745,7 @@ Context delivery:
 - [ ] `AIC-session-init.cjs` injects architectural invariants via `additional_context` (§7.1)
 - [ ] `AIC-compile-context.cjs` calls `aic_compile` with `conversationId` resolved per §9.1 (transcript path, direct ids, `AIC_CONVERSATION_ID`, or `resolveConversationIdFallback`)
 - [ ] `AIC-before-submit-prewarm.cjs` saves prompt for gate deny message (§7.2)
-- [ ] `AIC-require-aic-compile.cjs` enforces `aic_compile` via per-generation marker, 120s recency fallback, and deny-count cap unless emergency bypass is active (§7.3)
+- [ ] `AIC-require-aic-compile.cjs` enforces `aic_compile` via per-generation marker, default 300s recency fallback (`compileRecencyWindowSecs` override), and deny-count cap unless emergency bypass is active (§7.3)
 - [ ] `AIC-inject-conversation-id.cjs` injects `conversationId` into MCP args (§7.4)
 - [ ] `AIC-post-compile-context.cjs` injects confirmation after compile (§7.5)
 - [ ] `AIC-subagent-compile.cjs` runs telemetry `aic_compile` on subagentStart (§7.10)

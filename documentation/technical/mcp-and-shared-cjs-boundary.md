@@ -43,7 +43,7 @@ Session-models JSONL selection and disk read strategy have canonical implementat
 
 ## Shared modules not involved in these two files
 
-The following `integrations/shared/` modules have no parallel in `compile-handler.ts` or `latest-version-check.ts` within the scope above: `conversation-id.cjs` (transcript/direct conversation id resolution plus `resolveConversationIdFallback` for hook envelopes), `resolve-project-root.cjs` (hook environment resolution), `prompt-log.cjs`, `session-log.cjs`, `session-markers.cjs`, `edited-files-cache.cjs`, `read-stdin-sync.cjs`.
+The following `integrations/shared/` modules have no parallel in `compile-handler.ts` or `latest-version-check.ts` within the scope above: `conversation-id.cjs` (transcript/direct conversation id resolution plus `resolveConversationIdFallback` for hook envelopes), `resolve-project-root.cjs` (hook environment resolution), `prompt-log.cjs`, `session-log.cjs`, `session-markers.cjs`, `edited-files-cache.cjs`, `read-stdin-sync.cjs`. Additional shared modules used only by editor hooks (for example `compile-recency.cjs`, `read-aic-prewarm-prompt.cjs`, `resolve-aic-server-id.cjs`, `editor-runtime-marker.cjs`, `read-model-from-transcript.cjs`) are intentionally out of scope here — see [Integrations shared modules reference](integrations-shared-modules.md).
 
 Conversation identifiers in the compile handler arrive from MCP tool arguments and schema sanitization; hooks supply those arguments after resolving transcript/direct ids and optional synthetic fallbacks in `conversation-id.cjs`.
 

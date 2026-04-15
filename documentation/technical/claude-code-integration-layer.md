@@ -140,6 +140,7 @@ integrations/claude/               ← SOURCE (authored here)
     aic-after-file-edit-tracker.cjs  # PostToolUse(Edit|Write) — feeds Stop hook
     aic-stop-quality-check.cjs     # Stop — ESLint + typecheck quality gate
     aic-block-no-verify.cjs        # PreToolUse(Bash) — block --no-verify git commits
+    aic-pre-tool-gate.cjs          # PreToolUse(unmatched) — blocks non–aic_compile tools until recency / turn markers pass
     aic-inject-conversation-id.cjs # conversationId injection for MCP calls (registered in settings template)
     aic-pre-compact.cjs            # PreCompact — re-inject context before compaction
     aic-session-end.cjs            # SessionEnd — telemetry only
@@ -378,9 +379,25 @@ Lock file layout (`.session-start-lock`), merge options, and ordering with this 
 
 **Purpose:** Ensure `aic_compile` receives `conversationId`, `editorId`, and often `modelId` in tool arguments when the model omits them. `settings.json.template` registers `aic-inject-conversation-id.cjs` only for matcher `mcp__.*__aic_compile` (there is no separate PreToolUse matcher for `aic_chat_summary`; on Claude Code, chat-summary attribution relies on earlier hooks passing `conversationId` from transcript and fallback resolution — Cursor injects `aic_chat_summary` separately; see [Cursor integration layer §7.4](cursor-integration-layer.md#74-pretooluse-mcp-matcher--conversationid-injection)). Other MCP tools such as `aic_model_test` are not covered by this matcher.
 
-**Behaviour (implementation):** Parse stdin JSON. If `isCursorNativeHookPayload` (`integrations/cursor/is-cursor-native-hook-payload.cjs`) is true — `cursor_version` or `input.cursor_version` present — return `permissionDecision: "allow"` with no `updatedInput` so Cursor-shaped invocations do not mutate MCP args on this hook path. Otherwise resolve `conversationId` as `conversationIdFromTranscriptPath(parsed) ?? resolveConversationIdFallback(parsed)` ([Integrations shared modules](integrations-shared-modules.md)). Treat the tool call as `aic_compile` when the tool name matches `aic_compile` or the payload looks like a compile request (`intent` and `projectRoot` strings). If not `aic_compile`, allow with no mutation. Set `editorId` to `cursor-claude-code` when `CURSOR_TRACE_ID` is set, else `claude-code`. Merge `conversationId`, `editorId`, and `modelId` from `readSessionModelCache` when the cached model normalises to something other than `auto`. When intent is weak (`isWeakAicCompileIntent`) and `conversationId` is set, replace intent from `readAicPrewarmPrompt(\`cc-${conversationId}\`)`(temp file under`os.tmpdir()`), matching the prewarm key used on this path.
+**Behaviour (implementation):** Parse stdin JSON. If `isCursorNativeHookPayload` (`integrations/cursor/is-cursor-native-hook-payload.cjs`) is true — `cursor_version` / `input.cursor_version`, or fresh `editor-runtime-marker` for `cursor` when `conversationId` resolves — return `permissionDecision: "allow"` with no `updatedInput` so Cursor-shaped invocations do not mutate MCP args on this hook path. Otherwise resolve `conversationId` as `conversationIdFromTranscriptPath(parsed) ?? resolveConversationIdFallback(parsed)` ([Integrations shared modules](integrations-shared-modules.md)). Treat the tool call as `aic_compile` when the tool name matches `aic_compile` or the payload looks like a compile request (`intent` and `projectRoot` strings). If not `aic_compile`, allow with no mutation. Set `editorId` to `cursor-claude-code` when `CURSOR_TRACE_ID` is set, else `claude-code`. Merge `conversationId`, `editorId`, and `modelId` from `readSessionModelCache` when the cached model normalises to something other than `auto`. When intent is weak (`isWeakAicCompileIntent`) and `conversationId` is set, replace intent from `readAicPrewarmPrompt(\`cc-${conversationId}\`)`(temp file under`os.tmpdir()`), matching the prewarm key used on this path.
 
 **File:** `.claude/hooks/aic-inject-conversation-id.cjs` (see §10 for registration)
+
+#### PreToolUse (unmatched) — compile gate (`aic-pre-tool-gate.cjs`)
+
+**Reference:** [hooks#pretooluse](https://code.claude.com/docs/en/hooks#pretooluse) — unmatched `PreToolUse` runs before other PreToolUse matchers in `integrations/claude/settings.json.template`.
+
+**Purpose:** Block tool calls that are not an `aic_compile` path until the current conversation has a fresh compile marker or passes the shared recency window (same intent as Cursor `AIC-require-aic-compile.cjs`, different stdin shape).
+
+**Early exits:** Returns `{}` when `isCursorNativeHookPayload` is true (Cursor-shaped payloads must not run Claude enforcement). Resolves `projectRoot` by walking parents until `aic.config.json` exists (`findEffectiveProjectRoot` in the script).
+
+**Compile detection (`isAicCompileCall`):** Allows when the tool name matches `aic_compile` (case-insensitive), when `ToolSearch` runs with a `query` matching `aic_compile` (schema discovery escape hatch), or when `tool_input` carries both `intent` and `projectRoot` strings.
+
+**Allow path:** On a compile hit, calls `writeCompileRecency(projectRoot)` and clears the per-conversation deny file `aic-gate-cc-deny-<conversationId>` under `os.tmpdir()`.
+
+**Otherwise:** Allows when `isTurnCompiled(projectRoot, conversationId)` or `isCompileRecent(projectRoot)` from `integrations/shared/compile-recency.cjs` succeeds (default recency **300** seconds unless `compileRecencyWindowSecs` in `aic.config.json` overrides). If still blocked, increments deny count up to `MAX_DENIES` (3); at cap, returns `{}` to stop denying. Deny responses use `readAicPrewarmPrompt(\`cc-${conversationId}\`)`for suggested`intent` text.
+
+**File:** `.claude/hooks/aic-pre-tool-gate.cjs`
 
 ---
 
