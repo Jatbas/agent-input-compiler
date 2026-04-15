@@ -777,13 +777,13 @@ Without specification compilation, task specifications either (a) include every 
 
 **Design target (roadmap):** Run verbatim specification bodies through the same `ContentTransformerPipeline` (Step 5.5) and `SummarisationLadder` (Step 6) under a token budget, with a persistent cross-call cache for `aic_compile_spec`.
 
-**Shipped slice:** `SpecificationCompilerImpl` in `shared/src/pipeline/specification-compiler.ts` implements `SpecificationCompiler.compile` with a deterministic tier loop, shared-import deduplication on verbatim bodies, and iterative **demotion** toward the budget via the injected token counter — it does **not** invoke `runPipelineSteps`, `ContentTransformerPipeline`, or `SummarisationLadder`. Handler wiring, validation failures, and pipeline-scope boundaries: [Implementation specification — `aic_compile_spec`](implementation-spec.md#aic_compile_spec-mcp-tool).
+**Shipped slice:** `SpecificationCompilerImpl` in `shared/src/pipeline/specification-compiler.ts` implements `SpecificationCompiler.compile` as an async method returning `Promise<SpecCompilationResult>` with a deterministic tier loop, shared-import deduplication on verbatim bodies, and iterative **demotion** toward the budget via the injected token counter — it does **not** invoke `runPipelineSteps`, `ContentTransformerPipeline`, or `SummarisationLadder`. Handler wiring, validation failures, and pipeline-scope boundaries: [Implementation specification — `aic_compile_spec`](implementation-spec.md#aic_compile_spec-mcp-tool).
 
 **Wire and core contracts:**
 
 ```typescript
 interface SpecificationCompiler {
-  compile(input: SpecificationInput, budget: TokenCount): SpecCompilationResult;
+  compile(input: SpecificationInput, budget: TokenCount): Promise<SpecCompilationResult>;
 }
 
 interface SpecificationInput {
@@ -858,7 +858,7 @@ The loop is deterministic: same input + same budget = same `compiledSpec` and `m
 
 **Exposed via MCP:**
 
-The `aic_compile_spec` MCP tool is registered (see [§2.2](#22-mcp-server--primary-interface)). The shipped handler (`mcp/src/handlers/compile-spec-handler.ts`) validates with Zod (`CompileSpecRequestSchema`), records each invocation in `tool_invocation_log`, maps wire paths to branded `SpecificationInput`, and calls `deps.specificationCompiler.compile` wired to `SpecificationCompilerImpl` in `mcp/src/server.ts`. Success returns MCP text JSON `{ compiledSpec, meta }` with matching `structuredContent`. Validation failures return `{ error: "Invalid aic_compile_spec request", code: "validation-error" }` without invoking the compiler.
+The `aic_compile_spec` MCP tool is registered (see [§2.2](#22-mcp-server--primary-interface)). The shipped handler (`mcp/src/handlers/compile-spec-handler.ts`) validates with Zod (`CompileSpecRequestSchema`), records each invocation in `tool_invocation_log`, maps wire paths to branded `SpecificationInput`, and awaits `deps.specificationCompiler.compile` wired to `SpecificationCompilerImpl` in `mcp/src/server.ts`. Success returns MCP text JSON `{ compiledSpec, meta }` with matching `structuredContent`. Validation failures return `{ error: "Invalid aic_compile_spec request", code: "validation-error" }` without invoking the compiler.
 
 **What this enables (today):**
 

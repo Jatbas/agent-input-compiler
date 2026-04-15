@@ -74,7 +74,7 @@ export function createCompileSpecHandler(
         estimatedTokens: toTokenCount(p.estimatedTokens),
       })),
     };
-    const { compiledSpec, meta } = deps.specificationCompiler.compile(
+    const { compiledSpec, meta } = await deps.specificationCompiler.compile(
       specificationInput,
       budgetTokenCount,
     );

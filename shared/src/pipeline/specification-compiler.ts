@@ -327,7 +327,11 @@ function runBudgetLoop(
 export class SpecificationCompilerImpl implements SpecificationCompiler {
   constructor(private readonly tokenCounter: (text: string) => TokenCount) {}
 
-  compile(input: SpecificationInput, budget: TokenCount): SpecCompilationResult {
+  async compile(
+    input: SpecificationInput,
+    budget: TokenCount,
+  ): Promise<SpecCompilationResult> {
+    await Promise.resolve();
     const totalTokensRaw = sumEstimatedTokens(input);
     const sortedTypes = sortTypes(input.types);
     const { compiled: compiledSpec, tiers } = runBudgetLoop(

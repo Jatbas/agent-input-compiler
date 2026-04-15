@@ -5,6 +5,7 @@ import { describe, it, expect } from "vitest";
 import { SpecificationCompilerImpl } from "../specification-compiler.js";
 import {
   SPEC_USAGE_TO_INITIAL_TIER,
+  type SpecCompilationResult,
   type SpecificationInput,
 } from "@jatbas/aic-core/core/types/specification-compilation.types.js";
 import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
@@ -15,7 +16,7 @@ const measure = (s: string): ReturnType<typeof toTokenCount> =>
   toTokenCount([...s].length);
 
 describe("SpecificationCompilerImpl", () => {
-  it("spec_compiler_tier_initial_map", () => {
+  it("spec_compiler_tier_initial_map", async () => {
     const input: SpecificationInput = {
       types: [
         {
@@ -44,7 +45,7 @@ describe("SpecificationCompilerImpl", () => {
       prose: [],
     };
     const c = new SpecificationCompilerImpl(measure);
-    const { meta } = c.compile(input, toTokenCount(1_000_000));
+    const { meta } = await c.compile(input, toTokenCount(1_000_000));
     expect(Object.keys(meta.typeTiers)).toEqual([
       "AType\u0000a/a.ts",
       "MType\u0000m/b.ts",
@@ -61,7 +62,7 @@ describe("SpecificationCompilerImpl", () => {
     );
   });
 
-  it("spec_compiler_demotion_construct_before_implements", () => {
+  it("spec_compiler_demotion_construct_before_implements", async () => {
     const input: SpecificationInput = {
       types: [
         {
@@ -82,17 +83,17 @@ describe("SpecificationCompilerImpl", () => {
       codeBlocks: [],
       prose: [],
     };
-    const full = new SpecificationCompilerImpl(measure).compile(
+    const full = await new SpecificationCompilerImpl(measure).compile(
       input,
       toTokenCount(1_000_000),
     );
     const budget = toTokenCount(Math.max(0, [...full.compiledSpec].length - 1));
-    const { meta } = new SpecificationCompilerImpl(measure).compile(input, budget);
+    const { meta } = await new SpecificationCompilerImpl(measure).compile(input, budget);
     expect(meta.typeTiers["Ctor\u0000a/a.ts"]).toBe("signature-path");
     expect(meta.typeTiers["Impl\u0000b/b.ts"]).toBe("verbatim");
   });
 
-  it("spec_compiler_tiebreak_larger_tokens_first", () => {
+  it("spec_compiler_tiebreak_larger_tokens_first", async () => {
     const input: SpecificationInput = {
       types: [
         {
@@ -113,17 +114,17 @@ describe("SpecificationCompilerImpl", () => {
       codeBlocks: [],
       prose: [],
     };
-    const full = new SpecificationCompilerImpl(measure).compile(
+    const full = await new SpecificationCompilerImpl(measure).compile(
       input,
       toTokenCount(1_000_000),
     );
     const budget = toTokenCount(Math.max(0, [...full.compiledSpec].length - 1));
-    const { meta } = new SpecificationCompilerImpl(measure).compile(input, budget);
+    const { meta } = await new SpecificationCompilerImpl(measure).compile(input, budget);
     expect(meta.typeTiers["Big\u0000b/big.ts"]).toBe("signature-path");
     expect(meta.typeTiers["Small\u0000a/small.ts"]).toBe("verbatim");
   });
 
-  it("spec_compiler_shared_import_merge", () => {
+  it("spec_compiler_shared_import_merge", async () => {
     const input: SpecificationInput = {
       types: [
         {
@@ -144,7 +145,7 @@ describe("SpecificationCompilerImpl", () => {
       codeBlocks: [],
       prose: [],
     };
-    const { compiledSpec } = new SpecificationCompilerImpl(measure).compile(
+    const { compiledSpec } = await new SpecificationCompilerImpl(measure).compile(
       input,
       toTokenCount(1_000_000),
     );
@@ -155,7 +156,7 @@ describe("SpecificationCompilerImpl", () => {
     expect(importLines).toEqual(['import { x, y } from "shared";']);
   });
 
-  it("spec_compiler_determinism", () => {
+  it("spec_compiler_determinism", async () => {
     const input: SpecificationInput = {
       types: [
         {
@@ -170,13 +171,13 @@ describe("SpecificationCompilerImpl", () => {
       prose: [{ label: "p", content: "y", estimatedTokens: toTokenCount(1) }],
     };
     const c = new SpecificationCompilerImpl(measure);
-    const a = c.compile(input, toTokenCount(400));
-    const b = c.compile(input, toTokenCount(400));
+    const a = await c.compile(input, toTokenCount(400));
+    const b = await c.compile(input, toTokenCount(400));
     expect(a.compiledSpec).toBe(b.compiledSpec);
     expect(a.meta).toEqual(b.meta);
   });
 
-  it("spec_compiler_truncation_warning", () => {
+  it("spec_compiler_truncation_warning", async () => {
     const longName = "N".repeat(400);
     const input: SpecificationInput = {
       types: [
@@ -191,7 +192,7 @@ describe("SpecificationCompilerImpl", () => {
       codeBlocks: [],
       prose: [],
     };
-    const { compiledSpec } = new SpecificationCompilerImpl(measure).compile(
+    const { compiledSpec } = await new SpecificationCompilerImpl(measure).compile(
       input,
       toTokenCount(50),
     );
@@ -202,7 +203,7 @@ describe("SpecificationCompilerImpl", () => {
     ).toBe(true);
   });
 
-  it("spec_compiler_code_blocks_sorted_by_label", () => {
+  it("spec_compiler_code_blocks_sorted_by_label", async () => {
     const input: SpecificationInput = {
       types: [],
       codeBlocks: [
@@ -219,14 +220,14 @@ describe("SpecificationCompilerImpl", () => {
       ],
       prose: [],
     };
-    const { compiledSpec } = new SpecificationCompilerImpl(measure).compile(
+    const { compiledSpec } = await new SpecificationCompilerImpl(measure).compile(
       input,
       toTokenCount(1_000_000),
     );
     expect(compiledSpec.indexOf("a\nAAA")).toBeLessThan(compiledSpec.indexOf("z\nZZZ"));
   });
 
-  it("spec_compiler_prose_sorted_by_label", () => {
+  it("spec_compiler_prose_sorted_by_label", async () => {
     const input: SpecificationInput = {
       types: [],
       codeBlocks: [],
@@ -243,14 +244,14 @@ describe("SpecificationCompilerImpl", () => {
         },
       ],
     };
-    const { compiledSpec } = new SpecificationCompilerImpl(measure).compile(
+    const { compiledSpec } = await new SpecificationCompilerImpl(measure).compile(
       input,
       toTokenCount(1_000_000),
     );
     expect(compiledSpec.indexOf("a\nAAA")).toBeLessThan(compiledSpec.indexOf("z\nZZZ"));
   });
 
-  it("spec_compiler_budget_removes_code_before_prose", () => {
+  it("spec_compiler_budget_removes_code_before_prose", async () => {
     const input: SpecificationInput = {
       types: [
         {
@@ -277,18 +278,22 @@ describe("SpecificationCompilerImpl", () => {
       ],
     };
     const impl = new SpecificationCompilerImpl(measure);
-    const full = impl.compile(input, toTokenCount(1_000_000));
+    const full = await impl.compile(input, toTokenCount(1_000_000));
     expect(full.compiledSpec.includes("<<<CODE>>>")).toBe(true);
     expect(full.compiledSpec.includes("<<<PROSE>>>")).toBe(true);
     const L = [...full.compiledSpec].length;
-    const first = Array.from({ length: L + 1 }, (_, i) => {
+    let first: { readonly k: number; readonly trial: SpecCompilationResult } | undefined;
+    for (let i = 0; i <= L; i += 1) {
       const k = L - i;
-      return { k, trial: impl.compile(input, toTokenCount(k)) };
-    }).find(
-      ({ trial }) =>
+      const trial = await impl.compile(input, toTokenCount(k));
+      if (
         trial.compiledSpec.includes("<<<PROSE>>>") &&
-        !trial.compiledSpec.includes("<<<CODE>>>"),
-    );
+        !trial.compiledSpec.includes("<<<CODE>>>")
+      ) {
+        first = { k, trial };
+        break;
+      }
+    }
     if (first === undefined) {
       throw new ConfigError(
         "specification-compiler test: expected budget where prose remains and code drops",
@@ -298,7 +303,7 @@ describe("SpecificationCompilerImpl", () => {
     expect(first.trial.compiledSpec.includes("<<<CODE>>>")).toBe(false);
   });
 
-  it("spec_compiler_budget_demotion_signature_before_code_drop", () => {
+  it("spec_compiler_budget_demotion_signature_before_code_drop", async () => {
     const input: SpecificationInput = {
       types: [
         {
@@ -326,11 +331,11 @@ describe("SpecificationCompilerImpl", () => {
       prose: [],
     };
     const impl = new SpecificationCompilerImpl(measure);
-    const full = impl.compile(input, toTokenCount(1_000_000));
+    const full = await impl.compile(input, toTokenCount(1_000_000));
     expect(full.meta.typeTiers["A\u0000a/a.ts"]).toBe("verbatim");
     expect(full.meta.typeTiers["B\u0000b/b.ts"]).toBe("verbatim");
     const budget = toTokenCount(Math.max(0, [...full.compiledSpec].length - 1));
-    const tight = impl.compile(input, budget);
+    const tight = await impl.compile(input, budget);
     expect(tight.compiledSpec.includes("KEEP_CODE_BLOCK")).toBe(true);
     expect(
       tight.meta.typeTiers["A\u0000a/a.ts"] === "signature-path" ||

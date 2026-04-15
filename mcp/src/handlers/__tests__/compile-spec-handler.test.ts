@@ -104,7 +104,10 @@ describe("compile-spec-handler", () => {
       codeBlocks: [],
       prose: [],
     };
-    const expected = specificationCompiler.compile(specificationInput, toTokenCount(42));
+    const expected = await specificationCompiler.compile(
+      specificationInput,
+      toTokenCount(42),
+    );
     const payload = {
       spec: {
         types: [

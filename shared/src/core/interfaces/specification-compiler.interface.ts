@@ -8,5 +8,5 @@ import type {
 import type { TokenCount } from "@jatbas/aic-core/core/types/units.js";
 
 export interface SpecificationCompiler {
-  compile(input: SpecificationInput, budget: TokenCount): SpecCompilationResult;
+  compile(input: SpecificationInput, budget: TokenCount): Promise<SpecCompilationResult>;
 }
