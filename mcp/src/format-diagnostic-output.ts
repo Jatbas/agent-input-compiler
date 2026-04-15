@@ -8,6 +8,7 @@ import {
   type ProjectListItem,
 } from "@jatbas/aic-core/core/types/status-types.js";
 import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import type { SelectionTraceParsed } from "./schemas/selection-trace.schema.js";
 
 const METRIC_FOOTNOTE =
   "Exclusion rate: % of total repo tokens not included in the compiled prompt.\nBudget utilization: % of token budget filled.";
@@ -57,6 +58,12 @@ function installationLabel(instOk: unknown): string {
   return "—";
 }
 
+function cacheHitLabel(hit: unknown): string {
+  if (hit === true) return "hit";
+  if (hit === false) return "miss";
+  return "—";
+}
+
 function tokensExcludedLabel(saved: unknown): string {
   if (saved === null || saved === undefined) return "—";
   return formatInt(Number(saved));
@@ -74,6 +81,73 @@ function topTaskStr(v: unknown): string {
     })
     .filter((s) => s.length > 0)
     .join(", ");
+}
+
+function formatCompact(n: number): string {
+  if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(2)}B`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+  return formatInt(n);
+}
+
+function formatTokensWithRatio(raw: number, compiled: number): string {
+  const ratio = compiled > 0 ? Math.round(raw / compiled) : null;
+  const base = `${formatCompact(raw)} → ${formatCompact(compiled)}`;
+  return ratio !== null && ratio > 1 ? `${base} (${formatInt(ratio)}:1 ratio)` : base;
+}
+
+function heroLine(
+  avgReductionPct: number | null | undefined,
+  last: Record<string, unknown> | null | undefined,
+): string | null {
+  if (avgReductionPct === null || avgReductionPct === undefined) return null;
+  const fs_ =
+    last !== null && last !== undefined ? Number(last["filesSelected"] ?? 0) : null;
+  const ft = last !== null && last !== undefined ? Number(last["filesTotal"] ?? 0) : null;
+  const pct = avgReductionPct.toFixed(1);
+  const filePart =
+    fs_ !== null && ft !== null && ft > 0
+      ? ` Last run: ${formatInt(fs_)} / ${formatInt(ft)} files forwarded.`
+      : "";
+  return `AIC kept ${pct}% of repo tokens out of the model window.${filePart}`;
+}
+
+function truncatePath(path: string, maxLen: number): string {
+  if (path.length <= maxLen) return path;
+  return `…${path.slice(-(maxLen - 1))}`;
+}
+
+function formatSelectionMicroBlock(
+  selection: SelectionTraceParsed,
+  w: number,
+): readonly string[] {
+  const TOP_N = 3;
+  const sorted = [...selection.selectedFiles].sort((a, b) => b.score - a.score);
+  const topFiles = sorted.slice(0, TOP_N);
+  const overflow = sorted.length - TOP_N;
+  const fileStrs = topFiles.map(
+    (f) => `${truncatePath(f.path, 40)} (${f.score.toFixed(2)})`,
+  );
+  const filesStr =
+    overflow > 0 ? `${fileStrs.join(", ")} (+${overflow} more)` : fileStrs.join(", ");
+
+  const reasonCounts: Record<string, number> = {};
+  for (const f of selection.excludedFiles) {
+    reasonCounts[f.reason] = (reasonCounts[f.reason] ?? 0) + 1;
+  }
+  const reasonEntries = Object.entries(reasonCounts).sort((a, b) => b[1] - a[1]);
+  const topReasons = reasonEntries.slice(0, TOP_N);
+  const excludedOverflow = reasonEntries.length - TOP_N;
+  const excludedBase =
+    topReasons.length === 0
+      ? "none"
+      : topReasons.map(([r, c]) => `${r} (${formatInt(c)})`).join(", ");
+  const excludedSuffix = excludedOverflow > 0 ? ` (+${excludedOverflow} more)` : "";
+  const excludedStr = `${excludedBase}${excludedSuffix}`;
+
+  return [
+    padRow("Top files", filesStr.length > 0 ? filesStr : "—", w),
+    padRow("Excluded by", excludedStr, w),
+  ];
 }
 
 function lastCompilationSummary(
@@ -109,8 +183,11 @@ export function formatStatusTable(
     n <= STATUS_TIME_RANGE_DAYS_MAX
       ? [padRow("Time range", statusTimeRangeValue(n), w)]
       : [];
+  const hero = heroLine(payload["avgReductionPct"] as number | null | undefined, last);
+  const heroRows: readonly string[] = hero !== null ? [hero] : [];
   const rows: readonly string[] = [
     "Status = project-level AIC status.",
+    ...heroRows,
     ...timeRangeRows,
     padRow(
       "Compilations (total)",
@@ -124,13 +201,16 @@ export function formatStatusTable(
     ),
     padRow(
       "Tokens: raw → compiled",
-      `${formatInt(Number(payload["totalTokensRaw"] ?? 0))} → ${formatInt(Number(payload["totalTokensCompiled"] ?? 0))}`,
+      formatTokensWithRatio(
+        Number(payload["totalTokensRaw"] ?? 0),
+        Number(payload["totalTokensCompiled"] ?? 0),
+      ),
       w,
     ),
     padRow("Tokens excluded", tokensExcludedLabel(payload["totalTokensSaved"]), w),
     padRow("Budget limit", formatInt(Number(payload["budgetMaxTokens"] ?? 0)), w),
     padRow(
-      "Budget utilization",
+      "Budget utilization (last run)",
       formatPct1(payload["budgetUtilizationPct"] as number | null),
       w,
     ),
@@ -140,7 +220,7 @@ export function formatStatusTable(
       formatPct1(payload["avgReductionPct"] as number | null),
       w,
     ),
-    padRow("Guard findings", guardByTypeStr(payload["guardByType"]), w),
+    padRow("Guard scans (lifetime)", guardByTypeStr(payload["guardByType"]), w),
     padRow("Top task classes", topTaskStr(payload["topTaskClasses"]), w),
     padRow("Last compilation", lastCompilationSummary(clock, last), w),
     padRow("Installation", installationLabel(payload["installationOk"]), w),
@@ -195,7 +275,7 @@ export function formatLastTable(
       readonly tokenCount: number | null;
       readonly guardPassed: null;
     };
-    readonly selection?: unknown;
+    readonly selection?: SelectionTraceParsed | null;
   },
   clock: Clock,
   budgetMaxTokens: number,
@@ -214,11 +294,18 @@ export function formatLastTable(
       : `Available (${formatInt(tc)} tokens) — .aic/last-compiled-prompt.txt (project root)`,
     w,
   );
+  const cacheHit = last?.["cacheHit"];
+  const cacheStr = cacheHitLabel(cacheHit);
+  const selectionRows: readonly string[] =
+    payload.selection !== null && payload.selection !== undefined
+      ? formatSelectionMicroBlock(payload.selection, w)
+      : [];
   const rows: readonly string[] = [
     "Last = most recent compilation.",
     padRow("Compilations", formatInt(payload.compilationCount), w),
     ...detailRows,
-    padRow("Guard", "—", w),
+    padRow("Cache", cacheStr, w),
+    ...selectionRows,
     promptRow,
   ];
   return `${rows.join("\n")}\n\n${METRIC_FOOTNOTE}\n`;

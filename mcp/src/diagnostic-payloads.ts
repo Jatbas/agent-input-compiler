@@ -169,7 +169,7 @@ export function buildLastPayload(input: {
   const last = summary.lastCompilation;
   const mapped = last === null ? null : snapshotToConversationLast(last);
   const lastPayload: Record<string, unknown> | null =
-    mapped === null ? null : { ...mapped };
+    mapped === null ? null : { ...mapped, cacheHit: traceRow?.cache_hit === 1 };
   const selection =
     traceRow === null ? null : parseSelectionTraceColumn(traceRow.selection_trace_json);
   return {
