@@ -98,7 +98,6 @@ var require_aic_hook_scripts = __commonJS({
         "aic-after-file-edit-tracker.cjs",
         "aic-stop-quality-check.cjs",
         "aic-pre-tool-gate.cjs",
-        "aic-stop-require-compile.cjs",
         "aic-block-no-verify.cjs",
         "aic-inject-conversation-id.cjs",
         "aic-session-end.cjs",
@@ -562,7 +561,6 @@ var require_aic_hook_scripts2 = __commonJS({
         "AIC-subagent-compile.cjs",
         "AIC-subagent-stop.cjs",
         "AIC-subagent-start-model-id.cjs",
-        "AIC-stop-require-compile.cjs",
         "AIC-stop-quality-check.cjs",
       ],
     };

@@ -44,7 +44,34 @@ function subagent_compile_sets_compile_args_conversation_id_conditionally() {
   console.log("subagent_compile_sets_compile_args_conversation_id_conditionally: pass");
 }
 
+function subagent_compile_imports_write_compile_recency() {
+  const src = readHook("AIC-subagent-compile.cjs");
+  assert.ok(
+    src.includes("writeCompileRecency"),
+    "expected writeCompileRecency import and call",
+  );
+  assert.ok(
+    src.includes("compile-recency.cjs"),
+    "expected require of compile-recency.cjs",
+  );
+  console.log("subagent_compile_imports_write_compile_recency: pass");
+}
+
+function subagent_compile_calls_write_compile_recency_after_exec() {
+  const src = readHook("AIC-subagent-compile.cjs");
+  const execIdx = src.indexOf("execSync(serverCmd");
+  const recencyIdx = src.indexOf("writeCompileRecency(projectRoot)");
+  assert.ok(
+    execIdx !== -1 && recencyIdx !== -1,
+    "expected execSync and writeCompileRecency",
+  );
+  assert.ok(recencyIdx > execIdx, "writeCompileRecency should follow execSync block");
+  console.log("subagent_compile_calls_write_compile_recency_after_exec: pass");
+}
+
 subagent_compile_imports_fallback_resolver();
 subagent_compile_parent_id_before_fallback_call();
 subagent_compile_sets_compile_args_conversation_id_conditionally();
+subagent_compile_imports_write_compile_recency();
+subagent_compile_calls_write_compile_recency_after_exec();
 console.log("All AIC-subagent-compile tests passed.");

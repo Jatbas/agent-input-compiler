@@ -12,7 +12,10 @@ const {
   isCursorNativeHookPayload,
 } = require("../../cursor/is-cursor-native-hook-payload.cjs");
 const { callAicCompile } = require("./aic-compile-helper.cjs");
-const { writeCompileRecency } = require("../../shared/compile-recency.cjs");
+const {
+  writeCompileRecency,
+  writeTurnCompiled,
+} = require("../../shared/compile-recency.cjs");
 const { touchEditorRuntimeMarker } = require("../../shared/editor-runtime-marker.cjs");
 const {
   isValidModelId,
@@ -55,6 +58,7 @@ async function run(stdinStr) {
   if (text == null) return null;
   writeCompileRecency(projectRoot);
   if (conversationId != null && String(conversationId).trim() !== "") {
+    writeTurnCompiled(projectRoot, String(conversationId).trim());
     touchEditorRuntimeMarker(projectRoot, "claude-code", String(conversationId).trim());
   }
   return {

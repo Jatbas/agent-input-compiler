@@ -18,6 +18,7 @@ const {
 const { isCursorNativeHookPayload } = require("../is-cursor-native-hook-payload.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 const { resolveConversationIdFallback } = require("../../shared/conversation-id.cjs");
+const { writeCompileRecency } = require("../../shared/compile-recency.cjs");
 
 let hookInput = {};
 try {
@@ -103,5 +104,6 @@ if (!isCursorNativeHookPayload(hookInput)) {
     // Best-effort — never block subagent start
   }
 
+  writeCompileRecency(projectRoot);
   process.stdout.write(JSON.stringify({ permission: "allow" }));
 }

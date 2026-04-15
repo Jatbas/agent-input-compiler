@@ -2,6 +2,9 @@
 // Copyright (c) 2025 AIC Contributors
 
 const path = require("path");
+const fs = require("fs");
+const os = require("os");
+const crypto = require("crypto");
 
 const hooksDir = path.join(__dirname, "..", "hooks");
 const hookPath = path.join(hooksDir, "aic-subagent-inject.cjs");
@@ -301,6 +304,38 @@ async function subagent_omits_model_id_when_absent() {
   console.log("subagent_omits_model_id_when_absent: pass");
 }
 
+async function subagent_inject_writes_turn_compiled_when_conv_id_present() {
+  const key = mockHelper("compiled text");
+  delete require.cache[hookPath];
+  const { run } = require(hookPath);
+  const convId = "test-subagent-inject-turn-compiled-conv-1";
+  const projectRoot = "/tmp/aic-subagent-inject-turn-test";
+  const hash = crypto
+    .createHash("md5")
+    .update(`${projectRoot}\0${convId}`)
+    .digest("hex")
+    .slice(0, 16);
+  const compiledMarker = path.join(os.tmpdir(), `aic-turn-compiled-${hash}`);
+  try {
+    fs.unlinkSync(compiledMarker);
+  } catch {}
+  await run(
+    JSON.stringify({
+      agent_type: "general-purpose",
+      cwd: projectRoot,
+      transcript_path: `/tmp/.claude/conversations/${convId}.jsonl`,
+    }),
+  );
+  cleanup(key);
+  if (!fs.existsSync(compiledMarker)) {
+    throw new Error("Expected turn-compiled marker to be written by SubagentStart");
+  }
+  try {
+    fs.unlinkSync(compiledMarker);
+  } catch {}
+  console.log("subagent_inject_writes_turn_compiled_when_conv_id_present: pass");
+}
+
 (async () => {
   await hookSpecificOutput_json_when_helper_returns_text();
   await output_empty_object_when_helper_returns_null();
@@ -312,5 +347,6 @@ async function subagent_omits_model_id_when_absent() {
   await subagent_inject_noop_when_cursor_version_present();
   await subagent_forwards_model_id_when_present();
   await subagent_omits_model_id_when_absent();
+  await subagent_inject_writes_turn_compiled_when_conv_id_present();
   console.log("All tests passed.");
 })();

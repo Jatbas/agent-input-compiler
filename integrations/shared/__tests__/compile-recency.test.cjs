@@ -133,8 +133,31 @@ function isTurnCompiled_false_when_compiled_before_start() {
   console.log("isTurnCompiled_false_when_compiled_before_start: pass");
 }
 
+function recency_config_override_window() {
+  const configRoot = "/tmp/aic-recency-config-override-test";
+  fs.mkdirSync(configRoot, { recursive: true });
+  fs.writeFileSync(
+    path.join(configRoot, "aic.config.json"),
+    JSON.stringify({ compileRecencyWindowSecs: 10 }),
+  );
+  // 5 seconds old — within 10-second config window
+  fs.writeFileSync(recencyFilePath(configRoot), String(Date.now() - 5000));
+  assert.strictEqual(isCompileRecent(configRoot), true);
+  // 15 seconds old — outside 10-second config window
+  fs.writeFileSync(recencyFilePath(configRoot), String(Date.now() - 15000));
+  assert.strictEqual(isCompileRecent(configRoot), false);
+  try {
+    fs.unlinkSync(path.join(configRoot, "aic.config.json"));
+  } catch {}
+  try {
+    fs.unlinkSync(recencyFilePath(configRoot));
+  } catch {}
+  console.log("recency_config_override_window: pass");
+}
+
 recency_write_and_read();
 recency_expires_by_window();
+recency_config_override_window();
 recency_missing_file_returns_false();
 turn_marker_path_is_stable();
 turn_marker_path_differs_by_kind();
