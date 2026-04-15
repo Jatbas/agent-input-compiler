@@ -2,6 +2,9 @@
 // Copyright (c) 2025 AIC Contributors
 
 import type { SpecificationCompiler } from "@jatbas/aic-core/core/interfaces/specification-compiler.interface.js";
+import type { ContentTransformerPipeline } from "@jatbas/aic-core/core/interfaces/content-transformer-pipeline.interface.js";
+import type { SummarisationLadder } from "@jatbas/aic-core/core/interfaces/summarisation-ladder.interface.js";
+import type { LanguageProvider } from "@jatbas/aic-core/core/interfaces/language-provider.interface.js";
 import type {
   SpecCodeBlock,
   SpecCompilationResult,
@@ -14,17 +17,169 @@ import type {
 import { SPEC_USAGE_TO_INITIAL_TIER } from "@jatbas/aic-core/core/types/specification-compilation.types.js";
 import type { TokenCount } from "@jatbas/aic-core/core/types/units.js";
 import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
-import { toPercentage } from "@jatbas/aic-core/core/types/scores.js";
+import { toPercentage, toRelevanceScore } from "@jatbas/aic-core/core/types/scores.js";
+import type { SelectedFile } from "@jatbas/aic-core/core/types/selected-file.js";
+import type { TransformContext } from "@jatbas/aic-core/core/types/transform-types.js";
+import { INCLUSION_TIER } from "@jatbas/aic-core/core/types/enums.js";
 import {
   deduplicateImportsInText,
   splitLeadingImportsAndBody,
 } from "./import-merge-dedup-text.js";
+import { renderInclusionTierText } from "./inclusion-tier-rendered-text.js";
 
 const SECTION_GAP = "\n\n";
 const SIGNATURE_LINE_RE = /(?:function|class|def|pub\s+fn)\s+\w+/g;
 const EXPORT_FACTORY_DISCOVERY_RE = /^\s*export\s+(?:function\s+(\w+)|const\s+(\w+))/gm;
 
 const WARN_TRUNCATION = "AIC specification compiler: output truncated to satisfy budget.";
+
+const SPEC_LANG_SUFFIXES: readonly {
+  readonly ends: (p: string) => boolean;
+  readonly language: string;
+}[] = [
+  { ends: (p) => p.endsWith(".ts") || p.endsWith(".tsx"), language: "ts" },
+  { ends: (p) => p.endsWith(".md"), language: "md" },
+];
+
+function specLanguageFromPath(path: string): string {
+  const hit = SPEC_LANG_SUFFIXES.find((r) => r.ends(path));
+  return hit?.language ?? "txt";
+}
+
+type VerbatimPathMeta = ReadonlyMap<
+  string,
+  { readonly importLines: readonly string[]; readonly body: string }
+>;
+
+function buildVerbatimPathMetaAndRows(
+  verbatimRefs: readonly SpecTypeRef[],
+  tokenCounter: (text: string) => TokenCount,
+): {
+  readonly verbatimPathMeta: VerbatimPathMeta;
+  readonly verbatimRows: readonly SelectedFile[];
+} {
+  const verbatimPathMeta = new Map<
+    string,
+    { readonly importLines: readonly string[]; readonly body: string }
+  >();
+  const verbatimRows: readonly SelectedFile[] = verbatimRefs.map((ref) => {
+    const split = splitLeadingImportsAndBody(ref.content);
+    verbatimPathMeta.set(String(ref.path), {
+      importLines: split.importLines,
+      body: split.body,
+    });
+    return {
+      path: ref.path,
+      language: specLanguageFromPath(String(ref.path)),
+      estimatedTokens: tokenCounter(split.body),
+      relevanceScore: toRelevanceScore(1),
+      tier: INCLUSION_TIER.L0,
+      resolvedContent: split.body,
+    };
+  });
+  return { verbatimPathMeta, verbatimRows };
+}
+
+function computeVerbatimBatchBudget(
+  budget: TokenCount,
+  verbatimRefs: readonly SpecTypeRef[],
+): TokenCount {
+  const sumVerbatimInputTokens = verbatimRefs.reduce(
+    (s, r) => s + Number(r.estimatedTokens),
+    0,
+  );
+  return toTokenCount(Math.min(Math.floor(Number(budget) * 0.2), sumVerbatimInputTokens));
+}
+
+function buildPathToRenderedMap(
+  compressOut: readonly SelectedFile[],
+  languageProviders: readonly LanguageProvider[],
+): ReadonlyMap<string, string> {
+  return new Map(
+    compressOut.map((out) => {
+      const key = String(out.path);
+      return [
+        key,
+        renderInclusionTierText(
+          key,
+          out.tier,
+          out.resolvedContent ?? "",
+          languageProviders,
+        ),
+      ] as const;
+    }),
+  );
+}
+
+function applyRenderedBodiesToVerbatimTypes(
+  types: readonly SpecTypeRef[],
+  verbatimPathMeta: VerbatimPathMeta,
+  pathToRendered: ReadonlyMap<string, string>,
+  tokenCounter: (text: string) => TokenCount,
+): readonly SpecTypeRef[] {
+  return types.map((ref) => {
+    if (SPEC_USAGE_TO_INITIAL_TIER[ref.usage] !== "verbatim") {
+      return ref;
+    }
+    const meta = verbatimPathMeta.get(String(ref.path));
+    if (meta === undefined) {
+      return ref;
+    }
+    const renderedBody =
+      pathToRendered.get(String(ref.path)) ?? normalizeNewlines(meta.body);
+    const fullContent =
+      meta.importLines.length > 0
+        ? `${meta.importLines.join("\n")}\n${renderedBody}`
+        : renderedBody;
+    return {
+      ...ref,
+      content: fullContent,
+      estimatedTokens: tokenCounter(fullContent),
+    };
+  });
+}
+
+async function verbatimAdjustedSpecificationInput(
+  tokenCounter: (text: string) => TokenCount,
+  contentTransformerPipeline: ContentTransformerPipeline,
+  summarisationLadder: SummarisationLadder,
+  languageProviders: readonly LanguageProvider[],
+  input: SpecificationInput,
+  budget: TokenCount,
+): Promise<SpecificationInput> {
+  const verbatimRefs = input.types.filter(
+    (t) => SPEC_USAGE_TO_INITIAL_TIER[t.usage] === "verbatim",
+  );
+  if (verbatimRefs.length === 0) {
+    return input;
+  }
+  const { verbatimPathMeta, verbatimRows } = buildVerbatimPathMetaAndRows(
+    verbatimRefs,
+    tokenCounter,
+  );
+  const verbatimBatchBudget = computeVerbatimBatchBudget(budget, verbatimRefs);
+  const specCompileTransformContext: TransformContext = {
+    directTargetPaths: [],
+    rawMode: false,
+  };
+  const transformResult = await contentTransformerPipeline.transform(
+    verbatimRows,
+    specCompileTransformContext,
+  );
+  const compressOut = await summarisationLadder.compress(
+    transformResult.files,
+    verbatimBatchBudget,
+    undefined,
+  );
+  const pathToRendered = buildPathToRenderedMap(compressOut, languageProviders);
+  const adjustedTypes = applyRenderedBodiesToVerbatimTypes(
+    input.types,
+    verbatimPathMeta,
+    pathToRendered,
+    tokenCounter,
+  );
+  return { ...input, types: adjustedTypes };
+}
 
 function typeKey(ref: SpecTypeRef): string {
   return `${ref.name}\u0000${ref.path}`;
@@ -325,17 +480,29 @@ function runBudgetLoop(
 }
 
 export class SpecificationCompilerImpl implements SpecificationCompiler {
-  constructor(private readonly tokenCounter: (text: string) => TokenCount) {}
+  constructor(
+    private readonly tokenCounter: (text: string) => TokenCount,
+    private readonly contentTransformerPipeline: ContentTransformerPipeline,
+    private readonly summarisationLadder: SummarisationLadder,
+    private readonly languageProviders: readonly LanguageProvider[],
+  ) {}
 
   async compile(
     input: SpecificationInput,
     budget: TokenCount,
   ): Promise<SpecCompilationResult> {
-    await Promise.resolve();
+    const adjustedInput = await verbatimAdjustedSpecificationInput(
+      this.tokenCounter,
+      this.contentTransformerPipeline,
+      this.summarisationLadder,
+      this.languageProviders,
+      input,
+      budget,
+    );
     const totalTokensRaw = sumEstimatedTokens(input);
     const sortedTypes = sortTypes(input.types);
     const { compiled: compiledSpec, tiers } = runBudgetLoop(
-      input,
+      adjustedInput,
       budget,
       this.tokenCounter,
     );

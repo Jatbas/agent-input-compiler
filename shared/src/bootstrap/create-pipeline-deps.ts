@@ -189,6 +189,7 @@ export function createPipelineDeps(
     contextGuard,
     contentTransformerPipeline,
     summarisationLadder,
+    languageProviders,
     lineLevelPruner,
     promptAssembler,
     structuralMapBuilder,

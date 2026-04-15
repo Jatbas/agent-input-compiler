@@ -63,7 +63,11 @@ export class ContentTransformerPipeline implements IContentTransformerPipeline {
     const directSet = new Set(context.directTargetPaths.map((p) => p));
 
     const rawContents = await Promise.all(
-      files.map((file) => this.fileContentReader.getContent(file.path)),
+      files.map((file) =>
+        file.resolvedContent !== undefined
+          ? Promise.resolve(file.resolvedContent)
+          : this.fileContentReader.getContent(file.path),
+      ),
     );
 
     const result = files.map(
@@ -93,6 +97,7 @@ export class ContentTransformerPipeline implements IContentTransformerPipeline {
         const updatedFile: SelectedFile = {
           ...file,
           estimatedTokens: transformedTokens,
+          ...(file.resolvedContent !== undefined ? { resolvedContent: content } : {}),
         };
         const meta: TransformMetadata = {
           filePath: file.path,

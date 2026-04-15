@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { SpecificationCompilerImpl } from "../specification-compiler.js";
 import {
   SPEC_USAGE_TO_INITIAL_TIER,
@@ -11,9 +11,53 @@ import {
 import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
+import { TypeScriptProvider } from "@jatbas/aic-core/adapters/typescript-provider.js";
+import type { ContentTransformerPipeline } from "@jatbas/aic-core/core/interfaces/content-transformer-pipeline.interface.js";
+import type { SummarisationLadder } from "@jatbas/aic-core/core/interfaces/summarisation-ladder.interface.js";
+import type { SelectedFile } from "@jatbas/aic-core/core/types/selected-file.js";
+import type { TransformMetadata } from "@jatbas/aic-core/core/types/transform-types.js";
 
 const measure = (s: string): ReturnType<typeof toTokenCount> =>
   toTokenCount([...s].length);
+
+const languageProviders = [new TypeScriptProvider()] as const;
+
+function noopSpecCompilerDeps(): {
+  readonly contentTransformerPipeline: {
+    readonly transform: ReturnType<typeof vi.fn>;
+  };
+  readonly summarisationLadder: { readonly compress: ReturnType<typeof vi.fn> };
+} {
+  const contentTransformerPipeline = {
+    transform: vi.fn(async (files: readonly SelectedFile[]) => ({
+      files: files.map((f) => ({ ...f })),
+      metadata: files.map(
+        (f): TransformMetadata => ({
+          filePath: f.path,
+          originalTokens: f.estimatedTokens,
+          transformedTokens: f.estimatedTokens,
+          transformersApplied: [],
+        }),
+      ),
+    })),
+  };
+  const summarisationLadder = {
+    compress: vi.fn(async (files: readonly SelectedFile[]) => files),
+  };
+  return { contentTransformerPipeline, summarisationLadder };
+}
+
+function makeSpecCompiler(
+  tokenCounter: (s: string) => ReturnType<typeof toTokenCount>,
+): SpecificationCompilerImpl {
+  const { contentTransformerPipeline, summarisationLadder } = noopSpecCompilerDeps();
+  return new SpecificationCompilerImpl(
+    tokenCounter,
+    contentTransformerPipeline as ContentTransformerPipeline,
+    summarisationLadder as SummarisationLadder,
+    languageProviders,
+  );
+}
 
 describe("SpecificationCompilerImpl", () => {
   it("spec_compiler_tier_initial_map", async () => {
@@ -44,7 +88,7 @@ describe("SpecificationCompilerImpl", () => {
       codeBlocks: [],
       prose: [],
     };
-    const c = new SpecificationCompilerImpl(measure);
+    const c = makeSpecCompiler(measure);
     const { meta } = await c.compile(input, toTokenCount(1_000_000));
     expect(Object.keys(meta.typeTiers)).toEqual([
       "AType\u0000a/a.ts",
@@ -83,12 +127,9 @@ describe("SpecificationCompilerImpl", () => {
       codeBlocks: [],
       prose: [],
     };
-    const full = await new SpecificationCompilerImpl(measure).compile(
-      input,
-      toTokenCount(1_000_000),
-    );
+    const full = await makeSpecCompiler(measure).compile(input, toTokenCount(1_000_000));
     const budget = toTokenCount(Math.max(0, [...full.compiledSpec].length - 1));
-    const { meta } = await new SpecificationCompilerImpl(measure).compile(input, budget);
+    const { meta } = await makeSpecCompiler(measure).compile(input, budget);
     expect(meta.typeTiers["Ctor\u0000a/a.ts"]).toBe("signature-path");
     expect(meta.typeTiers["Impl\u0000b/b.ts"]).toBe("verbatim");
   });
@@ -114,12 +155,9 @@ describe("SpecificationCompilerImpl", () => {
       codeBlocks: [],
       prose: [],
     };
-    const full = await new SpecificationCompilerImpl(measure).compile(
-      input,
-      toTokenCount(1_000_000),
-    );
+    const full = await makeSpecCompiler(measure).compile(input, toTokenCount(1_000_000));
     const budget = toTokenCount(Math.max(0, [...full.compiledSpec].length - 1));
-    const { meta } = await new SpecificationCompilerImpl(measure).compile(input, budget);
+    const { meta } = await makeSpecCompiler(measure).compile(input, budget);
     expect(meta.typeTiers["Big\u0000b/big.ts"]).toBe("signature-path");
     expect(meta.typeTiers["Small\u0000a/small.ts"]).toBe("verbatim");
   });
@@ -145,7 +183,7 @@ describe("SpecificationCompilerImpl", () => {
       codeBlocks: [],
       prose: [],
     };
-    const { compiledSpec } = await new SpecificationCompilerImpl(measure).compile(
+    const { compiledSpec } = await makeSpecCompiler(measure).compile(
       input,
       toTokenCount(1_000_000),
     );
@@ -170,7 +208,7 @@ describe("SpecificationCompilerImpl", () => {
       codeBlocks: [{ label: "c", content: "x", estimatedTokens: toTokenCount(1) }],
       prose: [{ label: "p", content: "y", estimatedTokens: toTokenCount(1) }],
     };
-    const c = new SpecificationCompilerImpl(measure);
+    const c = makeSpecCompiler(measure);
     const a = await c.compile(input, toTokenCount(400));
     const b = await c.compile(input, toTokenCount(400));
     expect(a.compiledSpec).toBe(b.compiledSpec);
@@ -192,7 +230,7 @@ describe("SpecificationCompilerImpl", () => {
       codeBlocks: [],
       prose: [],
     };
-    const { compiledSpec } = await new SpecificationCompilerImpl(measure).compile(
+    const { compiledSpec } = await makeSpecCompiler(measure).compile(
       input,
       toTokenCount(50),
     );
@@ -220,7 +258,7 @@ describe("SpecificationCompilerImpl", () => {
       ],
       prose: [],
     };
-    const { compiledSpec } = await new SpecificationCompilerImpl(measure).compile(
+    const { compiledSpec } = await makeSpecCompiler(measure).compile(
       input,
       toTokenCount(1_000_000),
     );
@@ -244,7 +282,7 @@ describe("SpecificationCompilerImpl", () => {
         },
       ],
     };
-    const { compiledSpec } = await new SpecificationCompilerImpl(measure).compile(
+    const { compiledSpec } = await makeSpecCompiler(measure).compile(
       input,
       toTokenCount(1_000_000),
     );
@@ -277,7 +315,7 @@ describe("SpecificationCompilerImpl", () => {
         },
       ],
     };
-    const impl = new SpecificationCompilerImpl(measure);
+    const impl = makeSpecCompiler(measure);
     const full = await impl.compile(input, toTokenCount(1_000_000));
     expect(full.compiledSpec.includes("<<<CODE>>>")).toBe(true);
     expect(full.compiledSpec.includes("<<<PROSE>>>")).toBe(true);
@@ -330,7 +368,7 @@ describe("SpecificationCompilerImpl", () => {
       ],
       prose: [],
     };
-    const impl = new SpecificationCompilerImpl(measure);
+    const impl = makeSpecCompiler(measure);
     const full = await impl.compile(input, toTokenCount(1_000_000));
     expect(full.meta.typeTiers["A\u0000a/a.ts"]).toBe("verbatim");
     expect(full.meta.typeTiers["B\u0000b/b.ts"]).toBe("verbatim");
@@ -345,5 +383,52 @@ describe("SpecificationCompilerImpl", () => {
       tight.meta.typeTiers["A\u0000a/a.ts"] === "verbatim" &&
         tight.meta.typeTiers["B\u0000b/b.ts"] === "verbatim",
     ).toBe(false);
+  });
+
+  it("spec_compiler_verbatim_invokes_transform_then_ladder", async () => {
+    const order: string[] = [];
+    const contentTransformerPipeline = {
+      transform: vi.fn(async (files: readonly SelectedFile[]) => {
+        order.push("transform");
+        return {
+          files: files.map((f) => ({ ...f })),
+          metadata: files.map(
+            (f): TransformMetadata => ({
+              filePath: f.path,
+              originalTokens: f.estimatedTokens,
+              transformedTokens: f.estimatedTokens,
+              transformersApplied: [],
+            }),
+          ),
+        };
+      }),
+    };
+    const summarisationLadder = {
+      compress: vi.fn(async (files: readonly SelectedFile[]) => {
+        order.push("compress");
+        return files;
+      }),
+    };
+    const impl = new SpecificationCompilerImpl(
+      measure,
+      contentTransformerPipeline as ContentTransformerPipeline,
+      summarisationLadder as SummarisationLadder,
+      languageProviders,
+    );
+    const input: SpecificationInput = {
+      types: [
+        {
+          name: "X",
+          path: toRelativePath("a.ts"),
+          content: "export const x = 1",
+          usage: "implements",
+          estimatedTokens: toTokenCount(100),
+        },
+      ],
+      codeBlocks: [],
+      prose: [],
+    };
+    await impl.compile(input, toTokenCount(1_000_000));
+    expect(order).toEqual(["transform", "compress"]);
   });
 });

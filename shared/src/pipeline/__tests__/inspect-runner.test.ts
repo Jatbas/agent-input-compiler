@@ -39,6 +39,7 @@ import {
 import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 import { toConfidence, toRelevanceScore } from "@jatbas/aic-core/core/types/scores.js";
 import { TASK_CLASS, INCLUSION_TIER } from "@jatbas/aic-core/core/types/enums.js";
+import { TypeScriptProvider } from "@jatbas/aic-core/adapters/typescript-provider.js";
 
 const projectRoot = toAbsolutePath("/tmp/proj");
 const dbPath = toFilePath("/tmp/proj/.aic/aic.sqlite");
@@ -174,6 +175,7 @@ describe("InspectRunner", () => {
       contentTransformerPipeline:
         mockContentTransformerPipeline as ContentTransformerPipeline,
       summarisationLadder: mockSummarisationLadder as SummarisationLadder,
+      languageProviders: [new TypeScriptProvider()],
       lineLevelPruner: {
         prune: (files: readonly SelectedFile[]) => Promise.resolve([...files]),
       } as LineLevelPruner,
@@ -241,6 +243,7 @@ describe("InspectRunner", () => {
       contentTransformerPipeline:
         mockContentTransformerPipeline as ContentTransformerPipeline,
       summarisationLadder: mockSummarisationLadder as SummarisationLadder,
+      languageProviders: [new TypeScriptProvider()],
       lineLevelPruner: {
         prune: (files: readonly SelectedFile[]) => Promise.resolve([...files]),
       } as LineLevelPruner,
@@ -300,6 +303,7 @@ describe("InspectRunner", () => {
       contentTransformerPipeline:
         mockContentTransformerPipeline as ContentTransformerPipeline,
       summarisationLadder: mockSummarisationLadder as SummarisationLadder,
+      languageProviders: [new TypeScriptProvider()],
       lineLevelPruner: {
         prune: (files: readonly SelectedFile[]) => Promise.resolve([...files]),
       } as LineLevelPruner,

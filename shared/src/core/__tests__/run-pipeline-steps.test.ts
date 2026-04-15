@@ -26,6 +26,7 @@ import {
   TOOL_OUTPUT_TYPE,
 } from "@jatbas/aic-core/core/types/enums.js";
 import { toConfidence, toRelevanceScore } from "@jatbas/aic-core/core/types/scores.js";
+import { TypeScriptProvider } from "@jatbas/aic-core/adapters/typescript-provider.js";
 
 const PROJECT_ROOT = toAbsolutePath("/tmp/proj");
 
@@ -128,6 +129,7 @@ function createDeps(overrides: {
     summarisationLadder: {
       compress: vi.fn().mockResolvedValue([]),
     },
+    languageProviders: [new TypeScriptProvider()],
     lineLevelPruner: {
       prune: vi
         .fn()

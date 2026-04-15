@@ -245,8 +245,11 @@ export function createMcpServer(
     heuristicConfig,
     guardAllowPatterns,
   );
-  const specificationCompiler = new SpecificationCompilerImpl((text) =>
-    deps.tokenCounter.countTokens(text),
+  const specificationCompiler = new SpecificationCompilerImpl(
+    (text) => deps.tokenCounter.countTokens(text),
+    deps.contentTransformerPipeline,
+    deps.summarisationLadder,
+    deps.languageProviders,
   );
   const toolInvocationLogStore = new SqliteToolInvocationLogStore(
     startupScope.projectId,

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { createCompileSpecHandler } from "../compile-spec-handler.js";
 import type { ToolInvocationLogStore } from "@jatbas/aic-core/core/interfaces/tool-invocation-log-store.interface.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
@@ -17,6 +17,11 @@ import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
 import { SpecificationCompilerImpl } from "@jatbas/aic-core/pipeline/specification-compiler.js";
 import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { SpecificationInput } from "@jatbas/aic-core/core/types/specification-compilation.types.js";
+import { TypeScriptProvider } from "@jatbas/aic-core/adapters/typescript-provider.js";
+import type { SelectedFile } from "@jatbas/aic-core/core/types/selected-file.js";
+import type { TransformMetadata } from "@jatbas/aic-core/core/types/transform-types.js";
+import type { ContentTransformerPipeline } from "@jatbas/aic-core/core/interfaces/content-transformer-pipeline.interface.js";
+import type { SummarisationLadder } from "@jatbas/aic-core/core/interfaces/summarisation-ladder.interface.js";
 
 const measure = (s: string): ReturnType<typeof toTokenCount> =>
   toTokenCount([...s].length);
@@ -60,7 +65,28 @@ describe("compile-spec-handler", () => {
       generate: (): ReturnType<typeof toUUIDv7> =>
         toUUIDv7("018f0000-0000-7000-8000-000000000099"),
     };
-    specificationCompiler = new SpecificationCompilerImpl(measure);
+    const contentTransformerPipeline = {
+      transform: vi.fn(async (files: readonly SelectedFile[]) => ({
+        files: files.map((f) => ({ ...f })),
+        metadata: files.map(
+          (f): TransformMetadata => ({
+            filePath: f.path,
+            originalTokens: f.estimatedTokens,
+            transformedTokens: f.estimatedTokens,
+            transformersApplied: [],
+          }),
+        ),
+      })),
+    };
+    const summarisationLadder = {
+      compress: vi.fn(async (files: readonly SelectedFile[]) => files),
+    };
+    specificationCompiler = new SpecificationCompilerImpl(
+      measure,
+      contentTransformerPipeline as ContentTransformerPipeline,
+      summarisationLadder as SummarisationLadder,
+      [new TypeScriptProvider()],
+    );
   });
 
   it("compile_spec_handler_invalid_budget", async () => {

@@ -16,6 +16,7 @@ import type { RepoMapSupplier } from "@jatbas/aic-core/core/interfaces/repo-map-
 import type { SpecFileDiscoverer } from "@jatbas/aic-core/core/interfaces/spec-file-discoverer.interface.js";
 import type { IntentAwareFileDiscoverer } from "@jatbas/aic-core/core/interfaces/intent-aware-file-discoverer.interface.js";
 import type { TokenCounter } from "@jatbas/aic-core/core/interfaces/token-counter.interface.js";
+import type { LanguageProvider } from "@jatbas/aic-core/core/interfaces/language-provider.interface.js";
 import type { AgenticSessionState } from "@jatbas/aic-core/core/interfaces/agentic-session-state.interface.js";
 import type { ConversationCompressor } from "@jatbas/aic-core/core/interfaces/conversation-compressor.interface.js";
 import type { PreviousFile } from "@jatbas/aic-core/core/types/session-dedup-types.js";
@@ -45,6 +46,7 @@ export interface PipelineStepsDeps {
   readonly contextGuard: ContextGuard;
   readonly contentTransformerPipeline: ContentTransformerPipeline;
   readonly summarisationLadder: SummarisationLadder;
+  readonly languageProviders: readonly LanguageProvider[];
   readonly lineLevelPruner: LineLevelPruner;
   readonly promptAssembler: PromptAssembler;
   readonly repoMapSupplier: RepoMapSupplier;

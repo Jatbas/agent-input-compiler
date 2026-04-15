@@ -184,6 +184,7 @@ function createRunner(fixtureRoot: ReturnType<typeof toAbsolutePath>): InspectRu
     contextGuard,
     contentTransformerPipeline,
     summarisationLadder,
+    languageProviders,
     lineLevelPruner: new LineLevelPruner(tiktokenAdapter, fileContentReader),
     promptAssembler,
     intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),

@@ -228,6 +228,7 @@ function createRunner(fixtureRoot: ReturnType<typeof toAbsolutePath>): Compilati
     contextGuard,
     contentTransformerPipeline,
     summarisationLadder,
+    languageProviders,
     lineLevelPruner: new LineLevelPruner(tiktokenAdapter, fileContentReader),
     promptAssembler,
     intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
