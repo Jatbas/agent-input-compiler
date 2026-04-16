@@ -137,6 +137,7 @@ integrations/claude/               ← SOURCE (authored here)
     aic-prompt-compile.cjs         # UserPromptSubmit — PRIMARY context delivery
     aic-session-start.cjs          # SessionStart — bootstrapping + post-compaction
     aic-subagent-inject.cjs        # SubagentStart — subagent context injection
+    aic-subagent-stop.cjs          # SubagentStop — reparent compilation_log rows
     aic-after-file-edit-tracker.cjs  # PostToolUse(Edit|Write) — feeds Stop hook
     aic-stop-quality-check.cjs     # Stop — ESLint + typecheck quality gate
     aic-block-no-verify.cjs        # PreToolUse(Bash) — block --no-verify git commits
@@ -597,6 +598,17 @@ Without a resolvable `conversationId`, `compilation_log` rows from Claude Code h
         ]
       }
     ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/hooks/aic-subagent-stop.cjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "PreCompact": [
       {
         "hooks": [
@@ -633,6 +645,16 @@ Without a resolvable `conversationId`, `compilation_log` rows from Claude Code h
       }
     ],
     "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$HOME/.claude/hooks/aic-pre-tool-gate.cjs\"",
+            "timeout": 10,
+            "statusMessage": "Checking AIC compile gate..."
+          }
+        ]
+      },
       {
         "matcher": "Bash",
         "hooks": [

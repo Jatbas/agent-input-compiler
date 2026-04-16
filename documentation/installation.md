@@ -151,7 +151,7 @@ Hook scripts are authored in `integrations/cursor/hooks/` and deployed to each p
 `.cursor/hooks/` by the Cursor installer (`integrations/cursor/install.cjs`). Bootstrap invokes that script automatically for Cursor users (bundled in `@jatbas/aic`, or the in-project copy when your team commits `integrations/cursor/`). You can also run `node integrations/cursor/install.cjs` manually with the project as cwd.
 
 1. **Registers hooks** — creates or merges `.cursor/hooks.json` with the hook definitions (event type, command, matcher, timeout, etc.)
-2. **Copies scripts** — copies the hook scripts from `integrations/cursor/hooks/` into the project's `.cursor/hooks/` directory (same file set as `integrations/cursor/aic-hook-scripts.json`)
+2. **Copies scripts** — copies every `integrations/shared/*.cjs` into `.cursor/hooks/` (with `AIC-` filename prefix and rewritten hook-local `require` paths), copies Cursor-local utilities from `integrations/cursor/` (currently `is-cursor-native-hook-payload.cjs`) the same way, then copies each basename listed in `integrations/cursor/aic-hook-scripts.json` from `integrations/cursor/hooks/` into `.cursor/hooks/` under the same names
 
 The `.cursor/` directory is a **deployment target** — hook scripts are never authored there directly.
 Re-running the installer merges any missing hook entries without overwriting user-added hooks and re-copies scripts from the installer source (in-project tree or bundled package copy).
@@ -226,6 +226,8 @@ Claude Code provides a richer hook lifecycle than Cursor, including the critical
 | `aic-pre-compact.cjs`             | `PreCompact`               | Re-compiles context before window compaction                                                                                                                         |
 | `aic-subagent-stop.cjs`           | `SubagentStop`             | Reparents `compilation_log` after Task-tool subagents                                                                                                                |
 | `aic-session-end.cjs`             | `SessionEnd`               | Cleanup and session metrics                                                                                                                                          |
+
+The installer also deploys `aic-compile-helper.cjs` to `~/.claude/hooks/`; context hooks require it at runtime, but it is not registered as its own lifecycle event row above.
 
 ### Hook Lifecycle
 

@@ -5,6 +5,7 @@ mcp/integrations/
 .aic/
 .cursor/hooks/.edited-files-*
 .git-worktrees/
+.claude/worktrees/
 .cursor/rules/AIC.mdc
 .cursor/hooks.json
 .cursor/hooks/AIC-*.cjs

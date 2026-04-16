@@ -216,7 +216,7 @@ The numbered steps below explain the main concepts. The **authoritative executio
 2. **RulePackResolver** (Step 2) — merged `RulePack`.
 3. **BudgetAllocator** (Step 3) — **total** token budget for this compile (`maxTokens` **0** = auto headroom; see Step 3 subsection).
 4. **RepoMap** — from `repoMapSupplier.getRepoMap` (pre-step above).
-5. **Overhead + code budget** — structural map, optional session summary, spec-ladder slice (capped at ~20% of total budget), constraints text, and a fixed 100-token task header are token-counted; **codeBudget** = max(0, totalBudget − overhead). **maxFiles:** when configured `heuristic.maxFiles` is **0**, effective cap = `ceil(sqrt(totalFiles))` clamped to **[5, 40]**.
+5. **Overhead + code budget** — structural map, optional session summary, spec-ladder slice (capped at ~20% of total budget), constraints text, and a fixed 100-token task header are token-counted; **codeBudget** = max(0, totalBudget − overhead). **maxFiles:** when `heuristic.maxFiles` is **0**, `resolveAutoMaxFiles` in `shared/src/core/run-pipeline-steps.ts` sets **base** `max(5, min(40, ceil(sqrt(totalFiles))))`, scales by `effectiveContextWindow / CONTEXT_WINDOW_DEFAULT` (**128_000** from `budget-allocator.ts`; `effectiveContextWindow` is `sessionContext?.contextWindow ?? toTokenCount(CONTEXT_WINDOW_DEFAULT)` (`run-pipeline-steps.ts`; optional `PipelineStepsRequest.contextWindow` flows through `deriveSessionContext` when set), then returns `max(5, min(300, ceil(baseMax * scale)))` (**`MAX_FILES_UPPER_BOUND`**).
 6. **IntentAwareFileDiscoverer** — extends the RepoMap with intent-scored files before selection (uses `maxFilesOverride` from the resolved cap).
 7. **ContextSelector** (Step 4) — chooses context files within **codeBudget**. Shipped wiring: `RelatedFilesBoostContextSelector` around `HeuristicSelector` (`shared/src/bootstrap/create-pipeline-deps.ts`).
 8. **Context Guard** (Step 5) on the main selected set — then **Content Transformer** (Step 5.5) — then **Summarisation Ladder** (Step 6) on **codeBudget**.
@@ -283,9 +283,9 @@ See [Project Plan §3.1](project-plan.md) for the full annotated rule pack examp
 
 ### Step 3: Budget Allocator
 
-**Input:** `BudgetConfig` (from resolved `aic.config.json`), resolved `RulePack`, and optional `SessionBudgetContext` (`shared/src/core/types/session-budget-context.ts` — optional `conversationTokens` only).
+**Input:** `BudgetConfig` (from resolved `aic.config.json`), resolved `RulePack`, and optional `SessionBudgetContext` (`shared/src/core/types/session-budget-context.ts` — optional `conversationTokens` and optional `contextWindow`).
 
-**Session budget context:** Built in `deriveSessionContext` (`shared/src/core/run-pipeline-steps.ts`). If `PipelineStepsRequest.conversationTokens` is set, it becomes `SessionBudgetContext.conversationTokens`. Otherwise, when both `sessionId` is set and `agenticSessionState` is available, the context uses the sum of `tokensCompiled` over all steps returned by `getSteps(sessionId)`. If neither path applies, session context is omitted and no session clamp runs.
+**Session budget context:** Built in `deriveSessionContext` (`shared/src/core/run-pipeline-steps.ts`): (1) If `PipelineStepsRequest.conversationTokens` is set, the result includes **`conversationTokens`** and includes **`contextWindow`** when `PipelineStepsRequest.contextWindow` is set. (2) Else if `sessionId` is set and `agenticSessionState` exists, **`conversationTokens`** is the sum of `tokensCompiled` over `getSteps(sessionId)`, again with optional **`contextWindow`** from the request when set. (3) Else if only **`PipelineStepsRequest.contextWindow`** is set (model-derived on the request from `compilation-runner.ts`), the result is **`{ contextWindow }` only** — no **`conversationTokens`** field. (4) Else **`deriveSessionContext`** returns **`undefined`**. A **`contextWindow`**-only object still participates in **`BudgetAllocator`**’s **`effectiveWindow`** / **`hasWindowInfo`** path; it does not imply wire **`conversationTokens`** were sent.
 
 **Resolution order for the base budget (highest priority first):**
 
@@ -293,11 +293,11 @@ See [Project Plan §3.1](project-plan.md) for the full annotated rule pack examp
 2. `contextBudget.perTaskClass[taskClass]` in config (if present for that task class)
 3. `contextBudget.maxTokens` in config (default **0** = auto when the field is omitted — `shared/src/config/load-config-from-file.ts`, `shared/src/core/types/resolved-config.ts`)
 
-**Auto mode (`maxTokens` resolves to numeric 0):** After the three-way resolution above, if the resulting base is **0**, `BudgetAllocator.allocate` returns **headroom** = `max(0, 128_000 − 4_000 − conversationTokens − 500)` (same literals as below), i.e. the full remaining window slice — not a separate `AdaptiveBudgetAllocator` class.
+**Auto mode (`maxTokens` resolves to numeric 0):** After the three-way resolution above, if the resulting base is **0**, `BudgetAllocator.allocate` computes **`effectiveWindow`** = configured project `contextWindow` from `BudgetConfig.getContextWindow()` when non-null, else `sessionContext?.contextWindow` when `deriveSessionContext` supplied it (model-derived lookup from `resolveModelDerivedContextWindow` in `shared/src/pipeline/compilation-runner.ts`), else **`CONTEXT_WINDOW_DEFAULT` (128_000)** in `shared/src/pipeline/budget-allocator.ts`, then returns **headroom** = `max(0, effectiveWindow − RESERVED_RESPONSE_DEFAULT − conversationTokens − TEMPLATE_OVERHEAD_DEFAULT)` with the same reserved/overhead literals as in that module — not a separate `AdaptiveBudgetAllocator` class.
 
-**Session clamp (positive manual base):** When the resolved base is **positive** and `sessionContext.conversationTokens` is defined, `BudgetAllocator.allocate` returns the lesser of that base and the same headroom expression, using `CONTEXT_WINDOW_DEFAULT`, `RESERVED_RESPONSE_DEFAULT`, and `TEMPLATE_OVERHEAD_DEFAULT` in `shared/src/pipeline/budget-allocator.ts`. When session context is omitted and the base is positive, the allocated **total** budget is the base unchanged.
+**Session clamp (positive manual base):** When the resolved base is **positive** and `sessionContext.conversationTokens` is defined **or** either configured or session **`contextWindow`** is present (`hasWindowInfo` in `allocate`), `BudgetAllocator.allocate` returns the lesser of that base and the same headroom expression using **`effectiveWindow`** as above ( **`min(base, headroom)`** can still equal **base** when headroom is not binding). When **`conversationTokens`** is absent from `sessionContext` and **neither** configured nor session window hint is present, the allocated **total** budget is the positive **base** unchanged.
 
-The shipped config schema and `BudgetAllocator` do not apply a per-model-profile or `windowRatio` branch beyond this fixed window math; optional manual caps come only from the rule pack and config keys. Richer formula-derived bases: [Project Plan §2.7](project-plan.md#27-agentic-workflow-support) and [Model-derived budgets (shipped subset and roadmap)](#model-derived-budgets-shipped-subset-and-roadmap).
+The shipped config schema and `BudgetAllocator` do not apply **`windowRatio`** or utilization-based auto-tuning; optional manual caps come only from the rule pack and config keys. Model id feeds an optional **`contextWindow`** on the pipeline request for **`deriveSessionContext`**; richer formula-derived bases: [Project Plan §2.7](project-plan.md#27-agentic-workflow-support) and [Model-derived budgets (shipped subset and roadmap)](#model-derived-budgets-shipped-subset-and-roadmap).
 
 **Downstream code budget:** `runPipelineSteps` subtracts measured pipeline overhead (structural map, session summary, spec ladder slice, constraints, fixed 100-token task header) from this **total** allocation to produce **codeBudget** for Step 4 and the main summarisation ladder.
 
@@ -327,7 +327,7 @@ Full scoring detail with normalisation methods: [Project Plan §8](project-plan.
 
 - `includePatterns` from rule pack (whitelist)
 - `excludePatterns` from rule pack + config (blacklist)
-- `maxFiles` from config (default **0** = auto: `ceil(sqrt(totalFiles))` clamped **[5, 40]**; positive = fixed cap), merged via `maxFilesOverride` on the `RulePack` passed to discovery/selection
+- `maxFiles` from config (default **0** = auto via `resolveAutoMaxFiles`: base from `ceil(sqrt(totalFiles))` in **[5, 40]**, scaled by effective context window ÷ **128_000**, final clamp **[5, 300]**; positive = fixed cap), merged via `maxFilesOverride` on the `RulePack` passed to discovery/selection
 
 **Language awareness:** Import-graph walking and symbol relevance delegate to the registered `LanguageProvider` list. For files with no provider, those signals score `0` and the file relies on the remaining signals. File language detection is extension-based with a filename fallback for extensionless files; see [Project Plan §8 — Language Detection](project-plan.md) for the full mapping table.
 
@@ -529,6 +529,8 @@ All transformer flags default to `true`. Set `contentTransformers.enabled: false
 
 **Output:** `SelectedFile[]` — a new array of new `SelectedFile` objects with updated `tier` fields; the input array from the guard → transformer → ladder chain is never mutated
 
+`aic_compile_spec` does not execute this Step 6 path on repo files. When that tool uses `SummarisationLadder`, it does so only for verbatim spec types on synthetic rows under a capped batch budget — see [§4c — `aic_compile_spec`](#aic_compile_spec-mcp-tool).
+
 ---
 
 ### Language support
@@ -672,21 +674,21 @@ Maximum retries: **1**. No exponential backoff in the shipped implementation (ma
 
 ### Model Context Window Guard
 
-The **total** context budget from Step 3 (`contextBudget.maxTokens`, rule-pack `budgetOverride`, and optional per-task-class overrides) caps tokens before pipeline overhead is subtracted. **Auto mode** (`maxTokens` **0**): Step 3 allocates the full **headroom** below as the total budget. **Manual mode** (positive `maxTokens`): when `SessionBudgetContext.conversationTokens` is present, Step 3 applies the **session clamp** so long conversations leave headroom — `min(positiveBase, headroom)` using the same fixed literals in `shared/src/pipeline/budget-allocator.ts`. **codeBudget** for file selection and the main ladder is **totalBudget − overhead** ([Project Plan §2.7](project-plan.md#27-agentic-workflow-support)).
+The **total** context budget from Step 3 (`contextBudget.maxTokens`, rule-pack `budgetOverride`, and optional per-task-class overrides) caps tokens before pipeline overhead is subtracted. **Auto mode** (`maxTokens` **0**): Step 3 allocates **headroom** from **`effectiveWindow`** (config `contextWindow`, else session **`contextWindow`**, else **128_000** default) minus reserved response, **`conversationTokens`**, and template overhead — see Step 3 bullets above. **Manual mode** (positive `maxTokens`): Step 3 applies **`min(base, headroom)`** when session budget context supplies **`conversationTokens`** and/or a window hint; otherwise the positive **base** is returned unchanged when no window hint exists. **codeBudget** for file selection and the main ladder is **totalBudget − overhead** ([Project Plan §2.7](project-plan.md#27-agentic-workflow-support)).
 
-Illustrative decomposition (numbers match the literals in `budget-allocator.ts`; they are not additional `aic.config.json` fields):
+Illustrative decomposition (literals **`4_000`** / **`500`** / default **`128_000`** match `budget-allocator.ts`; **`effectiveWindow`** may differ when config or session supplies a context window):
 
 ```
-cap used in headroom / clamp (fixed in code)    128,000
+effectiveWindow = configuredWindow ?? sessionContext.contextWindow ?? 128_000
   └─ reserved slice (fixed)                     4,000
   └─ template overhead (fixed)                    500
-  └─ conversation already counted               = conversationTokens (wire or derived)
-  └─ headroom                                   = max(0, 128_000 − 4_000 − 500 − conversationTokens)
+  └─ conversation already counted               = conversationTokens (wire or derived; 0 if omitted)
+  └─ headroom                                   = max(0, effectiveWindow − 4_000 − 500 − conversationTokens)
       ├─ auto (base == 0): totalBudget          = headroom
-      └─ manual (base > 0): totalBudget         = min(base, headroom) when session context set; else base
+      └─ manual (base > 0): totalBudget         = min(base, headroom) when clamp path applies; else base
 ```
 
-Shipped `aic.config.json` validation (`shared/src/config/load-config-from-file.ts`) includes `contextBudget`, `contextSelector`, `model.id`, `enabled`, `guard.allowPatterns`, `devMode`, and `skipCompileGate` — but Step 3 window math does **not** read per-provider window sizes, `model.reservedResponseTokens`, or `windowRatio` from config; those remain roadmap.
+Shipped `aic.config.json` validation (`shared/src/config/load-config-from-file.ts`) includes `contextBudget`, `contextSelector`, `model.id`, `enabled`, `guard.allowPatterns`, `devMode`, and `skipCompileGate` — Step 3 reads optional **`contextWindow`** from config and optional **`contextWindow`** on **`SessionBudgetContext`** from the pipeline request (model id → `resolveModelDerivedContextWindow`); it does **not** read **`windowRatio`** or utilization auto-tuning from config; those remain roadmap.
 
 `BudgetExceededError` exists in `shared/src/core/errors/budget-exceeded-error.ts` but is not thrown from the shipped compilation pipeline (no `new BudgetExceededError` in compilation paths).
 
@@ -837,7 +839,13 @@ Returns structured specification output as MCP `text` JSON (`{ compiledSpec, met
 
 `createCompileSpecHandler` in `mcp/src/handlers/compile-spec-handler.ts` Zod-validates the request (`compileSpecRequestParser` wrapping `CompileSpecRequestSchema`), calls `recordToolInvocation` for `tool_invocation_log`, maps each wire type `path` with `toRelativePath`, builds core `SpecificationInput`, and awaits `deps.specificationCompiler.compile` wired to `SpecificationCompilerImpl` in `mcp/src/server.ts` (`shared/src/pipeline/specification-compiler.ts`). Validation failures return `{ error: "Invalid aic_compile_spec request", code: "validation-error" }` and do not invoke the compiler.
 
-**Pipeline scope:** This tool does not invoke `runPipelineSteps`, `ContentTransformerPipeline`, or `SummarisationLadder`. Tier assignment, import deduplication, demotion toward budget, and optional truncation handling run inside `SpecificationCompilerImpl`; roadmap for main-pipeline parity and a persistent cross-call cache is in [Project Plan §2.7](project-plan.md#27-agentic-workflow-support).
+**Pipeline scope:** `aic_compile_spec` does not invoke `runPipelineSteps`. It does not run the main repo selection path (`HeuristicSelector`, intent-aware discovery, or Step 6 summarisation on repository `SelectedFile` rows from the RepoMap).
+
+For types whose wire `usage` maps to initial tier `verbatim` (`implements`, `calls-methods`, `constructs` in `SPEC_USAGE_TO_INITIAL_TIER`, `shared/src/core/types/specification-compilation.types.ts`), `SpecificationCompilerImpl` runs a verbatim pre-pass before the spec token budget loop.
+
+`splitLeadingImportsAndBody` separates import lines from each body; body strings become synthetic `SelectedFile` rows. `ContentTransformerPipeline.transform` runs with `TransformContext` `{ directTargetPaths: [], rawMode: false }`. `SummarisationLadder.compress` runs on those rows; the batch budget is `computeVerbatimBatchBudget` — the lesser of `floor` of twenty percent of the tool `budget` and the sum of verbatim refs' wire `estimatedTokens` (`shared/src/pipeline/specification-compiler.ts`). Rendered bodies are written back into those types, then `runBudgetLoop` measures the full assembly.
+
+Types that start at `signature-path` or `path-only` skip that pre-pass. Shared-import deduplication across verbatim-tier bodies, tier assignment for every type, iterative demotion toward `budget`, ordered removal of code and prose blocks, and the truncation banner remain inside `SpecificationCompilerImpl`. Demotion priority and tie-breaks are listed under [Project Plan section 2.7 — Agentic workflow support](project-plan.md#27-agentic-workflow-support). Main-pipeline parity on all spec bodies and a persistent cross-call cache for `aic_compile_spec` remain roadmap in the same section.
 
 **`meta` on success:** `totalTokensRaw` is the sum of `estimatedTokens` across `spec.types`, `spec.codeBlocks`, and `spec.prose`. `totalTokensCompiled` is the token count of the final `compiledSpec` string. `reductionPct` and `transformTokensSaved` derive from raw versus compiled counts (`specification-compiler.ts`). `typeTiers` maps sorted composite keys `name + "\u0000" + path` to **final** inclusion tiers after the budget loop (not necessarily the initial tier implied by wire `usage` alone). When every type is `path-only`, all code and prose blocks are removed, and the assembly still exceeds budget, `compiledSpec` appends a fixed truncation banner (`WARN_TRUNCATION` in `specification-compiler.ts`).
 
@@ -853,11 +861,11 @@ Returns structured specification output as MCP `text` JSON (`{ compiledSpec, met
 
 ### Model-derived budgets (shipped subset and roadmap)
 
-> **Shipped today.** Default **`maxTokens` 0** turns on **auto headroom** in `BudgetAllocator` (fixed `128_000` / `4_000` / `500` math — see Step 3). **`runPipelineSteps`** subtracts **overhead** and passes **codeBudget** to selection and the main summarisation ladder; **`maxFiles` 0** enables the dynamic cap (`ceil(sqrt(totalFiles))` in **[5, 40]**). Implemented in `budget-allocator.ts`, `run-pipeline-steps.ts`, `resolved-config.ts`, `load-config-from-file.ts`.
+> **Shipped today.** Default **`maxTokens` 0** turns on **auto headroom** in `BudgetAllocator` using **`effectiveWindow`** (config **`contextWindow`**, else session **`contextWindow`** from **`deriveSessionContext`**, else **`CONTEXT_WINDOW_DEFAULT`**) minus **`RESERVED_RESPONSE_DEFAULT`**, **`conversationTokens`**, and **`TEMPLATE_OVERHEAD_DEFAULT`** — see Step 3 and [Model Context Window Guard](#model-context-window-guard). **`runPipelineSteps`** subtracts **overhead** and passes **codeBudget** to selection and the main summarisation ladder; **`maxFiles` 0** enables `resolveAutoMaxFiles` (base from repo size in **[5, 40]**, scaled by **`SessionBudgetContext.contextWindow` when present else `CONTEXT_WINDOW_DEFAULT`**, ceiling **300**). Implemented in `budget-allocator.ts`, `run-pipeline-steps.ts`, `resolved-config.ts`, `load-config-from-file.ts`.
 
-> **Roadmap:** Per-model formula-derived bases (`maxContextWindow × windowRatio`, floors/ceilings), Ollama `num_ctx` probing, utilization-based **auto-tuning** of caps, and automated `windowRatio` recommendations — described in [Project Plan §2.7](project-plan.md#27-agentic-workflow-support) — are not implemented beyond the fixed headroom auto mode.
+> **Roadmap:** Per-model formula-derived bases (`maxContextWindow × windowRatio`, floors/ceilings), Ollama `num_ctx` probing, utilization-based **auto-tuning** of caps, and automated `windowRatio` recommendations — described in [Project Plan §2.7](project-plan.md#27-agentic-workflow-support) — are not implemented beyond the shipped **`effectiveWindow`** + literals path above.
 
-**Shipped utilization surface:** The `aic_status` tool returns `budgetMaxTokens` and `budgetUtilizationPct` using the configured budget ceiling and the last row in `compilation_log` (see [§4c — `aic_status`](#aic_status-mcp-tool)).
+**Shipped utilization surface:** The `aic_status` tool exposes **`budgetMaxTokens`** from resolved config (when **`maxTokens` is `0`**, a **fixed** ceiling in `mcp/src/diagnostic-payloads.ts` without a **`conversationTokens`** term) and **`budgetUtilizationPct`** from the last **`compilation_log`** row’s **`tokensCompiled`** over that ceiling (see [§4c — `aic_status`](#aic_status-mcp-tool)); that pair is a **diagnostic** surface, not identical to each compile’s **`BudgetAllocator`** total when session clamping or non-default **`effectiveWindow`** applies.
 
 ---
 
@@ -1236,7 +1244,7 @@ const InspectRequestSchema = z.object({
 `shared/src/config/load-config-from-file.ts` validates `aic.config.json` with a **minimal** Zod object (current subset only). All top-level keys are optional; `{}` is valid. The schema currently allows:
 
 - `contextBudget.maxTokens` (optional; omitted → **0** auto headroom), optional `contextBudget.perTaskClass`
-- `contextSelector.heuristic.maxFiles` (optional; omitted → **0** auto cap from project file count)
+- `contextSelector.heuristic.maxFiles` (optional; omitted → **0** auto cap from `resolveAutoMaxFiles`: repo size base plus context-window scaling, ceiling **300**)
 - `model.id` (optional)
 - `enabled` (boolean)
 - `guard.allowPatterns` (array of non-empty strings, max 64 entries)
@@ -1303,7 +1311,7 @@ The following decisions must be resolved in a dedicated v2.0.0 design note befor
 - **Content timing**: Governance adapters running at the `ContextGuard` step receive raw file content before built-in guard scanners have filtered it — by design, since custom scanners need raw content. This means the bridge may carry secrets. The v2.0.0 design must document this explicitly and enforce that `GuardFinding` messages returned from the isolate never echo back file content verbatim.
 - **Serialization cost**: The bridge passes file content via `ExternalCopy`. For large files, serialization and deserialization add measurable latency. The v2.0.0 design must specify a maximum content size per bridge invocation and define behaviour when the limit is exceeded (truncate, skip, or error).
 - **Script provenance**: Governance scripts distributed across an enterprise fleet (as described in the threat model) have no built-in provenance verification. The v2.0.0 design should evaluate whether script signing, hash pinning, or authorship tracking is required to prevent supply-chain substitution of governance scripts.
-- **`isolated-vm` dependency**: This is a native addon with historical sandbox-escape CVEs. It must be pinned to an exact version, covered by `pnpm audit` monitoring, and treated as a security-critical dependency requiring expedited patching.
+- **`isolated-vm` dependency**: This is a native addon with historical sandbox-escape CVEs. It must be pinned to an exact version, covered by lockfile scanning in CI (OSV Scanner on `pnpm-lock.yaml`) and local `pnpm audit` when triaging, and treated as a security-critical dependency requiring expedited patching.
 
 **What sandboxing protects against**
 

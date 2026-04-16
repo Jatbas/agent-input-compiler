@@ -42,7 +42,7 @@ Follow [documentation/installation.md](documentation/installation.md).
 
 ### 3. Dev mode
 
-While working **in this repository**, some editor setups expect `aic_compile` before other tools run. This repository commits **`"devMode": true`** in **`aic.config.json`** so the Cursor gate skips `aic_compile` enforcement while you work on AIC. Other projects can set **`devMode`** in **`aic.config.json`** only if they want the same bypass. See the installation doc for your editor.
+While working **in this repository**, some editor setups expect `aic_compile` before other tools run. This repository commits **`"devMode": true`** in **`aic.config.json`** for documentation and tooling that key off dev mode; the Cursor compile gate still enforces **`aic_compile`** unless **`skipCompileGate`** is also **`true`** in **`aic.config.json`** (emergency bypass). Other projects can set the same pair only when they intentionally need that bypass. See the installation doc for your editor.
 
 To verify CLI diagnostic subcommands against your local build (instead of the published npm package), use `pnpm aic` from the repo root after building:
 
@@ -63,7 +63,7 @@ pnpm test
 pnpm lint
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) runs the same quality job on pull requests and pushes to `main`, plus a lockfile vulnerability scan using `google/osv-scanner-action@v1` on `pnpm-lock.yaml`.
+GitHub Actions (`.github/workflows/ci.yml`) on pull requests and pushes to `main` runs `pnpm install --frozen-lockfile`, a lockfile vulnerability scan with `google/osv-scanner-action@v1` on `pnpm-lock.yaml`, then `pnpm lint`, `pnpm build`, `pnpm typecheck`, and `pnpm test`.
 
 ### 5. Read the relevant docs
 
