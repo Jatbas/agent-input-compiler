@@ -8,12 +8,15 @@ const path = require("path");
 const {
   RECENCY_WINDOW_MS,
   recencyFilePath,
+  lastConversationIdPath,
   turnMarkerPath,
   writeCompileRecency,
   isCompileRecent,
   writeTurnStart,
   writeTurnCompiled,
   isTurnCompiled,
+  writeLastConversationId,
+  readLastConversationId,
 } = require("../compile-recency.cjs");
 
 const ROOT = "/tmp/aic-compile-recency-test";
@@ -155,6 +158,50 @@ function recency_config_override_window() {
   console.log("recency_config_override_window: pass");
 }
 
+function last_ccid_write_and_read() {
+  const root = "/tmp/aic-last-ccid-test-root-1";
+  const fp = lastConversationIdPath(root);
+  try {
+    fs.unlinkSync(fp);
+  } catch {
+    /* ignore */
+  }
+  assert.strictEqual(readLastConversationId(root), null);
+  writeLastConversationId(root, "conv-abc-123");
+  assert.strictEqual(readLastConversationId(root), "conv-abc-123");
+  console.log("last_ccid_write_and_read: pass");
+}
+
+function last_ccid_returns_null_on_missing_file() {
+  const root = "/tmp/aic-last-ccid-test-root-missing-xyz";
+  const fp = lastConversationIdPath(root);
+  try {
+    fs.unlinkSync(fp);
+  } catch {
+    /* ignore */
+  }
+  assert.strictEqual(readLastConversationId(root), null);
+  console.log("last_ccid_returns_null_on_missing_file: pass");
+}
+
+function last_ccid_overwrites_previous_value() {
+  const root = "/tmp/aic-last-ccid-test-root-2";
+  writeLastConversationId(root, "first-id");
+  writeLastConversationId(root, "second-id");
+  assert.strictEqual(readLastConversationId(root), "second-id");
+  console.log("last_ccid_overwrites_previous_value: pass");
+}
+
+function last_ccid_path_is_stable_and_differs_by_root() {
+  const p1 = lastConversationIdPath("/tmp/root-A");
+  const p2 = lastConversationIdPath("/tmp/root-A");
+  const p3 = lastConversationIdPath("/tmp/root-B");
+  assert.strictEqual(p1, p2);
+  assert.notStrictEqual(p1, p3);
+  assert.ok(p1.includes("aic-last-ccid-"));
+  console.log("last_ccid_path_is_stable_and_differs_by_root: pass");
+}
+
 recency_write_and_read();
 recency_expires_by_window();
 recency_config_override_window();
@@ -166,4 +213,8 @@ isTurnCompiled_false_when_no_files();
 isTurnCompiled_false_when_only_start_written();
 isTurnCompiled_true_after_both_written();
 isTurnCompiled_false_when_compiled_before_start();
+last_ccid_write_and_read();
+last_ccid_returns_null_on_missing_file();
+last_ccid_overwrites_previous_value();
+last_ccid_path_is_stable_and_differs_by_root();
 console.log("All compile-recency tests passed.");

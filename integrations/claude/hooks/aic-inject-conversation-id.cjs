@@ -19,6 +19,7 @@ const {
 const { isWeakAicCompileIntent } = require("../../shared/is-weak-aic-compile-intent.cjs");
 const { readAicPrewarmPrompt } = require("../../shared/read-aic-prewarm-prompt.cjs");
 const { isDevModeTrue } = require("../../shared/read-project-dev-mode.cjs");
+const { readLastConversationId } = require("../../shared/compile-recency.cjs");
 
 function run(stdinStr) {
   let parsed;
@@ -53,7 +54,9 @@ function run(stdinStr) {
         : toolInput?.projectRoot,
   });
   const conversationId =
-    conversationIdFromTranscriptPath(parsed) ?? resolveConversationIdFallback(parsed);
+    conversationIdFromTranscriptPath(parsed) ??
+    resolveConversationIdFallback(parsed) ??
+    readLastConversationId(projectRoot);
   const isAicCompile =
     /aic_compile/i.test(toolName) ||
     (toolInput.intent != null && toolInput.projectRoot != null);

@@ -21,6 +21,7 @@ const {
   isCompileRecent,
   writeCompileRecency,
   isTurnCompiled,
+  readLastConversationId,
 } = require("../../shared/compile-recency.cjs");
 const { readAicPrewarmPrompt } = require("../../shared/read-aic-prewarm-prompt.cjs");
 
@@ -87,6 +88,7 @@ function run(stdinStr) {
       (
         conversationIdFromTranscriptPath(parsed) ??
         resolveConversationIdFallback(parsed) ??
+        readLastConversationId(projectRoot) ??
         "unknown"
       )
         .toString()

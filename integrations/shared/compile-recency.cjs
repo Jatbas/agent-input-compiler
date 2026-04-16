@@ -95,13 +95,38 @@ function isTurnCompiled(projectRoot, conversationId) {
   }
 }
 
+function lastConversationIdPath(projectRoot) {
+  const hash = crypto.createHash("md5").update(projectRoot).digest("hex").slice(0, 12);
+  return path.join(os.tmpdir(), `aic-last-ccid-${hash}`);
+}
+
+function writeLastConversationId(projectRoot, conversationId) {
+  try {
+    fs.writeFileSync(lastConversationIdPath(projectRoot), String(conversationId));
+  } catch {
+    // Non-fatal
+  }
+}
+
+function readLastConversationId(projectRoot) {
+  try {
+    const val = fs.readFileSync(lastConversationIdPath(projectRoot), "utf8").trim();
+    return val.length > 0 ? val : null;
+  } catch {
+    return null;
+  }
+}
+
 module.exports = {
   RECENCY_WINDOW_MS,
   recencyFilePath,
+  lastConversationIdPath,
   turnMarkerPath,
   writeCompileRecency,
   isCompileRecent,
   writeTurnStart,
   writeTurnCompiled,
   isTurnCompiled,
+  writeLastConversationId,
+  readLastConversationId,
 };

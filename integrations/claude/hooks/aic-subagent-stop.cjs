@@ -15,6 +15,7 @@ const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 const {
   isCursorNativeHookPayload,
 } = require("../../cursor/is-cursor-native-hook-payload.cjs");
+const { readLastConversationId } = require("../../shared/compile-recency.cjs");
 
 function run(stdinStr) {
   let parsed;
@@ -29,7 +30,9 @@ function run(stdinStr) {
 
   const projectRoot = resolveProjectRoot(parsed);
   const parentConversationId =
-    conversationIdFromTranscriptPath(parsed) ?? resolveConversationIdFallback(parsed);
+    conversationIdFromTranscriptPath(parsed) ??
+    resolveConversationIdFallback(parsed) ??
+    readLastConversationId(projectRoot);
   const childConversationId = conversationIdFromAgentTranscriptPath(
     parsed.agent_transcript_path ?? parsed.input?.agent_transcript_path ?? null,
   );

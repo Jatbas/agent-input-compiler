@@ -23,6 +23,7 @@ const {
   writeCompileRecency,
   writeTurnStart,
   writeTurnCompiled,
+  writeLastConversationId,
 } = require("../../shared/compile-recency.cjs");
 const { touchEditorRuntimeMarker } = require("../../shared/editor-runtime-marker.cjs");
 
@@ -71,6 +72,7 @@ async function run(stdinStr) {
       /* non-fatal */
     }
     writeTurnStart(projectRoot, ccId);
+    writeLastConversationId(projectRoot, ccId);
     touchEditorRuntimeMarker(projectRoot, "claude-code", ccId);
   }
   const rawModel =
@@ -78,7 +80,8 @@ async function run(stdinStr) {
   // Claude Code hook envelope omits model; ANTHROPIC_MODEL env var reflects the active model for this turn.
   // Transcript tail-read lags one turn behind — only use as last resort.
   const transcriptPath = parsed.transcript_path ?? parsed.input?.transcript_path ?? null;
-  const effectiveRawModel = rawModel ?? process.env["ANTHROPIC_MODEL"] ?? readModelFromTranscript(transcriptPath);
+  const effectiveRawModel =
+    rawModel ?? process.env["ANTHROPIC_MODEL"] ?? readModelFromTranscript(transcriptPath);
   const modelArg =
     typeof effectiveRawModel === "string" &&
     effectiveRawModel.trim().length >= 1 &&

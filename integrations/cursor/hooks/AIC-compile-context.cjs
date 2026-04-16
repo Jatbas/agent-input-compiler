@@ -23,7 +23,10 @@ const {
   conversationIdFromTranscriptPath,
   resolveConversationIdFallback,
 } = require("../../shared/conversation-id.cjs");
-const { writeCompileRecency } = require("../../shared/compile-recency.cjs");
+const {
+  writeCompileRecency,
+  writeLastConversationId,
+} = require("../../shared/compile-recency.cjs");
 
 const projectRoot = resolveProjectRoot(null, { env: process.env });
 const INTENT = "understand project structure, architecture, and recent changes";
@@ -42,6 +45,9 @@ if (!isCursorNativeHookPayload(hookInput)) {
 
 const conversationId =
   conversationIdFromTranscriptPath(hookInput) ?? resolveConversationIdFallback(hookInput);
+if (conversationId != null && conversationId.trim().length > 0) {
+  writeLastConversationId(projectRoot, conversationId.trim());
+}
 
 let modelId = null;
 if (typeof hookInput.model === "string") {

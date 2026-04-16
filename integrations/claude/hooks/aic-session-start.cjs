@@ -24,6 +24,7 @@ const {
 } = require("../../shared/read-model-from-transcript.cjs");
 const { callAicCompile } = require("./aic-compile-helper.cjs");
 const { touchEditorRuntimeMarker } = require("../../shared/editor-runtime-marker.cjs");
+const { writeLastConversationId } = require("../../shared/compile-recency.cjs");
 
 async function run(stdinStr) {
   let parsed;
@@ -40,14 +41,17 @@ async function run(stdinStr) {
     conversationIdFromTranscriptPath(parsed) ?? resolveConversationIdFallback(parsed);
   const projectRoot = resolveProjectRoot(parsed);
   if (conversationId != null && String(conversationId).trim() !== "") {
-    touchEditorRuntimeMarker(projectRoot, "claude-code", String(conversationId).trim());
+    const trimmedId = String(conversationId).trim();
+    writeLastConversationId(projectRoot, trimmedId);
+    touchEditorRuntimeMarker(projectRoot, "claude-code", trimmedId);
   }
 
   const rawModel = parsed.model ?? parsed.input?.model ?? null;
   // Claude Code hook envelope omits model; ANTHROPIC_MODEL env var reflects the active model for this turn.
   // Transcript tail-read lags one turn behind — only use as last resort.
   const transcriptPath = parsed.transcript_path ?? parsed.input?.transcript_path ?? null;
-  const effectiveRawModel = rawModel ?? process.env["ANTHROPIC_MODEL"] ?? readModelFromTranscript(transcriptPath);
+  const effectiveRawModel =
+    rawModel ?? process.env["ANTHROPIC_MODEL"] ?? readModelFromTranscript(transcriptPath);
   const modelArg =
     typeof effectiveRawModel === "string" &&
     effectiveRawModel.trim().length >= 1 &&
