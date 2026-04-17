@@ -52,7 +52,7 @@
 
 > **ToC scope:** Numbered sections (`## 1`–`## 9`) and lettered blocks (`## 4b`–`## 4d`, `## 8a`–`## 8e`) match the list above.
 >
-> Pipeline stages under §4 are additional `###` headings; only their titles appear in the ToC. Deeper `###` blocks (e.g. §4c tool docs, §8a tests, §8c schemas) are omitted — use the editor outline or in-page search.
+> Pipeline stages under §4 are additional `###` headings; only their titles appear in the ToC. Deeper `###` blocks (§4c tool documentation, §8a tests, §8c schemas) are omitted — use the editor outline or in-page search.
 
 ---
 
@@ -60,7 +60,7 @@
 
 Deliver a working **MCP (Model Context Protocol) server** that compiles optimal context for AI coding tools — with zero required configuration.
 
-**Success looks like:** A developer registers the server (for example `npx -y @jatbas/aic@latest` in the editor's MCP config) and opens a project. Responses gain focused, bounded context, better file selection, and deterministic, reproducible compilation.
+**Success looks like:** A developer registers the server (`npx -y @jatbas/aic@latest` in the editor's MCP config) and opens a project. Responses gain focused, bounded context, better file selection, and deterministic, reproducible compilation.
 
 **Bootstrap** is split by code path ([§4c — Bootstrap](#bootstrap-project-setup)). When the MCP client lists workspace roots, `mcp/src/server.ts` runs `installTriggerRule` and `runEditorBootstrapIfNeeded` per root (trigger rule plus hook installers where applicable). **`aic.config.json`, `.aic/` with `0700`, and ignore-manifest lines** are created by `ensureProjectInit` in `mcp/src/init-project.ts` on the **first** `aic_compile` for a project that still has no config (`mcp/src/handlers/compile-handler.ts`).
 
@@ -233,7 +233,7 @@ Merged rule-pack constraints are emitted during assembly (PromptAssembler / Step
 
 **Implementation:** `IntentClassifier` in `shared/src/pipeline/intent-classifier.ts` (this section uses the product name “task class” for the enum `TaskClass`).
 
-**Input:** Raw intent string (e.g., `"refactor auth module to use JWT"`)
+**Input:** Raw intent string — sample: `"refactor auth module to use JWT"`
 
 **Method:** Heuristic keyword/pattern matching against a built-in dictionary:
 
@@ -262,7 +262,7 @@ Merged rule-pack constraints are emitted during assembly (PromptAssembler / Step
 **Method:**
 
 1. Load `built-in:default` (always included)
-2. Load task-class-specific built-in pack (e.g., `built-in:refactor`)
+2. Load task-class-specific built-in pack (`built-in:<taskClass>` from the classifier result)
 3. Load advanced project-level packs from `./aic-rules/` matching task class (if present)
 4. Merge in priority order: project > task-specific > default (later overrides earlier)
 
@@ -353,7 +353,7 @@ The trace is stored as JSON on `compilation_log.selection_trace_json` (`shared/s
 
 **Purpose:** Scans every selected file before it reaches the Summarisation Ladder. Excludes secrets, excluded paths, and prompt injection patterns from the compiled context.
 
-> **Scope:** Context Guard controls what AIC includes in the compiled prompt. It does not prevent models from reading excluded files directly through editor-provided tools (`read_file`, `Shell`). Direct file access is governed by the editor's permission model (e.g. `.cursorignore`).
+> **Scope:** Context Guard controls what AIC includes in the compiled prompt. It does not prevent models from reading excluded files directly through editor-provided tools (`read_file`, `Shell`). Direct file access is governed by the editor's permission model (`.cursorignore` and related ignore rules).
 
 **Checks run in order (shipped):**
 
@@ -378,12 +378,12 @@ Wiring order for content scanners: `create-pipeline-deps.ts` builds the `content
 
 - Excluded files are removed from the file list before it is passed to the Summarisation Ladder
 - The pipeline never fails due to Guard findings — it filters and continues
-- `GuardResult` is attached to `CompilationMeta.guard`. `aic_compile` returns a **sanitised** `meta.guard` for model consumption (duplicate findings by `(type, pattern)` merged; at most twenty findings). **`aic_inspect`** returns a full pipeline `trace` including guard details. **`aic_last`** does not repeat guard findings; it exposes a compact `lastCompilation` snapshot plus optional **`selection`** (selection trace — [Selection trace (persistence and tools)](#selection-trace-persistence-and-tools)).
+- `GuardResult` is attached to `CompilationMeta.guard`. `aic_compile` returns a **sanitised** `meta.guard` for model consumption (duplicate findings by `(type, pattern)` merged; at most twenty findings). **`aic_inspect`** returns a full pipeline `trace` including guard details. **`aic_last`** JSON plus the human-facing **last** table expose **aggregate** per-run guard counts (`guardFindingCount` / `guardBlockCount` from `telemetry_events`, surfaced as **Guard (this run)** when present) and optional **`selection`**; they do **not** repeat individual guard findings (those remain in `meta.guard` / `aic_inspect` — [Selection trace (persistence and tools)](#selection-trace-persistence-and-tools)).
 - If all selected files are excluded, the pipeline returns an empty context with a `guard.passed: false` indicator
 
 **Guard allow patterns (shipped):**
 
-`guard.allowPatterns` in `aic.config.json` is a list of repo-relative glob patterns (each pattern 1–512 characters, max 64 patterns; validated in `load-config-from-file.ts`). Matching is done via the same logic as `matchesGlob` (see `shared/src/pipeline/glob-match.ts`). Files whose path matches any allow pattern skip content scanners (Secret, PromptInjection, MarkdownInstruction, CommandInjection); **never-include path patterns** (`.env`, `*.pem`, etc.) run first and always block regardless of allow list. Default is `[]`.
+`guard.allowPatterns` in `aic.config.json` is a list of repo-relative glob patterns (each pattern 1–512 characters, max 64 patterns; validated in `load-config-from-file.ts`). Matching is done via the same logic as `matchesGlob` (see `shared/src/pipeline/glob-match.ts`). Files whose path matches any allow pattern skip content scanners (Secret, PromptInjection, MarkdownInstruction, CommandInjection); **never-include path patterns** (`.env`, `*.pem`, `*.key`, and the other built-in never-include globs) run first and always block regardless of allow list. Default is `[]`.
 
 ```json
 {
@@ -631,7 +631,7 @@ Type: {taskClass} (confidence: {confidence})
 {when constraints non-empty — every constraint as a bullet, in order}
 ```
 
-AIC does **not** append a machine-owned “output format” appendix (unified diff, JSON-only reply, etc.). Editors, skills, and rule-pack constraints own how the user asks the model to respond.
+AIC does **not** append a machine-owned “output format” appendix (unified diff, JSON-only reply, and similar directive blocks). Editors, skills, and rule-pack constraints own how the user asks the model to respond.
 
 **Output:** The compiled input (a single string, the final prompt)
 
@@ -643,11 +643,11 @@ This section describes a future direct-execution path that is not part of the cu
 
 **Supported providers (shipped):**
 
-| Provider  | API key required          | Notes                                                                                                                       |
-| --------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| OpenAI    | Yes — `OPENAI_API_KEY`    | GPT-4o, GPT-o3, and other OpenAI models                                                                                     |
-| Anthropic | Yes — `ANTHROPIC_API_KEY` | Claude Sonnet, Claude Opus, and other Anthropic models                                                                      |
-| Ollama    | **No**                    | Free, runs locally; install Ollama and pull a model (e.g. `ollama pull llama3`). Default endpoint: `http://localhost:11434` |
+| Provider  | API key required          | Notes                                                                                                                                            |
+| --------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| OpenAI    | Yes — `OPENAI_API_KEY`    | GPT-4o, GPT-o3, and other OpenAI models                                                                                                          |
+| Anthropic | Yes — `ANTHROPIC_API_KEY` | Claude Sonnet, Claude Opus, and other Anthropic models                                                                                           |
+| Ollama    | **No**                    | Free, runs locally; install Ollama and pull a model (`ollama pull llama3` is one valid pull command). Default endpoint: `http://localhost:11434` |
 
 `aic_compile` requires no provider at all — it outputs a plain-text compiled prompt.
 
@@ -663,12 +663,12 @@ This section describes a future direct-execution path that is not part of the cu
 | HTTP 429 (rate limit)   | Yes       | Wait for `Retry-After` header value (or 5s default), then retry once |
 | HTTP 500, 502, 503, 504 | Yes       | Wait 2s, then retry once                                             |
 | Request timeout         | Yes       | Wait 2s, then retry once with same timeout                           |
-| HTTP 400 (bad request)  | No        | Fail immediately — likely a prompt or config issue                   |
+| HTTP 400 (bad request)  | No        | Fail immediately — often a prompt or config issue                    |
 | HTTP 401 / 403 (auth)   | No        | Fail immediately — check API key                                     |
 | HTTP 404 (not found)    | No        | Fail immediately — check model name and endpoint                     |
 | All other 4xx           | No        | Fail immediately                                                     |
 
-Maximum retries: **1**. No exponential backoff in the shipped implementation (may be extended in a later release if needed). Retry attempt is logged at `info` level; final failure at `error` level.
+Maximum retries: **1**. No exponential backoff in the shipped implementation. A later release may add backoff. Retry attempt is logged at `info` level; final failure at `error` level.
 
 ---
 
@@ -773,9 +773,9 @@ Full spec: [Project Plan §2.4](project-plan.md).
 
 ### Bootstrap (project setup)
 
-**MCP server — workspace roots:** When the client advertises roots support and lists workspace roots (e.g. Cursor on connect), `mcp/src/server.ts` calls `installTriggerRule` and `runEditorBootstrapIfNeeded` for each returned root. That path does **not** invoke `ensureProjectInit`, so it does not create `aic.config.json` or run the full `.aic/` + ignore-file scaffold by itself.
+**MCP server — workspace roots:** When the client advertises roots support and lists workspace roots (Cursor on workspace connect), `mcp/src/server.ts` calls `installTriggerRule` and `runEditorBootstrapIfNeeded` for each returned root. That path does **not** invoke `ensureProjectInit`, so it does not create `aic.config.json` or run the full `.aic/` + ignore-file scaffold by itself.
 
-**MCP server — first `aic_compile`:** On the first compile for a normalised project key, `mcp/src/handlers/compile-handler.ts` calls `ensureProjectInit` when `aic.config.json` is absent (`mcp/src/init-project.ts`): writes default `aic.config.json`, creates `.aic/` with mode `0700` via `ensureAicDir`, appends missing lines from `shared/src/storage/aic-ignore-entries.json` to `.gitignore`, `.eslintignore`, and `.prettierignore` (creates each file if needed), and calls `ensurePrettierignore` / `ensureEslintignore`. The same first-run block also calls `installTriggerRule` and `runEditorBootstrapIfNeeded`.
+**MCP server — first `aic_compile`:** On the first compile for a normalised project key, `mcp/src/handlers/compile-handler.ts` calls `ensureProjectInit` when `aic.config.json` is absent (`mcp/src/init-project.ts`): writes default `aic.config.json`, creates `.aic/` with mode `0700` via `ensureAicDir`, appends missing lines from `shared/src/storage/aic-ignore-entries.json` to `.gitignore`, `.eslintignore`, and `.prettierignore` (creates each file when it is absent), and calls `ensurePrettierignore` / `ensureEslintignore`. The same first-run block also calls `installTriggerRule` and `runEditorBootstrapIfNeeded`.
 
 Editor hook installation (`runEditorBootstrapIfNeeded` in `mcp/src/editor-integration-dispatch.ts`) uses **auto** heuristics (`.cursor` / `CURSOR_PROJECT_DIR` for Cursor; `.claude` / `CLAUDE_PROJECT_DIR` for Claude Code) unless overridden. Override with `--aic-bootstrap-integration=<mode>` on the MCP process or `AIC_BOOTSTRAP_INTEGRATION` in the environment; the CLI flag wins over the env var, and both win over auto detection. Modes: `auto`, `none` (skip installers), `cursor`, `claude-code`, `cursor-claude-code` (run each installer when its script resolves, without requiring the corresponding detection gates).
 
@@ -816,7 +816,7 @@ Returns project-level summary as JSON. Surfaced to the user via the "show aic st
 
 **Fields returned:** `compilationsTotal`, `compilationsToday`, `cacheHitRatePct`, `avgReductionPct`, `totalTokensRaw`, `totalTokensCompiled`, `totalTokensSaved`, `budgetMaxTokens`, `budgetUtilizationPct`, `telemetryDisabled`, `guardByType`, `topTaskClasses`, `lastCompilation`, `installationOk`, `installationNotes`, `timeRangeDays` (always present: `null` when no rolling window is requested; otherwise an integer from 1 through `STATUS_TIME_RANGE_DAYS_MAX`, currently 3660). When `timeRangeDays` is set, aggregates include only `compilation_log` rows with `created_at >=` the lower bound computed as `Clock.addMinutes(-timeRangeDays * 24 * 60)` from the injected clock at request time (inclusive lower bound in SQL).
 
-The human-facing status table (CLI and "show aic status" prompt command) does not show **Project**; **Notes** appears only when `installationOk` is false and `installationNotes` is non-empty; when a window is active the table includes a **Time range** row (`Last 1 day` or `Last N days`).
+The human-facing status table (CLI and "show aic status" prompt command) does not show **Project**; when `avgReductionPct` and last-run file counts are available it opens with a **single narrative line** (repo-wide exclusion framing plus last run `filesSelected` / `filesTotal`); **Notes** appears only when `installationOk` is false and `installationNotes` is non-empty; when a window is active the table includes a **Time range** row (`Last 1 day` or `Last N days`). **Tokens: raw → compiled** uses compact billions/millions notation with a **ratio** when `compiled > 0`; the **Guard scans (lifetime)** row replaces the older “findings” wording for the same `guardByType` aggregate; **Budget utilization (last run)** labels the per-last-row percentage (same source as `budgetUtilizationPct` in JSON — see `formatStatusTable` / `buildStatusPayload` in `mcp/src/format-diagnostic-output.ts` and `mcp/src/diagnostic-payloads.ts`).
 
 **Data source:** Reads from `compilation_log`, `cache_metadata`, `guard_findings`, and `telemetry_events` tables in `aic.sqlite` (see [Project Plan §20](project-plan.md) for the full table definitions). Does not run a compilation.
 
@@ -824,14 +824,14 @@ The human-facing status table (CLI and "show aic status" prompt command) does no
 
 Returns the most recent compilation as JSON. Surfaced to the user via the "show aic last" prompt command. Payload from `buildLastPayload` in `mcp/src/diagnostic-payloads.ts`.
 
-| Field              | Meaning                                                                                                                                                                                                                          |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `compilationCount` | Total compilations for the scoped project (same basis as status store summary).                                                                                                                                                  |
-| `lastCompilation`  | Snapshot of the latest row: `intent`, `filesSelected`, `filesTotal`, `tokensCompiled`, `tokenReductionPct`, `created_at`, `editorId`, `modelId` (`snapshotToConversationLast`). This is **not** a full `CompilationMeta` object. |
-| `promptSummary`    | `tokenCount` from the last row’s `tokensCompiled`; `guardPassed` is **`null`** in the shipped code (reserved for future use).                                                                                                    |
-| `selection`        | Parsed `SelectionTrace` from `compilation_log.selection_trace_json`, or **`null`** when the column is null, JSON is invalid, or `SelectionTraceSchema` rejects the payload (first parse failure logs once to stderr).            |
+| Field              | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `compilationCount` | Total compilations for the scoped project (same basis as status store summary).                                                                                                                                                                                                                                                                                                                                         |
+| `lastCompilation`  | Snapshot of the latest row: `intent`, `filesSelected`, `filesTotal`, `tokensCompiled`, `tokenReductionPct`, `created_at`, `editorId`, `modelId` (`snapshotToConversationLast`), plus `cacheHit` (boolean from `compilation_log.cache_hit`), `guardFindingCount`, and `guardBlockCount` (from joined `telemetry_events` when present — nullable when no telemetry row). This is **not** a full `CompilationMeta` object. |
+| `promptSummary`    | `tokenCount` from the last row’s `tokensCompiled`; `guardPassed` is **`null`** in the shipped code (reserved for future use).                                                                                                                                                                                                                                                                                           |
+| `selection`        | Parsed `SelectionTrace` from `compilation_log.selection_trace_json`, or **`null`** when the column is null, JSON is invalid, or `SelectionTraceSchema` rejects the payload (first parse failure logs once to stderr).                                                                                                                                                                                                   |
 
-The diagnostic CLI `last` subcommand prints a formatted table; it does not currently render `selection` columns — use MCP JSON when you need the trace.
+The diagnostic CLI `last` subcommand prints the same formatted table as the prompt command, including **Cache**, optional **Guard (this run)** when telemetry counts exist, and **Top files** / **Excluded by** digest rows when parsed **`selection`** is non-null (`formatLastTable` in `mcp/src/format-diagnostic-output.ts`). Use MCP JSON for the full **`selection`** object (per-file signals, full excluded list) and for fields omitted from the human table.
 
 ### `aic_compile_spec` (MCP tool)
 
@@ -871,7 +871,7 @@ Types that start at `signature-path` or `path-only` skip that pre-pass. Shared-i
 
 ### Trigger Rule Robustness
 
-The trigger rule installed during bootstrap (e.g. `.cursor/rules/AIC.mdc`) instructs the editor's AI to call `aic_compile`. The trigger rule is suggestive — compliance depends on the model and editor. In Cursor, the integration layer (hooks) provides stronger enforcement via `preToolUse` gating unless the emergency bypass is active (`devMode` and `skipCompileGate` both true in `aic.config.json` — [Cursor integration layer](technical/cursor-integration-layer.md) §7.3). In editors without hook support, the trigger rule is the sole mechanism.
+The trigger rule installed during bootstrap (`.cursor/rules/AIC.mdc` on Cursor) instructs the editor's AI to call `aic_compile`. The trigger rule is suggestive — compliance varies with the model and editor. In Cursor, the integration layer (hooks) provides stronger enforcement via `preToolUse` gating unless the emergency bypass is active (`devMode` and `skipCompileGate` both true in `aic.config.json` — [Cursor integration layer](technical/cursor-integration-layer.md) §7.3). In editors without hook support, the trigger rule is the sole mechanism.
 
 **Per-editor trigger formats (shipped):**
 
@@ -961,13 +961,13 @@ sqlite3 ~/.aic/aic.sqlite "SELECT created_at, status, payload_json FROM anonymou
 
 Each canonical task runs against a synthetic fixture repository stored at `test/benchmarks/repos/<task-number>/`. Currently only repo `1/` exists; additional repos are added as the benchmark suite expands. Fixtures are version-controlled, deterministic snapshots — not live open-source repos — to ensure reproducibility.
 
-| Property              | Specification                                                                                                                                                                                                              |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Source**            | Hand-crafted minimal repos that exhibit the file structures, import graphs, and language mixes each task requires (e.g., task #7 has a Django-style Python project with `models.py`, `views.py`, `urls.py`, `settings.py`) |
-| **Size**              | Each repo contains 50–200 files to stay well within the <2s compilation target while exercising the full pipeline                                                                                                          |
-| **Language fidelity** | Files contain syntactically valid code with realistic import/export structures so `LanguageProvider` import-graph walking and signature extraction produce meaningful results                                              |
-| **Determinism**       | No external dependencies, no network calls, no timestamps. `git log --format="%at"` mtime values are set to fixed dates in the fixture                                                                                     |
-| **Maintenance**       | Fixture repos are committed to the AIC repository under `test/benchmarks/repos/` and updated only when a task definition changes. Changes require a justification comment in the PR                                        |
+| Property              | Specification                                                                                                                                                                                                         |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Source**            | Hand-crafted minimal repos that exhibit the file structures, import graphs, and language mixes each task requires (task #7 uses a Django-style Python project with `models.py`, `views.py`, `urls.py`, `settings.py`) |
+| **Size**              | Each repo contains 50–200 files to stay well within the <2s compilation target while exercising the full pipeline                                                                                                     |
+| **Language fidelity** | Files contain syntactically valid code with realistic import/export structures so `LanguageProvider` import-graph walking and signature extraction produce meaningful results                                         |
+| **Determinism**       | No external dependencies, no network calls, no timestamps. `git log --format="%at"` mtime values are set to fixed dates in the fixture                                                                                |
+| **Maintenance**       | Fixture repos are committed to the AIC repository under `test/benchmarks/repos/` and updated only when a task definition changes. Changes require a justification comment in the PR                                   |
 
 **Baseline establishment:**
 
@@ -1051,7 +1051,7 @@ Full detail: [Project Plan §17](project-plan.md).
 - **`@jatbas/aic` (published MCP entrypoint):** `@modelcontextprotocol/sdk`, `zod`, workspace `@jatbas/aic-core` — see `mcp/package.json`.
 - **`@jatbas/aic-core`:** `typescript`, `tiktoken`, `better-sqlite3`, `fast-glob`, `ignore`, `diff`, `commander`, `zod`, `web-tree-sitter`, and pinned `tree-sitter-*` grammars — see `shared/package.json`.
 - **Dev:** `vitest`, `tsx`, `eslint`, `prettier` (tooling versions per repo manifests).
-- No framework-level HTTP server (Express, Fastify, etc.) in the MCP surface — STDIO MCP plus optional registry version check as documented in §8b.
+- No framework-level HTTP server (Express, Fastify) in the MCP surface — STDIO MCP plus optional registry version check as documented in §8b.
 
 ---
 
@@ -1122,7 +1122,7 @@ Same pass criteria as [§5 — Benchmark Suite](#benchmark-suite) (10 canonical 
 
 ## 8b. MCP Server Startup Sequence
 
-When the server process starts (via `npx @jatbas/aic@latest`, `pnpm aic`, or equivalent), it first checks whether a CLI subcommand was requested. If so, it runs the CLI handler and exits. Otherwise, it executes the following MCP server startup steps in order before accepting requests:
+When the server process starts (via `npx @jatbas/aic@latest`, `pnpm aic`, or another supported launcher), it first checks whether a CLI subcommand was requested. If so, it runs the CLI handler and exits. Otherwise, it executes the following MCP server startup steps in order before accepting requests:
 
 ```
 0. CLI dispatch (isEntry check)
@@ -1223,7 +1223,7 @@ Validates `aic_compile` MCP tool arguments (see `mcp/src/schemas/compilation-req
 // (see `mcp/src/schemas/compilation-request.ts` for exact Zod shapes and bounds)
 ```
 
-Agentic field definitions and behaviour notes live in [Project Plan §2.7](project-plan.md). `sessionId` on `CompilationRequest` is not part of the MCP tool argument schema; the server supplies it when the MCP session context applies.
+Agentic field definitions and behaviour notes live in [Project Plan §2.7](project-plan.md#27-agentic-workflow-support). `sessionId` on `CompilationRequest` is not part of the MCP tool argument schema; the server supplies it when the MCP session context applies.
 
 On validation failure, the MCP handler returns error code `-32602` (Invalid params) with a sanitised message listing the failing field paths.
 
@@ -1251,7 +1251,7 @@ const InspectRequestSchema = z.object({
 - `devMode` (boolean) — enables development CLI routing (`pnpm aic` instead of `npx @jatbas/aic`); omitted defaults to `false` at resolve time
 - `skipCompileGate` (boolean) — emergency bypass for the Cursor `preToolUse` compile gate and the Claude Code compile helper; only effective when `devMode` is also `true`. Omitted defaults to `false`
 
-Additional fields described in the Project Plan (telemetry, cache TTL, `rulePacks`, etc.) may be accepted or stripped depending on loader evolution — unknown top-level keys (including `output`) are not preserved by the shipped Zod schema — see `load-config-from-file.ts` for the authoritative shape. On JSON parse failure, AIC throws `ConfigError` with a sanitised message.
+Additional fields described in the Project Plan (`telemetry`, cache TTL, `rulePacks`, and other keys documented there) may be accepted or stripped across loader versions. Unknown top-level keys, including `output`, are not preserved by the shipped Zod schema — see `load-config-from-file.ts` for the authoritative shape. On JSON parse failure, AIC throws `ConfigError` with a sanitised message.
 
 ### Rule pack validation
 
@@ -1269,7 +1269,7 @@ Zod is imported at the MCP boundary (`mcp/src/`) and in `shared/src/config/load-
 
 ## 8d. Global database & per-project isolation
 
-**Shipped behaviour:** A single MCP server process (e.g. registered in `~/.cursor/mcp.json`) opens a global database at `~/.aic/aic.sqlite`. Each `aic_compile` call passes `projectRoot`; `ScopeRegistry` lazily creates a `ProjectScope` per normalised root. Per-project data is isolated with `project_id`; per-project files (`aic.config.json`, `.cursor/rules/AIC.mdc`, `.cursor/hooks/`, `.aic/project-id`, cache files) remain in the project tree.
+**Shipped behaviour:** A single MCP server process (registered in `~/.cursor/mcp.json` in a typical Cursor setup) opens a global database at `~/.aic/aic.sqlite`. Each `aic_compile` call passes `projectRoot`; `ScopeRegistry` lazily creates a `ProjectScope` per normalised root. Per-project data is isolated with `project_id`; per-project files (`aic.config.json`, `.cursor/rules/AIC.mdc`, `.cursor/hooks/`, `.aic/project-id`, cache files) remain in the project tree.
 
 **Path normalisation:** `ProjectRootNormaliser` (`shared/src/core/interfaces/project-root-normaliser.interface.ts`); implementation **NodePathAdapter** (`shared/src/adapters/node-path-adapter.ts`). Compare and store roots only through the normaliser: absolute path, strip trailing separator (except root), Windows drive-letter normalisation, no symlink resolution.
 
@@ -1289,11 +1289,11 @@ To support advanced governance adapters and dynamic rule packs without compromis
 
 **Threat model**
 
-The primary adversary is a governance script authored by one team member and distributed across an enterprise fleet — potentially misconfigured or malicious — that reads sensitive repository content passed to it and exfiltrates it to an internal or external service. The sandbox significantly reduces this attack surface by restricting filesystem access, environment variables, and native Node.js modules. It does not eliminate all exfiltration risk: a script receives whatever data the bridge passes to it, and can encode that data in its return value or exploit bridge callbacks. Output validation and bridge API design are the mitigating controls for residual risk.
+The primary adversary is a governance script authored by one team member and distributed across an enterprise fleet — misconfigured or malicious — that reads sensitive repository content passed to it and exfiltrates it to an internal or external service. The sandbox significantly reduces this attack surface by restricting filesystem access, environment variables, and native Node.js modules. It does not eliminate all exfiltration risk: a script receives whatever data the bridge passes to it, and can encode that data in its return value or exploit bridge callbacks. Output validation and bridge API design are the mitigating controls for residual risk.
 
 **Why Sandboxing?**
 
-Enterprise teams need to write custom JavaScript to evaluate project state or enforce complex context inclusion policies (e.g., querying an internal microservice registry to penalize deprecated APIs in the `HeuristicSelector`). Executing third-party or team-provided JS within the main Node.js process is a massive security risk.
+Enterprise teams need to write custom JavaScript to evaluate project state or enforce complex context inclusion policies: querying an internal microservice registry to penalize deprecated APIs in the `HeuristicSelector` is one illustration. Executing third-party or team-provided JS within the main Node.js process is a massive security risk.
 
 **Why not a declarative DSL first?**
 

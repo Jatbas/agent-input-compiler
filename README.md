@@ -57,15 +57,18 @@ The examples below mirror the **fixed-width layout** printed by the diagnostic C
 
 ```text
 Status = project-level AIC status.
+
+AIC kept 99.6% of repo tokens out of the model window. Last run: 10 / 519 files forwarded.
+
 Compilations (total)          6,192
 Compilations (today)          119
-Tokens: raw → compiled        4,419,588,970 → 16,433,450
+Tokens: raw → compiled        4.42B → 16.43M (269:1 ratio)
 Tokens excluded               4,403,155,520
 Budget limit                  123,500
-Budget utilization            0.5%
+Budget utilization (last run)  0.5%
 Cache hit rate                35.7%
 Avg exclusion rate            99.6%
-Guard findings                command-injection: 581,444, excluded-file: 59, prompt-injection: 157, secret: 12
+Guard scans (lifetime)        command-injection: 581,444, excluded-file: 59, prompt-injection: 157, secret: 12
 Top task classes              general (3,690), docs (776), bugfix (706)
 Last compilation              fix HeuristicSelector scoring · 10 / 519 files · 70,384 tokens · 39 sec ago
 Installation                  OK
@@ -79,6 +82,7 @@ Budget utilization: % of token budget filled.
 
 ```text
 Last = most recent compilation.
+
 Compilations            6,158
 Intent                  task 284 auto-adaptive budget documentation
 Files                   10 selected / 519 total
@@ -87,16 +91,15 @@ Budget utilization      57.0%
 Exclusion rate          89.6%
 Compiled                39 sec ago
 Editor                  cursor
-Guard                   —
+Cache                   hit
+Guard (this run)        passed
+Top files               mcp/src/server.ts (0.91), shared/src/pipeline/run-pipeline-steps.ts (0.87), mcp/src/format-diagnostic-output.ts (0.85)
+Excluded by             exclude_pattern_match (501), max_files (12)
 Compiled prompt         Available (70,384 tokens) — .aic/last-compiled-prompt.txt (project root)
 
 Exclusion rate: % of total repo tokens not included in the compiled prompt.
 Budget utilization: % of token budget filled.
 ```
-
-**Selection detail:** Natural-language phrases like `show aic last` ask the agent to print the same **summary** the **`aic_last` MCP tool** exposes as JSON. That JSON may include top-level **`selection`**: a persisted **selection trace** (per-file scores and scoring signals for included paths, plus excluded paths with machine-readable reasons). The summary table does not list those rows. **`selection`** is JSON **`null`** when the latest compilation row has no stored trace—including when a run is **served from the compilation cache**. For a **fresh** pipeline decision trace on demand, use MCP **`aic_inspect`** (shape differs from persisted **`selection`**). See [Selection trace (persistence and tools)](documentation/implementation-spec.md#selection-trace-persistence-and-tools) and [Implementation Spec — `aic_last`](documentation/implementation-spec.md#aic_last-mcp-tool).
-
-The compiled prompt file is written under **`.aic/last-compiled-prompt.txt`** at the project root.
 
 ---
 
@@ -182,7 +185,7 @@ Run the phrases in [Commands](#commands) above, then check the following.
 What to look for:
 
 - **Installation: OK** in `show aic status`
-- a recent compilation in `show aic last` (send a normal coding message first if nothing has compiled yet)
+- a recent compilation in `show aic last` (send a normal coding message first if nothing has compiled yet), including the **Cache** row (`hit` / `miss` / `—`)
 - per-conversation compilation stats in `show aic chat summary` after AIC has recorded at least one compilation for the current editor conversation (in Cursor, Task-tool subagent compilations are reparented to the parent chat via the `subagentStop` hook so they count on that thread)
 - selected file count, compiled tokens, and exclusion rate figures that make sense for the task
 - AIC blocking sensitive or excluded content
@@ -254,7 +257,7 @@ Use the README for orientation. Use the docs below for implementation detail.
 
 Contributions are welcome.
 
-> This is a structured codebase with a defined architecture; small, focused changes are more likely to be reviewed and merged quickly than broad refactors.
+> This is a structured codebase with a defined architecture; small, focused changes are reviewed and merged faster than broad refactors.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, local MCP testing, RFC requirements, and the PR checklist.
 

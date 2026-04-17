@@ -107,28 +107,24 @@ Prefer `npx eslint` for targeted checks. Run `pnpm lint` before declaring work c
 
 > **Dev:** When `"devMode": true` is set in `aic.config.json` at the project root, substitute `pnpm aic` for `npx @jatbas/aic` in every command below (run from the repo root).
 
-Use these rules for all five AIC prompt commands. Present data like a polished dashboard, not raw JSON.
+For CLI-based commands (status, last, chat-summary, projects): run the Bash command and relay stdout byte-for-byte — no reformatting, no label substitution, no reordering. The CLI is the single source of truth for output format. **Never call `mcp__aic-dev__aic_status`, `mcp__aic-dev__aic_last`, `mcp__aic-dev__aic_projects`, or `mcp__aic-dev__aic_chat_summary` directly — always use the Bash CLI.**
 
-**General formatting (all commands):**
+**Output discipline (mandatory — applies to every prompt command below):**
 
-- Use human-readable labels only — never show raw JSON keys as column headers or labels.
-- Format large numbers with commas (e.g. 8,484,717).
-- Percentages: exactly 1 decimal place and a % symbol (e.g. 78.2%).
-- Timestamps: show as relative time (e.g. "2 min ago"); add ISO in parentheses only if helpful.
-- Null or missing values: show as "—" (em dash), never "null".
-- Keep the one-line summary at the top of each command as specified below.
-- Output only the summary line, the table, and (for status, last, chat-summary) the metric footnote below. **Do not add commentary, notes, interpretation, or explanations after the output.**
-- **Metric footnote** (append after the table for status, last, and chat-summary — one line per metric): `Exclusion rate: % of total repo tokens not included in the compiled prompt.` then `Budget utilization: % of token budget filled.`
+1. **No preamble.** Go directly to the Bash tool call. Do not announce the command, the shell, the Node version, the PATH, or what you are about to do.
+2. **No post-output commentary.** After the command returns, paste its stdout verbatim and stop. Do not add explanations, troubleshooting tips, environment diagnostics, or follow-up suggestions — not even if you think they are helpful.
+3. **Failure contract.** If the command exits non-zero, paste stderr verbatim, add a single line `exit code: N`, and stop. Do not diagnose Node versions, ABI mismatches, rebuild steps, alternate shells, or PATH fixes unless the user asks in a follow-up message.
+4. **One invocation per command.** Do not retry with a different Node binary, interpreter, or PATH on failure. The user decides whether to retry.
 
 ---
 
-- **"show aic status"** — Run Bash with `npx @jatbas/aic status` (or `pnpm aic status` when `"devMode": true` is set in `aic.config.json`) from the project directory (or the `<N>d` variant when the user asks for a rolling **N**-day window, with **N** an integer from 1 through 3660), then relay stdout. Start the reply with one short line: **Status = project-level AIC status.** When a window is used, the table includes a **Time range** row: **Last 1 day** if **N** is 1, otherwise **Last N days**. Then display a formatted table with labels: Compilations (total), Compilations (today), Tokens: raw → compiled, Tokens excluded, Budget limit, Budget utilization (%), Cache hit rate (%), Avg exclusion rate (%), Guard findings, Top task classes, Last compilation, Installation, Update available. When installation has issues (`installationOk` false), include a **Notes** row from `installationNotes`; omit **Notes** when installation is OK. Omit **Project** (still present in JSON as `projectEnabled`).
+- **"show aic status"** — Run Bash with `npx @jatbas/aic status` (or `pnpm aic status` when `"devMode": true` is set in `aic.config.json`) from the project directory. For a rolling window, use `status <N>d` (**N** integer 1..3660). Relay stdout byte-for-byte.
 
-- **"show aic chat summary"** — Run Bash with `npx @jatbas/aic chat-summary --project <absolute workspace root>` (or `pnpm aic chat-summary --project <absolute workspace root>` when `"devMode": true` is set in `aic.config.json`), then relay stdout. Start the reply with one short line: **Chat = this conversation's AIC compilations.** Then display a formatted table with labels: Project path, Compilations, Tokens (raw), Tokens (compiled), Tokens excluded, Cache hit rate (%), Avg exclusion rate (%), Budget utilization (%), Last compilation, Top task classes.
+- **"show aic chat summary"** — Run Bash with `npx @jatbas/aic chat-summary --project <absolute workspace root>` (or `pnpm aic chat-summary --project <absolute workspace root>` when `"devMode": true` is set in `aic.config.json`). Relay stdout byte-for-byte.
 
-- **"show aic last"** — Run Bash with `npx @jatbas/aic last` (or `pnpm aic last` when `"devMode": true` is set in `aic.config.json`) from the project directory, then relay stdout. Start the reply with one short line: **Last = most recent compilation.** Then display with labels: Intent, Files (N selected / M total), Tokens compiled, Budget utilization (%), Exclusion rate (%), Compiled (relative time), Editor, Guard (Passed or N findings), Compiled prompt (Available N chars — see ~/.aic/last-compiled-prompt.txt).
+- **"show aic last"** — Run Bash with `npx @jatbas/aic last` (or `pnpm aic last` when `"devMode": true` is set in `aic.config.json`) from the project directory. Relay stdout byte-for-byte.
 
-- **"show aic projects"** — Run Bash with `npx @jatbas/aic projects` (or `pnpm aic projects` when `"devMode": true` is set in `aic.config.json`), then relay stdout. Start the reply with one short line: **Projects = known AIC projects.** Display a formatted table with columns: Project ID, Path, Last seen, Compilation count.
+- **"show aic projects"** — Run Bash with `npx @jatbas/aic projects` (or `pnpm aic projects` when `"devMode": true` is set in `aic.config.json`). Relay stdout byte-for-byte.
 
 - **"run aic model test"** — Call the `aic_model_test` MCP tool with `{ "projectRoot": "<absolute workspace root>" }`. The tool returns a `probeId`, three challenges, and instructions. Solve challenge 1 (arithmetic) and challenge 2 (string-reverse). Then call `aic_compile` with intent exactly equal to `"model-test-<answer1>-<answer2>"` (replace with your computed answers). Finally call `aic_model_test` again with `{ "projectRoot": "<absolute workspace root>", "probeId": "<probeId from step 1>", "answers": [<arithmetic answer>, "<reversed string>"] }`. Display the result as a table with columns: Test, Result (Pass/Fail), Notes. Start the reply with one short line: **Model test = agent capability probe.**
 
