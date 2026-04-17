@@ -64,6 +64,15 @@ function cacheHitLabel(hit: unknown): string {
   return "—";
 }
 
+function guardThisRunLabel(findingCount: unknown, blockCount: unknown): string | null {
+  if (findingCount === null || findingCount === undefined) return null;
+  const findings = Number(findingCount);
+  if (!Number.isFinite(findings)) return null;
+  if (findings === 0) return "passed";
+  const blocks = Number.isFinite(Number(blockCount)) ? Number(blockCount) : 0;
+  return `${formatInt(findings)} finding(s), ${formatInt(blocks)} blocked`;
+}
+
 function tokensExcludedLabel(saved: unknown): string {
   if (saved === null || saved === undefined) return "—";
   return formatInt(Number(saved));
@@ -296,6 +305,12 @@ export function formatLastTable(
   );
   const cacheHit = last?.["cacheHit"];
   const cacheStr = cacheHitLabel(cacheHit);
+  const guardLabel = guardThisRunLabel(
+    last?.["guardFindingCount"],
+    last?.["guardBlockCount"],
+  );
+  const guardRow: readonly string[] =
+    guardLabel !== null ? [padRow("Guard (this run)", guardLabel, w)] : [];
   const selectionRows: readonly string[] =
     payload.selection !== null && payload.selection !== undefined
       ? formatSelectionMicroBlock(payload.selection, w)
@@ -305,6 +320,7 @@ export function formatLastTable(
     padRow("Compilations", formatInt(payload.compilationCount), w),
     ...detailRows,
     padRow("Cache", cacheStr, w),
+    ...guardRow,
     ...selectionRows,
     promptRow,
   ];

@@ -58,6 +58,8 @@ type LastCompilationRow = {
 type LastCompilationRowWithTrace = LastCompilationRow & {
   selection_trace_json: string | null;
   cache_hit: number | null;
+  guard_finding_count: number | null;
+  guard_block_count: number | null;
 };
 
 function mapLastCompilationRow(row: LastCompilationRow): {
@@ -397,11 +399,14 @@ export class SqliteStatusStore implements StatusStore, GlobalStatusQueries {
   getLastCompilationRowWithTraceForLastTool(): LastCompilationRowWithTrace | null {
     const lastRows = this.db
       .prepare(
-        `SELECT intent, files_selected, files_total, tokens_compiled,
-         COALESCE(CAST((tokens_raw - tokens_compiled) AS REAL) * 100.0 / NULLIF(tokens_raw, 0), 0) AS token_reduction_pct,
-         created_at, editor_id, model_id, selection_trace_json, cache_hit
-         FROM compilation_log WHERE (trigger_source IS NULL OR trigger_source != ?) AND project_id = ?
-         ORDER BY created_at DESC LIMIT 1`,
+        `SELECT cl.intent, cl.files_selected, cl.files_total, cl.tokens_compiled,
+         COALESCE(CAST((cl.tokens_raw - cl.tokens_compiled) AS REAL) * 100.0 / NULLIF(cl.tokens_raw, 0), 0) AS token_reduction_pct,
+         cl.created_at, cl.editor_id, cl.model_id, cl.selection_trace_json, cl.cache_hit,
+         te.guard_findings AS guard_finding_count, te.guard_blocks AS guard_block_count
+         FROM compilation_log cl
+         LEFT JOIN telemetry_events te ON te.compilation_id = cl.id
+         WHERE (cl.trigger_source IS NULL OR cl.trigger_source != ?) AND cl.project_id = ?
+         ORDER BY cl.created_at DESC LIMIT 1`,
       )
       .all(TRIGGER_SOURCE.INTERNAL_TEST, this.projectId) as LastCompilationRowWithTrace[];
     return lastRows[0] ?? null;
