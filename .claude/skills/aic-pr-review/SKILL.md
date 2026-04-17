@@ -10,7 +10,7 @@ editors: all
 
 - **Purpose:** Produce a structured PR review with HARD / SOFT findings, each cited.
 - **Inputs:** PR number (`gh pr view <id>`) or a branch diff (`git diff <base>...HEAD`).
-- **Outputs:** A review summary + three subagent reports (arch-safety, storage-security, testing-conventions) archived under `.aic/reviews/<pr-or-branch>/`.
+- **Outputs:** The posted review summary (delivered back to the user or `gh pr review`). The three subagent reports and cached diff are scratch under `.aic/runs/<run-id>/` and removed on run-complete. Pass `--keep-artifacts` to retain for debugging.
 - **Non-skippable steps:** Classify mode → Fetch diff → Dispatch 3 subagents in parallel → Merge findings → Write summary.
 - **Mechanical gates:** Every HARD finding must cite `file:line` from the diff. The merge step runs `bash .claude/skills/shared/scripts/evidence-scan.sh <review-summary>`.
 - **Checkpoint lines:** Emit at each phase; `checkpoint-log.sh aic-pr-review <phase>`.
@@ -63,10 +63,12 @@ Run continuously. Stop only when:
 Checklist-level detail lives in `SKILL-checklist.md`. The phases below are executed sequentially with a checkpoint after each.
 
 1. **Classify mode** — PR (`gh pr view <id>`), branch diff (`git diff <base>...HEAD`), or a local working tree. Record the mode and the base ref. Checkpoint: `mode-classified`.
-2. **Fetch diff** — obtain the unified diff and the list of changed files. For GitHub PRs use `gh pr diff <id>`; for a branch use `git diff <base>...HEAD`. Write the diff to `.aic/reviews/<pr-or-branch>/diff.patch`. Checkpoint: `diff-fetched`.
+2. **Fetch diff** — obtain the unified diff and the list of changed files. For GitHub PRs use `gh pr diff <id>`; for a branch use `git diff <base>...HEAD`. Write the diff to `.aic/runs/<run-id>/diff.patch`. Checkpoint: `diff-fetched`.
 3. **Dispatch subagents** — in parallel, spawn three subagents with the templates in `prompts/`: `arch-safety.md`, `storage-security.md`, `testing-conventions.md`. Substitute `{{PR_ID}}`, `{{DIFF_PATH}}`, `{{FILES_CHANGED}}`, `{{BASE_BRANCH}}`, `{{BUDGET}}`, `{{OUTPUT_PATH}}`. Verify no `{{` remains in any rendered prompt. Checkpoint: `subagents-complete`.
 4. **Merge findings + write summary** — concatenate the three reports, deduplicate findings that cross categories, order HARD findings before SOFT, write a top-level summary (one-line verdict, pass list, HARD list, SOFT list, strong points). Run `bash .claude/skills/shared/scripts/evidence-scan.sh <summary-path>`. Checkpoint: `review-drafted`.
-5. **Deliver** — paste the summary back to the user or post as a PR comment (`gh pr review`). Archive every artifact under `.aic/reviews/<pr-or-branch>/`. Checkpoint: `review-delivered`.
+5. **Deliver** — paste the summary back to the user or post as a PR comment (`gh pr review`). Checkpoint: `review-delivered`.
+
+Every intermediate artifact (the three subagent reports, `diff.patch`, rendered prompts, merge workspace) lives under `.aic/runs/<run-id>/`. Never write them under `documentation/` or anywhere else in the working tree. Under the runner, `advance` on the final phase auto-removes the scratch dir + state file (`--keep-artifacts` disables it, `skill-run.cjs cleanup <run-id>` finishes the job later). Inline: `rm -rf .aic/runs/<run-id>/` once the review is delivered.
 
 ## Subagent dispatch
 
@@ -86,8 +88,9 @@ Substitute `{{PR_ID}}`, `{{DIFF_PATH}}`, `{{FILES_CHANGED}}`, `{{BASE_BRANCH}}`,
 
 ## Output checklist
 
-- [ ] Three subagent reports archived in `.aic/reviews/<pr-id>/`.
+- [ ] Three subagent reports lived under `.aic/runs/<run-id>/` during the review; none under `documentation/`.
 - [ ] Review summary lists every HARD finding with a fix.
 - [ ] Every finding cites `file:line` (run `evidence-scan.sh`).
 - [ ] Five checkpoint lines in `.aic/skill-log.jsonl`.
 - [ ] Final verdict: `approve`, `approve-with-nits`, `request-changes`, or `reject`.
+- [ ] On run-complete: scratch at `.aic/runs/<run-id>/` is removed (auto under the runner, or `skill-run.cjs cleanup <run-id>`).

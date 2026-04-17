@@ -122,3 +122,17 @@ Single-phase skills (`aic-update-changelog`, `aic-update-progress`) run inline w
 - `aic-documentation-writer` — factual claim verdict.
 
 These sub-steps never run inline in the orchestrator, regardless of which model the orchestrator is using. Adding a new routed sub-step requires an entry in `SKILL-routing.md` and an example JSON reply in the skill's `examples/` directory.
+
+## Scratch & cleanup — HARD
+
+Artifacts a skill produces fall into two classes:
+
+- **Deliverables** — the user-facing output the skill exists to produce (edited doc, task file, research note, CHANGELOG edit, progress-file edit, posted PR review). These live at stable user paths and survive the run.
+- **Scratch** — every intermediate artifact (Change Specifications, explorer reports, critic reports, proposal drafts, rendered subagent prompts, cached diffs, per-dimension notes). These MUST live under `.aic/runs/<run-id>/` (gitignored via the repository `.gitignore` entry for `.aic/`) and are removed on run-complete.
+
+Rules:
+
+1. No skill writes scratch under `documentation/`, `.aic/reviews/`, `.aic/roadmap-forge/`, or any other long-lived path. Only `.aic/runs/<run-id>/` is permitted.
+2. Under the runner, `advance` on the final phase removes `.aic/runs/<run-id>/` and the state file automatically. Pass `--keep-artifacts` to retain them for debugging, then run `skill-run.cjs cleanup <run-id>` when done.
+3. Inline skills (no runner) pick a scratch slug at start (`.aic/runs/<skill>-<utc-timestamp>/`), write everything there, and `rm -rf` the directory once the user accepts the deliverable.
+4. Each SKILL.md's output checklist MUST include a "scratch removed on run-complete" item; drift is a HARD failure.

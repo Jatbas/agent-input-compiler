@@ -10,7 +10,7 @@ editors: all (Cursor Composer / Agent recommended for full fidelity)
 
 - **Purpose:** Propose the next phase(s) for `aic-progress.md`, backed by evidence and reviewed adversarially.
 - **Inputs:** Progress file, project plan, implementation spec, optional external research target.
-- **Outputs:** Proposal artifact with per-phase tasks, feasibility review, and strategic-fit review, archived under `.aic/roadmap-forge/<timestamp>/`.
+- **Outputs:** Approved phases merged into `documentation/tasks/progress/aic-progress.md` (the only kept deliverable). The proposal draft, explorer reports, and critic reports are scratch under `.aic/runs/<run-id>/` and removed on run-complete. Pass `--keep-artifacts` to retain for debugging.
 - **Non-skippable steps:** Intake → Explore (3 parallel explorers) → Synthesise proposal → Critic round (feasibility + strategic-fit) → User gate → Finalise.
 - **Mechanical gates:**
   `bash .claude/skills/shared/scripts/evidence-scan.sh <proposal>` — every claim cited.
@@ -85,10 +85,11 @@ Templates in `prompts/`:
 
 ## Output checklist
 
-- [ ] Proposal artifact at `.aic/roadmap-forge/<timestamp>/proposal.md`.
-- [ ] Three explorer reports archived.
-- [ ] Two critic reports archived.
+- [ ] Proposal draft written to `.aic/runs/<run-id>/proposal.md` during the run.
+- [ ] Three explorer reports under `.aic/runs/<run-id>/explorers/`.
+- [ ] Two critic reports under `.aic/runs/<run-id>/critics/`.
 - [ ] `evidence-scan.sh` passes on the proposal.
 - [ ] `ambiguity-scan.sh` passes on the proposal.
 - [ ] `aic-progress.md` updated with the approved phases (after user gate).
 - [ ] Six checkpoint lines in `.aic/skill-log.jsonl`.
+- [ ] On run-complete: scratch at `.aic/runs/<run-id>/` is removed (auto under the runner, or `skill-run.cjs cleanup <run-id>`).

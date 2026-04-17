@@ -84,7 +84,7 @@ At every phase exit: emit checkpoint line + call `checkpoint-log.sh`.
 For every subagent you spawn:
 
 1. Open the prompt template (`prompts/explorer.md`, `prompts/synthesis-critic.md`, or `shared/prompts/framing-challenger.md`).
-2. Substitute every `{{placeholder}}`. Record the substituted prompt in your notes under `documentation/research/<slug>/subagent-prompts/`.
+2. Substitute every `{{placeholder}}`. Record the substituted prompt under `.aic/runs/<run-id>/subagent-prompts/` (scratch, cleaned on finalisation). Never write rendered prompts under `documentation/`.
 3. Verify no `{{` remains: `grep -q "{{" <rendered-prompt>` must be empty.
 4. Dispatch.
 5. Parse the subagent's `CHECKPOINT:` and `EVIDENCE:` header before reading the body. If the header is missing, re-dispatch — the subagent did not follow contract.
@@ -98,8 +98,15 @@ For every subagent you spawn:
 
 ## Output checklist
 
-- [ ] Research note exists at `documentation/research/<slug>.md`.
+- [ ] Research note exists at `documentation/research/<slug>.md` (the only kept artifact).
 - [ ] `evidence-scan.sh` passes.
 - [ ] `ambiguity-scan.sh` passes.
 - [ ] Six checkpoint lines in `.aic/skill-log.jsonl`.
-- [ ] Every explorer and critic report archived under `documentation/research/<slug>/`.
+- [ ] Every explorer report, critic report, and rendered subagent prompt lived under `.aic/runs/<run-id>/` — never under `documentation/`.
+- [ ] On run-complete: scratch at `.aic/runs/<run-id>/` is removed (auto under the runner, or `skill-run.cjs cleanup <run-id>`, or `rm -rf .aic/runs/<run-id>/`).
+
+## Scratch & cleanup
+
+- Keep the final synthesis (`documentation/research/<slug>.md`). Every explorer report, critic report, rendered subagent prompt, and intermediate draft MUST live under `.aic/runs/<run-id>/`.
+- Under the runner, `advance` on the final phase auto-removes the scratch dir + state file. Pass `--keep-artifacts` to retain for debugging; run `skill-run.cjs cleanup <run-id>` when done.
+- Inline (no runner): remove `.aic/runs/<run-id>/` once the research note is accepted.

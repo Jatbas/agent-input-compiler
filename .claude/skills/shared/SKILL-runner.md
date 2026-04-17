@@ -29,8 +29,11 @@ Run from the project root. `AIC_PROJECT_ROOT` overrides the project root when no
 | `node skill-run.cjs fail <run-id> <reason>`                   | Explicitly mark the current phase failed.                                                                                |
 | `node skill-run.cjs resume <run-id>`                          | Reopen a failed run at the current phase and re-emit its prompt.                                                         |
 | `node skill-run.cjs status <run-id>`                          | Print the full state JSON (pipe to `jq`).                                                                                |
+| `node skill-run.cjs cleanup <run-id>`                         | Remove `.aic/runs/<run-id>/` and the state file. Idempotent. Use after `advance --keep-artifacts` on a final phase.      |
 
 The full script path is `.claude/skills/shared/scripts/skill-run.cjs`.
+
+Pass `--keep-artifacts` to `advance` on the final phase to skip auto-cleanup; the scratch directory and state file survive until you run `cleanup <run-id>`.
 
 ## Agent protocol under the runner
 
@@ -43,15 +46,25 @@ The full script path is `.claude/skills/shared/scripts/skill-run.cjs`.
 3. If `advance` rejects: inspect the reason, correct the gap, run `advance` again. Do not paper over.
 4. When the runner prints `run <id> complete`, the skill run is over.
 
+## Artifact classes (deliverables vs. scratch)
+
+Every artifact a skill produces falls into one of two classes:
+
+- **Deliverables** — the user-facing output the skill exists to produce: the edited doc, the task file, the research note, `CHANGELOG.md` or `aic-progress.md` edits, the posted PR review. These live at stable user paths and survive the run.
+- **Scratch** — intermediate artifacts (Change Specifications, explorer reports, critic reports, proposal drafts, rendered subagent prompts, cached diffs). These MUST live under `.aic/runs/<run-id>/` and are removed on run-complete unless `--keep-artifacts` is passed.
+
+Pass both classes to `advance --artifact`. The runner distinguishes them by path: anything under `.aic/runs/<run-id>/` is treated as scratch and included in auto-cleanup; anything else is preserved.
+
 ## Typical artifact paths by skill
 
-| Skill                      | Common artifacts                                                                                             |
-| -------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `aic-researcher`           | `documentation/research/<slug>/synthesis.md`, per-explorer reports under `.aic/runs/<run-id>/explorers/*.md` |
-| `aic-documentation-writer` | target `.md` file(s), `.aic/runs/<run-id>/critics/*.md`                                                      |
-| `aic-task-planner`         | `documentation/tasks/<id>-<slug>.md`, `.aic/runs/<run-id>/exploration.md`                                    |
-| `aic-task-executor`        | modified source files (list them as `--artifact`), `.aic/runs/<run-id>/verification.log`                     |
-| `aic-roadmap-forge`        | `documentation/tasks/progress/<target>.md`                                                                   |
+| Skill                      | Deliverables (kept)                                    | Scratch (removed on complete)                                                                                  |
+| -------------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `aic-researcher`           | `documentation/research/<slug>.md`                     | `.aic/runs/<run-id>/explorers/*.md`, `.../critics/*.md`, `.../subagent-prompts/*`                              |
+| `aic-documentation-writer` | target `.md` file(s)                                   | `.aic/runs/<run-id>/change-spec.md`, `.../critics/*.md`                                                        |
+| `aic-task-planner`         | `documentation/tasks/<id>-<slug>.md`                   | `.aic/runs/<run-id>/exploration.md`                                                                            |
+| `aic-task-executor`        | modified source files (list them as `--artifact`)      | `.aic/runs/<run-id>/verification.log`                                                                          |
+| `aic-roadmap-forge`        | `documentation/tasks/progress/aic-progress.md` (edits) | `.aic/runs/<run-id>/proposal.md`, `.../explorers/*.md`, `.../critics/*.md`                                     |
+| `aic-pr-review`            | posted review summary (delivered, not a file)          | `.aic/runs/<run-id>/diff.patch`, `.../arch-safety.md`, `.../storage-security.md`, `.../testing-conventions.md` |
 
 ## State file schema
 

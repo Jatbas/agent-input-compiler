@@ -24,12 +24,19 @@ function usage() {
   process.stderr.write(
     [
       "usage: skill-run <command> [args]",
-      "  init <skill>                         start a run, emit first phase prompt",
-      "  next <run-id>                        print current phase's prompt + gates",
-      "  advance <run-id> [--artifact <p>...] verify gates, move to next phase",
-      "  fail <run-id> <reason>               mark the current phase failed",
-      "  status <run-id>                      print JSON state",
-      "  resume <run-id>                      re-emit current phase prompt",
+      "  init <skill>                             start a run, emit first phase prompt",
+      "  next <run-id>                            print current phase's prompt + gates",
+      "  advance <run-id> [--artifact <p>...]     verify gates, move to next phase.",
+      "                         [--keep-artifacts] on the final phase, auto-clean is skipped.",
+      "  fail <run-id> <reason>                   mark the current phase failed",
+      "  status <run-id>                          print JSON state",
+      "  resume <run-id>                          re-emit current phase prompt",
+      "  cleanup <run-id>                         remove scratch (.aic/runs/<run-id>/) and state file",
+      "",
+      "scratch convention:",
+      "  All intermediate artifacts live under .aic/runs/<run-id>/ (gitignored).",
+      "  User-facing deliverables (edited docs, task files, research notes) live at",
+      "  their stated final path; never inside .aic/runs/.",
       "",
       "env: AIC_PROJECT_ROOT=<path> (defaults to cwd)",
     ].join("\n") + "\n",
@@ -120,15 +127,36 @@ function parseAdvanceArgs(args) {
   const runId = args[0];
   if (!runId) usage();
   const artifacts = [];
+  let keepArtifacts = false;
   for (let i = 1; i < args.length; i += 1) {
     if (args[i] === "--artifact") {
       const v = args[i + 1];
       if (!v) usage();
       artifacts.push(v);
       i += 1;
+    } else if (args[i] === "--keep-artifacts") {
+      keepArtifacts = true;
     }
   }
-  return { runId, artifacts };
+  return { runId, artifacts, keepArtifacts };
+}
+
+function scratchDir(projectRoot, runId) {
+  return path.join(projectRoot, ".aic", "runs", runId);
+}
+
+function removeScratch(projectRoot, runId) {
+  const dir = scratchDir(projectRoot, runId);
+  if (!fs.existsSync(dir)) return { removed: false, path: dir };
+  fs.rmSync(dir, { recursive: true, force: true });
+  return { removed: true, path: dir };
+}
+
+function removeStateFile(projectRoot, runId) {
+  const p = path.join(projectRoot, ".aic", "skill-runs", `${runId}.json`);
+  if (!fs.existsSync(p)) return { removed: false, path: p };
+  fs.rmSync(p, { force: true });
+  return { removed: true, path: p };
 }
 
 function verifyArtifacts(artifacts) {
@@ -137,7 +165,7 @@ function verifyArtifacts(artifacts) {
 }
 
 function cmdAdvance(args) {
-  const { runId, artifacts } = parseAdvanceArgs(args);
+  const { runId, artifacts, keepArtifacts } = parseAdvanceArgs(args);
   const state = readState(PROJECT_ROOT, runId);
   if (state.status !== "in_progress") {
     process.stderr.write(`run ${runId} not in progress (status=${state.status})\n`);
@@ -162,6 +190,12 @@ function cmdAdvance(args) {
     process.exit(1);
   }
 
+  const scratchRoot = scratchDir(PROJECT_ROOT, runId);
+  const scratchArtifacts = artifacts.filter((a) =>
+    path.resolve(PROJECT_ROOT, a).startsWith(scratchRoot + path.sep),
+  );
+  const deliverableArtifacts = artifacts.filter((a) => !scratchArtifacts.includes(a));
+
   const advanced = writeState(
     PROJECT_ROOT,
     markPhaseComplete(state, state.currentPhase, artifacts),
@@ -172,6 +206,25 @@ function cmdAdvance(args) {
     process.stdout.write(
       `run ${advanced.runId} complete (${advanced.phases.length} phases)\n`,
     );
+    process.stdout.write(
+      `deliverables (kept): ${deliverableArtifacts.length === 0 ? "(none)" : deliverableArtifacts.join(", ")}\n`,
+    );
+    if (keepArtifacts) {
+      process.stdout.write(
+        `scratch retained (per --keep-artifacts): ${scratchRoot}\n` +
+          `state retained: ${statePath(PROJECT_ROOT, runId)}\n` +
+          `run 'skill-run cleanup ${runId}' to remove.\n`,
+      );
+      logCheckpoint(state.skill, phase.checkpoint, "auto-cleanup", "skipped");
+    } else {
+      const s = removeScratch(PROJECT_ROOT, runId);
+      const st = removeStateFile(PROJECT_ROOT, runId);
+      process.stdout.write(
+        `scratch removed: ${s.removed ? s.path : "(nothing to remove)"}\n` +
+          `state removed:   ${st.removed ? st.path : "(no state file)"}\n`,
+      );
+      logCheckpoint(state.skill, phase.checkpoint, "auto-cleanup", "complete");
+    }
     return;
   }
   const skillRoot = skillRootFor(advanced.skill);
@@ -180,6 +233,18 @@ function cmdAdvance(args) {
     markPhaseStarted(advanced, advanced.currentPhase),
   );
   emitPhase(started, skillRoot);
+}
+
+function cmdCleanup(args) {
+  const runId = args[0];
+  if (!runId) usage();
+  const s = removeScratch(PROJECT_ROOT, runId);
+  const st = removeStateFile(PROJECT_ROOT, runId);
+  process.stdout.write(
+    `scratch removed: ${s.removed ? s.path : "(nothing to remove)"}\n` +
+      `state removed:   ${st.removed ? st.path : "(no state file)"}\n`,
+  );
+  logCheckpoint("skill-run", "cleanup", runId, "complete");
 }
 
 function cmdFail(args) {
@@ -253,6 +318,7 @@ function main() {
     fail: cmdFail,
     status: cmdStatus,
     resume: cmdResume,
+    cleanup: cmdCleanup,
   };
   const handler = handlers[cmd];
   if (!handler) usage();

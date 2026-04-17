@@ -10,7 +10,7 @@ editors: all (Cursor Composer / Agent recommended for full fidelity)
 
 - **Purpose:** Produce or modify documentation with evidence-backed claims, structural integrity, and cross-doc consistency.
 - **Inputs:** One or more documentation targets in `documentation/` or `README.md`; user intent (write, modify, or audit).
-- **Outputs:** Updated doc files + change specification + critic reports, archived under `documentation/change-specs/<slug>/`.
+- **Outputs:** Updated doc files (the only user-facing deliverable). The change specification and critic reports are scratch artifacts written to `.aic/runs/<run-id>/` and deleted on run-complete. Use `--keep-artifacts` if you need to inspect them after finalisation.
 - **Non-skippable steps:** Classify mode → Route → Explore (subagents) → Write Change Specification → Apply edits → Critic round (editorial / factual / cross-doc / reader) → Audit pass (double-blind) → Finalise.
 - **Mechanical gates:**
   `bash .claude/skills/shared/scripts/ambiguity-scan.sh <doc>` per touched file.
@@ -91,8 +91,15 @@ Substitute every `{{placeholder}}` before dispatch. Verify with `grep -q "{{" <r
 
 ## Output checklist
 
-- [ ] All critic reports archived under `documentation/change-specs/<slug>/critics/`.
+- [ ] All critic reports written to `.aic/runs/<run-id>/critics/` while running; none under `documentation/`.
 - [ ] `ambiguity-scan.sh` passes for each touched doc.
 - [ ] `evidence-scan.sh` passes for any doc making code-related claims.
 - [ ] Eight checkpoint lines in `.aic/skill-log.jsonl`.
 - [ ] No internal codes (`T123`, `Phase L`) in any touched file.
+- [ ] On run-complete: scratch at `.aic/runs/<run-id>/` is removed (auto under the runner; otherwise `node .claude/skills/shared/scripts/skill-run.cjs cleanup <run-id>` or `rm -rf .aic/runs/<run-id>/`).
+
+## Scratch & cleanup
+
+- Every intermediate artifact (Change Specification draft, per-critic reports, rendered subagent prompts) MUST live under `.aic/runs/<run-id>/`. Never write scratch to `documentation/`.
+- Under the runner (`skill-run.cjs`), `advance` on the final phase auto-removes the scratch dir + state file. Pass `--keep-artifacts` to retain them for debugging, then `skill-run.cjs cleanup <run-id>` when done.
+- Without the runner, treat the slug as `<run-id>` and remove the directory manually once the user accepts the edits.
