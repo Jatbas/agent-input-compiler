@@ -7,6 +7,15 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Pin the toolchain to Node.js 24.x via `.nvmrc` and `engines.node`, and upgrade `better-sqlite3` to the matching ABI so native bindings load cleanly
+
+### Added
+
+- Enforce the Node engine locally with `engine-strict=true` in `.npmrc`, turning accidental Node 22 runs into a clean `ERR_PNPM_UNSUPPORTED_ENGINE` instead of a silent `better-sqlite3` ABI failure deep in the test output
+- Run an MCP server startup preflight that detects `better-sqlite3` ABI mismatches and exits with an actionable `rebuild better-sqlite3 under Node 24` message
+
 ## [0.50.1] - 2026-04-07
 
 ### Fixed
