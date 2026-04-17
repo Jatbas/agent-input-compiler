@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
 import {
   buildReverseEdges,
@@ -272,5 +275,18 @@ describe("ImportGraphProximityScorer", () => {
     expect(reverseEdges.get(sharedTarget)?.length).toBe(256);
     expect(reverseEdges.get(sharedTarget)?.[0]).toBe(toRelativePath("src/m/0.ts"));
     expect(reverseEdges.get(sharedTarget)?.[255]).toBe(toRelativePath("src/m/255.ts"));
+  });
+
+  it("build_reverse_edges_body_has_no_per_edge_list_spread", () => {
+    const here = fileURLToPath(import.meta.url);
+    const dir = dirname(here);
+    const scorerPath = join(dir, "..", "import-graph-proximity-scorer.ts");
+    const source = readFileSync(scorerPath, "utf8");
+    const start = source.indexOf("export function buildReverseEdges");
+    const end = source.indexOf("\nfunction bfsScores", start);
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const bodyRegion = source.slice(start, end);
+    expect(bodyRegion).not.toMatch(/\[\.\.\.\s*existing/);
   });
 });

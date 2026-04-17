@@ -86,14 +86,28 @@ async function buildEdges(
 export function buildReverseEdges(
   edges: ReadonlyMap<RelativePath, readonly RelativePath[]>,
 ): ReadonlyMap<RelativePath, readonly RelativePath[]> {
-  const out = new Map<RelativePath, RelativePath[]>();
-  for (const [from, toList] of edges) {
+  const counts = new Map<RelativePath, number>();
+  for (const [, toList] of edges) {
     for (const to of toList) {
-      const existing = out.get(to);
-      out.set(to, existing === undefined ? [from] : [...existing, from]);
+      counts.set(to, (counts.get(to) ?? 0) + 1);
     }
   }
-  return out as ReadonlyMap<RelativePath, readonly RelativePath[]>;
+  const lists = new Map<RelativePath, RelativePath[]>();
+  const nextIdx = new Map<RelativePath, number>();
+  for (const [to, count] of counts) {
+    lists.set(to, new Array<RelativePath>(count));
+    nextIdx.set(to, 0);
+  }
+  for (const [from, toList] of edges) {
+    for (const to of toList) {
+      const list = lists.get(to);
+      const idx = nextIdx.get(to);
+      if (list === undefined || idx === undefined) continue;
+      list[idx] = from;
+      nextIdx.set(to, idx + 1);
+    }
+  }
+  return lists as ReadonlyMap<RelativePath, readonly RelativePath[]>;
 }
 
 function bfsScores(

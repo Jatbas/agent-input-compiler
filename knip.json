@@ -1,5 +1,6 @@
 {
   "ignore": [
+    ".claude/skills/**",
     "mcp/scripts/fetch-model-context-windows.cjs",
     "scripts/**",
     "test/benchmarks/**",
