@@ -5,7 +5,7 @@
   "description": "Agent Input Compiler — local-first MCP server for context compilation",
   "type": "module",
   "engines": {
-    "node": ">=20.0.0"
+    "node": "24.x"
   },
   "packageManager": "pnpm@10.25.0",
   "scripts": {

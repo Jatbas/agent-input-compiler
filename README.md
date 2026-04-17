@@ -105,7 +105,7 @@ Budget utilization: % of token budget filled.
 
 ## Quick start
 
-Requirements: Node.js 20+
+Requirements: Node.js 24.x (see `.nvmrc`).
 
 ### Cursor
 
@@ -142,7 +142,7 @@ AIC requires a dedicated integration layer to compile context automatically. Cur
 
 ## Uninstall
 
-Use Node.js 20 or newer. Download the standalone uninstall script:
+Use Node.js 24.x (matching `engines.node`). Download the standalone uninstall script:
 
 ```bash
 curl -fsSL -o aic-uninstall-standalone.cjs https://raw.githubusercontent.com/Jatbas/agent-input-compiler/main/integrations/aic-uninstall-standalone.cjs

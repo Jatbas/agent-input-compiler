@@ -93,7 +93,7 @@ The base64 payload decodes to:
 
 ### Prerequisite
 
-The AIC MCP server must be runnable as `npx -y @jatbas/aic@latest` (Node 20+). Ensure Node is installed and the package is reachable before relying on the deeplink or hooks.
+The AIC MCP server must be runnable as `npx -y @jatbas/aic@latest` (Node.js 24.x — matches `engines.node`; running under a different Node major fails the install because `better-sqlite3` ships ABI-specific prebuilt binaries). Ensure Node is installed and the package is reachable before relying on the deeplink or hooks.
 
 ### What the Deeplink Does
 
@@ -203,7 +203,7 @@ Run `node integrations/claude/install.cjs` from the AIC repo (or from a path whe
 
 ### Prerequisite
 
-The AIC MCP server must be runnable as `npx -y @jatbas/aic@latest` (Node 20+), same as Cursor. Ensure the package is reachable from your network before relying on hooks or the compile flow. The plugin path uses this under the hood; the direct installer path assumes you are in the AIC repo or have the server on your path. In minimal or remote setups where the process cwd is not the project root, `CLAUDE_PROJECT_DIR` may be set by the environment (see [Environment variables](#environment-variables)) — analogous to `CURSOR_PROJECT_DIR` for Cursor.
+The AIC MCP server must be runnable as `npx -y @jatbas/aic@latest` (Node.js 24.x), same as Cursor. Ensure the package is reachable from your network before relying on hooks or the compile flow. The plugin path uses this under the hood; the direct installer path assumes you are in the AIC repo or have the server on your path. In minimal or remote setups where the process cwd is not the project root, `CLAUDE_PROJECT_DIR` may be set by the environment (see [Environment variables](#environment-variables)) — analogous to `CURSOR_PROJECT_DIR` for Cursor.
 
 ### Trigger Rule
 
@@ -285,7 +285,7 @@ The server is the primary interface. It exposes these MCP tools:
 | `aic_model_test`   | Optional agent capability probe (challenges, embedded `aic_compile`, structured pass/fail)                                                                                                                                         |
 | `aic_compile_spec` | Structured spec compilation (`spec` required, optional `budget`); returns `{ compiledSpec, meta }` from `SpecificationCompilerImpl` — [Implementation Spec — `aic_compile_spec`](implementation-spec.md#aic_compile_spec-mcp-tool) |
 
-The four **show aic …** prompt commands ("show aic status", "show aic last", "show aic chat summary", "show aic projects") map to the same **formatted tables** on stdout whether you run the **CLI** (`npx @jatbas/aic <subcommand>`, or `pnpm aic <subcommand>` from the repo root when developing) or the model follows the **Cursor trigger rule**, which instructs calling the MCP tools `aic_status`, `aic_last`, `aic_chat_summary`, and `aic_projects` instead of shell. Table rendering matches `mcp/src/format-diagnostic-output.ts`. MCP tool JSON for **`aic_last`** includes the same compact **`lastCompilation`** fields as the table plus optional top-level **`selection`**; the CLI prints a digest of **`selection`** (top files and exclusion-reason counts) when a persisted trace exists, not the full JSON object — use MCP JSON or [Implementation Spec — `aic_last`](implementation-spec.md#aic_last-mcp-tool) for the complete trace.
+The four **show aic …** prompt commands ("show aic status", "show aic last", "show aic chat summary", "show aic projects") always run the **Bash CLI** (`npx @jatbas/aic <subcommand>`, or `pnpm aic <subcommand>` from the repo root when developing) and the agent relays stdout byte-for-byte. The trigger rule explicitly forbids calling the `aic_status`, `aic_last`, `aic_chat_summary`, or `aic_projects` MCP tools for these phrases — the CLI is the single source of truth for the formatted-table format. Table rendering matches `mcp/src/format-diagnostic-output.ts`. The MCP diagnostic tools still exist for programmatic JSON consumers (for example, the **`aic_last`** JSON includes the same compact **`lastCompilation`** fields as the table plus an optional top-level **`selection`** trace); the CLI prints a digest of **`selection`** (top files and exclusion-reason counts) when a persisted trace exists, not the full JSON object — use the MCP tool directly or [Implementation Spec — `aic_last`](implementation-spec.md#aic_last-mcp-tool) for the complete trace.
 
 A fifth prompt — **run aic model test** — is **MCP-only** (no matching CLI subcommand): the model calls `aic_model_test`, completes the challenges (including an `aic_compile` with a specific intent), calls `aic_model_test` again with answers, and presents the pass/fail result. Full wording for editors lives in the installed trigger rules (for example `.cursor/rules/AIC-architect.mdc` and `.claude/CLAUDE.md`).
 
@@ -530,7 +530,7 @@ node /path/to/node_modules/@jatbas/aic/integrations/cursor/uninstall.cjs --proje
 
 The repository commits `integrations/aic-uninstall-standalone.cjs`, a single CommonJS bundle produced by the build (`node mcp/scripts/bundle-standalone-uninstall.cjs`). After `pnpm --filter @jatbas/aic build`, a copy also lands at `mcp/integrations/aic-uninstall-standalone.cjs` for the published package tree.
 
-1. Use Node.js 20 or newer.
+1. Use Node.js 24.x (matches the pinned `engines.node`; the standalone uninstall bundle inlines a CommonJS helper but still shares the `better-sqlite3` ABI constraints described in the root README).
 2. Download the file:
 
    ```bash
