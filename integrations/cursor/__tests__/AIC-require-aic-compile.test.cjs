@@ -369,7 +369,7 @@ function gate_allows_with_recent_compile() {
 function gate_denies_with_stale_recency() {
   const generationId = crypto.randomBytes(8).toString("hex");
   const recencyFile = getRecencyFile(emptyDir);
-  fs.writeFileSync(recencyFile, String(Date.now() - 200_000));
+  fs.writeFileSync(recencyFile, String(Date.now() - 400_000));
   try {
     const stdin = hookPayload({
       generation_id: generationId,

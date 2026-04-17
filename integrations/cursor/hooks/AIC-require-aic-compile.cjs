@@ -169,7 +169,7 @@ process.stdin.on("end", () => {
 
     const denyMsg = blockedMessage(
       GATE_REASON.COMPILE_REQUIRED,
-      `You must call the aic_compile MCP tool FIRST before using any other tool. Call it now with { "intent": "${intentArg}", "projectRoot": "${projectRoot}" }`,
+      `You must call the aic_compile MCP tool FIRST before using any other tool. Call it now with { "intent": "${intentArg}", "projectRoot": "${projectRoot}" }. Do NOT bypass this gate by writing marker files directly — that produces uncompiled context and hides upstream failures.`,
     );
     process.stdout.write(
       JSON.stringify({

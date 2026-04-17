@@ -1,138 +1,91 @@
 ---
 name: aic-task-executor
 description: Executes planner task files with steps, mechanical verification, progress updates, and isolated worktree commits.
+editors: all (Cursor Composer / Agent recommended for full fidelity)
 ---
 
-# Task Executor
+# Task Executor (SKILL.md)
 
-## Purpose
+## QUICK CARD
 
-Execute a task file produced by the `aic-task-planner` skill. Read the task, internalize its specs, implement every step, verify with Grep-based mechanical checks for scoring, iterate until clean, finalize progress, and stage for commit.
+- **Purpose:** Execute a task file exactly as written, commit the result in an isolated worktree, update progress, and merge back.
+- **Inputs:** A task file in `documentation/tasks/pending/`, or an ad-hoc request matching one of the ad-hoc patterns.
+- **Outputs:** Committed changes in an isolated worktree, merged to the working branch; task file moved to `done/`; `aic-progress.md` updated.
+- **Non-skippable steps:** Pre-flight → Worktree → Implement → Verify → Update progress → Merge.
+- **Mechanical gates:**
+  `pnpm typecheck`, `pnpm lint`, `pnpm test` — must all pass before merge.
+  `bash .claude/skills/shared/scripts/validate-task.sh <task-file>` before starting implementation.
+- **Checkpoint lines:** After each phase, emit `CHECKPOINT: aic-task-executor/<phase> — complete` and call `checkpoint-log.sh`.
+- **Degraded mode:** No subagents are dispatched; all work is sequential. If the shell is restricted to a single command at a time, run phases one at a time and checkpoint after each.
 
-**Announce at start:** "Using the task-executor skill on `<task file path>`."
+## Severity vocabulary (only two tiers)
 
-## Editors
+- **HARD RULE** — verified by `typecheck`, `lint`, `test`, `ambiguity-scan`, or a shell check. Violation = stop and fix.
+- **GUIDANCE** — best practice. Deviate only with justification.
 
-- **Cursor:** Attach the skill with `@` or invoke via `/`. Where this skill says to spawn subagents (e.g. documentation critics in §4-doc), use the **Task tool** with the specified `subagent_type`. You MUST use the Task tool for subagent work — never do it inline.
-- **Claude Code:** Invoke with `/aic-task-executor`. Where this skill references multi-agent work, spawn separate agents. Never perform critic/explorer work inline.
+## HARD RULES
 
-## Autonomous Execution
+1. Never skip verification. `pnpm typecheck && pnpm lint && pnpm test` must all pass before merge.
+2. Never merge with uncommitted changes in the worktree.
+3. Never use `--no-verify`.
+4. Never add `eslint-disable`, `@ts-ignore`, `@ts-nocheck`. Fix the code instead.
+5. Follow the task file literally. If an instruction is ambiguous, stop and tell the user; do not guess.
+6. Verify external assumptions before implementing (read the actual `.d.ts`, run the actual tool, query the actual database).
+7. Evidence before claims: never report "fixed" or "passes" without fresh output from this run.
 
-Run §1–§6 as a single continuous flow. Never pause to report status or ask for confirmation mid-flow. **§6 is mandatory — task is NOT complete until merged to main.**
+## GUIDANCE
 
-**Stop ONLY for:** unmet dependency (§1), unresolved ambiguity (§2), unverifiable assumption (§2.5), circuit breaker (§3), blocked diagnostic, or merge approval (§6a). Everything else runs continuously. After §6a approval, §6b runs immediately.
+- Prefer targeted edits (StrReplace) on the minimum necessary lines. Do not overwrite whole files when a small edit suffices.
+- Favour sibling patterns — if three similar files already follow a pattern, follow it.
 
-## When to Use
+## Autonomous execution
 
-- User says "execute task", "go", "implement task NNN"
-- User references a task file in `documentation/tasks/`
-- Immediately after the task-planner offers execution
-- User attaches this skill for ad-hoc work (no task file)
+Run as a single continuous flow. The only points you stop are:
 
-## Ad-hoc Work (No Task File)
+- **Pre-flight blocker** — a check in §1 fails (missing template, broken task file).
+- **Verification failure** — a gate fails and you cannot resolve it within 3 attempts (then use `aic-systematic-debugging`).
+- **Ambiguous instruction** — a step cannot be executed literally.
 
-**When this skill is attached but no task file is referenced, the full process still applies.** The worktree, verification, and merge steps are NOT optional — they exist to protect the main branch from untested changes. For ad-hoc work:
+Do not pause to announce each step. Do not paraphrase the task file back to the user.
 
-- §1: Create a worktree (use the epoch-only naming: `.git-worktrees/$EPOCH`)
-- §2: Skip task internalization (no task file to read)
-- §3: Implement the user's request directly in the worktree
-- §4: Run the full verification pass (§4a toolchain + §4b mechanical checks on all files you created/modified)
-- §5: Report results, skip progress update, commit in the worktree
-- §6: Propose merge to user
+## When to use
 
-**NEVER skip §4 (verification) for ad-hoc work.**
+- Execute a pending task file.
+- Execute a direct user instruction matching one of the ad-hoc patterns in `SKILL-phase-0-ad-hoc.md`.
 
-## Inputs
+## When NOT to use
 
-1. The task file path (e.g. `documentation/tasks/001-phase-b-core-interfaces.md`) — or the user's ad-hoc request
-2. `.cursor/rules/AIC-architect.mdc` — active architectural rules
-3. Existing source in `shared/src/` — current interfaces, types, patterns
+- When the task file does not yet exist (use `aic-task-planner` first).
+- When you need to answer a question (use `aic-researcher`).
 
-## Process
+## Process overview (phase dispatch)
 
-The process has **six sections** plus mode-specific variants. §6 (Merge and Clean Up) is mandatory — the task is not complete until the worktree is merged into main and removed.
+Read each phase file before executing it. Ad-hoc detection and worktree/merge mechanics live inline inside `SKILL-phase-1-setup.md` and `SKILL-phase-5-finalize.md`.
 
-| Step                  | Deliverable                                 | User gate?              |
-| --------------------- | ------------------------------------------- | ----------------------- |
-| §1 Read + validate    | Task file internalized, worktree created    | Only if deps not met    |
-| §2 Internalize        | Touched-files list, mode detection          | Only if ambiguity found |
-| §3 Implement          | Code/docs written in worktree               | No — continuous         |
-| §4 Verify             | All dimensions clean                        | No — continuous         |
-| §5 Finalize           | Report, progress update, commit in worktree | No — continuous         |
-| §6 Merge and Clean Up | Squash merge to main, worktree removed      | Yes — wait for approval |
+| Phase                                               | File                         | Checkpoint                |
+| --------------------------------------------------- | ---------------------------- | ------------------------- |
+| 1. Setup (ad-hoc detection + pre-flight + worktree) | `SKILL-phase-1-setup.md`     | `setup-complete`          |
+| 3. Implement                                        | `SKILL-phase-3-implement.md` | `implementation-complete` |
+| 4. Verify                                           | `SKILL-phase-4-verify.md`    | `verification-complete`   |
+| 5. Finalize (progress update + merge)               | `SKILL-phase-5-finalize.md`  | `finalized`               |
 
-## Phase Dispatch
+At every phase exit: emit checkpoint line + call `checkpoint-log.sh`.
 
-After reading the task file, execute the phase files in order. Each phase file is a sibling of this file (same directory). Read each one just before executing it — do NOT skip ahead.
+## Subagent dispatch
 
-**Standard execution (with or without task file):**
+This skill does not dispatch subagents. The optional exception is delegating a verification step (e.g. running the full test suite) to a background shell; that is a tool call, not a subagent.
 
-1. Read `SKILL-phase-1-setup.md` → execute §1 setup + §2 internalize + §2.5 verify + §2b mode detection
-2. Read `SKILL-phase-3-implement.md` → execute implementation (§3/§3-doc/§3-mixed based on mode from §2b)
-3. Read `SKILL-phase-4-verify.md` → execute §4 verification
-4. Read `SKILL-phase-5-finalize.md` → execute §5 finalize + §6 merge (continuous — do NOT stop between them)
+## Failure patterns
 
-**Documentation tasks:** Phase 3 file contains §3-doc and §4-doc together. Skip `SKILL-phase-4-verify.md` (code verify). Proceed directly to Phase 5.
-**Mixed tasks:** Phase 3 file contains §3 (code), §3-mixed (docs), and §4-mixed (doc verify). Phase 4 file runs §4 (code verify).
-**Code tasks:** Phase 3 file uses §3 only. Phase 4 file runs §4 (code verify) only.
+- Fixing tests by relaxing assertions (use `aic-systematic-debugging`).
+- Merging with failing gates.
+- Updating `aic-progress.md` before the worktree merges (it is gitignored — always update on the working branch, after the merge).
+- Guessing at an ambiguous instruction — stop and ask instead.
 
-**CRITICAL:** You must NOT skip §4 (verification) even for ad-hoc work. §6 (merge) is MANDATORY — the task is NOT complete until merged to main.
+## Output checklist
 
----
-
-## Blocked Handling
-
-If you cannot fix an issue after 2 attempts:
-
-**Step 1 — Diagnose before blocking.** Check whether the failure is in your code or the task file:
-
-- **Signature mismatch:** Does the interface in codebase still match the task file? If the interface changed since planning, the task file needs replanning — not more implementation attempts.
-- **Type mismatch:** Do Dependent Types match actual types in `core/types/`? If fields are missing or renamed, report the discrepancy.
-- **Config conflict:** Does ESLint change conflict with current `eslint.config.mjs`? If blocks were reordered or rules changed since planning, report it.
-- **Layer violation:** Does implementation need something banned by ESLint rules? This is a design issue, not a code issue.
-- **Approach mismatch (circuit breaker):** 3+ workarounds accumulated? List each. The task's chosen approach doesn't fit the actual codebase — the planner needs to re-evaluate, not the executor needs to try harder.
-
-**Step 2 — Block and report:**
-
-1. **Stop immediately** — do not guess or improvise.
-2. Append a `## Blocked` section to the task file (main workspace copy) with:
-   - What you tried (specific code or command)
-   - What went wrong (exact error message)
-   - Whether the issue is in your code or the task file's spec
-   - What decision you need from the user
-3. Commit partial work in worktree: `git add <touched files> && git commit -m "wip(task-NNN): blocked — <short reason>"`
-4. Change task status to `Blocked` (main workspace copy).
-5. Report to user with worktree path + branch name.
-6. **Wait for guidance.**
-
----
-
-## Conventions
-
-- Execute steps in order — never skip
-- Never add files/features not in the task; never modify task file content (only Status field)
-- If the task file seems wrong, ask the user
-- All verification must pass before reporting success; evidence over claims
-- All work in a worktree — never commit directly to main; merge only when user approves
-- Multiple executors can run in parallel in separate worktrees
-
-## Common Rationalizations — STOP
-
-| Thought                                                         | Reality                                                                             |
-| --------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| "This step is trivial, I can skip verification"                 | Trivial steps fail too. Verify everything.                                          |
-| "I just wrote it so I know it is correct"                       | Re-read from disk. Memory is unreliable after 10+ files.                            |
-| "Tests should pass now"                                         | "Should" means you have not run them. Run them.                                     |
-| "The task file is probably wrong, I will improvise"             | Stop and report to the user. Never improvise.                                       |
-| "I will fix this lint error later"                              | Fix it now. Deferred fixes compound.                                                |
-| "One more try without going to Blocked"                         | If you have tried 2+ times, go to Blocked. More attempts waste tokens.              |
-| "This workaround is fine, the task did not anticipate this"     | 3+ workarounds = circuit breaker. Report it.                                        |
-| "I can skip the worktree for this small change"                 | The worktree protects main. Size does not matter.                                   |
-| "Verification passed in §4a, no need for §4b mechanical checks" | §4a catches toolchain errors. §4b catches convention violations. Both are required. |
-| "I will commit and fix the remaining issue after"               | All dimensions must be clean before committing.                                     |
-| "The subagent said it succeeded"                                | Verify independently. Never trust subagent reports without evidence.                |
-| "This debugging attempt will work"                              | Follow the systematic debugging skill. No guessing.                                 |
-
-- Never skip verification, worktree setup, or mechanical checks — no matter how trivial the step seems.
-- Never trust memory or subagent reports — re-read from disk, run the command, verify with tool output.
-- Never stop before §6 — the worktree is temporary; without merge to main the user has nothing.
+- [ ] Task file moved to `documentation/tasks/done/`.
+- [ ] `aic-progress.md` updated on the working branch (not inside the worktree).
+- [ ] Commits follow `type(scope): description`, ≤ 72 chars.
+- [ ] All three gates (`typecheck`, `lint`, `test`) passed on the merged branch.
+- [ ] Seven checkpoint lines in `.aic/skill-log.jsonl`.

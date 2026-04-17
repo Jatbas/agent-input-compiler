@@ -43,3 +43,82 @@ When investigating the AIC codebase, apply these depth requirements. These are r
 8. **Documentation cross-reference:** Check `documentation/` for docs describing the mechanism under investigation. Compare doc claims against code evidence. Report discrepancies.
 
 These depth requirements do NOT activate for technology evaluations involving only external technologies (no AIC codebase code).
+
+---
+
+## Shared Scripts and Prompt Templates
+
+The `.claude/skills/shared/` directory holds deterministic enforcement scripts and reusable subagent prompt templates. Every skill references them directly; do not copy/paraphrase the content into individual phase files.
+
+### Deterministic gates (`shared/scripts/`)
+
+Every script exits 0 on pass and non-zero on fail. Invoke them as `bash .claude/skills/shared/scripts/<script> <args>`. If a script exits non-zero, stop — do not proceed past the gate.
+
+| Script                                                  | Purpose                                                                                                                        | When                                                        |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| `ambiguity-scan.sh <file.md>`                           | Grep for banned ambiguity patterns in instructional prose.                                                                     | Before declaring any SKILL / phase / task / doc file ready. |
+| `validate-exploration.sh <report.md>`                   | Verify an Exploration Report is fully filled (no `<…>` placeholders, definitive method-behavior language).                     | End of planner Pass 1 and documentation-writer Phase 1.     |
+| `validate-task.sh <task.md>`                            | Mechanical checks on a generated task file (empty parens, punctuation fragments, internal codes, section presence, step size). | End of planner Pass 2 / 3.                                  |
+| `changelog-format-check.sh CHANGELOG.md`                | Keep-a-Changelog structure, section names, hedging / internal-code detection.                                                  | `aic-update-changelog` + `aic-release` gates.               |
+| `git-clean-plan-validate.sh <plan.tsv>`                 | Commit-message format, length, banned patterns, conventional type.                                                             | `aic-git-history-clean` before rewrite.                     |
+| `evidence-scan.sh <synth.md>`                           | Every finding cites `file:line`, URL, or `Evidence:` tag.                                                                      | End of any synthesis, review, or audit phase.               |
+| `checkpoint-log.sh <skill> <phase> <artifact> <status>` | Append JSONL to `.aic/skill-log.jsonl` for state recovery and telemetry.                                                       | At every phase exit.                                        |
+
+### Checkpoint discipline
+
+Every phase exit produces two outputs:
+
+1. A one-line checkpoint message printed to stdout: `CHECKPOINT: <skill>/<phase> — <status>`.
+2. A `checkpoint-log.sh` call recording the same state to `.aic/skill-log.jsonl`.
+
+The checkpoint name for each phase is specified in the parent `SKILL.md`'s "Process overview" table. If a phase fails, emit `CHECKPOINT: <skill>/<phase> — failed` and call `checkpoint-log.sh` with status `failed` before stopping.
+
+### Subagent prompt templates (`shared/prompts/` + skill-local `prompts/`)
+
+Multi-agent skills dispatch subagents by rendering a template file, not by paraphrasing English instructions. Templates use `{{PLACEHOLDER}}` syntax. The orchestrator must:
+
+1. Read the template file.
+2. Substitute every `{{NAME}}` placeholder with a concrete value.
+3. Verify `grep -q '{{' <rendered-prompt>` returns nothing before dispatch — any remaining placeholder is a bug.
+4. Pass the rendered text as the subagent prompt.
+
+Generic templates live in `shared/prompts/` (`explorer-generic.md`, `critic-generic.md`, `framing-challenger.md`). Skill-specific templates live under `<skill>/prompts/`. Every subagent reply starts with the two-line header defined in `shared/prompts/README.md`:
+
+```
+CHECKPOINT: <skill>/<phase>/<role> — complete
+EVIDENCE: <N> citations | BUDGET: used/total
+```
+
+---
+
+## Canonical Examples — HARD
+
+Every skill that produces a structured artifact has at least one canonical example under `<skill>/examples/`. The index lives at `.claude/skills/shared/examples/README.md`.
+
+Before writing any output, the agent MUST:
+
+1. Read the matching canonical example for the operation mode / recipe / classification.
+2. Imitate its structure — headings, section order, label vocabulary, acceptance-criteria style.
+3. Where the example is a structural template (not a near-identical case), adapt the content, not the shape.
+
+Deviation from an example's structure is a HARD finding in review unless the skill file explicitly authorises variation. "My output is different" is not a justification — the example _is_ the shape.
+
+## Runner and Eval — GUIDANCE
+
+Two deterministic harnesses live under `shared/`:
+
+- `shared/SKILL-runner.md` — phase sequencer (`skill-run.cjs`). Use it for multi-phase skills with a `## Process overview (phase dispatch)` table. It prevents phase skipping and gives you resumable runs.
+- `shared/SKILL-eval.md` — golden-test harness (`skill-eval.cjs`). Use it to measure whether a skill change improved or degraded output against approved test cases.
+
+Single-phase skills (`aic-update-changelog`, `aic-update-progress`) run inline without the runner. Every skill with at least one canonical example can have a test case.
+
+## Model Routing — HARD for listed sub-steps
+
+`shared/SKILL-routing.md` lists the four decisive sub-steps that MUST be dispatched to a stronger model via `shared/prompts/ask-stronger-model.md`:
+
+- `aic-task-planner` — recipe classification.
+- `aic-pr-review` — HARD/SOFT severity for each finding.
+- `aic-researcher` — framing soundness check.
+- `aic-documentation-writer` — factual claim verdict.
+
+These sub-steps never run inline in the orchestrator, regardless of which model the orchestrator is using. Adding a new routed sub-step requires an entry in `SKILL-routing.md` and an example JSON reply in the skill's `examples/` directory.

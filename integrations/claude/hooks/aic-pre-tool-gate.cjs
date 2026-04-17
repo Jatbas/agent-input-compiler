@@ -131,7 +131,7 @@ function run(stdinStr) {
         ? savedPrompt.slice(0, 200).replace(/"/g, '\\"')
         : "<describe what the user asked>";
 
-    const reason = `BLOCKED[compile_required]: You must call aic_compile FIRST before using any other tool. Call it now: { "intent": "${intentArg}", "projectRoot": "${projectRoot}" }`;
+    const reason = `BLOCKED[compile_required]: You must call aic_compile FIRST before using any other tool. Call it now: { "intent": "${intentArg}", "projectRoot": "${projectRoot}" }. If aic_compile is not in your deferred tool list, call ToolSearch with query "aic_compile" to load its schema first (the gate allows this). Do NOT bypass this gate by writing marker files directly — that produces uncompiled context and hides upstream failures.`;
 
     return JSON.stringify({
       hookSpecificOutput: {

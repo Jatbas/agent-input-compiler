@@ -1,296 +1,93 @@
 ---
 name: aic-pr-review
-description: Review pull requests against AIC architectural conventions, type safety, security, and style rules. Use when reviewing PRs, examining branch diffs, or when a community contribution needs evaluation.
+description: Review pull requests against AIC architectural conventions, type safety, security, and style rules.
+editors: all
 ---
 
-# PR Review
+# PR Review (SKILL.md)
 
-## Purpose
+## QUICK CARD
 
-Systematically review pull requests against AIC's architectural invariants, security rules, and conventions. Produces a structured report with severity-classified findings that cite specific checklist items.
+- **Purpose:** Produce a structured PR review with HARD / SOFT findings, each cited.
+- **Inputs:** PR number (`gh pr view <id>`) or a branch diff (`git diff <base>...HEAD`).
+- **Outputs:** A review summary + three subagent reports (arch-safety, storage-security, testing-conventions) archived under `.aic/reviews/<pr-or-branch>/`.
+- **Non-skippable steps:** Classify mode → Fetch diff → Dispatch 3 subagents in parallel → Merge findings → Write summary.
+- **Mechanical gates:** Every HARD finding must cite `file:line` from the diff. The merge step runs `bash .claude/skills/shared/scripts/evidence-scan.sh <review-summary>`.
+- **Checkpoint lines:** Emit at each phase; `checkpoint-log.sh aic-pr-review <phase>`.
+- **Degraded mode:** If subagent dispatch is unavailable, run the three subagent check-lists sequentially against the diff, using the same prompt files as rubrics.
 
-**Announce at start:** "Using the pr-review skill."
+## Severity vocabulary (only two tiers)
 
-## Editors
+- **HARD** — blocks merge (ESLint rule broken, security invariant violated, storage boundary crossed, missing test for behavioural change).
+- **SOFT** — improvement recommendation (style drift, test-case gap, commit message formatting).
 
-- **Cursor:** Attach the skill with `@` or invoke via Task tool. Where this skill says to dispatch subagents for large PRs, use the **Task tool** with `subagent_type="generalPurpose"`. You MUST use the Task tool for subagent work — never do it inline.
-- **Claude Code:** Invoke with `/aic-pr-review`. Where this skill references multi-agent work, spawn separate agents. Never perform reviewer work inline.
+No other tiers. Do not use "Critical", "Important", "Minor", "Nit" — collapse into HARD / SOFT.
 
-## Autonomous Execution
+## HARD RULES
 
-Run §1 through §4 as a single continuous flow. Do NOT pause between sections to report status or explain what you will do next. Completing one section means immediately starting the next — not sending a message and waiting.
+1. **Dispatch all three subagents.** Arch-safety, storage-security, testing-conventions. Skipping one is a HARD failure of the review.
+2. **Every finding cites `file:line` from the PR diff** plus (where relevant) the convention source (`shared/src/...` or `.cursor/rules/...`).
+3. **No hand-waving.** "Looks good" or "LGTM" without an explicit pass list is rejected; use the pass list in the summary.
+4. **Never approve a PR that adds `eslint-disable`, `@ts-ignore`, `@ts-nocheck`, or `--no-verify`.** Automatic HARD finding.
+5. **Never approve a PR that adds a `let` in production code outside the allowed boolean-flag exception.**
+6. **Cited evidence must be fresh.** Run the code / read the file during the review; never trust memory.
+7. **HARD vs SOFT classification is a routed decision.** For each finding, dispatch a subagent rendered from `../shared/prompts/ask-stronger-model.md` with the strongest available model. The orchestrator never classifies severity inline. See `../shared/SKILL-routing.md`.
+8. **Before writing the summary,** read the canonical example at `examples/review-summary-example.md` (TODO: author) and imitate its structure. Until authored, imitate the pass-list / HARD list / SOFT list / strong-points layout described in `SKILL-checklist.md`.
 
-**Legitimate user gates (the ONLY points where you stop and wait):**
+## GUIDANCE
 
-- §5 step 1: ask "Post this review to the PR?" before posting (Mode A only)
+- Prefer stating the exact fix with code.
+- Group SOFT findings by file to save reader attention.
+- Acknowledge well-done sections in a short "Strong points" list.
 
-**Everything else runs without pausing.** Context gathering, review (inline or parallel), synthesis, and severity classification all run as one continuous flow. Present the complete review report at §3 and then ask about posting.
+## Autonomous execution
 
-## When to Use
+Run continuously. Stop only when:
 
-- User says "review PR", "review this PR", "check PR #N"
-- User provides a GitHub PR URL or number
-- User says "review branch" or "review my changes"
-- Before merging a community contribution
-- After task-executor completes work (self-review)
-- User attaches this skill and references a diff
+- The diff is too large for one pass (> 3000 lines) → partition by directory, dispatch subagents per partition.
+- Subagents disagree materially on a finding → surface the disagreement in the summary; do not silently merge.
 
-## Modes
+## When to use
 
-### Mode A — GitHub PR
+- A pending PR on GitHub.
+- A feature branch awaiting merge.
+- A community contribution needing evaluation.
 
-Input: PR URL, PR number, or `gh pr view` output.
+## When NOT to use
 
-### Mode B — Branch Diff
+- Writing the PR yourself (just follow project conventions).
+- Debugging a bug (use `aic-systematic-debugging`).
 
-Input: current branch vs base (defaults to `main`). Use when reviewing local work before opening a PR.
+## Process overview (inline phases)
 
-## Process
+Checklist-level detail lives in `SKILL-checklist.md`. The phases below are executed sequentially with a checkpoint after each.
 
-### §1 — Gather Context
+1. **Classify mode** — PR (`gh pr view <id>`), branch diff (`git diff <base>...HEAD`), or a local working tree. Record the mode and the base ref. Checkpoint: `mode-classified`.
+2. **Fetch diff** — obtain the unified diff and the list of changed files. For GitHub PRs use `gh pr diff <id>`; for a branch use `git diff <base>...HEAD`. Write the diff to `.aic/reviews/<pr-or-branch>/diff.patch`. Checkpoint: `diff-fetched`.
+3. **Dispatch subagents** — in parallel, spawn three subagents with the templates in `prompts/`: `arch-safety.md`, `storage-security.md`, `testing-conventions.md`. Substitute `{{PR_ID}}`, `{{DIFF_PATH}}`, `{{FILES_CHANGED}}`, `{{BASE_BRANCH}}`, `{{BUDGET}}`, `{{OUTPUT_PATH}}`. Verify no `{{` remains in any rendered prompt. Checkpoint: `subagents-complete`.
+4. **Merge findings + write summary** — concatenate the three reports, deduplicate findings that cross categories, order HARD findings before SOFT, write a top-level summary (one-line verdict, pass list, HARD list, SOFT list, strong points). Run `bash .claude/skills/shared/scripts/evidence-scan.sh <summary-path>`. Checkpoint: `review-drafted`.
+5. **Deliver** — paste the summary back to the user or post as a PR comment (`gh pr review`). Archive every artifact under `.aic/reviews/<pr-or-branch>/`. Checkpoint: `review-delivered`.
 
-**Batch-read in parallel:**
+## Subagent dispatch
 
-1. The diff (method depends on mode):
-   - **Mode A:** `gh pr diff <number> --repo <owner/repo>`
-   - **Mode B:** `git diff main...HEAD`
-2. The list of changed files:
-   - **Mode A:** `gh pr view <number> --json files --jq '.files[].path'`
-   - **Mode B:** `git diff main...HEAD --name-only`
-3. PR metadata (Mode A only): `gh pr view <number> --json title,body,author,labels,commits`
-4. Commit messages: `git log main..HEAD --oneline` (Mode B) or from PR metadata
-5. The checklist: read `SKILL-checklist.md` (sibling file in this skill directory)
-6. `CONTRIBUTING.md` at the repo root — the contribution rules the PR must satisfy
+Templates in `prompts/`:
 
-**Check CONTRIBUTING.md process gates first** (dimension P in the checklist):
+- `arch-safety.md` — hexagonal boundaries, DI, determinism, immutability, errors, security.
+- `storage-security.md` — SQL boundary, migrations, IDs, telemetry sanitation.
+- `testing-conventions.md` — test parity, file naming, type safety, lint bypass.
 
-- Branch name matches `(kind) name/short-slug` convention (**P1**)
-- If the change affects architecture, pipeline behavior, rule enforcement, guardrails/security, editor integration, or public config/workflow → verify `RFC.md` exists on the branch (**P2**)
-- PR description explains motivation and scope (**P6**)
-- Changes are narrowly scoped — no unrelated changes bundled (**P3**)
+Substitute `{{PR_ID}}`, `{{DIFF_PATH}}`, `{{FILES_CHANGED}}`, `{{BASE_BRANCH}}`, `{{BUDGET}}`, `{{OUTPUT_PATH}}` before dispatch.
 
-These are checked upfront because a missing RFC or wildly scoped PR may warrant early feedback before a full code review.
+## Failure patterns
 
-**Classify the PR scope** from the file list:
+- Finding 100 SOFT items and missing the one HARD finding.
+- Approving a PR because "tests pass" without checking whether _new_ tests cover the change.
+- Failing to cite `file:line` — the reviewer dismisses the finding and ships the defect.
 
-| Changed files touch…                         | Review dimensions to emphasize   |
-| -------------------------------------------- | -------------------------------- |
-| `shared/src/core/` or `shared/src/pipeline/` | A (full), T, D, E                |
-| `shared/src/adapters/`                       | A9, T, E                         |
-| `shared/src/storage/`                        | S (full), D2, D1                 |
-| `mcp/src/`                                   | E3, E4, X, A8                    |
-| `**/*.test.ts` or `__tests__/`               | V (full)                         |
-| `shared/src/core/interfaces/`                | A2, A4, T                        |
-| `integrations/` or `.cursor/rules/`          | C, X                             |
-| `package.json` or dependency files           | C7, C8                           |
-| Mixed / large                                | All dimensions                   |
-| Any PR (always)                              | P (process & contribution gates) |
+## Output checklist
 
-**Determine review scale:**
-
-- **Small** (1–5 files, < 200 diff lines): review inline — no subagents
-- **Medium** (6–15 files, 200–800 diff lines): review inline with the full checklist
-- **Large** (> 15 files or > 800 diff lines): dispatch parallel review subagents (§2b)
-
-### §2a — Inline Review (Small / Medium)
-
-Walk through each relevant checklist dimension from `SKILL-checklist.md`. For every finding:
-
-1. Identify the file and line(s)
-2. Cite the checklist ID (e.g. **A3**, **T7**, **X1**)
-3. Classify severity (see §4)
-4. Write a concise explanation with the fix
-
-**Mechanical checks** — run these commands and report failures (**P9**):
-
-```bash
-pnpm lint          # ESLint — covers most A, T, D, C rules
-pnpm typecheck     # TypeScript strict — covers T rules
-pnpm test          # Vitest — covers V rules
-pnpm knip          # Unused exports/deps — covers C7, C8
-pnpm lint:clones   # Duplicate-code scan (jscpd)
-pnpm check:headers # SPDX license headers
-```
-
-If the PR is on a remote fork and cannot be checked out locally, skip mechanical checks and note this in the report.
-
-### §2b — Parallel Review (Large PRs)
-
-Dispatch three review subagents in parallel. Each receives: the full diff, the file list, the relevant checklist dimensions, and the PR description. Each subagent's prompt must include: "The author's PR description may be optimistic. Read the actual diff, not just the description. Verify independently — do not accept claims at face value."
-
-**Anti-agreement enforcement:** If any subagent returns zero findings on a PR with 200+ diff lines, re-spawn with a strengthened mandate: "Your previous review found no issues on a substantial diff. For each file, describe the strongest possible concern. If you genuinely cannot find a concern after exhaustive analysis, explain exactly what you checked."
-
-**Subagent 1 — Architecture & Safety:**
-
-- Dimensions: A, T, E, D
-- Focus: layering violations, type safety, error patterns, immutability
-
-**Subagent 2 — Storage, Security & Dependencies:**
-
-- Dimensions: S, X, C7, C8
-- Focus: SQL placement, migration integrity, secrets, telemetry, dependency policy
-
-**Subagent 3 — Testing & Conventions:**
-
-- Dimensions: V, C (excluding C7/C8)
-- Focus: test adequacy, naming, comments, commit messages, file layout
-
-Each subagent returns a list of findings in this format:
-
-```
-- [SEVERITY] CHECKLIST_ID: file:line — description
-```
-
-**Handoff accounting:** After all subagents return, produce a structured summary before synthesis:
-
-- "Subagent 1 (Arch & Safety): [N] findings ([breakdown by severity])."
-- "Subagent 2 (Storage & Security): [N] findings ([breakdown by severity])."
-- "Subagent 3 (Testing & Conventions): [N] findings ([breakdown by severity])."
-- "Cross-agent overlap: [N] findings flagged by 2+ subagents."
-
-If any subagent returned 0 findings, trigger the anti-agreement re-spawn before proceeding.
-
-After all subagents complete, proceed to §3.
-
-### §3 — Synthesis
-
-Merge findings from all sources (inline review or subagents + mechanical checks). Deduplicate — same root cause appearing in multiple files counts as one finding with multiple locations.
-
-**Cross-agent convergence boost:** When 2+ subagents independently flag the same issue (same file, same root cause), that finding's severity cannot be downgraded during synthesis. Independent confirmation is a strong quality signal — note "confirmed by N/3 reviewers" in the finding description.
-
-**Anti-downgrade rule:** No finding's severity may be reduced from the subagent's classification without re-checking the relevant diff lines. If you believe a subagent over-classified, re-read the diff excerpt before downgrading. Document the re-check: "[Downgraded from X to Y — re-read file:line, reasoning]." This prevents the orchestrator from unconsciously softening findings during synthesis.
-
-**Produce the report** using this structure:
-
-```
-## PR Review: <title or branch name>
-
-**Scope:** N files changed, M lines added, K lines removed
-**Author:** <author> (community | maintainer)
-**Verdict:** APPROVE | APPROVE_WITH_NITS | REQUEST_CHANGES | BLOCK
-
-### Critical (must fix before merge)
-- [A1] `shared/src/pipeline/foo.ts:42` — imports from `adapters/` violating hexagonal boundary
-
-### Important (should fix before merge)
-- [T7] `shared/src/core/bar.ts:18` — non-null assertion `!` — use optional chaining
-
-### Minor (recommended)
-- [C2] `shared/src/adapters/baz.ts:5` — narrating comment "// Get the config"
-
-### Nits (optional)
-- [C3] consider renaming `myHelper.ts` → `my-helper.ts` for kebab-case
-
-### Strengths
-- Good test coverage for edge cases in X
-- Clean separation of concerns in Y
-
-### Mechanical Check Results
-- ESLint: PASS / FAIL (N errors)
-- TypeScript: PASS / FAIL (N errors)
-- Tests: PASS / FAIL (N failed)
-- Knip: PASS / FAIL (N unused)
-```
-
-### §4 — Severity Classification
-
-| Severity      | Criteria                                                                                                                                                                                     | Merge gate                          |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
-| **Critical**  | Security vulnerability, data loss risk, architectural boundary violation (A1, A8), bare secrets (X1), missing RFC for architectural change (P2)                                              | Blocks merge                        |
-| **Important** | Type safety gap (T1–T9), missing error handling (E1–E2), no tests for new logic (V4, P8), mutability violation (D3–D5), unrelated changes bundled (P3), no docs for user-visible change (P7) | Should fix; maintainer may override |
-| **Minor**     | Convention deviation (C1–C6), naming inconsistency, missing edge-case test, branch naming (P1), PR description clarity (P6)                                                                  | Recommended fix                     |
-| **Nit**       | Style preference, alternative approach suggestion, readability improvement                                                                                                                   | Optional                            |
-
-**Verdict rules:**
-
-- Any **Critical** finding → `BLOCK`
-- Any **Important** finding → `REQUEST_CHANGES`
-- Only **Minor** or **Nit** → `APPROVE_WITH_NITS`
-- No findings → `APPROVE`
-
-### §5 — GitHub Interaction (Mode A only)
-
-After producing the report:
-
-1. **Post the review** on the PR:
-
-   ```bash
-   gh pr review <number> --comment --body "<report>"
-   ```
-
-   Use `--approve`, `--request-changes`, or `--comment` matching the verdict.
-
-2. **Post inline comments** for Critical and Important findings:
-
-   ```bash
-   gh api repos/{owner}/{repo}/pulls/{number}/comments \
-     --method POST \
-     -f body="[CHECKLIST_ID] description + suggested fix" \
-     -f path="<file>" -F line=<line> -f side="RIGHT" \
-     -f commit_id="$(gh pr view <number> --json headRefOid --jq '.headRefOid')"
-   ```
-
-3. **Wait for author response** — do not auto-merge. If the author pushes fixes, re-review the updated diff (re-run from §1).
-
-**Ask the user before posting** — never auto-post reviews without confirmation. Present the report first, then ask: "Post this review to the PR?"
-
-## Receiving External Reviews
-
-When an external reviewer (community or GitHub Actions bot) posts review comments on an AIC PR, apply these principles:
-
-1. **Read the full review** before reacting
-2. **Verify against the codebase** — reviewer may lack full context of AIC conventions
-3. **Evaluate technically** — is this correct for THIS codebase?
-4. **If the suggestion conflicts with AIC rules** — push back with the specific rule reference (e.g. "AIC uses branded types per ADR-010, so raw `string` is intentional here")
-5. **If the suggestion is valid** — fix it, citing the review comment
-6. **If unclear** — ask for clarification before implementing
-7. **Reply in the comment thread** — not as top-level PR comments:
-   ```bash
-   gh api repos/{owner}/{repo}/pulls/{number}/comments/{id}/replies \
-     --method POST -f body="<response>"
-   ```
-
-**Never:** performative agreement ("Great point!"), blind implementation without verification, or ignoring valid feedback.
-
-## Community PR Extra Checks
-
-When the PR author is external (not a maintainer), add these checks:
-
-- **Secrets scan:** grep the diff for patterns like API keys, tokens, passwords, private keys (**X1**)
-- **Rule bypass scan:** grep for `eslint-disable`, `@ts-ignore`, `@ts-nocheck`, `--no-verify` (**C5**)
-- **Dependency audit:** any new dependency? Check: exact pin, MIT/Apache-2.0, justification present, only one per PR (**C7**, **C8**)
-- **Scope check:** does the PR match its description? No unrelated changes bundled? (**P3**)
-- **Contribution type:** is this a welcomed contribution type per CONTRIBUTING.md? (bug fixes, editor integrations, language providers, content transformers, test coverage, benchmarks, documentation)
-- **RFC check:** if the change touches architecture, pipeline behavior, rule enforcement, guardrails/security, editor integration, or public config → verify `RFC.md` on the branch (**P2**)
-- **Determinism:** does the change weaken local-first guarantees, guardrails, or logging boundaries? (**P4**)
-- **Editor neutrality:** no editor-specific assumptions in core pipeline (**P5**)
-- **CI status:** verify all checks pass before approving (**P9**)
-
-## Integration
-
-- **aic-task-executor:** after completing a task, attach this skill for self-review before merge
-- **aic-systematic-debugging:** if a finding reveals a deeper issue, use the debugging skill to investigate
-- **aic-task-planner:** if review findings require substantial work, create a task file for the fixes
-
-## Critical Reminders
-
-- Always run the full checklist regardless of diff size, author, or PR description claims.
-- Tests verify behavior, not architecture — checklist dimensions A, T, D, C are not covered by tests.
-- Always read the actual diff — PR descriptions may be optimistic.
-
-## Red Flags
-
-**Never:**
-
-- Approve a PR with Critical findings
-- Skip the checklist because "the diff looks small"
-- Auto-post reviews without user confirmation
-- Merge on behalf of the author
-- Ignore mechanical check failures
-- Soften Critical findings to Important to avoid blocking
-
-**If the reviewer (you) is uncertain:**
-
-- State the uncertainty explicitly
-- Provide the rule reference and let the author decide
-- Ask the maintainer for guidance on ambiguous cases
+- [ ] Three subagent reports archived in `.aic/reviews/<pr-id>/`.
+- [ ] Review summary lists every HARD finding with a fix.
+- [ ] Every finding cites `file:line` (run `evidence-scan.sh`).
+- [ ] Five checkpoint lines in `.aic/skill-log.jsonl`.
+- [ ] Final verdict: `approve`, `approve-with-nits`, `request-changes`, or `reject`.
