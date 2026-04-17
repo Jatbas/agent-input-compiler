@@ -36,7 +36,7 @@
       "@modelcontextprotocol/sdk@1.29.0": "patches/@modelcontextprotocol__sdk@1.29.0.patch"
     },
     "overrides": {
-      "hono": "4.12.12",
+      "hono": "4.12.14",
       "@hono/node-server": "1.19.13"
     }
   },
