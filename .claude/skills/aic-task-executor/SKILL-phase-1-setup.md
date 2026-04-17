@@ -30,7 +30,9 @@ git worktree add -b feat/$EPOCH .git-worktrees/$EPOCH main
 
 **Store the epoch value** for branch/directory names. If worktree creation fails because the path or branch already exists (stale), remove it fully: `rm -rf .git-worktrees/<stale-dir> && git worktree prune && git branch -D <stale-branch> 2>/dev/null` then retry.
 
-**Install + build** in the worktree: `pnpm install && pnpm build` (set `working_directory` to worktree path).
+**Install + build** in the worktree: `source .claude/skills/shared/scripts/ensure-node24.sh && pnpm install && pnpm build` (set `working_directory` to worktree path).
+
+**Node 24 shim — prefix every `pnpm` or `node` invocation.** Cursor ships a bundled Node 22 at `/Applications/Cursor.app/.../helpers` that wins over the user's shell `PATH`. The repo pins Node 24.x (`.nvmrc`, `package.json` engines, `.npmrc` `engine-strict=true`), so every `pnpm` call aborts with `ERR_PNPM_UNSUPPORTED_ENGINE` and any `better-sqlite3` load aborts with an ABI mismatch. Each agent `Shell` call spawns a fresh shell — env vars do **not** persist — so you must prefix every pnpm/node invocation throughout this phase and later phases with `source .claude/skills/shared/scripts/ensure-node24.sh && ...`. This includes `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm knip`, `pnpm lint:clones`, and any direct `node script.js` call.
 
 **Worktree caveat — `pnpm knip`:** Knip mis-resolves entry files when cwd is under `.git-worktrees/` (reports false "unused files" for scripts and tests that are fine on the real repo root). Whenever a task step or §4a requires `pnpm knip`, run it from the **main workspace root** — not the worktree. All other toolchain commands (`pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm lint:clones`) work correctly in the worktree. If knip passes on the main workspace root, record it as passed and move on — do not investigate worktree-specific knip failures.
 

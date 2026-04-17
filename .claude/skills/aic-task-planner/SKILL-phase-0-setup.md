@@ -22,10 +22,12 @@ Run after §0b confirms task planning. **Skip** if §0b classified as analysis-o
 3. Install dependencies in the worktree (needed for `.d.ts` reads during exploration):
 
    ```
-   pnpm install
+   source .claude/skills/shared/scripts/ensure-node24.sh && pnpm install
    ```
 
    Run with `working_directory` set to the worktree absolute path.
+
+   **Node 24 shim — prefix every `pnpm` or `node` invocation.** Cursor ships a bundled Node 22 on `PATH` that triggers `ERR_PNPM_UNSUPPORTED_ENGINE` under this repo's pinned Node 24.x + `engine-strict=true`. Each agent `Shell` call spawns a fresh shell — env vars do **not** persist — so prefix every subsequent pnpm/node invocation in later phases with `source .claude/skills/shared/scripts/ensure-node24.sh && ...`.
 
 4. **All planning work happens in the worktree.** Use worktree paths for all tools. Task files use `$EPOCH` as temporary identifier — final NNN assigned in §6. Task files are gitignored — §6 copies to main workspace.
 
