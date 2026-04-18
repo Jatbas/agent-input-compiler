@@ -6,6 +6,8 @@ import type { RulePackProvider } from "@jatbas/aic-core/core/interfaces/rule-pac
 import type { BudgetConfig } from "@jatbas/aic-core/core/interfaces/budget-config.interface.js";
 import type { HeuristicSelectorConfig } from "@jatbas/aic-core/core/interfaces/heuristic-selector-config.interface.js";
 import type { LanguageProvider } from "@jatbas/aic-core/core/interfaces/language-provider.interface.js";
+import type { ImportGraphFailureSink } from "@jatbas/aic-core/core/interfaces/import-graph-failure-sink.interface.js";
+import { noopImportGraphFailureSink } from "@jatbas/aic-core/core/interfaces/import-graph-failure-sink.interface.js";
 import type { PipelineStepsDeps } from "@jatbas/aic-core/core/run-pipeline-steps.js";
 import type { FileExtension, GlobPattern } from "@jatbas/aic-core/core/types/paths.js";
 import type { TokenCount } from "@jatbas/aic-core/core/types/units.js";
@@ -77,6 +79,7 @@ export function createPipelineDeps(
   additionalProviders?: readonly LanguageProvider[],
   heuristicSelectorConfig?: HeuristicSelectorConfig,
   guardAllowPatterns?: readonly GlobPattern[],
+  importGraphFailureSink: ImportGraphFailureSink = noopImportGraphFailureSink,
 ): PipelineDepsWithoutRepoMap {
   const tiktokenAdapter = new TiktokenAdapter();
   const tokenCounter = (text: string): TokenCount => tiktokenAdapter.countTokens(text);
@@ -97,6 +100,7 @@ export function createPipelineDeps(
   const importProximityScorer = new ImportGraphProximityScorer(
     fileContentReader,
     languageProviders,
+    importGraphFailureSink,
   );
   const symbolRelevanceScorer = new SymbolRelevanceScorer(
     fileContentReader,
@@ -208,6 +212,7 @@ export function createFullPipelineDeps(
   additionalProviders?: readonly LanguageProvider[],
   heuristicSelectorConfig?: HeuristicSelectorConfig,
   guardAllowPatterns?: readonly GlobPattern[],
+  importGraphFailureSink: ImportGraphFailureSink = noopImportGraphFailureSink,
 ): PipelineStepsDeps {
   const partial = createPipelineDeps(
     fileContentReader,
@@ -216,6 +221,7 @@ export function createFullPipelineDeps(
     additionalProviders,
     heuristicSelectorConfig,
     guardAllowPatterns,
+    importGraphFailureSink,
   );
   const ignoreAdapter = new IgnoreAdapter();
   const inner = new FileSystemRepoMapSupplier(new FastGlobAdapter(), ignoreAdapter);

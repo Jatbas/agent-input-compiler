@@ -16,6 +16,7 @@ import { SystemClock } from "@jatbas/aic-core/adapters/system-clock.js";
 import { createProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
 import { createCachingFileContentReader } from "@jatbas/aic-core/adapters/caching-file-content-reader.js";
 import { createFullPipelineDeps } from "../../bootstrap/create-pipeline-deps.js";
+import { noopImportGraphFailureSink } from "@jatbas/aic-core/core/interfaces/import-graph-failure-sink.interface.js";
 import { CompilationRunner } from "@jatbas/aic-core/pipeline/compilation-runner.js";
 import { IgnoreAdapter } from "@jatbas/aic-core/adapters/ignore-adapter.js";
 import { initLanguageProviders } from "@jatbas/aic-core/adapters/init-language-providers.js";
@@ -99,6 +100,7 @@ describe("token reduction benchmarks", () => {
       providers,
       heuristicConfig,
       guardAllowPatterns,
+      noopImportGraphFailureSink,
     );
     const runner = new CompilationRunner(
       deps,

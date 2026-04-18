@@ -3,7 +3,9 @@
 
 import type { ImportProximityScorer } from "@jatbas/aic-core/core/interfaces/import-proximity-scorer.interface.js";
 import type { FileContentReader } from "@jatbas/aic-core/core/interfaces/file-content-reader.interface.js";
+import type { ImportGraphFailureSink } from "@jatbas/aic-core/core/interfaces/import-graph-failure-sink.interface.js";
 import type { LanguageProvider } from "@jatbas/aic-core/core/interfaces/language-provider.interface.js";
+import { noopImportGraphFailureSink } from "@jatbas/aic-core/core/interfaces/import-graph-failure-sink.interface.js";
 import type { RepoMap } from "@jatbas/aic-core/core/types/repo-map.js";
 import type { TaskClassification } from "@jatbas/aic-core/core/types/task-classification.js";
 import type { RelativePath } from "@jatbas/aic-core/core/types/paths.js";
@@ -55,6 +57,7 @@ async function buildEdges(
   repo: RepoMap,
   fileContentReader: FileContentReader,
   languageProviders: readonly LanguageProvider[],
+  importGraphFailureSink: ImportGraphFailureSink,
 ): Promise<ReadonlyMap<RelativePath, readonly RelativePath[]>> {
   const edges = new Map<RelativePath, readonly RelativePath[]>();
   const pathIndex = buildRepoPathIndex(repo.files);
@@ -62,23 +65,43 @@ async function buildEdges(
   for (const entry of repo.files) {
     const provider = getProvider(entry.path, languageProviders);
     if (provider === undefined) continue;
-    try {
-      const content = await fileContentReader.getContent(entry.path);
-      const refs = provider.parseImports(content, entry.path);
-      const targets = refs
-        .filter((r) => r.isRelative)
-        .reduce<readonly RelativePath[]>((acc, ref) => {
-          const resolved = resolveImportSpec(entry.path, ref.source);
-          if (resolved === null) return acc;
-          const target = findRepoPathForResolved(resolved, pathIndex);
-          if (target === null || !pathSet.has(target)) return acc;
-          if (acc.includes(target)) return acc;
-          return [...acc, target];
-        }, []);
-      if (targets.length > 0) edges.set(entry.path, targets);
-    } catch {
-      // skip file on read/parse error
-    }
+    const content = await (async (): Promise<string | null> => {
+      try {
+        return await fileContentReader.getContent(entry.path);
+      } catch (cause) {
+        importGraphFailureSink.notifyImportGraphFailure({
+          kind: "read",
+          path: entry.path,
+          cause,
+        });
+        return null;
+      }
+    })();
+    if (content === null) continue;
+    const refs = ((): ReturnType<LanguageProvider["parseImports"]> | null => {
+      try {
+        return provider.parseImports(content, entry.path);
+      } catch (cause) {
+        importGraphFailureSink.notifyImportGraphFailure({
+          kind: "parse",
+          path: entry.path,
+          cause,
+        });
+        return null;
+      }
+    })();
+    if (refs === null) continue;
+    const targets = refs
+      .filter((r) => r.isRelative)
+      .reduce<readonly RelativePath[]>((acc, ref) => {
+        const resolved = resolveImportSpec(entry.path, ref.source);
+        if (resolved === null) return acc;
+        const target = findRepoPathForResolved(resolved, pathIndex);
+        if (target === null || !pathSet.has(target)) return acc;
+        if (acc.includes(target)) return acc;
+        return [...acc, target];
+      }, []);
+    if (targets.length > 0) edges.set(entry.path, targets);
   }
   return edges;
 }
@@ -148,6 +171,7 @@ export class ImportGraphProximityScorer implements ImportProximityScorer {
   constructor(
     private readonly fileContentReader: FileContentReader,
     private readonly languageProviders: readonly LanguageProvider[],
+    private readonly importGraphFailureSink: ImportGraphFailureSink = noopImportGraphFailureSink,
   ) {}
 
   async getScores(
@@ -155,7 +179,12 @@ export class ImportGraphProximityScorer implements ImportProximityScorer {
     task: TaskClassification,
   ): Promise<ReadonlyMap<RelativePath, number>> {
     const allPaths = repo.files.map((f) => f.path);
-    const edges = await buildEdges(repo, this.fileContentReader, this.languageProviders);
+    const edges = await buildEdges(
+      repo,
+      this.fileContentReader,
+      this.languageProviders,
+      this.importGraphFailureSink,
+    );
     const reverseEdges = buildReverseEdges(edges);
     const seeds = repo.files
       .filter(

@@ -10,6 +10,7 @@ import {
   ImportGraphProximityScorer,
 } from "../import-graph-proximity-scorer.js";
 import type { FileContentReader } from "@jatbas/aic-core/core/interfaces/file-content-reader.interface.js";
+import type { ImportGraphFailureSink } from "@jatbas/aic-core/core/interfaces/import-graph-failure-sink.interface.js";
 import type { LanguageProvider } from "@jatbas/aic-core/core/interfaces/language-provider.interface.js";
 import type { RepoMap } from "@jatbas/aic-core/core/types/repo-map.js";
 import type { TaskClassification } from "@jatbas/aic-core/core/types/task-classification.js";
@@ -24,6 +25,7 @@ import { toTokenCount, toBytes } from "@jatbas/aic-core/core/types/units.js";
 import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
 import { toConfidence } from "@jatbas/aic-core/core/types/scores.js";
 import { TASK_CLASS } from "@jatbas/aic-core/core/types/enums.js";
+import { AicError } from "@jatbas/aic-core/core/errors/aic-error.js";
 
 function makeEntry(path: string, tokens = 100): RepoMap["files"][number] {
   return {
@@ -180,6 +182,64 @@ describe("ImportGraphProximityScorer", () => {
     const task = makeTask(["seed"]);
     const scores = await scorer.getScores(repo, task);
     expect(scores.get(indexPath)).toBe(0.6);
+  });
+
+  it("records_read_failure_via_sink", async () => {
+    const failPath = toRelativePath("pkg/a.ts");
+    const reader: FileContentReader = {
+      getContent: (path) =>
+        path === failPath
+          ? Promise.reject(new AicError("read failed", "TEST_IG_READ"))
+          : Promise.resolve(""),
+    };
+    const provider: LanguageProvider = {
+      id: "ts",
+      extensions: [toFileExtension(".ts")],
+      parseImports: () => [],
+      extractSignaturesWithDocs: () => [],
+      extractSignaturesOnly: () => [],
+      extractNames: () => [],
+    };
+    const notifications: { kind: "read" | "parse"; path: RelativePath }[] = [];
+    const recordingSink: ImportGraphFailureSink = {
+      notifyImportGraphFailure({ kind, path }): void {
+        notifications.push({ kind, path });
+      },
+    };
+    const scorer = new ImportGraphProximityScorer(reader, [provider], recordingSink);
+    const repo = makeRepo([makeEntry("pkg/a.ts"), makeEntry("pkg/b.ts")]);
+    const task = makeTask(["b"]);
+    await expect(scorer.getScores(repo, task)).resolves.toBeDefined();
+    expect(notifications).toEqual([{ kind: "read", path: failPath }]);
+  });
+
+  it("records_parse_failure_via_sink", async () => {
+    const badPath = toRelativePath("bad.ts");
+    const reader: FileContentReader = {
+      getContent: () => Promise.resolve("x"),
+    };
+    const provider: LanguageProvider = {
+      id: "ts",
+      extensions: [toFileExtension(".ts")],
+      parseImports: (_content, path) => {
+        if (path === badPath) throw new AicError("parse failed", "TEST_IG_PARSE");
+        return [];
+      },
+      extractSignaturesWithDocs: () => [],
+      extractSignaturesOnly: () => [],
+      extractNames: () => [],
+    };
+    const notifications: { kind: "read" | "parse"; path: RelativePath }[] = [];
+    const recordingSink: ImportGraphFailureSink = {
+      notifyImportGraphFailure({ kind, path }): void {
+        notifications.push({ kind, path });
+      },
+    };
+    const scorer = new ImportGraphProximityScorer(reader, [provider], recordingSink);
+    const repo = makeRepo([makeEntry("good.ts"), makeEntry("bad.ts")]);
+    const task = makeTask(["good"]);
+    await expect(scorer.getScores(repo, task)).resolves.toBeDefined();
+    expect(notifications).toEqual([{ kind: "parse", path: badPath }]);
   });
 
   it("import_graph_no_provider_score_zero", async () => {

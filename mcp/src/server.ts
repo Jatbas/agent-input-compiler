@@ -10,6 +10,7 @@ import type { AbsolutePath, FilePath } from "@jatbas/aic-core/core/types/paths.j
 import type { RulePack } from "@jatbas/aic-core/core/types/rule-pack.js";
 import type { RulePackProvider } from "@jatbas/aic-core/core/interfaces/rule-pack-provider.interface.js";
 import type { LanguageProvider } from "@jatbas/aic-core/core/interfaces/language-provider.interface.js";
+import type { ImportGraphFailureSink } from "@jatbas/aic-core/core/interfaces/import-graph-failure-sink.interface.js";
 import { toAbsolutePath, toFilePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { TaskClass, EditorId } from "@jatbas/aic-core/core/types/enums.js";
 import { InspectRunner } from "@jatbas/aic-core/pipeline/inspect-runner.js";
@@ -125,6 +126,14 @@ export function createRulePackProvider(_projectRoot: AbsolutePath): RulePackProv
   };
 }
 
+const createImportGraphFailureSink = (): ImportGraphFailureSink => ({
+  notifyImportGraphFailure({ kind, path, cause }): void {
+    process.stderr.write(
+      `[aic] import-graph:${kind} ${path} ${cause instanceof Error ? cause.name : "non-error-throw"}\n`,
+    );
+  },
+});
+
 export function registerShutdownHandler(
   sessionTracker: SessionTracker,
   sessionId: SessionId,
@@ -238,6 +247,7 @@ export function createMcpServer(
   } = applyConfigResult(configResult, startupScope.configStore, sha256Adapter);
   const fileContentReader = createCachingFileContentReader(projectRoot);
   const rulePackProvider = createRulePackProvider(projectRoot);
+  const importGraphFailureSink = createImportGraphFailureSink();
   const deps = createFullPipelineDeps(
     fileContentReader,
     rulePackProvider,
@@ -245,6 +255,7 @@ export function createMcpServer(
     additionalProviders,
     heuristicConfig,
     guardAllowPatterns,
+    importGraphFailureSink,
   );
   const specificationCompiler = new SpecificationCompilerImpl(
     (text) => deps.tokenCounter.countTokens(text),
@@ -280,6 +291,7 @@ export function createMcpServer(
       additionalProviders,
       scopeHeuristicConfig,
       scopeGuardAllowPatterns,
+      importGraphFailureSink,
     );
     const ignoreAdapter = new IgnoreAdapter();
     const inner = new FileSystemRepoMapSupplier(new FastGlobAdapter(), ignoreAdapter);

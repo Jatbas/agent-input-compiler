@@ -17,6 +17,7 @@ import { SystemClock } from "@jatbas/aic-core/adapters/system-clock.js";
 import { createProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
 import { createCachingFileContentReader } from "@jatbas/aic-core/adapters/caching-file-content-reader.js";
 import { createPipelineDeps } from "../../bootstrap/create-pipeline-deps.js";
+import { noopImportGraphFailureSink } from "@jatbas/aic-core/core/interfaces/import-graph-failure-sink.interface.js";
 import { CompilationRunner } from "@jatbas/aic-core/pipeline/compilation-runner.js";
 import { FileSystemRepoMapSupplier } from "@jatbas/aic-core/adapters/file-system-repo-map-supplier.js";
 import { FastGlobAdapter } from "@jatbas/aic-core/adapters/fast-glob-adapter.js";
@@ -77,6 +78,7 @@ function createRunner(repoMapOverride?: RepoMapSupplier): CompilationRunner {
     providers,
     heuristicConfig,
     guardAllowPatterns,
+    noopImportGraphFailureSink,
   );
   const repoMapSupplier =
     repoMapOverride ??
