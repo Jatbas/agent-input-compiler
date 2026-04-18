@@ -57,48 +57,47 @@ The examples below mirror the **fixed-width layout** printed by the diagnostic C
 
 ```text
 Status = project-level AIC status.
-
-AIC kept 99.6% of repo tokens out of the model window. Last run: 10 / 519 files forwarded.
-
-Compilations (total)          6,192
-Compilations (today)          119
-Tokens: raw → compiled        4.42B → 16.43M (269:1 ratio)
-Tokens excluded               4,403,155,520
-Budget limit                  123,500
-Budget utilization (last run)  0.5%
-Cache hit rate                35.7%
-Avg exclusion rate            99.6%
-Guard scans (lifetime)        command-injection: 581,444, excluded-file: 59, prompt-injection: 157, secret: 12
-Top task classes              general (3,690), docs (776), bugfix (706)
-Last compilation              fix HeuristicSelector scoring · 10 / 519 files · 70,384 tokens · 39 sec ago
-Installation                  OK
-Update available              —
-
-Exclusion rate: % of total repo tokens not included in the compiled prompt.
-Budget utilization: % of token budget filled.
+──────────────────────────────────────────────────────────────────────────────
+AIC optimised context by intent across 629 files. Last run: 5 forwarded.
+──────────────────────────────────────────────────────────────────────────────
+Context builds (total)          7,784
+Context builds (today)          147
+Repo size → context sent        5.78B → 65.90M (88:1 ratio)
+Tokens excluded                 5,718,696,860
+Context window used (last run)  0.5%
+Cache hit rate                  36.9%
+Avg context precision           98.9%
+Guard scans (lifetime)          command-injection: 648,063, excluded-file: 59, prompt-injection: 3,185, secret: 16
+Top request types               general (4,530), docs (994), bugfix (921)
+Last compilation                fix SqliteSpecCompileCacheStore migration · 5 / 629 files · 595 tokens · 2 min ago
+Installation                    OK
+Update available                —
+──────────────────────────────────────────────────────────────────────────────
+Avg context precision: % of repo content automatically filtered per context build.
+Context window used: % of token budget filled.
 ```
 
 #### `show aic last`
 
 ```text
 Last = most recent compilation.
-
-Compilations            6,158
-Intent                  task 284 auto-adaptive budget documentation
-Files                   10 selected / 519 total
-Tokens compiled         70,384
-Budget utilization      57.0%
-Exclusion rate          89.6%
-Compiled                39 sec ago
-Editor                  cursor
-Cache                   hit
-Guard (this run)        passed
-Top files               mcp/src/server.ts (0.91), shared/src/pipeline/run-pipeline-steps.ts (0.87), mcp/src/format-diagnostic-output.ts (0.85)
-Excluded by             exclude_pattern_match (501), max_files (12)
-Compiled prompt         Available (70,384 tokens) — .aic/last-compiled-prompt.txt (project root)
-
-Exclusion rate: % of total repo tokens not included in the compiled prompt.
-Budget utilization: % of token budget filled.
+──────────────────────────────────────────────────────────────────────────────
+AIC optimised context by intent: 5 of 567 files forwarded (0.5% of budget, 99.9% excluded).
+──────────────────────────────────────────────────────────────────────────────
+Context builds          7,666
+Intent                  task 318 spec-compile-cache migration 004 SqliteSpecCompileCacheStore SpecCompileCacheEntry buildSpecCompileCachePreimage open-database sqlite-migration-runner
+Files                   5 selected / 567 total
+Tokens compiled         595
+Context window used     0.5%
+Compiled                2 min ago
+Editor                  claude-code
+Cache                   miss
+Guard (this run)        2 finding(s), 2 blocked
+Top files               …c/core/build-selection-trace-for-log.ts (0.78), …_tests__/structural-map-builder.test.ts (0.67), …ces/structural-map-builder.interface.ts (0.64) (+2 more)
+Excluded by             guard_blocked (2)
+Compiled prompt         Available (595 tokens) — .aic/last-compiled-prompt.txt (project root)
+──────────────────────────────────────────────────────────────────────────────
+Context window used: % of token budget filled.
 ```
 
 ---
@@ -187,7 +186,7 @@ What to look for:
 - **Installation: OK** in `show aic status`
 - a recent compilation in `show aic last` (send a normal coding message first if nothing has compiled yet), including the **Cache** row (`hit` / `miss` / `—`)
 - per-conversation compilation stats in `show aic chat summary` after AIC has recorded at least one compilation for the current editor conversation (in Cursor, Task-tool subagent compilations are reparented to the parent chat via the `subagentStop` hook so they count on that thread)
-- selected file count, compiled tokens, and exclusion rate figures that make sense for the task
+- selected file count, compiled tokens, and context precision figures that make sense for the task
 - AIC blocking sensitive or excluded content
 - your project path listed in `show aic projects` after AIC has seen the workspace
 - optional: **run aic model test** returns a pass/fail table if the agent can call `aic_model_test` and `aic_compile` in sequence (see [Installation — AIC Server](documentation/installation.md#aic-server))

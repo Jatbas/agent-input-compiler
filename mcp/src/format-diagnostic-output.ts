@@ -11,7 +11,14 @@ import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
 import type { SelectionTraceParsed } from "./schemas/selection-trace.schema.js";
 
 const METRIC_FOOTNOTE =
-  "Exclusion rate: % of total repo tokens not included in the compiled prompt.\nBudget utilization: % of token budget filled.";
+  "Avg context precision: % of repo content automatically filtered per context build.";
+
+const STATUS_METRIC_FOOTNOTE = `${METRIC_FOOTNOTE}\nContext window used: % of token budget filled.`;
+
+const LAST_METRIC_FOOTNOTE = "Context window used: % of token budget filled.";
+
+const SEP =
+  "──────────────────────────────────────────────────────────────────────────────";
 
 function formatInt(n: number): string {
   return n.toLocaleString("en-US");
@@ -112,12 +119,50 @@ function heroLine(
   const fs_ =
     last !== null && last !== undefined ? Number(last["filesSelected"] ?? 0) : null;
   const ft = last !== null && last !== undefined ? Number(last["filesTotal"] ?? 0) : null;
-  const pct = avgReductionPct.toFixed(1);
-  const filePart =
-    fs_ !== null && ft !== null && ft > 0
-      ? ` Last run: ${formatInt(fs_)} / ${formatInt(ft)} files forwarded.`
-      : "";
-  return `AIC kept ${pct}% of repo tokens out of the model window.${filePart}`;
+  if (ft === null || ft === 0) return null;
+  const lastRunPart =
+    fs_ !== null && fs_ > 0 ? ` Last run: ${formatInt(fs_)} forwarded.` : "";
+  return `AIC optimised context by intent across ${formatInt(ft)} files.${lastRunPart}`;
+}
+
+function heroLineLast(
+  last: Record<string, unknown> | null,
+  budgetMaxTokens: number,
+): string | null {
+  if (last === null) return null;
+  const fs_ = Number(last["filesSelected"] ?? 0);
+  const ft = Number(last["filesTotal"] ?? 0);
+  if (fs_ === 0) return null;
+  const compiled = Number(last["tokensCompiled"] ?? 0);
+  const budgetPct = budgetMaxTokens > 0 ? (compiled / budgetMaxTokens) * 100 : null;
+  const exclusionRate =
+    last["tokenReductionPct"] !== null && last["tokenReductionPct"] !== undefined
+      ? Number(last["tokenReductionPct"])
+      : null;
+  const details = [
+    budgetPct !== null ? `${budgetPct.toFixed(1)}% of budget` : null,
+    exclusionRate !== null ? `${exclusionRate.toFixed(1)}% excluded` : null,
+  ].filter((s): s is string => s !== null);
+  const detailStr = details.length > 0 ? ` (${details.join(", ")})` : "";
+  return `AIC optimised context by intent: ${formatInt(fs_)} of ${formatInt(ft)} files forwarded${detailStr}.`;
+}
+
+function heroLineChat(row: ConversationSummary): string | null {
+  const {
+    totalTokensRaw: raw,
+    totalTokensCompiled: compiled,
+    compilationsInConversation: count,
+  } = row;
+  if (count === 0 || compiled === 0) return null;
+  const ratio = Math.round(raw / compiled);
+  const parenParts = [
+    ratio > 1 ? `${formatInt(ratio)}:1 ratio` : null,
+    row.cacheHitRatePct !== null
+      ? `${row.cacheHitRatePct.toFixed(1)}% cache hit rate`
+      : null,
+  ].filter((s): s is string => s !== null);
+  const paren = parenParts.length > 0 ? ` (${parenParts.join(", ")})` : "";
+  return `AIC optimised context by intent across ${formatInt(count)} compilations${paren}.`;
 }
 
 function truncatePath(path: string, maxLen: number): string {
@@ -176,7 +221,7 @@ export function formatStatusTable(
   payload: Record<string, unknown>,
   clock: Clock,
 ): string {
-  const w = 28;
+  const w = 30;
   const last = payload["lastCompilation"] as Record<string, unknown> | null | undefined;
   const notes = payload["installationNotes"];
   const instOk = payload["installationOk"];
@@ -193,23 +238,23 @@ export function formatStatusTable(
       ? [padRow("Time range", statusTimeRangeValue(n), w)]
       : [];
   const hero = heroLine(payload["avgReductionPct"] as number | null | undefined, last);
-  const heroRows: readonly string[] = hero !== null ? [hero] : [];
+  const heroRows: readonly string[] = hero !== null ? [SEP, hero, SEP] : [SEP];
   const rows: readonly string[] = [
     "Status = project-level AIC status.",
     ...heroRows,
     ...timeRangeRows,
     padRow(
-      "Compilations (total)",
+      "Context builds (total)",
       formatInt(Number(payload["compilationsTotal"] ?? 0)),
       w,
     ),
     padRow(
-      "Compilations (today)",
+      "Context builds (today)",
       formatInt(Number(payload["compilationsToday"] ?? 0)),
       w,
     ),
     padRow(
-      "Tokens: raw → compiled",
+      "Repo size → context sent",
       formatTokensWithRatio(
         Number(payload["totalTokensRaw"] ?? 0),
         Number(payload["totalTokensCompiled"] ?? 0),
@@ -217,20 +262,19 @@ export function formatStatusTable(
       w,
     ),
     padRow("Tokens excluded", tokensExcludedLabel(payload["totalTokensSaved"]), w),
-    padRow("Budget limit", formatInt(Number(payload["budgetMaxTokens"] ?? 0)), w),
     padRow(
-      "Budget utilization (last run)",
+      "Context window used (last run)",
       formatPct1(payload["budgetUtilizationPct"] as number | null),
       w,
     ),
     padRow("Cache hit rate", formatPct1(payload["cacheHitRatePct"] as number | null), w),
     padRow(
-      "Avg exclusion rate",
+      "Avg context precision",
       formatPct1(payload["avgReductionPct"] as number | null),
       w,
     ),
     padRow("Guard scans (lifetime)", guardByTypeStr(payload["guardByType"]), w),
-    padRow("Top task classes", topTaskStr(payload["topTaskClasses"]), w),
+    padRow("Top request types", topTaskStr(payload["topTaskClasses"]), w),
     padRow("Last compilation", lastCompilationSummary(clock, last), w),
     padRow("Installation", installationLabel(payload["installationOk"]), w),
     ...notesRows,
@@ -242,7 +286,7 @@ export function formatStatusTable(
       w,
     ),
   ];
-  return `${rows.join("\n")}\n\n${METRIC_FOOTNOTE}\n`;
+  return `${rows.join("\n")}\n${SEP}\n${STATUS_METRIC_FOOTNOTE}\n`;
 }
 
 function lastRowsWhenPresent(
@@ -259,8 +303,7 @@ function lastRowsWhenPresent(
     padRow("Intent", String(last["intent"] ?? "—"), w),
     padRow("Files", `${formatInt(fs_)} selected / ${formatInt(ft)} total`, w),
     padRow("Tokens compiled", formatInt(compiled), w),
-    padRow("Budget utilization", formatPct1(budgetPct), w),
-    padRow("Exclusion rate", formatPct1(Number(last["tokenReductionPct"] ?? 0)), w),
+    padRow("Context window used", formatPct1(budgetPct), w),
     padRow("Compiled", relIso(clock, String(last["created_at"] ?? "")), w),
     padRow("Editor", String(last["editorId"] ?? "—"), w),
   ];
@@ -270,8 +313,7 @@ const LAST_EMPTY_DETAIL: readonly string[] = [
   "Intent",
   "Files",
   "Tokens compiled",
-  "Budget utilization",
-  "Exclusion rate",
+  "Context window used",
   "Compiled",
   "Editor",
 ].map((label) => padRow(label, "—", 22));
@@ -315,49 +357,49 @@ export function formatLastTable(
     payload.selection !== null && payload.selection !== undefined
       ? formatSelectionMicroBlock(payload.selection, w)
       : [];
+  const hero = heroLineLast(last, budgetMaxTokens);
+  const heroRows: readonly string[] = hero !== null ? [SEP, hero, SEP] : [SEP];
   const rows: readonly string[] = [
     "Last = most recent compilation.",
-    padRow("Compilations", formatInt(payload.compilationCount), w),
+    ...heroRows,
+    padRow("Context builds", formatInt(payload.compilationCount), w),
     ...detailRows,
     padRow("Cache", cacheStr, w),
     ...guardRow,
     ...selectionRows,
     promptRow,
   ];
-  return `${rows.join("\n")}\n\n${METRIC_FOOTNOTE}\n`;
+  return `${rows.join("\n")}\n${SEP}\n${LAST_METRIC_FOOTNOTE}\n`;
 }
 
-export function formatChatSummaryTable(
-  row: ConversationSummary,
-  clock: Clock,
-  budgetMaxTokens: number,
-): string {
+export function formatChatSummaryTable(row: ConversationSummary, clock: Clock): string {
   const w = 30;
   const last = row.lastCompilationInConversation;
   const lastLine =
     last === null ? "—" : `${last.intent} · ${relIso(clock, last.created_at)}`;
-  const budgetPct =
-    last !== null && budgetMaxTokens > 0
-      ? (last.tokensCompiled / budgetMaxTokens) * 100
-      : null;
+  const hero = heroLineChat(row);
+  const heroRows: readonly string[] = hero !== null ? [SEP, hero, SEP] : [SEP];
   const rows: readonly string[] = [
     "Chat = this conversation's AIC compilations.",
+    ...heroRows,
     padRow("Project path", row.projectRoot.length > 0 ? row.projectRoot : "—", w),
-    padRow("Compilations", formatInt(row.compilationsInConversation), w),
-    padRow("Tokens (raw)", formatInt(row.totalTokensRaw), w),
-    padRow("Tokens (compiled)", formatInt(row.totalTokensCompiled), w),
+    padRow("Context builds", formatInt(row.compilationsInConversation), w),
     padRow(
-      "Tokens excluded",
-      row.totalTokensSaved === null ? "—" : formatInt(row.totalTokensSaved),
+      "Repo size → context sent",
+      formatTokensWithRatio(row.totalTokensRaw, row.totalTokensCompiled),
       w,
     ),
-    padRow("Budget utilization", formatPct1(budgetPct), w),
+    padRow(
+      "Tokens excluded",
+      row.totalTokensSaved === null ? "—" : formatCompact(row.totalTokensSaved),
+      w,
+    ),
     padRow("Cache hit rate", formatPct1(row.cacheHitRatePct), w),
-    padRow("Avg exclusion rate", formatPct1(row.avgReductionPct), w),
+    padRow("Avg context precision", formatPct1(row.avgReductionPct), w),
     padRow("Last compilation", lastLine, w),
-    padRow("Top task classes", topTaskStr(row.topTaskClasses), w),
+    padRow("Top request types", topTaskStr(row.topTaskClasses), w),
   ];
-  return `${rows.join("\n")}\n\n${METRIC_FOOTNOTE}\n`;
+  return `${rows.join("\n")}\n${SEP}\n${METRIC_FOOTNOTE}\n`;
 }
 
 export function formatProjectsTable(

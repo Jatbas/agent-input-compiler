@@ -305,14 +305,7 @@ async function runChatSummaryCli(argv: readonly string[]): Promise<number> {
       const store = new SqliteStatusStore(projectId, storeDb, clock);
       const summary = store.getSummary();
       const row = buildProjectScopedChatSummaryCliRow(String(projectRoot), summary);
-      const budget = createDefaultBudgetConfig();
-      process.stdout.write(
-        formatChatSummaryTable(
-          row,
-          clock,
-          effectiveBudgetCeilingForDisplay(budget.getMaxTokens()),
-        ),
-      );
+      process.stdout.write(formatChatSummaryTable(row, clock));
       return 0;
     }),
   );
