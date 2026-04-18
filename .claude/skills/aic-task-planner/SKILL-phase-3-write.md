@@ -2,7 +2,7 @@
 
 **Goal:** Mechanically map Exploration Report + decisions into template. If not in the report, don't add it; if it is, don't omit it.
 
-**CRITICAL:** After C.6 passes, §6 runs immediately — the task is NOT complete until §6 finishes. Do NOT stop or wait between Pass 2 and §6.
+**HARD RULE:** After §C.6 passes, §6 runs immediately — the task is NOT complete until §6 finishes. There is no user gate between Pass 2 and §6 (see `SKILL.md §Autonomous execution`).
 
 ## C.1 Confirm reference files in context
 

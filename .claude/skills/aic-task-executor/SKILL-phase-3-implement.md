@@ -142,8 +142,8 @@ For each step:
 1. Do exactly what the step says.
 2. Run the **Verify** command listed in that step.
 3. If verification fails, fix the issue before moving to the next step.
-4. If you cannot fix it after 2 attempts, go to **Blocked diagnostic** (see Blocked Handling in `SKILL.md`).
-5. **Circuit breaker:** 3+ pieces of unlisted code (type casts, stubs, wrappers) to make it compile → **Blocked diagnostic**. List each unlisted piece.
+4. If you cannot fix it after 2 attempts, go to **Blocked diagnostic** (see §Blocked Handling in `SKILL.md`). The 2-attempt limit is for per-step `Verify`; the separate 3-attempt limit in §Autonomous execution applies to the full-toolchain gate in §4a.
+5. **Circuit breaker:** 3+ pieces of unlisted code (type casts, stubs, wrappers) to make it compile → **Blocked diagnostic** (see §Blocked Handling in `SKILL.md`). List each unlisted piece.
 
 **Per-file quick check (after writing each production file).** Run these 4 Grep commands on each production file you just wrote. Skip for test files.
 

@@ -138,7 +138,7 @@ These make the scope of a step, Files table entry, or acceptance criterion depen
 
 This also covers **implicit** tool-conditional scope: a Files table description that says "add ignore entries for X, Y, Z if knip reports unused" or a step that says "fix any lint errors that appear" without listing them.
 
-**Fix:** Run the verification tool during exploration (item 22). Record the output. Write the exact scope — specific file paths, specific ignore entries, specific lint errors to fix. If the tool cannot be run (artifact does not exist yet), resolve by static analysis of tool config (e.g., read knip.json entry patterns to determine what it would flag). If static analysis is insufficient, flag as a BLOCKER and tell the user. Never write a conditional that the executor must resolve by running a tool.
+**Fix:** Run the verification tool during exploration (`SKILL-phase-2-explore.md §A.1` item 18 — Speculative verification tool execution). Record the output. Write the exact scope — specific file paths, specific ignore entries, specific lint errors to fix. If the tool cannot be run (artifact does not exist yet), resolve by static analysis of tool config (e.g., read knip.json entry patterns to determine what it would flag). If static analysis is insufficient, flag as a BLOCKER and tell the user. Never write a conditional that the executor must resolve by running a tool.
 
 ## Single definition
 

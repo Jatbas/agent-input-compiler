@@ -2,7 +2,7 @@
 
 **Goal:** Gather every fact, verify mechanically, resolve every decision, present for user review.
 
-**Note:** `shared/package.json`, `eslint.config.mjs`, `SKILL-recipes.md`, `SKILL-guardrails.md` were pre-read in §1 — do not re-read.
+**Note:** `shared/package.json`, `eslint.config.mjs`, `SKILL-recipes.md`, `SKILL-guardrails.md` were pre-read in Phase 1 (`SKILL-phase-1-recommend.md`) — do not re-read.
 
 ## A.1 Mandatory exploration checklist
 
@@ -16,7 +16,9 @@ Complete every item. Two batches minimize sequential tool-call rounds.
 2. **Read target database schema + normalization analysis** — if component touches a table, read migration file, record exact columns. Verify 1NF (no multi-value columns), 2NF (full composite PK dependency), 3NF (no transitive deps → lookup tables), no redundant derivable columns. Record in NORMALIZATION ANALYSIS. Violations in existing schema → flag as prerequisite fix or justified exception.
 3. **Check existing files** — Glob every file the recipe pattern would create. Record EXISTS / DOES NOT EXIST.
 4. **Verify every external library API** — read installed `.d.ts` under `node_modules/`, record exact class names, constructor signatures, method signatures, import paths. If not installed, search the web.
-5. **Check recipe fit** — walk decision tree top-to-bottom, stop at first YES, answer each with evidence:
+5. **Check recipe fit (HARD RULE 11 — routed subagent, not inline)** — dispatch a subagent rendered from `.claude/skills/shared/prompts/ask-stronger-model.md` with the strongest available model. Pass the subagent the component description, its target package, the interface/signature snippet, and the decision tree below. The subagent returns `{ recipe: <name>, evidence: <one-sentence why> }`. Do not walk the tree in the orchestrator yourself; the orchestrator's role is to hand off the tree as input and consume the routed verdict.
+
+   Decision tree (top-to-bottom, stop at first YES, each branch answered with evidence):
    - Bug/broken pattern without new component? → **fix/patch** (sub-check: if fix needs new class, use that recipe + fix items)
    - Wraps external library behind core interface? → **adapter**
    - Implements `*Store` + SQL against `ExecutableDb`? → **storage**
@@ -26,7 +28,8 @@ Complete every item. Two batches minimize sequential tool-call rounds.
    - npm publishing, CI, package metadata? → **release-pipeline**
    - Creates/edits `.md` documentation? → **documentation** (see `SKILL-recipes.md`)
    - None → **general-purpose** (requires full component characterization)
-     Never improvise outside a recipe.
+
+   Never improvise outside a recipe. Record the subagent's chosen recipe + evidence sentence in the exploration log under `RECIPE`.
 
 6. **Sibling analysis + shared code prediction** (mandatory — all recipes):
    - **Siblings with shared utilities:** Read closest sibling, identify shared imports/pattern. New component MUST reuse same utilities and pattern.
@@ -82,12 +85,12 @@ Complete every item. Two batches minimize sequential tool-call rounds.
 
 19. **File convention determination** (mandatory — "Modify" files with multiple valid idioms) — read target file, determine which idiom it uses (JSON loading, module system, test framework, path computation). Step instructions use that idiom only — never alternatives. Record in BINDING INVENTORY.
 
-**Pre-read items** (in context from §1 — extract findings, do not re-read):
+**Pre-read items** (in context from Phase 1 — extract findings, do not re-read):
 
-18. **`shared/package.json`** — record dependencies and pinned versions.
-19. **`eslint.config.mjs`** — record restricted-import rules for target layer. Determine exact structural change if needed.
-20. **Installer-managed content sync** (conditional — touches `.cursor/rules/AIC-architect.mdc`, `.claude/CLAUDE.md`, install.cjs templates, or `mcp/src/install-trigger-rule.ts`) — diff shared sections. Drifted → add "Modify" rows. Record in INSTALLER SYNC. Source of truth: `AIC-architect.mdc`.
-21. **Documentation impact analysis** (mandatory — all non-documentation task types) — grep `documentation/`, `README.md`, and `CONTRIBUTING.md` for every entity the task creates, modifies, or renames: component names, interface names, function names, class names, file paths, type names. For each match, read the surrounding context (5 lines before and after) and classify the reference:
+20. **`shared/package.json`** — record dependencies and pinned versions.
+21. **`eslint.config.mjs`** — record restricted-import rules for target layer. Determine exact structural change if needed.
+22. **Installer-managed content sync** (conditional — touches `.cursor/rules/AIC-architect.mdc`, `.claude/CLAUDE.md`, install.cjs templates, or `mcp/src/install-trigger-rule.ts`) — diff shared sections. Drifted → add "Modify" rows. Record in INSTALLER SYNC. Source of truth: `AIC-architect.mdc`.
+23. **Documentation impact analysis** (mandatory — all non-documentation task types) — grep `documentation/`, `README.md`, and `CONTRIBUTING.md` for every entity the task creates, modifies, or renames: component names, interface names, function names, class names, file paths, type names. For each match, read the surrounding context (5 lines before and after) and classify the reference:
     - **WILL BECOME STALE** — the document describes specific details (behavior, signature, wiring, file path) that the task changes. After the task executes, the document will contain incorrect information.
     - **NEEDS UPDATE** — the document references the entity by a name or path being renamed, or describes behavior being modified. The reference is not yet wrong but will be after the task.
     - **UNAFFECTED** — generic mention that does not depend on the specific details being changed (e.g., the entity appears in a high-level architecture list but no detail is given).

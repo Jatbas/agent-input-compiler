@@ -766,15 +766,15 @@ The general-purpose recipe is designed to work with less capable models (subagen
 
 **Common failure modes and countermeasures:**
 
-| Failure mode                         | What goes wrong                                                               | Built-in countermeasure                                                                             |
-| ------------------------------------ | ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Recipe misclassification             | Model picks general-purpose when a specialized recipe fits                    | Recipe decision tree in SKILL.md A.1.5 + validation gates 1–2 + self-correction Step 1              |
-| Dimension assertion without evidence | Model asserts "pure domain logic" without reading any files                   | "Every dimension must cite evidence" rule + validation gates per dimension + self-correction Step 2 |
-| Over-engineering                     | Model creates many new files, types, interfaces out of comprehensiveness bias | Simplicity constraint (max 3 Create rows), existing-home check, self-correction Step 3              |
-| Training-data hallucination          | Model writes API calls that exist in training data but not in the project     | Check S (code block API extraction) applies to all recipes including general-purpose                |
-| Ambiguous instructions               | Model writes "if needed" or "or similar" in step text                         | Check A (ambiguity scan) applies to all recipes including general-purpose                           |
-| Missing test strategy                | Model skips tests or writes vague test descriptions                           | "Closest test analogy" table forces a concrete strategy derived from characterization               |
-| Wrong layer constraints              | Model imports forbidden packages in core/pipeline code                        | Validation gate 2 forces layer verification against implementation-spec                             |
+| Failure mode                         | What goes wrong                                                               | Built-in countermeasure                                                                                        |
+| ------------------------------------ | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Recipe misclassification             | Model picks general-purpose when a specialized recipe fits                    | Recipe decision tree in `SKILL-phase-2-explore.md §A.1` item 5 + validation gates 1–2 + self-correction Step 1 |
+| Dimension assertion without evidence | Model asserts "pure domain logic" without reading any files                   | "Every dimension must cite evidence" rule + validation gates per dimension + self-correction Step 2            |
+| Over-engineering                     | Model creates many new files, types, interfaces out of comprehensiveness bias | Simplicity constraint (max 3 Create rows), existing-home check, self-correction Step 3                         |
+| Training-data hallucination          | Model writes API calls that exist in training data but not in the project     | Check S (code block API extraction) applies to all recipes including general-purpose                           |
+| Ambiguous instructions               | Model writes "if needed" or "or similar" in step text                         | Check A (ambiguity scan) applies to all recipes including general-purpose                                      |
+| Missing test strategy                | Model skips tests or writes vague test descriptions                           | "Closest test analogy" table forces a concrete strategy derived from characterization                          |
+| Wrong layer constraints              | Model imports forbidden packages in core/pipeline code                        | Validation gate 2 forces layer verification against implementation-spec                                        |
 
 **Explicit reasoning prompts:** At each stage of the general-purpose recipe, the planner must pause and write one sentence explaining its reasoning before proceeding. This is not for documentation — it is a forcing function that catches errors. Cheaper models that "explain then act" make fewer mistakes than models that "act then rationalize."
 

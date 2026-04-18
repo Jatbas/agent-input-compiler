@@ -27,24 +27,13 @@ Use the `aic-update-progress` skill to update `documentation/tasks/progress/aic-
 
 **Daily log deduplication:** Grep for `### YYYY-MM-DD` with today's date. If exists, append to existing entry. If not, create new heading. Verify exactly one heading for today after edit.
 
-**5c — Archive task, update status, commit, and show diff.**
+**5c — Commit and prepare the merge proposal.**
 
-Run these sequentially in one flow — no user gate between them:
+Do NOT move the task file yet — archiving to `done/` happens in §6b after a successful merge so the `done/` directory never contains an unmerged task. Run these sequentially in one flow:
 
-1. **Archive the task file on the main workspace filesystem.** Task files are gitignored — this is a filesystem-only operation, not a git operation. Run from the **main workspace root** (not the worktree):
-   ```
-   mkdir -p documentation/tasks/done && mv documentation/tasks/NNN-name.md documentation/tasks/done/
-   ```
-   **Clean up research document:** If the task had a `> **Research:**` line, delete the referenced research file from the main workspace.
-2. **Edit the status at the NEW path** on the main workspace (`documentation/tasks/done/NNN-name.md`): change `> **Status:** In Progress` to `> **Status:** Done`. Do NOT edit the old path — the file no longer exists there.
-3. **Verify the move** on the main workspace — confirm the old path is gone and the new path has the correct status:
-   ```
-   test ! -f documentation/tasks/NNN-name.md && head -3 documentation/tasks/done/NNN-name.md
-   ```
-   If the old file still exists, delete it: `rm documentation/tasks/NNN-name.md`.
-4. **Worktree guard:** `git rev-parse --abbrev-ref HEAD` in worktree. Must match stored branch → if not, **Blocked diagnostic**.
+1. **Worktree guard:** `git rev-parse --abbrev-ref HEAD` in worktree. Must match stored branch → if not, **Blocked diagnostic**.
 
-5. **Stage only touched files and commit in the worktree.**
+2. **Stage only touched files and commit in the worktree.**
 
    Use the touched-files list built in §2 — never `git add -A`. Stage each file explicitly:
 
@@ -58,7 +47,7 @@ Run these sequentially in one flow — no user gate between them:
 
    Conventional commit format: `type(scope): description`, max 72 chars, imperative, no period.
 
-6. **Post-commit hygiene check.** Lint-staged may auto-format, leaving dirty files.
+3. **Post-commit hygiene check.** Lint-staged may auto-format, leaving dirty files.
 
    a. `git status --porcelain` — filter against touched-files list. No dirty touched files → skip to (e).
    b. Stage dirty touched files and amend: `git add <files> && git commit --amend --no-edit`.
@@ -72,13 +61,31 @@ Run these sequentially in one flow — no user gate between them:
 
 All commands in §6 run from the **main workspace root**.
 
-**6a — Propose merge.** Present: branch name, worktree path, files changed (`--stat`), commit message. Ask: **"Merge to main? (yes / adjust message / discard)"**. Wait for response.
+**6a — Auto-merge or stop.** Auto-merge runs when every finalize signal is clean. Stop and ask the user only when something is off.
 
-**6b — On approval, merge and clean up:**
+Compute the **auto-merge preconditions** in this exact order. All must hold:
+
+1. §4a full toolchain (`pnpm lint && pnpm typecheck && pnpm test && pnpm knip && pnpm lint:clones`) passed in §4, with no new findings from knip or lint:clones.
+2. §5c post-commit hygiene landed clean (exit of the loop at `git status --porcelain` shows no dirty touched files).
+3. `git status --porcelain` in the main workspace shows only expected, allowed files (gitignored paths: `documentation/tasks/`, `aic-progress.md`, `.aic/`). Anything else is a stop.
+4. The feature branch diff (`git diff main...HEAD --stat`) touches only files in the touched-files list built in §2 (plus legitimate side-effects already accounted for in §5c).
+5. The task file has no unresolved ambiguity, blocker, or follow-up flagged during §3/§4.
+
+**Auto-merge path (all preconditions hold):** print a one-line summary — `Merging <branch> → main (N files, +X/-Y). Commit: "<message>"` — and proceed straight to §6b Step 1. Do not ask.
+
+**Stop-and-ask path (any precondition fails):** do not merge. Present:
+
+- branch name, worktree path, files changed (`--stat`), commit message,
+- a one-line summary of which precondition failed (e.g. `knip reported 2 new unused exports`, `git status shows stray file X outside task surface`, `task step 4 had an ambiguity that was worked around`),
+- the minimal next action you recommend.
+
+Then ask: **"Issue detected: <summary>. Proceed with merge, adjust, or discard?"** and WAIT for response.
+
+**6b — On auto-merge or explicit user approval, merge and clean up:**
 
 The main workspace is already on `main` — no checkout needed.
 
-**CRITICAL — Never `git stash` before merging.** Let `git merge --squash` handle dirty trees natively.
+**HARD RULE — Never `git stash` before merging.** Let `git merge --squash` handle dirty trees natively.
 
 **Step 1 — Squash merge:** `git merge --squash <branch>`
 
@@ -90,7 +97,23 @@ The main workspace is already on `main` — no checkout needed.
   4. If NO: discard local changes on only those conflicting files (`git checkout -- <conflicting files>`) and retry merge. This is safe because the feature branch contains the correct final content. Non-conflicting dirty files remain untouched.
 - **Content conflicts:** List with `git diff --name-only --diff-filter=U`. Resolve (prefer feature branch). Stage. Grep for `<<<<<<<` (expect 0). Commit. If unresolvable → ask user.
 
-**Step 2 — Remove worktree and branch.**
+**Step 2 — Archive the task file on the main workspace filesystem.** Task files are gitignored — this is a filesystem-only operation. Run from the **main workspace root**:
+
+```
+mkdir -p documentation/tasks/done && mv documentation/tasks/NNN-name.md documentation/tasks/done/
+```
+
+Edit the status at the NEW path (`documentation/tasks/done/NNN-name.md`): change `> **Status:** In Progress` to `> **Status:** Done`.
+
+Verify the move — old path is gone and new path has the correct status:
+
+```
+test ! -f documentation/tasks/NNN-name.md && head -3 documentation/tasks/done/NNN-name.md
+```
+
+If a `> **Research:**` line was present in the task file, delete the referenced research file from the main workspace.
+
+**Step 3 — Remove worktree and branch.**
 
 ```
 rm -rf <worktree-dir>
@@ -100,7 +123,7 @@ git branch -D <branch>
 
 Verify: `git worktree list` must not show the worktree and `ls <worktree-dir>` must fail.
 
-**Step 3 — Final sweep (MANDATORY — last shell command in the session).** Editors may recreate directory stubs for files they were tracking. Run this idempotent cleanup after any announcement or user-facing output:
+**Step 4 — Final sweep (MANDATORY — last shell command in the session).** Editors may recreate directory stubs for files they were tracking. Run this idempotent cleanup after any announcement or user-facing output:
 
 ```
 rm -rf <worktree-dir> 2>/dev/null; rmdir <main-workspace>/.git-worktrees 2>/dev/null || true
@@ -110,6 +133,8 @@ Verify: `ls <worktree-dir> 2>&1` must report "No such file or directory". If `.g
 
 **6c — If the user says "discard":**
 
+The task file was NOT archived in §5c (moved to §6b Step 2 after merge), so no filesystem rollback is needed — the task file is still at `documentation/tasks/NNN-name.md`. Reset its status back to its pre-execution state (`Pending` for a planner-authored task, or leave it absent for an ad-hoc request).
+
 ```
 rm -rf <worktree-dir>
 git worktree prune
@@ -118,10 +143,10 @@ git branch -D <branch>
 
 Verify: `git worktree list` must not show the worktree and `ls <worktree-dir>` must fail.
 
-**Final sweep (same as 6b Step 3):**
+**Final sweep (same as 6b Step 4):**
 
 ```
 rm -rf <worktree-dir> 2>/dev/null; rmdir <main-workspace>/.git-worktrees 2>/dev/null || true
 ```
 
-Report that the worktree and branch were deleted and no changes were merged.
+Report that the worktree and branch were deleted, the task file is back at its original path, and no changes were merged.

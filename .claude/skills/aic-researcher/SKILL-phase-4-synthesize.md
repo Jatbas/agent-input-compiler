@@ -54,17 +54,17 @@ For each finding, ask: **"What does this mean for AIC beyond the obvious first-o
 **You MUST make a Task tool call here — never critique your own synthesis.** Spawn a `generalPurpose` subagent with `fast` model. The critic's prompt must include:
 
 1. **Role:** "You are an independent critic. You have NO prior context about this investigation. Your only job is to find flaws, challenge assumptions, and propose alternatives. You are not helpful — you are adversarial. The investigators may have been shallow or optimistic. Verify independently — read the actual code/files, do not accept their claims at face value."
-2. **Input:** The original question + the draft synthesis (from §4c) + the evidence citations + the raw explorer output tables from §3 + the framing challenger's output from §3 (if spawned)
-3. **NOT included:** The hypotheses, the investigation plan, or the explorer prompts. The critic must not be anchored by the investigation's framing. The framing challenger's output is included because it was produced blind to the investigation — it challenges framing, not findings.
+2. **Input (per HARD RULE 6 — double-blind):** The original question + the draft synthesis (from §4c) + the framing challenger's verdict JSON (from Phase 2 §2e).
+3. **NOT included:** The §2 hypotheses, the investigation plan, the explorer assignments, the explorer prompts, or the raw explorer reports. The critic must not be anchored by the investigators' framing or findings — it re-verifies every claim by reading the sources the synthesis cites. The framing challenger's verdict is included because it was produced blind to the investigation; it challenges framing, not findings.
 4. **Tasks:**
-   - For each finding: attempt to disprove it. Search the codebase for counter-evidence. If you cannot disprove it, **state exactly what you searched for** (grep patterns, files read, directories checked) and why disproof was not possible. A finding marked "Unchallenged" without a search log will be treated as unevaluated.
-   - Re-read every cited source (file:line) to verify the explorer's characterization is accurate. Flag any citation where the source says something different from what the finding claims.
+   - For each finding: attempt to disprove it by reading the cited sources first, then searching the codebase for counter-evidence. If you cannot disprove it, **state exactly what you searched for** (grep patterns, files read, directories checked) and why disproof was not possible. A finding marked "Unchallenged" without a search log will be treated as unevaluated.
+   - Re-read every cited source (file:line) to verify the synthesis's characterization is accurate. Flag any citation where the source says something different from what the finding claims.
    - Identify unstated assumptions in the analysis.
    - Propose at least one alternative explanation for the evidence presented.
-   - Rate each finding: Strong (multiple independent evidence, survived challenge) / Moderate (single clear evidence, no counter-evidence found) / Weak (inferred, absence-based, or counter-evidence exists)
-   - Flag any finding that relies on absence of evidence ("I didn't find X" ≠ "X doesn't exist")
-   - **Synthesis-vs-evidence check:** Compare the §4c synthesis draft against the raw explorer output tables from §3. For each finding in the synthesis, verify it accurately represents the explorer's evidence. Flag: claims the synthesis overstates (explorer evidence was Medium confidence but synthesis treats as established), claims the synthesis understates (explorer evidence was strong but synthesis hedges), and explorer findings the synthesis omits entirely.
-   - **Framing blind spot check (if framing challenger output provided):** For each counter-hypothesis and blind spot the framing challenger identified, check whether the synthesis addressed it, ignored it, or was contradicted by it. Report unaddressed blind spots.
+   - Rate each finding: Strong (multiple independent evidence, survived challenge) / Moderate (single clear evidence, no counter-evidence found) / Weak (inferred, absence-based, or counter-evidence exists).
+   - Flag any finding that relies on absence of evidence ("I didn't find X" ≠ "X doesn't exist").
+   - **Source-vs-synthesis check:** For each finding, re-read the cited source and verify the synthesis represents it accurately. Flag overstatement, understatement, or misquotation.
+   - **Framing blind spot check:** For each counter-hypothesis and blind spot in the framing challenger's verdict, check whether the synthesis addressed it, ignored it, or was contradicted by it. Report unaddressed blind spots.
 5. **Anti-agreement instruction:** "If you agree with all findings without challenge, your review will be rejected and you will be re-spawned with a stronger adversarial mandate. A genuine review challenges at least some findings."
 
 ### 5b. Evaluate critic output

@@ -48,6 +48,22 @@ For each hypothesis (or each dimension for codebase/documentation analysis), def
 
 Read the `SKILL-protocols.md` sibling file for the detailed protocol matching this question's classification. It contains investigation dimensions, explorer assignments, and evidence collection patterns specific to each type.
 
+### 2e. Framing challenger gate (MANDATORY — HARD RULE 3 + HARD RULE 7)
+
+Before Phase 3 dispatches any explorer, dispatch the framing challenger. This is a single subagent rendered from `.claude/skills/shared/prompts/framing-challenger.md` with the strongest available model (routed via `.claude/skills/shared/prompts/ask-stronger-model.md` — see `.claude/skills/shared/SKILL-routing.md`).
+
+**Input to the challenger:** ONLY the §2a restatement and §2b hypotheses. It does NOT see the investigation plan, explorer assignments, or any code evidence — this keeps it anchored to framing, not findings.
+
+**Prompt task (verbatim from template):** "For each hypothesis: (1) identify the unstated assumption, (2) propose a counter-hypothesis that could be true, (3) name a blind spot. Return a JSON verdict: `{ verdict: 'sound' | 'mis-framed' | 'partially-framed', table: [...] }`."
+
+**Gate behavior:**
+
+- `sound` — proceed to Phase 3. The challenger's table is stored for the Phase 4 critic.
+- `partially-framed` — update the §2c investigation plan to cover the called-out blind spots (add/restructure explorer assignments), then proceed to Phase 3.
+- `mis-framed` — **STOP.** Summarise the reframing options to the user and wait. Do NOT dispatch explorers.
+
+Record the verdict JSON under `.aic/runs/<run-id>/framing-challenger.json` and checkpoint `framed` only after a `sound`/`partially-framed` verdict is recorded (or the user has approved a reframing).
+
 ---
 
 Phase complete. Read `SKILL-phase-3-investigate.md` and execute it immediately.

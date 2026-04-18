@@ -93,9 +93,9 @@ Add auto-ratcheting benchmark files and config files from Config Changes if appl
 
 ### 2.5. Verify external assumptions
 
-Scan Steps and Architecture Notes for claims about external systems. Verify each against actual evidence using `../shared/SKILL-investigation.md` (**Runtime Evidence Checklist** + **Codebase Investigation Depth**).
+Scan Steps and Architecture Notes for claims about external systems. Verify each against actual evidence using `.claude/skills/shared/SKILL-investigation.md` (**Runtime Evidence Checklist** + **Codebase Investigation Depth**).
 
-Scan the task's Steps and Architecture Notes for claims about external system behavior — anything describing what an external system sends, how files are deployed, what runtime state looks like, or what an API returns. For each such claim, verify it against actual evidence. Read `../shared/SKILL-investigation.md` and apply the Runtime Evidence Checklist (database state, deployed files, bootstrap/lifecycle, cache/file system, documentation cross-check, external system behavior, library API shapes). This catches tasks that are technically correct but based on stale or wrong assumptions about runtime state — the most common cause of "the fix didn't work" after execution.
+Scan the task's Steps and Architecture Notes for claims about external system behavior — anything describing what an external system sends, how files are deployed, what runtime state looks like, or what an API returns. For each such claim, verify it against actual evidence. Read `.claude/skills/shared/SKILL-investigation.md` and apply the Runtime Evidence Checklist (database state, deployed files, bootstrap/lifecycle, cache/file system, documentation cross-check, external system behavior, library API shapes). This catches tasks that are technically correct but based on stale or wrong assumptions about runtime state — the most common cause of "the fix didn't work" after execution.
 
 Unverifiable assumption → **stop and report**: (1) the claim, (2) what you checked, (3) what you found.
 

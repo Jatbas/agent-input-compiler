@@ -27,11 +27,11 @@ editors: all (Cursor Composer / Agent recommended for full fidelity)
 
 1. **Every finding has a citation.** `file:line`, `rg` output, DB query, or URL. The `evidence-scan.sh` script is the referee.
 2. **Dispatch 2-4 parallel explorers.** Use `prompts/explorer.md`. Substitute every `{{placeholder}}` before dispatch.
-3. **Dispatch a framing challenger.** Use `shared/prompts/framing-challenger.md`. Its output gates the rest of the skill — if framing is mis-framed, re-scope before continuing.
+3. **Dispatch a framing challenger BEFORE explorers, and gate on its verdict.** Use `.claude/skills/shared/prompts/framing-challenger.md`. The challenger runs first in Phase 2 (not in parallel with explorers). Its JSON verdict (`sound | mis-framed | partially-framed`) gates Phase 3 — on `mis-framed`, stop and present reframing options to the user before dispatching explorers. On `partially-framed`, update the investigation plan before dispatching. See `SKILL-phase-2-frame.md §2e`.
 4. **Spawn a synthesis critic after the draft.** Use `prompts/synthesis-critic.md`. Address every HARD finding before finalising.
 5. **No speculation.** If evidence does not exist, say so explicitly and stop.
-6. **Double-blind critic pass.** The critic must not read explorer reports during the critique — only the draft and its cited sources.
-7. **Framing soundness is a routed decision.** The framing-challenger subagent MUST be dispatched with the strongest available model using `../shared/prompts/ask-stronger-model.md`. Its JSON verdict (`sound | mis-framed | partially-framed`) gates the investigation phase. See `../shared/SKILL-routing.md`.
+6. **Double-blind critic pass.** The critic receives: the original question, the draft synthesis, the cited sources, and the framing challenger's verdict JSON. The critic does NOT receive: the §2 hypotheses, the investigation plan, the explorer assignments, or the raw explorer reports. The critic re-verifies each citation by reading the actual source, not by re-reading explorer summaries.
+7. **Framing soundness is a routed decision.** The framing-challenger subagent MUST be dispatched with the strongest available model using `.claude/skills/shared/prompts/ask-stronger-model.md`. See `.claude/skills/shared/SKILL-routing.md`. Explorers run on `fast`; this rule applies to the framing challenger only.
 8. **Before writing the synthesis,** read the canonical example at `examples/codebase-analysis-example.md` and imitate its structure — framing section, findings-ranked-by-contribution, disconfirmation outcomes, leverage-ordered recommendations, gaps.
 
 ## GUIDANCE
@@ -42,10 +42,11 @@ editors: all (Cursor Composer / Agent recommended for full fidelity)
 
 ## Autonomous execution
 
-Run phases continuously from classification through finalisation. The only stop is:
+Run phases continuously from classification through finalisation. The only stops are:
 
-- Framing challenger reports "mis-framed" → summarise the reframing options and ask the user to pick.
-- A critic reports HARD findings that require user input to resolve.
+- **Framing challenger reports `mis-framed`** (Phase 2 §2e) → summarise the reframing options and ask the user to pick before dispatching explorers.
+- **Critic reports HARD findings that require user input to resolve** (Phase 4 `SKILL-phase-4-synthesize.md §5b`) → present the finding and wait.
+- **End-of-run presentation** (Phase 6 §6e) → after the document is saved, print the summary block and wait for the user's follow-up (e.g. "add to roadmap" / "plan tasks"). This is the natural end-of-skill handoff, not a mid-run pause.
 
 ## When to use
 
@@ -67,15 +68,15 @@ Run phases continuously from classification through finalisation. The only stop 
 
 ## Process overview (phase dispatch)
 
-| Phase                               | File                           | Checkpoint               |
-| ----------------------------------- | ------------------------------ | ------------------------ |
-| 2. Frame + classify                 | `SKILL-phase-2-frame.md`       | `framed`                 |
-| 3. Investigate (parallel subagents) | `SKILL-phase-3-investigate.md` | `investigation-complete` |
-| 4. Synthesize (synth + critic pass) | `SKILL-phase-4-synthesize.md`  | `synthesis-finalised`    |
-| 6. Finalize                         | `SKILL-phase-6-finalize.md`    | `research-finalised`     |
-| — Protocols reference               | `SKILL-protocols.md`           | —                        |
+| Phase                                            | File                           | Checkpoint               |
+| ------------------------------------------------ | ------------------------------ | ------------------------ |
+| 2. Frame + classify + framing-challenger gate    | `SKILL-phase-2-frame.md`       | `framed`                 |
+| 3. Investigate (parallel explorers)              | `SKILL-phase-3-investigate.md` | `investigation-complete` |
+| 4. Synthesize + adversarial review (critic pass) | `SKILL-phase-4-synthesize.md`  | `synthesis-finalised`    |
+| 6. Finalize + document                           | `SKILL-phase-6-finalize.md`    | `research-finalised`     |
+| — Protocols reference                            | `SKILL-protocols.md`           | —                        |
 
-The critic pass runs inside Phase 4 — after the draft, dispatch `prompts/synthesis-critic.md` as an independent subagent, apply every HARD finding, and only then checkpoint `synthesis-finalised`.
+The framing challenger runs inside Phase 2 — before explorers — because its verdict gates Phase 3 dispatch. The critic pass runs inside Phase 4 — after the draft, dispatch `.claude/skills/aic-researcher/prompts/synthesis-critic.md` as an independent subagent (with the inputs defined in HARD RULE 6), apply every HARD finding, and only then checkpoint `synthesis-finalised`.
 
 At every phase exit: emit checkpoint line + call `checkpoint-log.sh`.
 
@@ -83,7 +84,7 @@ At every phase exit: emit checkpoint line + call `checkpoint-log.sh`.
 
 For every subagent you spawn:
 
-1. Open the prompt template (`prompts/explorer.md`, `prompts/synthesis-critic.md`, or `shared/prompts/framing-challenger.md`).
+1. Open the prompt template (`.claude/skills/aic-researcher/prompts/explorer.md`, `.claude/skills/aic-researcher/prompts/synthesis-critic.md`, or `.claude/skills/shared/prompts/framing-challenger.md` — the framing challenger lives in the shared prompt set, not under this skill).
 2. Substitute every `{{placeholder}}`. Record the substituted prompt under `.aic/runs/<run-id>/subagent-prompts/` (scratch, cleaned on finalisation). Never write rendered prompts under `documentation/`.
 3. Verify no `{{` remains: `grep -q "{{" <rendered-prompt>` must be empty.
 4. Dispatch.
@@ -101,7 +102,7 @@ For every subagent you spawn:
 - [ ] Research note exists at `documentation/research/<slug>.md` (the only kept artifact).
 - [ ] `evidence-scan.sh` passes.
 - [ ] `ambiguity-scan.sh` passes.
-- [ ] Six checkpoint lines in `.aic/skill-log.jsonl`.
+- [ ] Four checkpoint lines in `.aic/skill-log.jsonl` (`framed`, `investigation-complete`, `synthesis-finalised`, `research-finalised`).
 - [ ] Every explorer report, critic report, and rendered subagent prompt lived under `.aic/runs/<run-id>/` — never under `documentation/`.
 - [ ] On run-complete: scratch at `.aic/runs/<run-id>/` is removed (auto under the runner, or `skill-run.cjs cleanup <run-id>`, or `rm -rf .aic/runs/<run-id>/`).
 

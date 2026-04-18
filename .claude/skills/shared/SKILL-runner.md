@@ -21,15 +21,15 @@ Weaker models compress, reorder, and drop phases when given a long rubric. The r
 
 Run from the project root. `AIC_PROJECT_ROOT` overrides the project root when not set to `cwd`.
 
-| Command                                                       | Effect                                                                                                                   |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `node skill-run.cjs init <skill>`                             | Create a new run, write state file, emit phase 1's prompt. Prints `run-id` to stderr.                                    |
-| `node skill-run.cjs next <run-id>`                            | Re-emit current phase's prompt (idempotent).                                                                             |
-| `node skill-run.cjs advance <run-id> [--artifact <path> ...]` | Verify artifacts exist, mark phase complete, emit next phase's prompt. Exits non-zero if any listed artifact is missing. |
-| `node skill-run.cjs fail <run-id> <reason>`                   | Explicitly mark the current phase failed.                                                                                |
-| `node skill-run.cjs resume <run-id>`                          | Reopen a failed run at the current phase and re-emit its prompt.                                                         |
-| `node skill-run.cjs status <run-id>`                          | Print the full state JSON (pipe to `jq`).                                                                                |
-| `node skill-run.cjs cleanup <run-id>`                         | Remove `.aic/runs/<run-id>/` and the state file. Idempotent. Use after `advance --keep-artifacts` on a final phase.      |
+| Command                                                       | Effect                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `node skill-run.cjs init <skill>`                             | Create a new run, write state file, emit the **first table row's** prompt (ordinal 1 in `phases[0]`, regardless of whether the row's label starts with `Phase 0`, `Phase 2`, or any other number — row order drives execution, not the numeric label). Prints `run-id` to stderr. |
+| `node skill-run.cjs next <run-id>`                            | Re-emit current phase's prompt (idempotent).                                                                                                                                                                                                                                      |
+| `node skill-run.cjs advance <run-id> [--artifact <path> ...]` | Verify artifacts exist, mark phase complete, emit next phase's prompt. Exits non-zero if any listed artifact is missing.                                                                                                                                                          |
+| `node skill-run.cjs fail <run-id> <reason>`                   | Explicitly mark the current phase failed.                                                                                                                                                                                                                                         |
+| `node skill-run.cjs resume <run-id>`                          | Reopen a failed run at the current phase and re-emit its prompt.                                                                                                                                                                                                                  |
+| `node skill-run.cjs status <run-id>`                          | Print the full state JSON (pipe to `jq`).                                                                                                                                                                                                                                         |
+| `node skill-run.cjs cleanup <run-id>`                         | Remove `.aic/runs/<run-id>/` and the state file. Idempotent. Use after `advance --keep-artifacts` on a final phase.                                                                                                                                                               |
 
 The full script path is `.claude/skills/shared/scripts/skill-run.cjs`.
 
@@ -102,9 +102,11 @@ Pass both classes to `advance --artifact`. The runner distinguishes them by path
 
 ## When NOT to use the runner
 
-- Single-phase skills (`aic-update-changelog`, `aic-update-progress`) — overhead > benefit.
+- **Inline-phase skills** (`aic-update-changelog`, `aic-update-progress`). These skills do have multiple phases, but their `SKILL.md` files declare them under `## Process overview (inline phases)` rather than the runner-required `## Process overview (phase dispatch)` table. The `phase-parser.cjs` only recognises the table format — it cannot parse inline-phase skills. These skills are short enough to execute end-to-end in a single agent turn and the sequencing overhead of the runner exceeds the determinism benefit. Run them inline.
 - Ad-hoc one-off investigations that do not match any skill.
 - Debugging or interactive sessions where the phase sequence is not known in advance.
+
+If in doubt, check the skill's `SKILL.md`: a `## Process overview (phase dispatch)` header with a table means runner-compatible; `## Process overview (inline phases)` or no table at all means inline-only.
 
 ## Extensibility
 

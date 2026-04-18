@@ -16,7 +16,7 @@ pnpm lint && pnpm typecheck && pnpm test && pnpm knip && pnpm lint:clones
 
 Runs ONCE. On failure, fix and re-run the full chain.
 
-**Known issue — knip false positives in `.git-worktrees/` paths.** Always run `pnpm knip` from the **main workspace root**, not the worktree (see §1 worktree caveat). The worktree branch is already merged or squash-merged before §4a runs knip in the finalize flow; for mid-task knip checks, cd to the main workspace root. Do not investigate worktree-specific knip failures — they are path-resolution artifacts.
+**Known issue — knip false positives in `.git-worktrees/` paths.** Always run `pnpm knip` from the **main workspace root**, not the worktree (see §1 worktree caveat). §4a still runs before §5 finalize and §6 merge; knip simply runs against the main workspace's view of the worktree branch (it reads committed files from the branch). Do not investigate worktree-specific knip failures — they are path-resolution artifacts.
 
 **4b — Re-read all files + mechanical checks in one parallel batch.**
 
