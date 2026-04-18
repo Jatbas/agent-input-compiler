@@ -14,6 +14,7 @@ import { SqliteMigrationRunner } from "../sqlite-migration-runner.js";
 import { migration } from "../migrations/001-consolidated-schema.js";
 import { migration as migration002 } from "../migrations/002-add-conversation-id-index.js";
 import { migration as migration003 } from "../migrations/003-compilation-selection-trace.js";
+import { migration as migration004 } from "../migrations/004-spec-compile-cache.js";
 
 const clock: Clock = {
   now(): ReturnType<typeof toISOTimestamp> {
@@ -143,7 +144,8 @@ describe("SqliteMigrationRunner", () => {
 
   it("per-project tables have project_id FK and no project_root", () => {
     const db = new Database(":memory:");
-    migration.up(db);
+    const runner = new SqliteMigrationRunner(clock);
+    runner.run(db, [migration, migration002, migration003, migration004]);
     const tables = [
       "compilation_log",
       "cache_metadata",
@@ -151,6 +153,7 @@ describe("SqliteMigrationRunner", () => {
       "session_state",
       "file_transform_cache",
       "config_history",
+      "spec_compile_cache",
     ] as const;
     for (const table of tables) {
       const cols = db.prepare(`PRAGMA table_info(${table})`).all() as readonly {

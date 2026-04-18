@@ -96,7 +96,9 @@ describe("formatStatusTable", () => {
       { ...baseStatusPayload, installationOk: true, projectEnabled: true },
       clock,
     );
-    expect(out).toContain("Exclusion rate: % of total repo tokens");
-    expect(out).toContain("Budget utilization: % of token budget filled.");
+    expect(out).toContain(
+      "Avg context precision: % of repo content automatically filtered per context build.",
+    );
+    expect(out).toContain("Context window used: % of token budget filled.");
   });
 });

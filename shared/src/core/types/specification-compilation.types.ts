@@ -4,6 +4,7 @@
 import type { RelativePath } from "./paths.js";
 import type { TokenCount } from "./units.js";
 import type { Percentage } from "./scores.js";
+import type { ISOTimestamp } from "./identifiers.js";
 
 export type SpecTypeUsage =
   | "implements"
@@ -59,4 +60,18 @@ export interface SpecCompilationResult {
     readonly typeTiers: Readonly<Record<string, SpecInclusionTier>>;
     readonly transformTokensSaved: TokenCount;
   };
+}
+
+export interface SpecCompileCacheEntry {
+  readonly cacheKey: string;
+  readonly compiledSpec: string;
+  readonly meta: Readonly<{
+    readonly totalTokensRaw: TokenCount;
+    readonly totalTokensCompiled: TokenCount;
+    readonly reductionPct: Percentage;
+    readonly typeTiers: Readonly<Record<string, SpecInclusionTier>>;
+    readonly transformTokensSaved: TokenCount;
+  }>;
+  readonly createdAt: ISOTimestamp;
+  readonly expiresAt: ISOTimestamp;
 }

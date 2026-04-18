@@ -6,6 +6,7 @@ import { SqliteMigrationRunner } from "@jatbas/aic-core/storage/sqlite-migration
 import { migration as migration001 } from "@jatbas/aic-core/storage/migrations/001-consolidated-schema.js";
 import { migration as migration002 } from "@jatbas/aic-core/storage/migrations/002-add-conversation-id-index.js";
 import { migration as migration003 } from "@jatbas/aic-core/storage/migrations/003-compilation-selection-trace.js";
+import { migration as migration004 } from "@jatbas/aic-core/storage/migrations/004-spec-compile-cache.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
 
@@ -19,7 +20,7 @@ export function openDatabase(dbPath: string, clock: Clock): ExecutableDb {
     db.prepare("PRAGMA busy_timeout = 5000").run();
   }
   const migrationRunner = new SqliteMigrationRunner(clock);
-  migrationRunner.run(db, [migration001, migration002, migration003]);
+  migrationRunner.run(db, [migration001, migration002, migration003, migration004]);
   return db;
 }
 
