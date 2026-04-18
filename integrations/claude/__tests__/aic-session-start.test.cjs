@@ -317,6 +317,52 @@ async function session_start_sets_cursor_claude_editor_id_for_cursor_envelope() 
   console.log("session_start_sets_cursor_claude_editor_id_for_cursor_envelope: pass");
 }
 
+async function session_start_falls_back_to_last_conversation_id_when_envelope_empty() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-session-start-test-"));
+  try {
+    const {
+      lastConversationIdPath,
+      writeLastConversationId,
+    } = require("../../shared/compile-recency.cjs");
+    const stashedConvId = "stashed-conv-77";
+    writeLastConversationId(tmpDir, stashedConvId);
+    const captured = { thirdArg: undefined };
+    const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
+      paths: [hooksDir],
+    });
+    require.cache[resolvedHelper] = {
+      exports: {
+        callAicCompile: (_intent, _root, conversationId) => {
+          captured.thirdArg = conversationId;
+          return Promise.resolve("ok");
+        },
+      },
+      loaded: true,
+      id: resolvedHelper,
+    };
+    delete require.cache[hookPath];
+    const { run } = require(hookPath);
+    try {
+      await run(JSON.stringify({ cwd: tmpDir }));
+    } finally {
+      cleanup(resolvedHelper);
+      try {
+        fs.unlinkSync(lastConversationIdPath(tmpDir));
+      } catch {}
+    }
+    if (captured.thirdArg !== stashedConvId) {
+      throw new Error(
+        `Expected third arg ${JSON.stringify(stashedConvId)}, got ${JSON.stringify(captured.thirdArg)}`,
+      );
+    }
+    console.log(
+      "session_start_falls_back_to_last_conversation_id_when_envelope_empty: pass",
+    );
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
 async function session_start_noop_when_cursor_version_present() {
   let callCount = 0;
   const resolvedHelper = require.resolve("./aic-compile-helper.cjs", {
@@ -359,6 +405,7 @@ async function session_start_noop_when_cursor_version_present() {
   await aic_dir_created_with_0700();
   await session_start_uses_conversation_id_when_transcript_path_missing();
   await session_start_sets_cursor_claude_editor_id_for_cursor_envelope();
+  await session_start_falls_back_to_last_conversation_id_when_envelope_empty();
   await session_start_noop_when_cursor_version_present();
   console.log("All tests passed.");
 })();

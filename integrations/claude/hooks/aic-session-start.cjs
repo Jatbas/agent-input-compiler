@@ -24,7 +24,10 @@ const {
 } = require("../../shared/read-model-from-transcript.cjs");
 const { callAicCompile } = require("./aic-compile-helper.cjs");
 const { touchEditorRuntimeMarker } = require("../../shared/editor-runtime-marker.cjs");
-const { writeLastConversationId } = require("../../shared/compile-recency.cjs");
+const {
+  readLastConversationId,
+  writeLastConversationId,
+} = require("../../shared/compile-recency.cjs");
 
 async function run(stdinStr) {
   let parsed;
@@ -37,9 +40,14 @@ async function run(stdinStr) {
   if (isCursorNative) return null;
   const sessionId =
     parsed.session_id != null ? parsed.session_id : (parsed.input?.session_id ?? null);
-  const conversationId =
-    conversationIdFromTranscriptPath(parsed) ?? resolveConversationIdFallback(parsed);
   const projectRoot = resolveProjectRoot(parsed);
+  // Fall back to the last known conversation id for this project when Claude Code
+  // ships a partial SessionStart envelope (empty stdin race, or /compact variants
+  // missing transcript_path/session_id). Prevents orphan compilation_log rows.
+  const conversationId =
+    conversationIdFromTranscriptPath(parsed) ??
+    resolveConversationIdFallback(parsed) ??
+    readLastConversationId(projectRoot);
   if (conversationId != null && String(conversationId).trim() !== "") {
     const trimmedId = String(conversationId).trim();
     writeLastConversationId(projectRoot, trimmedId);
@@ -89,7 +97,15 @@ async function run(stdinStr) {
 }
 
 if (require.main === module) {
-  const raw = fs.readFileSync(0, "utf8");
+  // Guard against Claude Code closing stdin before flushing (rare race that
+  // otherwise produces compilation_log rows with NULL conversation_id).
+  const raw = (() => {
+    try {
+      return fs.readFileSync(0, "utf8");
+    } catch {
+      return "{}";
+    }
+  })();
   run(raw)
     .then((out) => {
       if (out != null) process.stdout.write(JSON.stringify(out));
