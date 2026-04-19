@@ -10,7 +10,7 @@ overrides:
 
 patchedDependencies:
   '@modelcontextprotocol/sdk@1.29.0':
-    hash: 5d1da56f8e3efb612531541dbeb860271be77139d59107162e0e22f894a53025
+    hash: 95edef54eddb8742d4f451769717857c5903877b862473501bd582adaf7a5bb3
     path: patches/@modelcontextprotocol__sdk@1.29.0.patch
 
 importers:
@@ -91,7 +91,7 @@ importers:
         version: link:../shared
       '@modelcontextprotocol/sdk':
         specifier: 1.29.0
-        version: 1.29.0(patch_hash=5d1da56f8e3efb612531541dbeb860271be77139d59107162e0e22f894a53025)(zod@3.25.7)
+        version: 1.29.0(patch_hash=95edef54eddb8742d4f451769717857c5903877b862473501bd582adaf7a5bb3)(zod@3.25.7)
       better-sqlite3:
         specifier: 12.9.0
         version: 12.9.0
@@ -2966,7 +2966,7 @@ snapshots:
       reprism: 0.0.11
       spark-md5: 3.0.2
 
-  '@modelcontextprotocol/sdk@1.29.0(patch_hash=5d1da56f8e3efb612531541dbeb860271be77139d59107162e0e22f894a53025)(zod@3.25.7)':
+  '@modelcontextprotocol/sdk@1.29.0(patch_hash=95edef54eddb8742d4f451769717857c5903877b862473501bd582adaf7a5bb3)(zod@3.25.7)':
     dependencies:
       '@hono/node-server': 1.19.13(hono@4.12.14)
       ajv: 8.18.0

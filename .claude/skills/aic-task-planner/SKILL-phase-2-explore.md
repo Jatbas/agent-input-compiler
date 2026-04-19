@@ -57,7 +57,13 @@ Complete every item. Two batches minimize sequential tool-call rounds.
 12. **Plan step breakdown** — max 2 methods per step, max 1 file per step. Record mapping.
 13. **Verify module resolution** — if config changes proposed, read `tsconfig.json`, record `moduleResolution`. Uncertain → blocker.
 14. **Trace consumers of modified types/signatures** (conditional — "Modify" file touches interface, type, or exported function signature):
-    **(14a)** Grep all importers of modified interface/type. Classify "will break" / "compatible". Breakage → add "Modify" rows.
+    **(14a)** Grep **four usage patterns** for every modified interface/type, not just `import` statements. A factory function that returns the type or a generic parameterised on the type _imports_ the name and _constructs_ the value but may hide the literal fields inside the function body — naive object-literal greps miss it. Run all four and de-duplicate the file list:
+    - (a) Import statements: `import .* \bTypeName\b` (explicit imports).
+    - (b) Return-type annotations: `:\s*TypeName\b` and `: Promise<TypeName>` / `: Readonly<TypeName>` / `: ReadonlyArray<TypeName>` (factories and helpers).
+    - (c) Type arguments: `<TypeName[,>]` (generics, e.g. `Array<TypeName>`, `Record<string, TypeName>`, `Partial<TypeName>`).
+    - (d) Variable/parameter annotations: `:\s*TypeName[\s,)=;{]` (typed locals and parameters).
+
+    Classify every hit as "will break" / "compatible". Breakage → add "Modify" rows. Record the four grep commands actually run and their file counts in CONSUMER ANALYSIS so verification agents can reproduce.
     **(14c)** Grep all direct callers of changed exported functions. Trace recursively to system boundary. Every file in chain → "Modify" row. Zero-arg closures wrapping functions gaining params → parameterize, inline, or restructure. Record in CALLER CHAIN ANALYSIS.
     **14b.** Scope-adjacent string reference scan (conditional — "Modify" files) — for every function name, type name, interface name, constant name, or package name being modified or renamed: grep the full codebase for string-literal occurrences beyond import statements. Check: dispatch tables using string keys (`Record<string, Handler>` entries), error messages referencing the name, log statements, test descriptions (`it("should ... [name] ...")`, `describe("[name]"...)`), comments in other files, documentation, and infrastructure configs (`vitest.config.ts` resolve aliases, `tsconfig.json` path mappings, `.github/workflows/*.yml` step commands, `package.json` scripts). Classify each as "in-scope fix" (add to task scope) or "follow-up" (report to user). Record in SCOPE-ADJACENT REFERENCES. **Pitfall:** `package.json` name changes break resolve aliases.
 

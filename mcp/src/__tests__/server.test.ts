@@ -101,6 +101,9 @@ describe("MCP server", () => {
         destructiveHint: false,
       });
     }
+    for (const tool of result.tools) {
+      expect(tool.inputSchema).not.toHaveProperty("$schema");
+    }
   });
 
   it("server_tools_json_unchanged", async () => {

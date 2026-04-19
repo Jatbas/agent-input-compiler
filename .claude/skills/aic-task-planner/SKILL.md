@@ -93,6 +93,8 @@ Phases live in separate files. Read the next phase file in full before executing
 
 At every phase exit, emit the checkpoint line and call `checkpoint-log.sh`. A successful run emits four checkpoints (`setup-complete`, `task-picked`, `exploration-complete`, `task-finalized`) plus `self-review-complete` if Phase 7 runs.
 
+**Phase-gate wall-clock enforcement.** `checkpoint-log.sh` now rejects with exit code 3 if `aic-task-planner` emits `exploration-complete` within 5 seconds of the last `task-picked`, or `task-finalized` within 5 seconds of the last `exploration-complete`, or `task-picked` within 1 second of the last `setup-complete`. This prevents the previously-observed failure mode where all four checkpoints were batched at run end and the independent-verification subagents that are supposed to run _between_ gates never actually ran. If a checkpoint is rejected, do not re-run with `CHECKPOINT_ALLOW_RAPID=1` unless the run is a documented test or replay — the correct fix is to run the gate's real work (grep sweeps, subagent dispatch, self-review) before emitting.
+
 ## Subagent dispatch
 
 This skill dispatches subagents in three places:

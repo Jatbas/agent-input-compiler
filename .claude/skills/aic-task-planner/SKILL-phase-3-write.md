@@ -66,7 +66,7 @@ Save to `documentation/tasks/$EPOCH-kebab-case-name.md`. Use `$EPOCH` in the hea
 
 Run all checks using Grep and Read. Fire Step 1 checks in one parallel batch.
 
-**Step 1:** Re-read every referenced interface, type, and `.d.ts` file from disk. Run all checks A–AC in parallel. Report pass/fail with evidence.
+**Step 1:** Re-read every referenced interface, type, and `.d.ts` file from disk. Run all checks A–AF in parallel. Report pass/fail with evidence.
 
 A. **AMBIGUITY SCAN** (three layers — see `SKILL-guardrails.md` "No ambiguity" for full list):
 Layer 1 — Grep the task file for each banned phrase category (Cat 1–7). ANY match in non-code lines = fail.
@@ -121,7 +121,7 @@ L. **WIRING ACCURACY (composition roots only):** Re-read each concrete class sou
 
 M. **SIMPLICITY CHECK:** Count "Create" rows in the Files table. For a single-concern component (one interface, one class), more than 3 "Create" rows (source + test + one config/migration) requires justification in Architecture Notes. If no justification = fail.
 
-N. **CONSUMER COMPLETENESS (conditional — modified interfaces/types/signatures):** All breaking importers and callers from 14c → "Modify" rows. Missing = fail. No modifications = auto-pass.
+N. **CONSUMER COMPLETENESS (conditional — modified interfaces/types/signatures):** All breaking **importers from 14a (all four grep patterns: imports, return-type annotations, type arguments, variable/parameter annotations)** and callers from 14c → "Modify" rows. Verify CONSUMER ANALYSIS in the exploration report lists the four 14a grep commands and their file counts; if any of the four patterns is missing or its file list is empty without justification, fail. Missing = fail. No modifications = auto-pass.
 
 O. **CONDITIONAL DEPENDENCY LOADING (conditional — composition roots):** Conditional deps eagerly created in bootstrap = fail. Must inject + conditionally create in `main()`. No conditional deps = auto-pass.
 
@@ -170,7 +170,13 @@ AB. **SPECULATIVE TOOL EXECUTION COMPLETENESS (mandatory):** Grep task file for 
 
 AC. **FILE CONVENTION CONSISTENCY (mandatory — "Modify" rows adding code):** Step instructions must specify one idiom matching the file's existing conventions (JSON loading, module system, test framework). Alternatives = fail. Missing convention note in BINDING INVENTORY = fail.
 
-**Step 2: Score rubric.** 0 (fail) or 1 (pass) per dimension. Checks: B (interface+signature), C (types), E (config), A (ambiguity), D (steps), H (branded), G (self-contained), J (tests), F (sync), K (library API), L (wiring), M (simplicity), N (consumers), O (conditional deps), P (siblings), Q (transformer benchmark), R (transformer safety), S (code block API), T (normalization), U (acceptance), V (test compat), W (caller chain), X (copy target), X2 (non-TS assets), Y (binding reuse), Z (behavior change), AA (doc impact), AB (tool execution), AC (file convention). Conditional checks auto-pass when precondition unmet.
+AD. **VERIFY PATTERN MATCHABILITY (mandatory — steps with grep-based Verify lines):** For every `Verify:` line whose command is `grep ... 'pattern'` (or `grep -F 'pattern'`, `rg 'pattern'`, `grep ... | ...`), the literal pattern must be a substring that can plausibly appear in the output of the preceding step. Specifically: (1) if the command greps a source file path, the pattern must be a substring that will appear in that file after the step executes (or in a compiler/lint diagnostic referencing the file); (2) if the command greps a file name in a diagnostic (`grep -F 'foo.ts'`), the file must be listed in the Files table; (3) if the step creates or modifies file `NNN-foo.ts` and the Verify pattern is `NNN-bar` (different stem), fail — the grep is vacuous and always exits 0 regardless of real errors. This check catches pattern/path renames (e.g. `grep 005-classifier` on a file named `006-classifier-scores.ts`). Scan-with-grep verifies that rely on empty output (`print nothing`) must reference patterns that would actually appear on failure — otherwise the verify is trivially satisfied.
+
+AE. **METRIC NAMING COHERENCE (mandatory — tasks introducing numeric metrics, scores, indices, or derived measurements):** For every new field whose name implies a semantic meaning (`*Index`, `*Score`, `*Confidence`, `*Rate`, `*Ratio`, `*Distance`, `*Count`, `*Probability`, etc.), verify the formula or algorithm in Interface/Signature or Steps actually computes what the name describes. Red flags: (a) `ambiguityIndex` computed as a signal-absence product rather than inter-candidate competition; (b) `confidence` computed as a per-winner saturation without runner-up margin; (c) `specificity` derived from a count without any normalisation to a reference set; (d) `distance` that is not a metric (asymmetric or violates triangle inequality); (e) any name whose plain-English meaning diverges from the formula. Rename the field or change the formula — never ship a semantic mismatch. Tasks adding no new metric names → auto-pass. This check is subagent-friendly; the C.5b reviewer should be asked explicitly "does each new metric name describe what its formula computes?" with formula and name side by side.
+
+AF. **DERIVED METRIC INPUT PERSISTENCE (mandatory — tasks that persist a derived scalar to storage):** When the task persists a value `Y = f(A, B, …)` to any storage table, all independent inputs `A, B, …` that are produced in the same pipeline step must also be persisted (as their own columns), OR the task must state explicitly in Architecture Notes that the derivation is non-invertible (lossy), document which inputs are dropped, and justify the information loss. Red flags: (a) persisting `ambiguityIndex = (1 − confidence) · (1 − specificity)` while persisting only `confidence`; (b) persisting an aggregate without its components when the raw components are cheap (≤ 8 bytes each); (c) persisting a normalised value without its un-normalised source. The intent is that future analysts can reconstruct any alternative derivation from the stored columns — dropping an input silently defeats this. Tasks not touching storage → auto-pass.
+
+**Step 2: Score rubric.** 0 (fail) or 1 (pass) per dimension. Checks: B (interface+signature), C (types), E (config), A (ambiguity), D (steps), H (branded), G (self-contained), J (tests), F (sync), K (library API), L (wiring), M (simplicity), N (consumers), O (conditional deps), P (siblings), Q (transformer benchmark), R (transformer safety), S (code block API), T (normalization), U (acceptance), V (test compat), W (caller chain), X (copy target), X2 (non-TS assets), Y (binding reuse), Z (behavior change), AA (doc impact), AB (tool execution), AC (file convention), AD (verify matchability), AE (metric naming coherence), AF (derived metric inputs). Conditional checks auto-pass when precondition unmet.
 
 ## C.5b Independent verification agent
 
@@ -191,6 +197,9 @@ After C.5 passes 100%, spawn a `generalPurpose` subagent with:
    - Test impact completeness: invalidated tests → in Files table
    - Caller chain completeness: chain files → in Files table
    - Copy target audit, binding reuse, behavior change completeness, doc impact completeness
+   - **Metric naming coherence** (AE): for every new field whose name implies a semantic (`*Index`, `*Score`, `*Confidence`, `*Rate`, `*Distance`, `*Probability`, etc.), read the formula and state whether the formula computes what the name describes. If not, report MISMATCH with a proposed rename or formula change.
+   - **Derived metric input persistence** (AF): for every derived value persisted to storage, enumerate its independent inputs and verify each is also persisted OR the task justifies the loss.
+   - **Verify pattern matchability** (AD): for every grep-based `Verify:` line, assert that the pattern could match real output. Flag vacuous greps (pattern never appears in any produced file or diagnostic).
    - **Synthesis-vs-exploration check:** Compare each Step and Architecture Note against the Exploration Report. Flag: steps that overstate exploration evidence (e.g., exploration said "uncertain" but step treats as established), steps that omit explored edge cases or caveats, and facts referenced in steps that do not appear in the exploration report.
 4. **Output:** Structured findings list. Summary: "PASS — all N confirmed" or "FAIL — M of N errors" with specifics.
 
@@ -204,7 +213,7 @@ Spawn a `generalPurpose` subagent with task file path, project root, `.cursor/ru
 **Category 1 — Dependency probes** ("Modify" rows with signature changes):
 
 1. `MISSING_CALLER` — callers of changed functions not in Files table
-2. `MISSING_CONSUMER` — importers of changed interfaces not in Files table
+2. `MISSING_CONSUMER` — **any file that uses the modified interface/type** not in Files table. Re-run all four 14a grep patterns independently (imports, return-type annotations, type arguments, variable/parameter annotations) against the entire workspace (`shared/src/`, `mcp/src/`, `integrations/`) without reading the task file or exploration report. Every hit that constructs or returns the type must appear in the Files table when the type's required-field shape changed.
 3. `MISSING_INTERMEDIARY` — intermediaries needing signature changes
 4. `CLOSURE_BREAK` — zero-arg closures wrapping functions gaining params
 

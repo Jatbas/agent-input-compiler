@@ -50,3 +50,57 @@ index 51d060e59a33efad8cd85c97d74f5c0f4d1e1ba2..e8254ae3bd3d8c914169e5d15dbe1233
          }
          else {
              const v3Schema = methodSchema;
+diff --git a/dist/cjs/server/zod-json-schema-compat.js b/dist/cjs/server/zod-json-schema-compat.js
+index bc067da..d7f0449 100644
+--- a/dist/cjs/server/zod-json-schema-compat.js
++++ b/dist/cjs/server/zod-json-schema-compat.js
+@@ -46,16 +46,20 @@ function mapMiniTarget(t) {
+ function toJsonSchemaCompat(schema, opts) {
+     if ((0, zod_compat_js_1.isZ4Schema)(schema)) {
+         // v4 branch — use Mini's built-in toJSONSchema
+-        return z4mini.toJSONSchema(schema, {
++        const v4Result = z4mini.toJSONSchema(schema, {
+             target: mapMiniTarget(opts?.target),
+             io: opts?.pipeStrategy ?? 'input'
+         });
++        delete v4Result.$schema;
++        return v4Result;
+     }
+     // v3 branch — use vendored converter
+-    return (0, zod_to_json_schema_1.zodToJsonSchema)(schema, {
++    const v3Result = (0, zod_to_json_schema_1.zodToJsonSchema)(schema, {
+         strictUnions: opts?.strictUnions ?? true,
+         pipeStrategy: opts?.pipeStrategy ?? 'input'
+     });
++    delete v3Result.$schema;
++    return v3Result;
+ }
+ function getMethodLiteral(schema) {
+     const shape = (0, zod_compat_js_1.getObjectShape)(schema);
+diff --git a/dist/esm/server/zod-json-schema-compat.js b/dist/esm/server/zod-json-schema-compat.js
+index 62f7fd0..7009021 100644
+--- a/dist/esm/server/zod-json-schema-compat.js
++++ b/dist/esm/server/zod-json-schema-compat.js
+@@ -18,16 +18,20 @@ function mapMiniTarget(t) {
+ export function toJsonSchemaCompat(schema, opts) {
+     if (isZ4Schema(schema)) {
+         // v4 branch — use Mini's built-in toJSONSchema
+-        return z4mini.toJSONSchema(schema, {
++        const v4Result = z4mini.toJSONSchema(schema, {
+             target: mapMiniTarget(opts?.target),
+             io: opts?.pipeStrategy ?? 'input'
+         });
++        delete v4Result.$schema;
++        return v4Result;
+     }
+     // v3 branch — use vendored converter
+-    return zodToJsonSchema(schema, {
++    const v3Result = zodToJsonSchema(schema, {
+         strictUnions: opts?.strictUnions ?? true,
+         pipeStrategy: opts?.pipeStrategy ?? 'input'
+     });
++    delete v3Result.$schema;
++    return v3Result;
+ }
+ export function getMethodLiteral(schema) {
+     const shape = getObjectShape(schema);
