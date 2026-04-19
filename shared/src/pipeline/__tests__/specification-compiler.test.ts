@@ -9,13 +9,16 @@ import {
   type SpecificationInput,
 } from "@jatbas/aic-core/core/types/specification-compilation.types.js";
 import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
-import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
+import { toTokenCount, type TokenCount } from "@jatbas/aic-core/core/types/units.js";
 import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
 import { TypeScriptProvider } from "@jatbas/aic-core/adapters/typescript-provider.js";
 import type { ContentTransformerPipeline } from "@jatbas/aic-core/core/interfaces/content-transformer-pipeline.interface.js";
 import type { SummarisationLadder } from "@jatbas/aic-core/core/interfaces/summarisation-ladder.interface.js";
 import type { SelectedFile } from "@jatbas/aic-core/core/types/selected-file.js";
-import type { TransformMetadata } from "@jatbas/aic-core/core/types/transform-types.js";
+import type {
+  TransformContext,
+  TransformMetadata,
+} from "@jatbas/aic-core/core/types/transform-types.js";
 
 const measure = (s: string): ReturnType<typeof toTokenCount> =>
   toTokenCount([...s].length);
@@ -478,6 +481,82 @@ describe("SpecificationCompilerImpl", () => {
       throw new ConfigError("specification-compiler test: expected transform call");
     }
     expect(call[1]).toEqual({ directTargetPaths: [], rawMode: false });
+  });
+
+  it("spec_compiler_signature_path_repeated_compile_bit_identical", async () => {
+    const order: string[] = [];
+    const contentTransformerPipeline = {
+      transform: vi.fn(
+        async (files: readonly SelectedFile[], _context: TransformContext) => {
+          order.push("transform");
+          return {
+            files: files.map((f) => ({ ...f })),
+            metadata: files.map(
+              (f): TransformMetadata => ({
+                filePath: f.path,
+                originalTokens: f.estimatedTokens,
+                transformedTokens: f.estimatedTokens,
+                transformersApplied: [],
+              }),
+            ),
+          };
+        },
+      ),
+    };
+    const summarisationLadder = {
+      compress: vi.fn(
+        async (
+          files: readonly SelectedFile[],
+          _budget: TokenCount,
+          subjectTokens?: readonly string[],
+        ) => {
+          order.push("compress");
+          expect(subjectTokens).toBe(undefined);
+          return files;
+        },
+      ),
+    };
+    const impl = new SpecificationCompilerImpl(
+      measure,
+      contentTransformerPipeline as ContentTransformerPipeline,
+      summarisationLadder as SummarisationLadder,
+      languageProviders,
+    );
+    const input: SpecificationInput = {
+      types: [
+        {
+          name: "PassThru",
+          path: toRelativePath("pt/x.ts"),
+          usage: "passes-through",
+          estimatedTokens: toTokenCount(80),
+          content: "export class Box {}\nexport function spin() {}",
+        },
+      ],
+      codeBlocks: [],
+      prose: [],
+    };
+    const budget = toTokenCount(500_000);
+    const first = await impl.compile(input, budget);
+    const second = await impl.compile(input, budget);
+    expect(second.compiledSpec).toBe(first.compiledSpec);
+    expect(second.meta).toEqual(first.meta);
+    expect(order.join(",")).toBe("transform,compress,transform,compress");
+    expect(contentTransformerPipeline.transform.mock.calls.length).toBe(2);
+    const expectedContext: TransformContext = { directTargetPaths: [], rawMode: false };
+    const firstCall = contentTransformerPipeline.transform.mock.calls[0];
+    expect(firstCall).toBeDefined();
+    if (firstCall === undefined) {
+      throw new ConfigError("specification-compiler test: expected first transform call");
+    }
+    expect(firstCall[1]).toEqual(expectedContext);
+    const secondCall = contentTransformerPipeline.transform.mock.calls[1];
+    expect(secondCall).toBeDefined();
+    if (secondCall === undefined) {
+      throw new ConfigError(
+        "specification-compiler test: expected second transform call",
+      );
+    }
+    expect(secondCall[1]).toEqual(expectedContext);
   });
 
   it("spec_compiler_verbatim_inflate_shifts_budget_demotion", async () => {

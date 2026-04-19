@@ -91,6 +91,35 @@ function computeVerbatimBatchBudget(
   return toTokenCount(Math.min(Math.floor(Number(budget) * 0.2), sumVerbatimInputTokens));
 }
 
+function computeSignaturePathBatchBudget(
+  budget: TokenCount,
+  refs: readonly SpecTypeRef[],
+  tokenCounter: (text: string) => TokenCount,
+): TokenCount {
+  const sumSyntheticTokens = refs.reduce(
+    (s, r) => s + Number(tokenCounter(normalizeNewlines(signatureTierBody(r.content)))),
+    0,
+  );
+  return toTokenCount(Math.min(Math.floor(Number(budget) * 0.2), sumSyntheticTokens));
+}
+
+function buildSignaturePathSyntheticRows(
+  refs: readonly SpecTypeRef[],
+  tokenCounter: (text: string) => TokenCount,
+): readonly SelectedFile[] {
+  return refs.map((ref) => {
+    const resolvedContent = normalizeNewlines(signatureTierBody(ref.content));
+    return {
+      path: ref.path,
+      language: specLanguageFromPath(String(ref.path)),
+      estimatedTokens: tokenCounter(resolvedContent),
+      relevanceScore: toRelevanceScore(1),
+      tier: INCLUSION_TIER.L0,
+      resolvedContent,
+    };
+  });
+}
+
 function buildPathToRenderedMap(
   compressOut: readonly SelectedFile[],
   languageProviders: readonly LanguageProvider[],
@@ -175,6 +204,72 @@ async function verbatimAdjustedSpecificationInput(
   const adjustedTypes = applyRenderedBodiesToVerbatimTypes(
     input.types,
     verbatimPathMeta,
+    pathToRendered,
+    tokenCounter,
+  );
+  return { ...input, types: adjustedTypes };
+}
+
+function applySignaturePathRenderedBodies(
+  types: readonly SpecTypeRef[],
+  pathToRendered: ReadonlyMap<string, string>,
+  tokenCounter: (text: string) => TokenCount,
+): readonly SpecTypeRef[] {
+  return types.map((ref) => {
+    if (SPEC_USAGE_TO_INITIAL_TIER[ref.usage] !== "signature-path") {
+      return ref;
+    }
+    const split = splitLeadingImportsAndBody(ref.content);
+    const syntheticDefault = normalizeNewlines(signatureTierBody(ref.content));
+    const renderedBody = pathToRendered.get(String(ref.path)) ?? syntheticDefault;
+    const fullContent =
+      split.importLines.length > 0
+        ? `${split.importLines.join("\n")}\n${renderedBody}`
+        : renderedBody;
+    return {
+      ...ref,
+      content: fullContent,
+      estimatedTokens: tokenCounter(fullContent),
+    };
+  });
+}
+
+async function signaturePathAdjustedSpecificationInput(
+  tokenCounter: (text: string) => TokenCount,
+  contentTransformerPipeline: ContentTransformerPipeline,
+  summarisationLadder: SummarisationLadder,
+  languageProviders: readonly LanguageProvider[],
+  input: SpecificationInput,
+  budget: TokenCount,
+): Promise<SpecificationInput> {
+  const signatureRefs = input.types.filter(
+    (t) => SPEC_USAGE_TO_INITIAL_TIER[t.usage] === "signature-path",
+  );
+  if (signatureRefs.length === 0) {
+    return input;
+  }
+  const signatureBatchBudget = computeSignaturePathBatchBudget(
+    budget,
+    signatureRefs,
+    tokenCounter,
+  );
+  const signatureRows = buildSignaturePathSyntheticRows(signatureRefs, tokenCounter);
+  const specCompileTransformContext: TransformContext = {
+    directTargetPaths: [],
+    rawMode: false,
+  };
+  const transformResult = await contentTransformerPipeline.transform(
+    signatureRows,
+    specCompileTransformContext,
+  );
+  const compressOut = await summarisationLadder.compress(
+    transformResult.files,
+    signatureBatchBudget,
+    undefined,
+  );
+  const pathToRendered = buildPathToRenderedMap(compressOut, languageProviders);
+  const adjustedTypes = applySignaturePathRenderedBodies(
+    input.types,
     pathToRendered,
     tokenCounter,
   );
@@ -491,7 +586,7 @@ export class SpecificationCompilerImpl implements SpecificationCompiler {
     input: SpecificationInput,
     budget: TokenCount,
   ): Promise<SpecCompilationResult> {
-    const adjustedInput = await verbatimAdjustedSpecificationInput(
+    const afterVerbatim = await verbatimAdjustedSpecificationInput(
       this.tokenCounter,
       this.contentTransformerPipeline,
       this.summarisationLadder,
@@ -499,10 +594,18 @@ export class SpecificationCompilerImpl implements SpecificationCompiler {
       input,
       budget,
     );
+    const afterSignature = await signaturePathAdjustedSpecificationInput(
+      this.tokenCounter,
+      this.contentTransformerPipeline,
+      this.summarisationLadder,
+      this.languageProviders,
+      afterVerbatim,
+      budget,
+    );
     const totalTokensRaw = sumEstimatedTokens(input);
     const sortedTypes = sortTypes(input.types);
     const { compiled: compiledSpec, tiers } = runBudgetLoop(
-      adjustedInput,
+      afterSignature,
       budget,
       this.tokenCounter,
     );
