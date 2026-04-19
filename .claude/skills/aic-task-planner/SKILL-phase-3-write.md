@@ -257,28 +257,34 @@ Task files are gitignored — finalization copies from worktree to main workspac
 
 2. **Update heading in worktree file.** Use StrReplace on the worktree task file to change the `# Task $EPOCH:` heading to `# Task NNN:`.
 
-3. **Copy to main workspace AND remove worktree — one chained command (do NOT split these):**
+3. **Copy the task file to the main workspace. One command — do NOT split:**
 
    ```
-   cp <worktree>/documentation/tasks/$EPOCH-name.md <main-workspace>/documentation/tasks/NNN-name.md && \
-   cd <main-workspace> && \
-   rm -rf .git-worktrees/plan-$EPOCH && \
-   git worktree prune && \
-   git branch -D plan/$EPOCH
+   cp <worktree>/documentation/tasks/$EPOCH-name.md <main-workspace>/documentation/tasks/NNN-name.md
    ```
 
-   Use absolute paths. `rm -rf` removes the directory unconditionally (including untracked files that `git worktree remove` leaves behind), `git worktree prune` cleans stale Git metadata, and `git branch -D` deletes the planning branch. **The worktree must be gone before step 4.**
+   Use absolute paths. Confirm the file exists on main afterwards (`ls <main-workspace>/documentation/tasks/NNN-name.md`) before proceeding to step 4 — the worktree is about to be deleted, so if the copy failed the task file is lost.
 
-4. **Announce:** "Task saved to `documentation/tasks/NNN-name.md`. Score: N/M (X%). Use the @aic-task-executor skill to execute it."
-
-5. **Final sweep (MANDATORY — last shell command in the session).** Editors may recreate directory stubs for files they were tracking. Run this idempotent cleanup after the announcement:
+4. **Remove the worktree, branch, and stale metadata via the shared script (MANDATORY — non-negotiable).** Always run from the **main workspace root**:
 
    ```
-   rm -rf <main-workspace>/.git-worktrees/plan-$EPOCH 2>/dev/null; \
-   rmdir <main-workspace>/.git-worktrees 2>/dev/null || true
+   bash .claude/skills/shared/scripts/cleanup-worktree.sh remove \
+        <main-workspace>/.git-worktrees/plan-$EPOCH
    ```
 
-   Verify: `ls <main-workspace>/.git-worktrees/plan-$EPOCH 2>&1` must report "No such file or directory". If `.git-worktrees` is empty it is removed; if other worktrees exist the `rmdir` is a harmless no-op.
+   The script removes the directory, prunes `git worktree` metadata, deletes the `plan/$EPOCH` branch, removes the parent `.git-worktrees/` if empty, and **verifies all three are gone**. It exits 0 on success and 1 if any residue remains — treat exit 1 as a HARD STOP and report to the user with the script's stderr.
+
+   Do NOT invent your own `rm -rf` / `git worktree prune` / `git branch -D` sequence — past agents have missed a step or skipped verification, leaving orphan directories behind. The script is the single source of truth.
+
+5. **Announce:** "Task saved to `documentation/tasks/NNN-name.md`. Score: N/M (X%). Use the @aic-task-executor skill to execute it."
+
+6. **Final sweep (MANDATORY — last shell command in the session).** Editors may recreate directory stubs for files they were tracking, and prior interrupted runs may still have orphans elsewhere in `.git-worktrees/`. Run the idempotent sweep after the announcement:
+
+   ```
+   bash .claude/skills/shared/scripts/cleanup-worktree.sh sweep
+   ```
+
+   Script exit 0 means no orphans remain. Exit 1 means a directory could not be removed — stop and report, do not claim the task is finalized.
 
 ---
 

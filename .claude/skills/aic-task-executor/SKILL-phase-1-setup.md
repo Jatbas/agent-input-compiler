@@ -18,6 +18,14 @@
 
 If a dependency is not done, **stop and tell the user**.
 
+**Sweep orphaned worktrees first (MANDATORY).** From the main workspace root — before running `git worktree add`:
+
+```
+bash .claude/skills/shared/scripts/cleanup-worktree.sh sweep
+```
+
+Removes every `.git-worktrees/<dir>` not in `git worktree list`, prunes stale git metadata, and deletes any orphan `plan/<epoch>` / `feat/<epoch>` / `feat/task-<NNN>-<epoch>` branch whose worktree dir is gone. Idempotent. Exit 0 required. Exit 1 → stop and tell the user (do not try to work around it with manual `rm -rf`).
+
 **Create a worktree** to isolate all work (main stays on `main`; multiple executors can run in parallel):
 
 ```
@@ -28,7 +36,12 @@ git worktree add -b feat/task-NNN-$EPOCH .git-worktrees/task-NNN-$EPOCH main
 git worktree add -b feat/$EPOCH .git-worktrees/$EPOCH main
 ```
 
-**Store the epoch value** for branch/directory names. If worktree creation fails because the path or branch already exists (stale), remove it fully: `rm -rf .git-worktrees/<stale-dir> && git worktree prune && git branch -D <stale-branch> 2>/dev/null` then retry.
+**Store the epoch value** for branch/directory names. If worktree creation fails because the path or branch already exists despite the sweep (e.g. racing against another agent), remove just that one and retry:
+
+```
+bash .claude/skills/shared/scripts/cleanup-worktree.sh remove .git-worktrees/<dir-name>
+# then retry the `git worktree add` above
+```
 
 **Install + build** in the worktree: `source .claude/skills/shared/scripts/ensure-node24.sh && pnpm install && pnpm build` (set `working_directory` to worktree path).
 

@@ -118,4 +118,4 @@ No other phase dispatches subagents. All other work is sequential in the orchest
 - [ ] `ambiguity-scan.sh` passes on the task file.
 - [ ] Four checkpoint lines emitted (`setup-complete`, `task-picked`, `exploration-complete`, `task-finalized`).
 - [ ] `.aic/skill-log.jsonl` contains the matching entries.
-- [ ] Worktree removed and `.git-worktrees/plan-$EPOCH` is gone (see `SKILL-phase-3-write.md §6`).
+- [ ] Worktree + branch removed via `bash .claude/skills/shared/scripts/cleanup-worktree.sh remove <main>/.git-worktrees/plan-$EPOCH` (exit 0 required) and final `cleanup-worktree.sh sweep` reports 0 orphan directories (see `SKILL-phase-3-write.md §6`).

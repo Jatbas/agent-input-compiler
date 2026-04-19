@@ -105,11 +105,12 @@ Success path (merged):
 - [ ] `aic-progress.md` updated on the main workspace (not inside the worktree).
 - [ ] Commits follow `type(scope): description`, ≤ 72 chars.
 - [ ] Full `§4a` gate (lint, typecheck, test, knip, lint:clones) passed on the merged branch.
+- [ ] Worktree + branch removed via `bash .claude/skills/shared/scripts/cleanup-worktree.sh remove <worktree-dir> <branch>` (exit 0 required) and final `cleanup-worktree.sh sweep` reports 0 orphan directories.
 - [ ] Four checkpoint lines in `.aic/skill-log.jsonl` for code / mixed tasks; three for pure-documentation tasks (Phase 4 skipped).
 
 Discard path (user said discard in §6c or Blocked at §6a):
 
-- [ ] Worktree + feature branch removed.
+- [ ] Worktree + feature branch removed via `cleanup-worktree.sh remove` + `cleanup-worktree.sh sweep` (both exit 0).
 - [ ] Task file restored to `documentation/tasks/NNN-name.md` with `Status: In Progress` (or the original status if the task was ad-hoc) — see §6c.
 - [ ] `aic-progress.md` not updated (no merge, nothing to record).
 - [ ] Checkpoint lines in `.aic/skill-log.jsonl` match the phases actually run (up to three for pure-doc, up to four for code / mixed), with the last one marked `failed` and carrying the reason.

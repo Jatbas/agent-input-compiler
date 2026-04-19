@@ -113,40 +113,31 @@ test ! -f documentation/tasks/NNN-name.md && head -3 documentation/tasks/done/NN
 
 If a `> **Research:**` line was present in the task file, delete the referenced research file from the main workspace.
 
-**Step 3 — Remove worktree and branch.**
+**Step 3 — Remove worktree and branch via the shared script (MANDATORY — non-negotiable).** Run from the **main workspace root**:
 
 ```
-rm -rf <worktree-dir>
-git worktree prune
-git branch -D <branch>
+bash .claude/skills/shared/scripts/cleanup-worktree.sh remove <worktree-dir> <branch>
 ```
 
-Verify: `git worktree list` must not show the worktree and `ls <worktree-dir>` must fail.
+The script removes the directory, prunes `git worktree` metadata, deletes the branch, removes the parent `.git-worktrees/` if empty, and **verifies all three are gone**. It exits 0 on success and 1 if any residue remains — treat exit 1 as a HARD STOP and report the script's stderr to the user. Do NOT replace it with your own `rm -rf` / `git worktree prune` / `git branch -D` sequence; previous runs have skipped steps or forgotten verification and left orphans in `.git-worktrees/`.
 
-**Step 4 — Final sweep (MANDATORY — last shell command in the session).** Editors may recreate directory stubs for files they were tracking. Run this idempotent cleanup after any announcement or user-facing output:
+**Step 4 — Final sweep (MANDATORY — last shell command in the session).** Editors may recreate directory stubs for files they were tracking, and concurrent or interrupted agents may still have orphans elsewhere in `.git-worktrees/`. Run the idempotent sweep after any announcement or user-facing output:
 
 ```
-rm -rf <worktree-dir> 2>/dev/null; rmdir <main-workspace>/.git-worktrees 2>/dev/null || true
+bash .claude/skills/shared/scripts/cleanup-worktree.sh sweep
 ```
 
-Verify: `ls <worktree-dir> 2>&1` must report "No such file or directory". If `.git-worktrees` is empty it is removed; if other worktrees exist the `rmdir` is a harmless no-op.
+Script exit 0 means no orphan directories remain under `.git-worktrees/`. Exit 1 means a residue is still present — stop and report, do not claim the task is finalized.
 
 **6c — If the user says "discard":**
 
 The task file was NOT archived in §5c (moved to §6b Step 2 after merge), so no filesystem rollback is needed — the task file is still at `documentation/tasks/NNN-name.md`. Reset its status back to its pre-execution state (`Pending` for a planner-authored task, or leave it absent for an ad-hoc request).
 
-```
-rm -rf <worktree-dir>
-git worktree prune
-git branch -D <branch>
-```
-
-Verify: `git worktree list` must not show the worktree and `ls <worktree-dir>` must fail.
-
-**Final sweep (same as 6b Step 4):**
+Then run the same mandatory cleanup via the shared script:
 
 ```
-rm -rf <worktree-dir> 2>/dev/null; rmdir <main-workspace>/.git-worktrees 2>/dev/null || true
+bash .claude/skills/shared/scripts/cleanup-worktree.sh remove <worktree-dir> <branch>
+bash .claude/skills/shared/scripts/cleanup-worktree.sh sweep
 ```
 
-Report that the worktree and branch were deleted, the task file is back at its original path, and no changes were merged.
+Both invocations must exit 0. Exit 1 from either → stop and report the script's stderr. Report to the user that the worktree and branch were deleted, the task file is back at its original path, and no changes were merged.

@@ -33,14 +33,20 @@ Ask: **"Rewrite all, rewrite specific tasks (list numbers), or skip?"**
 
 When rewriting: read original, apply fixes, re-read source files. Write in place (same path, same NNN). Fix every failing check. Re-run full 4-stage pipeline. Iterate until PASS. N/A only when precondition structurally unmet.
 
-Clean up: `rm -rf .git-worktrees/plan-$EPOCH && git worktree prune && git branch -D plan/$EPOCH`
+Clean up the worktree via the shared script (MANDATORY — non-negotiable):
+
+```
+bash .claude/skills/shared/scripts/cleanup-worktree.sh remove .git-worktrees/plan-$EPOCH
+```
+
+Script exit 0 required. Exit 1 → stop and report the script's stderr. Do NOT substitute your own `rm -rf` / `git worktree prune` / `git branch -D` sequence.
 
 Announce: **"Task NNN rewritten. Score: N/M (X%). [Summary of changes]."**
 
-**Final sweep (MANDATORY — last shell command in the session).** Editors may recreate directory stubs for files they were tracking:
+**Final sweep (MANDATORY — last shell command in the session).** Editors may recreate directory stubs, and earlier runs may still have orphans elsewhere in `.git-worktrees/`:
 
 ```
-rm -rf .git-worktrees/plan-$EPOCH 2>/dev/null; rmdir .git-worktrees 2>/dev/null || true
+bash .claude/skills/shared/scripts/cleanup-worktree.sh sweep
 ```
 
-Verify: `ls .git-worktrees/plan-$EPOCH 2>&1` must report "No such file or directory".
+Script exit 0 means no orphan directories remain. Exit 1 → stop and report.
