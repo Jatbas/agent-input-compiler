@@ -10,6 +10,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import type { CompilationRunner } from "@jatbas/aic-core/core/interfaces/compilation-runner.interface.js";
 import type { ConfigLoader } from "@jatbas/aic-core/core/interfaces/config-loader.interface.js";
+import type { LoadConfigResult } from "@jatbas/aic-core/core/interfaces/load-config-result.interface.js";
 import type { StringHasher } from "@jatbas/aic-core/core/interfaces/string-hasher.interface.js";
 import type { ProjectScope } from "@jatbas/aic-core/storage/create-project-scope.js";
 import { SqliteToolInvocationLogStore } from "@jatbas/aic-core/storage/sqlite-tool-invocation-log-store.js";
@@ -22,6 +23,7 @@ import { sanitizeError } from "@jatbas/aic-core/core/errors/sanitize-error.js";
 import {
   type EditorId,
   EDITOR_ID,
+  INCLUSION_TIER,
   type TriggerSource,
   TRIGGER_SOURCE,
 } from "@jatbas/aic-core/core/types/enums.js";
@@ -41,6 +43,12 @@ import type {
   ToolOutput,
 } from "@jatbas/aic-core/core/types/compilation-types.js";
 import { writeCompilationTelemetry } from "@jatbas/aic-core/core/write-compilation-telemetry.js";
+import { SqliteQualitySnapshotStore } from "@jatbas/aic-core/storage/sqlite-quality-snapshot-store.js";
+import {
+  CONTEXT_WINDOW_DEFAULT,
+  RESERVED_RESPONSE_DEFAULT,
+  TEMPLATE_OVERHEAD_DEFAULT,
+} from "@jatbas/aic-core/pipeline/budget-allocator.js";
 import { recordToolInvocation } from "../record-tool-invocation.js";
 import { ensureProjectInit } from "../init-project.js";
 import { installTriggerRule } from "../install-trigger-rule.js";
@@ -263,6 +271,43 @@ type CompileHandlerArgs = {
   reparentFromConversationId?: string | null | undefined;
 };
 
+function tryRecordQualitySnapshot(
+  scope: ProjectScope,
+  configResult: LoadConfigResult,
+  result: Awaited<ReturnType<CompilationRunner["run"]>>,
+): void {
+  const qualityStore = new SqliteQualitySnapshotStore(scope.projectId, scope.db);
+  const rawMax = configResult.config.contextBudget.maxTokens;
+  const budgetCeiling =
+    Number(rawMax) === 0
+      ? CONTEXT_WINDOW_DEFAULT - RESERVED_RESPONSE_DEFAULT - TEMPLATE_OVERHEAD_DEFAULT
+      : Number(rawMax);
+  const budgetUtilisation =
+    budgetCeiling > 0 ? Number(result.meta.tokensCompiled) / budgetCeiling : 0;
+  const selectionRatio =
+    result.meta.filesTotal > 0 ? result.meta.filesSelected / result.meta.filesTotal : 0;
+  const tiers = result.meta.summarisationTiers;
+  try {
+    qualityStore.record({
+      id: scope.idGenerator.generate(),
+      compilationId: result.compilationId,
+      createdAt: scope.clock.now(),
+      tokenReductionRatio: result.meta.tokenReductionPct,
+      selectionRatio,
+      budgetUtilisation,
+      cacheHit: result.meta.cacheHit,
+      tierL0: tiers[INCLUSION_TIER.L0],
+      tierL1: tiers[INCLUSION_TIER.L1],
+      tierL2: tiers[INCLUSION_TIER.L2],
+      tierL3: tiers[INCLUSION_TIER.L3],
+      taskClass: result.meta.taskClass,
+      classifierConfidence: null,
+    });
+  } catch {
+    process.stderr.write("Quality snapshot write failed\n");
+  }
+}
+
 export function createCompileHandler(
   getScope: (projectRoot: AbsolutePath) => ProjectScope,
   getRunner: (scope: ProjectScope, configPath: FilePath | null) => CompilationRunner,
@@ -283,6 +328,7 @@ export function createCompileHandler(
     projectRoot: AbsolutePath,
     scope: ProjectScope,
     configPath: ReturnType<typeof validateConfigPath> | null,
+    configResult: LoadConfigResult,
   ): Promise<CallToolResult> => {
     const runner = getRunner(scope, configPath);
     const telemetryDeps = {
@@ -380,6 +426,7 @@ export function createCompileHandler(
       telemetryDeps,
       (msg) => process.stderr.write(msg),
     );
+    tryRecordQualitySnapshot(scope, configResult, result);
     const lastPromptPath = path.join(
       request.projectRoot,
       ".aic",
@@ -448,7 +495,7 @@ export function createCompileHandler(
           structuredContent: disabledPayload,
         };
       }
-      return await runWhenEnabled(args, projectRoot, scope, configPath);
+      return await runWhenEnabled(args, projectRoot, scope, configPath, configResult);
     } catch (err) {
       if (err instanceof TimeoutError) {
         throw new McpError(ErrorCode.InternalError, "Compilation timed out after 30s");

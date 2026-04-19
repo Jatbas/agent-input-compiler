@@ -15,6 +15,7 @@ import { migration } from "../migrations/001-consolidated-schema.js";
 import { migration as migration002 } from "../migrations/002-add-conversation-id-index.js";
 import { migration as migration003 } from "../migrations/003-compilation-selection-trace.js";
 import { migration as migration004 } from "../migrations/004-spec-compile-cache.js";
+import { migration as migration005 } from "../migrations/005-quality-snapshots.js";
 
 const clock: Clock = {
   now(): ReturnType<typeof toISOTimestamp> {
@@ -163,6 +164,17 @@ describe("SqliteMigrationRunner", () => {
       expect(names).toContain("project_id");
       expect(names).not.toContain("project_root");
     }
+    db.close();
+  });
+
+  it("migration_runner_includes_005", () => {
+    const db = new Database(":memory:");
+    const runner = new SqliteMigrationRunner(clock);
+    runner.run(db, [migration, migration002, migration003, migration004, migration005]);
+    const ids = db.prepare("SELECT id FROM schema_migrations ORDER BY id").all() as {
+      id: string;
+    }[];
+    expect(ids.map((r) => r.id)).toContain("005-quality-snapshots");
     db.close();
   });
 
