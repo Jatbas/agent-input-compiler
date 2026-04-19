@@ -92,6 +92,17 @@ Non-composition-root tasks: all types are Tier 0.
 
 **Read the Architecture Notes.** Note design decisions (e.g. "replace semantics, not append", "sync API only", "no Clock needed"). These constrain your implementation.
 
+**Check `**Predecessor contracts:**` (if present).** When Architecture Notes carries a `**Predecessor contracts:**` bullet (the planner writes this whenever the task has `Depends on:` or `Prerequisite:` and consumes outputs from that predecessor), verify each listed contract is actually honored in the current workspace:
+
+- Named DB column exists with the declared nullability and domain (grep migrations; inspect schema if needed).
+- Named enum value exists in the referenced `*.ts as const` object.
+- Named interface method exists with the declared signature.
+- Null-vs-zero semantics: if the contract says "writes `NULL` until Task M populates it", tests downstream must assert the `NULL` / `available: false` path, not the populated path.
+
+Any contract the workspace fails to honor (column missing, enum drift, signature mismatch, assumption wrong) → **stop and tell the user** before writing code. Predecessor drift is the single most common cause of downstream-task rework.
+
+**Check `**Unit contract:**` (if present).** When Architecture Notes carries a `**Unit contract:**` bullet listing each named numeric slot and its domain, internalize every slot's declared domain before writing code. Downstream enforcement lives in §3 (Implement) — this step just ensures you have the contract in working memory.
+
 **If a research document was pre-read,** absorb its findings as additional context — it may contain API signatures, env var names, edge cases, or design rationale not captured in the task's Architecture Notes. Task file takes precedence over research recommendations if they conflict.
 
 **Cross-check prerequisites:** Verify listed dependencies exist. Confirm ESLint changes have matching steps. Mismatch → **stop and tell the user.**

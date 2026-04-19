@@ -105,6 +105,10 @@ Success path (merged):
 - [ ] `aic-progress.md` updated on the main workspace (not inside the worktree).
 - [ ] Commits follow `type(scope): description`, ≤ 72 chars.
 - [ ] Full `§4a` gate (lint, typecheck, test, knip, lint:clones) passed on the merged branch.
+- [ ] `§4b` dim 22 (goal-traceability acceptance) clean — every task-specific Acceptance Criteria bullet maps to a concrete test, symbol, string, field, or path. Generic invariants alone do not satisfy this dim.
+- [ ] Predecessor contracts (if any) verified in §2 before writing code; no predecessor drift discovered mid-implementation.
+- [ ] Dual-anchor discipline honored in §3 — StrReplace `old_string` used the backticked literal, not the line number.
+- [ ] Unit contract (if any) honored in §3 — every numeric write matches the declared domain; no silent rescaling.
 - [ ] Worktree + branch removed via `bash .claude/skills/shared/scripts/cleanup-worktree.sh remove <worktree-dir> <branch>` (exit 0 required) and final `cleanup-worktree.sh sweep` reports 0 orphan directories.
 - [ ] Four checkpoint lines in `.aic/skill-log.jsonl` for code / mixed tasks; three for pure-documentation tasks (Phase 4 skipped).
 

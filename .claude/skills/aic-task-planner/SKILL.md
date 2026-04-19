@@ -39,6 +39,16 @@ No other severity tiers. Do not invent a tier named "CRITICAL", "Cardinal Rule",
 9. No `eslint-disable`, `@ts-ignore`, `@ts-nocheck`, `--no-verify`. If a rule fires, fix the code.
 10. Before writing the task file, read the matching canonical example under `examples/` (`adapter-task-example.md`, `fix-patch-task-example.md`, …) and imitate its structure — section order, label vocabulary, acceptance-criteria style. See `.claude/skills/shared/examples/README.md`.
 11. Recipe classification is a routed decision — dispatch it via a subagent rendered from `.claude/skills/shared/prompts/ask-stronger-model.md` with the strongest available model. See `.claude/skills/shared/SKILL-routing.md`. Do not classify the recipe inline in the orchestrator.
+12. **Source citation fidelity.** Every `Source:` line in the Exploration Report and every verbatim-quoted code/schema block in the task file must cite a path that exists on disk and content that appears in the cited file byte-for-byte. Mechanical check AN (`SKILL-phase-3-write.md §C.5`) must run and pass before any other mechanical check that reads cited content. Hallucinated citations invalidate every downstream check that trusted them.
+13. **Existing-symbol signature fidelity.** When the task's Interface/Signature redeclares an existing exported symbol, the declared signature must match the source file byte-for-byte unless the task includes an explicit `**Signature change:**` block showing `before:`/`after:`. Mechanical check AG.
+14. **Change Specification round-trip.** Every `Change Specification` block's `Required change` directive must, when applied to `Current text`, produce `Target text` without contradiction. Mechanical check AH.
+15. **Unit contract for numeric bindings.** Any task that binds numeric values to named slots (DB columns, interface fields, config keys, wire-format fields, JSON keys, CLI values) must declare a `**Unit contract:**` bullet in Architecture Notes listing each slot's domain and source. Mechanical check AJ.
+16. **Dual anchors for line references.** Every line-number reference in the task body must be paired with a literal grep-unique substring from the referenced line. Mechanical check AL.
+17. **Goal-to-acceptance traceability.** Every atomic clause of `## Goal` must be covered by at least one task-specific `## Acceptance Criteria` bullet — generic invariants (`pnpm lint clean`) do not satisfy traceability. Mechanical check AM.
+18. **Exploration-to-task coverage.** Every IN-SCOPE exploration finding (CHANGE-PATTERN INSTANCES, CONSUMER ANALYSIS breakage, CALLER CHAIN ANALYSIS, TEST IMPACT, BEHAVIOR CHANGES, OPTIONAL FIELD HAZARDS) must have a resolution in the task — Files row, Step, Architecture Note, or explicit `## Follow-up Items` entry under the Minimal scope tier. Mechanical check AO.
+19. **Prerequisite graph validation.** Every task named under `Depends on:` or `Prerequisite:` must exist on disk, have a compatible `Status:`, and not form a cycle with the current task. Mechanical check AP.
+20. **Predecessor contract discipline.** When the task has a `Depends on:` header, Architecture Notes must include a `**Predecessor contracts:**` bullet listing every consumed contract (column name + nullability, enum values, interface methods, config keys, null-vs-zero semantics). Tests and steps must not construct input that violates declared nullability, assume a non-null value where the predecessor writes null, or read a column the predecessor did not declare. Enforced by `C.5b` Predecessor-contract probe and exploration item 24.
+21. **Verification circuit breaker.** When the same mechanical check or subagent probe has failed 3 times, STOP and escalate to the user with a root-cause hypothesis. When the task file has undergone 5 full C.5 re-runs without all checks passing, STOP regardless. Never silently mark a check `N/A` to bypass it. Enforced by `SKILL-phase-3-write.md §C.6`.
 
 ## GUIDANCE (best practice)
 
@@ -57,6 +67,12 @@ Between user gates you run continuously: do not pause to ask "should I continue?
 4. **Blocker** — any exploration field marked `NOT VERIFIED — BLOCKER`, any LAYER BLOCKER = YES, any unresolved ambiguity, or the task cannot proceed without user input.
 
 There is **no user gate after Pass 2**. Once §C.5/§C.5b/§C.5c/§C.5d all PASS, §6 finalize runs immediately — task file is placed, worktree removed, announcement printed — without asking. Everything else runs through without intermediate questions.
+
+**Circuit breaker (HARD RULE 21).** Inside Pass 2 the orchestrator runs until verification passes, but the loop is bounded:
+
+- Soft cap: 3 failed attempts on the same check → STOP, produce a root-cause report, escalate to the user.
+- Hard cap: 5 full C.5 re-runs without all checks passing → STOP regardless, escalate with the accumulated diffs.
+- Counters reset only after the task file ships (§6). Never silently mark a failing check `N/A` to bypass it. See `SKILL-phase-3-write.md §C.6` → Circuit breaker.
 
 ## When to use
 
@@ -115,9 +131,11 @@ No other phase dispatches subagents. All other work is sequential in the orchest
 ## Output checklist (before delivering to the user)
 
 - [ ] Task file ID assigned (NNN), placed at `documentation/tasks/NNN-<slug>.md`.
-- [ ] `validate-exploration.sh` passes on the exploration report.
-- [ ] `validate-task.sh` passes on the task file.
-- [ ] `ambiguity-scan.sh` passes on the task file.
+- [ ] `validate-exploration.sh` passes on the exploration report — scripted coverage: mandatory sections incl. `SIBLING QUORUM`, `PREDECESSOR CONTRACTS`, `UNIT CONTRACT`; placeholders unfilled; `METHOD BEHAVIORS` definitive; `Source:` paths resolve on disk (AN).
+- [ ] `validate-task.sh` passes on the task file — scripted coverage: empty parens, trailing prepositions, internal codes (Phase X / AK01 / /AB; `Task N` allowed), sections present, `Option A/B` banned, dual-anchor line references (AL), prerequisite graph (AP), SECTION EDIT resolution (AK), Unit contract when unit-hint slots appear (AJ), `Source:` paths resolve on disk (AN-lite).
+- [ ] `ambiguity-scan.sh` passes on the task file — hedging, delegation, and plan-failure phrase enforcement (Cat 1–8 + P).
+- [ ] Checks that are NOT script-enforced but are subagent/prose-enforced (§C.5b–d): AG existing-symbol signature fidelity, AH Change Specification round-trip, AI intra-bullet assignment consistency, AM goal-to-acceptance traceability, AO exploration-to-task coverage, plus pattern-claim verification and predecessor-contract probe.
 - [ ] Four checkpoint lines emitted (`setup-complete`, `task-picked`, `exploration-complete`, `task-finalized`).
 - [ ] `.aic/skill-log.jsonl` contains the matching entries.
+- [ ] Circuit breaker counters reset only after the task ships — no check was silently marked `N/A` to bypass verification (HARD RULE 21 / `SKILL-phase-3-write.md §C.6`).
 - [ ] Worktree + branch removed via `bash .claude/skills/shared/scripts/cleanup-worktree.sh remove <main>/.git-worktrees/plan-$EPOCH` (exit 0 required) and final `cleanup-worktree.sh sweep` reports 0 orphan directories (see `SKILL-phase-3-write.md §6`).

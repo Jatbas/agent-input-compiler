@@ -461,3 +461,91 @@ Before finishing the task file, run three mechanical scans on every sentence in 
 **Scan 2 — " or " in instructions:** For each non-code sentence containing " or ", ask: does the executor have to choose between two actions? If yes, resolve it now. Acceptable uses of "or": conditional behavior descriptions ("if file exists, read it; otherwise return null"), conjunctions ("zero errors or warnings"), error descriptions ("throws ConfigError or returns null").
 
 **Scan 3 — Parenthetical hedges:** Search for parenthesized text `(...)` in step instructions. Parentheses in instructions often hide hedges: `(if needed)`, `(optional)`, `(e.g. X)`, `(or similar)`, `(sync or async)`. If the parenthetical contains any banned pattern, remove it and write the definitive instruction inline.
+
+## Unit contract
+
+When a task writes numeric values to a named slot — any DB column, interface field, config key, wire-format field, JSON response key, or CLI output value — the task's Architecture Notes must include a `**Unit contract:**` bullet. The bullet lists each numeric slot with its domain (e.g. `[0, 1]` decimal ratio, `[0, 100]` percentage, count of items, duration in milliseconds) and its source (the exact expression or `file:line` citation that produces the value).
+
+**Red flags:**
+
+- A column named `_ratio`, `_percent`, `_pct`, `_ms`, `_seconds`, `_count`, `_rate` with no Architecture Notes entry declaring its domain.
+- Two columns with sibling names (`token_reduction_ratio`, `selection_ratio`) where one stores `[0, 1]` and the other stores `[0, 100]`.
+- A step instruction that assigns a value to a named slot using a derivation expression (`Number(result.meta.tokenReductionPct) * 100`, `toPercentage(x)`) without the Architecture Notes declaring which domain the slot expects.
+- A test literal that compares a field's value in a different scale than the writer produces (`expect(row.token_reduction_ratio).toBe(93)` when the writer stores `0.93`).
+
+**Fix:** Add the Unit contract bullet listing every numeric slot. When two sibling fields have different domains, rename one to make the divergence visible at the call site (`selection_ratio` stays `[0, 1]`; the percentage sibling becomes `selection_percentage`, never `selection_ratio_pct`). Never store a domain-mismatched value under a name that implies the other domain.
+
+**Enforced by:** Exploration item 25 (UNIT CONTRACT field) and mechanical check AJ (`SKILL-phase-3-write.md §C.5`).
+
+## Dual-anchor line references
+
+Line numbers become stale between plan time and execute time — upstream edits shift every subsequent line. Any line-number reference in the task body (`line N`, `lines N-M`, `at line N`, `line N of <file>`) must be paired with a literal, grep-unique substring quoted from that line.
+
+**Required form:**
+
+- `line 49 (where `show aic status|last|chat-summary|projects` appears)` ✓
+- `lines 54-57 (the `'aic:show-last'` bullet block)` ✓
+- `line 178 (table header `| Command ... | Description |`)` ✓
+
+**Red flags:**
+
+- `line 49` with no anchor.
+- `around line 100` — vague AND unanchored.
+- An anchor quoted from a different line than the one referenced.
+
+**Fix:** For each line reference in the task, open the cited file, copy a substring that is unique within the file, and quote it in backticks next to the line number. If no unique substring exists within a single line, cite a unique 2-line pair.
+
+**Enforced by:** Mechanical check AL (`SKILL-phase-3-write.md §C.5`).
+
+## Pattern-claim verification
+
+When task prose claims `mirroring <path> style`, `follows the pattern in <path>`, `matches the convention in <path>`, or equivalent imitation language, the cited file must be read and every structural feature enumerated — not summarized in prose. Structural features include: the export shape (`z.object()` vs shape-object-with-`as const`), the factory signature, the parameter order, the default-value conventions, the return-type wrapper, the import style, the comment placement.
+
+**Rule:** If the task claims imitation, the Interface/Signature and Step bodies must reproduce every enumerated structural feature byte-for-byte. Omitting even one structural feature is a drift — either match the pattern or stop claiming to mirror it.
+
+**Red flags:**
+
+- Task prose says "mirrors `status-request.schema.ts`" but exports `z.object({...})` while the cited file exports `{...} as const` (a shape object).
+- Task imitation claim omits the `as const` suffix, the `readonly` modifier, or the `type XInput = z.infer<typeof schema>` companion line.
+- A task cites an outlier sibling as the pattern source (see Sibling quorum below).
+
+**Fix:** Read the cited file in full. Enumerate every structural feature as a checklist. Confirm each one is reproduced. If the task genuinely diverges from the pattern (for a documented reason), remove the imitation claim and record the divergence in Architecture Notes with its justification.
+
+**Enforced by:** `SKILL-phase-3-write.md §C.5b` (Pattern-claim verification probe) and `SKILL-phase-2-explore.md` item 6 (Sibling quorum).
+
+## Sibling quorum
+
+Relying on a single "closest sibling" as the canonical pattern codifies any outlier that happens to live next to the new component. The planner must examine at least two siblings in the same directory (or the same layer when the directory has only one) and pick the majority pattern. When the two siblings disagree, read a third to break the tie.
+
+**Required during exploration (item 6 quorum rule):**
+
+- Enumerate every sibling examined by file path.
+- Compare structural features pairwise.
+- Record agreement or disagreement, and — when they disagree — name the outlier and cite why it is treated as legacy/non-canonical.
+- When only one sibling exists in the entire layer, mark it `SOLE SIBLING — treated as canonical` in the exploration report.
+
+**Enforced by:** Exploration item 6 (SIBLING QUORUM field) and mechanical check P (sibling reuse).
+
+## Predecessor contract discipline
+
+When a task names another task under `Depends on:` or `Prerequisite:`, the current task consumes contracts from the predecessor — new columns, enum values, methods, schema fields, config keys, null-vs-zero semantics. The planner must enumerate these contracts during exploration (item 24) and thread them through the current task's design.
+
+**Rule:** The current task must NOT construct input that violates the predecessor's declared nullability, read a column name the predecessor did not write, assume a non-null value when the predecessor writes null, or assume an enum value the predecessor did not define.
+
+**Red flags:**
+
+- Task 323 writes tests that assert `classifier_confidence` is populated; Task 322 (predecessor) persists `classifier_confidence = NULL` unconditionally. The test will never exercise the non-null path.
+- Task N claims a new method on interface I exists; the predecessor's Interface/Signature for I shows the method is still pending. Planning order is wrong.
+- Task N binds a column the predecessor's migration did not declare. Runtime `no such column` error.
+
+**Fix:** Record every consumed contract in Architecture Notes under `**Predecessor contracts:**`, with the exact semantics copied from the predecessor (including nullability and stability). Design tests and step instructions around those semantics — tests for null paths MUST exercise the null case, not assume future population.
+
+**Enforced by:** Exploration item 24 (PREDECESSOR CONTRACTS field), mechanical check AP (`SKILL-phase-3-write.md §C.5`), and the Predecessor-contract probe in `§C.5b`.
+
+## Circuit breaker (planner)
+
+Verification loops must terminate. When the same mechanical check (or the same C.5b/C.5c probe) has failed 3 times and is about to re-run a 4th, STOP and escalate to the user. When the task file has undergone 5 full C.5 re-runs without all checks passing, STOP regardless.
+
+Escalation report must contain: the check id, the exact failure message across attempts, the diffs applied between attempts, and a hypothesis naming the likely root cause (ambiguous exploration evidence, predecessor contract conflict, wrong architectural premise, rule that does not fit the task). Never silently mark the check "N/A" to bypass it.
+
+**Enforced by:** `SKILL-phase-3-write.md §C.6` (Circuit breaker subsection).

@@ -34,6 +34,9 @@
 | NON-TS ASSET PIPELINE          | Steps (build copy, CI build step, vitest alias) + Config Changes if needed        |
 | BEHAVIOR CHANGES               | Architecture Notes ("Behavior change:" bullets for each observable difference)    |
 | BINDING INVENTORY              | Steps ("use existing `name` (line N)" directives for reused bindings)             |
+| UNIT CONTRACT                  | Architecture Notes (`**Unit contract:**` bullet listing each numeric slot name)   |
+| PREDECESSOR CONTRACTS          | Architecture Notes (`**Predecessor contracts:**` bullet listing consumed outputs) |
+| SIBLING QUORUM                 | Architecture Notes (majority-pattern citation when ≥2 siblings examined)          |
 | RESEARCH DOCUMENT              | Header `> **Research:**` line (path to `documentation/research/` file)            |
 
 **Research auto-reference:** If a research document was produced/used, the `> **Research:**` line MUST appear in task header. No document → omit line entirely.
@@ -176,7 +179,54 @@ AE. **METRIC NAMING COHERENCE (mandatory — tasks introducing numeric metrics, 
 
 AF. **DERIVED METRIC INPUT PERSISTENCE (mandatory — tasks that persist a derived scalar to storage):** When the task persists a value `Y = f(A, B, …)` to any storage table, all independent inputs `A, B, …` that are produced in the same pipeline step must also be persisted (as their own columns), OR the task must state explicitly in Architecture Notes that the derivation is non-invertible (lossy), document which inputs are dropped, and justify the information loss. Red flags: (a) persisting `ambiguityIndex = (1 − confidence) · (1 − specificity)` while persisting only `confidence`; (b) persisting an aggregate without its components when the raw components are cheap (≤ 8 bytes each); (c) persisting a normalised value without its un-normalised source. The intent is that future analysts can reconstruct any alternative derivation from the stored columns — dropping an input silently defeats this. Tasks not touching storage → auto-pass.
 
-**Step 2: Score rubric.** 0 (fail) or 1 (pass) per dimension. Checks: B (interface+signature), C (types), E (config), A (ambiguity), D (steps), H (branded), G (self-contained), J (tests), F (sync), K (library API), L (wiring), M (simplicity), N (consumers), O (conditional deps), P (siblings), Q (transformer benchmark), R (transformer safety), S (code block API), T (normalization), U (acceptance), V (test compat), W (caller chain), X (copy target), X2 (non-TS assets), Y (binding reuse), Z (behavior change), AA (doc impact), AB (tool execution), AC (file convention), AD (verify matchability), AE (metric naming coherence), AF (derived metric inputs). Conditional checks auto-pass when precondition unmet.
+AG. **EXISTING-SYMBOL SIGNATURE FIDELITY (mandatory — Interface/Signature redeclares an existing export):** For every `export function`, `export class`, `export const`, or `export interface` declaration in the `## Interface / Signature` code blocks, determine whether the symbol already exists today. Criteria: the task cites the source file as an existing path (Files row "Modify"), or the task prose says "existing export", "current signature", "signature unchanged", or equivalent. For each such declaration, Grep the cited source file for `export (function|class|const|interface) <SymbolName>`. If the symbol is found, the declared signature in the task must match the actual signature byte-for-byte (parameter names, types, return type, modifiers). Mismatch without an explicit `**Signature change:**` block in the task body showing both `before:` and `after:` = fail. Symbols that do not yet exist (Files row "Create") are exempt and covered by check B. Closes the failure class where the task's redeclared signature diverges from reality (observed: `runCliDiagnosticsAndExit` declared `Promise<number>` when actual was `void`).
+
+AH. **CHANGE SPECIFICATION ROUND-TRIP (mandatory — every `Change Specification` block):** For each Change Specification, parse `Current text`, `Required change`, and `Target text`. Assert mechanical consistency between directive verbs and target mutation:
+
+- "insert X between A and B" → Target must contain the substring `A…X…B` with no other intervening token named in the directive; Current must contain `A…B` adjacently in the same direction.
+- "replace X with Y" → Current must contain X; Target must not contain X; Target must contain Y.
+- "append X after Y" / "add X after Y" → Target's Y must be immediately followed by X on the same or next line.
+- "prepend X before Y" / "add X before Y" → mirror rule.
+- "increment N to M" / "update count from N to M" → Target must contain M at the same syntactic position Current had N.
+- "remove X" → Current must contain X; Target must not.
+
+Any Change Specification whose Required directive does not match the actual Current→Target mutation = fail. Closes the failure class where directive and target text contradict (observed: Task 325 Step 6 said "alphabetically between A and B" but target placed the insertion between A and C).
+
+AI. **INTRA-BULLET ASSIGNMENT CONSISTENCY (mandatory — Step bodies binding values):** For every bullet or sentence in Step bodies that specifies a value assignment to a named target — patterns `<target> → <expression>`, `<target>: <expression>`, `store <expression> as <target>`, `bind <target> to <expression>`, `set <target> = <expression>` — assert exactly one expression per target within that single bullet/sentence. A bullet that says "`X` → `f(a)` ... store `g(a)`" (two different expressions referencing the same target `X`) = fail. Multiple targets in one bullet are allowed only when each target has exactly one expression. Closes the failure class where a single instruction names two incompatible values for the same slot (observed: Task 322 Step 7 said `tokenReductionRatio → toPercentage(Number(...))` then "store `Number(...)`").
+
+AJ. **UNIT CONTRACT MANDATE (mandatory — tasks that bind numeric values to named slots):** Any task that writes numeric values to a named slot (DB column, interface field, config key, wire-format field, JSON response key, CLI output value) must include, in `## Architecture Notes`, a `**Unit contract:**` bullet listing each numeric slot name with its domain and source:
+
+```
+- **Unit contract:**
+  - `<slot_name>` ∈ [<range>] — <source expression or citation>
+  - `<slot_name>` in <units> — <source expression or citation>
+```
+
+Parsing rule: Grep the task for every numeric binding target (Step body assignments, SQL column binds, struct field assignments where the RHS is a numeric expression). Extract the target name. Every extracted target must appear in the Unit contract list with its domain and source. Missing entry = fail. Tasks that bind only booleans, strings, branded IDs, enum values, or timestamps (covered by `ISOTimestamp`) → auto-pass on numeric slots. Closes the failure class where a column named `_ratio` stores a percentage value without the task flagging the scale (observed: Task 322 `token_reduction_ratio` vs `selection_ratio` vs `budget_utilisation`).
+
+AK. **SECTION EDIT RESOLUTION (mandatory — every Change Specification with Target text):** For each Change Specification's `Target text`, Grep the literal text for delegation-placeholder patterns: `produced by`, `generated by`, `output of`, `after running`, `synthesized by`, `result of running`, `written by the documentation-writer`, `written by the <skill>`, `TBD`, `resolved during execution`. If matched, the task must resolve the placeholder during planning via one of: (a) inline the resolved literal text directly in the Target block, (b) cite a file path on disk where the resolved text already lives (`Target text: See documentation/research/<slug>.md lines N-M`), or (c) include a Step that invokes the delegated skill during planning with its output pasted into the task. Unresolved placeholder left for the executor = fail. Closes the failure class where SECTION EDIT shifts the doc-writer invocation from planner to executor (observed: Task 325 Step 8 "produced by running the documentation-writer skill").
+
+AL. **DUAL ANCHOR REQUIRED (mandatory — any line-number reference in task body):** Scan Steps, Change Specifications, Architecture Notes, and Files table descriptions for line-number references: `line N`, `lines N-M`, `:line N`, `at line N`, `line N of <file>`. For each match, assert a literal quoted anchor appears within 40 characters before or after — a grep-unique substring from the referenced line enclosed in backticks or quotes. `line 49 (where `show aic status|last|chat-summary|projects` appears)` passes. `line 49` alone = fail. The literal anchor guarantees the executor can relocate the edit target even after upstream edits shift line numbers. Closes the stale-anchor failure class (pure line numbers become stale between plan time and execute time).
+
+AM. **GOAL-TO-ACCEPTANCE TRACEABILITY (mandatory — every task):** Parse the `## Goal` section into atomic clauses (one per comma- or conjunction-separated observable). For each clause, assert at least one bullet in `## Acceptance Criteria` references a concrete proof artifact — a test-case name from the `## Tests` table, a new exported symbol name, a specific CLI output string, a row count assertion, a log-line substring, a file-presence assertion, or an MCP tool name. Generic boilerplate bullets (`pnpm lint clean`, `pnpm typecheck clean`, `no new Date()`, `branded types`) are ignored for traceability counting. A Goal clause with zero traceable acceptance bullet = fail. Closes the failure class where generic acceptance criteria pass while the task's specific goal is silently unmet.
+
+AN. **SOURCE CITATION FIDELITY (mandatory — every `Source:` line in Exploration Report or task body):** Parse every `Source: <path>` line and every verbatim-quoted code/schema block with an adjacent `Source:` attribution. For each: (1) Glob-validate the path exists on disk — missing path = fail; (2) for any verbatim-quoted block, Read the cited file and assert the quoted content appears there byte-for-byte (whitespace-tolerant but token-identical) — content drift = fail; (3) for line-range citations (`shared/src/foo.ts lines 12-34`), assert the range exists and the quoted content matches lines in that range. This check is the foundation every other check trusts — invalidates any downstream pass that relied on hallucinated citations. Closes the failure class where an invented `Source:` anchors an invented quote (a weaker model's highest-impact failure mode).
+
+AO. **EXPLORATION-TO-TASK COVERAGE (mandatory — every task with an Exploration Report):** For every actionable finding in the Exploration Report — patterns recorded as `IN SCOPE`, `WILL BECOME STALE`, `NEEDS UPDATE`, `ALREADY STALE`, `OPTIONAL FIELD HAZARDS` entries, `CHANGE-PATTERN INSTANCES` classified IN-SCOPE, `CONSUMER ANALYSIS` entries marked "will break", `CALLER CHAIN ANALYSIS` chain files, `TEST IMPACT` invalidated assertions, `BEHAVIOR CHANGES` entries — Grep the task file for a corresponding resolution: either a Files-table row naming the affected file, a Step body referencing the finding, an Architecture Notes bullet acknowledging it, or an explicit `## Follow-up Items` entry for deferred findings (only valid under Minimal scope tier). Any IN-SCOPE finding without a resolution in the task = fail. This closes the lossy-compression class where material exploration findings silently drop during Pass 2 writing.
+
+AP. **PREREQUISITE GRAPH VALIDATION (mandatory — task header has `Depends on:` or `Prerequisite:` or `Prerequisite ...`):** Parse the header's prerequisite field(s). For each referenced task:
+
+- Extract the task identifier (NNN or task name).
+- Glob `documentation/tasks/*.md`, `documentation/tasks/drafts/*.md`, `documentation/tasks/done/*.md` for a matching file. Not found = fail.
+- Read the referenced task's header and record its `Status:` (Pending | In progress | Done).
+- Reject contradictory chains: if the current task is authored as `Pending` and names a `Pending` task as a prerequisite, that's a valid chain; if the current task's Goal explicitly requires artifacts the prerequisite has not yet produced and the prerequisite is not `Done`, the task must include an Architecture Notes bullet stating the ordering constraint.
+- Detect trivial cycles: if the referenced task's own `Depends on:` names the current task, fail with cycle detected.
+
+Missing prerequisite file, or cycle, = fail. Closes the failure class where a task references a prerequisite that does not exist or forms an impossible chain.
+
+**Step 2: Score rubric.** 0 (fail) or 1 (pass) per dimension. Checks: B (interface+signature), C (types), E (config), A (ambiguity), D (steps), H (branded), G (self-contained), J (tests), F (sync), K (library API), L (wiring), M (simplicity), N (consumers), O (conditional deps), P (siblings), Q (transformer benchmark), R (transformer safety), S (code block API), T (normalization), U (acceptance), V (test compat), W (caller chain), X (copy target), X2 (non-TS assets), Y (binding reuse), Z (behavior change), AA (doc impact), AB (tool execution), AC (file convention), AD (verify matchability), AE (metric naming coherence), AF (derived metric inputs), AG (existing-symbol signature), AH (change spec round-trip), AI (intra-bullet assignment), AJ (unit contract), AK (section edit resolution), AL (dual anchor), AM (goal traceability), AN (source citation fidelity), AO (exploration coverage), AP (prerequisite graph). Conditional checks auto-pass when precondition unmet.
+
+**Run order constraint (AN first).** Check AN must run and pass before any other mechanical check that reads cited content. If AN fails, re-running downstream checks against hallucinated sources wastes work — fix citations first, then re-run the full rubric.
 
 ## C.5b Independent verification agent
 
@@ -200,6 +250,8 @@ After C.5 passes 100%, spawn a `generalPurpose` subagent with:
    - **Metric naming coherence** (AE): for every new field whose name implies a semantic (`*Index`, `*Score`, `*Confidence`, `*Rate`, `*Distance`, `*Probability`, etc.), read the formula and state whether the formula computes what the name describes. If not, report MISMATCH with a proposed rename or formula change.
    - **Derived metric input persistence** (AF): for every derived value persisted to storage, enumerate its independent inputs and verify each is also persisted OR the task justifies the loss.
    - **Verify pattern matchability** (AD): for every grep-based `Verify:` line, assert that the pattern could match real output. Flag vacuous greps (pattern never appears in any produced file or diagnostic).
+   - **Pattern-claim verification** (AG-companion): whenever the task prose claims "mirroring `<path>` style", "follows the pattern in `<path>`", "matches the convention in `<path>`", or equivalent imitation language, Read the cited pattern file and enumerate its structural features (export shape — `z.object()` vs shape-object-with-`as const`; factory signature; parameter order; default-value conventions; return type wrapper). Compare byte-for-byte against the task's proposal. Any structural feature in the cited pattern that is not reproduced in the task, or any structural feature in the task that is absent from the cited pattern, is a MISMATCH. Report each feature individually. Closes the pattern-claim-drift failure class (observed: Task 323 claimed to mirror `status-request.schema.ts` but exported `z.object(...)` instead of a shape object — prose said "mirror", structure did not).
+   - **Predecessor-contract check** (mandatory — task header has `Depends on:` or `Prerequisite:`): Read every prerequisite task's `## Interface / Signature`, `## Step` bodies, and `## Architecture Notes`. Enumerate every output contract the predecessor establishes: column names and nullability in storage tables, enum values added to branded types, interface methods added, schema fields added, config keys introduced, null-vs-zero semantics for new numeric fields, default-value semantics. For each entry, Grep the current task for a consistent consumption — the current task must not construct input that violates the predecessor's declared nullability, must not read a column name the predecessor did not write, must not assume a non-null value when the predecessor writes null, must not assume an enum value the predecessor did not define. Each mismatch = INVALIDATED with the exact predecessor line cited. Closes the cross-task coherence class (observed: Task 322 wrote `classifier_confidence = NULL`; Task 323 tests assumed a non-null path was exercised).
    - **Synthesis-vs-exploration check:** Compare each Step and Architecture Note against the Exploration Report. Flag: steps that overstate exploration evidence (e.g., exploration said "uncertain" but step treats as established), steps that omit explored edge cases or caveats, and facts referenced in steps that do not appear in the exploration report.
 4. **Output:** Structured findings list. Summary: "PASS — all N confirmed" or "FAIL — M of N errors" with specifics.
 
@@ -249,6 +301,16 @@ If C.5b and C.5c both flag the same file or interface, note the overlap — shar
 1. Fix every failing check. Re-run that check to confirm. Iterate until stage passes.
 2. N/A only when check's precondition is structurally unmet (e.g. "Wiring accuracy" for non-composition-root). Never N/A to avoid work.
 3. **Proceed to §6 immediately** when all stages PASS. Do NOT stop or wait — §6 is mandatory.
+
+### Circuit breaker — re-run budget
+
+Verification loops must terminate. Maintain a per-check counter `attempts[check_id]`. Increment on every re-run of the same check.
+
+- **Soft cap (3 attempts):** If the same check has failed 3 times and is about to be re-run a 4th time, STOP. Do not iterate further. Produce a HALT report containing: (a) the check id (e.g., `AG`, `AN`, `C.5b-predecessor-contract`), (b) the exact failure message across attempts, (c) the diffs applied between attempts, and (d) a hypothesis section naming the root cause — likely one of: ambiguous exploration evidence, predecessor-task contract conflict, architectural premise that is wrong, or a rule that does not fit the task. Escalate to the user with this report and wait for direction. **Never silently mark the check "N/A" to bypass it.**
+- **Hard cap (5 attempts total across all checks):** If the task file has undergone 5 full C.5 re-runs without all checks passing, STOP and escalate regardless of which checks are failing. The correct action may be to split the task, change the chosen recipe, or invoke `SKILL-phase-1-recommend` again with new user input. Continuing wastes tokens and usually produces compounding errors.
+- **Reset rule:** Counters reset only after the planner ships the task file (§6). They do not reset across stages — C.5 failing twice then C.5b failing twice counts as 4 total attempts toward the hard cap.
+
+The breaker is mandatory. A task that cannot pass verification within the budget is a signal to re-plan, not to retry.
 
 ---
 
@@ -319,6 +381,11 @@ Task files are gitignored — finalization copies from worktree to main workspac
 - [2–3 bullets: which ADRs apply, layer rules, DI requirements]
 - [Reference specific rules, e.g. "ADR-007: UUIDv7 for all IDs"]
 - [Record key design decisions from Pass 1]
+- **Unit contract:** [MANDATORY if the task binds any numeric value to a named slot (DB column, interface field, config key, wire-format field, JSON response key). Omit entirely if no numeric bindings exist.]
+  - `<slot_name>` ∈ [<range>] — [source expression or file:line citation]
+  - `<slot_name>` in <units> — [source expression or file:line citation]
+- **Predecessor contracts:** [MANDATORY when `Depends on:` lists a task and the current task consumes its outputs. List each consumed contract: column name + nullability, enum value, interface method signature, config key type, null-vs-zero semantics. Omit if no `Depends on:` or no consumed outputs.]
+  - `<contract>` from Task NNN — [exact semantics, e.g. "writes `NULL` until Task M populates the classifier"]
 
 ## Files
 
@@ -382,11 +449,22 @@ Expected: all pass, zero warnings, no new knip findings.
 
 ## Tests
 
-| Test case | Description        |
-| --------- | ------------------ |
-| [name]    | [what it verifies] |
+| Test case | Description        | Mock / assert contract                                                                                                                                                                        |
+| --------- | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [name]    | [what it verifies] | [exact mocks (`Clock` → ISO literal, injected store → inline seed), precise assertion (`expect(result.x).toEqual(<literal>)`), any `vi.spyOn(process, "exit")` / `vi.waitFor` pattern needed] |
+
+The **Mock / assert contract** column is mandatory for every row. It carries forward the TEST STRATEGY block from the Exploration Report — never drop to "see step N" or a one-line description. If a test requires no mocks, write `no mocks; <exact assertion literal>`.
 
 ## Acceptance Criteria
+
+Every atomic clause of `## Goal` must map to at least one task-specific bullet below — referencing a Tests-table row, a new exported symbol, a specific CLI output string, a JSON field, or a file path. The generic invariants at the end of this list do NOT satisfy goal traceability; they are codebase invariants that every task must already uphold.
+
+**Goal-traceability bullets (MANDATORY — one per Goal clause):**
+
+- [ ] [Goal clause 1 proof: e.g. "Test `persistsSnapshotOnSuccess` asserts the `quality_snapshots` row is inserted with `tokenReductionRatio` equal to `result.meta.tokenReductionPct`"]
+- [ ] [Goal clause 2 proof: e.g. "`aic_quality_report` MCP tool is registered in `mcp/src/server.ts` and returns the exact JSON shape fixed in Architecture Notes when called with `{}`"]
+
+**Generic invariants (every task inherits these — never the only bullets):**
 
 - [ ] All files created per Files table
 - [ ] Interface matches signature exactly

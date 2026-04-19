@@ -28,6 +28,7 @@ REQUIRED_SECTIONS=(
   "RECIPE:"
   "EXISTING FILES"
   "SIBLING PATTERN"
+  "SIBLING QUORUM"
   "DEPENDENCIES"
   "ESLINT CHANGES"
   "INTERFACES"
@@ -42,6 +43,8 @@ REQUIRED_SECTIONS=(
   "SPECULATIVE TOOL EXECUTION"
   "DOCUMENTATION IMPACT"
   "LAYER BLOCKERS"
+  "PREDECESSOR CONTRACTS"
+  "UNIT CONTRACT"
   "DESIGN DECISIONS"
 )
 
@@ -82,6 +85,48 @@ if [[ -n "$OR_HITS" ]]; then
   echo "non-definitive METHOD BEHAVIORS (contains 'or'):"
   echo "$OR_HITS"
   MISSING=$((MISSING + 1))
+fi
+
+# Source path existence (AN) — every "Source: <path>" must resolve to an existing file.
+# Exploration reports should cite real evidence; a missing path is a hallucination.
+# Lines describing future/new artifacts are skipped.
+if [[ "$FILE" = /* ]]; then
+  TASK_DIR="$(dirname "$FILE")"
+  PROJECT_ROOT="$(dirname "$(dirname "$TASK_DIR")")"
+else
+  PROJECT_ROOT="$(pwd)"
+fi
+
+SOURCE_MISSING=0
+while IFS= read -r raw; do
+  [[ -z "$raw" ]] && continue
+  LN="${raw%%|*}"
+  REST="${raw#*|}"
+  if echo "$REST" | grep -qiE "(new (export|interface|class|function|migration|file|column|table|schema)|once .* (ships?|merges?|lands?|is (merged|shipped|ready))|to be created|shipped on main|merged on main|\bTask +[0-9]+|verified via)"; then
+    continue
+  fi
+  PATH_REF=$(echo "$REST" | sed -nE 's/.*Source:[^`]*`([^`]+)`.*/\1/p' | head -n1)
+  if [[ -z "$PATH_REF" ]]; then
+    PATH_REF=$(echo "$REST" | sed -nE 's/^[[:space:]]*Source:[[:space:]]+([^[:space:])]+).*/\1/p')
+  fi
+  [[ -z "$PATH_REF" ]] && continue
+  case "$PATH_REF" in
+    N/A|verified*|NOT*|Verified*) continue ;;
+  esac
+  PATH_ONLY="${PATH_REF%% *}"
+  if [[ "$PATH_ONLY" = /* ]]; then
+    FULL_PATH="$PATH_ONLY"
+  else
+    FULL_PATH="${PROJECT_ROOT}/${PATH_ONLY}"
+  fi
+  if [[ ! -e "$FULL_PATH" ]]; then
+    echo "source path not found (AN) at ${FILE}:${LN}: ${PATH_ONLY}"
+    SOURCE_MISSING=$((SOURCE_MISSING + 1))
+  fi
+done < <(awk '/^Source:/ { print NR "|" $0 }; /[[:space:]]Source:/ { print NR "|" $0 }' "$FILE")
+
+if [[ $SOURCE_MISSING -gt 0 ]]; then
+  MISSING=$((MISSING + SOURCE_MISSING))
 fi
 
 if [[ $MISSING -gt 0 ]]; then

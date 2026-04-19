@@ -99,6 +99,10 @@ Work through the **Steps** section in order.
 
 **Worktree context (§3–§5).** All file ops target the worktree: set `working_directory` for Shell, use worktree-prefixed paths for Read/Write/StrReplace/Grep/Glob. `shared/src/foo.ts` → `<worktree>/shared/src/foo.ts`.
 
+**Dual-anchor consumption.** Task instructions may pair a line number with a backtick-quoted literal: `line 323 (where `runCliDiagnosticsAndExit` appears)`. The literal is the authoritative anchor; the line number is a hint. Always StrReplace using the backticked literal as `old_string`, not the line number — lines drift between plan time and execute time, literals do not. If the literal is non-unique in the target file, expand `old_string` with minimal surrounding context from the same region until it is unique.
+
+**Unit contract fidelity.** The task's Architecture Notes may carry a `**Unit contract:**` bullet listing each named numeric slot and its domain (`[0, 1]` decimal ratio, `[0, 100]` percentage, count, ms, seconds, etc.). Before writing a numeric value to any listed slot, verify the source expression's domain matches the declared domain. Mismatch (e.g. source is `[0, 100]` but slot is declared `[0, 1]`) means either (a) the expression needs conversion, or (b) the slot is misnamed and the task is wrong — stop and ask. Never silently rescale.
+
 **Pre-write reference (rules NOT caught by ESLint).** Internalize before writing — each causes a §4b failure if missed.
 
 | #   | Rule                | What to check                                                                                                                                        | Wrong                                          | Right                                                                 |
@@ -128,7 +132,7 @@ Work through the **Steps** section in order.
 
 **Sibling check.** Read closest sibling file. Follow its pattern — if task spec conflicts with sibling's pattern, follow the sibling. If sibling has structurally identical functions, extract to shared utility (parameterized with callbacks). If no sibling exists (first file of its kind), check whether any function you are writing is generic (its structure would be identical in a future sibling with different config/predicates). If so, place it in a shared utility file from the start.
 
-**Test steps:** Every Tests table row → one test case with that exact name. No extras, no skips. Use Dependent Types for test data.
+**Test steps:** Every Tests table row → one test case with that exact name. No extras, no skips. Use Dependent Types for test data. If the Tests table has a third column (`Mock / assert contract`), implement the mocks and assertions exactly as specified: exact mock signatures (`Clock → ISO literal`), inline seed data, and literal assertion values (`expect(result.x).toEqual(<literal>)`). No "close enough" assertions, no improvised mocks. If the contract is genuinely wrong or unimplementable, stop and report (HARD RULE 5).
 
 **Test structure by task layer:**
 

@@ -37,6 +37,7 @@ Complete every item. Two batches minimize sequential tool-call rounds.
    - **First of kind:** Predict generic vs specific parts. 2+ generic → extract to shared utility from day one.
    - Record in SIBLING PATTERN. Check if existing class/interface could gain a method → EXISTING SOLUTIONS.
    - **Multi-layer:** Run sibling analysis independently at each layer.
+   - **Quorum (mandatory — ≥2 siblings required):** Never rely on a single "closest sibling" as the canonical pattern. Read at least TWO siblings in the same directory (or the same layer if directory has only one sibling). Compare their structural features (export shape, factory signature, parameter order, default-value conventions, naming). If the two agree → that is the canonical pattern; record both paths. If they disagree → read a third sibling, pick the majority pattern, and record the outlier in SIBLING QUORUM with a note explaining why it is a legacy/outlier. If only one sibling exists in the whole layer → mark it explicitly "SOLE SIBLING — treated as canonical." Record all examined sibling paths in SIBLING QUORUM.
 7. **Cross-package duplication check** (conditional — new utility/helper/factory) — Grep entire codebase (`mcp/src/` and `shared/src/`). If equivalent logic exists: (a) extract to `shared/` or (b) justify duplication. Record in EXISTING SOLUTIONS.
 8. **Wiring completeness check** (conditional — composition root tasks, OR Modify row for composition root, OR signature change of function called by composition root) — verify every function's return value is consumed or documented as side-effect-only. When non-composition-root task changes a composition-root-called function signature, verify call site and wrappers are in Files table.
    8b. **Stale marker detection** (mandatory) — grep Files table entries for `TODO`, `FIXME`, `HACK`, and phase heading references (`Phase (?:[A-Z]{1,2}|[0-9]+(?:\.[0-9]+)?)\b` — documentation-writer Dimension 9). Cross-reference against `documentation/tasks/progress/aic-progress.md` (main workspace only — gitignored). Record: `[marker] at [file:line] — ACTIONABLE / INFORMATIONAL`. Actionable in modified files → scope expansion candidate.
@@ -91,6 +92,18 @@ Complete every item. Two batches minimize sequential tool-call rounds.
 
 19. **File convention determination** (mandatory — "Modify" files with multiple valid idioms) — read target file, determine which idiom it uses (JSON loading, module system, test framework, path computation). Step instructions use that idiom only — never alternatives. Record in BINDING INVENTORY.
 
+20. **Predecessor output inventory** (mandatory — task header will list `Depends on:` or `Prerequisite:`) — for every predecessor task named in the header:
+    - Glob `documentation/tasks/*.md`, `documentation/tasks/drafts/*.md`, `documentation/tasks/done/*.md` for the predecessor file. Missing → **BLOCKER**.
+    - Read the predecessor's `## Interface / Signature`, `## Step` bodies, `## Architecture Notes`, and `## Tests` section.
+    - Enumerate every **output contract** the predecessor establishes that this task will consume: new storage column names with nullability and domain, new enum values on branded types, new interface methods with their signatures, new config keys with their types, null-vs-zero semantics for each new numeric field, default-value semantics, new MCP tool names, new CLI subcommand names, new file paths written to disk.
+    - For each contract, record: `[contract name] — [semantics from predecessor] — consumed by [this task's step N]`. Mark any contract that appears unstable (predecessor says "returns null until Task M", "temporary placeholder", "to be populated by follow-up") — this task MUST design around the unstable value, not assume it.
+    - Record all findings in a PREDECESSOR CONTRACTS field of the Exploration Report. Use this field to populate the task's `## Architecture Notes` → `**Predecessor contracts:**` bullet during Pass 2.
+
+21. **Unit contract inventory** (mandatory — task binds any numeric value to a named slot) — for every numeric value the task will write to a DB column, interface field, config key, wire-format field, JSON response key, or CLI output value:
+    - Record the slot name, the expected domain (e.g., `[0, 1]` decimal ratio, `[0, 100]` percentage, raw count in items, duration in milliseconds, duration in seconds), and the exact source expression or file:line where the source value is produced.
+    - When the slot's name contains a unit hint (`*_ratio`, `*_pct`, `*_percent`, `*_ms`, `*_seconds`, `*_count`, `*_rate`), verify the expected domain matches the hint. Mismatch → the slot must be renamed or the domain must be converted; do NOT silently store a mismatched scale.
+    - Record all findings in a UNIT CONTRACT field of the Exploration Report. Use this field to populate the task's `## Architecture Notes` → `**Unit contract:**` bullet during Pass 2.
+
 **Pre-read items** (in context from Phase 1 — extract findings, do not re-read):
 
 20. **`shared/package.json`** — record dependencies and pinned versions.
@@ -139,6 +152,12 @@ SIBLING PATTERN (mandatory — answer applicable subsection):
 **Without shared utilities (second-of-kind):** First sibling: [path]. Generic functions: [name → extract to shared utility]. EXTRACTION MANDATE: extract before implementing.
 
 **First of kind:** SHARED CODE PREDICTION: generic [functions + varying param] vs specific [functions]. 2+ generic → extract to shared utility. All specific → "No extraction — [why]".
+
+SIBLING QUORUM (mandatory — from item 6 quorum rule):
+- Siblings examined: [sibling A path, sibling B path, (sibling C path if tiebreak needed)]
+- Agreement: [AGREE — both match on features X, Y, Z | DISAGREE — majority pattern is <pattern>, outlier is <path> because <reason>]
+- Canonical pattern chosen: [pattern name with one-line description]
+- Or: SOLE SIBLING — only one sibling exists in layer, treated as canonical: [path]
 
 DEPENDENCIES:
 - [package]: [version] (already in package.json)
@@ -309,6 +328,19 @@ SPECULATIVE TOOL EXECUTION (mandatory — item 18):
 - [tool] — run: [YES (summary) | NO (static analysis: result) | BLOCKER (reason)]
 - Scope resolved: [entries/fixes or "no tool-dependent scope"]
 - Or: N/A
+
+PREDECESSOR CONTRACTS (mandatory — task has `Depends on:` or `Prerequisite:` header):
+- Predecessor: Task NNN (`documentation/tasks/NNN-slug.md`)
+  - Contract: [exact slot/column/method/enum/config key name]
+    - Semantics: [domain, nullability, null-vs-zero, default value — verbatim from predecessor]
+    - Stability: [STABLE | UNSTABLE — predecessor says "<quote>", design this task to not rely on populated value]
+    - Consumed by: [this task's Step N / Tests row <name> / Architecture Notes bullet]
+- Or: N/A — no predecessor tasks or no consumed contracts.
+
+UNIT CONTRACT (mandatory — task binds any numeric value to a named slot):
+- Slot: `<slot_name>` — Domain: [e.g. "[0, 1] decimal ratio" | "[0, 100] percentage" | "count of items" | "duration in ms" | "duration in seconds"] — Source: <expression or file:line>
+- Name-hint check: [MATCH — slot name suffix matches declared domain | MISMATCH — slot named `_ratio` but source is `[0, 100]`; action: rename to `_pct` OR convert with `/100`]
+- Or: N/A — task binds no numeric values.
 
 DESIGN DECISIONS:
 - [decision]: [chosen option] — [why]
