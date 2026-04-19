@@ -274,30 +274,32 @@ The npm package `@jatbas/aic` ships `dist/` (the compiled MCP server with sheban
 
 The server is the primary interface. It exposes these MCP tools:
 
-| Tool               | Purpose                                                                                                                                                                                                                            |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `aic_compile`      | Compile context for the current AI message                                                                                                                                                                                         |
-| `aic_inspect`      | Inspect pipeline trace (JSON metadata; no per-file bodies in the tool response)                                                                                                                                                    |
-| `aic_status`       | Project-level status and compilation aggregates                                                                                                                                                                                    |
-| `aic_last`         | Most recent compilation details; MCP JSON also includes optional top-level `selection` (selection trace) or `null` — see [Implementation Spec — `aic_last`](implementation-spec.md#aic_last-mcp-tool)                              |
-| `aic_chat_summary` | Per-conversation compilation stats                                                                                                                                                                                                 |
-| `aic_projects`     | List all known AIC projects                                                                                                                                                                                                        |
-| `aic_model_test`   | Optional agent capability probe (challenges, embedded `aic_compile`, structured pass/fail)                                                                                                                                         |
-| `aic_compile_spec` | Structured spec compilation (`spec` required, optional `budget`); returns `{ compiledSpec, meta }` from `SpecificationCompilerImpl` — [Implementation Spec — `aic_compile_spec`](implementation-spec.md#aic_compile_spec-mcp-tool) |
+| Tool                 | Purpose                                                                                                                                                                                                                            |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `aic_compile`        | Compile context for the current AI message                                                                                                                                                                                         |
+| `aic_inspect`        | Inspect pipeline trace (JSON metadata; no per-file bodies in the tool response)                                                                                                                                                    |
+| `aic_status`         | Project-level status and compilation aggregates                                                                                                                                                                                    |
+| `aic_last`           | Most recent compilation details; MCP JSON also includes optional top-level `selection` (selection trace) or `null` — see [Implementation Spec — `aic_last`](implementation-spec.md#aic_last-mcp-tool)                              |
+| `aic_chat_summary`   | Per-conversation compilation stats                                                                                                                                                                                                 |
+| `aic_projects`       | List all known AIC projects                                                                                                                                                                                                        |
+| `aic_quality_report` | Rolling-window compile transparency metrics from `quality_snapshots` (MCP JSON; CLI `quality`) — [Implementation Spec — `aic_quality_report`](implementation-spec.md#aic_quality_report-mcp-tool)                                  |
+| `aic_model_test`     | Optional agent capability probe (challenges, embedded `aic_compile`, structured pass/fail)                                                                                                                                         |
+| `aic_compile_spec`   | Structured spec compilation (`spec` required, optional `budget`); returns `{ compiledSpec, meta }` from `SpecificationCompilerImpl` — [Implementation Spec — `aic_compile_spec`](implementation-spec.md#aic_compile_spec-mcp-tool) |
 
-The four **show aic …** prompt commands ("show aic status", "show aic last", "show aic chat summary", "show aic projects") always run the **Bash CLI** (`npx @jatbas/aic <subcommand>`, or `pnpm aic <subcommand>` from the repo root when developing) and the agent relays stdout byte-for-byte. The trigger rule explicitly forbids calling the `aic_status`, `aic_last`, `aic_chat_summary`, or `aic_projects` MCP tools for these phrases — the CLI is the single source of truth for the formatted-table format. Table rendering matches `mcp/src/format-diagnostic-output.ts`. The MCP diagnostic tools still exist for programmatic JSON consumers (for example, the **`aic_last`** JSON includes the same compact **`lastCompilation`** fields as the table plus an optional top-level **`selection`** trace); the CLI prints a digest of **`selection`** (top files and exclusion-reason counts) when a persisted trace exists, not the full JSON object — use the MCP tool directly or [Implementation Spec — `aic_last`](implementation-spec.md#aic_last-mcp-tool) for the complete trace.
+The five **show aic …** prompt commands ("show aic status", "show aic last", "show aic chat summary", "show aic quality", "show aic projects") always run the **Bash CLI** (`npx @jatbas/aic <subcommand>`, or `pnpm aic <subcommand>` from the repo root when developing) and the agent relays stdout byte-for-byte. The trigger rule explicitly forbids calling the `aic_status`, `aic_last`, `aic_chat_summary`, `aic_quality_report`, or `aic_projects` MCP tools for these phrases — the CLI is the single source of truth for the formatted-table format. Table rendering matches `mcp/src/format-diagnostic-output.ts`. The MCP diagnostic tools still exist for programmatic JSON consumers (for example, the **`aic_last`** JSON includes the same compact **`lastCompilation`** fields as the table plus an optional top-level **`selection`** trace); the CLI prints a digest of **`selection`** (top files and exclusion-reason counts) when a persisted trace exists, not the full JSON object — use the MCP tool directly or [Implementation Spec — `aic_last`](implementation-spec.md#aic_last-mcp-tool) for the complete trace.
 
-A fifth prompt — **run aic model test** — is **MCP-only** (no matching CLI subcommand): the model calls `aic_model_test`, completes the challenges (including an `aic_compile` with a specific intent), calls `aic_model_test` again with answers, and presents the pass/fail result. Full wording for editors lives in the installed trigger rules (for example `.cursor/rules/AIC-architect.mdc` and `.claude/CLAUDE.md`).
+**run aic model test** — distinct from the five **show aic …** Bash flows above — is **MCP-only** (no matching CLI subcommand): the model calls `aic_model_test`, completes the challenges (including an `aic_compile` with a specific intent), calls `aic_model_test` again with answers, and presents the pass/fail result. Full wording for editors lives in the installed trigger rules (for example `.cursor/rules/AIC-architect.mdc` and `.claude/CLAUDE.md`).
 
 ### CLI Standalone Usage
 
-The same binary that runs as the MCP server also works as a standalone CLI tool. You can invoke the four diagnostic subcommands directly from a terminal — no editor required:
+The same binary that runs as the MCP server also works as a standalone CLI tool. You can invoke the five diagnostic subcommands directly from a terminal — no editor required:
 
 | Subcommand                     | What it does                                                                                                                                                                                                                                                                   |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `status`                       | Project-level AIC status (compilations, token stats, budget, lifetime guard-type scan totals, optional narrative line). Optional rolling window: `status <N>d` with integer **N** from 1 through 3660 (`status 14d` requests 14 days); omit the suffix for all-time aggregates |
 | `last`                         | Prints the same fields as the formatted "show aic last" table (including **Cache** and optional **Guard (this run)** / selection digest rows when data exists); use MCP `aic_last` JSON for the full **`selection`** object                                                    |
 | `chat-summary --project <dir>` | Per-conversation compilation stats for the given project directory                                                                                                                                                                                                             |
+| `quality [--window <days>]`    | Per-project rolling-window metrics sourced from `quality_snapshots` (defaults to 30 days; max 365)                                                                                                                                                                             |
 | `projects`                     | All known AIC projects (ID, path, last seen, compilation count)                                                                                                                                                                                                                |
 
 **Usage:**
@@ -308,18 +310,20 @@ npx @jatbas/aic status
 npx @jatbas/aic status 14d
 npx @jatbas/aic last
 npx @jatbas/aic chat-summary --project /path/to/project
+npx @jatbas/aic quality
 npx @jatbas/aic projects
 
 # Development mode — requires pnpm build; run from repo root
 pnpm aic status
 pnpm aic last
 pnpm aic chat-summary --project /path/to/project
+pnpm aic quality
 pnpm aic projects
 ```
 
 If your shell working directory is not registered in the global AIC database (including some git worktree roots), pass `--project <absolute path>` to `status`, `last`, and `chat-summary` in addition to the `chat-summary` examples above. See [CONTRIBUTING.md — Local MCP testing](../CONTRIBUTING.md#local-mcp-testing).
 
-Each subcommand opens the database read-only, prints formatted table output to stdout, and exits. The tables use the same human-readable labels as the four **show aic …** prompt commands (Compilations, Project path, Last compilation, and the other rows in those tables). For **`last`**, stdout mirrors the MCP summary table; the full structured **`selection`** payload remains JSON-only.
+Each subcommand opens the database read-only, prints formatted table output to stdout, and exits. The tables use the same human-readable labels as the five **show aic …** prompt commands (Compilations, Project path, Last compilation, and the other rows in those tables). For **`last`**, stdout mirrors the MCP summary table; the full structured **`selection`** payload remains JSON-only.
 
 ### Environment variables and project config
 

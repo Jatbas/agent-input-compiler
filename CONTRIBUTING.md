@@ -75,17 +75,17 @@ For optional Agent Skill workflows in this repo, including planning, execution, 
 
 Husky already runs checks on commit and push: **lint-staged** on commit (ESLint with fix on staged TypeScript under `shared/`, `cli/`, and `mcp/`; Prettier on staged files matched by the project config). Staged `*.ts` files at the repository root get Prettier only, not ESLint. **commitlint** runs on the commit message; **typecheck**, **tests**, and **lint:clones** run on push. You can still run the commands below locally before committing or when debugging CI.
 
-| Command                 | Purpose                                                                                                                       |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `pnpm typecheck`        | Full TypeScript project build                                                                                                 |
-| `pnpm test:watch`       | Tests in watch mode                                                                                                           |
-| `pnpm lint:fix`         | ESLint with auto-fix                                                                                                          |
-| `pnpm format`           | Prettier write                                                                                                                |
-| `pnpm format:check`     | Prettier check only                                                                                                           |
-| `pnpm knip`             | Unused files, exports, and dependencies                                                                                       |
-| `pnpm check:headers`    | SPDX license headers                                                                                                          |
-| `pnpm lint:clones`      | Duplicate-code scan (`jscpd`; also runs on pre-push)                                                                          |
-| `pnpm aic <subcommand>` | CLI diagnostics against the local build (`status`, `last`, `chat-summary`, `projects`; see Local MCP testing for `--project`) |
+| Command                 | Purpose                                                                                                                                  |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `pnpm typecheck`        | Full TypeScript project build                                                                                                            |
+| `pnpm test:watch`       | Tests in watch mode                                                                                                                      |
+| `pnpm lint:fix`         | ESLint with auto-fix                                                                                                                     |
+| `pnpm format`           | Prettier write                                                                                                                           |
+| `pnpm format:check`     | Prettier check only                                                                                                                      |
+| `pnpm knip`             | Unused files, exports, and dependencies                                                                                                  |
+| `pnpm check:headers`    | SPDX license headers                                                                                                                     |
+| `pnpm lint:clones`      | Duplicate-code scan (`jscpd`; also runs on pre-push)                                                                                     |
+| `pnpm aic <subcommand>` | CLI diagnostics against the local build (`status`, `last`, `chat-summary`, `quality`, `projects`; see Local MCP testing for `--project`) |
 
 > `pnpm aic` requires a prior `pnpm build`. Use `pnpm run dev:mcp` for a live-reloading MCP server during development (no build step needed).
 
@@ -113,9 +113,9 @@ To run the MCP server from your clone instead of the published package:
 
 3. Restart your editor or reload MCP so it picks up the local server. Restore the published entry when done: `"command": "npx", "args": ["-y", "@jatbas/aic@latest"]`.
 
-**Cursor in this repository:** The checked-in `.cursor/mcp.json` registers the dev server under the config key `aic-dev`. When agents or automation refer to calling AIC MCP tools by server name, Cursor may expose this workspace as `project-0-AIC-aic-dev` — use that identifier for `aic_compile`, `aic_status`, and related tools here. The full reminder lives in `.cursor/rules/aic-architect.mdc`.
+**Cursor in this repository:** The checked-in `.cursor/mcp.json` registers the dev server under the config key `aic-dev`. When agents or automation refer to calling AIC MCP tools by server name, Cursor may expose this workspace as `project-0-AIC-aic-dev` — use that identifier for `aic_compile`, `aic_status`, `aic_quality_report`, and related tools here. The full reminder lives in `.cursor/rules/aic-architect.mdc`.
 
-4. From the repo root, run `pnpm build`, then run `pnpm aic status`, `pnpm aic projects`, `pnpm aic last`, and `pnpm aic chat-summary --project <absolute workspace root>` to exercise the compiled diagnostic CLI. When your shell cwd is not registered in the global AIC database—including a git worktree root that has no `projects` row—pass `--project <absolute path to a registered clone>` to `status`, `last`, and `chat-summary`.
+4. From the repo root, run `pnpm build`, then run `pnpm aic status`, `pnpm aic projects`, `pnpm aic last`, `pnpm aic quality`, and `pnpm aic chat-summary --project <absolute workspace root>` to exercise the compiled diagnostic CLI. When your shell cwd is not registered in the global AIC database—including a git worktree root that has no `projects` row—pass `--project <absolute path to a registered clone>` to `status`, `last`, and `chat-summary`.
 
 ### Reflecting code changes during development
 

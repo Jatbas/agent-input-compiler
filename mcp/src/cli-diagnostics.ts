@@ -40,12 +40,14 @@ import {
   buildProjectScopedChatSummaryCliRow,
   buildStatusPayload,
   buildLastPayload,
+  buildQualityReportPayload,
 } from "./diagnostic-payloads.js";
 import {
   formatStatusTable,
   formatLastTable,
   formatChatSummaryTable,
   formatProjectsTable,
+  formatQualityReportLines,
 } from "./format-diagnostic-output.js";
 import { detectInstallScope } from "./detect-install-scope.js";
 import { getInstallScopeWarnings } from "./editor-integration-dispatch.js";
@@ -104,12 +106,10 @@ const scanArgvForProjectRoot: typeof parseOptionalProjectRoot = parseOptionalPro
 const scanArgvForProjectRootSame: typeof parseOptionalProjectRoot =
   scanArgvForProjectRoot;
 
-function parseStatusTimeRangeDaysFromArgv(
+function diagnosticArgvTokensExcludingProjectPair(
   argv: readonly string[],
-):
-  | { readonly ok: true; readonly days: StatusTimeRangeDays | null }
-  | { readonly ok: false } {
-  const tokens = argv.reduce<string[]>((acc, a, idx) => {
+): readonly string[] {
+  return argv.reduce<string[]>((acc, a, idx) => {
     if (a === "--project") {
       return acc;
     }
@@ -119,6 +119,14 @@ function parseStatusTimeRangeDaysFromArgv(
     }
     return [...acc, a];
   }, []);
+}
+
+function parseStatusTimeRangeDaysFromArgv(
+  argv: readonly string[],
+):
+  | { readonly ok: true; readonly days: StatusTimeRangeDays | null }
+  | { readonly ok: false } {
+  const tokens = diagnosticArgvTokensExcludingProjectPair(argv);
   const matches = tokens.filter((t) => /^\d+d$/.test(t));
   if (matches.length === 0) {
     return { ok: true, days: null };
@@ -138,18 +146,45 @@ function parseStatusTimeRangeDaysFromArgv(
   return { ok: true, days: toStatusTimeRangeDays(n) };
 }
 
+function parseQualityWindowDaysFromArgv(
+  argv: readonly string[],
+): { readonly ok: true; readonly windowDays: number } | { readonly ok: false } {
+  const tokens = diagnosticArgvTokensExcludingProjectPair(argv);
+  const windowIdxs = tokens.reduce<number[]>(
+    (acc, t, i) => (t === "--window" ? [...acc, i] : acc),
+    [],
+  );
+  if (windowIdxs.length === 0) {
+    return { ok: true, windowDays: 30 };
+  }
+  if (windowIdxs.length > 1) {
+    return { ok: false };
+  }
+  const wi = windowIdxs[0];
+  if (wi === undefined || wi + 1 >= tokens.length) {
+    return { ok: false };
+  }
+  const raw = tokens[wi + 1];
+  const n = raw === undefined ? Number.NaN : Number.parseInt(raw, 10);
+  if (!Number.isInteger(n) || n < 1 || n > 365) {
+    return { ok: false };
+  }
+  return { ok: true, windowDays: n };
+}
+
 async function runCliDiagnosticsAsync(argv: readonly string[]): Promise<number> {
   const sub = argv[0];
   const handlers: Record<string, () => Promise<number>> = {
     status: async () => runStatusCli(argv),
     last: async () => runLastCli(argv),
     "chat-summary": async () => runChatSummaryCli(argv),
+    quality: async () => runQualityCli(argv),
     projects: async () => runProjectsCli(),
   };
   const run = sub !== undefined ? handlers[sub] : undefined;
   if (run === undefined) {
     process.stderr.write(
-      `Usage: aic {status [<N>d]|last|chat-summary} [--project <dir>] | projects | init | serve (N integer 1..${String(STATUS_TIME_RANGE_DAYS_MAX)} for rolling window)\n`,
+      `Usage: aic {status [<N>d]|last|chat-summary|quality [--window <days>]} [--project <dir>] | projects | init | serve (status <N>d: 1..${String(STATUS_TIME_RANGE_DAYS_MAX)}; quality --window: 1..365, default 30)\n`,
     );
     return 1;
   }
@@ -306,6 +341,28 @@ async function runChatSummaryCli(argv: readonly string[]): Promise<number> {
       const summary = store.getSummary();
       const row = buildProjectScopedChatSummaryCliRow(String(projectRoot), summary);
       process.stdout.write(formatChatSummaryTable(row, clock));
+      return 0;
+    }),
+  );
+}
+
+async function runQualityCli(argv: readonly string[]): Promise<number> {
+  const parsedWindow = parseQualityWindowDaysFromArgv(argv);
+  if (!parsedWindow.ok) {
+    process.stderr.write(
+      "quality: use at most one --window <N> with N integer 1..365, or omit for a 30-day window\n",
+    );
+    return 1;
+  }
+  return withGlobalReadonlyDb((db) =>
+    runWithProjectFromArgv(db, argv, ({ clock, projectId, db: storeDb }) => {
+      const payload = buildQualityReportPayload({
+        projectId,
+        db: storeDb,
+        clock,
+        windowDays: parsedWindow.windowDays,
+      });
+      process.stdout.write(formatQualityReportLines(payload, clock));
       return 0;
     }),
   );

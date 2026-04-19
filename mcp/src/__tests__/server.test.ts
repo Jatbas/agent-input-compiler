@@ -83,8 +83,14 @@ describe("MCP server", () => {
     expect(names).toContain("aic_last");
     expect(names).toContain("aic_model_test");
     expect(names).toContain("aic_compile_spec");
+    expect(names).toContain("aic_quality_report");
     const byName = Object.fromEntries(result.tools.map((t) => [t.name, t]));
-    const readOnlyTools = ["aic_projects", "aic_status", "aic_last"] as const;
+    const readOnlyTools = [
+      "aic_projects",
+      "aic_status",
+      "aic_last",
+      "aic_quality_report",
+    ] as const;
     for (const n of readOnlyTools) {
       expect(byName[n]?.annotations).toEqual({ readOnlyHint: true });
     }
@@ -133,6 +139,35 @@ describe("MCP server", () => {
       ? projectsContent.map((c) => c?.text ?? "").join("")
       : "";
     expect(() => JSON.parse(projectsText || "[]")).not.toThrow();
+    const qualityResult = await client.callTool({
+      name: "aic_quality_report",
+      arguments: {},
+    });
+    const qualityContent = (qualityResult as { content?: { text?: string }[] }).content;
+    const qualityText = Array.isArray(qualityContent)
+      ? qualityContent.map((c) => c?.text ?? "").join("")
+      : "";
+    expect(() => JSON.parse(qualityText || "{}")).not.toThrow();
+  });
+
+  it("aic_quality_report_returns_json", async () => {
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
+    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+    await server.connect(transportServer);
+    const client = new Client({ name: "test", version: "1.0" });
+    await client.connect(transportClient);
+    const result = await client.callTool({ name: "aic_quality_report", arguments: {} });
+    const content = (result as { content?: { text?: string }[] }).content;
+    const text = Array.isArray(content) ? content.map((c) => c?.text ?? "").join("") : "";
+    const parsed = JSON.parse(text || "{}") as {
+      windowDays?: number;
+      compilations?: number;
+    };
+    expect(parsed.windowDays).toBe(30);
+    expect(typeof parsed.compilations).toBe("number");
   });
 
   it("aic_status_accepts_timeRangeDays", async () => {

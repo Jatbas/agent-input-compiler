@@ -19,6 +19,10 @@ import {
   MCP_INTENT_OMITTED_DEFAULT,
 } from "./schemas/compilation-request.js";
 import { StatusRequestSchema } from "./schemas/status-request.schema.js";
+import {
+  QualityReportRequestSchema,
+  toQualityReportWindowDays,
+} from "./schemas/quality-report-request.schema.js";
 import { ConversationSummaryRequestSchema } from "./schemas/conversation-summary-request.js";
 import { InspectRequestSchema } from "./schemas/inspect-request.schema.js";
 import { ModelTestRequestSchema } from "./schemas/model-test-request.schema.js";
@@ -104,6 +108,7 @@ import {
   buildLastPayload,
   buildChatSummaryToolPayload,
   buildProjectsPayload,
+  buildQualityReportPayload,
 } from "./diagnostic-payloads.js";
 import { EditorModelConfigReaderAdapter } from "@jatbas/aic-core/adapters/editor-model-config-reader.js";
 import { ModelDetectorDispatch } from "@jatbas/aic-core/adapters/model-detector-dispatch.js";
@@ -485,6 +490,34 @@ export function createMcpServer(
         ],
       }),
   );
+  server.tool(
+    "aic_quality_report",
+    "Windowed quality aggregates: medians, cache hit rate, tier mix, per task class, classifier confidence summary, and daily series for trends (read-only).",
+    QualityReportRequestSchema,
+    toolAnnotationsReadOnly,
+    (args) => {
+      try {
+        const parsed = z.object(QualityReportRequestSchema).parse(args);
+        const windowDaysResolved =
+          parsed.windowDays === undefined
+            ? 30
+            : toQualityReportWindowDays(parsed.windowDays);
+        const payload = buildQualityReportPayload({
+          projectId: startupScope.projectId,
+          db: startupScope.db,
+          clock: startupScope.clock,
+          windowDays: windowDaysResolved,
+        });
+        return Promise.resolve({
+          content: [{ type: "text" as const, text: JSON.stringify(payload) }],
+        });
+      } catch (err) {
+        const label = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`[aic] quality_report unexpected error: ${label}\n`);
+        throw new McpError(ErrorCode.InternalError, "Internal error");
+      }
+    },
+  );
   const aicLastParams: z.ZodRawShape = {};
   server.tool(
     "aic_last",
@@ -673,6 +706,7 @@ const CLI_DIAGNOSTIC_HANDLERS: Record<string, () => void> = {
   status: () => runCliDiagnosticsAndExit(process.argv.slice(2)),
   last: () => runCliDiagnosticsAndExit(process.argv.slice(2)),
   "chat-summary": () => runCliDiagnosticsAndExit(process.argv.slice(2)),
+  quality: () => runCliDiagnosticsAndExit(process.argv.slice(2)),
   projects: () => runCliDiagnosticsAndExit(process.argv.slice(2)),
 };
 

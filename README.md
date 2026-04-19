@@ -51,7 +51,7 @@ The result is a smaller, more relevant, and more inspectable input.
 
 ### Real captured output
 
-The examples below mirror the **fixed-width layout** printed by the diagnostic CLI (`aic status`, `aic last` — or `pnpm aic` when developing this repo with `devMode`). Values are **representative of this repository’s development usage** (not a single verbatim session); totals and guard counts come from your **local** database (`~/.aic/aic.sqlite`) and the **current project**, so your output will not match these figures exactly.
+The examples below mirror the **fixed-width layout** printed by the diagnostic CLI (`aic status`, `aic last`, `aic quality` — or `pnpm aic` when developing this repo with `devMode`). Values are **representative of this repository’s development usage** (not a single verbatim session); totals and guard counts come from your **local** database (`~/.aic/aic.sqlite`) and the **current project**, so your output will not match these figures exactly.
 
 #### `show aic status`
 
@@ -172,6 +172,7 @@ show aic status        # project-level status and lifetime stats
 show aic last          # most recent compilation (table); MCP JSON may include selection trace
 show aic chat summary  # per-conversation compilation stats for this workspace
 show aic projects      # known AIC projects (IDs, paths, last seen, compilation counts)
+show aic quality      # rolling-window compile transparency metrics (default 30 days; pass --window <1-365>)
 run aic model test     # MCP-only: agent capability probe (aic_model_test + aic_compile)
 ```
 

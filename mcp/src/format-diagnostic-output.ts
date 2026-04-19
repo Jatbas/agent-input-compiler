@@ -2,6 +2,7 @@
 // Copyright (c) 2025 AIC Contributors
 
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
+import { TASK_CLASS } from "@jatbas/aic-core/core/types/enums.js";
 import {
   STATUS_TIME_RANGE_DAYS_MAX,
   type ConversationSummary,
@@ -423,4 +424,74 @@ export function formatProjectsTable(
       ? (["Projects = known AIC projects.", "(no projects)"] as const)
       : (["Projects = known AIC projects.", header, ...dataLines] as const);
   return `${body.join("\n")}\n`;
+}
+
+function qualityPayloadNumber(payload: Record<string, unknown>, key: string): number {
+  const v = payload[key];
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function qualityTierMixLine(tier: unknown): string {
+  if (tier === null || typeof tier !== "object" || Array.isArray(tier)) {
+    return "tier mix · L0 — · L1 — · L2 — · L3 —";
+  }
+  const r = tier as Record<string, unknown>;
+  const seg = (k: string): string =>
+    `L${k.slice(1)} ${formatPct1(qualityPayloadNumber(r, k) * 100)}`;
+  return `tier mix · ${seg("l0")} · ${seg("l1")} · ${seg("l2")} · ${seg("l3")}`;
+}
+
+function qualityByClassLine(byTaskClass: unknown): string {
+  if (
+    byTaskClass === null ||
+    typeof byTaskClass !== "object" ||
+    Array.isArray(byTaskClass)
+  ) {
+    return "by class · —";
+  }
+  const rec = byTaskClass as Record<string, unknown>;
+  const parts = (Object.values(TASK_CLASS) as readonly string[]).map((tc) => {
+    const cell = rec[tc];
+    if (cell === null || typeof cell !== "object" || Array.isArray(cell)) {
+      return `${tc} 0`;
+    }
+    const c = Math.round(
+      qualityPayloadNumber(cell as Record<string, unknown>, "compilations"),
+    );
+    return `${tc} ${String(c)}`;
+  });
+  return `by class · ${parts.join(" · ")}`;
+}
+
+export function formatQualityReportLines(
+  payload: Record<string, unknown>,
+  clock: Clock,
+): string {
+  void clock;
+  const windowDays = Math.round(qualityPayloadNumber(payload, "windowDays"));
+  const compilations = Math.round(qualityPayloadNumber(payload, "compilations"));
+  const mTr = qualityPayloadNumber(payload, "medianTokenReduction");
+  const mSel = qualityPayloadNumber(payload, "medianSelectionRatio");
+  const mBu = qualityPayloadNumber(payload, "medianBudgetUtilisation");
+  const cacheHit = qualityPayloadNumber(payload, "cacheHitRate");
+  const base: readonly string[] = [
+    `window=${String(windowDays)}d · ${formatInt(compilations)} compilations`,
+    `median · token ${formatPct1(mTr * 100)} · selection ${formatPct1(mSel * 100)} · budget ${formatPct1(mBu * 100)}`,
+    `cache hit ${formatPct1(cacheHit * 100)}`,
+    qualityTierMixLine(payload["tierDistribution"]),
+    qualityByClassLine(payload["byTaskClass"]),
+  ];
+  const cc = payload["classifierConfidence"];
+  const withClassifier: readonly string[] =
+    cc !== null &&
+    typeof cc === "object" &&
+    !Array.isArray(cc) &&
+    (cc as Record<string, unknown>)["available"] === true
+      ? [
+          ...base,
+          `classifier · mean ${formatPct1(qualityPayloadNumber(cc as Record<string, unknown>, "mean") * 100)}`,
+        ]
+      : base;
+  return `${withClassifier.join("\n")}\n`;
 }
