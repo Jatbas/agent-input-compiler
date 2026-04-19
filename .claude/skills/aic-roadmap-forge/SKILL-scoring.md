@@ -19,9 +19,45 @@ Each explorer scores candidates on the dimensions in its mandate. Scores use a *
 
 ### Composite Formula
 
-`Value = (UI × 3 + UP × 2 + SA × 2 + EU × 1.5 + DR × 1) / (IS × 1.5)`
+`Value = MC × (UI × 3 + UP × 2 + SA × 2 + EU × 1.5 + DR × 1) / (IS × 1.5)`
 
-Higher composite = higher priority. User Impact is weighted highest because features users need drive adoption. Implementation Surface is in the denominator because harder work must clear a higher value bar.
+Higher composite = higher priority. User Impact is weighted highest because features users need drive adoption. Implementation Surface is in the denominator because harder work must clear a higher value bar. **MC** is the Meta-Capability Multiplier (see below); default `1.0` when not a meta-capability, so omitting it leaves composite scores unchanged.
+
+### Meta-Capability Multiplier (MC)
+
+Some candidates are **meta-capabilities**: shipping them makes **other capabilities** measurably better, tunable, or observable. The canonical example is a **feedback / tuning substrate** — once it exists, every downstream feature can be measured against it. Treating a meta-capability with only UP:5 (capped, and weighted ×2) understates its leverage because UP counts only **directly** unblocked components, not the quality improvement of all future work.
+
+**MC values:**
+
+- **1.0 (default)** — Not a meta-capability. Applies to the vast majority of candidates.
+- **1.25** — Cross-cutting infrastructure that enables other work but is not itself a measurement / tuning / observability primitive. Example: the extensions framework (item 0 in the memory spec) — all extensions depend on it, but it doesn't improve the **quality** of extensions, only enables their delivery.
+- **1.5** — Measurement / tuning / observability primitive: once shipped, the **quality** of every subsequent feature in its class can be evaluated or tuned against it. Example: a feedback-loop extension (`feedback_events` store + decorators over selector/ladder/assembler) — every future selector, summariser, or memory extension gains a signal for whether it actually helped.
+
+**MC eligibility criteria (all three must hold for MC ≥ 1.25):**
+
+1. **Class-level impact.** The candidate enables or improves an **entire class** of future work — not one specific downstream component, not a small set listed by name. If you can enumerate the beneficiaries in a single short list, it's UP, not MC.
+2. **Directional asymmetry.** Shipping the meta-capability second (after its beneficiaries) would require retrofitting each beneficiary individually, and that retrofit cost scales with the number of beneficiaries. Shipping it first means each beneficiary picks it up naturally.
+3. **Evidence in the input source.** The input document (Tier 2 or 3) or an explorer finding explicitly identifies the candidate as an unlock for a class of work — not just one feature. Self-serving "this is strategic" claims without explicit evidence in the source default MC back to 1.0.
+
+**MC = 1.5 additionally requires:** the candidate provides a **measurement or tuning signal**, not just a delivery vehicle. Delivery-only infrastructure (extensions framework, new composition root wiring, shared adapters) gets 1.25; primitives that let you **evaluate** whether other work is helping get 1.5.
+
+**Anchor examples:**
+
+| Candidate                                            | MC   | Rationale                                                                          |
+| ---------------------------------------------------- | ---- | ---------------------------------------------------------------------------------- |
+| Extensions framework (memory spec item 0)            | 1.25 | Delivery vehicle for all extensions; no measurement signal                         |
+| Feedback-loop extension (memory spec §A.10, item 12) | 1.5  | Tuning substrate for selector / ladder / memory / assembler                        |
+| Task boundary detection (memory spec §A.11, item 13) | 1.0  | Cross-cutting quality improvement but single-layer; not a primitive for other work |
+| Fix-history extension (memory spec §A.8, item 10)    | 1.0  | Standalone memory source; beneficiaries are enumerable (not class-level)           |
+| Memory extension MVP (memory spec item 1)            | 1.0  | High-value feature, but not a meta-capability                                      |
+
+**MC assignment during forge:**
+
+- Explorer 4 (specific document deep-read) proposes MC for each candidate based on the document's own framing and build-order signals. Default: 1.0.
+- Critic B (strategic fit) must explicitly challenge any MC ≥ 1.25 that does not meet all three eligibility criteria, and must flag any candidate that **should** have MC ≥ 1.25 but was assigned 1.0 (see Phase 5 §Critic B task 7a).
+- After adjudication, the parent agent applies the adjudicated MC in the final composite recalculation alongside the SA update.
+
+**Guard against inflation:** In any proposal, at most **one** candidate may carry MC = 1.5 and at most **two** may carry MC ≥ 1.25. If more are proposed, the parent agent re-reads the eligibility criteria and demotes the weakest to 1.0 until the cap holds. Meta-capability is by definition rare — if the proposal claims three of them, the framing is wrong.
 
 ### Score Justification (mandatory)
 

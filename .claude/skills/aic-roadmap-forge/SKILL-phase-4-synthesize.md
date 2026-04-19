@@ -26,17 +26,19 @@ Before grouping, compute the **composite value score** for each deduplicated can
 
 **Composite formula:**
 
-`Value = (UI × 3 + UP × 2 + SA × 2 + EU × 1.5 + DR × 1) / (IS × 1.5)`
+`Value = MC × (UI × 3 + UP × 2 + SA × 2 + EU × 1.5 + DR × 1) / (IS × 1.5)`
 
-Where: UI = User Impact, UP = Unblock Potential, SA = Strategic Alignment (scored by Critic B in §5, defaults to 2 until then), EU = Ecosystem Urgency, DR = Debt Reduction, IS = Implementation Surface. Higher composite = higher priority.
+Where: UI = User Impact, UP = Unblock Potential, SA = Strategic Alignment (scored by Critic B in §5, defaults to 2 until then), EU = Ecosystem Urgency, DR = Debt Reduction, IS = Implementation Surface, **MC = Meta-Capability Multiplier** (default 1.0; 1.25 or 1.5 per `SKILL-scoring.md` when the candidate is a meta-capability). Higher composite = higher priority. MC is assigned by Explorer 4 when present (see Phase 3 §Explorer 4); for candidates that Explorer 4 did not see, MC defaults to 1.0 and remains 1.0 unless Critic B flags the candidate for promotion at §5.
 
 **Present scores:** Include a ranked candidate table in the handoff to §5 critics:
 
-| Candidate | UI    | UP    | SA    | EU    | DR    | IS    | Composite | Source     |
-| --------- | ----- | ----- | ----- | ----- | ----- | ----- | --------- | ---------- |
-| [name]    | [1-5] | [1-5] | [1-5] | [1-5] | [1-5] | [1-5] | [n.n]     | Explorer N |
+| Candidate | UI    | UP    | SA    | EU    | DR    | IS    | MC             | Composite | Source     |
+| --------- | ----- | ----- | ----- | ----- | ----- | ----- | -------------- | --------- | ---------- |
+| [name]    | [1-5] | [1-5] | [1-5] | [1-5] | [1-5] | [1-5] | [1.0/1.25/1.5] | [n.n]     | Explorer N |
 
 Sort by composite descending. This table is advisory input to critics and to the §6 presentation — it does not mechanically determine inclusion or exclusion.
+
+**MC cap enforcement (parent-agent check before dispatching critics):** Across the full ranked table, at most **one** candidate may carry MC = 1.5 and at most **two** may carry MC ≥ 1.25. If Explorer 4 returned more, demote the weakest (by MC justification strength) to 1.0 until the cap holds and note the demotion in the handoff to critics: "Demoted [N] candidates from MC ≥ 1.25 to 1.0 per cap rule; weakest justifications: [list]."
 
 ### 4e. Group into phases
 
@@ -82,6 +84,17 @@ Use the §4d composite value scores as the **primary** ordering signal. Within e
 1. **Unblocks other work** — infrastructure before features (high UP score)
 2. **Highest user impact** — end-user-visible before internal refactors (high UI score)
 3. **Lowest risk** — additive before interface-requiring; interface-requiring before breaking
+
+**Document-internal build-order respect (when Explorer 4 ran and the input document declared an order):**
+
+If Explorer 4 returned non-`—` Build-order ranks (i.e., the input document contains an explicit priority or build-order section such as "Recommended build order," "Implementation priority," or a critical-path callout), the synthesis proposal's ordering across candidates **from that document** must either:
+
+- **Match the document's order**, or
+- **Document each departure** with cited evidence — a specific explorer finding (file:line or URL) that overrides the document's framing. Absent cited evidence, the document's order wins within its own candidate set.
+
+The composite score still ranks candidates **across** documents and against Explorer 1/2/3 findings; it is only when the order contradicts a document-internal signal that the departure must be justified. Critic B will validate this at §5 task 7a.
+
+When a meta-capability (MC ≥ 1.25) is present in the same phase as its beneficiaries, the meta-capability **must be sequenced first** within that phase. If the meta-capability is deferred to a later phase, the Deps column of the beneficiaries must reference it explicitly so the planner / executor see the ordering constraint.
 
 ### 4f. Documentation impact analysis
 
@@ -179,6 +192,7 @@ These annotations appear in the §6 presentation but are NOT added to the aic-pr
 3. **Grouping self-check:** Does any phase violate the skill's own heuristics — breaking-class mixed with additive, more than 12 components, cross-layer mixing?
 4. **Documentation impact completeness:** For each code component, is the corresponding documentation update row present? Quick count: code components vs doc update rows. If the ratio is below 0.5 (fewer than 1 doc update per 2 code components), a documentation impact was likely missed.
 5. **Score inflation check:** Run the §4d inflation detection now. If more than 40% of candidates have composite above 8.0, apply forced distribution correction before critics see inflated numbers.
+6. **MC cap and build-order check:** Verify the §4d table does not exceed the MC caps (at most one MC = 1.5, at most two MC ≥ 1.25 across the full table). If Explorer 4 returned a document-internal build order, verify every departure from that order in the proposal has an inline "Departure reason: [cited evidence]" note attached. Missing notes are a synthesis failure — either restore the document's order for that candidate or add the evidence before critics see it.
 
 **Fix issues inline.** If all checks pass, announce: "Self-review passed — proceeding to adversarial review." If issues were found, announce: "Self-review found [N] issues, corrected inline — proceeding to adversarial review."
 

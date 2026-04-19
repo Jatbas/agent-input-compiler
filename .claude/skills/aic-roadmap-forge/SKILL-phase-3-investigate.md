@@ -153,21 +153,26 @@ Return results in the **required output format** — do not return free-form pro
 
 **Document selection:** For Tier 3 — use the user-specified document. For Tier 2 — pass the document with the Roadmap Mapping section as the specified document. If multiple Tier 2 documents have Roadmap Mapping sections, spawn one Explorer 4 per document (each as a separate subagent with its own document).
 
-**Task:** Read the specified document in full. Extract every roadmap candidate, deferred recommendation, and open question. Map each to the closest existing phase category in aic-progress.md. Verify feasibility by cross-checking the codebase: does the infrastructure exist to support this? Return results in the **required output format**.
+**Task:** Read the specified document in full. Extract every roadmap candidate, deferred recommendation, and open question. Map each to the closest existing phase category in aic-progress.md. Verify feasibility by cross-checking the codebase: does the infrastructure exist to support this? Also extract **document-internal build order** and propose a **Meta-Capability Multiplier (MC)** for each candidate per `SKILL-scoring.md`. Return results in the **required output format**.
 
 **Required output format:**
 
 ```
-| # | Candidate | Type | Closest phase | Feasibility | Codebase evidence (file:line) | Notes |
-| --- | --- | --- | --- | --- | --- | --- |
-| 1 | [name] | Roadmap candidate / Deferred recommendation / Open question | [phase name or "New phase needed"] | Ready / Partial / Missing infrastructure | [file:line or "None found"] | [one sentence] |
+| # | Candidate | Type | Closest phase | Feasibility | Codebase evidence (file:line) | Build-order rank | MC | MC justification | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | [name] | Roadmap candidate / Deferred recommendation / Open question | [phase name or "New phase needed"] | Ready / Partial / Missing infrastructure | [file:line or "None found"] | [integer N, or "—" if document states no order] | 1.0 / 1.25 / 1.5 | [one sentence citing evidence, or "Default — not a meta-capability"] | [one sentence] |
 ```
+
+**Build-order extraction rule:** If the document contains an explicit priority or build-order section (e.g., a "Recommended build order," "Implementation priority," "Critical path," or numbered dependency list), assign each candidate its rank within that order (1 = ships first). Cite the section heading (`doc:line`) in Notes. If the document does not state an order, write `—` for every candidate's Build-order rank and note "No document-internal build order" once in the explorer's summary.
+
+**MC assignment rule (per `SKILL-scoring.md`):** Default MC = 1.0. Assign MC ≥ 1.25 **only** when the document explicitly frames the candidate as (a) cross-cutting infrastructure enabling a class of future work (→ 1.25), or (b) a measurement / tuning / observability primitive for other features in its class (→ 1.5). The MC justification column must cite the document's framing (`doc:line`), not infer it. If the document does not explicitly frame the candidate as a meta-capability, MC = 1.0 — do not infer.
 
 **Output constraints:**
 
 - Extract all candidates — no maximum cap (this explorer reads one document thoroughly)
 - Each feasibility assessment must cite at least one codebase file:line showing supporting or missing infrastructure
 - Minimum 4 file:line citations across all rows
+- At most **one** candidate per explorer run may carry MC = 1.5, and at most **two** may carry MC ≥ 1.25. If the document appears to justify more, return the top candidates under the cap and note the caveat in the summary — the parent agent and Critic B will adjudicate.
 
 ---
 
