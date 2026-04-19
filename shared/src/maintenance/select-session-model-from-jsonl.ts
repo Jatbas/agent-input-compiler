@@ -48,5 +48,6 @@ export function selectSessionModelIdFromJsonlContent(
   editorId: string,
 ): string | null {
   const state = reduceSessionModelJsonlState(raw, conversationId, editorId);
-  return state.match ?? state.last;
+  const cid = typeof conversationId === "string" ? conversationId.trim() : "";
+  return cid.length > 0 ? state.match : (state.match ?? state.last);
 }

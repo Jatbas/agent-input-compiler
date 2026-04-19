@@ -88,10 +88,10 @@ function cacheFallback_prefers_conversation_scoped() {
   fs.rmSync(tmp, { recursive: true, force: true });
 }
 
-function cacheFallback_falls_through_to_any() {
+function cacheFallback_null_when_conversation_unmatched() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "aic-test-"));
   writeSessionModelCache(tmp, "other-model", "conv-other", "cursor");
-  assert.equal(readSessionModelCache(tmp, "conv-missing", "cursor"), "other-model");
+  assert.equal(readSessionModelCache(tmp, "conv-missing", "cursor"), null);
   fs.rmSync(tmp, { recursive: true, force: true });
 }
 
@@ -136,7 +136,10 @@ const tests = [
     "cacheFallback_prefers_conversation_scoped",
     cacheFallback_prefers_conversation_scoped,
   ],
-  ["cacheFallback_falls_through_to_any", cacheFallback_falls_through_to_any],
+  [
+    "cacheFallback_null_when_conversation_unmatched",
+    cacheFallback_null_when_conversation_unmatched,
+  ],
   ["cacheFallback_no_convId_returns_last_any", cacheFallback_no_convId_returns_last_any],
   ["cacheFallback_ignores_other_editor", cacheFallback_ignores_other_editor],
 ];

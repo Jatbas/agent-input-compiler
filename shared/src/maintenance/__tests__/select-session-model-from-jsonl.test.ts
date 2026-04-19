@@ -21,7 +21,7 @@ describe("selectSessionModelIdFromJsonlContent", () => {
     expect(selectSessionModelIdFromJsonlContent(raw, null, cursor)).toBeNull();
   });
 
-  it("uses last valid line per editor when conversation id is empty", () => {
+  it("still uses last editor line when conversation id is empty or null", () => {
     const raw = `${line("first", "c1", cursor)}\n${line("second", "c2", cursor)}\n`;
     expect(selectSessionModelIdFromJsonlContent(raw, null, cursor)).toBe("second");
     expect(selectSessionModelIdFromJsonlContent(raw, "", cursor)).toBe("second");
@@ -36,9 +36,22 @@ describe("selectSessionModelIdFromJsonlContent", () => {
     expect(selectSessionModelIdFromJsonlContent(raw, "conv-a", cursor)).toBe("m3");
   });
 
-  it("falls back to last editor line when conversation id has no match", () => {
-    const raw = `${line("fallback", "only-c", cursor)}\n`;
-    expect(selectSessionModelIdFromJsonlContent(raw, "other", cursor)).toBe("fallback");
+  it("returns null when a non-empty conversation id has no match", () => {
+    const raw = `${line("neighbour", "only-c", cursor)}\n`;
+    expect(selectSessionModelIdFromJsonlContent(raw, "other", cursor)).toBeNull();
+  });
+
+  it("does not leak a concurrent conversation's model id", () => {
+    const raw = [
+      line("opus", "conv-opus", cursor),
+      line("composer-2", "conv-auto", cursor),
+      line("opus", "conv-opus", cursor),
+    ].join("\n");
+    expect(selectSessionModelIdFromJsonlContent(raw, "conv-new", cursor)).toBeNull();
+    expect(selectSessionModelIdFromJsonlContent(raw, "conv-auto", cursor)).toBe(
+      "composer-2",
+    );
+    expect(selectSessionModelIdFromJsonlContent(raw, "conv-opus", cursor)).toBe("opus");
   });
 
   it("skips malformed JSON lines", () => {

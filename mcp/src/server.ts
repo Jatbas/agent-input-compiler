@@ -78,6 +78,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CompilationRunner as CompilationRunnerImpl } from "@jatbas/aic-core/pipeline/compilation-runner.js";
 import { SpecificationCompilerImpl } from "@jatbas/aic-core/pipeline/specification-compiler.js";
 import { SqliteAgenticSessionStore } from "@jatbas/aic-core/storage/sqlite-agentic-session-store.js";
+import { SqliteSpecCompileCacheStore } from "@jatbas/aic-core/storage/sqlite-spec-compile-cache-store.js";
 import { SqliteToolInvocationLogStore } from "@jatbas/aic-core/storage/sqlite-tool-invocation-log-store.js";
 import { Sha256Adapter } from "@jatbas/aic-core/adapters/sha256-adapter.js";
 import { loadRulePackFromPath } from "@jatbas/aic-core/core/load-rule-pack.js";
@@ -267,6 +268,11 @@ export function createMcpServer(
     startupScope.projectId,
     startupScope.db,
   );
+  const specCompileCacheStore = new SqliteSpecCompileCacheStore(
+    startupScope.projectId,
+    startupScope.db,
+    startupScope.clock,
+  );
   const inspectRunner = new InspectRunner(deps, startupScope.clock);
   const getRunner = (
     scope: ProjectScope,
@@ -405,6 +411,8 @@ export function createMcpServer(
     idGenerator: startupScope.idGenerator,
     getSessionId,
     specificationCompiler,
+    specCompileCacheStore,
+    stringHasher: sha256Adapter,
   });
   const compileSpecInputValidated = z.object(CompileSpecRequestSchema);
   server.registerTool(

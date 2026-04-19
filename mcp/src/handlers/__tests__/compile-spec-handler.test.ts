@@ -23,10 +23,36 @@ import type { TransformMetadata } from "@jatbas/aic-core/core/types/transform-ty
 import type { ContentTransformerPipeline } from "@jatbas/aic-core/core/interfaces/content-transformer-pipeline.interface.js";
 import type { SummarisationLadder } from "@jatbas/aic-core/core/interfaces/summarisation-ladder.interface.js";
 import type { SpecificationCompiler } from "@jatbas/aic-core/core/interfaces/specification-compiler.interface.js";
+import type { SpecCompileCacheStore } from "@jatbas/aic-core/core/interfaces/spec-compile-cache-store.interface.js";
+import type { StringHasher } from "@jatbas/aic-core/core/interfaces/string-hasher.interface.js";
+import type { SpecCompileCacheEntry } from "@jatbas/aic-core/core/types/specification-compilation.types.js";
 import { toPercentage } from "@jatbas/aic-core/core/types/scores.js";
 
 const measure = (s: string): ReturnType<typeof toTokenCount> =>
   toTokenCount([...s].length);
+
+const identityHasher: StringHasher = { hash: (input: string): string => input };
+
+function createMemorySpecCompileCacheStore(nowIso: string): SpecCompileCacheStore {
+  const map = new Map<string, SpecCompileCacheEntry>();
+  return {
+    get: (cacheKey: string): SpecCompileCacheEntry | null => map.get(cacheKey) ?? null,
+    set: (entry: SpecCompileCacheEntry): void => {
+      map.set(entry.cacheKey, entry);
+    },
+    invalidate: (cacheKey: string): void => {
+      map.delete(cacheKey);
+    },
+    purgeExpired: (): void => {
+      for (const key of [...map.keys()]) {
+        const entry = map.get(key);
+        if (entry !== undefined && entry.expiresAt <= nowIso) {
+          map.delete(key);
+        }
+      }
+    },
+  };
+}
 
 function parseResult(result: unknown): Record<string, unknown> {
   const r = result as {
@@ -48,19 +74,21 @@ describe("compile-spec-handler", () => {
   let records: ToolInvocationLogEntry[];
   let toolInvocationLogStore: ToolInvocationLogStore;
   let specificationCompiler: SpecificationCompilerImpl;
+  let memoryStore: SpecCompileCacheStore;
 
   beforeEach(() => {
     records = [];
+    const nowIso = toISOTimestamp("2026-04-02T10:00:00.000Z");
+    memoryStore = createMemorySpecCompileCacheStore(nowIso);
     toolInvocationLogStore = {
       record: (entry: ToolInvocationLogEntry): void => {
         records.push(entry);
       },
     };
     clock = {
-      now: (): ReturnType<typeof toISOTimestamp> =>
-        toISOTimestamp("2026-04-02T10:00:00.000Z"),
-      addMinutes: (): ReturnType<typeof toISOTimestamp> =>
-        toISOTimestamp("2026-04-02T10:00:00.000Z"),
+      now: (): ReturnType<typeof toISOTimestamp> => nowIso,
+      addMinutes: (minutes: number): ReturnType<typeof toISOTimestamp> =>
+        minutes === 60 ? toISOTimestamp("2026-04-02T11:00:00.000Z") : nowIso,
       durationMs: (): ReturnType<typeof toMilliseconds> => toMilliseconds(0),
     };
     idGenerator = {
@@ -99,6 +127,8 @@ describe("compile-spec-handler", () => {
       getSessionId: (): ReturnType<typeof toSessionId> =>
         toSessionId("00000000-0000-7000-8000-000000000002"),
       specificationCompiler,
+      specCompileCacheStore: memoryStore,
+      stringHasher: identityHasher,
     });
     const result = parseResult(
       await handler({
@@ -118,6 +148,8 @@ describe("compile-spec-handler", () => {
       getSessionId: (): ReturnType<typeof toSessionId> =>
         toSessionId("00000000-0000-7000-8000-000000000002"),
       specificationCompiler,
+      specCompileCacheStore: memoryStore,
+      stringHasher: identityHasher,
     });
     const specificationInput: SpecificationInput = {
       types: [
@@ -158,6 +190,142 @@ describe("compile-spec-handler", () => {
     expect(result["meta"]).toEqual(expected.meta);
   });
 
+  it("compile_spec_handler_cache_hit_skips_compiler", async () => {
+    const handler = createCompileSpecHandler({
+      toolInvocationLogStore,
+      clock,
+      idGenerator,
+      getSessionId: (): ReturnType<typeof toSessionId> =>
+        toSessionId("00000000-0000-7000-8000-000000000002"),
+      specificationCompiler,
+      specCompileCacheStore: memoryStore,
+      stringHasher: identityHasher,
+    });
+    const specificationInput: SpecificationInput = {
+      types: [
+        {
+          name: "Foo",
+          path: toRelativePath("src/foo.ts"),
+          content: "export {}",
+          usage: "implements",
+          estimatedTokens: toTokenCount(42),
+        },
+      ],
+      codeBlocks: [],
+      prose: [],
+    };
+    const expected = await specificationCompiler.compile(
+      specificationInput,
+      toTokenCount(42),
+    );
+    const payload = {
+      spec: {
+        types: [
+          {
+            name: "Foo",
+            path: "src/foo.ts",
+            content: "export {}",
+            usage: "implements" as const,
+            estimatedTokens: 42,
+          },
+        ],
+        codeBlocks: [] as const,
+        prose: [] as const,
+      },
+    } as const;
+    const compileSpy = vi.spyOn(specificationCompiler, "compile");
+    try {
+      const first = parseResult(await handler(payload));
+      const second = parseResult(await handler(payload));
+      expect(compileSpy).toHaveBeenCalledTimes(1);
+      expect(first["compiledSpec"]).toBe(expected.compiledSpec);
+      expect(second["compiledSpec"]).toBe(expected.compiledSpec);
+      expect(first["meta"]).toEqual(expected.meta);
+      expect(second["meta"]).toEqual(expected.meta);
+    } finally {
+      compileSpy.mockRestore();
+    }
+  });
+
+  it("compile_spec_handler_cache_miss_when_budget_changes", async () => {
+    const handler = createCompileSpecHandler({
+      toolInvocationLogStore,
+      clock,
+      idGenerator,
+      getSessionId: (): ReturnType<typeof toSessionId> =>
+        toSessionId("00000000-0000-7000-8000-000000000002"),
+      specificationCompiler,
+      specCompileCacheStore: memoryStore,
+      stringHasher: identityHasher,
+    });
+    const payload = {
+      spec: {
+        types: [
+          {
+            name: "Foo",
+            path: "src/foo.ts",
+            content: "export {}",
+            usage: "implements" as const,
+            estimatedTokens: 42,
+          },
+        ],
+        codeBlocks: [] as const,
+        prose: [] as const,
+      },
+    } as const;
+    const compileSpy = vi.spyOn(specificationCompiler, "compile");
+    try {
+      await handler({ spec: payload.spec, budget: 500 });
+      await handler({ spec: payload.spec, budget: 501 });
+      expect(compileSpy).toHaveBeenCalledTimes(2);
+    } finally {
+      compileSpy.mockRestore();
+    }
+  });
+
+  it("compile_spec_handler_cache_miss_when_spec_content_changes", async () => {
+    const handler = createCompileSpecHandler({
+      toolInvocationLogStore,
+      clock,
+      idGenerator,
+      getSessionId: (): ReturnType<typeof toSessionId> =>
+        toSessionId("00000000-0000-7000-8000-000000000002"),
+      specificationCompiler,
+      specCompileCacheStore: memoryStore,
+      stringHasher: identityHasher,
+    });
+    const firstSpec = {
+      types: [
+        {
+          name: "Foo",
+          path: "src/foo.ts",
+          content: "export {}",
+          usage: "implements" as const,
+          estimatedTokens: 42,
+        },
+      ],
+      codeBlocks: [] as const,
+      prose: [] as const,
+    };
+    const secondSpec = {
+      ...firstSpec,
+      types: [
+        {
+          ...firstSpec.types[0],
+          content: "export const x = 1",
+        },
+      ],
+    };
+    const compileSpy = vi.spyOn(specificationCompiler, "compile");
+    try {
+      await handler({ spec: firstSpec, budget: 200 });
+      await handler({ spec: secondSpec, budget: 200 });
+      expect(compileSpy).toHaveBeenCalledTimes(2);
+    } finally {
+      compileSpy.mockRestore();
+    }
+  });
+
   it("compile_spec_handler_missing_spec_rejected", async () => {
     const handler = createCompileSpecHandler({
       toolInvocationLogStore,
@@ -166,6 +334,8 @@ describe("compile-spec-handler", () => {
       getSessionId: (): ReturnType<typeof toSessionId> =>
         toSessionId("00000000-0000-7000-8000-000000000002"),
       specificationCompiler,
+      specCompileCacheStore: memoryStore,
+      stringHasher: identityHasher,
     });
     const result = parseResult(await handler({}));
     expect(result["code"]).toBe("validation-error");
@@ -181,6 +351,8 @@ describe("compile-spec-handler", () => {
       getSessionId: (): ReturnType<typeof toSessionId> =>
         toSessionId("00000000-0000-7000-8000-000000000002"),
       specificationCompiler,
+      specCompileCacheStore: memoryStore,
+      stringHasher: identityHasher,
     });
     const types = Array.from({ length: 201 }, (_, i) => ({
       name: `N${i}`,
@@ -205,6 +377,8 @@ describe("compile-spec-handler", () => {
       getSessionId: (): ReturnType<typeof toSessionId> =>
         toSessionId("00000000-0000-7000-8000-000000000002"),
       specificationCompiler,
+      specCompileCacheStore: memoryStore,
+      stringHasher: identityHasher,
     });
     const payload = {
       spec: {
@@ -253,6 +427,8 @@ describe("compile-spec-handler", () => {
       getSessionId: (): ReturnType<typeof toSessionId> =>
         toSessionId("00000000-0000-7000-8000-000000000002"),
       specificationCompiler: mockCompiler,
+      specCompileCacheStore: memoryStore,
+      stringHasher: identityHasher,
     });
     await handler({ spec: { types: [], codeBlocks: [], prose: [] } });
     expect(order).toEqual(["compile-enter", "compile-after-tick"]);
@@ -267,6 +443,8 @@ describe("compile-spec-handler", () => {
       getSessionId: (): ReturnType<typeof toSessionId> =>
         toSessionId("00000000-0000-7000-8000-000000000002"),
       specificationCompiler,
+      specCompileCacheStore: memoryStore,
+      stringHasher: identityHasher,
     });
     const result = parseResult(
       await handler({ spec: { types: [], codeBlocks: [], prose: [] }, budget: -1 }),

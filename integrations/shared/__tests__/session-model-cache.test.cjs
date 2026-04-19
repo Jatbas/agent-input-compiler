@@ -147,6 +147,32 @@ function read_fallback_matches_full_file_when_conv_line_only_in_prefix() {
   }
 }
 
+function read_does_not_leak_concurrent_conversation() {
+  const dir = path.join(
+    os.tmpdir(),
+    `aic-session-cache-test-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
+  );
+  fs.mkdirSync(dir, { recursive: true });
+  try {
+    writeSessionModelCache(dir, "opus", "conv-opus", "cursor");
+    writeSessionModelCache(dir, "composer-2", "conv-auto", "cursor");
+    const forNew = readSessionModelCache(dir, "conv-new", "cursor");
+    const forAuto = readSessionModelCache(dir, "conv-auto", "cursor");
+    const forOpus = readSessionModelCache(dir, "conv-opus", "cursor");
+    assert.strictEqual(forNew, null);
+    assert.strictEqual(forAuto, "composer-2");
+    assert.strictEqual(forOpus, "opus");
+  } finally {
+    try {
+      fs.rmSync(path.join(dir, ".aic", "session-models.jsonl"), { force: true });
+      fs.rmdirSync(path.join(dir, ".aic"), { recursive: true });
+      fs.rmdirSync(dir, { recursive: true });
+    } catch {
+      // ignore cleanup errors
+    }
+  }
+}
+
 function write_skips_auto() {
   const dir = path.join(os.tmpdir(), `aic-session-cache-test-${Date.now()}`);
   fs.mkdirSync(dir, { recursive: true });
@@ -249,6 +275,7 @@ const cases = [
   read_filters_editorId,
   read_skips_invalid_line,
   read_fallback_matches_full_file_when_conv_line_only_in_prefix,
+  read_does_not_leak_concurrent_conversation,
   write_skips_auto,
   read_skips_auto_entries_from_file,
   read_returns_null_when_only_auto_entries_exist,
