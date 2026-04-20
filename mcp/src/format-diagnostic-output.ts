@@ -25,18 +25,14 @@ function renderStandardReport(parts: {
   readonly title: string;
   readonly hero: string;
   readonly rows: readonly string[];
-  readonly footnote: string;
+  readonly footnote?: string;
 }): string {
   const heroLines = parts.hero.split("\n");
-  return `${[
-    parts.title,
-    SEP,
-    ...heroLines,
-    SEP,
-    ...parts.rows,
-    SEP,
-    parts.footnote,
-  ].join("\n")}\n`;
+  const hasFootnote = parts.footnote !== undefined && parts.footnote.length > 0;
+  const lines: readonly string[] = hasFootnote
+    ? [parts.title, SEP, ...heroLines, SEP, ...parts.rows, SEP, parts.footnote]
+    : [parts.title, SEP, ...heroLines, SEP, ...parts.rows];
+  return `${lines.join("\n")}\n`;
 }
 
 function formatInt(n: number): string {
@@ -483,7 +479,6 @@ export function formatProjectsTable(
 ): string {
   const title = "Projects = known AIC projects.";
   const hero = projectsHeroLine(projects, clock);
-  const footnote = "Columns use fixed widths; MCP JSON lists full paths.";
   const w = 30;
   if (projects.length === 0) {
     const bodyRows: readonly string[] = [
@@ -492,7 +487,7 @@ export function formatProjectsTable(
       padRow("Last seen", "—", w),
       padRow("Compilations", "—", w),
     ];
-    return renderStandardReport({ title, hero, rows: bodyRows, footnote });
+    return renderStandardReport({ title, hero, rows: bodyRows });
   }
   const idW = 38;
   const pathW = 32;
@@ -509,7 +504,7 @@ export function formatProjectsTable(
     projectsRosterLine(p, clock, idW, pathW, seenW, cntW),
   );
   const bodyRows: readonly string[] = [header, ...dataLines];
-  return renderStandardReport({ title, hero, rows: bodyRows, footnote });
+  return renderStandardReport({ title, hero, rows: bodyRows });
 }
 
 function qualityPayloadNumber(payload: Record<string, unknown>, key: string): number {

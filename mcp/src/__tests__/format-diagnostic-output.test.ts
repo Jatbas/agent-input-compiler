@@ -28,14 +28,21 @@ function hasPaddedLabelRow(output: string, label: string): boolean {
   return output.split("\n").some((line) => line.startsWith(prefix));
 }
 
-function assertStandardReportLayout(output: string): void {
+function assertStandardReportLayout(
+  output: string,
+  options?: { footnote?: boolean },
+): void {
+  const expectFootnote = options?.footnote !== false;
   const lines = output.replace(/\n$/, "").split("\n");
   expect(lines[0]).toMatch(/^[A-Z][a-z-]+ = /);
   expect(lines[1]).toBe(SEP_LINE);
   expect(lines[2]).not.toBe(SEP_LINE);
   expect(lines[3]).toBe(SEP_LINE);
   const sepMatches = lines.filter((l) => l === SEP_LINE).length;
-  expect(sepMatches).toBeGreaterThanOrEqual(3);
+  expect(sepMatches).toBeGreaterThanOrEqual(expectFootnote ? 3 : 2);
+  if (!expectFootnote) {
+    expect(lines[lines.length - 1]).not.toBe(SEP_LINE);
+  }
 }
 
 const baseStatusPayload: Record<string, unknown> = {
@@ -222,9 +229,9 @@ describe("formatProjectsTable", () => {
   it("projects_empty_standard_layout", () => {
     const clock = fixedClock("2026-03-02T12:00:00.000Z");
     const out = formatProjectsTable([], clock);
-    assertStandardReportLayout(out);
+    assertStandardReportLayout(out, { footnote: false });
     expect(out).toContain("No projects registered yet.");
-    expect(out).toContain("Columns use fixed widths; MCP JSON lists full paths.");
+    expect(out).not.toContain("Columns use fixed widths; MCP JSON lists full paths.");
   });
 
   it("projects_roster_truncates_path_with_column_gaps", () => {
@@ -239,7 +246,7 @@ describe("formatProjectsTable", () => {
       },
     ];
     const out = formatProjectsTable(projects, clock);
-    assertStandardReportLayout(out);
+    assertStandardReportLayout(out, { footnote: false });
     expect(out).toContain("  ");
     expect(out).toContain("1 project(s); 3 compilations");
   });

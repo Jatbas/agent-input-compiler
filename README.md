@@ -52,7 +52,7 @@ The result is a smaller, more relevant, and more inspectable input.
 
 ### Real captured output
 
-The examples below mirror the **shared stdout frame** printed by the diagnostic CLI (`status`, `last`, `chat-summary`, `projects`, `quality` — or `pnpm aic` when developing this repo with `devMode`): each table starts with a title line and full-width rule, then a **hero** line (always present), another rule, fixed-width **body** rows (`padRow` labels are 30 characters wide except the multi-column **projects** roster), a closing rule, and a **footnote**. Values are **representative** (not a single verbatim session); totals come from your **local** database (`~/.aic/aic.sqlite`) and the **current project**, so your output will not match these figures exactly.
+The examples below mirror the **shared stdout frame** printed by the diagnostic CLI (`status`, `last`, `chat-summary`, `projects`, `quality` — or `pnpm aic` when developing this repo with `devMode`): each table starts with a title line and full-width rule, then a **hero** line (always present), another rule, fixed-width **body** rows (`padRow` labels are 30 characters wide except the multi-column **projects** roster), and an optional closing rule plus **footnote** (both omitted on the **projects** roster, which ends after its body rows). Values are **representative** (not a single verbatim session); totals come from your **local** database (`~/.aic/aic.sqlite`) and the **current project**, so your output will not match these figures exactly.
 
 #### `show aic status`
 
@@ -106,7 +106,7 @@ Chat = this conversation's AIC compilations.
 ──────────────────────────────────────────────────────────────────────────────
 AIC optimised context by intent across 42 compilations (88:1 ratio, 40.0% cache hit rate).
 ──────────────────────────────────────────────────────────────────────────────
-Project path                    /Users/dev/AIC
+Project path                    /dev/AIC
 Context builds                  42
 Repo size → context sent        8.80M → 100,000 (88:1 ratio)
 Tokens excluded                 5.00M
@@ -123,26 +123,41 @@ Avg context precision: % of repo content automatically filtered per context buil
 ```text
 Projects = known AIC projects.
 ──────────────────────────────────────────────────────────────────────────────
-2 project(s); 7,796 compilations; latest activity 2 min ago.
+1 project(s); 7,796 compilations; latest activity 2 min ago.
 ──────────────────────────────────────────────────────────────────────────────
 Project ID                              Path                              Last seen       Compilations
 018f0000-0000-7000-8000-00000000aa01    /Users/dev/AIC                    2 min ago              7,784
-018f0000-0000-7000-8000-00000000aa02    …p/other-long-repo-name-for-demo  2 min ago                 12
-──────────────────────────────────────────────────────────────────────────────
-Columns use fixed widths; MCP JSON lists full paths.
 ```
 
 #### `show aic quality`
 
-The CLI defaults to a **7-day** window when you omit flags (`show aic quality` or `aic quality`). With compilations in the window, the body also includes median rows, tier mix, task-class columns, optional sparklines, and the same multi-line glossary footnote shown below for the empty case.
-
 ```text
 Quality = context build quality metrics.
 ──────────────────────────────────────────────────────────────────────────────
-No compilations in this window. Send a coding message and try again.
+AIC optimised context by intent across 137 compilations in the last 7 days (median 99.6% filtered, 38.0% cache hit rate).
 ──────────────────────────────────────────────────────────────────────────────
 Time range                      Last 7 days
-Compilations                    0
+Compilations                    137
+──────────────────────────────────────────────────────────────────────────────
+Median context precision        99.6%
+Median selection ratio          1.1%
+Median budget used              3.1%
+Cache hit rate                  38.0%
+Tier mix
+  full          100.0%
+  sig+doc       0.0%
+  sigs          0.0%
+  names         0.0%
+Task class mix                  count  share     budget
+refactor                            4   2.9%       0.4%
+bugfix                             12   8.8%       0.7%
+feature                             9   6.6%       0.5%
+docs                               24  17.5%       3.1%
+test                                4   2.9%       0.7%
+general                            84  61.3%      14.6%
+Classifier mean                 7.5%
+Daily compilations              ▁▁▁▁▁▁█
+                                Tue Wed Thu Fri Sat Sun Mon
 ──────────────────────────────────────────────────────────────────────────────
 Context precision  % of repo content automatically filtered per context build.
 Selection ratio: % of repo files selected per build.
@@ -160,9 +175,7 @@ Classifier mean  Mean confidence of the task classifier (0-100%). Low values
                  are "general".
 ```
 
-### Selection detail (`show aic last`)
-
-When a persisted selection trace parses successfully, **`show aic last`** adds **Top files** and **Excluded by** digest rows in the body (after **Guard (this run)** when that row exists). The **last** sample above omits those rows for brevity. Use MCP **`aic_last`** JSON for the full structured **`selection`** payload.
+> The CLI defaults to a **7-day** window when you omit flags (`show aic quality` or `aic quality`). With compilations in the window, the body also includes median rows, tier mix, task-class columns, optional sparklines, and the same multi-line glossary footnote shown below for the empty case.
 
 ---
 
