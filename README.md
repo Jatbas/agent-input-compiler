@@ -172,7 +172,7 @@ show aic status         # project-level status and lifetime stats
 show aic last           # most recent compilation (table); MCP JSON may include selection trace
 show aic chat summary   # per-conversation compilation stats for this workspace
 show aic projects       # known AIC projects (IDs, paths, last seen, compilation counts)
-show aic quality        # rolling-window compile transparency metrics (default 30 days; pass --window <1-365>)
+show aic quality        # rolling-window compile transparency metrics (default 7 days; pass --window <1-365>)
 run aic model test      # MCP-only: agent capability probe (aic_model_test + aic_compile)
 ```
 

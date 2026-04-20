@@ -4,7 +4,7 @@
 import { z } from "zod";
 
 const qualityReportRequestShape = {
-  windowDays: z.number().int().min(1).max(365).optional(),
+  windowDays: z.number().int().min(1).max(365).optional().default(7),
 } as const;
 
 export const QualityReportRequestSchema: typeof qualityReportRequestShape =

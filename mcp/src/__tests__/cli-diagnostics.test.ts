@@ -224,14 +224,51 @@ describe("cli-diagnostics", () => {
       .spyOn(process, "exit")
       .mockImplementation(() => undefined as never);
     vi.spyOn(process.stderr, "write").mockImplementation(() => true);
-    runCliDiagnosticsAndExit(["quality", "--window", "7", "--project", projectTmp]);
+    runCliDiagnosticsAndExit(["quality", "--project", projectTmp]);
     await vi.waitFor(() => {
       expect(exitMock).toHaveBeenCalledWith(0);
     });
     const out = chunks.join("");
     const physicalLines = out.split("\n").filter((line) => line.length > 0);
-    expect(physicalLines.length).toBeLessThanOrEqual(27);
+    expect(physicalLines.length).toBeLessThanOrEqual(45);
     expect(out).toContain("Last 7 days");
+    fs.rmSync(homeTmp, { recursive: true, force: true });
+    fs.rmSync(projectTmp, { recursive: true, force: true });
+  });
+
+  it("cli_quality_zero_compilations_omits_sections", async () => {
+    const homeTmp = fs.mkdtempSync(path.join(os.tmpdir(), "aic-cli-home-"));
+    const aicDir = path.join(homeTmp, ".aic");
+    fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
+    const dbPath = path.join(aicDir, "aic.sqlite");
+    const clock = new SystemClock();
+    const db = openDatabase(dbPath, clock);
+    const pid = toProjectId("018f0000-0000-7000-8000-00000000aa06");
+    const projectTmp = fs.mkdtempSync(path.join(os.tmpdir(), "aic-cli-proj-"));
+    const normalised = new NodePathAdapter().normalise(toAbsolutePath(projectTmp));
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(pid, normalised, "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z");
+    closeDatabase(db);
+    process.env["HOME"] = homeTmp;
+    process.chdir(projectTmp);
+    const chunks: string[] = [];
+    vi.spyOn(process.stdout, "write").mockImplementation((msg) => {
+      chunks.push(String(msg));
+      return true;
+    });
+    const exitMock = vi
+      .spyOn(process, "exit")
+      .mockImplementation(() => undefined as never);
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    runCliDiagnosticsAndExit(["quality", "--project", projectTmp]);
+    await vi.waitFor(() => {
+      expect(exitMock).toHaveBeenCalledWith(0);
+    });
+    const out = chunks.join("");
+    expect(out).not.toContain("Tier mix");
+    expect(out).not.toContain("Task class mix");
+    expect(out).not.toContain("Daily compilations");
     fs.rmSync(homeTmp, { recursive: true, force: true });
     fs.rmSync(projectTmp, { recursive: true, force: true });
   });

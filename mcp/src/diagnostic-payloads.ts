@@ -393,6 +393,7 @@ function seriesDailyFromRows(
     const compileBucket = bucket.filter((r) => !r.cacheHit);
     return {
       day,
+      compilations: bucket.length,
       medianTokenReduction: medianRatio(
         compileBucket.map((r) => Number(r.tokenReductionRatio)),
       ),

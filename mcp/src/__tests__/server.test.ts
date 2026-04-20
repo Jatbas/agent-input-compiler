@@ -166,7 +166,7 @@ describe("MCP server", () => {
       windowDays?: number;
       compilations?: number;
     };
-    expect(parsed.windowDays).toBe(30);
+    expect(parsed.windowDays).toBe(7);
     expect(typeof parsed.compilations).toBe("number");
   });
 

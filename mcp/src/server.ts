@@ -498,10 +498,7 @@ export function createMcpServer(
     (args) => {
       try {
         const parsed = z.object(QualityReportRequestSchema).parse(args);
-        const windowDaysResolved =
-          parsed.windowDays === undefined
-            ? 30
-            : toQualityReportWindowDays(parsed.windowDays);
+        const windowDaysResolved = toQualityReportWindowDays(parsed.windowDays);
         const payload = buildQualityReportPayload({
           projectId: startupScope.projectId,
           db: startupScope.db,

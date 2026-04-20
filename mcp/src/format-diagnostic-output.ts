@@ -433,15 +433,139 @@ function qualityPayloadNumber(payload: Record<string, unknown>, key: string): nu
 }
 
 const QUALITY_FOOTNOTE = [
-  "Token reduction: % of repo content excluded per build — higher means better context precision.",
+  "Context precision  % of repo content automatically filtered per context build.",
   "Selection ratio: % of repo files selected per build.",
   "Budget used: % of token budget consumed per build.",
   "Cache hit rate: % of builds served from cache without recompiling.",
   "Tiers: full = entire file · sig+doc = signatures + docs · sigs = signatures only · names = symbol names only.",
+  "Compilations     Builds AIC performed in this window (cache hits included).",
+  "Task class mix   How AIC classified each build, with its share and median",
+  '                 token budget used. Higher "budget" means AIC allocated',
+  '                 more context for that task type. "general" is the',
+  "                 classifier's fallback when confidence is low.",
+  "Classifier mean  Mean confidence of the task classifier (0-100%). Low values",
+  '                 mean frequent fallback to "general" — not a quality',
+  "                 problem by itself, but worth noting when most builds",
+  '                 are "general".',
 ].join("\n");
 
 // sub-item width shared across tier and class rows so values align in one column
 const QUALITY_SUB_W = 14;
+
+const SPARK_STEPS = "▁▂▃▄▅▆▇█";
+
+function renderSparkline(nums: readonly number[]): string {
+  if (nums.length === 0) {
+    return "";
+  }
+  const max = Math.max(...nums);
+  if (max === 0) {
+    return nums.reduce((acc) => `${acc}·`, "");
+  }
+  return nums.reduce((acc, n) => {
+    const idx = Math.min(7, Math.round((n / max) * 7));
+    const ch = SPARK_STEPS.charAt(idx);
+    return `${acc}${ch}`;
+  }, "");
+}
+
+function padMultiCol(
+  label: string,
+  values: readonly string[],
+  labelWidth: number,
+  valueWidths: readonly number[],
+): string {
+  const padded = values.reduce((acc: string, v, i) => {
+    const width = valueWidths[i] ?? 0;
+    const cell = v.length > width ? v : v.padStart(width, " ");
+    const sep = i === 0 ? "" : " ";
+    return `${acc}${sep}${cell}`;
+  }, "");
+  return `${label.padEnd(labelWidth, " ")}  ${padded}`;
+}
+
+function utcDayStringsChronologicalWindow(
+  endDayInclusive: string,
+  windowSize: number,
+): readonly string[] {
+  const pad2 = (n: number): string => (n < 10 ? `0${String(n)}` : String(n));
+  const daysInMonthUtcLocal = (year: number, month1to12: number): number => {
+    if (month1to12 === 2) {
+      const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+      return leap ? 29 : 28;
+    }
+    if (month1to12 === 4 || month1to12 === 6 || month1to12 === 9 || month1to12 === 11) {
+      return 30;
+    }
+    return 31;
+  };
+  const decrement = (day: string): string => {
+    const segs = day.split("-");
+    const y = Number(segs[0]);
+    const mo = Number(segs[1]);
+    const d = Number(segs[2]);
+    if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) {
+      return day;
+    }
+    if (d > 1) {
+      return `${String(y)}-${pad2(mo)}-${pad2(d - 1)}`;
+    }
+    if (mo > 1) {
+      const prevMo = mo - 1;
+      const dimPrev = daysInMonthUtcLocal(y, prevMo);
+      return `${String(y)}-${pad2(prevMo)}-${pad2(dimPrev)}`;
+    }
+    return `${String(y - 1)}-12-31`;
+  };
+  const increment = (day: string): string => {
+    const segs = day.split("-");
+    const y = Number(segs[0]);
+    const mo = Number(segs[1]);
+    const d = Number(segs[2]);
+    if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) {
+      return day;
+    }
+    const dim = daysInMonthUtcLocal(y, mo);
+    if (d < dim) {
+      return `${String(y)}-${pad2(mo)}-${pad2(d + 1)}`;
+    }
+    if (mo < 12) {
+      return `${String(y)}-${pad2(mo + 1)}-01`;
+    }
+    return `${String(y + 1)}-01-01`;
+  };
+  const enumerateInclusive = (startDay: string, endDay: string): readonly string[] => {
+    if (startDay > endDay) {
+      return [];
+    }
+    const step = (current: string): readonly string[] =>
+      current === endDay ? [current] : [current, ...step(increment(current))];
+    return step(startDay);
+  };
+  const safeSize = Math.max(1, windowSize);
+  const startDay = Array.from({ length: Math.max(0, safeSize - 1) }, () => 0).reduce(
+    (d: string) => decrement(d),
+    endDayInclusive,
+  );
+  return enumerateInclusive(startDay, endDayInclusive);
+}
+
+function utcWeekdayAbbrevFromUtcDay(day: string): string {
+  const segs = day.split("-").map((s) => Number(s));
+  const y = segs[0] ?? 0;
+  const m = segs[1] ?? 1;
+  const d = segs[2] ?? 1;
+  const t = [0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4];
+  const yy = m < 3 ? y - 1 : y;
+  const monthIdx = m >= 1 && m <= 12 ? m - 1 : 0;
+  const tVal = t[monthIdx];
+  const coeff = tVal ?? 0;
+  const rawIdx =
+    yy + Math.floor(yy / 4) - Math.floor(yy / 100) + Math.floor(yy / 400) + coeff + d;
+  const idx = ((rawIdx % 7) + 7) % 7;
+  const names = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+  return names[idx] ?? "???";
+}
 
 function qualityTierMixRows(tier: unknown): readonly string[] {
   if (tier === null || typeof tier !== "object" || Array.isArray(tier)) {
@@ -464,40 +588,33 @@ function qualityTierMixRows(tier: unknown): readonly string[] {
   ];
 }
 
-function qualityByClassRows(byTaskClass: unknown): readonly string[] {
-  if (
-    byTaskClass === null ||
-    typeof byTaskClass !== "object" ||
-    Array.isArray(byTaskClass)
-  ) {
-    return ["By task class", padRow("  —", "—", QUALITY_SUB_W)];
-  }
-  const rec = byTaskClass as Record<string, unknown>;
-  const classRows = (Object.values(TASK_CLASS) as readonly string[]).map((tc) => {
-    const cell = rec[tc];
-    const c =
-      cell === null || typeof cell !== "object" || Array.isArray(cell)
-        ? 0
-        : Math.round(
-            qualityPayloadNumber(cell as Record<string, unknown>, "compilations"),
-          );
-    return padRow(`  ${tc}`, String(c), QUALITY_SUB_W);
-  });
-  return ["By task class", ...classRows];
-}
-
 export function formatQualityReportLines(
   payload: Record<string, unknown>,
   clock: Clock,
 ): string {
-  void clock;
-  const w = 24;
+  const w = 30;
   const windowDays = Math.round(qualityPayloadNumber(payload, "windowDays"));
   const compilations = Math.round(qualityPayloadNumber(payload, "compilations"));
   const mTr = qualityPayloadNumber(payload, "medianTokenReduction");
   const mSel = qualityPayloadNumber(payload, "medianSelectionRatio");
   const mBu = qualityPayloadNumber(payload, "medianBudgetUtilisation");
   const cacheHit = qualityPayloadNumber(payload, "cacheHitRate");
+  const title = "Quality = context build quality metrics.";
+  const idle = "No compilations in this window. Send a coding message and try again.";
+  if (compilations === 0) {
+    return (
+      [
+        title,
+        SEP,
+        padRow("Time range", statusTimeRangeValue(windowDays), w),
+        padRow("Compilations", formatInt(0), w),
+        idle,
+        SEP,
+      ].join("\n") + "\n"
+    );
+  }
+  const hero = `AIC optimised context by intent across ${formatInt(compilations)} compilations in the last ${String(windowDays)} days (median ${formatPct1(mTr * 100)} filtered, ${formatPct1(cacheHit * 100)} cache hit rate).`;
+  const heroRows: readonly string[] = [SEP, hero, SEP];
   const cc = payload["classifierConfidence"];
   const classifierRows: readonly string[] =
     cc !== null &&
@@ -512,19 +629,79 @@ export function formatQualityReportLines(
           ),
         ]
       : [];
+  const byTaskClass = payload["byTaskClass"];
+  const valueWidths = [5, 6, 10] as const;
+  const taskClassHeader = padMultiCol(
+    "Task class mix",
+    ["count", "share", "budget"],
+    w,
+    valueWidths,
+  );
+  const taskClassRows: readonly string[] = (() => {
+    if (
+      byTaskClass === null ||
+      typeof byTaskClass !== "object" ||
+      Array.isArray(byTaskClass)
+    ) {
+      return [padMultiCol("—", ["—", "—", "—"], w, valueWidths)];
+    }
+    const rec = byTaskClass as Record<string, unknown>;
+    return (Object.values(TASK_CLASS) as readonly string[]).map((tc) => {
+      const cell = rec[tc];
+      const stratum =
+        cell !== null && typeof cell === "object" && !Array.isArray(cell)
+          ? (cell as Record<string, unknown>)
+          : null;
+      const cCount =
+        stratum === null ? 0 : Math.round(qualityPayloadNumber(stratum, "compilations"));
+      const budgetU =
+        stratum === null ? 0 : qualityPayloadNumber(stratum, "medianBudgetUtilisation");
+      const countStr = formatInt(cCount);
+      const shareStr = formatPct1(cCount === 0 ? 0 : (cCount / compilations) * 100);
+      const budgetStr = cCount === 0 ? "—" : formatPct1(budgetU * 100);
+      return padMultiCol(tc, [countStr, shareStr, budgetStr], w, valueWidths);
+    });
+  })();
+  const endDayInclusive = clock.now().slice(0, 10);
+  const windowDayStrings = utcDayStringsChronologicalWindow(endDayInclusive, windowDays);
+  const seriesDaily = payload["seriesDaily"];
+  const dayToCount = new Map<string, number>();
+  if (Array.isArray(seriesDaily)) {
+    for (const item of seriesDaily) {
+      if (item === null || typeof item !== "object" || Array.isArray(item)) {
+        continue;
+      }
+      const rec2 = item as Record<string, unknown>;
+      const day = String(rec2["day"] ?? "");
+      if (day.length > 0) {
+        dayToCount.set(day, Math.round(qualityPayloadNumber(rec2, "compilations")));
+      }
+    }
+  }
+  const sparkCounts = windowDayStrings.map((d) => dayToCount.get(d) ?? 0);
+  const spark = renderSparkline(sparkCounts);
+  const weekdayLine = padRow(
+    "",
+    windowDayStrings.map((d) => utcWeekdayAbbrevFromUtcDay(d)).join(" "),
+    w,
+  );
+  const dailyRows: readonly string[] =
+    spark.length === 0 ? [] : [padRow("Daily compilations", spark, w), weekdayLine];
   const rows: readonly string[] = [
-    "Quality = context build quality metrics.",
-    SEP,
+    title,
+    ...heroRows,
     padRow("Time range", statusTimeRangeValue(windowDays), w),
     padRow("Compilations", formatInt(compilations), w),
     SEP,
-    padRow("Median token reduction", formatPct1(mTr * 100), w),
+    padRow("Median context precision", formatPct1(mTr * 100), w),
     padRow("Median selection ratio", formatPct1(mSel * 100), w),
     padRow("Median budget used", formatPct1(mBu * 100), w),
     padRow("Cache hit rate", formatPct1(cacheHit * 100), w),
     ...qualityTierMixRows(payload["tierDistribution"]),
-    ...qualityByClassRows(payload["byTaskClass"]),
+    taskClassHeader,
+    ...taskClassRows,
     ...classifierRows,
+    ...dailyRows,
   ];
   return `${rows.join("\n")}\n${SEP}\n${QUALITY_FOOTNOTE}\n`;
 }

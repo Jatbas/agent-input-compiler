@@ -99,6 +99,7 @@ const goldenPayload: Record<string, unknown> = {
   seriesDaily: [
     {
       day: "2026-02-28",
+      compilations: 0,
       medianTokenReduction: 0,
       medianSelectionRatio: 0,
       medianBudgetUtilisation: 0,
@@ -106,6 +107,7 @@ const goldenPayload: Record<string, unknown> = {
     },
     {
       day: "2026-03-01",
+      compilations: 2,
       medianTokenReduction: 0.1,
       medianSelectionRatio: 0.2,
       medianBudgetUtilisation: 0.3,
@@ -113,6 +115,7 @@ const goldenPayload: Record<string, unknown> = {
     },
     {
       day: "2026-03-02",
+      compilations: 1,
       medianTokenReduction: 0,
       medianSelectionRatio: 0,
       medianBudgetUtilisation: 0.7,
@@ -265,6 +268,10 @@ describe("quality report payload", () => {
     expect(() =>
       z.object(QualityReportRequestSchema).parse({ windowDays: 400 }),
     ).toThrow();
+  });
+
+  it("quality_report_request_default_window", () => {
+    expect(z.object(QualityReportRequestSchema).parse({})).toEqual({ windowDays: 7 });
   });
 
   it("toQualityReportWindowDays_clamps", () => {
