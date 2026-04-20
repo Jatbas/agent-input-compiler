@@ -93,7 +93,7 @@ The base64 payload decodes to:
 
 ### Prerequisite
 
-The AIC MCP server must be runnable as `npx -y @jatbas/aic@latest` (Node.js 24.x — matches `engines.node`; running under a different Node major fails the install because `better-sqlite3` ships ABI-specific prebuilt binaries). Ensure Node is installed and the package is reachable before relying on the deeplink or hooks.
+The AIC MCP server must be runnable as `npx -y @jatbas/aic@latest` (Node.js >= 22 — matches `engines.node`; older Node majors fail at runtime because `better-sqlite3` ships ABI-specific prebuilt binaries and the MCP startup preflight refuses to continue). Ensure Node is installed and the package is reachable before relying on the deeplink or hooks.
 
 ### What the Deeplink Does
 
@@ -203,7 +203,7 @@ Run `node integrations/claude/install.cjs` from the AIC repo (or from a path whe
 
 ### Prerequisite
 
-The AIC MCP server must be runnable as `npx -y @jatbas/aic@latest` (Node.js 24.x), same as Cursor. Ensure the package is reachable from your network before relying on hooks or the compile flow. The plugin path uses this under the hood; the direct installer path assumes you are in the AIC repo or have the server on your path. In minimal or remote setups where the process cwd is not the project root, `CLAUDE_PROJECT_DIR` may be set by the environment (see [Environment variables](#environment-variables)) — analogous to `CURSOR_PROJECT_DIR` for Cursor.
+The AIC MCP server must be runnable as `npx -y @jatbas/aic@latest` (Node.js >= 22), same as Cursor. Ensure the package is reachable from your network before relying on hooks or the compile flow. The plugin path uses this under the hood; the direct installer path assumes you are in the AIC repo or have the server on your path. In minimal or remote setups where the process cwd is not the project root, `CLAUDE_PROJECT_DIR` may be set by the environment (see [Environment variables](#environment-variables)) — analogous to `CURSOR_PROJECT_DIR` for Cursor.
 
 ### Trigger Rule
 
@@ -534,7 +534,7 @@ node /path/to/node_modules/@jatbas/aic/integrations/cursor/uninstall.cjs --proje
 
 The repository commits `integrations/aic-uninstall-standalone.cjs`, a single CommonJS bundle produced by the build (`node mcp/scripts/bundle-standalone-uninstall.cjs`). After `pnpm --filter @jatbas/aic build`, a copy also lands at `mcp/integrations/aic-uninstall-standalone.cjs` for the published package tree.
 
-1. Use Node.js 24.x (matches the pinned `engines.node`; the standalone uninstall bundle inlines a CommonJS helper but still shares the `better-sqlite3` ABI constraints described in the root README).
+1. Use Node.js >= 22 (matches the pinned `engines.node`; the standalone uninstall bundle inlines a CommonJS helper but still shares the `better-sqlite3` ABI constraints described in the root README).
 2. Download the file:
 
    ```bash

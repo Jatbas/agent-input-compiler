@@ -29,9 +29,16 @@ concurrency:
 
 jobs:
   quality:
-    name: Lint · Typecheck · Test
+    name: Lint · Typecheck · Test (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22, 24]
+        # 22 = reference (matches .nvmrc, engines floor, Cursor's bundled helper);
+        # 24 = forward-compatibility lane so we catch regressions before LTS bump.
 
     steps:
       - name: Checkout
@@ -43,7 +50,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 24
+          node-version: ${{ matrix.node-version }}
           cache: pnpm
 
       - name: Install dependencies

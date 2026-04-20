@@ -104,7 +104,7 @@ Context window used: % of token budget filled.
 
 ## Quick start
 
-Requirements: Node.js 24.x (see `.nvmrc`).
+Requirements: Node.js >= 22 (see `.nvmrc` for the reference Node major used to develop and test AIC).
 
 ### Cursor
 
@@ -141,7 +141,7 @@ AIC requires a dedicated integration layer to compile context automatically. Cur
 
 ## Uninstall
 
-Use Node.js 24.x (matching `engines.node`). Download the standalone uninstall script:
+Use Node.js >= 22 (matching `engines.node`). Download the standalone uninstall script:
 
 ```bash
 curl -fsSL -o aic-uninstall-standalone.cjs https://raw.githubusercontent.com/Jatbas/agent-input-compiler/main/integrations/aic-uninstall-standalone.cjs

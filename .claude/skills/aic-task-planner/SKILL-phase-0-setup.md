@@ -35,12 +35,12 @@ Run after §0b confirms task planning. **Skip** if §0b classified as analysis-o
 4. Install dependencies in the worktree (needed for `.d.ts` reads during exploration):
 
    ```
-   source .claude/skills/shared/scripts/ensure-node24.sh && pnpm install
+   source .claude/skills/shared/scripts/ensure-supported-node.sh && pnpm install
    ```
 
    Run with `working_directory` set to the worktree absolute path.
 
-   **Node 24 shim — prefix every `pnpm` or `node` invocation.** Cursor ships a bundled Node 22 on `PATH` that triggers `ERR_PNPM_UNSUPPORTED_ENGINE` under this repo's pinned Node 24.x + `engine-strict=true`. Each agent `Shell` call spawns a fresh shell — env vars do **not** persist — so prefix every subsequent pnpm/node invocation in later phases with `source .claude/skills/shared/scripts/ensure-node24.sh && ...`.
+   **Supported-Node shim — prefix every `pnpm` or `node` invocation.** The repo pins `engines.node=">=22"` with `.npmrc engine-strict=true`. Cursor's bundled Node 22 already satisfies the floor, so the shim is a no-op under normal Cursor shells; it only mutates `PATH` when the active Node is older than 22 (e.g. a system Node pushed onto PATH by another tool). Each agent `Shell` call spawns a fresh shell — env vars do **not** persist — so prefix every subsequent pnpm/node invocation in later phases with `source .claude/skills/shared/scripts/ensure-supported-node.sh && ...`. **Concurrent-agent caveat:** `better-sqlite3` rebuilds its native binary for the active Node major on every `pnpm install`, so two agents running on different Node majors on the same repo will fight over that binary — keep concurrent agents on the same Node major.
 
 5. **All planning work happens in the worktree.** Use worktree paths for all tools. Task files use `$EPOCH` as temporary identifier — final NNN assigned in §6. Task files are gitignored — §6 copies to main workspace.
 

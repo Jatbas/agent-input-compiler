@@ -24,7 +24,7 @@ Contributions are welcome. This guide is for people **developing the AIC codebas
 
 ## Development setup
 
-Node.js 24.x (see `.nvmrc`) and pnpm are required. Other Node majors are rejected by the `engines` field in `package.json` and the `engine-strict=true` guardrail in `.npmrc` because the `better-sqlite3` native binding is pinned to this ABI; the MCP server additionally runs a startup preflight that surfaces the same mismatch at runtime.
+Node.js >= 22 and pnpm are required. Older Node majors are rejected by the `engines` field in `package.json` (and the `engine-strict=true` guardrail in `.npmrc`) because `better-sqlite3` only ships prebuilt binaries for recent Node ABIs; the MCP server additionally runs a startup preflight that prints an actionable message when Node is too old or when a `better-sqlite3` ABI mismatch is detected. See `.nvmrc` for the reference Node major used to develop and test AIC.
 
 ### 1. Clone and install dependencies
 
