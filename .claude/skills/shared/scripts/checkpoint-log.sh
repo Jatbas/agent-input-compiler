@@ -95,6 +95,71 @@ enforce_minimum_gap "aic-task-planner" "exploration-complete" "task-finalized" 5
 enforce_minimum_gap "aic-task-planner" "task-picked" "exploration-complete" 5
 enforce_minimum_gap "aic-task-planner" "setup-complete" "task-picked" 1
 
+GATE_LOG=.aic/gate-log.jsonl
+GATE_WINDOW_SECONDS=1800
+
+require_recent_gate_ok() {
+  local expected_skill="$1"
+  local expected_phase="$2"
+  local expected_gate="$3"
+
+  [[ "$SKILL" == "$expected_skill" && "$PHASE" == "$expected_phase" ]] || return 0
+
+  if [[ "${CHECKPOINT_ALLOW_NO_GATE:-}" == "1" ]]; then
+    echo "checkpoint-log: WARNING ${expected_skill} ${expected_phase} without ${expected_gate} record (bypass via CHECKPOINT_ALLOW_NO_GATE=1)" >&2
+    return 0
+  fi
+
+  if [[ ! -f "$GATE_LOG" ]]; then
+    cat >&2 <<EOF
+checkpoint-log: rejecting ${expected_skill} ${expected_phase} — $GATE_LOG does not exist.
+checkpoint-log: run the pre-checkpoint gate first:
+checkpoint-log:   bash .claude/skills/shared/scripts/${expected_gate}.sh <task-file>
+checkpoint-log: the gate must exit 0 and write a success record before this checkpoint is accepted.
+checkpoint-log: emergency bypass: CHECKPOINT_ALLOW_NO_GATE=1 (leaves an audit trail in skill-log.jsonl).
+EOF
+    exit 3
+  fi
+
+  local last_line=""
+  last_line=$(grep -F "\"gate\":\"${expected_gate}\"" "$GATE_LOG" 2>/dev/null | grep -F "\"status\":\"ok\"" | tail -1) || last_line=""
+
+  if [[ -z "$last_line" ]]; then
+    cat >&2 <<EOF
+checkpoint-log: rejecting ${expected_skill} ${expected_phase} — no successful ${expected_gate} record in $GATE_LOG.
+checkpoint-log: run: bash .claude/skills/shared/scripts/${expected_gate}.sh <task-file>
+checkpoint-log: it must exit 0 before this checkpoint is accepted.
+checkpoint-log: emergency bypass: CHECKPOINT_ALLOW_NO_GATE=1.
+EOF
+    exit 3
+  fi
+
+  local last_ts=""
+  last_ts=$(printf '%s' "$last_line" | sed -n 's/.*"ts":"\([^"]*\)".*/\1/p')
+  [[ -n "$last_ts" ]] || return 0
+
+  local last_epoch=""
+  last_epoch=$(parse_iso_utc "$last_ts") || last_epoch=""
+  [[ -n "$last_epoch" ]] || return 0
+
+  local now_epoch
+  now_epoch=$(date -u +%s)
+  local delta=$((now_epoch - last_epoch))
+
+  if [[ "$delta" -gt "$GATE_WINDOW_SECONDS" ]]; then
+    cat >&2 <<EOF
+checkpoint-log: rejecting ${expected_skill} ${expected_phase} — last ${expected_gate} success is ${delta}s old (window ${GATE_WINDOW_SECONDS}s).
+checkpoint-log: the task file may have been edited since the last gate run. Re-run:
+checkpoint-log:   bash .claude/skills/shared/scripts/${expected_gate}.sh <task-file>
+checkpoint-log: emergency bypass: CHECKPOINT_ALLOW_NO_GATE=1.
+EOF
+    exit 3
+  fi
+}
+
+require_recent_gate_ok "aic-task-planner"  "task-finalized" "planner-gate"
+require_recent_gate_ok "aic-task-executor" "setup-complete" "executor-preflight"
+
 ART=$(printf '%s' "$ARTIFACT" | sed 's/\\/\\\\/g; s/"/\\"/g')
 
 printf '{"ts":"%s","skill":"%s","phase":"%s","artifact":"%s","status":"%s"}\n' \

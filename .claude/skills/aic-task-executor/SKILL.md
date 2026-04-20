@@ -13,6 +13,9 @@ editors: all (Cursor Composer / Agent recommended for full fidelity)
 - **Outputs:** Committed changes in an isolated worktree, squash-merged to `main` on a clean finalize (main workspace is checked out on `main` during §6b); task file moved to `done/`; `aic-progress.md` updated.
 - **Non-skippable steps:** Setup → Implement → Verify → Finalize (progress update + merge).
 - **Mechanical gates:**
+  Pre-flight (§2, before any code is written — independently re-runs the planner's Pass 2 gates):
+  `bash .claude/skills/shared/scripts/executor-preflight.sh <task-file>` — single entry point that runs `ambiguity-scan.sh` and `deferral-probe.sh` in order, halts on first non-zero exit, and appends a `{ "gate": "executor-preflight", "status": "ok"|"fail" }` record to `.aic/gate-log.jsonl`. `checkpoint-log.sh` rejects the executor's `setup-complete` checkpoint unless this record is present within the last 30 minutes (emergency bypass `CHECKPOINT_ALLOW_NO_GATE=1` leaves an audit trail).
+  Toolchain (§4a, before merge):
   `pnpm lint && pnpm typecheck && pnpm test && pnpm knip && pnpm lint:clones` — must all pass before merge. (QUICK CARD lists the full chain in §4a order; §4a is authoritative if they ever drift.)
 - **Checkpoint lines:** After each phase, emit `CHECKPOINT: aic-task-executor/<phase> — complete` and call `checkpoint-log.sh`. Four checkpoint lines for code or mixed tasks (setup, implementation, verification, finalized); three for pure-documentation tasks (setup, implementation, finalized — Phase 4 is skipped, see Process overview note).
 - **Degraded mode:** For code tasks, all work is sequential (no subagents). For documentation / mixed tasks, §4-doc / §4-mixed dispatch the documentation-writer Phase 3 critic pipeline — see §Subagent dispatch below.
@@ -31,6 +34,7 @@ editors: all (Cursor Composer / Agent recommended for full fidelity)
 5. Follow the task file literally. If an instruction is ambiguous, stop and tell the user; do not guess.
 6. Verify external assumptions before implementing (read the actual `.d.ts`, run the actual tool, query the actual database).
 7. Evidence before claims: never report "fixed" or "passes" without fresh output from this run.
+8. Pre-flight mechanical gates are non-optional. Run `bash .claude/skills/shared/scripts/executor-preflight.sh <task-file>` in §2 before internalizing design decisions. Exit 1 = stop and tell the user; do not execute. The wrapper writes a success record to `.aic/gate-log.jsonl` and `checkpoint-log.sh` refuses to accept `setup-complete` without a fresh record — so skipping the gate is also a checkpoint violation. This is defense in depth against planner pass-through failures — the executor is the last line of defence before the task lands in production.
 
 ## GUIDANCE
 
@@ -41,7 +45,7 @@ editors: all (Cursor Composer / Agent recommended for full fidelity)
 
 Run as a single continuous flow. Do not pause to announce each step. Do not paraphrase the task file back to the user. The only points you stop and ask the user are:
 
-- **Pre-flight blocker** — a check in §1 fails: missing template, task status not `Pending`, dependency not `Done`, ambiguity scan matched, prerequisite mismatch, HEAD mismatch after worktree creation, or an unverifiable external assumption (§2.5).
+- **Pre-flight blocker** — a check in §1 fails: missing template, task status not `Pending`, dependency not `Done`, `executor-preflight.sh` exit 1 (either sub-gate — ambiguity-scan or deferral-probe — fired), prerequisite mismatch, HEAD mismatch after worktree creation, or an unverifiable external assumption (§2.5).
 - **Ambiguous instruction** — a step cannot be executed literally.
 - **Verification failure** — the full toolchain gate in §4a fails and you cannot resolve it within 3 attempts (then use `aic-systematic-debugging`). A per-step `Verify` (§3) that cannot be fixed after 2 attempts is a **Blocked diagnostic** — see Blocked Handling below.
 - **Blocked diagnostic** — three failed per-step `Verify` attempts, a circuit-breaker trip (§3), or a structural issue exposed by §4. Report the state and stop.
@@ -101,6 +105,7 @@ Subagent use is scoped by task mode:
 
 Success path (merged):
 
+- [ ] Pre-flight `executor-preflight.sh` exited 0 on the task file before implementation began (HARD RULE 8), with a matching `"gate":"executor-preflight","status":"ok"` record in `.aic/gate-log.jsonl` that `checkpoint-log.sh` accepted before `setup-complete` fired.
 - [ ] Task file moved to `documentation/tasks/done/` with `Status: Done`.
 - [ ] `aic-progress.md` updated on the main workspace (not inside the worktree).
 - [ ] Commits follow `type(scope): description`, ≤ 72 chars.

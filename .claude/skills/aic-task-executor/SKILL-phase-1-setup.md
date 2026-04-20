@@ -61,18 +61,22 @@ Before writing any code, absorb these sections from the pre-read task file.
 
 **Quick doc-mode pre-check.** The task file's `Layer:` header field was in the §1 pre-read. If it says `documentation`, skip directly to §2b now — the code-specific internalization below does not apply.
 
-**Task quality gate — scan for ambiguity before absorbing design decisions:**
+**Task quality gate — run the mechanical pre-flight wrapper before absorbing design decisions (defense in depth — the planner is supposed to run the equivalent gates in Pass 2 §C.5, but the executor independently re-runs them so planner skips cannot silently ship):**
 
-Before internalizing any section, scan every non-code instruction sentence in the Steps section, Verify lines, and test descriptions. Flag any sentence containing patterns from these categories:
+Run the wrapper against the task file (not the worktree copy — the task file lives on the main workspace because `documentation/tasks/` is gitignored):
 
-- **Hedging:** "if needed/necessary/as needed", "may/might/could/should work", "probably/likely/possibly/potentially/perhaps", "try to/ideally/preferably/feel free"
-- **Examples-as-instructions:** "e.g./for example/such as/something like/or similar/or equivalent/some kind of"
-- **Delegation:** "decide whether/choose between/depending on/up to you/alternatively/whichever/whatever works"
-- **Vague qualifiers / state hedges:** "appropriate/suitable/reasonable/etc.", "if not present/already/doesn't exist"
-- **Escape clauses / false alternatives:** "or skip/ignore/leave for later", "if/where possible", " or " presenting two choices
-- **Parenthesized hedges:** any `(...)` containing the above patterns
+```
+bash .claude/skills/shared/scripts/executor-preflight.sh <task-file>
+```
 
-If any match: **stop and tell the user.** List each ambiguous sentence and what decision it requires.
+`executor-preflight.sh` runs two sub-gates in order, halts on the first non-zero exit, and writes a pass/fail record to `.aic/gate-log.jsonl`:
+
+- `ambiguity-scan.sh` — enforces the banned-phrase set (Cat 1-8 + P) from `SKILL-guardrails.md "No ambiguity"`. Hedging ("if needed", "may want", "probably"), examples-as-instructions ("e.g.", "such as"), delegation ("decide whether", "alternatively"), vague qualifiers ("appropriate", "etc."), state hedges ("if not present"), escape clauses ("in a later task", "follow-up task", "populated later"), false alternatives, tool-conditional scope, and plan-failure patterns ("TBD", "implement later") all fail with exit 1.
+- `deferral-probe.sh` — catches the cross-task obligation leak observed in task 322: any hardcoded `null` / `false` / `0` / `""` / `''` / `[]` / `undefined` / `None` assigned to a task-introduced field must be either registered under `## Follow-up Items` with a named successor task (`task NNN` or `pending/NNN-*`), or justified as permanent in `## Architecture Notes` / `## Goal` with explicit wording (`remains null`, `stays null`, `always null`, `permanently null`, `never populated`). Exit 1 = unhonoured deferral.
+
+Wrapper exit 1 → **stop and tell the user.** Quote the wrapper output (which sub-gate fired, file, line, pattern/field, fix hint) so the user can decide whether to fix the task file or authorise execution despite the finding. Do not guess; do not paper over. A failing gate here means the planner's Pass 2 §C.5 gates were skipped or bypassed — the correct response is to flag it to the user, not to silently execute an ambiguous or under-specified task file.
+
+**Checkpoint enforcement.** `checkpoint-log.sh` refuses to accept `aic-task-executor setup-complete` unless a fresh `{"gate":"executor-preflight","status":"ok"}` record exists in `.aic/gate-log.jsonl` for this target within 30 minutes. Do not attempt to emit `setup-complete` without a passing wrapper run. Emergency bypass is `CHECKPOINT_ALLOW_NO_GATE=1` and leaves an audit trail in `skill-log.jsonl` — only use it when a documented reason blocks the wrapper (e.g. a CI replay of a historical task) and always cite the reason to the user first.
 
 **Read the Interface / Signature section** (or Wiring Specification for composition roots). For interface-implementing components: the exact interface (first code block), class declaration, constructor parameters, and method signatures (second code block). Return types including readonly modifiers. For composition roots: every concrete class constructor signature (from the wiring code block), every exported function signature, and every external library API (class names, import paths, method calls) — these are ground truth.
 
