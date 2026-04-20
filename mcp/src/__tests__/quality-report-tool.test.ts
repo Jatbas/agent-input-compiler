@@ -10,7 +10,7 @@ import {
   toUUIDv7,
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
-import { toPercentage } from "@jatbas/aic-core/core/types/scores.js";
+import { toConfidence, toPercentage } from "@jatbas/aic-core/core/types/scores.js";
 import { TASK_CLASS } from "@jatbas/aic-core/core/types/enums.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import { SqliteMigrationRunner } from "@jatbas/aic-core/storage/sqlite-migration-runner.js";
@@ -95,7 +95,7 @@ const goldenPayload: Record<string, unknown> = {
       cacheHitRate: 0,
     },
   },
-  classifierConfidence: { available: false },
+  classifierConfidence: { available: true, mean: 0.5 },
   seriesDaily: [
     {
       day: "2026-02-28",
@@ -219,7 +219,7 @@ describe("quality report payload", () => {
       tierL2: 0,
       tierL3: 0,
       taskClass: TASK_CLASS.REFACTOR,
-      classifierConfidence: null,
+      classifierConfidence: toConfidence(0.25),
     });
     store.record({
       id: S2,
@@ -234,7 +234,7 @@ describe("quality report payload", () => {
       tierL2: 0,
       tierL3: 1,
       taskClass: TASK_CLASS.FEATURE,
-      classifierConfidence: null,
+      classifierConfidence: toConfidence(0.5),
     });
     store.record({
       id: S3,
@@ -249,7 +249,7 @@ describe("quality report payload", () => {
       tierL2: 1,
       tierL3: 1,
       taskClass: TASK_CLASS.BUGFIX,
-      classifierConfidence: null,
+      classifierConfidence: toConfidence(0.75),
     });
     const payload = buildQualityReportPayload({
       projectId: TEST_PROJECT_ID,

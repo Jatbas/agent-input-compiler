@@ -301,7 +301,7 @@ function tryRecordQualitySnapshot(
       tierL2: tiers[INCLUSION_TIER.L2],
       tierL3: tiers[INCLUSION_TIER.L3],
       taskClass: result.meta.taskClass,
-      classifierConfidence: null,
+      classifierConfidence: result.meta.classifierConfidence,
     });
   } catch {
     process.stderr.write("Quality snapshot write failed\n");

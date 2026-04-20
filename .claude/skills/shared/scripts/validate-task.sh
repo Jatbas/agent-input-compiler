@@ -14,6 +14,12 @@ set -euo pipefail
 #     Config Changes, Acceptance Criteria)
 #   - Step size: warn if any step block references more than one file path
 #     under shared/ or mcp/ (heuristic; not exhaustive)
+#   - AN-lite: every `Source:` path in the task body exists on disk
+#   - AN-table: every path in the `## Files` table exists on disk when the
+#     Action is Modify/Verify/Delete/Replace/Rename
+#   - AR: multi-line documentation changes in Steps must route to
+#     `aic-documentation-writer` via `## Follow-up Items` or justify inline
+#     authorship via a `**Documentation routing:**` bullet
 
 if [[ $# -ne 1 ]]; then
   echo "Usage: $0 <task-file-path>" >&2
@@ -210,6 +216,72 @@ done < <(awk '
   c == 1 { next }
   /^[[:space:]]*Source:/ { print NR "|" $0 }
 ' "$FILE")
+
+# 12. Files table path existence (AN-table)
+# Every backtick-quoted path in the second column of the `## Files` table must
+# exist on disk when the Action in the first column is Modify/Verify/Delete/
+# Replace/Rename. Create rows are skipped (they legitimately reference paths
+# that do not yet exist). Table header and separator rows are filtered by the
+# action whitelist in the case statement. Closes the drift observed in task
+# 333 where the Files table cited `mcp/src/server.test.ts` (not on disk) while
+# the real path `mcp/src/__tests__/server.test.ts` appeared only in the Tests
+# section.
+while IFS= read -r raw; do
+  [[ -z "$raw" ]] && continue
+  LN="${raw%%|*}"
+  REST="${raw#*|}"
+  ACTION=$(echo "$REST" | sed -nE 's/^[[:space:]]*\|[[:space:]]*([A-Za-z]+)[[:space:]]*\|.*/\1/p')
+  PATH_REF=$(echo "$REST" | sed -nE 's/^[[:space:]]*\|[[:space:]]*[A-Za-z]+[[:space:]]*\|[[:space:]]*`([^`]+)`.*/\1/p')
+  [[ -z "$ACTION" || -z "$PATH_REF" ]] && continue
+  if [[ "$PATH_REF" = /* ]]; then
+    FULL_PATH="$PATH_REF"
+  else
+    FULL_PATH="${PROJECT_ROOT}/${PATH_REF}"
+  fi
+  case "$ACTION" in
+    Modify|Verify|Delete|Replace|Rename)
+      if [[ ! -e "$FULL_PATH" ]]; then
+        echo "Files table path not found (AN-table) at ${FILE}:${LN}: action=${ACTION} path=${PATH_REF}"
+        ISSUES=$((ISSUES + 1))
+      fi
+      ;;
+    *)
+      ;;
+  esac
+done < <(awk '
+  BEGIN { in_files = 0; in_fence = 0 }
+  /^```/ { in_fence = 1 - in_fence; next }
+  in_fence { next }
+  /^## Files/ { in_files = 1; next }
+  /^## / && in_files { in_files = 0 }
+  in_files && /^\|/ { print NR "|" $0 }
+' "$FILE")
+
+# 13. Documentation routing (AR)
+# If the task's Steps section contains block-insertion language for markdown
+# docs (capturing CLI output, inserting a ####-level section, appending a
+# named section to a .md, authoring a fenced sample), the task must either
+# route that work to `aic-documentation-writer` via `## Follow-up Items`, or
+# justify inline authorship via a `**Documentation routing:**` bullet in
+# `## Architecture Notes`. One-line substring edits (single-word renames,
+# single-line copy tweaks) do not trigger this check. Closes the drift
+# observed in task 333 where a 15-line README sample insertion was bundled
+# inline without routing.
+STEPS_DOC_BLOCK=$(awk '
+  BEGIN { in_steps = 0; fence = 0 }
+  /^## Steps/ { in_steps = 1; next }
+  /^## / && in_steps { in_steps = 0 }
+  /^```/ { fence = 1 - fence; next }
+  in_steps && fence == 0 { print }
+' "$FILE" | grep -inE "(capture stdout|insert[^.]*#### |append[^.]*section[^.]*\.md|fenced[^.]*sample|new[[:space:]]+#### |insert[^.]*into[^.]*README)" || true)
+if [[ -n "$STEPS_DOC_BLOCK" ]]; then
+  if ! grep -qE "aic-documentation-writer" "$FILE" \
+     && ! grep -qE "^\*\*Documentation routing:\*\*|^-[[:space:]]+\*\*Documentation routing:\*\*" "$FILE"; then
+    echo "documentation routing missing (AR) — Steps reference multi-line doc changes (block insertion, sample capture, section authoring) but the task does not route to aic-documentation-writer in ## Follow-up Items, nor justify inline authorship via a **Documentation routing:** bullet in ## Architecture Notes. Triggering lines:"
+    echo "$STEPS_DOC_BLOCK"
+    ISSUES=$((ISSUES + 1))
+  fi
+fi
 
 if [[ $ISSUES -gt 0 ]]; then
   echo ""

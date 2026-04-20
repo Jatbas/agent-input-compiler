@@ -32,4 +32,5 @@ export const STUB_COMPILATION_META: CompilationMeta = {
   },
   guard: null,
   contextCompleteness: toConfidence(1),
+  classifierConfidence: toConfidence(1),
 };

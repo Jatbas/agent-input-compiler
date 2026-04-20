@@ -23,6 +23,7 @@ export const aicCompileSanitizedMetaSchema = z.object({
     L3: z.number().int().min(0),
   }),
   contextCompleteness: z.number(),
+  classifierConfidence: z.number().nullable(),
   guard: z.union([
     z.null(),
     z.object({

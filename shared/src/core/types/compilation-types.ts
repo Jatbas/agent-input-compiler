@@ -64,6 +64,7 @@ export interface CompilationMeta {
   readonly summarisationTiers: Readonly<Record<InclusionTier, number>>;
   readonly guard: GuardResult | null;
   readonly contextCompleteness: Confidence;
+  readonly classifierConfidence: Confidence | null;
 }
 
 export interface CachedCompilation {

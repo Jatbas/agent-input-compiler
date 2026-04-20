@@ -42,6 +42,7 @@ function metaOverrides(overrides: Partial<CompilationMeta>): CompilationMeta {
     },
     guard: null,
     contextCompleteness: toConfidence(1),
+    classifierConfidence: toConfidence(1),
     ...overrides,
   };
 }

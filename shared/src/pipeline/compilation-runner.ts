@@ -72,6 +72,7 @@ function buildCacheHitMeta(
   repoMap: RepoMap,
   cached: CachedCompilation,
   taskClass: TaskClass,
+  classifierConfidence: Confidence | null,
 ): CompilationMeta {
   return {
     intent: request.intent,
@@ -89,6 +90,7 @@ function buildCacheHitMeta(
     summarisationTiers: { L0: 0, L1: 0, L2: 0, L3: 0 },
     guard: null,
     contextCompleteness: toConfidence(1),
+    classifierConfidence,
   };
 }
 
@@ -117,6 +119,7 @@ function buildFreshMeta(
     summarisationTiers: buildSummarisationTiers(r.ladderFiles),
     guard: r.guardResult,
     contextCompleteness: toConfidence(1),
+    classifierConfidence: r.task.confidence,
   };
 }
 
@@ -245,7 +248,13 @@ function runCacheHitPath(
   sessionId: SessionId | null,
   configHashOrNull: string | null,
 ): { compiledPrompt: string; meta: CompilationMeta; compilationId: UUIDv7 } {
-  const meta = buildCacheHitMeta(request, repoMap, cached, task.taskClass);
+  const meta = buildCacheHitMeta(
+    request,
+    repoMap,
+    cached,
+    task.taskClass,
+    task.confidence,
+  );
   const compilationId = recordCompilationAndFindings(
     compilationLogStore,
     guardStore,

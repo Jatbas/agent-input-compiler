@@ -41,7 +41,7 @@ import {
   toConversationId,
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import { toMilliseconds, toTokenCount } from "@jatbas/aic-core/core/types/units.js";
-import { toPercentage } from "@jatbas/aic-core/core/types/scores.js";
+import { toConfidence, toPercentage } from "@jatbas/aic-core/core/types/scores.js";
 import {
   type AbsolutePath,
   type FilePath,
@@ -1463,6 +1463,86 @@ describe("compile-handler", () => {
           .all(projectId) as readonly { model_id: string }[];
         expect(rows).toHaveLength(1);
         expect(rows[0]!.model_id).toBe("claude-sonnet-4");
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it("compile_persists_classifier_confidence_to_quality_snapshot", async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+      try {
+        const { scope, projectId } = createScopeWithRealDb(tmpDir);
+        const getScope = (_projectRoot: AbsolutePath) => scope;
+        const expectedConfidence = toConfidence(0.625);
+        const runner = {
+          run: (request: CompilationRequest) => {
+            const entry = {
+              id: scope.idGenerator.generate(),
+              intent: request.intent,
+              taskClass: TASK_CLASS.GENERAL,
+              filesSelected: 0,
+              filesTotal: 0,
+              tokensRaw: toTokenCount(0),
+              tokensCompiled: toTokenCount(0),
+              tokenReductionPct: toPercentage(0),
+              cacheHit: false,
+              durationMs: toMilliseconds(0),
+              editorId: request.editorId,
+              modelId: request.modelId ?? "",
+              sessionId: null as ReturnType<typeof toSessionId> | null,
+              configHash: null,
+              createdAt: scope.clock.now(),
+              conversationId: request.conversationId ?? null,
+              triggerSource: null,
+              selectionTrace: null,
+              classifierConfidence: null,
+              specificityScore: null,
+              underspecificationIndex: null,
+            };
+            scope.compilationLogStore.record(entry);
+            return Promise.resolve({
+              compiledPrompt: "",
+              meta: {
+                ...STUB_COMPILATION_META,
+                classifierConfidence: expectedConfidence,
+              },
+              compilationId: entry.id,
+            });
+          },
+        };
+        const getSessionId = (): ReturnType<typeof toSessionId> =>
+          toSessionId("00000000-0000-7000-8000-000000000002");
+        const getEditorId = () => EDITOR_ID.GENERIC;
+        const getModelId = (): string | null => null;
+        const handler = createCompileHandler(
+          getScope,
+          (_s: ProjectScope) => runner,
+          { hash: (): string => "" },
+          getSessionId,
+          getEditorId,
+          getModelId,
+          [],
+          enabledConfigLoader,
+          () => {},
+          () => null,
+          () => false,
+        );
+        await handler(
+          {
+            intent: "classifier snapshot persistence probe",
+            projectRoot: tmpDir,
+            modelId: null,
+            configPath: null,
+          },
+          undefined,
+        );
+        const row = scope.db
+          .prepare(
+            "SELECT classifier_confidence FROM quality_snapshots WHERE project_id = ? ORDER BY created_at DESC LIMIT 1",
+          )
+          .get(projectId) as { classifier_confidence: number | null } | undefined;
+        expect(row).toBeDefined();
+        expect(row!.classifier_confidence).toBeCloseTo(0.625, 5);
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
