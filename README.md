@@ -12,9 +12,10 @@
   <img alt="Local-first" src="https://img.shields.io/badge/local--first-yes-brightgreen" />
   <img alt="Telemetry" src="https://img.shields.io/badge/telemetry-opt--in-lightgrey" />
   <img alt="MCP Compatible" src="https://img.shields.io/badge/MCP-compatible-purple" />
+  <a href="https://cursor.directory/plugins/aic"><img alt="Cursor Directory" src="https://img.shields.io/badge/Cursor%20Directory-listed-000000?logo=cursor" /></a>
 </p>
 
-Deterministic context compiler for AI coding tools. AIC is a local-first MCP server that selects relevant files, removes noise, and returns a smaller context package before it reaches the model.
+Local-first MCP server that compiles focused context for Cursor and Claude Code — classifies intent, selects relevant files, strips noise, and blocks secrets before they reach the model.
 
 AIC does **not** replace your editor. It runs alongside MCP-compatible editors and improves the context they send to the model.
 
@@ -108,7 +109,7 @@ Requirements: Node.js >= 22 (see `.nvmrc` for the reference Node major used to d
 
 ### Cursor
 
-1. **Install the MCP server** — use the one-click link or copy the URL into your browser:
+1. **Install the MCP server** — install from the [Cursor Directory](https://cursor.directory/plugins/aic), use the one-click link below, or copy the URL into your browser:
 
    [![Install AIC MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://jatbas.github.io/agent-input-compiler/install/cursor-install.html)
 
