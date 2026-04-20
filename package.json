@@ -11,6 +11,7 @@
   "scripts": {
     "build": "pnpm -r run build",
     "clean": "rm -rf shared/dist mcp/dist mcp/integrations && find . -name '*.tsbuildinfo' -not -path './node_modules/*' -delete && rm -rf coverage .turbo",
+    "rebuild:native": "pnpm rebuild better-sqlite3",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
