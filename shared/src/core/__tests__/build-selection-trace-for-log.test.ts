@@ -36,6 +36,8 @@ function stubPipelineResult(
     confidence: toConfidence(1),
     matchedKeywords: [],
     subjectTokens: [],
+    specificityScore: toConfidence(0),
+    underspecificationIndex: toConfidence(0),
   };
   const rulePack: RulePack = {
     constraints: [],

@@ -5,6 +5,7 @@ import type { IntentClassifier as IIntentClassifier } from "@jatbas/aic-core/cor
 import type { TaskClassification } from "@jatbas/aic-core/core/types/task-classification.js";
 import type { TaskClass } from "@jatbas/aic-core/core/types/enums.js";
 import { TASK_CLASS } from "@jatbas/aic-core/core/types/enums.js";
+import type { Confidence } from "@jatbas/aic-core/core/types/scores.js";
 import { toConfidence } from "@jatbas/aic-core/core/types/scores.js";
 
 const STOPWORDS: ReadonlySet<string> = new Set([
@@ -179,6 +180,20 @@ function extractSubjectTokens(intent: string): readonly string[] {
   return [...new Set(tokens)];
 }
 
+function specificityFromConfidence(
+  intent: string,
+  confidence: Confidence,
+): {
+  readonly subjectTokens: readonly string[];
+  readonly specificityScore: Confidence;
+  readonly underspecificationIndex: Confidence;
+} {
+  const subjectTokens = extractSubjectTokens(intent);
+  const specificityScore = toConfidence(Math.min(subjectTokens.length / 3, 1));
+  const underspecificationIndex = toConfidence((1 - confidence) * (1 - specificityScore));
+  return { subjectTokens, specificityScore, underspecificationIndex };
+}
+
 export class IntentClassifier implements IIntentClassifier {
   classify(intent: string): TaskClassification {
     const lower = intent.toLowerCase();
@@ -197,22 +212,29 @@ export class IntentClassifier implements IIntentClassifier {
     );
 
     if (best.count === 0) {
+      const confidence = toConfidence(0);
+      const { subjectTokens, specificityScore, underspecificationIndex } =
+        specificityFromConfidence(intent, confidence);
       return {
         taskClass: TASK_CLASS.GENERAL,
-        confidence: toConfidence(0),
+        confidence,
         matchedKeywords: [],
-        subjectTokens: extractSubjectTokens(intent),
+        subjectTokens,
+        specificityScore,
+        underspecificationIndex,
       };
     }
 
-    const totalInClass = KEYWORDS[best.taskClass as Exclude<TaskClass, "general">].length;
-    const raw = best.count / totalInClass;
-    const confidence = toConfidence(raw > 1 ? 1 : raw);
+    const confidence = toConfidence(Math.min(best.count / 2, 1));
+    const { subjectTokens, specificityScore, underspecificationIndex } =
+      specificityFromConfidence(intent, confidence);
     return {
       taskClass: best.taskClass,
       confidence,
       matchedKeywords: [...best.matched],
-      subjectTokens: extractSubjectTokens(intent),
+      subjectTokens,
+      specificityScore,
+      underspecificationIndex,
     };
   }
 }

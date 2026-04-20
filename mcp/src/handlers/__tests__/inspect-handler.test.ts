@@ -32,6 +32,8 @@ const stubTrace: PipelineTrace = {
     confidence: toConfidence(0.5),
     matchedKeywords: [],
     subjectTokens: [],
+    specificityScore: toConfidence(0),
+    underspecificationIndex: toConfidence(0),
   },
   rulePacks: [],
   budget: toTokenCount(8000),

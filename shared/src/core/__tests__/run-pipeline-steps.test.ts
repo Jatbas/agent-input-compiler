@@ -36,6 +36,8 @@ function minimalTask(): TaskClassification {
     confidence: toConfidence(1),
     matchedKeywords: [],
     subjectTokens: [],
+    specificityScore: toConfidence(0),
+    underspecificationIndex: toConfidence(0),
   };
 }
 

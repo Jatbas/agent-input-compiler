@@ -116,4 +116,39 @@ describe("IntentClassifier", () => {
     const result = classifier.classify("fix auth auth bug");
     expect(result.subjectTokens).toEqual(["auth"]);
   });
+
+  it("classifier_confidence_one_keyword_is_half", () => {
+    const result = classifier.classify("there is an issue");
+    expect(result.confidence).toBeCloseTo(0.5);
+  });
+
+  it("classifier_confidence_two_keywords_is_one", () => {
+    const result = classifier.classify("fix the crash and resolve the error");
+    expect(result.confidence).toBe(1);
+  });
+
+  it("classifier_specificity_zero_when_no_subject_tokens", () => {
+    const result = classifier.classify("fix bug");
+    expect(result.specificityScore).toBe(0);
+  });
+
+  it("classifier_specificity_partial_with_one_subject_token", () => {
+    const result = classifier.classify("fix auth");
+    expect(result.specificityScore).toBeCloseTo(1 / 3);
+  });
+
+  it("classifier_specificity_one_with_three_or_more_subject_tokens", () => {
+    const result = classifier.classify("fix auth middleware token login");
+    expect(result.specificityScore).toBe(1);
+  });
+
+  it("classifier_underspecification_high_when_one_keyword_no_subjects", () => {
+    const result = classifier.classify("there is an issue");
+    expect(result.underspecificationIndex).toBeCloseTo(0.5);
+  });
+
+  it("classifier_underspecification_low_when_keyword_and_subjects_present", () => {
+    const result = classifier.classify("fix auth middleware token login");
+    expect(result.underspecificationIndex).toBe(0);
+  });
 });

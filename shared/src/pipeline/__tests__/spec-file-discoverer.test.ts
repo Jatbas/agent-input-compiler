@@ -51,6 +51,8 @@ describe("SpecFileDiscoverer", () => {
       confidence: toConfidence(0.5),
       matchedKeywords: [],
       subjectTokens: [],
+      specificityScore: toConfidence(0),
+      underspecificationIndex: toConfidence(0),
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -76,6 +78,8 @@ describe("SpecFileDiscoverer", () => {
       confidence: toConfidence(0.5),
       matchedKeywords: [],
       subjectTokens: [],
+      specificityScore: toConfidence(0),
+      underspecificationIndex: toConfidence(0),
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -102,6 +106,8 @@ describe("SpecFileDiscoverer", () => {
       confidence: toConfidence(0.5),
       matchedKeywords: [],
       subjectTokens: [],
+      specificityScore: toConfidence(0),
+      underspecificationIndex: toConfidence(0),
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -125,6 +131,8 @@ describe("SpecFileDiscoverer", () => {
       confidence: toConfidence(0.5),
       matchedKeywords: ["plan"],
       subjectTokens: [],
+      specificityScore: toConfidence(0),
+      underspecificationIndex: toConfidence(0),
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -148,6 +156,8 @@ describe("SpecFileDiscoverer", () => {
       confidence: toConfidence(0.5),
       matchedKeywords: [],
       subjectTokens: [],
+      specificityScore: toConfidence(0),
+      underspecificationIndex: toConfidence(0),
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -175,6 +185,8 @@ describe("SpecFileDiscoverer", () => {
       confidence: toConfidence(0.5),
       matchedKeywords: [],
       subjectTokens: [],
+      specificityScore: toConfidence(0),
+      underspecificationIndex: toConfidence(0),
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -203,6 +215,8 @@ describe("SpecFileDiscoverer", () => {
       confidence: toConfidence(0.5),
       matchedKeywords: [],
       subjectTokens: [],
+      specificityScore: toConfidence(0),
+      underspecificationIndex: toConfidence(0),
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -235,6 +249,8 @@ describe("SpecFileDiscoverer", () => {
       confidence: toConfidence(0.5),
       matchedKeywords: [],
       subjectTokens: [],
+      specificityScore: toConfidence(0),
+      underspecificationIndex: toConfidence(0),
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -266,6 +282,8 @@ describe("SpecFileDiscoverer", () => {
       confidence: toConfidence(0.5),
       matchedKeywords: [],
       subjectTokens: [],
+      specificityScore: toConfidence(0),
+      underspecificationIndex: toConfidence(0),
     };
     const rulePack: RulePack = {
       constraints: [],

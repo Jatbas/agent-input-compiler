@@ -29,6 +29,8 @@ describe("PromptAssembler", () => {
     confidence: toConfidence(0.9),
     matchedKeywords: ["add", "feature"],
     subjectTokens: [],
+    specificityScore: toConfidence(0),
+    underspecificationIndex: toConfidence(0),
   };
 
   it("renders template correctly", async () => {

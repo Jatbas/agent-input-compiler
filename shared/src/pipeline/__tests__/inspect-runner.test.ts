@@ -73,6 +73,8 @@ const fixedTask: TaskClassification = {
   confidence: toConfidence(0.9),
   matchedKeywords: ["refactor"],
   subjectTokens: [],
+  specificityScore: toConfidence(0),
+  underspecificationIndex: toConfidence(0),
 };
 
 const fixedRulePack: RulePack = {

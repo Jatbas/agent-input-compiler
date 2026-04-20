@@ -12,7 +12,7 @@ import {
   toProjectId,
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import { toTokenCount, toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
-import { toPercentage } from "@jatbas/aic-core/core/types/scores.js";
+import { toPercentage, toConfidence } from "@jatbas/aic-core/core/types/scores.js";
 import {
   EDITOR_ID,
   TASK_CLASS,
@@ -20,6 +20,7 @@ import {
 } from "@jatbas/aic-core/core/types/enums.js";
 import { migration } from "../migrations/001-consolidated-schema.js";
 import { migration as migration003 } from "../migrations/003-compilation-selection-trace.js";
+import { migration as migration006 } from "../migrations/006-classifier-scores.js";
 import { SqliteCompilationLogStore } from "../sqlite-compilation-log-store.js";
 import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import {
@@ -40,6 +41,7 @@ describe("SqliteCompilationLogStore", () => {
     db = new Database(":memory:");
     migration.up(db);
     migration003.up(db);
+    migration006.up(db);
     db.prepare(
       "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
     ).run(
@@ -72,6 +74,9 @@ describe("SqliteCompilationLogStore", () => {
       conversationId: null,
       triggerSource: TRIGGER_SOURCE.INTERNAL_TEST,
       selectionTrace: null,
+      classifierConfidence: null,
+      specificityScore: null,
+      underspecificationIndex: null,
     };
     store.record(entry);
     const row = db
@@ -102,6 +107,9 @@ describe("SqliteCompilationLogStore", () => {
       conversationId: null,
       triggerSource: TRIGGER_SOURCE.INTERNAL_TEST,
       selectionTrace: null,
+      classifierConfidence: null,
+      specificityScore: null,
+      underspecificationIndex: null,
     };
     store.record(entry);
     const row = db
@@ -156,6 +164,9 @@ describe("SqliteCompilationLogStore", () => {
       conversationId: null,
       triggerSource: TRIGGER_SOURCE.INTERNAL_TEST,
       selectionTrace: null,
+      classifierConfidence: null,
+      specificityScore: null,
+      underspecificationIndex: null,
     };
     store.record(entry);
     const row = db
@@ -200,6 +211,9 @@ describe("SqliteCompilationLogStore", () => {
       conversationId: null,
       triggerSource: TRIGGER_SOURCE.INTERNAL_TEST,
       selectionTrace: null,
+      classifierConfidence: null,
+      specificityScore: null,
+      underspecificationIndex: null,
     };
     store.record(entry);
     const row = db
@@ -231,6 +245,9 @@ describe("SqliteCompilationLogStore", () => {
       triggerSource: TRIGGER_SOURCE.CLI,
       conversationId: null,
       selectionTrace: null,
+      classifierConfidence: null,
+      specificityScore: null,
+      underspecificationIndex: null,
     };
     store.record(entry);
     const row = db
@@ -262,6 +279,9 @@ describe("SqliteCompilationLogStore", () => {
       conversationId: convId,
       triggerSource: TRIGGER_SOURCE.INTERNAL_TEST,
       selectionTrace: null,
+      classifierConfidence: null,
+      specificityScore: null,
+      underspecificationIndex: null,
     };
     store.record(entry);
     const row = db
@@ -291,6 +311,9 @@ describe("SqliteCompilationLogStore", () => {
       createdAt: toISOTimestamp("2026-02-28T12:00:00.000Z"),
       conversationId: null,
       selectionTrace: null,
+      classifierConfidence: null,
+      specificityScore: null,
+      underspecificationIndex: null,
     };
     store.record(entry);
     const row = db
@@ -345,6 +368,9 @@ describe("SqliteCompilationLogStore", () => {
       conversationId: null,
       triggerSource: TRIGGER_SOURCE.INTERNAL_TEST,
       selectionTrace: trace,
+      classifierConfidence: null,
+      specificityScore: null,
+      underspecificationIndex: null,
     };
     store.record(entry);
     const raw = db
@@ -375,5 +401,45 @@ describe("SqliteCompilationLogStore", () => {
         },
       ],
     });
+  });
+
+  it("record_stores_classifier_confidence_specificity_and_underspecification", () => {
+    const store = setup();
+    const entry: CompilationLogEntry = {
+      id: toUUIDv7("00000000-0000-7000-8000-000000000099"),
+      intent: "fix auth middleware",
+      taskClass: TASK_CLASS.BUGFIX,
+      filesSelected: 1,
+      filesTotal: 10,
+      tokensRaw: toTokenCount(100),
+      tokensCompiled: toTokenCount(50),
+      tokenReductionPct: toPercentage(50),
+      cacheHit: false,
+      durationMs: toMilliseconds(10),
+      editorId: EDITOR_ID.GENERIC,
+      modelId: "",
+      sessionId: null,
+      configHash: null,
+      createdAt: toISOTimestamp("2026-04-19T00:00:00.000Z"),
+      conversationId: null,
+      triggerSource: TRIGGER_SOURCE.INTERNAL_TEST,
+      selectionTrace: null,
+      classifierConfidence: toConfidence(0.5),
+      specificityScore: toConfidence(0.333),
+      underspecificationIndex: toConfidence(0.5),
+    };
+    store.record(entry);
+    const row = db
+      .prepare(
+        "SELECT classifier_confidence, specificity_score, underspecification_index FROM compilation_log WHERE id = ?",
+      )
+      .get(entry.id) as {
+      classifier_confidence: number | null;
+      specificity_score: number | null;
+      underspecification_index: number | null;
+    };
+    expect(row.classifier_confidence).toBeCloseTo(0.5);
+    expect(row.specificity_score).toBeCloseTo(0.333);
+    expect(row.underspecification_index).toBeCloseTo(0.5);
   });
 });

@@ -57,6 +57,8 @@ describe("HeuristicSelector", () => {
       confidence: toConfidence(0.8),
       matchedKeywords: ["refactor"],
       subjectTokens: [],
+      specificityScore: toConfidence(0),
+      underspecificationIndex: toConfidence(0),
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -88,6 +90,8 @@ describe("HeuristicSelector", () => {
       confidence: toConfidence(0),
       matchedKeywords: [],
       subjectTokens: [],
+      specificityScore: toConfidence(0),
+      underspecificationIndex: toConfidence(0),
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -122,6 +126,8 @@ describe("HeuristicSelector", () => {
       confidence: toConfidence(0),
       matchedKeywords: [],
       subjectTokens: [],
+      specificityScore: toConfidence(0),
+      underspecificationIndex: toConfidence(0),
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -154,6 +160,8 @@ describe("HeuristicSelector", () => {
       confidence: toConfidence(0),
       matchedKeywords: [],
       subjectTokens: [],
+      specificityScore: toConfidence(0),
+      underspecificationIndex: toConfidence(0),
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -180,6 +188,8 @@ describe("HeuristicSelector", () => {
       confidence: toConfidence(0),
       matchedKeywords: [],
       subjectTokens: [],
+      specificityScore: toConfidence(0),
+      underspecificationIndex: toConfidence(0),
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -207,6 +217,8 @@ describe("HeuristicSelector", () => {
       confidence: toConfidence(0),
       matchedKeywords: [],
       subjectTokens: [],
+      specificityScore: toConfidence(0),
+      underspecificationIndex: toConfidence(0),
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -247,6 +259,8 @@ describe("HeuristicSelector", () => {
       confidence: toConfidence(0),
       matchedKeywords: [],
       subjectTokens: [],
+      specificityScore: toConfidence(0),
+      underspecificationIndex: toConfidence(0),
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -273,6 +287,8 @@ describe("HeuristicSelector", () => {
       confidence: toConfidence(0),
       matchedKeywords: [],
       subjectTokens: [],
+      specificityScore: toConfidence(0),
+      underspecificationIndex: toConfidence(0),
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -300,6 +316,8 @@ describe("HeuristicSelector", () => {
       confidence: toConfidence(0.5),
       matchedKeywords: ["seed"],
       subjectTokens: [],
+      specificityScore: toConfidence(0),
+      underspecificationIndex: toConfidence(0),
     };
     const rulePack: RulePack = {
       constraints: [],
@@ -373,6 +391,8 @@ describe("HeuristicSelector", () => {
         confidence: toConfidence(0.8),
         matchedKeywords: ["refactor"],
         subjectTokens: [],
+        specificityScore: toConfidence(0),
+        underspecificationIndex: toConfidence(0),
       },
       repo,
       toTokenCount(1000),
@@ -384,6 +404,8 @@ describe("HeuristicSelector", () => {
         confidence: toConfidence(0.5),
         matchedKeywords: ["seed"],
         subjectTokens: [],
+        specificityScore: toConfidence(0),
+        underspecificationIndex: toConfidence(0),
       },
       repo,
       toTokenCount(1000),
@@ -421,6 +443,8 @@ describe("HeuristicSelector", () => {
         confidence: toConfidence(0.8),
         matchedKeywords: [],
         subjectTokens: [],
+        specificityScore: toConfidence(0),
+        underspecificationIndex: toConfidence(0),
       },
       repo,
       toTokenCount(1000),
@@ -432,6 +456,8 @@ describe("HeuristicSelector", () => {
         confidence: toConfidence(0),
         matchedKeywords: [],
         subjectTokens: [],
+        specificityScore: toConfidence(0),
+        underspecificationIndex: toConfidence(0),
       },
       repo,
       toTokenCount(1000),
@@ -463,6 +489,8 @@ describe("HeuristicSelector", () => {
         confidence: toConfidence(0.8),
         matchedKeywords: ["readme"],
         subjectTokens: [],
+        specificityScore: toConfidence(0),
+        underspecificationIndex: toConfidence(0),
       },
       repo,
       toTokenCount(1000),
@@ -474,6 +502,8 @@ describe("HeuristicSelector", () => {
         confidence: toConfidence(0),
         matchedKeywords: [],
         subjectTokens: [],
+        specificityScore: toConfidence(0),
+        underspecificationIndex: toConfidence(0),
       },
       repo,
       toTokenCount(1000),
@@ -493,6 +523,8 @@ describe("HeuristicSelector", () => {
       confidence: toConfidence(0),
       matchedKeywords: [],
       subjectTokens: [],
+      specificityScore: toConfidence(0),
+      underspecificationIndex: toConfidence(0),
     };
     const includeRulePack: RulePack = {
       constraints: [],
@@ -570,6 +602,8 @@ describe("HeuristicSelector", () => {
         confidence: toConfidence(0.8),
         matchedKeywords: [],
         subjectTokens: [],
+        specificityScore: toConfidence(0),
+        underspecificationIndex: toConfidence(0),
       },
       repo,
       toTokenCount(1000),

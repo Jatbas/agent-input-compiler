@@ -58,10 +58,11 @@ exports[`golden snapshot > full_pipeline_trace_matches_golden_snapshot 1`] = `
     "L3": 0,
   },
   "taskClass": {
-    "confidence": 0.07692307692307693,
+    "confidence": 0.5,
     "matchedKeywords": [
       "refactor",
     ],
+    "specificityScore": 1,
     "subjectTokens": [
       "auth",
       "module",
@@ -70,15 +71,16 @@ exports[`golden snapshot > full_pipeline_trace_matches_golden_snapshot 1`] = `
       "pattern",
     ],
     "taskClass": "refactor",
+    "underspecificationIndex": 0,
   },
   "tokenSummary": {
     "afterGuard": 22,
     "afterLadder": 195,
     "afterPrune": 125,
     "afterTransforms": 224,
-    "promptTotal": 192,
+    "promptTotal": 187,
     "raw": 22,
-    "reductionPct": -7.7272727272727275,
+    "reductionPct": -7.5,
     "selected": 22,
   },
   "transforms": [

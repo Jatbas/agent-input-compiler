@@ -53,6 +53,8 @@ function makeTask(matchedKeywords: readonly string[]): TaskClassification {
     confidence: toConfidence(0.5),
     matchedKeywords,
     subjectTokens: [],
+    specificityScore: toConfidence(0),
+    underspecificationIndex: toConfidence(0),
   };
 }
 

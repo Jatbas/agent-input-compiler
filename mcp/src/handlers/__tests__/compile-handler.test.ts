@@ -1408,6 +1408,9 @@ describe("compile-handler", () => {
             conversationId: request.conversationId ?? null,
             triggerSource: null,
             selectionTrace: null,
+            classifierConfidence: null,
+            specificityScore: null,
+            underspecificationIndex: null,
           };
           scope.compilationLogStore.record(entry);
           return Promise.resolve({

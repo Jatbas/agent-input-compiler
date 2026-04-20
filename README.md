@@ -168,12 +168,12 @@ For `--global`, database removal, and the full flag list, see [Installation — 
 These are natural-language prompts for your editor's AI, not terminal commands. Use only the words before `#` on each line; everything after `#` is a reminder for you, not part of the prompt.
 
 ```text
-show aic status        # project-level status and lifetime stats
-show aic last          # most recent compilation (table); MCP JSON may include selection trace
-show aic chat summary  # per-conversation compilation stats for this workspace
-show aic projects      # known AIC projects (IDs, paths, last seen, compilation counts)
-show aic quality      # rolling-window compile transparency metrics (default 30 days; pass --window <1-365>)
-run aic model test     # MCP-only: agent capability probe (aic_model_test + aic_compile)
+show aic status         # project-level status and lifetime stats
+show aic last           # most recent compilation (table); MCP JSON may include selection trace
+show aic chat summary   # per-conversation compilation stats for this workspace
+show aic projects       # known AIC projects (IDs, paths, last seen, compilation counts)
+show aic quality        # rolling-window compile transparency metrics (default 30 days; pass --window <1-365>)
+run aic model test      # MCP-only: agent capability probe (aic_model_test + aic_compile)
 ```
 
 ---

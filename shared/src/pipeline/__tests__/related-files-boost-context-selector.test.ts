@@ -51,6 +51,8 @@ describe("RelatedFilesBoostContextSelector", () => {
       confidence: toConfidence(0),
       matchedKeywords: [],
       subjectTokens: [],
+      specificityScore: toConfidence(0),
+      underspecificationIndex: toConfidence(0),
     };
     const rulePack: RulePack = {
       constraints: [],

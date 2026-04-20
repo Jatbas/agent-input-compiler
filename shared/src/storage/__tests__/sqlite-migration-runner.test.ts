@@ -16,6 +16,7 @@ import { migration as migration002 } from "../migrations/002-add-conversation-id
 import { migration as migration003 } from "../migrations/003-compilation-selection-trace.js";
 import { migration as migration004 } from "../migrations/004-spec-compile-cache.js";
 import { migration as migration005 } from "../migrations/005-quality-snapshots.js";
+import { migration as migration006 } from "../migrations/006-classifier-scores.js";
 
 const clock: Clock = {
   now(): ReturnType<typeof toISOTimestamp> {
@@ -167,14 +168,22 @@ describe("SqliteMigrationRunner", () => {
     db.close();
   });
 
-  it("migration_runner_includes_005", () => {
+  it("migration_runner_includes_005_and_006", () => {
     const db = new Database(":memory:");
     const runner = new SqliteMigrationRunner(clock);
-    runner.run(db, [migration, migration002, migration003, migration004, migration005]);
+    runner.run(db, [
+      migration,
+      migration002,
+      migration003,
+      migration004,
+      migration005,
+      migration006,
+    ]);
     const ids = db.prepare("SELECT id FROM schema_migrations ORDER BY id").all() as {
       id: string;
     }[];
     expect(ids.map((r) => r.id)).toContain("005-quality-snapshots");
+    expect(ids.map((r) => r.id)).toContain("006-classifier-scores");
     db.close();
   });
 

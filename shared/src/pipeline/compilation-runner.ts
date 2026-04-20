@@ -8,6 +8,7 @@ import type {
   CachedCompilation,
 } from "@jatbas/aic-core/core/types/compilation-types.js";
 import type { TaskClass, TriggerSource } from "@jatbas/aic-core/core/types/enums.js";
+import type { TaskClassification } from "@jatbas/aic-core/core/types/task-classification.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import type { CacheStore } from "@jatbas/aic-core/core/interfaces/cache-store.interface.js";
 import type { ConfigStore } from "@jatbas/aic-core/core/interfaces/config-store.interface.js";
@@ -38,6 +39,7 @@ import { toSessionId } from "@jatbas/aic-core/core/types/identifiers.js";
 import type { InclusionTier } from "@jatbas/aic-core/core/types/enums.js";
 import { toTokenCount, toStepIndex } from "@jatbas/aic-core/core/types/units.js";
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
+import type { Confidence } from "@jatbas/aic-core/core/types/scores.js";
 import { toPercentage, toConfidence } from "@jatbas/aic-core/core/types/scores.js";
 import { runPipelineSteps } from "@jatbas/aic-core/core/run-pipeline-steps.js";
 import { buildSelectionTraceForLog } from "@jatbas/aic-core/core/build-selection-trace-for-log.js";
@@ -159,6 +161,12 @@ function computeCompilationCacheKey(
   );
 }
 
+type ClassifierLogScalars = {
+  readonly classifierConfidence: Confidence | null;
+  readonly specificityScore: Confidence | null;
+  readonly underspecificationIndex: Confidence | null;
+};
+
 function buildLogEntry(
   compilationId: UUIDv7,
   meta: CompilationMeta,
@@ -168,6 +176,7 @@ function buildLogEntry(
   triggerSource: TriggerSource | null,
   conversationId: ConversationId | null,
   selectionTrace: SelectionTrace | null,
+  classifier: ClassifierLogScalars,
 ): CompilationLogEntry {
   return {
     id: compilationId,
@@ -188,6 +197,7 @@ function buildLogEntry(
     triggerSource,
     conversationId,
     selectionTrace,
+    ...classifier,
   };
 }
 
@@ -203,6 +213,7 @@ function recordCompilationAndFindings(
   triggerSource: TriggerSource | null,
   conversationId: ConversationId | null,
   selectionTrace: SelectionTrace | null,
+  classifier: ClassifierLogScalars,
 ): UUIDv7 {
   const compilationId = idGenerator.generate();
   const createdAt = clock.now();
@@ -215,6 +226,7 @@ function recordCompilationAndFindings(
     triggerSource,
     conversationId,
     selectionTrace,
+    classifier,
   );
   compilationLogStore.record(entry);
   guardStore.write(compilationId, findings);
@@ -229,11 +241,11 @@ function runCacheHitPath(
   request: CompilationRequest,
   repoMap: RepoMap,
   cached: CachedCompilation,
-  taskClass: TaskClass,
+  task: TaskClassification,
   sessionId: SessionId | null,
   configHashOrNull: string | null,
 ): { compiledPrompt: string; meta: CompilationMeta; compilationId: UUIDv7 } {
-  const meta = buildCacheHitMeta(request, repoMap, cached, taskClass);
+  const meta = buildCacheHitMeta(request, repoMap, cached, task.taskClass);
   const compilationId = recordCompilationAndFindings(
     compilationLogStore,
     guardStore,
@@ -246,6 +258,11 @@ function runCacheHitPath(
     request.triggerSource ?? null,
     request.conversationId ?? null,
     null,
+    {
+      classifierConfidence: task.confidence,
+      specificityScore: task.specificityScore,
+      underspecificationIndex: task.underspecificationIndex,
+    },
   );
   return { compiledPrompt: cached.compiledPrompt, meta, compilationId };
 }
@@ -349,6 +366,11 @@ function completeFreshPathAfterPipeline(
     request.triggerSource ?? null,
     request.conversationId ?? null,
     trace,
+    {
+      classifierConfidence: r.task.confidence,
+      specificityScore: r.task.specificityScore,
+      underspecificationIndex: r.task.underspecificationIndex,
+    },
   );
   recordSessionStepIfNeeded(agenticSessionState, request, r, clock);
   return { compiledPrompt: r.assembledPrompt, meta, compilationId };
@@ -454,7 +476,7 @@ export class CompilationRunner implements ICompilationRunner {
         request,
         repoMap,
         cached,
-        task.taskClass,
+        task,
         sessionId,
         configHashOrNull,
       );

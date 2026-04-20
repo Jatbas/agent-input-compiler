@@ -17,8 +17,9 @@ export class SqliteCompilationLogStore implements CompilationLogStore {
       `INSERT INTO compilation_log (
         id, intent, task_class, files_selected, files_total,
         tokens_raw, tokens_compiled, cache_hit,
-        duration_ms, editor_id, model_id, session_id, config_hash, created_at, trigger_source, conversation_id, project_id, selection_trace_json
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        duration_ms, editor_id, model_id, session_id, config_hash, created_at, trigger_source, conversation_id, project_id, selection_trace_json,
+        classifier_confidence, specificity_score, underspecification_index
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     stmt.run(
       entry.id,
@@ -39,6 +40,9 @@ export class SqliteCompilationLogStore implements CompilationLogStore {
       entry.conversationId ?? null,
       this.projectId,
       entry.selectionTrace === null ? null : JSON.stringify(entry.selectionTrace),
+      entry.classifierConfidence,
+      entry.specificityScore,
+      entry.underspecificationIndex,
     );
   }
 }

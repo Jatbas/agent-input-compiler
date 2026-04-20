@@ -107,7 +107,7 @@ Prefer `npx eslint` for targeted checks. Run `pnpm lint` before declaring work c
 
 > **Dev:** When `"devMode": true` is set in `aic.config.json` at the project root, substitute `pnpm aic` for `npx @jatbas/aic` in every command below (run from the repo root).
 
-For CLI-based commands (status, last, chat-summary, projects): run the Bash command and relay stdout byte-for-byte — no reformatting, no label substitution, no reordering. The CLI is the single source of truth for output format. **Never call `mcp__aic-dev__aic_status`, `mcp__aic-dev__aic_last`, `mcp__aic-dev__aic_projects`, or `mcp__aic-dev__aic_chat_summary` directly — always use the Bash CLI.**
+For CLI-based commands (status, last, chat-summary, quality, projects): run the Bash command and relay stdout byte-for-byte — no reformatting, no label substitution, no reordering. The CLI is the single source of truth for output format. **Never call `mcp__aic-dev__aic_status`, `mcp__aic-dev__aic_last`, `mcp__aic-dev__aic_projects`, `mcp__aic-dev__aic_chat_summary`, or `mcp__aic-dev__aic_quality_report` directly — always use the Bash CLI.**
 
 **Output discipline (mandatory — applies to every prompt command below):**
 
@@ -123,6 +123,8 @@ For CLI-based commands (status, last, chat-summary, projects): run the Bash comm
 - **"show aic chat summary"** — Run Bash with `npx @jatbas/aic chat-summary --project <absolute workspace root>` (or `pnpm aic chat-summary --project <absolute workspace root>` when `"devMode": true` is set in `aic.config.json`). Relay stdout byte-for-byte.
 
 - **"show aic last"** — Run Bash with `npx @jatbas/aic last` (or `pnpm aic last` when `"devMode": true` is set in `aic.config.json`) from the project directory. Relay stdout byte-for-byte.
+
+- **"show aic quality"** — Run Bash with `npx @jatbas/aic quality` (or `pnpm aic quality` when `"devMode": true` is set in `aic.config.json`) from the project directory. Use `quality --window <N>` for a rolling **N**-day window (**N** integer 1..365). Relay stdout byte-for-byte.
 
 - **"show aic projects"** — Run Bash with `npx @jatbas/aic projects` (or `pnpm aic projects` when `"devMode": true` is set in `aic.config.json`). Relay stdout byte-for-byte.
 

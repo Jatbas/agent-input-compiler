@@ -9,4 +9,6 @@ export interface TaskClassification {
   readonly confidence: Confidence;
   readonly matchedKeywords: readonly string[];
   readonly subjectTokens: readonly string[];
+  readonly specificityScore: Confidence;
+  readonly underspecificationIndex: Confidence;
 }

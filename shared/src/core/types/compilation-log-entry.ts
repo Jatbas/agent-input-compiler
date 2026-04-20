@@ -8,7 +8,7 @@ import type {
   ConversationId,
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import type { TokenCount, Milliseconds } from "@jatbas/aic-core/core/types/units.js";
-import type { Percentage } from "@jatbas/aic-core/core/types/scores.js";
+import type { Percentage, Confidence } from "@jatbas/aic-core/core/types/scores.js";
 import type {
   TaskClass,
   EditorId,
@@ -35,4 +35,7 @@ export interface CompilationLogEntry {
   readonly triggerSource?: TriggerSource | null;
   readonly conversationId: ConversationId | null;
   readonly selectionTrace: SelectionTrace | null;
+  readonly classifierConfidence: Confidence | null;
+  readonly specificityScore: Confidence | null;
+  readonly underspecificationIndex: Confidence | null;
 }
