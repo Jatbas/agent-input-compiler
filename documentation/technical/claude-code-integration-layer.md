@@ -39,7 +39,7 @@ The MCP schema (`mcp/src/schemas/compilation-request.ts`, summarized in [Impleme
 **Shipped hooks** that call `aic_compile` through `aic-compile-helper.cjs` do not set `toolOutputs` or `relatedFiles` (that helper sends `intent`, `projectRoot`, `editorId`, and optional `conversationId`, `triggerSource`, `modelId` only). Custom integrations may forward `toolOutputs` when the MCP client exposes prior tool results in that shape.
 
 - **Shared utilities are welcome** in `shared/` only when they are genuinely editor-agnostic
-  (e.g. a `buildSessionContext()` helper that any editor integration could use). If a
+  (a `buildSessionContext()`-style helper that any editor integration could use). If a
   utility only makes sense for Claude Code, it goes in `integrations/claude/`.
 
 ---
@@ -159,7 +159,7 @@ integrations/claude/               ← SOURCE (authored here)
 
 ## 6. Output format — event-specific rules
 
-Claude Code's hooks use two distinct output mechanisms depending on the event. Getting this wrong produces silent drops or "hook error" banners.
+Claude Code's hooks use two distinct output mechanisms: plain text stdout for `UserPromptSubmit`, and JSON `hookSpecificOutput` for the events listed in the subsections below. Getting this wrong produces silent drops or "hook error" banners.
 
 ### 6.1 UserPromptSubmit — use plain text stdout
 
@@ -193,7 +193,7 @@ process.stdout.write(
 **Re-verification at each Claude Code major or minor release:**
 
 1. Start a **new** session. Reproduce the [#17550](https://github.com/anthropics/claude-code/issues/17550) failure mode by emitting `hookSpecificOutput` JSON for `UserPromptSubmit` (same shape as the AVOID example above). Run the repro from a throwaway branch with experimental hook edits so production hooks stay on plain text.
-2. If Claude Code **no longer** surfaces a "UserPromptSubmit hook error" on the first message, open a follow-up task to reassess `integrations/claude/hooks/aic-prompt-compile.cjs` and whether the dual-path marker logic remains necessary. Keep JSON `hookSpecificOutput` off the production `UserPromptSubmit` path until that follow-up lands.
+2. If Claude Code **no longer** surfaces a "UserPromptSubmit hook error" on the first message, reassess `integrations/claude/hooks/aic-prompt-compile.cjs` and whether the dual-path marker logic remains necessary. Keep JSON `hookSpecificOutput` off the production `UserPromptSubmit` path until that reassessment completes.
 3. If the error **still** appears, keep plain-text stdout. Update **Last verified** with the exact version string tested and a one-line outcome describing that the first-message error still reproduces.
 4. **Implementation reference:** `integrations/claude/hooks/aic-prompt-compile.cjs` uses `process.stdout.write` for hook output and `isSessionAlreadyInjected` from `integrations/shared/session-markers.cjs` for the SessionStart fallback (§7.2).
 
@@ -351,8 +351,7 @@ Lock file layout (`.session-start-lock`), merge options, and ordering with this 
 - `input.transcript_path` → `conversationId` (via `path.basename`)
 - `input.prompt` → `intent` (with IDE markup blocks like `<ide_selection>…</ide_selection>` and other `<ide_*>` regions stripped; falls back to agent_type-based intent when absent)
 
-**Matcher:** Use `"*"` or omit — inject context into all subagent types. Optionally filter to
-`Explore|Plan` if Bash subagents don't need full context.
+**Matcher:** Use `"*"` or omit — inject context into all subagent types. Use an `Explore|Plan` matcher when Bash subagents should not receive full context.
 
 **Output:** `hookSpecificOutput` JSON (see §6.3).
 
@@ -366,7 +365,7 @@ Lock file layout (`.session-start-lock`), merge options, and ordering with this 
 
 **Bash matcher — `--no-verify` blocker**
 
-**Purpose:** Block any `git` command that includes `--no-verify` or `-n`. Project rules forbid skipping pre-commit hooks (Husky + lint-staged enforce formatting and linting). An agent will sometimes try to add `--no-verify` to get past a failing commit — this hook stops it deterministically, not via instruction.
+**Purpose:** Block any `git` command that includes `--no-verify` or `-n`. Project rules forbid skipping pre-commit hooks (Husky + lint-staged enforce formatting and linting). An agent sometimes adds `--no-verify` to get past a failing commit — this hook stops it deterministically, not via instruction.
 
 **Matcher:** `Bash` — fires only on Bash tool calls.
 
@@ -698,7 +697,7 @@ The hooks API supports `type: "http"` alongside `type: "command"`
 - `2xx` with plain text body → text added as context
 - `2xx` with JSON body → parsed using the same JSON output schema
 
-Since the AIC MCP server is already running when Claude Code is active, we can expose a lightweight HTTP endpoint on the MCP server (e.g. `http://localhost:PORT/hooks/user-prompt-submit`). The hook configuration changes from spawning a Node process to a single HTTP round-trip:
+Since the AIC MCP server is already running when Claude Code is active, the MCP server can expose a lightweight HTTP endpoint for the hook URL in `settings.json`. The hook configuration changes from spawning a Node process to a single HTTP round-trip:
 
 ```json
 {

@@ -27,10 +27,10 @@ What this means concretely:
 
 The MCP schema (`mcp/src/schemas/compilation-request.ts`, summarized in [Implementation specification §8c](../implementation-spec.md#8c-input-validation-zod-schemas)) accepts optional agentic fields such as `stepIndex`, `stepIntent`, `previousFiles`, `toolOutputs`, and `conversationTokens`. When callers supply structured `toolOutputs[].relatedFiles` (repo-relative paths by convention), the pipeline merges them into heuristic `boostPatterns` before scoring; when the deduplicated related-path set is non-empty, a sorted NUL-separated canonical encoding of those paths is included in the cache preimage that `compilation-runner` hashes ([Step 4 — ContextSelector](../implementation-spec.md#step-4-contextselector-relatedfilesboostcontextselector)).
 
-**Shipped hooks** in `integrations/cursor/hooks/` that invoke `aic_compile` do not set `toolOutputs` or `relatedFiles` (for example `AIC-compile-context.cjs`, `AIC-subagent-compile.cjs`, and `AIC-subagent-stop.cjs`). Custom integrations may forward `toolOutputs` when the MCP client exposes prior tool results in that shape.
+**Shipped hooks** in `integrations/cursor/hooks/` that invoke `aic_compile` do not set `toolOutputs` or `relatedFiles` (`AIC-compile-context.cjs`, `AIC-subagent-compile.cjs`, and `AIC-subagent-stop.cjs`). Custom integrations may forward `toolOutputs` when the MCP client exposes prior tool results in that shape.
 
 - **Shared utilities are welcome** in `shared/` only when they are genuinely editor-agnostic
-  (e.g. a `buildSessionContext()` helper that any editor integration could use). If a
+  (a `buildSessionContext()`-style helper that any editor integration could use). If a
   utility only makes sense for Cursor, it goes in `integrations/cursor/`.
 
 ---
@@ -81,7 +81,7 @@ Cursor runtime → injects as context
 
 ### 4.2 Where the adapter lives
 
-All event hooks are **authored** in `integrations/cursor/hooks/`. The installer deploys them to `.cursor/hooks/` per project and does not modify `mcp/` or `shared/` on disk — but hooks may call the MCP tool, and the server uses `mcp/` and `shared/` at runtime (e.g. `subagent_stop` reparent updates `compilation_log` via `shared/src/storage/reparent-subagent-compilations.ts`).
+All event hooks are **authored** in `integrations/cursor/hooks/`. The installer deploys them to `.cursor/hooks/` per project and does not modify `mcp/` or `shared/` on disk — but hooks may call the MCP tool, and the server uses `mcp/` and `shared/` at runtime (`subagent_stop` reparent updates `compilation_log` via `shared/src/storage/reparent-subagent-compilations.ts`).
 
 `AIC-compile-context.cjs`, `AIC-subagent-compile.cjs`, and `AIC-subagent-stop.cjs` each spawn the MCP server via `execSync` and JSON-RPC to call `aic_compile`. Every other hook is pure Node (gate, inject, tracker, blockers, telemetry).
 
@@ -104,7 +104,7 @@ All event hooks are **authored** in `integrations/cursor/hooks/`. The installer 
 
 ### 4.4 Runtime boundary guards (`cursor_version`)
 
-Shipped hooks use `isCursorNativeHookPayload` from `integrations/cursor/is-cursor-native-hook-payload.cjs` to tell **Cursor-native** invocations apart from **Claude Code** invocations when both runtimes can execute overlapping hook registrations (for example Cursor 3 may invoke `~/.claude/settings.json` hooks alongside `.cursor/hooks.json`).
+Shipped hooks use `isCursorNativeHookPayload` from `integrations/cursor/is-cursor-native-hook-payload.cjs` to tell **Cursor-native** invocations apart from **Claude Code** invocations when both runtimes can execute overlapping hook registrations (Cursor 3 invokes `~/.claude/settings.json` hooks alongside `.cursor/hooks.json` in that configuration).
 
 - **Cursor hooks** (`integrations/cursor/hooks/AIC-*.cjs`): After parsing stdin JSON, the hook exits immediately with no side effects when `isCursorNativeHookPayload` is false (`process.exit(0)` or empty stdout). The predicate is true when `cursor_version` or `input.cursor_version` is present, or when a resolved `conversationId` exists and `integrations/shared/editor-runtime-marker.cjs` reports a fresh `"cursor"` marker for the project.
 
@@ -320,7 +320,7 @@ AIC registers **12** hook **command** entries across **10** event types (some ty
 
 **Event:** `preToolUse` (no matcher — Cursor invokes this hook for every tool call; the script may return allow immediately without reading stdin.)
 
-**Emergency bypass:** Before stdin handling, the script resolves the project root via `integrations/shared/resolve-project-root.cjs`, reads `aic.config.json`, and `JSON.parse`s it. The gate is bypassed **only** when the config is a plain object with **both** `devMode === true` **and** `skipCompileGate === true`. `devMode` alone does **not** bypass the gate. Any read or parse failure continues to the enforcement path below. The `skipCompileGate` key is intended for emergencies only (e.g., the MCP server is broken and must be fixed without the gate blocking tool calls) and should be removed immediately after the issue is resolved.
+**Emergency bypass:** Before stdin handling, the script resolves the project root via `integrations/shared/resolve-project-root.cjs`, reads `aic.config.json`, and `JSON.parse`s it. The gate is bypassed **only** when the config is a plain object with **both** `devMode === true` **and** `skipCompileGate === true`. `devMode` alone does **not** bypass the gate. Any read or parse failure continues to the enforcement path below. The `skipCompileGate` key is intended for emergencies only (broken MCP server that must be fixed without the gate blocking tool calls) and should be removed immediately after the issue is resolved.
 
 **Input fields used (enforcement path only):**
 
@@ -375,7 +375,7 @@ Resolution order for the conversation id string: `input.conversation_id ?? input
 
 For `aic_chat_summary`, when a non-empty id is resolved, `updated_input` adds `conversationId`. When the id is missing, the hook allows the call unchanged.
 
-For `aic_compile`, the hook builds an augmented `toolInput` with `editorId: "cursor"` and optionally `conversationId`, `modelId`, or a replaced `intent` (from the prewarmed prompt file when the tool intent is weak). It emits `updated_input` only when at least one of those changes applies (resolved id, valid `input.model`, or intent replacement); otherwise it returns `{ permission: "allow" }` with no `updated_input`. See `integrations/cursor/hooks/AIC-inject-conversation-id.cjs` (`shouldEmitUpdatedInput`).
+For `aic_compile`, the hook builds an augmented `toolInput` with `editorId: "cursor"` and adds `conversationId`, `modelId`, or a replaced `intent` when resolution or weak-intent replacement supplies them (from the prewarmed prompt file when the tool intent is weak). It emits `updated_input` only when at least one of those changes applies (resolved id, valid `input.model`, or intent replacement); otherwise it returns `{ permission: "allow" }` with no `updated_input`. See `integrations/cursor/hooks/AIC-inject-conversation-id.cjs` (`shouldEmitUpdatedInput`).
 
 ```js
 { permission: "allow", updated_input: { ...toolInput, editorId: "cursor", /* optional: conversationId, modelId, intent */ } }
@@ -572,7 +572,7 @@ telemetry only. `subagentStop` does not inject context; it exists for reparent o
 
 ## 9. MCP compile invocation from hooks
 
-**Cursor:** `AIC-compile-context.cjs`, `AIC-subagent-compile.cjs`, and `AIC-subagent-stop.cjs` spawn MCP and call `aic_compile` directly. All other compilation goes through the model after the preToolUse gate when §7.3 is enforcing (default unless the emergency bypass is active — both `devMode` and `skipCompileGate` true in `aic.config.json`). Because `beforeSubmitPrompt` cannot emit `additional_context`, session-wide snapshot injection depends on `AIC-compile-context.cjs`.
+**Cursor:** `AIC-compile-context.cjs`, `AIC-subagent-compile.cjs`, and `AIC-subagent-stop.cjs` spawn MCP and call `aic_compile` directly. All other compilation goes through the model after the preToolUse gate when §7.3 is enforcing (default unless the emergency bypass is active — both `devMode` and `skipCompileGate` true in `aic.config.json`). Because `beforeSubmitPrompt` cannot emit `additional_context`, session-wide snapshot injection uses `AIC-compile-context.cjs`.
 
 ### 9.1 Session compile — `AIC-compile-context.cjs`
 
@@ -765,7 +765,7 @@ Settings:
 
 Init behavior:
 
-- [ ] Bootstrap: `install.cjs` runs from in-project path when present, else bundled package copy (§2–§3); manual run if needed ([installation.md#first-compile-bootstrap](../installation.md#first-compile-bootstrap))
+- [ ] Bootstrap: `install.cjs` runs from in-project path when present, else bundled package copy (§2–§3); when only the packaged layout is available, run the installer manually per [installation.md#first-compile-bootstrap](../installation.md#first-compile-bootstrap))
 
 Temp file conventions:
 

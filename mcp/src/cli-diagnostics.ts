@@ -150,15 +150,27 @@ function parseQualityWindowDaysFromArgv(
   argv: readonly string[],
 ): { readonly ok: true; readonly windowDays: number } | { readonly ok: false } {
   const tokens = diagnosticArgvTokensExcludingProjectPair(argv);
+  const positional = tokens.filter((t) => /^\d+d$/.test(t));
   const windowIdxs = tokens.reduce<number[]>(
     (acc, t, i) => (t === "--window" ? [...acc, i] : acc),
     [],
   );
-  if (windowIdxs.length === 0) {
-    return { ok: true, windowDays: 30 };
-  }
-  if (windowIdxs.length > 1) {
+  if (positional.length > 1 || windowIdxs.length > 1) {
     return { ok: false };
+  }
+  if (positional.length > 0 && windowIdxs.length > 0) {
+    return { ok: false };
+  }
+  if (positional.length === 0 && windowIdxs.length === 0) {
+    return { ok: true, windowDays: 7 };
+  }
+  if (positional.length === 1) {
+    const first = positional[0];
+    const m = first === undefined ? null : /^(\d+)d$/.exec(first);
+    if (m === null || m[1] === undefined) return { ok: false };
+    const n = Number.parseInt(m[1], 10);
+    if (!Number.isInteger(n) || n < 1 || n > 365) return { ok: false };
+    return { ok: true, windowDays: n };
   }
   const wi = windowIdxs[0];
   if (wi === undefined || wi + 1 >= tokens.length) {
@@ -184,7 +196,7 @@ async function runCliDiagnosticsAsync(argv: readonly string[]): Promise<number> 
   const run = sub !== undefined ? handlers[sub] : undefined;
   if (run === undefined) {
     process.stderr.write(
-      `Usage: aic {status [<N>d]|last|chat-summary|quality [--window <days>]} [--project <dir>] | projects | init | serve (status <N>d: 1..${String(STATUS_TIME_RANGE_DAYS_MAX)}; quality --window: 1..365, default 30)\n`,
+      `Usage: aic {status [<N>d]|last|chat-summary|quality [<N>d]} [--project <dir>] | projects | init | serve (status <N>d: 1..${String(STATUS_TIME_RANGE_DAYS_MAX)}; quality <N>d: 1..365, default 7)\n`,
     );
     return 1;
   }
@@ -350,7 +362,7 @@ async function runQualityCli(argv: readonly string[]): Promise<number> {
   const parsedWindow = parseQualityWindowDaysFromArgv(argv);
   if (!parsedWindow.ok) {
     process.stderr.write(
-      "quality: use at most one --window <N> with N integer 1..365, or omit for a 30-day window\n",
+      "quality: use at most one <N>d (e.g. 7d) or --window <N> with N integer 1..365; default is 7d\n",
     );
     return 1;
   }

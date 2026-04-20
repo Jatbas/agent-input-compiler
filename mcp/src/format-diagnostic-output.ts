@@ -432,36 +432,58 @@ function qualityPayloadNumber(payload: Record<string, unknown>, key: string): nu
   return Number.isFinite(n) ? n : 0;
 }
 
-function qualityTierMixLine(tier: unknown): string {
+const QUALITY_FOOTNOTE = [
+  "Token reduction: % of repo content excluded per build — higher means better context precision.",
+  "Selection ratio: % of repo files selected per build.",
+  "Budget used: % of token budget consumed per build.",
+  "Cache hit rate: % of builds served from cache without recompiling.",
+  "Tiers: full = entire file · sig+doc = signatures + docs · sigs = signatures only · names = symbol names only.",
+].join("\n");
+
+// sub-item width shared across tier and class rows so values align in one column
+const QUALITY_SUB_W = 14;
+
+function qualityTierMixRows(tier: unknown): readonly string[] {
   if (tier === null || typeof tier !== "object" || Array.isArray(tier)) {
-    return "tier mix · L0 — · L1 — · L2 — · L3 —";
+    return [
+      "Tier mix",
+      padRow("  full", "—", QUALITY_SUB_W),
+      padRow("  sig+doc", "—", QUALITY_SUB_W),
+      padRow("  sigs", "—", QUALITY_SUB_W),
+      padRow("  names", "—", QUALITY_SUB_W),
+    ];
   }
   const r = tier as Record<string, unknown>;
-  const seg = (k: string): string =>
-    `L${k.slice(1)} ${formatPct1(qualityPayloadNumber(r, k) * 100)}`;
-  return `tier mix · ${seg("l0")} · ${seg("l1")} · ${seg("l2")} · ${seg("l3")}`;
+  const pct = (k: string): string => formatPct1(qualityPayloadNumber(r, k) * 100);
+  return [
+    "Tier mix",
+    padRow("  full", pct("l0"), QUALITY_SUB_W),
+    padRow("  sig+doc", pct("l1"), QUALITY_SUB_W),
+    padRow("  sigs", pct("l2"), QUALITY_SUB_W),
+    padRow("  names", pct("l3"), QUALITY_SUB_W),
+  ];
 }
 
-function qualityByClassLine(byTaskClass: unknown): string {
+function qualityByClassRows(byTaskClass: unknown): readonly string[] {
   if (
     byTaskClass === null ||
     typeof byTaskClass !== "object" ||
     Array.isArray(byTaskClass)
   ) {
-    return "by class · —";
+    return ["By task class", padRow("  —", "—", QUALITY_SUB_W)];
   }
   const rec = byTaskClass as Record<string, unknown>;
-  const parts = (Object.values(TASK_CLASS) as readonly string[]).map((tc) => {
+  const classRows = (Object.values(TASK_CLASS) as readonly string[]).map((tc) => {
     const cell = rec[tc];
-    if (cell === null || typeof cell !== "object" || Array.isArray(cell)) {
-      return `${tc} 0`;
-    }
-    const c = Math.round(
-      qualityPayloadNumber(cell as Record<string, unknown>, "compilations"),
-    );
-    return `${tc} ${String(c)}`;
+    const c =
+      cell === null || typeof cell !== "object" || Array.isArray(cell)
+        ? 0
+        : Math.round(
+            qualityPayloadNumber(cell as Record<string, unknown>, "compilations"),
+          );
+    return padRow(`  ${tc}`, String(c), QUALITY_SUB_W);
   });
-  return `by class · ${parts.join(" · ")}`;
+  return ["By task class", ...classRows];
 }
 
 export function formatQualityReportLines(
@@ -469,29 +491,40 @@ export function formatQualityReportLines(
   clock: Clock,
 ): string {
   void clock;
+  const w = 24;
   const windowDays = Math.round(qualityPayloadNumber(payload, "windowDays"));
   const compilations = Math.round(qualityPayloadNumber(payload, "compilations"));
   const mTr = qualityPayloadNumber(payload, "medianTokenReduction");
   const mSel = qualityPayloadNumber(payload, "medianSelectionRatio");
   const mBu = qualityPayloadNumber(payload, "medianBudgetUtilisation");
   const cacheHit = qualityPayloadNumber(payload, "cacheHitRate");
-  const base: readonly string[] = [
-    `window=${String(windowDays)}d · ${formatInt(compilations)} compilations`,
-    `median · token ${formatPct1(mTr * 100)} · selection ${formatPct1(mSel * 100)} · budget ${formatPct1(mBu * 100)}`,
-    `cache hit ${formatPct1(cacheHit * 100)}`,
-    qualityTierMixLine(payload["tierDistribution"]),
-    qualityByClassLine(payload["byTaskClass"]),
-  ];
   const cc = payload["classifierConfidence"];
-  const withClassifier: readonly string[] =
+  const classifierRows: readonly string[] =
     cc !== null &&
     typeof cc === "object" &&
     !Array.isArray(cc) &&
     (cc as Record<string, unknown>)["available"] === true
       ? [
-          ...base,
-          `classifier · mean ${formatPct1(qualityPayloadNumber(cc as Record<string, unknown>, "mean") * 100)}`,
+          padRow(
+            "Classifier mean",
+            formatPct1(qualityPayloadNumber(cc as Record<string, unknown>, "mean") * 100),
+            w,
+          ),
         ]
-      : base;
-  return `${withClassifier.join("\n")}\n`;
+      : [];
+  const rows: readonly string[] = [
+    "Quality = context build quality metrics.",
+    SEP,
+    padRow("Time range", statusTimeRangeValue(windowDays), w),
+    padRow("Compilations", formatInt(compilations), w),
+    SEP,
+    padRow("Median token reduction", formatPct1(mTr * 100), w),
+    padRow("Median selection ratio", formatPct1(mSel * 100), w),
+    padRow("Median budget used", formatPct1(mBu * 100), w),
+    padRow("Cache hit rate", formatPct1(cacheHit * 100), w),
+    ...qualityTierMixRows(payload["tierDistribution"]),
+    ...qualityByClassRows(payload["byTaskClass"]),
+    ...classifierRows,
+  ];
+  return `${rows.join("\n")}\n${SEP}\n${QUALITY_FOOTNOTE}\n`;
 }

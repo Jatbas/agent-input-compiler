@@ -128,7 +128,7 @@ For CLI-based commands (status, last, chat-summary, quality, projects): run the 
 **Output discipline (mandatory — applies to every prompt command below):**
 
 1. **No preamble.** Go directly to the Bash tool call. Do not announce the command, the shell, the Node version, the PATH, or what you are about to do.
-2. **No post-output commentary.** After the command returns, paste its stdout verbatim and stop. Do not add explanations, troubleshooting tips, environment diagnostics, or follow-up suggestions — not even if you think they are helpful.
+2. **No post-output commentary.** After the command returns, your response text must be the stdout wrapped in a fenced code block (triple backticks, no language tag) and nothing else — no text before the opening fence, no text after the closing fence. The tool result block is separate from your response text — the rule requires the stdout to appear in your response text as well. Do not add explanations, troubleshooting tips, environment diagnostics, or follow-up suggestions — not even if you think they are helpful.
 3. **Failure contract.** If the command exits non-zero, paste stderr verbatim, add a single line \`exit code: N\`, and stop. Do not diagnose Node versions, ABI mismatches, rebuild steps, alternate shells, or PATH fixes unless the user asks in a follow-up message.
 4. **One invocation per command.** Do not retry with a different Node binary, interpreter, or PATH on failure. The user decides whether to retry.
 

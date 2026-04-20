@@ -230,8 +230,8 @@ describe("cli-diagnostics", () => {
     });
     const out = chunks.join("");
     const physicalLines = out.split("\n").filter((line) => line.length > 0);
-    expect(physicalLines.length).toBeLessThanOrEqual(6);
-    expect(out).toContain("window=7d");
+    expect(physicalLines.length).toBeLessThanOrEqual(27);
+    expect(out).toContain("Last 7 days");
     fs.rmSync(homeTmp, { recursive: true, force: true });
     fs.rmSync(projectTmp, { recursive: true, force: true });
   });

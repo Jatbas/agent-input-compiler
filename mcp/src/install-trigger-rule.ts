@@ -48,7 +48,7 @@ Then continue responding normally without compiled context.
 
 Prompt commands ("show aic status|last|chat-summary|quality|projects") are **Bash CLI** — never MCP tool calls. Do not call \`aic_status\`, \`aic_last\`, \`aic_chat_summary\`, \`aic_quality_report\`, or \`aic_projects\` for these phrases.
 
-**Output discipline (mandatory):** No preamble — go straight to the Bash tool call. Paste stdout verbatim and stop. No post-output commentary, no environment diagnostics (Node version, ABI, PATH, shell). On non-zero exit: paste stderr, add one line \`exit code: N\`, and stop. Do not retry with a different Node/PATH/interpreter unless the user asks.
+**Output discipline (mandatory):** No preamble — go straight to the Bash tool call. After the command returns, your response text must be the stdout wrapped in a fenced code block (triple backticks, no language tag) and nothing else — no text before the opening fence, no text after the closing fence. The tool result block is not sufficient; stdout must appear in your response text. On non-zero exit: paste stderr, add one line \`exit code: N\`, and stop. Do not retry with a different Node/PATH/interpreter unless the user asks.
 
 Commands:
 - "show aic status" → \`(grep -q '"devMode": true' aic.config.json 2>/dev/null && pnpm aic status) || npx @jatbas/aic status\` from the project directory, or substitute \`status <N>d\` for a rolling **N**-day window (**N** integer 1..3660).
@@ -170,7 +170,7 @@ For CLI-based commands (status, last, chat-summary, quality, projects): run the 
 **Output discipline (mandatory — applies to every prompt command below):**
 
 1. **No preamble.** Go directly to the Bash tool call. Do not announce the command, the shell, the Node version, the PATH, or what you are about to do.
-2. **No post-output commentary.** After the command returns, paste its stdout verbatim and stop. Do not add explanations, troubleshooting tips, environment diagnostics, or follow-up suggestions — not even if you think they are helpful.
+2. **No post-output commentary.** After the command returns, your response text must be the stdout wrapped in a fenced code block (triple backticks, no language tag) and nothing else — no text before the opening fence, no text after the closing fence. The tool result block is separate from your response text — the rule requires the stdout to appear in your response text as well. Do not add explanations, troubleshooting tips, environment diagnostics, or follow-up suggestions — not even if you think they are helpful.
 3. **Failure contract.** If the command exits non-zero, paste stderr verbatim, add a single line \`exit code: N\`, and stop. Do not diagnose Node versions, ABI mismatches, rebuild steps, alternate shells, or PATH fixes unless the user asks in a follow-up message.
 4. **One invocation per command.** Do not retry with a different Node binary, interpreter, or PATH on failure. The user decides whether to retry.
 

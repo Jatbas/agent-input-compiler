@@ -330,10 +330,14 @@ function cacheHitRateForRows(rows: readonly QualitySnapshotRow[]): number {
 
 function stratumMetrics(rows: readonly QualitySnapshotRow[]): Record<string, unknown> {
   const compilations = rows.length;
+  // cache hits use token_reduction_ratio=0; omit so median reflects real builds not cache hits
+  const compileRows = rows.filter((r) => !r.cacheHit);
   return {
     compilations,
-    medianTokenReduction: medianRatio(rows.map((r) => Number(r.tokenReductionRatio))),
-    medianSelectionRatio: medianRatio(rows.map((r) => Number(r.selectionRatio))),
+    medianTokenReduction: medianRatio(
+      compileRows.map((r) => Number(r.tokenReductionRatio)),
+    ),
+    medianSelectionRatio: medianRatio(compileRows.map((r) => Number(r.selectionRatio))),
     medianBudgetUtilisation: medianRatio(rows.map((r) => Number(r.budgetUtilisation))),
     cacheHitRate: cacheHitRateForRows(rows),
   };
@@ -386,10 +390,15 @@ function seriesDailyFromRows(
     const bucket = rows.filter(
       (r) => utcCalendarDayFromIsoTimestamp(r.createdAt) === day,
     );
+    const compileBucket = bucket.filter((r) => !r.cacheHit);
     return {
       day,
-      medianTokenReduction: medianRatio(bucket.map((r) => Number(r.tokenReductionRatio))),
-      medianSelectionRatio: medianRatio(bucket.map((r) => Number(r.selectionRatio))),
+      medianTokenReduction: medianRatio(
+        compileBucket.map((r) => Number(r.tokenReductionRatio)),
+      ),
+      medianSelectionRatio: medianRatio(
+        compileBucket.map((r) => Number(r.selectionRatio)),
+      ),
       medianBudgetUtilisation: medianRatio(
         bucket.map((r) => Number(r.budgetUtilisation)),
       ),
@@ -409,6 +418,7 @@ export function buildQualityReportPayload(input: {
   const rows = store.selectWindowRows({ notBeforeInclusive });
   const compilations = rows.length;
   const windowStartDay = utcCalendarDayFromIsoTimestamp(notBeforeInclusive);
+  const compileRows = rows.filter((r) => !r.cacheHit);
   const byTaskClass = Object.values(TASK_CLASS).reduce<Record<string, unknown>>(
     (acc, taskClass) => ({
       ...acc,
@@ -419,8 +429,10 @@ export function buildQualityReportPayload(input: {
   return {
     windowDays: input.windowDays,
     compilations,
-    medianTokenReduction: medianRatio(rows.map((r) => Number(r.tokenReductionRatio))),
-    medianSelectionRatio: medianRatio(rows.map((r) => Number(r.selectionRatio))),
+    medianTokenReduction: medianRatio(
+      compileRows.map((r) => Number(r.tokenReductionRatio)),
+    ),
+    medianSelectionRatio: medianRatio(compileRows.map((r) => Number(r.selectionRatio))),
     medianBudgetUtilisation: medianRatio(rows.map((r) => Number(r.budgetUtilisation))),
     cacheHitRate: cacheHitRateForRows(rows),
     tierDistribution: tierDistributionFromRows(rows),

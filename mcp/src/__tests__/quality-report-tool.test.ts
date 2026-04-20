@@ -41,8 +41,8 @@ const NOT_BEFORE = toISOTimestamp("2026-02-28T12:00:00.000Z");
 const goldenPayload: Record<string, unknown> = {
   windowDays: 2,
   compilations: 3,
-  medianTokenReduction: 0.5,
-  medianSelectionRatio: 0.4,
+  medianTokenReduction: 0.1,
+  medianSelectionRatio: 0.2,
   medianBudgetUtilisation: 0.5,
   cacheHitRate: 2 / 3,
   tierDistribution: {
@@ -61,15 +61,15 @@ const goldenPayload: Record<string, unknown> = {
     },
     [TASK_CLASS.BUGFIX]: {
       compilations: 1,
-      medianTokenReduction: 0.9,
-      medianSelectionRatio: 0.6,
+      medianTokenReduction: 0,
+      medianSelectionRatio: 0,
       medianBudgetUtilisation: 0.7,
       cacheHitRate: 1,
     },
     [TASK_CLASS.FEATURE]: {
       compilations: 1,
-      medianTokenReduction: 0.5,
-      medianSelectionRatio: 0.4,
+      medianTokenReduction: 0,
+      medianSelectionRatio: 0,
       medianBudgetUtilisation: 0.5,
       cacheHitRate: 1,
     },
@@ -113,8 +113,8 @@ const goldenPayload: Record<string, unknown> = {
     },
     {
       day: "2026-03-02",
-      medianTokenReduction: 0.9,
-      medianSelectionRatio: 0.6,
+      medianTokenReduction: 0,
+      medianSelectionRatio: 0,
       medianBudgetUtilisation: 0.7,
       cacheHitRate: 1,
     },
