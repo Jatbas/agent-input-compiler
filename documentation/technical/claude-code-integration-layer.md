@@ -394,9 +394,9 @@ Lock file layout (`.session-start-lock`), merge options, and ordering with this 
 
 **Compile detection (`isAicCompileCall`):** Allows when the tool name matches `aic_compile` (case-insensitive), when `ToolSearch` runs with a `query` matching `aic_compile` (schema discovery escape hatch), or when `tool_input` carries both `intent` and `projectRoot` strings.
 
-**Allow path:** On a compile hit, calls `writeCompileRecency(projectRoot)` and clears the per-conversation deny file `aic-gate-cc-deny-<conversationId>` under `os.tmpdir()`.
+**Allow path:** On a compile hit, calls `writeCompileRecency(projectRoot)` and returns allow (empty hook output).
 
-**Otherwise:** Allows when `isTurnCompiled(projectRoot, conversationId)` or `isCompileRecent(projectRoot)` from `integrations/shared/compile-recency.cjs` succeeds (default recency **300** seconds unless `compileRecencyWindowSecs` in `aic.config.json` overrides). If still blocked, increments deny count up to `MAX_DENIES` (3); at cap, returns `{}` to stop denying. Deny responses use `readAicPrewarmPrompt(\`cc-${conversationId}\`)`for suggested`intent` text.
+**Otherwise:** Allows when `isTurnCompiled(projectRoot, conversationId)` or `isCompileRecent(projectRoot)` from `integrations/shared/compile-recency.cjs` succeeds (default recency **300** seconds unless `compileRecencyWindowSecs` in `aic.config.json` overrides). If still blocked, polls at **20** ms intervals for up to **500** ms (`SIBLING_POLL_INTERVAL_MS` / `SIBLING_POLL_TOTAL_MS` in `aic-pre-tool-gate.cjs`), re-checking those markers so a sibling `aic_compile` in the same parallel batch can satisfy the gate before a deny. If still blocked, returns a deny `hookSpecificOutput` with suggested `intent` from `readAicPrewarmPrompt(\`cc-${conversationId}\`)`. There is no deny-count cap (same sibling-race story as Cursor; rationale in [Cursor integration layer §7.3](cursor-integration-layer.md#73-pretooluse-unmatched--aic_compile-enforcement-gate)).
 
 **File:** `.claude/hooks/aic-pre-tool-gate.cjs`
 

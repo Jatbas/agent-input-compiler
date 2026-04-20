@@ -87,20 +87,20 @@ All event hooks are **authored** in `integrations/cursor/hooks/`. The installer 
 
 ### 4.3 Input field mapping
 
-| Cursor hook input field                         | How AIC uses it                                                                                                                                                         |
-| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `input.conversation_id`                         | → `conversationId` for `aic_compile` (sessionStart hook and preToolUse)                                                                                                 |
-| `input.model`                                   | → `modelId` on `aic_compile` (sessionStart and preToolUse inject)                                                                                                       |
-| `input.generation_id`                           | temp file key for per-generation state (`aic-gate-<id>`, `aic-prompt-<id>`, `aic-gate-deny-<id>`); the recency marker `aic-gate-recent-<hash>` is project-scoped (§7.3) |
-| `input.prompt`                                  | saved to temp file by `beforeSubmitPrompt` for gate deny message                                                                                                        |
-| `input.command`                                 | inspected by `beforeShellExecution` for `--no-verify`                                                                                                                   |
-| `input.files` / `input.file` / `input.filePath` | edited file paths, recorded by `afterFileEdit`                                                                                                                          |
-| `input.reason` / `input.duration_ms`            | session end telemetry                                                                                                                                                   |
-| `CURSOR_PROJECT_DIR` env var                    | project root for hooks that need it                                                                                                                                     |
-| `AIC_PROJECT_ROOT` env var                      | injected via `env:` when `AIC-compile-context.cjs` completes a successful `aic_compile` (§7.1); not emitted by `AIC-session-init.cjs`                                   |
-| `AIC_CONVERSATION_ID` env var                   | same `env:` path as `AIC_PROJECT_ROOT`; `AIC-inject-conversation-id.cjs` also falls back to `process.env.AIC_CONVERSATION_ID`; stdin `conversation_id` when present     |
-| `input.agent_transcript_path`                   | `subagentStop` only — path to the subagent transcript `.jsonl`; child session id is the basename without `.jsonl` (see §7.11)                                           |
-| `cursor_version` / `input.cursor_version`       | Discriminator injected by Cursor’s hook runtime — see §4.4                                                                                                              |
+| Cursor hook input field                         | How AIC uses it                                                                                                                                                     |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `input.conversation_id`                         | → `conversationId` for `aic_compile` (sessionStart hook and preToolUse)                                                                                             |
+| `input.model`                                   | → `modelId` on `aic_compile` (sessionStart and preToolUse inject)                                                                                                   |
+| `input.generation_id`                           | temp file key for per-generation state (`aic-gate-<id>`, `aic-prompt-<id>`); the recency marker `aic-gate-recent-<hash>` is project-scoped (§7.3)                   |
+| `input.prompt`                                  | saved to temp file by `beforeSubmitPrompt` for gate deny message                                                                                                    |
+| `input.command`                                 | inspected by `beforeShellExecution` for `--no-verify`                                                                                                               |
+| `input.files` / `input.file` / `input.filePath` | edited file paths, recorded by `afterFileEdit`                                                                                                                      |
+| `input.reason` / `input.duration_ms`            | session end telemetry                                                                                                                                               |
+| `CURSOR_PROJECT_DIR` env var                    | project root for hooks that need it                                                                                                                                 |
+| `AIC_PROJECT_ROOT` env var                      | injected via `env:` when `AIC-compile-context.cjs` completes a successful `aic_compile` (§7.1); not emitted by `AIC-session-init.cjs`                               |
+| `AIC_CONVERSATION_ID` env var                   | same `env:` path as `AIC_PROJECT_ROOT`; `AIC-inject-conversation-id.cjs` also falls back to `process.env.AIC_CONVERSATION_ID`; stdin `conversation_id` when present |
+| `input.agent_transcript_path`                   | `subagentStop` only — path to the subagent transcript `.jsonl`; child session id is the basename without `.jsonl` (see §7.11)                                       |
+| `cursor_version` / `input.cursor_version`       | Discriminator injected by Cursor’s hook runtime — see §4.4                                                                                                          |
 
 ### 4.4 Runtime boundary guards (`cursor_version`)
 
@@ -125,7 +125,7 @@ integrations/cursor/               ← SOURCE (authored here)
     AIC-session-init.cjs           # sessionStart — architectural invariants (additional_context only)
     AIC-compile-context.cjs        # sessionStart — calls aic_compile, injects compiled context
     AIC-before-submit-prewarm.cjs  # beforeSubmitPrompt — prompt logging + gate prewarm
-    AIC-require-aic-compile.cjs    # preToolUse — compile gate (enforces aic_compile with default 300s recency fallback, override via compileRecencyWindowSecs; deny-count cap; emergency bypass when both devMode and skipCompileGate are true)
+    AIC-require-aic-compile.cjs    # preToolUse — compile gate (enforces aic_compile with default 300s recency fallback, override via compileRecencyWindowSecs; sibling-race poll before deny; emergency bypass when both devMode and skipCompileGate are true)
     AIC-inject-conversation-id.cjs # preToolUse (MCP) — injects conversationId into MCP args
     AIC-post-compile-context.cjs   # postToolUse (MCP) — confirmation after aic_compile
     AIC-block-no-verify.cjs        # beforeShellExecution (git) — blocks --no-verify
@@ -328,18 +328,20 @@ AIC registers **12** hook **command** entries across **10** event types (some ty
 - `input.tool_name` → to detect if the call is `aic_compile`
 - `input.tool_input` → alternative detection for `aic_compile`
 
-**Purpose (enforcement path):** Ensure `aic_compile` runs before other tools. The gate combines per-generation state tracking, a project-scoped recency window (default **300** seconds from `RECENCY_WINDOW_MS` in `integrations/shared/compile-recency.cjs`; override with positive `compileRecencyWindowSecs` in `aic.config.json`), and a deny-count cap.
+**Purpose (enforcement path):** Ensure `aic_compile` runs before other tools. The gate combines per-generation state tracking, a project-scoped recency window (default **300** seconds from `RECENCY_WINDOW_MS` in `integrations/shared/compile-recency.cjs`; override with positive `compileRecencyWindowSecs` in `aic.config.json`), and a short **sibling-race poll** before any deny verdict. There is **no** deny-count cap: the hook keeps denying until `aic_compile` runs or recency or the per-generation marker allows the call.
+
+**Rationale (sibling poll, no cap):** A deny-count cap used to exist to break apparent infinite-deny loops. Those loops came from a race between sibling hook invocations in the same parallel tool batch: one invocation admits `aic_compile` and writes state and recency while another tool's hook reads before that write is visible and denies. Polling for up to **500** ms at **20** ms intervals re-checks the state file and recency so the batch resolves deterministically. With that behavior, the cap became unnecessary and harmful because it could silently allow tools while context was still uncompiled.
 
 **Mechanics (enforcement path):**
 
-1. When the tool call is `aic_compile`: write `os.tmpdir()/aic-gate-<generation_id>`, update the project-scoped recency marker `os.tmpdir()/aic-gate-recent-<project_hash>` with the current timestamp, and delete any deny counter for this generation. Allow the call.
+1. When the tool call is `aic_compile`: write `os.tmpdir()/aic-gate-<generation_id>`, update the project-scoped recency marker `os.tmpdir()/aic-gate-recent-<project_hash>` with the current timestamp, and allow the call.
 2. On any other tool call, evaluate in order:
    - **Per-generation marker:** if `aic-gate-<generation_id>` exists, allow.
    - **Recency fallback:** if `aic-gate-recent-<project_hash>` exists and its timestamp is within the window from `integrations/shared/compile-recency.cjs` (default 300 seconds unless `compileRecencyWindowSecs` in `aic.config.json` overrides), allow. This covers `generation_id` changes within the same project.
-   - **Deny-count cap:** if `aic-gate-deny-<generation_id>` records 3 or more prior denials (`MAX_DENIES`), allow. This prevents infinite denial loops when per-generation state is lost.
-   - Otherwise: increment the deny counter in `aic-gate-deny-<generation_id>` and deny.
+   - **Sibling-race poll:** before denying, wait **20** ms between checks, up to **500** ms total (`SIBLING_POLL_INTERVAL_MS` / `SIBLING_POLL_TOTAL_MS` in `AIC-require-aic-compile.cjs`), re-checking the per-generation state file and project-scoped recency after each wait. If a sibling `aic_compile` in the same parallel batch writes state or recency during the poll, allow.
+   - **Deny:** otherwise deny. Every later tool call repeats this flow until compile or markers allow it.
 3. The deny message includes the exact user prompt (from the prewarm temp file) as the
-   recommended `intent` argument — making it likely the model calls `aic_compile` with
+   recommended `intent` argument so the model calls `aic_compile` with
    the correct intent and gets a cache hit from the prewarm.
 
 **Output:** `{ permission: "allow" }` or `{ permission: "deny", user_message, agent_message }`. Under the emergency bypass (`devMode` + `skipCompileGate`), the hook emits allow only and never deny.
@@ -495,7 +497,7 @@ The model then sees this as a new prompt, fixes the errors, and tries to stop ag
 **Purpose:**
 
 1. **Cleanup:** Delete `aic-gate-*`, `aic-deny-*`, and `aic-prompt-*` temp files from
-   `os.tmpdir()` (per-generation state, deny counters, prewarm prompts). The preToolUse gate (§7.3) also sweeps stale files opportunistically, throttled to once per 10 minutes.
+   `os.tmpdir()` (per-generation state, prewarm prompts). The preToolUse gate (§7.3) also sweeps stale files opportunistically, throttled to once per 10 minutes.
 2. **Session log:** Append one JSON line to `.aic/session-log.jsonl` with `session_id`,
    `reason`, `duration_ms`, `timestamp`. Age-based pruning uses the same MCP startup path and `shared/src/maintenance/prune-jsonl-by-timestamp.ts` helper as the other `.aic/*.jsonl` logs.
 
@@ -745,7 +747,7 @@ Context delivery:
 - [ ] `AIC-session-init.cjs` injects architectural invariants via `additional_context` (§7.1)
 - [ ] `AIC-compile-context.cjs` calls `aic_compile` with `conversationId` resolved per §9.1 (transcript path, direct ids, `AIC_CONVERSATION_ID`, or `resolveConversationIdFallback`)
 - [ ] `AIC-before-submit-prewarm.cjs` saves prompt for gate deny message (§7.2)
-- [ ] `AIC-require-aic-compile.cjs` enforces `aic_compile` via per-generation marker, default 300s recency fallback (`compileRecencyWindowSecs` override), and deny-count cap unless emergency bypass is active (§7.3)
+- [ ] `AIC-require-aic-compile.cjs` enforces `aic_compile` via per-generation marker, default 300s recency fallback (`compileRecencyWindowSecs` override), sibling-race poll before deny, and indefinite deny until compile or markers unless emergency bypass is active (§7.3)
 - [ ] `AIC-inject-conversation-id.cjs` injects `conversationId` into MCP args (§7.4)
 - [ ] `AIC-post-compile-context.cjs` injects confirmation after compile (§7.5)
 - [ ] `AIC-subagent-compile.cjs` runs telemetry `aic_compile` on subagentStart (§7.10)
@@ -768,7 +770,6 @@ Init behavior:
 Temp file conventions:
 
 - [ ] `aic-gate-<generation_id>`: written by preToolUse gate on successful `aic_compile`, deleted by sessionEnd and opportunistic cleanup (not written when emergency bypass is active — §7.3)
-- [ ] `aic-gate-deny-<generation_id>`: written by preToolUse gate on each denial, reset on successful `aic_compile`, deleted by sessionEnd (matches `aic-gate-*` prefix)
 - [ ] `aic-gate-recent-<project_hash>`: project-scoped recency marker written on successful `aic_compile`, excluded from opportunistic cleanup (§7.3)
 - [ ] `aic-gate-cleanup-marker`: throttle stamp for opportunistic cleanup; sweep runs at most once per 10 minutes (§7.3)
 - [ ] `aic-prompt-<generation_id>`: written by beforeSubmitPrompt, deleted by sessionEnd and opportunistic cleanup

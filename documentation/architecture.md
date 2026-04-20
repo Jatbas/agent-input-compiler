@@ -28,15 +28,15 @@ The shipped server exposes two MCP tools whose names include `compile`; they are
 
 For full AIC integration, an editor should expose these hook capabilities:
 
-| Capability                             | What it enables                                                                                     | Required?    |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------- | ------------ |
-| **Session start + context injection**  | Compile context once and inject into the conversation. Model starts with curated code.              | Recommended  |
-| **Per-prompt + context injection**     | Compile intent-specific context on every user message. Adapts to topic changes.                     | Ideal        |
-| **Pre-tool-use gating**                | Enforce `aic_compile` before other tools (per-generation marker, recency fallback, deny-count cap). | Recommended  |
-| **Subagent start + context injection** | Inject compiled context when subagents spawn. Closes the biggest agentic gap.                       | Ideal        |
-| **Session end**                        | Log session lifecycle for telemetry.                                                                | Nice to have |
-| **Pre-compaction**                     | Re-compile before context window compaction. Preserves quality during long sessions.                | Nice to have |
-| **Trigger rule**                       | Text instruction asking the model to call `aic_compile`. Minimal integration (no hooks).            | Minimum      |
+| Capability                             | What it enables                                                                                                                                                                                                                                       | Required?    |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| **Session start + context injection**  | Compile context once and inject into the conversation. Model starts with curated code.                                                                                                                                                                | Recommended  |
+| **Per-prompt + context injection**     | Compile intent-specific context on every user message. Adapts to topic changes.                                                                                                                                                                       | Ideal        |
+| **Pre-tool-use gating**                | Enforce `aic_compile` before other tools (per-generation marker, recency fallback, sibling-race poll before deny — see [Cursor integration layer §7.3](technical/cursor-integration-layer.md#73-pretooluse-unmatched--aic_compile-enforcement-gate)). | Recommended  |
+| **Subagent start + context injection** | Inject compiled context when subagents spawn. Closes the biggest agentic gap.                                                                                                                                                                         | Ideal        |
+| **Session end**                        | Log session lifecycle for telemetry.                                                                                                                                                                                                                  | Nice to have |
+| **Pre-compaction**                     | Re-compile before context window compaction. Preserves quality during long sessions.                                                                                                                                                                  | Nice to have |
+| **Trigger rule**                       | Text instruction asking the model to call `aic_compile`. Minimal integration (no hooks).                                                                                                                                                              | Minimum      |
 
 > No editor currently has a complete AIC integration for all of these. But the core pipeline is ready for all of them — the only variable is which hooks the editor provides and whether AIC's integration layer has been built for them.
 

@@ -4,7 +4,7 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
-const { spawnSync } = require("child_process");
+const { spawn, spawnSync } = require("child_process");
 const crypto = require("crypto");
 
 const repoRoot = path.resolve(__dirname, "..", "..", "..");
@@ -24,21 +24,13 @@ function getGateFile(generationId) {
   return path.join(os.tmpdir(), `aic-gate-${generationId}`);
 }
 
-function getDenyCountFile(generationId) {
-  return path.join(os.tmpdir(), `aic-gate-deny-${generationId}`);
-}
-
 function getRecencyFile(projectRoot) {
   const hash = crypto.createHash("md5").update(projectRoot).digest("hex").slice(0, 12);
   return path.join(os.tmpdir(), `aic-gate-recent-${hash}`);
 }
 
 function cleanupGeneration(generationId) {
-  for (const f of [
-    getGateFile(generationId),
-    getPromptFile(generationId),
-    getDenyCountFile(generationId),
-  ]) {
+  for (const f of [getGateFile(generationId), getPromptFile(generationId)]) {
     try {
       fs.unlinkSync(f);
     } catch {
@@ -387,7 +379,7 @@ function gate_denies_with_stale_recency() {
   }
 }
 
-function gate_allows_after_max_denies() {
+function gate_denies_indefinitely_without_compile() {
   const generationId = crypto.randomBytes(8).toString("hex");
   cleanupRecency(emptyDir);
   try {
@@ -396,25 +388,92 @@ function gate_allows_after_max_denies() {
       tool_name: "some_other_tool",
       tool_input: {},
     });
-    const r1 = JSON.parse(runHook(stdin));
-    if (r1.permission !== "deny")
-      throw new Error(`Call 1: expected deny, got ${r1.permission}`);
-    const r2 = JSON.parse(runHook(stdin));
-    if (r2.permission !== "deny")
-      throw new Error(`Call 2: expected deny, got ${r2.permission}`);
-    const r3 = JSON.parse(runHook(stdin));
-    if (r3.permission !== "deny")
-      throw new Error(`Call 3: expected deny, got ${r3.permission}`);
-    const r4 = JSON.parse(runHook(stdin));
-    if (r4.permission !== "allow")
-      throw new Error(`Call 4: expected allow (safety valve), got ${r4.permission}`);
-    console.log("gate_allows_after_max_denies: pass");
+    for (let i = 1; i <= 5; i++) {
+      const r = JSON.parse(runHook(stdin));
+      if (r.permission !== "deny") {
+        throw new Error(
+          `Call ${i}: expected deny (no 3-strike bypass), got ${r.permission}`,
+        );
+      }
+    }
+    console.log("gate_denies_indefinitely_without_compile: pass");
   } finally {
     cleanupGeneration(generationId);
   }
 }
 
-function aic_compile_resets_deny_counter() {
+function gate_allows_when_sibling_compile_writes_during_poll() {
+  const generationId = crypto.randomBytes(8).toString("hex");
+  cleanupRecency(emptyDir);
+  try {
+    const child = spawn("node", [hookPath], {
+      stdio: ["pipe", "pipe", "inherit"],
+      env: { ...process.env, CURSOR_PROJECT_DIR: emptyDir },
+    });
+    let stdout = "";
+    child.stdout.on("data", (d) => {
+      stdout += d;
+    });
+    child.stdin.write(
+      hookPayload({
+        generation_id: generationId,
+        tool_name: "some_other_tool",
+        tool_input: {},
+      }),
+    );
+    child.stdin.end();
+    setTimeout(() => {
+      fs.writeFileSync(getGateFile(generationId), "1");
+    }, 60);
+    return new Promise((resolve, reject) => {
+      child.on("close", () => {
+        try {
+          const out = JSON.parse(stdout.trim());
+          if (out.permission !== "allow") {
+            throw new Error(
+              `Expected "allow" when sibling writes state mid-poll, got ${out.permission}`,
+            );
+          }
+          console.log("gate_allows_when_sibling_compile_writes_during_poll: pass");
+          resolve();
+        } catch (e) {
+          reject(e);
+        } finally {
+          cleanupGeneration(generationId);
+        }
+      });
+    });
+  } catch (e) {
+    cleanupGeneration(generationId);
+    throw e;
+  }
+}
+
+function gate_denies_after_poll_timeout_without_sibling() {
+  const generationId = crypto.randomBytes(8).toString("hex");
+  cleanupRecency(emptyDir);
+  try {
+    const start = Date.now();
+    const stdin = hookPayload({
+      generation_id: generationId,
+      tool_name: "some_other_tool",
+      tool_input: {},
+    });
+    const out = JSON.parse(runHook(stdin));
+    const elapsed = Date.now() - start;
+    if (out.permission !== "deny") {
+      throw new Error(`Expected "deny" after poll timeout, got ${out.permission}`);
+    }
+    if (elapsed < 400) {
+      throw new Error(`Expected poll to delay deny ≥ 400ms, only took ${elapsed}ms`);
+    }
+    console.log(`gate_denies_after_poll_timeout_without_sibling: pass (${elapsed}ms)`);
+  } finally {
+    cleanupGeneration(generationId);
+  }
+}
+
+function aic_compile_allows_subsequent_without_counter() {
   const generationId = crypto.randomBytes(8).toString("hex");
   cleanupRecency(emptyDir);
   try {
@@ -425,10 +484,7 @@ function aic_compile_resets_deny_counter() {
     });
     const r1 = JSON.parse(runHook(toolStdin));
     if (r1.permission !== "deny")
-      throw new Error(`Deny 1: expected deny, got ${r1.permission}`);
-    const r2 = JSON.parse(runHook(toolStdin));
-    if (r2.permission !== "deny")
-      throw new Error(`Deny 2: expected deny, got ${r2.permission}`);
+      throw new Error(`Pre-compile: expected deny, got ${r1.permission}`);
 
     const compileStdin = hookPayload({
       generation_id: generationId,
@@ -439,6 +495,12 @@ function aic_compile_resets_deny_counter() {
     if (rc.permission !== "allow")
       throw new Error(`Compile: expected allow, got ${rc.permission}`);
 
+    const r2 = JSON.parse(runHook(toolStdin));
+    if (r2.permission !== "allow")
+      throw new Error(
+        `Post-compile same gen: expected allow via state file, got ${r2.permission}`,
+      );
+
     cleanupRecency(emptyDir);
     const newGenId = crypto.randomBytes(8).toString("hex");
     const toolStdin2 = hookPayload({
@@ -448,8 +510,8 @@ function aic_compile_resets_deny_counter() {
     });
     const r3 = JSON.parse(runHook(toolStdin2));
     if (r3.permission !== "deny")
-      throw new Error(`Post-reset deny: expected deny, got ${r3.permission}`);
-    console.log("aic_compile_resets_deny_counter: pass");
+      throw new Error(`New gen with stale recency: expected deny, got ${r3.permission}`);
+    console.log("aic_compile_allows_subsequent_without_counter: pass");
   } finally {
     cleanupGeneration(generationId);
     cleanupRecency(emptyDir);
@@ -506,20 +568,24 @@ function cleanup_removes_stale_gate_files() {
   }
 }
 
-deny_message_intent_stripped_when_saved_prompt_has_ide_selection();
-hook_emergency_bypass_allows();
-hook_dev_mode_alone_denies();
-hook_dev_mode_false_or_absent_denies();
-hook_missing_aic_config_denies();
-gate_denies_first_unknown_tool();
-gate_keeps_denying_without_compile();
-gate_allows_after_aic_compile();
-deny_message_uses_dynamic_project_root();
-gate_allows_with_recent_compile();
-gate_denies_with_stale_recency();
-gate_allows_after_max_denies();
-aic_compile_resets_deny_counter();
-cleanup_removes_stale_gate_files();
+async function runAll() {
+  deny_message_intent_stripped_when_saved_prompt_has_ide_selection();
+  hook_emergency_bypass_allows();
+  hook_dev_mode_alone_denies();
+  hook_dev_mode_false_or_absent_denies();
+  hook_missing_aic_config_denies();
+  gate_denies_first_unknown_tool();
+  gate_keeps_denying_without_compile();
+  gate_allows_after_aic_compile();
+  deny_message_uses_dynamic_project_root();
+  gate_allows_with_recent_compile();
+  gate_denies_with_stale_recency();
+  gate_denies_indefinitely_without_compile();
+  gate_denies_after_poll_timeout_without_sibling();
+  await gate_allows_when_sibling_compile_writes_during_poll();
+  aic_compile_allows_subsequent_without_counter();
+  cleanup_removes_stale_gate_files();
+}
 
 function cursor_require_compile_allows_when_no_cursor_version() {
   const result = spawnSync("node", [hookPath], {
@@ -543,5 +609,12 @@ function cursor_require_compile_allows_when_no_cursor_version() {
   console.log("cursor_require_compile_allows_when_no_cursor_version: pass");
 }
 
-cursor_require_compile_allows_when_no_cursor_version();
-console.log("All tests passed.");
+runAll()
+  .then(() => {
+    cursor_require_compile_allows_when_no_cursor_version();
+    console.log("All tests passed.");
+  })
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });

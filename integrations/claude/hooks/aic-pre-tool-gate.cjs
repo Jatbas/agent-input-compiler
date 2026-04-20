@@ -2,12 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 // PreToolUse hook — blocks all tools until aic_compile has been called this turn.
-// Writes compile recency when aic_compile is detected. MAX_DENIES=3 escape hatch
-// prevents infinite loops when the MCP server is unavailable.
+// Writes compile recency when aic_compile is detected. When a sibling aic_compile
+// fires in the same tool batch, a short poll waits for it to admit before denying.
 
 const fs = require("fs");
 const path = require("path");
-const os = require("os");
 const { readStdinSync } = require("../../shared/read-stdin-sync.cjs");
 const { resolveProjectRoot } = require("../../shared/resolve-project-root.cjs");
 const {
@@ -25,7 +24,17 @@ const {
 } = require("../../shared/compile-recency.cjs");
 const { readAicPrewarmPrompt } = require("../../shared/read-aic-prewarm-prompt.cjs");
 
-const MAX_DENIES = 3;
+// Sibling-race poll: when a parallel aic_compile tool call is admitted by its
+// own hook in the same batch, its recency write races other tools' reads.
+// Without this poll the losing tool deterministically denies even though
+// compile is being admitted simultaneously.
+const SIBLING_POLL_TOTAL_MS = 500;
+const SIBLING_POLL_INTERVAL_MS = 20;
+
+function sleepSync(ms) {
+  const buf = new SharedArrayBuffer(4);
+  Atomics.wait(new Int32Array(buf), 0, 0, ms);
+}
 
 // Walk up parent directories to find the actual project root via aic.config.json.
 // Fixes the case where the Bash tool's cwd was changed to a subdirectory (e.g. /mcp).
@@ -39,13 +48,6 @@ function findEffectiveProjectRoot(startDir) {
     dir = parent;
   }
   return startDir;
-}
-
-function denyCountFile(conversationId) {
-  return path.join(
-    os.tmpdir(),
-    `aic-gate-cc-deny-${String(conversationId).slice(0, 64)}`,
-  );
 }
 
 function isAicCompileCall(toolName, toolInput) {
@@ -96,34 +98,20 @@ function run(stdinStr) {
 
     if (isAicCompileCall(toolName, toolInput)) {
       writeCompileRecency(projectRoot);
-      try {
-        fs.unlinkSync(denyCountFile(conversationId));
-      } catch {
-        /* ignore */
-      }
       return "{}";
     }
 
     if (isTurnCompiled(projectRoot, conversationId) || isCompileRecent(projectRoot)) {
-      try {
-        fs.unlinkSync(denyCountFile(conversationId));
-      } catch {
-        /* ignore */
-      }
       return "{}";
     }
 
-    const dcFile = denyCountFile(conversationId);
-    let denyCount = 0;
-    try {
-      denyCount = Number(fs.readFileSync(dcFile, "utf8").trim()) || 0;
-    } catch {
-      /* missing — first deny */
+    const deadline = Date.now() + SIBLING_POLL_TOTAL_MS;
+    while (Date.now() < deadline) {
+      sleepSync(SIBLING_POLL_INTERVAL_MS);
+      if (isTurnCompiled(projectRoot, conversationId) || isCompileRecent(projectRoot)) {
+        return "{}";
+      }
     }
-
-    if (denyCount >= MAX_DENIES) return "{}";
-
-    fs.writeFileSync(dcFile, String(denyCount + 1));
 
     const savedPrompt = readAicPrewarmPrompt(`cc-${conversationId}`);
     const intentArg =

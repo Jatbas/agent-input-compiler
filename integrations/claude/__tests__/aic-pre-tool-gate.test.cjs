@@ -4,8 +4,34 @@
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
-const crypto = require("crypto");
+const { spawn } = require("child_process");
 const { run } = require(path.join(__dirname, "..", "hooks", "aic-pre-tool-gate.cjs"));
+
+const SIBLING_POLL_TOTAL_MS = 500;
+const HOOK_SCRIPT = path.join(__dirname, "..", "hooks", "aic-pre-tool-gate.cjs");
+
+function runHookInChild(payloadStr) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [HOOK_SCRIPT], {
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (buf) => {
+      stdout += buf.toString();
+    });
+    child.stderr.on("data", (buf) => {
+      stderr += buf.toString();
+    });
+    child.on("error", reject);
+    child.on("exit", (code) => {
+      if (code !== 0) reject(new Error(`hook exited ${code}: ${stderr}`));
+      else resolve(stdout);
+    });
+    child.stdin.write(payloadStr);
+    child.stdin.end();
+  });
+}
 const {
   recencyFilePath,
   turnMarkerPath,
@@ -18,10 +44,6 @@ const TEST_ROOT = "/tmp/aic-test-gate-project";
 const TEST_CONV_ID = "test-gate-conv-1234-5678-9abc";
 const TURN_COMPILED_ID = "test-gate-turn-compiled-id-1111";
 const TURN_PARTIAL_ID = "test-gate-turn-partial-id-2222";
-
-function denyCountFile(conversationId) {
-  return path.join(os.tmpdir(), `aic-gate-cc-deny-${conversationId.slice(0, 64)}`);
-}
 
 function makePayload(overrides = {}) {
   return JSON.stringify({
@@ -50,11 +72,6 @@ function setup() {
     /* ignore */
   }
   for (const convId of [TEST_CONV_ID, TURN_COMPILED_ID, TURN_PARTIAL_ID]) {
-    try {
-      fs.unlinkSync(denyCountFile(convId));
-    } catch {
-      /* ignore */
-    }
     cleanTurnMarkers(TEST_ROOT, convId);
   }
 }
@@ -71,7 +88,9 @@ function allow_when_recent_compile() {
 
 function deny_when_no_compile() {
   setup();
+  const start = Date.now();
   const out = run(makePayload());
+  const elapsed = Date.now() - start;
   const parsed = JSON.parse(out);
   if (parsed.hookSpecificOutput?.permissionDecision !== "deny") {
     throw new Error(
@@ -85,17 +104,26 @@ function deny_when_no_compile() {
   if (!reason.includes("aic_compile")) {
     throw new Error(`Expected reason to include "aic_compile", got: ${reason}`);
   }
+  if (elapsed < 400) {
+    throw new Error(
+      `Expected deny path to run the sibling-poll (>=400ms), got ${elapsed}ms`,
+    );
+  }
   console.log("deny_when_no_compile: pass");
 }
 
-function allow_after_max_denies() {
+function deny_indefinitely_without_compile() {
   setup();
-  fs.writeFileSync(denyCountFile(TEST_CONV_ID), "3");
-  const out = run(makePayload());
-  if (out !== "{}") {
-    throw new Error(`Expected allow after MAX_DENIES, got ${out}`);
+  for (let i = 0; i < 5; i++) {
+    const out = run(makePayload());
+    const parsed = JSON.parse(out);
+    if (parsed.hookSpecificOutput?.permissionDecision !== "deny") {
+      throw new Error(
+        `Expected deny on attempt ${i + 1} (no 3-strike bypass), got ${out}`,
+      );
+    }
   }
-  console.log("allow_after_max_denies: pass");
+  console.log("deny_indefinitely_without_compile: pass");
 }
 
 function allow_and_write_recency_for_aic_compile_call() {
@@ -123,15 +151,41 @@ function allow_and_write_recency_for_aic_compile_call() {
   console.log("allow_and_write_recency_for_aic_compile_call: pass");
 }
 
-function deny_count_increments() {
+async function allow_when_sibling_compile_writes_during_poll() {
   setup();
-  run(makePayload());
-  run(makePayload());
-  const count = Number(fs.readFileSync(denyCountFile(TEST_CONV_ID), "utf8").trim());
-  if (count !== 2) {
-    throw new Error(`Expected deny count 2, got ${count}`);
+  const start = Date.now();
+  const childPromise = runHookInChild(makePayload());
+  setTimeout(() => {
+    writeCompileRecency(TEST_ROOT);
+  }, 100);
+  const out = await childPromise;
+  const elapsed = Date.now() - start;
+  if (out !== "{}") {
+    throw new Error(`Expected allow via sibling-poll, got ${out} after ${elapsed}ms`);
   }
-  console.log("deny_count_increments: pass");
+  if (elapsed >= SIBLING_POLL_TOTAL_MS) {
+    throw new Error(
+      `Expected early exit from poll (<${SIBLING_POLL_TOTAL_MS}ms), got ${elapsed}ms`,
+    );
+  }
+  console.log("allow_when_sibling_compile_writes_during_poll: pass");
+}
+
+async function deny_after_poll_timeout_without_sibling() {
+  setup();
+  const start = Date.now();
+  const out = await runHookInChild(makePayload());
+  const elapsed = Date.now() - start;
+  const parsed = JSON.parse(out);
+  if (parsed.hookSpecificOutput?.permissionDecision !== "deny") {
+    throw new Error(`Expected deny after poll timeout, got ${out}`);
+  }
+  if (elapsed < SIBLING_POLL_TOTAL_MS - 50) {
+    throw new Error(
+      `Expected poll to run for ~${SIBLING_POLL_TOTAL_MS}ms, got ${elapsed}ms`,
+    );
+  }
+  console.log("deny_after_poll_timeout_without_sibling: pass");
 }
 
 function allow_cursor_native_payload() {
@@ -155,18 +209,6 @@ function allow_malformed_json() {
   const out = run("not json");
   if (out !== "{}") throw new Error(`Expected "{}" for malformed JSON, got ${out}`);
   console.log("allow_malformed_json: pass");
-}
-
-function deny_count_cleared_on_recent_compile() {
-  setup();
-  fs.writeFileSync(denyCountFile(TEST_CONV_ID), "2");
-  writeCompileRecency(TEST_ROOT);
-  run(makePayload()); // should hit isCompileRecent path and clear deny count
-  const exists = fs.existsSync(denyCountFile(TEST_CONV_ID));
-  if (exists) {
-    throw new Error("Expected deny count file to be cleared after recent compile");
-  }
-  console.log("deny_count_cleared_on_recent_compile: pass");
 }
 
 function allow_when_turn_compiled() {
@@ -242,16 +284,23 @@ function allow_when_subdir_cwd_has_aic_config_in_parent() {
   }
 }
 
-allow_when_recent_compile();
-deny_when_no_compile();
-allow_after_max_denies();
-allow_and_write_recency_for_aic_compile_call();
-deny_count_increments();
-allow_cursor_native_payload();
-allow_malformed_json();
-deny_count_cleared_on_recent_compile();
-allow_when_turn_compiled();
-deny_when_turn_start_but_not_compiled();
-allow_tool_search_for_aic_compile_schema();
-allow_when_subdir_cwd_has_aic_config_in_parent();
-console.log("All aic-pre-tool-gate tests passed.");
+async function runAll() {
+  allow_when_recent_compile();
+  deny_when_no_compile();
+  deny_indefinitely_without_compile();
+  allow_and_write_recency_for_aic_compile_call();
+  await allow_when_sibling_compile_writes_during_poll();
+  await deny_after_poll_timeout_without_sibling();
+  allow_cursor_native_payload();
+  allow_malformed_json();
+  allow_when_turn_compiled();
+  deny_when_turn_start_but_not_compiled();
+  allow_tool_search_for_aic_compile_schema();
+  allow_when_subdir_cwd_has_aic_config_in_parent();
+  console.log("All aic-pre-tool-gate tests passed.");
+}
+
+runAll().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

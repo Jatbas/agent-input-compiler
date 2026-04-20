@@ -15,13 +15,23 @@ const {
   writeCompileRecency,
   isCompileRecent,
 } = require("../../shared/compile-recency.cjs");
-const MAX_DENIES = 3;
 const CLEANUP_INTERVAL_MS = 600_000;
 const STALE_THRESHOLD_MS = 600_000;
+// Sibling-race poll: when a parallel aic_compile tool call is admitted by its
+// own hook in the same batch, its state-file write races the other tools'
+// reads. Without this poll the losing tool deterministically denies even
+// though compile is being admitted simultaneously. See tests.
+const SIBLING_POLL_TOTAL_MS = 500;
+const SIBLING_POLL_INTERVAL_MS = 20;
 const GATE_REASON = {
   COMPILE_REQUIRED: "compile_required",
   PARSE_ERROR: "gate_parse_error",
 };
+
+function sleepSync(ms) {
+  const buf = new SharedArrayBuffer(4);
+  Atomics.wait(new Int32Array(buf), 0, 0, ms);
+}
 
 function blockedMessage(reason, text) {
   return `BLOCKED[${reason}]: ${text}`;
@@ -87,10 +97,6 @@ function getStateFile(generationId) {
   return path.join(os.tmpdir(), `aic-gate-${generationId}`);
 }
 
-function getDenyCountFile(generationId) {
-  return path.join(os.tmpdir(), `aic-gate-deny-${generationId}`);
-}
-
 function isAicCompileMcpCall(toolName, toolInput) {
   try {
     const input = typeof toolInput === "string" ? JSON.parse(toolInput) : toolInput;
@@ -129,11 +135,6 @@ process.stdin.on("end", () => {
     if (isAicCompileMcpCall(toolName, toolInput)) {
       fs.writeFileSync(stateFile, "1");
       writeCompileRecency(projectRoot);
-      try {
-        fs.unlinkSync(getDenyCountFile(generationId));
-      } catch {
-        /* ignore */
-      }
       process.stdout.write(JSON.stringify({ permission: "allow" }));
       return;
     }
@@ -148,18 +149,17 @@ process.stdin.on("end", () => {
       return;
     }
 
-    const denyCountFile = getDenyCountFile(generationId);
-    let denyCount = 0;
-    try {
-      denyCount = Number(fs.readFileSync(denyCountFile, "utf8").trim()) || 0;
-    } catch {
-      /* ignore */
+    // Poll briefly: a sibling aic_compile hook fired in the same tool batch
+    // may still be writing state/recency. Without this wait, parallel batches
+    // deterministically deny the non-compile siblings.
+    const deadline = Date.now() + SIBLING_POLL_TOTAL_MS;
+    while (Date.now() < deadline) {
+      sleepSync(SIBLING_POLL_INTERVAL_MS);
+      if (fs.existsSync(stateFile) || isCompileRecent(projectRoot)) {
+        process.stdout.write(JSON.stringify({ permission: "allow" }));
+        return;
+      }
     }
-    if (denyCount >= MAX_DENIES) {
-      process.stdout.write(JSON.stringify({ permission: "allow" }));
-      return;
-    }
-    fs.writeFileSync(denyCountFile, String(denyCount + 1));
 
     const savedPrompt = readAicPrewarmPrompt(generationId);
     const intentArg =
