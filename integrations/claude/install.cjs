@@ -128,21 +128,21 @@ For CLI-based commands (status, last, chat-summary, quality, projects): run the 
 **Output discipline (mandatory — applies to every prompt command below):**
 
 1. **No preamble.** Go directly to the Bash tool call. Do not announce the command, the shell, the Node version, the PATH, or what you are about to do.
-2. **No post-output commentary.** After the command returns, your response text must be the stdout wrapped in a fenced code block (triple backticks, no language tag) and nothing else — no text before the opening fence, no text after the closing fence. The tool result block is separate from your response text — the rule requires the stdout to appear in your response text as well. Do not add explanations, troubleshooting tips, environment diagnostics, or follow-up suggestions — not even if you think they are helpful.
-3. **Failure contract.** If the command exits non-zero, paste stderr verbatim, add a single line \`exit code: N\`, and stop. Do not diagnose Node versions, ABI mismatches, rebuild steps, alternate shells, or PATH fixes unless the user asks in a follow-up message.
+2. **Stdout inside a fenced code block — mandatory.** Your response text must be **exactly** the stdout wrapped in a fenced code block (triple backticks on their own lines, no language tag) and nothing else — no text before the opening fence, no text after the closing fence. The fence is mandatory: the CLI output uses fixed-width columns and full-width \`──…──\` separator rules that Markdown will otherwise collapse into horizontal rules and single spaces. The tool result block is separate from your response text — the rule requires the stdout to appear in your response text as well, fenced. Do not add explanations, troubleshooting tips, environment diagnostics, or follow-up suggestions — not even if you think they are helpful.
+3. **Failure contract.** If the command exits non-zero, paste stderr verbatim inside the same fenced code block, add a single line \`exit code: N\`, and stop. Do not diagnose Node versions, ABI mismatches, rebuild steps, alternate shells, or PATH fixes unless the user asks in a follow-up message.
 4. **One invocation per command.** Do not retry with a different Node binary, interpreter, or PATH on failure. The user decides whether to retry.
 
 ---
 
-- **"show aic status"** — Run Bash with \`npx @jatbas/aic status\` (or \`pnpm aic status\` when \`"devMode": true\` is set in \`aic.config.json\`) from the project directory. For a rolling window, use \`status <N>d\` (**N** integer 1..3660). Relay stdout byte-for-byte.
+- **"show aic status"** — Run Bash with \`npx @jatbas/aic status\` (or \`pnpm aic status\` when \`"devMode": true\` is set in \`aic.config.json\`) from the project directory. For a rolling window, use \`status <N>d\` (**N** integer 1..3660). Relay stdout byte-for-byte, wrapped in a fenced code block (no language tag).
 
-- **"show aic chat summary"** — Run Bash with \`npx @jatbas/aic chat-summary --project <absolute workspace root>\` (or \`pnpm aic chat-summary --project <absolute workspace root>\` when \`"devMode": true\` is set in \`aic.config.json\`). Relay stdout byte-for-byte.
+- **"show aic chat summary"** — Run Bash with \`npx @jatbas/aic chat-summary --project <absolute workspace root>\` (or \`pnpm aic chat-summary --project <absolute workspace root>\` when \`"devMode": true\` is set in \`aic.config.json\`). Relay stdout byte-for-byte, wrapped in a fenced code block (no language tag).
 
-- **"show aic last"** — Run Bash with \`npx @jatbas/aic last\` (or \`pnpm aic last\` when \`"devMode": true\` is set in \`aic.config.json\`) from the project directory. Relay stdout byte-for-byte.
+- **"show aic last"** — Run Bash with \`npx @jatbas/aic last\` (or \`pnpm aic last\` when \`"devMode": true\` is set in \`aic.config.json\`) from the project directory. Relay stdout byte-for-byte, wrapped in a fenced code block (no language tag).
 
-- **"show aic quality"** — Run Bash with \`npx @jatbas/aic quality\` (or \`pnpm aic quality\` when \`"devMode": true\` is set in \`aic.config.json\`) from the project directory. Use \`quality --window <N>\` for a rolling **N**-day window (**N** integer 1..365). Relay stdout byte-for-byte.
+- **"show aic quality"** — Run Bash with \`npx @jatbas/aic quality\` (or \`pnpm aic quality\` when \`"devMode": true\` is set in \`aic.config.json\`) from the project directory. Use \`quality --window <N>\` for a rolling **N**-day window (**N** integer 1..365). Relay stdout byte-for-byte, wrapped in a fenced code block (no language tag).
 
-- **"show aic projects"** — Run Bash with \`npx @jatbas/aic projects\` (or \`pnpm aic projects\` when \`"devMode": true\` is set in \`aic.config.json\`). Relay stdout byte-for-byte.
+- **"show aic projects"** — Run Bash with \`npx @jatbas/aic projects\` (or \`pnpm aic projects\` when \`"devMode": true\` is set in \`aic.config.json\`). Relay stdout byte-for-byte, wrapped in a fenced code block (no language tag).
 
 - **"run aic model test"** — Call the \`aic_model_test\` MCP tool with \`{ "projectRoot": "<absolute workspace root>" }\`. The tool returns a \`probeId\`, three challenges, and instructions. Solve challenge 1 (arithmetic) and challenge 2 (string-reverse). Then call \`aic_compile\` with intent exactly equal to \`"model-test-<answer1>-<answer2>"\` (replace with your computed answers). Finally call \`aic_model_test\` again with \`{ "projectRoot": "<absolute workspace root>", "probeId": "<probeId from step 1>", "answers": [<arithmetic answer>, "<reversed string>"] }\`. Display the result as a table with columns: Test, Result (Pass/Fail), Notes. Start the reply with one short line: **Model test = agent capability probe.**
 

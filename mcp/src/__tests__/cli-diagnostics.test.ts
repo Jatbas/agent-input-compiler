@@ -266,8 +266,8 @@ describe("cli-diagnostics", () => {
       expect(exitMock).toHaveBeenCalledWith(0);
     });
     const out = chunks.join("");
-    expect(out).not.toContain("Tier mix");
-    expect(out).not.toContain("Task class mix");
+    expect(out).not.toMatch(/\nTier mix\n/);
+    expect(out).not.toMatch(/Task class mix\s+count\s+share\s+budget/);
     expect(out).not.toContain("Daily compilations");
     fs.rmSync(homeTmp, { recursive: true, force: true });
     fs.rmSync(projectTmp, { recursive: true, force: true });

@@ -10,6 +10,9 @@ This project follows [Semantic Versioning](https://semver.org/).
 ### Changed
 
 - Pin the toolchain to Node.js 24.x via `.nvmrc` and `engines.node`, and upgrade `better-sqlite3` to the matching ABI so native bindings load cleanly
+- Normalize the `show aic status`, `show aic last`, `show aic chat summary`, `show aic projects`, and `show aic quality` CLI output so every command renders the same title → separator → hero → separator → body → separator → footnote frame with fixed-width columns and a consistent 30-character label width
+- Tighten the prompt-command contract in `.claude/CLAUDE.md` and `.cursor/rules/aic-architect.mdc` so agents wrap `show aic` stdout in a fenced code block (triple backticks, no language tag), keeping fixed-width columns and `──` separator rules intact when rendered as Markdown
+- Refresh the diagnostic output samples in `README.md` and the stdout-layout section in `documentation/implementation-spec.md` to match the shared renderer, and correct the `aic_quality_report` default window from 30 days to 7 days in `documentation/installation.md` and `documentation/implementation-spec.md`
 
 ### Added
 

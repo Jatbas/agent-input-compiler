@@ -21,6 +21,24 @@ const LAST_METRIC_FOOTNOTE = "Context window used: % of token budget filled.";
 const SEP =
   "──────────────────────────────────────────────────────────────────────────────";
 
+function renderStandardReport(parts: {
+  readonly title: string;
+  readonly hero: string;
+  readonly rows: readonly string[];
+  readonly footnote: string;
+}): string {
+  const heroLines = parts.hero.split("\n");
+  return `${[
+    parts.title,
+    SEP,
+    ...heroLines,
+    SEP,
+    ...parts.rows,
+    SEP,
+    parts.footnote,
+  ].join("\n")}\n`;
+}
+
 function formatInt(n: number): string {
   return n.toLocaleString("en-US");
 }
@@ -112,30 +130,25 @@ function formatTokensWithRatio(raw: number, compiled: number): string {
   return ratio !== null && ratio > 1 ? `${base} (${formatInt(ratio)}:1 ratio)` : base;
 }
 
-function heroLine(
-  avgReductionPct: number | null | undefined,
-  last: Record<string, unknown> | null | undefined,
-): string | null {
-  if (avgReductionPct === null || avgReductionPct === undefined) return null;
-  const fs_ =
-    last !== null && last !== undefined ? Number(last["filesSelected"] ?? 0) : null;
-  const ft = last !== null && last !== undefined ? Number(last["filesTotal"] ?? 0) : null;
-  if (ft === null || ft === 0) return null;
-  const lastRunPart =
-    fs_ !== null && fs_ > 0 ? ` Last run: ${formatInt(fs_)} forwarded.` : "";
-  return `AIC optimised context by intent across ${formatInt(ft)} files.${lastRunPart}`;
+function statusHeroLine(payload: Record<string, unknown>): string {
+  const compilationsTotal = Number(payload["compilationsTotal"] ?? 0);
+  const totalTokensRaw = Number(payload["totalTokensRaw"] ?? 0);
+  const totalTokensCompiled = Number(payload["totalTokensCompiled"] ?? 0);
+  const cacheHitRatePct = payload["cacheHitRatePct"] as number | null | undefined;
+  const avgReductionPct = payload["avgReductionPct"] as number | null | undefined;
+  if (compilationsTotal === 0 && totalTokensRaw === 0 && totalTokensCompiled === 0) {
+    return "No compilation aggregates yet for this project.";
+  }
+  const ratioPart = formatTokensWithRatio(totalTokensRaw, totalTokensCompiled);
+  return `AIC optimised context across ${formatInt(compilationsTotal)} context builds; repo size → context sent ${ratioPart}; ${formatPct1(cacheHitRatePct)} cache hit rate; ${formatPct1(avgReductionPct)} avg context precision.`;
 }
 
-function heroLineLast(
-  last: Record<string, unknown> | null,
-  budgetMaxTokens: number,
-): string | null {
-  if (last === null) return null;
-  const fs_ = Number(last["filesSelected"] ?? 0);
-  const ft = Number(last["filesTotal"] ?? 0);
-  if (fs_ === 0) return null;
-  const compiled = Number(last["tokensCompiled"] ?? 0);
-  const budgetPct = budgetMaxTokens > 0 ? (compiled / budgetMaxTokens) * 100 : null;
+function lastCompilationForwardedHero(
+  last: Record<string, unknown>,
+  fs_: number,
+  ft: number,
+  budgetPct: number | null,
+): string {
   const exclusionRate =
     last["tokenReductionPct"] !== null && last["tokenReductionPct"] !== undefined
       ? Number(last["tokenReductionPct"])
@@ -148,13 +161,39 @@ function heroLineLast(
   return `AIC optimised context by intent: ${formatInt(fs_)} of ${formatInt(ft)} files forwarded${detailStr}.`;
 }
 
-function heroLineChat(row: ConversationSummary): string | null {
+function heroLineLast(
+  last: Record<string, unknown> | null,
+  budgetMaxTokens: number,
+): string {
+  if (last === null) {
+    return "No compilation recorded for this workspace.";
+  }
+  const fs_ = Number(last["filesSelected"] ?? 0);
+  const ft = Number(last["filesTotal"] ?? 0);
+  const compiled = Number(last["tokensCompiled"] ?? 0);
+  const budgetPct = budgetMaxTokens > 0 ? (compiled / budgetMaxTokens) * 100 : null;
+  if (fs_ > 0) {
+    return lastCompilationForwardedHero(last, fs_, ft, budgetPct);
+  }
+  if (last["cacheHit"] === true && budgetMaxTokens > 0) {
+    const cacheBudgetPct = (compiled / budgetMaxTokens) * 100;
+    return `AIC served this compilation from cache — ${cacheBudgetPct.toFixed(1)}% of budget used.`;
+  }
+  if (budgetPct !== null && Number.isFinite(budgetPct)) {
+    return `This compilation selected no files — ${budgetPct.toFixed(1)}% of budget used.`;
+  }
+  return "This compilation selected no files yet.";
+}
+
+function heroLineChat(row: ConversationSummary): string {
   const {
     totalTokensRaw: raw,
     totalTokensCompiled: compiled,
     compilationsInConversation: count,
   } = row;
-  if (count === 0 || compiled === 0) return null;
+  if (count === 0 || compiled === 0) {
+    return "No compilations recorded for this conversation yet.";
+  }
   const ratio = Math.round(raw / compiled);
   const parenParts = [
     ratio > 1 ? `${formatInt(ratio)}:1 ratio` : null,
@@ -238,11 +277,7 @@ export function formatStatusTable(
     n <= STATUS_TIME_RANGE_DAYS_MAX
       ? [padRow("Time range", statusTimeRangeValue(n), w)]
       : [];
-  const hero = heroLine(payload["avgReductionPct"] as number | null | undefined, last);
-  const heroRows: readonly string[] = hero !== null ? [SEP, hero, SEP] : [SEP];
-  const rows: readonly string[] = [
-    "Status = project-level AIC status.",
-    ...heroRows,
+  const bodyRows: readonly string[] = [
     ...timeRangeRows,
     padRow(
       "Context builds (total)",
@@ -287,7 +322,12 @@ export function formatStatusTable(
       w,
     ),
   ];
-  return `${rows.join("\n")}\n${SEP}\n${STATUS_METRIC_FOOTNOTE}\n`;
+  return renderStandardReport({
+    title: "Status = project-level AIC status.",
+    hero: statusHeroLine(payload),
+    rows: bodyRows,
+    footnote: STATUS_METRIC_FOOTNOTE,
+  });
 }
 
 function lastRowsWhenPresent(
@@ -317,7 +357,7 @@ const LAST_EMPTY_DETAIL: readonly string[] = [
   "Context window used",
   "Compiled",
   "Editor",
-].map((label) => padRow(label, "—", 22));
+].map((label) => padRow(label, "—", 30));
 
 export function formatLastTable(
   payload: {
@@ -332,7 +372,7 @@ export function formatLastTable(
   clock: Clock,
   budgetMaxTokens: number,
 ): string {
-  const w = 22;
+  const w = 30;
   const last = payload.lastCompilation;
   const detailRows =
     last === null
@@ -358,11 +398,7 @@ export function formatLastTable(
     payload.selection !== null && payload.selection !== undefined
       ? formatSelectionMicroBlock(payload.selection, w)
       : [];
-  const hero = heroLineLast(last, budgetMaxTokens);
-  const heroRows: readonly string[] = hero !== null ? [SEP, hero, SEP] : [SEP];
-  const rows: readonly string[] = [
-    "Last = most recent compilation.",
-    ...heroRows,
+  const bodyRows: readonly string[] = [
     padRow("Context builds", formatInt(payload.compilationCount), w),
     ...detailRows,
     padRow("Cache", cacheStr, w),
@@ -370,7 +406,12 @@ export function formatLastTable(
     ...selectionRows,
     promptRow,
   ];
-  return `${rows.join("\n")}\n${SEP}\n${LAST_METRIC_FOOTNOTE}\n`;
+  return renderStandardReport({
+    title: "Last = most recent compilation.",
+    hero: heroLineLast(last, budgetMaxTokens),
+    rows: bodyRows,
+    footnote: LAST_METRIC_FOOTNOTE,
+  });
 }
 
 export function formatChatSummaryTable(row: ConversationSummary, clock: Clock): string {
@@ -378,11 +419,7 @@ export function formatChatSummaryTable(row: ConversationSummary, clock: Clock): 
   const last = row.lastCompilationInConversation;
   const lastLine =
     last === null ? "—" : `${last.intent} · ${relIso(clock, last.created_at)}`;
-  const hero = heroLineChat(row);
-  const heroRows: readonly string[] = hero !== null ? [SEP, hero, SEP] : [SEP];
-  const rows: readonly string[] = [
-    "Chat = this conversation's AIC compilations.",
-    ...heroRows,
+  const bodyRows: readonly string[] = [
     padRow("Project path", row.projectRoot.length > 0 ? row.projectRoot : "—", w),
     padRow("Context builds", formatInt(row.compilationsInConversation), w),
     padRow(
@@ -400,30 +437,79 @@ export function formatChatSummaryTable(row: ConversationSummary, clock: Clock): 
     padRow("Last compilation", lastLine, w),
     padRow("Top request types", topTaskStr(row.topTaskClasses), w),
   ];
-  return `${rows.join("\n")}\n${SEP}\n${METRIC_FOOTNOTE}\n`;
+  return renderStandardReport({
+    title: "Chat = this conversation's AIC compilations.",
+    hero: heroLineChat(row),
+    rows: bodyRows,
+    footnote: METRIC_FOOTNOTE,
+  });
+}
+
+function projectsRosterLine(
+  p: ProjectListItem,
+  clock: Clock,
+  idW: number,
+  pathW: number,
+  seenW: number,
+  cntW: number,
+): string {
+  const gap = "  ";
+  const rawId = String(p.projectId);
+  const idCell =
+    rawId.length <= idW ? rawId.padEnd(idW, " ") : `${rawId.slice(0, idW - 1)}…`;
+  const pathTrunc = truncatePath(String(p.projectRoot), pathW).padEnd(pathW, " ");
+  const seen = relIso(clock, p.lastSeenAt).padEnd(seenW, " ");
+  const cnt = formatInt(p.compilationCount).padStart(cntW, " ");
+  return `${idCell}${gap}${pathTrunc}${gap}${seen}${gap}${cnt}`;
+}
+
+function projectsHeroLine(projects: readonly ProjectListItem[], clock: Clock): string {
+  if (projects.length === 0) {
+    return "No projects registered yet.";
+  }
+  const totalCompilations = projects.reduce((acc, p) => acc + p.compilationCount, 0);
+  const freshestIso = projects.reduce<string | null>(
+    (acc, p) => (acc === null || p.lastSeenAt > acc ? p.lastSeenAt : acc),
+    null,
+  );
+  const rel =
+    freshestIso === null || freshestIso.length === 0 ? "—" : relIso(clock, freshestIso);
+  return `${formatInt(projects.length)} project(s); ${formatInt(totalCompilations)} compilations; latest activity ${rel}.`;
 }
 
 export function formatProjectsTable(
   projects: readonly ProjectListItem[],
   clock: Clock,
 ): string {
+  const title = "Projects = known AIC projects.";
+  const hero = projectsHeroLine(projects, clock);
+  const footnote = "Columns use fixed widths; MCP JSON lists full paths.";
+  const w = 30;
+  if (projects.length === 0) {
+    const bodyRows: readonly string[] = [
+      padRow("Project ID", "—", w),
+      padRow("Path", "—", w),
+      padRow("Last seen", "—", w),
+      padRow("Compilations", "—", w),
+    ];
+    return renderStandardReport({ title, hero, rows: bodyRows, footnote });
+  }
   const idW = 38;
   const pathW = 32;
   const seenW = 14;
   const cntW = 12;
-  const header = `${"Project ID".padEnd(idW, " ")}${"Path".padEnd(pathW, " ")}${"Last seen".padEnd(seenW, " ")}${"Compilations".padEnd(cntW, " ")}`;
-  const dataLines =
-    projects.length === 0
-      ? ([] as readonly string[])
-      : projects.map(
-          (p) =>
-            `${String(p.projectId).padEnd(idW, " ")}${String(p.projectRoot).padEnd(pathW, " ")}${relIso(clock, p.lastSeenAt).padEnd(seenW, " ")}${formatInt(p.compilationCount).padEnd(cntW, " ")}`,
-        );
-  const body =
-    projects.length === 0
-      ? (["Projects = known AIC projects.", "(no projects)"] as const)
-      : (["Projects = known AIC projects.", header, ...dataLines] as const);
-  return `${body.join("\n")}\n`;
+  const gap = "  ";
+  const header = [
+    "Project ID".padEnd(idW, " "),
+    "Path".padEnd(pathW, " "),
+    "Last seen".padEnd(seenW, " "),
+    "Compilations".padEnd(cntW, " "),
+  ].join(gap);
+  const dataLines = projects.map((p) =>
+    projectsRosterLine(p, clock, idW, pathW, seenW, cntW),
+  );
+  const bodyRows: readonly string[] = [header, ...dataLines];
+  return renderStandardReport({ title, hero, rows: bodyRows, footnote });
 }
 
 function qualityPayloadNumber(payload: Record<string, unknown>, key: string): number {
@@ -602,19 +688,17 @@ export function formatQualityReportLines(
   const title = "Quality = context build quality metrics.";
   const idle = "No compilations in this window. Send a coding message and try again.";
   if (compilations === 0) {
-    return (
-      [
-        title,
-        SEP,
+    return renderStandardReport({
+      title,
+      hero: idle,
+      rows: [
         padRow("Time range", statusTimeRangeValue(windowDays), w),
         padRow("Compilations", formatInt(0), w),
-        idle,
-        SEP,
-      ].join("\n") + "\n"
-    );
+      ],
+      footnote: QUALITY_FOOTNOTE,
+    });
   }
   const hero = `AIC optimised context by intent across ${formatInt(compilations)} compilations in the last ${String(windowDays)} days (median ${formatPct1(mTr * 100)} filtered, ${formatPct1(cacheHit * 100)} cache hit rate).`;
-  const heroRows: readonly string[] = [SEP, hero, SEP];
   const cc = payload["classifierConfidence"];
   const classifierRows: readonly string[] =
     cc !== null &&
@@ -687,9 +771,7 @@ export function formatQualityReportLines(
   );
   const dailyRows: readonly string[] =
     spark.length === 0 ? [] : [padRow("Daily compilations", spark, w), weekdayLine];
-  const rows: readonly string[] = [
-    title,
-    ...heroRows,
+  const bodyRows: readonly string[] = [
     padRow("Time range", statusTimeRangeValue(windowDays), w),
     padRow("Compilations", formatInt(compilations), w),
     SEP,
@@ -703,5 +785,10 @@ export function formatQualityReportLines(
     ...classifierRows,
     ...dailyRows,
   ];
-  return `${rows.join("\n")}\n${SEP}\n${QUALITY_FOOTNOTE}\n`;
+  return renderStandardReport({
+    title,
+    hero,
+    rows: bodyRows,
+    footnote: QUALITY_FOOTNOTE,
+  });
 }

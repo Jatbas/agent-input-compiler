@@ -5,16 +5,37 @@ import { describe, it, expect } from "vitest";
 import { SystemClock } from "@jatbas/aic-core/adapters/system-clock.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import { TASK_CLASS } from "@jatbas/aic-core/core/types/enums.js";
-import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
+import { toISOTimestamp, toProjectId } from "@jatbas/aic-core/core/types/identifiers.js";
+import type {
+  ConversationSummary,
+  ProjectListItem,
+} from "@jatbas/aic-core/core/types/status-types.js";
+import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
 import {
+  formatChatSummaryTable,
+  formatLastTable,
+  formatProjectsTable,
   formatQualityReportLines,
   formatStatusTable,
 } from "../format-diagnostic-output.js";
 
+const SEP_LINE =
+  "──────────────────────────────────────────────────────────────────────────────";
+
 function hasPaddedLabelRow(output: string, label: string): boolean {
-  const prefix = `${label.padEnd(28, " ")}  `;
+  const prefix = `${label.padEnd(30, " ")}  `;
   return output.split("\n").some((line) => line.startsWith(prefix));
+}
+
+function assertStandardReportLayout(output: string): void {
+  const lines = output.replace(/\n$/, "").split("\n");
+  expect(lines[0]).toMatch(/^[A-Z][a-z-]+ = /);
+  expect(lines[1]).toBe(SEP_LINE);
+  expect(lines[2]).not.toBe(SEP_LINE);
+  expect(lines[3]).toBe(SEP_LINE);
+  const sepMatches = lines.filter((l) => l === SEP_LINE).length;
+  expect(sepMatches).toBeGreaterThanOrEqual(3);
 }
 
 const baseStatusPayload: Record<string, unknown> = {
@@ -108,6 +129,120 @@ describe("formatStatusTable", () => {
     );
     expect(out).toContain("Context window used: % of token budget filled.");
   });
+
+  it("status_table_standard_layout_and_idle_hero", () => {
+    const clock = new SystemClock();
+    const out = formatStatusTable(
+      { ...baseStatusPayload, installationOk: true, projectEnabled: true },
+      clock,
+    );
+    assertStandardReportLayout(out);
+    expect(out).toContain("No compilation aggregates yet for this project.");
+  });
+
+  it("status_table_hero_cites_build_metrics", () => {
+    const clock = new SystemClock();
+    const out = formatStatusTable(
+      {
+        ...baseStatusPayload,
+        compilationsTotal: 12,
+        totalTokensRaw: 48_000,
+        totalTokensCompiled: 800,
+        cacheHitRatePct: 33.3,
+        avgReductionPct: 55.5,
+        installationOk: true,
+        projectEnabled: true,
+      },
+      clock,
+    );
+    assertStandardReportLayout(out);
+    expect(out).toContain("AIC optimised context across");
+    expect(out).toContain("12");
+    expect(out).toContain("33.3%");
+    expect(out).toContain("55.5%");
+    expect(out).not.toMatch(/across \d+ files/);
+  });
+});
+
+function minimalChatSummary(
+  overrides: Partial<ConversationSummary>,
+): ConversationSummary {
+  return {
+    conversationId: "018f0000-0000-7000-8000-00000000c001",
+    projectRoot: "/tmp/aic-chat-proj",
+    compilationsInConversation: 0,
+    cacheHitRatePct: null,
+    avgReductionPct: null,
+    totalTokensRaw: 0,
+    totalTokensCompiled: 0,
+    totalTokensSaved: null,
+    lastCompilationInConversation: null,
+    topTaskClasses: [],
+    ...overrides,
+  };
+}
+
+describe("formatLastTable", () => {
+  it("last_table_cache_hit_zero_files_hero", () => {
+    const clock = fixedClock("2026-03-02T12:00:00.000Z");
+    const out = formatLastTable(
+      {
+        compilationCount: 1,
+        lastCompilation: {
+          intent: "probe",
+          filesSelected: 0,
+          filesTotal: 200,
+          tokensCompiled: 250,
+          tokenReductionPct: 0,
+          created_at: "2026-03-02T11:00:00.000Z",
+          editorId: "cursor",
+          cacheHit: true,
+        },
+        promptSummary: { tokenCount: null, guardPassed: null },
+      },
+      clock,
+      5_000,
+    );
+    assertStandardReportLayout(out);
+    expect(out).toContain("AIC served this compilation from cache");
+    expect(out).toContain("5.0% of budget used");
+  });
+});
+
+describe("formatChatSummaryTable", () => {
+  it("chat_summary_zero_compilations_idle_hero", () => {
+    const clock = fixedClock("2026-03-02T12:00:00.000Z");
+    const out = formatChatSummaryTable(minimalChatSummary({}), clock);
+    assertStandardReportLayout(out);
+    expect(out).toContain("No compilations recorded for this conversation yet.");
+  });
+});
+
+describe("formatProjectsTable", () => {
+  it("projects_empty_standard_layout", () => {
+    const clock = fixedClock("2026-03-02T12:00:00.000Z");
+    const out = formatProjectsTable([], clock);
+    assertStandardReportLayout(out);
+    expect(out).toContain("No projects registered yet.");
+    expect(out).toContain("Columns use fixed widths; MCP JSON lists full paths.");
+  });
+
+  it("projects_roster_truncates_path_with_column_gaps", () => {
+    const clock = fixedClock("2026-03-02T12:00:00.000Z");
+    const longRoot = `${"/tmp/".repeat(20)}project`;
+    const projects: readonly ProjectListItem[] = [
+      {
+        projectId: toProjectId("018f0000-0000-7000-8000-00000000ab01"),
+        projectRoot: toAbsolutePath(longRoot),
+        lastSeenAt: "2026-03-02T10:00:00.000Z",
+        compilationCount: 3,
+      },
+    ];
+    const out = formatProjectsTable(projects, clock);
+    assertStandardReportLayout(out);
+    expect(out).toContain("  ");
+    expect(out).toContain("1 project(s); 3 compilations");
+  });
 });
 
 function fixedClock(iso: string): Clock {
@@ -190,8 +325,10 @@ describe("formatQualityReportLines", () => {
     expect(out).toContain(
       "No compilations in this window. Send a coding message and try again.",
     );
-    expect(out).not.toContain("Tier mix");
-    expect(out).not.toContain("Task class mix");
+    assertStandardReportLayout(out);
+    expect(out).toContain("Context precision  % of repo content automatically filtered");
+    expect(out).not.toMatch(/\nTier mix\n/);
+    expect(out).not.toMatch(/Task class mix\s+count\s+share\s+budget/);
     expect(out).not.toContain("Daily compilations");
   });
 
@@ -221,6 +358,7 @@ describe("formatQualityReportLines", () => {
       },
       clock,
     );
+    assertStandardReportLayout(out);
     expect(out).toMatch(
       /AIC optimised context by intent across \d+ compilations in the last \d+ days \(median \d+\.\d% filtered, \d+\.\d% cache hit rate\)\./,
     );
