@@ -1,6 +1,6 @@
 {
   "name": "@jatbas/aic",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Agent Input Compiler — local-first MCP server for context compilation (Cursor, Claude Code, and other MCP clients)",
   "author": "Jorge Santos <jatbas@gmail.com> (https://github.com/Jatbas)",
   "license": "Apache-2.0",

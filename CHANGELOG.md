@@ -7,6 +7,21 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-04-22
+
+### Changed
+
+- Rework `show aic status` layout, including removal of the dedicated update-available row from the status table
+- Add pipeline post-budget demotion ladder and synthetic embed ladder for specification blocks and prose paths
+- Sync project plan, implementation spec, and installation docs with quality MCP tooling and ambiguity-scan language rules
+
+### Fixed
+
+- Declare the MCP `bin` entry as `aic` so cursor.directory resolves the published server name correctly
+- Run Cursor and Claude Code uninstall phases by default from the standalone uninstall bundle
+- Exit the skills follow-up hook cleanly when no hook candidates remain
+- Build `@jatbas/aic-core` and `@jatbas/aic` inside `pack-install-smoke` before `pnpm pack` so tarball checks match CI (shebang on `dist/server.js`)
+
 ## [1.0.1] - 2026-04-21
 
 ### Fixed
