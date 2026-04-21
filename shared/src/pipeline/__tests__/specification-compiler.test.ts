@@ -559,6 +559,109 @@ describe("SpecificationCompilerImpl", () => {
     );
   });
 
+  it("spec_compiler_embed_code_blocks_batch_two_bodies", async () => {
+    const wireA = "const a = 1\n\n\nafter";
+    const wireZ = "const z = 2";
+    const norm = (body: string): string => body.replace(/\n{3,}/g, "\n\n");
+    const order: string[] = [];
+    const contentTransformerPipeline = {
+      transform: vi.fn(async (files: readonly SelectedFile[], _ctx: TransformContext) => {
+        order.push("transform");
+        return {
+          files: files.map((f) => ({ ...f })),
+          metadata: files.map(
+            (f): TransformMetadata => ({
+              filePath: f.path,
+              originalTokens: f.estimatedTokens,
+              transformedTokens: f.estimatedTokens,
+              transformersApplied: [],
+            }),
+          ),
+        };
+      }),
+    };
+    const summarisationLadder = {
+      compress: vi.fn(async (files: readonly SelectedFile[]) => {
+        order.push("compress");
+        return files;
+      }),
+    };
+    const impl = new SpecificationCompilerImpl(
+      measure,
+      contentTransformerPipeline as ContentTransformerPipeline,
+      summarisationLadder as SummarisationLadder,
+      languageProviders,
+    );
+    const input: SpecificationInput = {
+      types: [
+        {
+          name: "T",
+          path: toRelativePath("t.ts"),
+          content: "export {}",
+          usage: "implements",
+          estimatedTokens: measure("export {}"),
+        },
+      ],
+      codeBlocks: [
+        {
+          label: "z-block",
+          content: wireZ,
+          estimatedTokens: measure(wireZ),
+        },
+        {
+          label: "a-block",
+          content: wireA,
+          estimatedTokens: measure(wireA),
+        },
+      ],
+      prose: [],
+    };
+    await impl.compile(input, toTokenCount(1_000_000));
+    expect(order.join(",")).toBe("transform,compress,transform,compress");
+    const batchCall = contentTransformerPipeline.transform.mock.calls[1];
+    expect(batchCall).toBeDefined();
+    if (batchCall === undefined) {
+      throw new ConfigError(
+        "specification-compiler test: expected second transform batch call",
+      );
+    }
+    expect(batchCall[0]).toHaveLength(2);
+    const row0 = batchCall[0][0] as SelectedFile;
+    const row1 = batchCall[0][1] as SelectedFile;
+    expect(String(row0.path).endsWith("spec/aic-inline/code/000.ts")).toBe(true);
+    expect(String(row1.path).endsWith("spec/aic-inline/code/001.ts")).toBe(true);
+    expect(row0.resolvedContent).toBe(norm(wireA));
+    expect(row1.resolvedContent).toBe(norm(wireZ));
+    const expectedContext: TransformContext = { directTargetPaths: [], rawMode: false };
+    for (const call of contentTransformerPipeline.transform.mock.calls) {
+      expect(call[1]).toEqual(expectedContext);
+    }
+  });
+
+  it("spec_compiler_meta_transform_tokens_saved_matches_raw_minus_compiled", async () => {
+    const c = makeSpecCompiler(measure);
+    const input: SpecificationInput = {
+      types: [
+        {
+          name: "X",
+          path: toRelativePath("x.ts"),
+          content: "export const x = 1",
+          usage: "implements",
+          estimatedTokens: toTokenCount(100),
+        },
+      ],
+      codeBlocks: [],
+      prose: [],
+    };
+    const budget = toTokenCount(1_000_000);
+    const { meta } = await c.compile(input, budget);
+    expect(meta.transformTokensSaved).toEqual(
+      toTokenCount(
+        Math.max(0, Number(meta.totalTokensRaw) - Number(meta.totalTokensCompiled)),
+      ),
+    );
+  });
+
   it("spec_compiler_transform_receives_spec_compile_context", async () => {
     const contentTransformerPipeline = {
       transform: vi.fn(async (files: readonly SelectedFile[], _ctx) => ({
