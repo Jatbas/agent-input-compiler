@@ -78,6 +78,11 @@ done < <(find "${SEARCH_DIRS[@]}" -maxdepth 1 -type f -name '*.md' -print0 2>/de
 VIOLATIONS=""
 OBLIGATIONS_FOUND=0
 
+if [[ ${#CANDIDATES[@]} -eq 0 ]]; then
+  echo "followup-propagation-check: no candidate task files referenced task ${TASK_ID} — clean"
+  exit 0
+fi
+
 for other in "${CANDIDATES[@]}"; do
   [[ -f "$other" ]] || continue
 
