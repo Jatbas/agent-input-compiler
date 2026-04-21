@@ -388,6 +388,61 @@ describe("SpecificationCompilerImpl", () => {
     ).toBe(false);
   });
 
+  it("spec_compiler_budget_demoted_types_invoke_extra_transform", async () => {
+    const order: string[] = [];
+    const contentTransformerPipeline = {
+      transform: vi.fn(async (files: readonly SelectedFile[], _ctx: TransformContext) => {
+        order.push("transform");
+        return {
+          files: files.map((f) => ({ ...f })),
+          metadata: files.map(
+            (f): TransformMetadata => ({
+              filePath: f.path,
+              originalTokens: f.estimatedTokens,
+              transformedTokens: f.estimatedTokens,
+              transformersApplied: [],
+            }),
+          ),
+        };
+      }),
+    };
+    const summarisationLadder = {
+      compress: vi.fn(async (files: readonly SelectedFile[]) => {
+        order.push("compress");
+        return files;
+      }),
+    };
+    const impl = new SpecificationCompilerImpl(
+      measure,
+      contentTransformerPipeline as ContentTransformerPipeline,
+      summarisationLadder as SummarisationLadder,
+      languageProviders,
+    );
+    const input: SpecificationInput = {
+      types: [
+        {
+          name: "A",
+          path: toRelativePath("a/a.ts"),
+          content: "export class A {}\nexport class B {}",
+          usage: "implements",
+          estimatedTokens: toTokenCount(50),
+        },
+      ],
+      codeBlocks: [],
+      prose: [],
+    };
+    const full = await impl.compile(input, toTokenCount(1_000_000));
+    expect(order).toEqual(["transform", "compress"]);
+    order.length = 0;
+    const L = [...full.compiledSpec].length;
+    await impl.compile(input, toTokenCount(Math.max(0, L - 1)));
+    expect(order.join(",")).toBe("transform,compress,transform,compress");
+    const expectedContext: TransformContext = { directTargetPaths: [], rawMode: false };
+    for (const call of contentTransformerPipeline.transform.mock.calls) {
+      expect(call[1]).toEqual(expectedContext);
+    }
+  });
+
   it("spec_compiler_verbatim_invokes_transform_then_ladder", async () => {
     const order: string[] = [];
     const contentTransformerPipeline = {

@@ -688,11 +688,146 @@ function convergeBudgetState(
   return convergeBudgetState(sortedTypes, budget, measure, next);
 }
 
+const INCLUSION_TIER_AGGRESSIVENESS_RANK: Readonly<Record<SpecInclusionTier, number>> = {
+  "path-only": 0,
+  "signature-path": 1,
+  verbatim: 2,
+};
+
+function inclusionTierAggressivenessRank(tier: SpecInclusionTier): number {
+  return INCLUSION_TIER_AGGRESSIVENESS_RANK[tier];
+}
+
+function typeRequiresPostBudgetLadder(
+  ref: SpecTypeRef,
+  finalTier: SpecInclusionTier,
+): boolean {
+  return (
+    inclusionTierAggressivenessRank(finalTier) <
+    inclusionTierAggressivenessRank(SPEC_USAGE_TO_INITIAL_TIER[ref.usage])
+  );
+}
+
+function computeBudgetDemotedTypeBatchBudget(
+  budget: TokenCount,
+  demotedRefs: readonly SpecTypeRef[],
+  tiers: Readonly<Record<string, SpecInclusionTier>>,
+  tokenCounter: (text: string) => TokenCount,
+): TokenCount {
+  const sumDemotedInputTokens = demotedRefs.reduce((s, r) => {
+    const ft = tiers[typeKey(r)];
+    if (ft === undefined) return s;
+    const body = normalizeNewlines(TIER_BODY[ft](r));
+    return s + Number(tokenCounter(body));
+  }, 0);
+  return toTokenCount(Math.min(Math.floor(Number(budget) * 0.2), sumDemotedInputTokens));
+}
+
+function buildBudgetDemotedTypeSyntheticRows(
+  demotedRefs: readonly SpecTypeRef[],
+  tiers: Readonly<Record<string, SpecInclusionTier>>,
+  tokenCounter: (text: string) => TokenCount,
+): readonly SelectedFile[] {
+  return demotedRefs.flatMap((ref) => {
+    const ft = tiers[typeKey(ref)];
+    if (ft === undefined) return [];
+    const resolvedContent = normalizeNewlines(TIER_BODY[ft](ref));
+    return [
+      {
+        path: ref.path,
+        language: specLanguageFromPath(String(ref.path)),
+        estimatedTokens: tokenCounter(resolvedContent),
+        relevanceScore: toRelevanceScore(1),
+        tier: INCLUSION_TIER.L0,
+        resolvedContent,
+      },
+    ];
+  });
+}
+
+function applyBudgetDemotedRenderedBodies(
+  types: readonly SpecTypeRef[],
+  tiers: Readonly<Record<string, SpecInclusionTier>>,
+  pathToRendered: ReadonlyMap<string, string>,
+  tokenCounter: (text: string) => TokenCount,
+): readonly SpecTypeRef[] {
+  return types.map((ref) => {
+    const ft = tiers[typeKey(ref)];
+    if (ft === undefined || !typeRequiresPostBudgetLadder(ref, ft)) {
+      return ref;
+    }
+    const split = splitLeadingImportsAndBody(ref.content);
+    const syntheticDefault = normalizeNewlines(TIER_BODY[ft](ref));
+    const renderedBody = pathToRendered.get(String(ref.path)) ?? syntheticDefault;
+    const fullContent =
+      split.importLines.length > 0
+        ? `${split.importLines.join("\n")}\n${renderedBody}`
+        : renderedBody;
+    return {
+      ...ref,
+      content: fullContent,
+      estimatedTokens: tokenCounter(fullContent),
+    };
+  });
+}
+
+async function budgetDemotedTypesAdjustedSpecificationInput(
+  tokenCounter: (text: string) => TokenCount,
+  contentTransformerPipeline: ContentTransformerPipeline,
+  summarisationLadder: SummarisationLadder,
+  languageProviders: readonly LanguageProvider[],
+  afterEmbeds: SpecificationInput,
+  budget: TokenCount,
+  tiers: Readonly<Record<string, SpecInclusionTier>>,
+): Promise<SpecificationInput> {
+  const demotedRefs = sortTypes(afterEmbeds.types).filter((t) => {
+    const ft = tiers[typeKey(t)];
+    return ft !== undefined && typeRequiresPostBudgetLadder(t, ft);
+  });
+  if (demotedRefs.length === 0) {
+    return afterEmbeds;
+  }
+  const batchBudget = computeBudgetDemotedTypeBatchBudget(
+    budget,
+    demotedRefs,
+    tiers,
+    tokenCounter,
+  );
+  const rows = buildBudgetDemotedTypeSyntheticRows(demotedRefs, tiers, tokenCounter);
+  const specCompileTransformContext: TransformContext = {
+    directTargetPaths: [],
+    rawMode: false,
+  };
+  const transformResult = await contentTransformerPipeline.transform(
+    rows,
+    specCompileTransformContext,
+  );
+  const compressOut = await summarisationLadder.compress(
+    transformResult.files,
+    batchBudget,
+    undefined,
+  );
+  const pathToRendered = buildPathToRenderedMap(compressOut, languageProviders);
+  const adjustedTypes = applyBudgetDemotedRenderedBodies(
+    afterEmbeds.types,
+    tiers,
+    pathToRendered,
+    tokenCounter,
+  );
+  return { ...afterEmbeds, types: adjustedTypes };
+}
+
 function runBudgetLoop(
   input: SpecificationInput,
   budget: TokenCount,
   measure: (s: string) => TokenCount,
-): { readonly compiled: string; readonly tiers: Record<string, SpecInclusionTier> } {
+): {
+  readonly sortedTypes: readonly SpecTypeRef[];
+  readonly tiers: Record<string, SpecInclusionTier>;
+  readonly code: readonly SpecCodeBlock[];
+  readonly prose: readonly SpecProseBlock[];
+  readonly needsTruncationWarn: boolean;
+} {
   const sortedTypes = sortTypes(input.types);
   const initial: BudgetState = {
     tiers: initialTiers(sortedTypes),
@@ -701,13 +836,126 @@ function runBudgetLoop(
   };
   const final = convergeBudgetState(sortedTypes, budget, measure, initial);
   const base = assembleCompiledSpec(sortedTypes, final.tiers, final.code, final.prose);
-  const needsWarn =
+  const needsTruncationWarn =
     allTypesPathOnly(sortedTypes, final.tiers) &&
     final.code.length === 0 &&
     final.prose.length === 0 &&
     measure(base) > budget;
-  const compiled = needsWarn ? `${base}\n${WARN_TRUNCATION}` : base;
-  return { compiled, tiers: final.tiers };
+  return {
+    sortedTypes,
+    tiers: final.tiers,
+    code: final.code,
+    prose: final.prose,
+    needsTruncationWarn,
+  };
+}
+
+async function runSpecificationPreBudgetPasses(
+  tokenCounter: (text: string) => TokenCount,
+  contentTransformerPipeline: ContentTransformerPipeline,
+  summarisationLadder: SummarisationLadder,
+  languageProviders: readonly LanguageProvider[],
+  input: SpecificationInput,
+  budget: TokenCount,
+): Promise<SpecificationInput> {
+  const afterVerbatim = await verbatimAdjustedSpecificationInput(
+    tokenCounter,
+    contentTransformerPipeline,
+    summarisationLadder,
+    languageProviders,
+    input,
+    budget,
+  );
+  const afterSignature = await signaturePathAdjustedSpecificationInput(
+    tokenCounter,
+    contentTransformerPipeline,
+    summarisationLadder,
+    languageProviders,
+    afterVerbatim,
+    budget,
+  );
+  return codeAndProseAdjustedSpecificationInput(
+    tokenCounter,
+    contentTransformerPipeline,
+    summarisationLadder,
+    languageProviders,
+    afterSignature,
+    budget,
+  );
+}
+
+async function finalizeSpecificationAfterBudget(
+  tokenCounter: (text: string) => TokenCount,
+  contentTransformerPipeline: ContentTransformerPipeline,
+  summarisationLadder: SummarisationLadder,
+  languageProviders: readonly LanguageProvider[],
+  wireInput: SpecificationInput,
+  budget: TokenCount,
+  afterEmbeds: SpecificationInput,
+): Promise<SpecCompilationResult> {
+  const totalTokensRaw = sumEstimatedTokens(wireInput);
+  const budgetLoopResult = runBudgetLoop(afterEmbeds, budget, tokenCounter);
+  const adjusted = await budgetDemotedTypesAdjustedSpecificationInput(
+    tokenCounter,
+    contentTransformerPipeline,
+    summarisationLadder,
+    languageProviders,
+    afterEmbeds,
+    budget,
+    budgetLoopResult.tiers,
+  );
+  const sortedAdjustedTypes = sortTypes(adjusted.types);
+  const base = assembleCompiledSpec(
+    sortedAdjustedTypes,
+    budgetLoopResult.tiers,
+    budgetLoopResult.code,
+    budgetLoopResult.prose,
+  );
+  const compiledSpec = budgetLoopResult.needsTruncationWarn
+    ? `${base}\n${WARN_TRUNCATION}`
+    : base;
+  const totalTokensCompiled = tokenCounter(compiledSpec);
+  const rawNum = totalTokensRaw;
+  const reductionPct =
+    rawNum > 0 ? toPercentage((rawNum - totalTokensCompiled) / rawNum) : toPercentage(0);
+  const transformTokensSaved = toTokenCount(Math.max(0, rawNum - totalTokensCompiled));
+  return {
+    compiledSpec,
+    meta: {
+      totalTokensRaw,
+      totalTokensCompiled,
+      reductionPct,
+      typeTiers: buildTypeTiersMeta(sortTypes(wireInput.types), budgetLoopResult.tiers),
+      transformTokensSaved,
+    },
+  };
+}
+
+async function compileSpecificationInput(
+  tokenCounter: (text: string) => TokenCount,
+  contentTransformerPipeline: ContentTransformerPipeline,
+  summarisationLadder: SummarisationLadder,
+  languageProviders: readonly LanguageProvider[],
+  input: SpecificationInput,
+  budget: TokenCount,
+): Promise<SpecCompilationResult> {
+  const afterEmbeds = await runSpecificationPreBudgetPasses(
+    tokenCounter,
+    contentTransformerPipeline,
+    summarisationLadder,
+    languageProviders,
+    input,
+    budget,
+  );
+  return finalizeSpecificationAfterBudget(
+    tokenCounter,
+    contentTransformerPipeline,
+    summarisationLadder,
+    languageProviders,
+    input,
+    budget,
+    afterEmbeds,
+  );
 }
 
 export class SpecificationCompilerImpl implements SpecificationCompiler {
@@ -722,7 +970,7 @@ export class SpecificationCompilerImpl implements SpecificationCompiler {
     input: SpecificationInput,
     budget: TokenCount,
   ): Promise<SpecCompilationResult> {
-    const afterVerbatim = await verbatimAdjustedSpecificationInput(
+    return compileSpecificationInput(
       this.tokenCounter,
       this.contentTransformerPipeline,
       this.summarisationLadder,
@@ -730,45 +978,5 @@ export class SpecificationCompilerImpl implements SpecificationCompiler {
       input,
       budget,
     );
-    const afterSignature = await signaturePathAdjustedSpecificationInput(
-      this.tokenCounter,
-      this.contentTransformerPipeline,
-      this.summarisationLadder,
-      this.languageProviders,
-      afterVerbatim,
-      budget,
-    );
-    const afterEmbeds = await codeAndProseAdjustedSpecificationInput(
-      this.tokenCounter,
-      this.contentTransformerPipeline,
-      this.summarisationLadder,
-      this.languageProviders,
-      afterSignature,
-      budget,
-    );
-    const totalTokensRaw = sumEstimatedTokens(input);
-    const sortedTypes = sortTypes(input.types);
-    const { compiled: compiledSpec, tiers } = runBudgetLoop(
-      afterEmbeds,
-      budget,
-      this.tokenCounter,
-    );
-    const totalTokensCompiled = this.tokenCounter(compiledSpec);
-    const rawNum = totalTokensRaw;
-    const reductionPct =
-      rawNum > 0
-        ? toPercentage((rawNum - totalTokensCompiled) / rawNum)
-        : toPercentage(0);
-    const transformTokensSaved = toTokenCount(Math.max(0, rawNum - totalTokensCompiled));
-    return {
-      compiledSpec,
-      meta: {
-        totalTokensRaw,
-        totalTokensCompiled,
-        reductionPct,
-        typeTiers: buildTypeTiersMeta(sortedTypes, tiers),
-        transformTokensSaved,
-      },
-    };
   }
 }
