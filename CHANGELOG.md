@@ -7,9 +7,11 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-04-21
+
 ### Changed
 
-- Pin the toolchain to Node.js 24.x via `.nvmrc` and `engines.node`, and upgrade `better-sqlite3` to the matching ABI so native bindings load cleanly
+- Align the reference dev toolchain with `.nvmrc` (Node.js 22.x) and `engines.node` (`>=22`) so installs and CI use a consistent Node major for `better-sqlite3` native bindings
 - Normalize the `show aic status`, `show aic last`, `show aic chat summary`, `show aic projects`, and `show aic quality` CLI output so every command renders the same title → separator → hero → separator → body frame, with an optional closing separator and footnote, fixed-width columns, and a consistent 30-character label width
 - Drop the `Columns use fixed widths; MCP JSON lists full paths.` footnote and the trailing separator from `show aic projects` so the roster ends on its last body row; `renderStandardReport` now treats both as optional
 - Tighten the prompt-command contract in `.claude/CLAUDE.md` and `.cursor/rules/aic-architect.mdc` so agents wrap `show aic` stdout in a fenced code block (triple backticks, no language tag), keeping fixed-width columns and `──` separator rules intact when rendered as Markdown
@@ -17,8 +19,8 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- Enforce the Node engine locally with `engine-strict=true` in `.npmrc`, turning accidental Node 22 runs into a clean `ERR_PNPM_UNSUPPORTED_ENGINE` instead of a silent `better-sqlite3` ABI failure deep in the test output
-- Run an MCP server startup preflight that detects `better-sqlite3` ABI mismatches and exits with an actionable `rebuild better-sqlite3 under Node 24` message
+- Enforce the Node engine locally with `engine-strict=true` in `.npmrc`, turning installs outside `engines.node` into a clean `ERR_PNPM_UNSUPPORTED_ENGINE` instead of a silent `better-sqlite3` ABI failure deep in the test output
+- Run an MCP server startup preflight that detects `better-sqlite3` ABI mismatches and exits with remediation hints (clear stale `npx` caches, reinstall, or rebuild the binding) before the server starts
 
 ### Fixed
 
@@ -226,7 +228,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 - MCP bootstrap: workspace folders initialized on first compile per root (removed symlink-based dev bootstrap); cleaner batch shutdown
 - Claude Code installer: global-only `~/.claude/hooks` and settings merge aligned with Cursor (idempotent copies, stale hook cleanup, version-stamped CLAUDE.md)
-- Documentation: installation guide, Cursor and Claude integration layer references, global DB and project_id (W13)
+- Documentation: installation guide, Cursor and Claude integration layer references, global DB and per-project `project_id` isolation
 
 ### Fixed
 
