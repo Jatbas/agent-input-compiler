@@ -172,6 +172,12 @@ export function registerShutdownHandler(
 
 export type BatchExitRef = { stdinEnded: boolean; pendingToolCalls: number };
 
+function rethrowAsMcpError(toolName: string, err: unknown): never {
+  const label = err instanceof Error ? err.message : String(err);
+  process.stderr.write(`[aic] ${toolName} unexpected error: ${label}\n`);
+  throw new McpError(ErrorCode.InternalError, "Internal error");
+}
+
 export function createMcpServer(
   projectRoot: AbsolutePath,
   db: ExecutableDb,
@@ -508,9 +514,7 @@ export function createMcpServer(
           content: [{ type: "text" as const, text: JSON.stringify(payload) }],
         });
       } catch (err) {
-        const label = err instanceof Error ? err.message : String(err);
-        process.stderr.write(`[aic] quality_report unexpected error: ${label}\n`);
-        throw new McpError(ErrorCode.InternalError, "Internal error");
+        rethrowAsMcpError("quality_report", err);
       }
     },
   );
@@ -559,9 +563,7 @@ export function createMcpServer(
           content: [{ type: "text" as const, text: JSON.stringify(payload) }],
         });
       } catch (err) {
-        const label = err instanceof Error ? err.message : String(err);
-        process.stderr.write(`[aic] chat_summary unexpected error: ${label}\n`);
-        throw new McpError(ErrorCode.InternalError, "Internal error");
+        rethrowAsMcpError("chat_summary", err);
       }
     },
   );

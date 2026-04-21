@@ -83,16 +83,18 @@ export const AicCompileStructuredContentSchema = z.union([
 
 const specTypeTierSchema = z.enum(["verbatim", "signature-path", "path-only"]);
 
+const aicCompileSpecMetaSchema = z.object({
+  totalTokensRaw: z.number().int().min(0),
+  totalTokensCompiled: z.number().int().min(0),
+  reductionPct: z.number(),
+  typeTiers: z.record(specTypeTierSchema),
+  transformTokensSaved: z.number().int().min(0),
+});
+
 const aicCompileSpecSuccessBranchSchema = z
   .object({
     compiledSpec: z.string(),
-    meta: z.object({
-      totalTokensRaw: z.number().int().min(0),
-      totalTokensCompiled: z.number().int().min(0),
-      reductionPct: z.number(),
-      typeTiers: z.record(specTypeTierSchema),
-      transformTokensSaved: z.number().int().min(0),
-    }),
+    meta: aicCompileSpecMetaSchema,
   })
   .strict();
 
@@ -125,15 +127,7 @@ export const AicCompileToolRegisteredOutputSchema = z
 export const AicCompileSpecToolRegisteredOutputSchema = z
   .object({
     compiledSpec: z.string().optional(),
-    meta: z
-      .object({
-        totalTokensRaw: z.number().int().min(0),
-        totalTokensCompiled: z.number().int().min(0),
-        reductionPct: z.number(),
-        typeTiers: z.record(specTypeTierSchema),
-        transformTokensSaved: z.number().int().min(0),
-      })
-      .optional(),
+    meta: aicCompileSpecMetaSchema.optional(),
     error: z.string().optional(),
     code: z.literal("validation-error").optional(),
   })

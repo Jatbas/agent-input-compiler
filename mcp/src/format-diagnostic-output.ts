@@ -10,6 +10,7 @@ import {
 } from "@jatbas/aic-core/core/types/status-types.js";
 import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
 import type { SelectionTraceParsed } from "./schemas/selection-trace.schema.js";
+import { decrementUtcCalendarDay, enumerateUtcDaysInclusive } from "./utc-calendar.js";
 
 const METRIC_FOOTNOTE =
   "Avg context precision: % of repo content automatically filtered per context build.";
@@ -588,66 +589,12 @@ function utcDayStringsChronologicalWindow(
   endDayInclusive: string,
   windowSize: number,
 ): readonly string[] {
-  const pad2 = (n: number): string => (n < 10 ? `0${String(n)}` : String(n));
-  const daysInMonthUtcLocal = (year: number, month1to12: number): number => {
-    if (month1to12 === 2) {
-      const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
-      return leap ? 29 : 28;
-    }
-    if (month1to12 === 4 || month1to12 === 6 || month1to12 === 9 || month1to12 === 11) {
-      return 30;
-    }
-    return 31;
-  };
-  const decrement = (day: string): string => {
-    const segs = day.split("-");
-    const y = Number(segs[0]);
-    const mo = Number(segs[1]);
-    const d = Number(segs[2]);
-    if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) {
-      return day;
-    }
-    if (d > 1) {
-      return `${String(y)}-${pad2(mo)}-${pad2(d - 1)}`;
-    }
-    if (mo > 1) {
-      const prevMo = mo - 1;
-      const dimPrev = daysInMonthUtcLocal(y, prevMo);
-      return `${String(y)}-${pad2(prevMo)}-${pad2(dimPrev)}`;
-    }
-    return `${String(y - 1)}-12-31`;
-  };
-  const increment = (day: string): string => {
-    const segs = day.split("-");
-    const y = Number(segs[0]);
-    const mo = Number(segs[1]);
-    const d = Number(segs[2]);
-    if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) {
-      return day;
-    }
-    const dim = daysInMonthUtcLocal(y, mo);
-    if (d < dim) {
-      return `${String(y)}-${pad2(mo)}-${pad2(d + 1)}`;
-    }
-    if (mo < 12) {
-      return `${String(y)}-${pad2(mo + 1)}-01`;
-    }
-    return `${String(y + 1)}-01-01`;
-  };
-  const enumerateInclusive = (startDay: string, endDay: string): readonly string[] => {
-    if (startDay > endDay) {
-      return [];
-    }
-    const step = (current: string): readonly string[] =>
-      current === endDay ? [current] : [current, ...step(increment(current))];
-    return step(startDay);
-  };
   const safeSize = Math.max(1, windowSize);
   const startDay = Array.from({ length: Math.max(0, safeSize - 1) }, () => 0).reduce(
-    (d: string) => decrement(d),
+    (d: string) => decrementUtcCalendarDay(d),
     endDayInclusive,
   );
-  return enumerateInclusive(startDay, endDayInclusive);
+  return enumerateUtcDaysInclusive(startDay, endDayInclusive);
 }
 
 function utcWeekdayAbbrevFromUtcDay(day: string): string {

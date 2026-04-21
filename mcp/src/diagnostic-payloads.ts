@@ -34,6 +34,7 @@ import {
   TEMPLATE_OVERHEAD_DEFAULT,
 } from "@jatbas/aic-core/pipeline/budget-allocator.js";
 import type { InstallScope } from "./detect-install-scope.js";
+import { enumerateUtcDaysInclusive } from "./utc-calendar.js";
 
 export function buildStatusPayload(input: {
   readonly projectId: ProjectId;
@@ -269,43 +270,6 @@ export function buildProjectScopedChatSummaryCliRow(
   };
 }
 
-function pad2Utc(n: number): string {
-  return n < 10 ? `0${String(n)}` : String(n);
-}
-
-function daysInMonthUtc(year: number, month1to12: number): number {
-  if (month1to12 === 2) {
-    const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
-    return leap ? 29 : 28;
-  }
-  if (month1to12 === 4 || month1to12 === 6 || month1to12 === 9 || month1to12 === 11) {
-    return 30;
-  }
-  return 31;
-}
-
-function incrementUtcCalendarDay(day: string): string {
-  const segs = day.split("-");
-  const y = Number(segs[0]);
-  const mo = Number(segs[1]);
-  const d = Number(segs[2]);
-  const dim = daysInMonthUtc(y, mo);
-  if (d < dim) {
-    return `${String(y)}-${pad2Utc(mo)}-${pad2Utc(d + 1)}`;
-  }
-  if (mo < 12) {
-    return `${String(y)}-${pad2Utc(mo + 1)}-01`;
-  }
-  return `${String(y + 1)}-01-01`;
-}
-
-function enumerateUtcDaysInclusive(startDay: string, endDay: string): readonly string[] {
-  if (startDay > endDay) return [];
-  const step = (current: string): readonly string[] =>
-    current === endDay ? [current] : [current, ...step(incrementUtcCalendarDay(current))];
-  return step(startDay);
-}
-
 function utcCalendarDayFromIsoTimestamp(ts: string): string {
   return ts.slice(0, 10);
 }
@@ -413,9 +377,7 @@ export function buildQualityReportPayload(input: {
   const store = new SqliteQualitySnapshotStore(input.projectId, input.db);
   const notBeforeInclusive = input.clock.addMinutes(-input.windowDays * 24 * 60);
   const rows = store.selectWindowRows({ notBeforeInclusive });
-  const compilations = rows.length;
   const windowStartDay = utcCalendarDayFromIsoTimestamp(notBeforeInclusive);
-  const compileRows = rows.filter((r) => !r.cacheHit);
   const byTaskClass = Object.values(TASK_CLASS).reduce<Record<string, unknown>>(
     (acc, taskClass) => ({
       ...acc,
@@ -425,13 +387,7 @@ export function buildQualityReportPayload(input: {
   );
   return {
     windowDays: input.windowDays,
-    compilations,
-    medianTokenReduction: medianRatio(
-      compileRows.map((r) => Number(r.tokenReductionRatio)),
-    ),
-    medianSelectionRatio: medianRatio(compileRows.map((r) => Number(r.selectionRatio))),
-    medianBudgetUtilisation: medianRatio(rows.map((r) => Number(r.budgetUtilisation))),
-    cacheHitRate: cacheHitRateForRows(rows),
+    ...stratumMetrics(rows),
     tierDistribution: tierDistributionFromRows(rows),
     byTaskClass,
     classifierConfidence: classifierConfidenceFromRows(rows),

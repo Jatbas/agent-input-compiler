@@ -229,6 +229,21 @@ async function verbatimAdjustedSpecificationInput(
   return { ...input, types: adjustedTypes };
 }
 
+function applyRenderedBody(
+  ref: SpecTypeRef,
+  syntheticDefault: string,
+  pathToRendered: ReadonlyMap<string, string>,
+  tokenCounter: (text: string) => TokenCount,
+): SpecTypeRef {
+  const split = splitLeadingImportsAndBody(ref.content);
+  const renderedBody = pathToRendered.get(String(ref.path)) ?? syntheticDefault;
+  const fullContent =
+    split.importLines.length > 0
+      ? `${split.importLines.join("\n")}\n${renderedBody}`
+      : renderedBody;
+  return { ...ref, content: fullContent, estimatedTokens: tokenCounter(fullContent) };
+}
+
 function applySignaturePathRenderedBodies(
   types: readonly SpecTypeRef[],
   pathToRendered: ReadonlyMap<string, string>,
@@ -238,18 +253,12 @@ function applySignaturePathRenderedBodies(
     if (SPEC_USAGE_TO_INITIAL_TIER[ref.usage] !== "signature-path") {
       return ref;
     }
-    const split = splitLeadingImportsAndBody(ref.content);
-    const syntheticDefault = normalizeNewlines(signatureTierBody(ref.content));
-    const renderedBody = pathToRendered.get(String(ref.path)) ?? syntheticDefault;
-    const fullContent =
-      split.importLines.length > 0
-        ? `${split.importLines.join("\n")}\n${renderedBody}`
-        : renderedBody;
-    return {
-      ...ref,
-      content: fullContent,
-      estimatedTokens: tokenCounter(fullContent),
-    };
+    return applyRenderedBody(
+      ref,
+      normalizeNewlines(signatureTierBody(ref.content)),
+      pathToRendered,
+      tokenCounter,
+    );
   });
 }
 
@@ -369,6 +378,23 @@ function rehydrateSpecificationEmbedBlocks(
   };
 }
 
+async function transformCompressRows(
+  rows: readonly SelectedFile[],
+  budget: TokenCount,
+  contentTransformerPipeline: ContentTransformerPipeline,
+  summarisationLadder: SummarisationLadder,
+  languageProviders: readonly LanguageProvider[],
+): Promise<ReadonlyMap<string, string>> {
+  const ctx: TransformContext = { directTargetPaths: [], rawMode: false };
+  const transformResult = await contentTransformerPipeline.transform(rows, ctx);
+  const compressOut = await summarisationLadder.compress(
+    transformResult.files,
+    budget,
+    undefined,
+  );
+  return buildPathToRenderedMap(compressOut, languageProviders);
+}
+
 async function codeAndProseAdjustedSpecificationInput(
   tokenCounter: (text: string) => TokenCount,
   contentTransformerPipeline: ContentTransformerPipeline,
@@ -389,20 +415,13 @@ async function codeAndProseAdjustedSpecificationInput(
     tokenCounter,
   );
   const rows = buildCodeProseEmbedRows(sortedCode, sortedProse, tokenCounter);
-  const specCompileTransformContext: TransformContext = {
-    directTargetPaths: [],
-    rawMode: false,
-  };
-  const transformResult = await contentTransformerPipeline.transform(
+  const pathToRendered = await transformCompressRows(
     rows,
-    specCompileTransformContext,
-  );
-  const compressOut = await summarisationLadder.compress(
-    transformResult.files,
     batchBudget,
-    undefined,
+    contentTransformerPipeline,
+    summarisationLadder,
+    languageProviders,
   );
-  const pathToRendered = buildPathToRenderedMap(compressOut, languageProviders);
   return rehydrateSpecificationEmbedBlocks(
     input,
     sortedCode,
@@ -541,6 +560,28 @@ function compareTokenCount(a: TokenCount, b: TokenCount): number {
   return 0;
 }
 
+type ScoredRef = {
+  readonly t: SpecTypeRef;
+  readonly frag: TokenCount;
+  readonly path: string;
+  readonly name: string;
+};
+
+function selectByScoredFragPathName(
+  candidates: readonly ScoredRef[],
+  first: ScoredRef,
+): SpecTypeRef {
+  return candidates.reduce((best, cur) => {
+    const ct = compareTokenCount(cur.frag, best.frag);
+    if (ct > 0) return cur;
+    if (ct < 0) return best;
+    const cp = cur.path.localeCompare(best.path);
+    if (cp < 0) return cur;
+    if (cp > 0) return best;
+    return cur.name.localeCompare(best.name) < 0 ? cur : best;
+  }, first).t;
+}
+
 function pickVerbatimDemotion(
   sortedTypes: readonly SpecTypeRef[],
   tiers: Readonly<Record<string, SpecInclusionTier>>,
@@ -559,16 +600,7 @@ function pickVerbatimDemotion(
   const tiered = scored.filter((s) => s.usageRank === minUsage);
   const first = tiered[0];
   if (first === undefined) return null;
-  const chosen = tiered.reduce((best, cur) => {
-    const ct = compareTokenCount(cur.frag, best.frag);
-    if (ct > 0) return cur;
-    if (ct < 0) return best;
-    const cp = cur.path.localeCompare(best.path);
-    if (cp < 0) return cur;
-    if (cp > 0) return best;
-    return cur.name.localeCompare(best.name) < 0 ? cur : best;
-  }, first);
-  return chosen.t;
+  return selectByScoredFragPathName(tiered, first);
 }
 
 function pickSignatureDemotion(
@@ -586,40 +618,29 @@ function pickSignatureDemotion(
   }));
   const first = scored[0];
   if (first === undefined) return null;
-  const chosen = scored.reduce((best, cur) => {
-    const ct = compareTokenCount(cur.frag, best.frag);
-    if (ct > 0) return cur;
-    if (ct < 0) return best;
-    const cp = cur.path.localeCompare(best.path);
-    if (cp < 0) return cur;
-    if (cp > 0) return best;
-    return cur.name.localeCompare(best.name) < 0 ? cur : best;
-  }, first);
-  return chosen.t;
+  return selectByScoredFragPathName(scored, first);
+}
+
+type LabeledTokenBlock = { readonly estimatedTokens: TokenCount; readonly label: string };
+
+function pickLargestByTokenThenLabel(blocks: readonly LabeledTokenBlock[]): number {
+  return blocks.reduce((bestIdx, _b, i, arr) => {
+    const cur = arr[i];
+    const best = arr[bestIdx];
+    if (cur === undefined || best === undefined) return bestIdx;
+    const cmp = compareTokenCount(cur.estimatedTokens, best.estimatedTokens);
+    if (cmp > 0) return i;
+    if (cmp < 0) return bestIdx;
+    return cur.label.localeCompare(best.label) < 0 ? i : bestIdx;
+  }, 0);
 }
 
 function pickCodeRemovalIndex(blocks: readonly SpecCodeBlock[]): number {
-  return blocks.reduce((bestIdx, _b, i, arr) => {
-    const cur = arr[i];
-    const best = arr[bestIdx];
-    if (cur === undefined || best === undefined) return bestIdx;
-    const cmp = compareTokenCount(cur.estimatedTokens, best.estimatedTokens);
-    if (cmp > 0) return i;
-    if (cmp < 0) return bestIdx;
-    return cur.label.localeCompare(best.label) < 0 ? i : bestIdx;
-  }, 0);
+  return pickLargestByTokenThenLabel(blocks);
 }
 
 function pickProseRemovalIndex(blocks: readonly SpecProseBlock[]): number {
-  return blocks.reduce((bestIdx, _b, i, arr) => {
-    const cur = arr[i];
-    const best = arr[bestIdx];
-    if (cur === undefined || best === undefined) return bestIdx;
-    const cmp = compareTokenCount(cur.estimatedTokens, best.estimatedTokens);
-    if (cmp > 0) return i;
-    if (cmp < 0) return bestIdx;
-    return cur.label.localeCompare(best.label) < 0 ? i : bestIdx;
-  }, 0);
+  return pickLargestByTokenThenLabel(blocks);
 }
 
 function demoteTier(tier: SpecInclusionTier): SpecInclusionTier | null {
@@ -756,18 +777,12 @@ function applyBudgetDemotedRenderedBodies(
     if (ft === undefined || !typeRequiresPostBudgetLadder(ref, ft)) {
       return ref;
     }
-    const split = splitLeadingImportsAndBody(ref.content);
-    const syntheticDefault = normalizeNewlines(TIER_BODY[ft](ref));
-    const renderedBody = pathToRendered.get(String(ref.path)) ?? syntheticDefault;
-    const fullContent =
-      split.importLines.length > 0
-        ? `${split.importLines.join("\n")}\n${renderedBody}`
-        : renderedBody;
-    return {
-      ...ref,
-      content: fullContent,
-      estimatedTokens: tokenCounter(fullContent),
-    };
+    return applyRenderedBody(
+      ref,
+      normalizeNewlines(TIER_BODY[ft](ref)),
+      pathToRendered,
+      tokenCounter,
+    );
   });
 }
 
@@ -794,20 +809,13 @@ async function budgetDemotedTypesAdjustedSpecificationInput(
     tokenCounter,
   );
   const rows = buildBudgetDemotedTypeSyntheticRows(demotedRefs, tiers, tokenCounter);
-  const specCompileTransformContext: TransformContext = {
-    directTargetPaths: [],
-    rawMode: false,
-  };
-  const transformResult = await contentTransformerPipeline.transform(
+  const pathToRendered = await transformCompressRows(
     rows,
-    specCompileTransformContext,
-  );
-  const compressOut = await summarisationLadder.compress(
-    transformResult.files,
     batchBudget,
-    undefined,
+    contentTransformerPipeline,
+    summarisationLadder,
+    languageProviders,
   );
-  const pathToRendered = buildPathToRenderedMap(compressOut, languageProviders);
   const adjustedTypes = applyBudgetDemotedRenderedBodies(
     afterEmbeds.types,
     tiers,
