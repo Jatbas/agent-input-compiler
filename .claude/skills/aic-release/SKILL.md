@@ -10,8 +10,8 @@ editors: all
 
 - **Purpose:** Cut a release end-to-end. Single entry point. Run unattended.
 - **Inputs:** Target version (from user, or derived from `[Unreleased]` in `CHANGELOG.md`).
-- **Outputs:** Published npm package(s) (via CI), git tag `vX.Y.Z`, GitHub release, updated docs, deprecations applied.
-- **Non-skippable steps:** Validate → Doc audit → Changelog + version bump → Tag push (CI publishes) → Verify registry → GitHub release → Deprecate prior.
+- **Outputs:** Published npm package(s) (via CI), git tag `vX.Y.Z`, GitHub release, updated docs, deprecations applied, immediate predecessor release+tag removed from GitHub.
+- **Non-skippable steps:** Validate → Doc audit → Changelog + version bump → Tag push (CI publishes) → Verify registry → GitHub release → Deprecate prior → Cleanup prior GitHub release + tag.
 - **Mechanical gates:**
   `pnpm typecheck && pnpm lint && pnpm test && pnpm knip` — must all pass.
   `bash .claude/skills/shared/scripts/changelog-format-check.sh CHANGELOG.md`
@@ -35,6 +35,7 @@ editors: all
 7. **Tag format:** `vMAJOR.MINOR.PATCH` (or `vMAJOR.MINOR.PATCH-<pre>.<n>`) exactly, matching every `package.json` `version` field across the workspace. Tag must be annotated (`git tag -a -m`).
 8. **Never `--force` push to `main`.** The release-tagging push uses standard push; if it is rejected, investigate — do not force.
 9. **Deprecate prior versions after publishing.** Default policy: deprecate the immediately previous version of each published package unless `npm view <pkg>@<prev> deprecated` already returns a non-empty string. Skip versions that are already deprecated. Older releases that are already deprecated are left alone.
+10. **Delete the immediate predecessor's GitHub release and tag after deprecations are applied.** Default policy: after the new release is live on npm and the prior version has been deprecated, remove the immediately previous `vX.Y.(Z-1)` GitHub release and git tag (both remote and local) so the repository keeps only the current stable release (plus any intentionally preserved historical tags). Scope is strictly the immediate predecessor — never sweep older tags. If the predecessor's release or tag is already absent, treat that state as success (idempotent).
 
 ## GUIDANCE
 
@@ -48,6 +49,7 @@ Run continuously from validate through deprecate. Commit AND push after every mu
 - **A failing mechanical gate** (typecheck, lint, test, knip, changelog-format, smoke test) that cannot be resolved by a local edit the agent can make and commit. Report the failure and stop.
 - **Doc audit HARD finding that is a prescriptive-document contradiction** (see `aic-documentation-writer` §Autonomous execution, Cardinal Rule 7). Report and stop; never resolve silently.
 - **Auth error.** `git push` rejected by remote (not fast-forward, missing credentials), `gh` not authenticated, npm registry unreachable, or `npm deprecate` returns `EOTP`. For `EOTP` specifically, see the OTP protocol in §Process overview step 7 — prompt the user exactly once for the OTP at the start of the deprecate phase, then run both `npm deprecate` commands non-interactively; any OTP error after that first prompt is a hard stop.
+- **Cleanup failure that is not `already-clean`.** In phase 8, any non-zero exit from `gh release delete --cleanup-tag --yes` that is not a `release not found` error is a hard stop. Never attempt a force-style workaround; report the `gh` output and stop.
 - **CI publish failure.** `npm view <pkg>@<version>` does not return the new version within 15 minutes of the tag push, or the GitHub Actions run for the `Publish` workflow concludes with a non-success status. Report the workflow URL and stop.
 - **Version mismatch.** `CHANGELOG.md` target version does not match the version in any `package.json`, or the tag name does not match the package version.
 
@@ -57,6 +59,7 @@ Do NOT stop for any of the following — handle them autonomously:
 - A branch behind `origin/main`. Run `git pull --ff-only` at the start of the phase.
 - A smoke test that fails because of a filename heuristic that the version bump invalidated. Fix the heuristic, commit with `fix(test): ...`, push, rerun.
 - Choosing between local publish and CI publish. It is always CI (see HARD RULE 5).
+- `gh release view <prev>` returning non-zero or `git ls-remote --tags origin <prev>` empty at the start of phase 8. Record action `already-clean` and advance.
 
 ## When to use
 
@@ -91,6 +94,13 @@ Each phase is a hard gate. Never proceed past a failure. Every phase that mutate
    - **OTP protocol.** Before the first `npm deprecate` call, if `AIC_RELEASE_NPM_OTP` is not set, prompt the user exactly once: `"npm deprecate requires a 2FA OTP. Paste current authenticator code:"`. Store it in `AIC_RELEASE_NPM_OTP` for the phase's subprocesses. Both packages reuse the same OTP (valid for 30 s — run them back-to-back). If a subsequent call returns `EOTP` anyway (OTP expired), this is a hard stop: report and let the user re-run the skill starting from phase 7.
    - After deprecation, verify: `npm view <pkg>@<prev> deprecated` must return the new message.
    - Checkpoint: `deprecations-applied` with payload listing each `{package, prev_version, action: deprecated|already-deprecated|skipped}`.
+8. **Cleanup previous GitHub release + tag.** Derive the immediate predecessor version the same way as phase 7 (the entry directly below `## [X.Y.Z]` in `CHANGELOG.md`). Let `PREV=vX.Y.(Z-1)`.
+   - Verify current state: `gh release view $PREV --json tagName 2>/dev/null` and `git ls-remote --tags origin $PREV`. If both come back empty, skip to the verify step with action `already-clean`.
+   - Delete release + remote tag in one call: `gh release delete $PREV --cleanup-tag --yes`. A `release not found` error is treated as `already-clean`; any other non-zero exit is a hard stop.
+   - Delete the local tag if it exists: `git tag -d $PREV || true` (tolerate `tag not found`).
+   - Verify: `gh release view $PREV` must exit non-zero, `git ls-remote --tags origin $PREV` must print nothing, and `git tag -l $PREV` must print nothing.
+   - Scope rule: only the immediate predecessor. Never iterate older tags, never delete prereleases that the user may want preserved as audit artifacts — if the predecessor entry in `CHANGELOG.md` is a prerelease (`-alpha.N` / `-beta.N` / `-rc.N`), skip cleanup and log action `skipped-prerelease`.
+   - Checkpoint: `predecessor-cleaned` with payload `{prev_version, action: deleted|already-clean|skipped-prerelease}`.
 
 ## Subagent dispatch
 
@@ -105,6 +115,9 @@ This skill does not dispatch its own subagents; it delegates the doc audit to `a
 - Creating the GitHub release before registry visibility is confirmed, so release notes point at a version users cannot install yet.
 - Deprecating every historical version instead of only the immediate predecessor.
 - Asking the user for OTP on each `npm deprecate` call instead of prompting once and reusing within the 30-second validity window.
+- Sweeping every historical GitHub release/tag in phase 8 instead of only the immediate predecessor.
+- Running `gh release delete` without `--cleanup-tag`, leaving the orphaned tag on `origin`.
+- Force-pushing or using `git push --delete` workarounds when `gh release delete` fails instead of stopping and reporting.
 
 ## Output checklist
 
@@ -117,4 +130,5 @@ This skill does not dispatch its own subagents; it delegates the doc audit to `a
 - [ ] `npm view` confirms `X.Y.Z` for every published package.
 - [ ] GitHub release created with `--notes-from-tag --verify-tag`.
 - [ ] Immediate-predecessor versions deprecated (or confirmed already-deprecated) for each package.
-- [ ] Seven checkpoint lines in `.aic/skill-log.jsonl`: `validated`, `doc-audit-complete`, `changelog-finalised`, `pre-tag-gate-green`, `tag-pushed`, `published`, `deprecations-applied`.
+- [ ] Immediate-predecessor GitHub release and git tag deleted from `origin` (or confirmed `already-clean` / `skipped-prerelease`); local tag pruned.
+- [ ] Eight checkpoint lines in `.aic/skill-log.jsonl`: `validated`, `doc-audit-complete`, `changelog-finalised`, `pre-tag-gate-green`, `tag-pushed`, `published`, `deprecations-applied`, `predecessor-cleaned`.
