@@ -109,7 +109,7 @@ try {
   );
 
   const coreTgz = tarballFiles.find((f) => f.includes("aic-core"));
-  const mcpTgz = tarballFiles.find((f) => f.includes("aic-0."));
+  const mcpTgz = tarballFiles.find((f) => f.endsWith(".tgz") && f !== coreTgz);
   assert(coreTgz, "pack_core_tarball_exists");
   assert(mcpTgz, "pack_mcp_tarball_exists");
   console.log("pack_produces_tarballs: pass");
