@@ -163,21 +163,21 @@ For the full architectural specification, see [Project Plan §13](project-plan.m
 
 Context Guard (pipeline Step 5) scans every selected file **before** it reaches the Content Transformer (Step 5.5) or the prompt assembler. It excludes secrets, credentials, excluded paths, and prompt injection patterns from the compiled context that AIC returns to the editor.
 
-**Scope of protection:** Context Guard controls what AIC includes in its compiled prompt. It does not control what the model or editor does independently — models can still read files directly through editor-provided tools (e.g. `read_file`, `Shell`). AIC's role is to ensure that bulk context injection does not carry sensitive content; direct file access is governed by the editor's own permission model (e.g. `.cursorignore`).
+**Scope of protection:** Context Guard controls what AIC includes in its compiled prompt. It does not control what the model or editor does independently — models can still read files directly through editor-provided tools (including `read_file` and `Shell`). AIC's role is to ensure that bulk context injection does not carry sensitive content; direct file access is governed by the editor's own permission model (including `.cursorignore`).
 
-| Scanner                      | Finding type        | What it detects                                                                                                                                                  |
-| ---------------------------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ExclusionScanner`           | `excluded-file`     | File path matches a never-include pattern                                                                                                                        |
-| `SecretScanner`              | `secret`            | File content matches a known secret regex                                                                                                                        |
-| `PromptInjectionScanner`     | `prompt-injection`  | Instruction-override and special-token patterns on all selected non-markdown files                                                                               |
-| `MarkdownInstructionScanner` | `prompt-injection`  | Same instruction-pattern pass, limited to `.md`, `.mdc`, `.mdx`                                                                                                  |
-| `CommandInjectionScanner`    | `command-injection` | Shell-like patterns (e.g. command substitution, backticks, pipe chains) on non-markdown files; markdown paths are handled by `MarkdownInstructionScanner`, BLOCK |
+| Scanner                      | Finding type        | What it detects                                                                                                                                             |
+| ---------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ExclusionScanner`           | `excluded-file`     | File path matches a never-include pattern                                                                                                                   |
+| `SecretScanner`              | `secret`            | File content matches a known secret regex                                                                                                                   |
+| `PromptInjectionScanner`     | `prompt-injection`  | Instruction-override and special-token patterns on all selected non-markdown files                                                                          |
+| `MarkdownInstructionScanner` | `prompt-injection`  | Same instruction-pattern pass, limited to `.md`, `.mdc`, `.mdx`                                                                                             |
+| `CommandInjectionScanner`    | `command-injection` | Shell-like patterns (command substitution, backticks, pipe chains) on non-markdown files; markdown paths are handled by `MarkdownInstructionScanner`, BLOCK |
 
 **Never-include path patterns (always active, not overridable):**
 `.env`, `.env.*`, `*.pem`, `*.key`, `*.pfx`, `*.p12`, `*secret*`, `*credential*`, `*password*`, `*.cert`
 
 **Secret patterns (6 regex patterns):**
-AWS keys, GitHub tokens, Stripe keys, generic named API keys (e.g. `api_key = "..."`), JWTs (`eyJ...`), and SSH/TLS private key headers (`-----BEGIN ... PRIVATE KEY-----`).
+AWS keys, GitHub tokens, Stripe keys, generic named API keys in assignment form (`api_key = "..."`), JWTs (`eyJ...`), and SSH/TLS private key headers (`-----BEGIN ... PRIVATE KEY-----`).
 
 **Behavior on detection:**
 
@@ -186,7 +186,7 @@ AWS keys, GitHub tokens, Stripe keys, generic named API keys (e.g. `api_key = ".
 - All findings are logged in `CompilationMeta.guard` and visible via `aic_inspect`
 - If all selected files are blocked, the pipeline returns empty context with `guard.passed: false`
 
-**False-positive mitigation:** The allow list is loaded from `aic.config.json` (`guard.allowPatterns`). Paths matching those globs skip content scanners; never-include paths (`.env`, `*.pem`, etc.) stay mandatory blocks and cannot be overridden. See [Implementation Spec — Step 5](implementation-spec.md#step-5-context-guard) and [Project Plan §8.4](project-plan.md#84-contextguard-interface).
+**False-positive mitigation:** The allow list is loaded from `aic.config.json` (`guard.allowPatterns`). Paths matching those globs skip content scanners; never-include paths (`.env`, `*.pem`, `*.key`, and the other globs listed under **Never-include path patterns** above) stay mandatory blocks and cannot be overridden. See [Implementation Spec — Step 5](implementation-spec.md#step-5-context-guard) and [Project Plan §8.4](project-plan.md#84-contextguard-interface).
 
 Full pattern tables: [Project Plan §8.4](project-plan.md#84-contextguard-interface).
 
@@ -242,15 +242,15 @@ Full regex patterns: [Project Plan §8.4](project-plan.md#84-contextguard-interf
 | Guard findings                 | `guard_findings` table (SQLite)                                                                                                                 | Never                                                                                                             |
 | Anonymous telemetry (outbound) | `anonymous_telemetry_log` table (schema in `001-consolidated-schema.ts`)                                                                        | **No shipped writer** — table reserved for a future queue. Privacy design: no code, paths, or prompts. See below. |
 
-**Other local path columns:** The same database also stores absolute paths in `projects.project_root`, `repomap_cache.project_root`, and transform-cache tables (`file_path` and similar). Same rules apply: local only, never sent to AIC servers. Baseline DDL: `shared/src/storage/migrations/001-consolidated-schema.ts`; later migrations (e.g. `003-compilation-selection-trace.ts` for `compilation_log.selection_trace_json`) live in the same directory.
+**Other local path columns:** The same database also stores absolute paths in `projects.project_root`, `repomap_cache.project_root`, and transform-cache tables (`file_path` and similar). Same rules apply: local only, never sent to AIC servers. Baseline DDL: `shared/src/storage/migrations/001-consolidated-schema.ts`; later migrations (including `003-compilation-selection-trace.ts` for `compilation_log.selection_trace_json`) live in the same directory.
 
 ### External API response validation
 
 AIC treats all data received from external endpoints as untrusted. For every outbound GET request:
 
-- The response is accepted only when the `Content-Type` header indicates JSON (e.g. `application/json`). Responses with a missing or non-JSON Content-Type are discarded without parsing.
-- Response body size is bounded (e.g. 100 KB for the npm registry) and a timeout applies. Excess or slow responses are discarded.
-- Only expected fields are read. The client uses a strict contract: it reads a fixed set of keys and ignores the rest. Invalid or missing structure yields a safe default (e.g. no update).
+- The response is accepted only when the `Content-Type` header indicates JSON (`application/json` and compatible `application/*+json` values). Responses with a missing or non-JSON Content-Type are discarded without parsing.
+- Response body size is bounded (100 KB ceiling for the npm registry client) and a timeout applies. Excess or slow responses are discarded.
+- Only expected fields are read. The client uses a strict contract: it reads a fixed set of keys and ignores the rest. Invalid or missing structure yields a safe default (no update message).
 - The npm registry does not sign packument metadata; authenticity of the response is not cryptographically verified. Validation is limited to format, size, and schema.
 
 ### Update check (version notification)
@@ -258,7 +258,7 @@ AIC treats all data received from external endpoints as untrusted. For every out
 - **Data source:** GET `https://registry.npmjs.org/<package>` (fixed URL).
 - **Validate and bound:** Timeout 2s, max response body 100 KB, version string must match semver regex and max 32 chars; invalid data yields no update.
 - **Content-Type:** The response is accepted only when the `Content-Type` header includes `application/json`. Other types are discarded without parsing.
-- **Strict response contract:** Only the `dist-tags.latest` field is read from the packument. Missing or invalid structure (e.g. `dist-tags` not an object, `latest` not a string) yields no update.
+- **Strict response contract:** Only the `dist-tags.latest` field is read from the packument. Missing or invalid structure (`dist-tags` not an object, `latest` not a string) yields no update.
 - **No code/prompt injection:** Only fixed-format message with validated version; install link from our code only.
 - **Writes only under `.aic/`:** `version-check-cache.json`, `update-available.txt`; no user/registry input in paths.
 - **No SSRF:** Fixed registry URL.
@@ -270,13 +270,13 @@ AIC treats all data received from external endpoints as untrusted. For every out
 
 ## Data Leakage Prevention
 
-| Risk                                 | Mitigation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Telemetry leaks source code**      | `compilation_log` / `telemetry_events` store metrics and local diagnostics — never selected file **contents** in those tables. `compilation_log.intent` is free text; optional `selection_trace_json` stores structured path/score metadata for transparency (not file bodies). Paths also appear in `guard_findings`, `cache_metadata`, etc. See [Project Plan §9.1](project-plan.md#91-compile-telemetry-local-sqlite) and [Implementation Spec — Selection trace](implementation-spec.md#selection-trace-persistence-and-tools). |
-| **Cache contains sensitive code**    | Cache is stored in `.aic/cache/` (gitignored, `0700` permissions); never uploaded; user controls TTL via config                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| **`repo_id` reveals project path**   | `repo_id` is a SHA-256 hash of the absolute path — irreversible, cannot be used to identify the project                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| **Model endpoint receives code**     | `aic_compile` never contacts any external service. Context Guard excludes secrets and credentials from the compiled context AIC returns to the editor.                                                                                                                                                                                                                                                                                                                                                                              |
-| **SQLite database contains prompts** | MCP server uses global `~/.aic/aic.sqlite` (`0700` on `~/.aic/`). Stores per-project compilation rows (intents, counts, tokens, optional selection-trace JSON with paths/scores). Project `.aic/` holds cache and `last-compiled-prompt.txt` — never pushed to AIC servers.                                                                                                                                                                                                                                                         |
+| Risk                                 | Mitigation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Telemetry leaks source code**      | `compilation_log` / `telemetry_events` store metrics and local diagnostics — never selected file **contents** in those tables. `compilation_log.intent` is free text; optional `selection_trace_json` stores structured path/score metadata for transparency (not file bodies). Paths also appear in `guard_findings`, `cache_metadata`, `repomap_cache`, and other SQLite tables that store path-shaped strings. See [Project Plan §9.1](project-plan.md#91-compile-telemetry-local-sqlite) and [Implementation Spec — Selection trace](implementation-spec.md#selection-trace-persistence-and-tools). |
+| **Cache contains sensitive code**    | Cache is stored in `.aic/cache/` (gitignored, `0700` permissions); never uploaded; user controls TTL via config                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| **`repo_id` reveals project path**   | `repo_id` is a SHA-256 hash of the absolute path — irreversible, cannot be used to identify the project                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| **Model endpoint receives code**     | `aic_compile` never contacts any external service. Context Guard excludes secrets and credentials from the compiled context AIC returns to the editor.                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| **SQLite database contains prompts** | MCP server uses global `~/.aic/aic.sqlite` (`0700` on `~/.aic/`). Stores per-project compilation rows (intents, counts, tokens, optional selection-trace JSON with paths/scores). Project `.aic/` holds cache and `last-compiled-prompt.txt` — never pushed to AIC servers.                                                                                                                                                                                                                                                                                                                             |
 
 For the full threat/mitigation analysis, see [Project Plan §13 — Data Leakage Prevention](project-plan.md#data-leakage-prevention).
 
@@ -319,7 +319,7 @@ AIC uses **`~/.aic/`** for the global SQLite database (`aic.sqlite`) and **`<pro
 sqlite3 ~/.aic/aic.sqlite "SELECT created_at, status, payload_json FROM anonymous_telemetry_log ORDER BY created_at DESC LIMIT 5;"
 ```
 
-> **Batching (target):** A future sender might batch HTTPS requests (e.g. at most once per 5 minutes), remove rows after successful delivery, and drop payloads when the endpoint is unreachable — not shipped behaviour today.
+> **Batching (target):** A future sender might batch HTTPS requests (at most once per 5 minutes), remove rows after successful delivery, and drop payloads when the endpoint is unreachable — not shipped behaviour today.
 
 Normative shipped-state notes: [Implementation Spec §4d](implementation-spec.md#4d-additional-implementation-notes). Threat model for the endpoint: [Telemetry Endpoint Threat Model](#telemetry-endpoint-threat-model) below.
 
@@ -391,20 +391,20 @@ Both Cursor and Claude Code require explicit user approval before MCP tools run.
 
 > **Risk:** If the user denies or never approves **`aic_compile`**, the MCP server may still run but the model gets no compiled context — no file selection, no Context Guard on that path, no context compilation.
 >
-> **Mitigation:** The trigger rule (`.cursor/rules/AIC.mdc` or equivalent) includes a fallback: if `aic_compile` is unavailable, the model tells the user how to enable it in MCP settings. [Installation](installation.md) and [Best practices](best-practices.md) describe approving **`aic_compile`** and **`aic_inspect`** during setup. The MCP server process is unaffected; the block is at the editor between the model and the server.
+> **Mitigation:** The trigger rule (`.cursor/rules/AIC.mdc` for Cursor; `.claude/CLAUDE.md` for Claude Code) includes a fallback: if `aic_compile` is unavailable, the model tells the user how to enable it in MCP settings. [Installation](installation.md) and [Best practices](best-practices.md) describe approving **`aic_compile`** and **`aic_inspect`** during setup. The MCP server process is unaffected; the block is at the editor between the model and the server.
 
 ---
 
 ## Supply Chain Security
 
-| Control                  | When    | Implementation                                                                                                                                                                                                                                                                        |
-| ------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Lockfile integrity**   | Shipped | `pnpm-lock.yaml` committed and verified in CI                                                                                                                                                                                                                                         |
-| **Dependency audit**     | Shipped | CI runs OSV Scanner (`google/osv-scanner-action@v1`) on `pnpm-lock.yaml` on every PR; findings fail the workflow step                                                                                                                                                                 |
-| **Minimal dependencies** | Ongoing | Core (`@jatbas/aic-core`): e.g. `better-sqlite3`, `zod`, `tiktoken`, `typescript`, `fast-glob`, `ignore`, `diff`, `commander`, plus `web-tree-sitter` and Tree-sitter grammars. MCP package adds `@modelcontextprotocol/sdk` and `zod`. Exact pins in published `package.json` files. |
-| **Automated scanning**   | Planned | Dependabot or Snyk for continuous vulnerability monitoring                                                                                                                                                                                                                            |
-| **SBOM generation**      | Planned | CycloneDX SBOM generated on every release, published alongside npm package                                                                                                                                                                                                            |
-| **Signed releases**      | Planned | npm `--provenance` flag for tamper-proof publish attestation                                                                                                                                                                                                                          |
+| Control                  | When    | Implementation                                                                                                                                                                                                                                                                   |
+| ------------------------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Lockfile integrity**   | Shipped | `pnpm-lock.yaml` committed and verified in CI                                                                                                                                                                                                                                    |
+| **Dependency audit**     | Shipped | CI runs OSV Scanner (`google/osv-scanner-action@v1`) on `pnpm-lock.yaml` on every PR; findings fail the workflow step                                                                                                                                                            |
+| **Minimal dependencies** | Ongoing | Core (`@jatbas/aic-core`): `better-sqlite3`, `zod`, `tiktoken`, `typescript`, `fast-glob`, `ignore`, `diff`, `commander`, plus `web-tree-sitter` and Tree-sitter grammars. MCP package adds `@modelcontextprotocol/sdk` and `zod`. Exact pins in published `package.json` files. |
+| **Automated scanning**   | Planned | Dependabot or Snyk for continuous vulnerability monitoring                                                                                                                                                                                                                       |
+| **SBOM generation**      | Planned | CycloneDX SBOM generated on every release, published alongside npm package                                                                                                                                                                                                       |
+| **Signed releases**      | Planned | npm `--provenance` flag for tamper-proof publish attestation                                                                                                                                                                                                                     |
 
 ---
 
@@ -415,7 +415,7 @@ Both Cursor and Claude Code require explicit user approval before MCP tools run.
 | 0.x (baseline) | ✅ Security fixes backported |
 | < 0.1.0        | ❌ Pre-release, no support   |
 
-Security patches are released as patch versions (e.g., `0.1.1`). Critical vulnerabilities receive out-of-band releases regardless of the regular release schedule.
+Security patches ship as semver patch bumps on the affected release line (`0.1.0` → `0.1.1`). Critical vulnerabilities receive out-of-band releases regardless of the regular release schedule.
 
 ---
 
@@ -427,7 +427,7 @@ AIC's architecture is designed to be **technically compliant** with GDPR, SOC 2,
 >
 > Symbols such as ✅ or ⚠️ reflect internal engineering assessments, not third-party audits, attestations, or regulator findings.
 >
-> How AIC is deployed, configured, and used determines outcomes in practice; organizations with compliance obligations should obtain advice from qualified counsel and perform their own assessments (for example, a data protection impact assessment where appropriate).
+> How AIC is deployed, configured, and used determines outcomes in practice; organizations with compliance obligations should obtain advice from qualified counsel and perform their own assessments (including a data protection impact assessment when mandated by regulation).
 
 ### Design Principles
 
@@ -442,16 +442,16 @@ AIC's architecture is designed to be **technically compliant** with GDPR, SOC 2,
 
 ### GDPR Readiness
 
-| Requirement               | Status          | Implementation                                                                                                                                                       |
-| ------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Lawful basis (consent)    | ✅              | No shipped anonymous outbound client; local compile metrics are operational data on the user’s machine — see [Anonymous Telemetry](#anonymous-telemetry)             |
-| Data minimization         | ✅              | Metric tables use typed fields; `compilation_log.intent` is local diagnostics — not uploaded by shipped MCP paths                                                    |
-| Right to access           | ✅              | Inspect `compilation_log` / `telemetry_events` in `~/.aic/aic.sqlite`; `anonymous_telemetry_log` has no application writer today                                     |
-| Right to erasure          | ✅              | Delete `~/.aic/aic.sqlite` or disable the project (`enabled: false`) to stop new compile rows                                                                        |
-| Right to withdraw consent | ✅              | N/A for outbound until implemented; local data removable as above                                                                                                    |
-| Purpose limitation        | ⚠️ Outbound TBD | Shipped MCP path: no anonymous POST. When outbound ships: purpose disclosed in UI/config; see [Compliance Roadmap](#compliance-roadmap) (privacy policy ⚠️ Planned). |
-| Data retention limit      | ⚠️ Planned      | Server-side: auto-delete after 90 days                                                                                                                               |
-| Privacy policy            | ⚠️ Planned      | Not yet published — planned for a future release                                                                                                                     |
+| Requirement               | Status                  | Implementation                                                                                                                                                       |
+| ------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lawful basis (consent)    | ✅                      | No shipped anonymous outbound client; local compile metrics are operational data on the user’s machine — see [Anonymous Telemetry](#anonymous-telemetry)             |
+| Data minimization         | ✅                      | Metric tables use typed fields; `compilation_log.intent` is local diagnostics — not uploaded by shipped MCP paths                                                    |
+| Right to access           | ✅                      | Inspect `compilation_log` / `telemetry_events` in `~/.aic/aic.sqlite`; `anonymous_telemetry_log` has no application writer today                                     |
+| Right to erasure          | ✅                      | Delete `~/.aic/aic.sqlite` or disable the project (`enabled: false`) to stop new compile rows                                                                        |
+| Right to withdraw consent | ✅                      | N/A for outbound until implemented; local data removable as above                                                                                                    |
+| Purpose limitation        | ⚠️ Outbound not started | Shipped MCP path: no anonymous POST. When outbound ships: purpose disclosed in UI/config; see [Compliance Roadmap](#compliance-roadmap) (privacy policy ⚠️ Planned). |
+| Data retention limit      | ⚠️ Planned              | Server-side: auto-delete after 90 days                                                                                                                               |
+| Privacy policy            | ⚠️ Planned              | Not yet published — planned for a future release                                                                                                                     |
 
 ### SOC 2 Readiness
 

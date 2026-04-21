@@ -6,7 +6,7 @@ Update this document when:
 
 - You change `mcp/src/handlers/compile-handler.ts` or `mcp/src/latest-version-check.ts` in ways that affect session model reads, `.aic/` bootstrap, or overlap with `integrations/shared/`.
 - You change the TypeScript versus CommonJS duplication story (read loop, `ensureAicDir`, or validator alignment with `shared/src/maintenance/cache-field-validators.ts`).
-- You introduce or remove `createRequire` (or similar) from MCP into `integrations/shared/`; update the boundary description to match.
+- You introduce or remove `createRequire` from MCP into `integrations/shared/`; update the boundary description to match.
 - You expand MCP scope beyond these two files; update the scope statement and comparison tables.
 - Inventory and caller details for shared modules live in [Integrations shared modules reference](integrations-shared-modules.md); update that document when those change.
 
@@ -43,7 +43,7 @@ Session-models JSONL selection and disk read strategy have canonical implementat
 
 ## Shared modules not involved in these two files
 
-The following `integrations/shared/` modules have no parallel in `compile-handler.ts` or `latest-version-check.ts` within the scope above: `conversation-id.cjs` (transcript/direct conversation id resolution plus `resolveConversationIdFallback` for hook envelopes), `resolve-project-root.cjs` (hook environment resolution), `prompt-log.cjs`, `session-log.cjs`, `session-markers.cjs`, `edited-files-cache.cjs`, `read-stdin-sync.cjs`. Additional shared modules used only by editor hooks (for example `compile-recency.cjs`, `read-aic-prewarm-prompt.cjs`, `resolve-aic-server-id.cjs`, `editor-runtime-marker.cjs`, `read-model-from-transcript.cjs`) are intentionally out of scope here — see [Integrations shared modules reference](integrations-shared-modules.md).
+The following `integrations/shared/` modules have no parallel in `compile-handler.ts` or `latest-version-check.ts` within the scope above: `conversation-id.cjs` (transcript/direct conversation id resolution plus `resolveConversationIdFallback` for hook envelopes), `resolve-project-root.cjs` (hook environment resolution), `prompt-log.cjs`, `session-log.cjs`, `session-markers.cjs`, `edited-files-cache.cjs`, `read-stdin-sync.cjs`. Additional shared modules used only by editor hooks (`compile-recency.cjs`, `read-aic-prewarm-prompt.cjs`, `resolve-aic-server-id.cjs`, `editor-runtime-marker.cjs`, `read-model-from-transcript.cjs`) are intentionally out of scope here — see [Integrations shared modules reference](integrations-shared-modules.md).
 
 Conversation identifiers in the compile handler arrive from MCP tool arguments and schema sanitization; hooks supply those arguments after resolving transcript/direct ids and optional synthetic fallbacks in `conversation-id.cjs`.
 
@@ -51,13 +51,13 @@ Conversation identifiers in the compile handler arrive from MCP tool arguments a
 
 Node allows loading CommonJS from an ESM TypeScript bundle through `module.createRequire` and a filesystem path into `integrations/shared/*.cjs`.
 
-**Boundary:** `integrations/shared/` is the integration layer copied beside editor hooks; the MCP server is the composition root that already depends on `shared/` packages. Pointing MCP at hook-adjacent CJS ties server releases to on-disk layout of integration sources.
+**Boundary:** `integrations/shared/` is the integration layer copied beside editor hooks; the MCP server is the composition root that already imports `shared/` packages. Pointing MCP at hook-adjacent CJS ties server releases to on-disk layout of integration sources.
 
 **Packaging:** Published `@jatbas/aic` must ship or resolve those files predictably; relative paths from `dist/` back to repo `integrations/shared/` break when consumers install from npm.
 
 **Determinism:** MCP code injects `Clock` and avoids `Date.now()` in product paths; CommonJS session-model writes still use `new Date().toISOString()` inside `writeSessionModelCache`. Sharing only the read path through CJS does not remove the split runtime models.
 
-**Tradeoff:** `createRequire` would fold hook-adjacent CJS into the server bundle; the integration layer stays copy-deployed beside hooks, while MCP already depends on `@jatbas/aic-core` for the same selection logic compiled from TypeScript.
+**Tradeoff:** `createRequire` would fold hook-adjacent CJS into the server bundle; the integration layer stays copy-deployed beside hooks, while MCP already imports `@jatbas/aic-core` for the same selection logic compiled from TypeScript.
 
 ## Related documentation
 

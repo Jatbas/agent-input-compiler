@@ -11,9 +11,9 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
-- Restore the publish workflow to Node.js 24 so `npm publish --provenance` can complete against the npm registry's OIDC trusted-publishing flow; Node 22 in the publisher caused the `PUT /@jatbas%2faic-core` request to be rejected with a misleading `E404` after the provenance statement was signed. End-user compatibility (`engines.node >=22`, `.nvmrc` Node 22, CI test matrix) is unchanged
+- Restore the publish workflow to Node.js 24 so `npm publish --provenance` can complete against the npm registry's OIDC trusted-publishing flow; Node 22 in the publisher caused the `PUT /@jatbas%2faic-core` request to be rejected with a misleading not-found error from npm after the provenance statement was signed. End-user compatibility (`engines.node >=22`, `.nvmrc` Node 22, CI test matrix) is unchanged
 
-### Note
+### Changed
 
 - Version `1.0.0` was tagged and released on GitHub but never reached the npm registry because of the publish-workflow issue above. GitHub's immutable-releases feature reserves the `v1.0.0` tag name permanently, so `1.0.1` is the first installable `1.x` release. All changes listed under `1.0.0` below are included in `1.0.1`
 

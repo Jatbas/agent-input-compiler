@@ -1,6 +1,6 @@
 # Integrations shared modules reference
 
-This document lists the CommonJS modules under `integrations/shared/` (and the Cursor-local `is-cursor-native-hook-payload.cjs`) that integration hooks rely on: exported API, filesystem artifacts, shared-internal `require` edges, and repository callers. The **module inventory table** is the contract for those rows; additional `integrations/shared/*.cjs` files may exist for tests or future hooks — add a row when a hook or installer starts depending on them. The inventory also includes `is-cursor-native-hook-payload.cjs`, which lives under `integrations/cursor/` (not `integrations/shared/`), because Cursor install and the caller matrix treat it alongside shared utilities under `.cursor/hooks/`.
+This document lists the CommonJS modules under `integrations/shared/` (and the Cursor-local `is-cursor-native-hook-payload.cjs`) that integration hooks rely on: exported API, filesystem artifacts, shared-internal `require` edges, and repository callers. The **module inventory table** is the contract for those rows; additional `integrations/shared/*.cjs` files may exist for tests or future hooks — add a row when a hook or installer imports them. The inventory also includes `is-cursor-native-hook-payload.cjs`, which lives under `integrations/cursor/` (not `integrations/shared/`), because Cursor install and the caller matrix treat it alongside shared utilities under `.cursor/hooks/`.
 
 ## When to update this document
 

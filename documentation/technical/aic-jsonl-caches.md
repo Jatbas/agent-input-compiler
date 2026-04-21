@@ -44,7 +44,7 @@ All three schemas expose a `timestamp` string that `pruneJsonlByTimestamp` can p
 
 ## Read paths versus append-only writers
 
-Only `session-model-cache.cjs` implements integration-layer reads. On the hot path it reads only a bounded tail of `.aic/session-models.jsonl` (currently up to 262,144 bytes, matching `SESSION_MODEL_JSONL_MAX_TAIL_BYTES` in `shared/src/maintenance/read-session-model-jsonl.ts`), then applies the same reducer as a full-file read. When the tail omits the winning line (for example a conversation-specific match earlier in the file, or a per-editor line when `conversationId` is empty), it falls back to reading the entire file so results stay identical to a full scan. Prompt and session logs are write-only from `integrations/shared/`; historical analysis reads the JSONL files on disk outside these modules.
+Only `session-model-cache.cjs` implements integration-layer reads. On the hot path it reads only a bounded tail of `.aic/session-models.jsonl` (currently up to 262,144 bytes, matching `SESSION_MODEL_JSONL_MAX_TAIL_BYTES` in `shared/src/maintenance/read-session-model-jsonl.ts`), then applies the same reducer as a full-file read. When the tail omits the winning line (a conversation-specific match earlier in the file, or a per-editor line when `conversationId` is empty), it falls back to reading the entire file so results stay identical to a full scan. Prompt and session logs are write-only from `integrations/shared/`; historical analysis reads the JSONL files on disk outside these modules.
 
 ## Why there is no single JsonlCache type
 
