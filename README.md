@@ -65,14 +65,20 @@ Context builds (total)          7,784
 Context builds (today)          147
 Repo size → context sent        5.78B → 65.90M (88:1 ratio)
 Tokens excluded                 5,718,696,860
+──────────────────────────────────────────────────────────────────────────────
 Context window used (last run)  0.5%
 Cache hit rate                  36.9%
 Avg context precision           98.9%
+──────────────────────────────────────────────────────────────────────────────
 Guard scans (lifetime)          command-injection: 648,063, excluded-file: 59, prompt-injection: 3,185, secret: 16
-Top request types               general (4,530), docs (994), bugfix (921)
-Last compilation                fix SqliteSpecCompileCacheStore migration · 5 / 629 files · 595 tokens · 2 min ago
+Top request types               count  share
+  general                       4,530  70.3%
+  docs                            994  15.4%
+  bugfix                          921  14.3%
+Last compilation                fix SqliteSpecCompileCacheStore migration
+                                5 / 629 files · 595 tokens · 2 min ago
+──────────────────────────────────────────────────────────────────────────────
 Installation                    OK
-Update available                —
 ──────────────────────────────────────────────────────────────────────────────
 Avg context precision: % of repo content automatically filtered per context build.
 Context window used: % of token budget filled.
@@ -110,10 +116,14 @@ Project path                    /dev/AIC
 Context builds                  42
 Repo size → context sent        8.80M → 100,000 (88:1 ratio)
 Tokens excluded                 5.00M
+──────────────────────────────────────────────────────────────────────────────
 Cache hit rate                  40.0%
 Avg context precision           55.2%
+──────────────────────────────────────────────────────────────────────────────
 Last compilation                refactor diagnostic output · 2 min ago
-Top request types               refactor (20), general (12)
+Top request types               count  share
+  refactor                         20  62.5%
+  general                          12  37.5%
 ──────────────────────────────────────────────────────────────────────────────
 Avg context precision: % of repo content automatically filtered per context build.
 ```

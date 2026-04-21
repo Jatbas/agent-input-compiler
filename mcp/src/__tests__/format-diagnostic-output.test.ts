@@ -58,7 +58,6 @@ const baseStatusPayload: Record<string, unknown> = {
   guardByType: {},
   topTaskClasses: [],
   lastCompilation: null,
-  updateAvailable: null,
 };
 
 describe("formatStatusTable", () => {

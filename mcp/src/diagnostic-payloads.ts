@@ -34,7 +34,6 @@ import {
   TEMPLATE_OVERHEAD_DEFAULT,
 } from "@jatbas/aic-core/pipeline/budget-allocator.js";
 import type { InstallScope } from "./detect-install-scope.js";
-import type { UpdateInfo } from "./latest-version-check.js";
 
 export function buildStatusPayload(input: {
   readonly projectId: ProjectId;
@@ -43,7 +42,6 @@ export function buildStatusPayload(input: {
   readonly configLoader: LoadConfigFromFile;
   readonly projectRoot: AbsolutePath;
   readonly budgetConfig: BudgetConfig;
-  readonly updateInfo: UpdateInfo;
   readonly installScope: InstallScope;
   readonly installScopeWarnings: readonly string[];
   readonly timeRangeDays: StatusTimeRangeDays | null;
@@ -71,8 +69,6 @@ export function buildStatusPayload(input: {
     ...summary,
     budgetMaxTokens,
     budgetUtilizationPct,
-    updateAvailable: input.updateInfo.updateAvailable,
-    updateMessage: input.updateInfo.updateMessage,
     installScope: input.installScope,
     installScopeWarnings: input.installScopeWarnings,
     projectEnabled: statusConfigResult.config.enabled,

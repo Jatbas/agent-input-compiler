@@ -35,7 +35,6 @@ import {
   listProjectsFromDb,
 } from "@jatbas/aic-core/storage/sqlite-status-store.js";
 import { LoadConfigFromFile } from "@jatbas/aic-core/config/load-config-from-file.js";
-import { getUpdateInfo } from "./latest-version-check.js";
 import {
   buildProjectScopedChatSummaryCliRow,
   buildStatusPayload,
@@ -285,43 +284,27 @@ async function runStatusCli(argv: readonly string[]): Promise<number> {
     );
     return 1;
   }
-  return withGlobalReadonlyDb(async (db) => {
-    const step = runWithProjectFromArgv(
-      db,
-      argv,
-      async ({ clock, projectId, projectRoot, db: storeDb }) => {
-        const { packageName, packageVersion } = readPackageVersion();
-        const updateInfo = await getUpdateInfo(
-          projectRoot,
-          packageName,
-          packageVersion,
-          clock,
-          {
-            persistSideEffects: false,
-          },
-        );
-        const installScope = detectInstallScope(os.homedir(), projectRoot);
-        const installScopeWarnings = getInstallScopeWarnings(installScope);
-        const configLoader = new LoadConfigFromFile();
-        const budgetConfig = createDefaultBudgetConfig();
-        const payload = buildStatusPayload({
-          projectId,
-          db: storeDb,
-          clock,
-          configLoader,
-          projectRoot,
-          budgetConfig,
-          updateInfo,
-          installScope,
-          installScopeWarnings,
-          timeRangeDays: parsedWindow.days,
-        });
-        process.stdout.write(formatStatusTable(payload, clock));
-        return 0;
-      },
-    );
-    return await Promise.resolve(step);
-  });
+  return withGlobalReadonlyDb((db) =>
+    runWithProjectFromArgv(db, argv, ({ clock, projectId, projectRoot, db: storeDb }) => {
+      const installScope = detectInstallScope(os.homedir(), projectRoot);
+      const installScopeWarnings = getInstallScopeWarnings(installScope);
+      const configLoader = new LoadConfigFromFile();
+      const budgetConfig = createDefaultBudgetConfig();
+      const payload = buildStatusPayload({
+        projectId,
+        db: storeDb,
+        clock,
+        configLoader,
+        projectRoot,
+        budgetConfig,
+        installScope,
+        installScopeWarnings,
+        timeRangeDays: parsedWindow.days,
+      });
+      process.stdout.write(formatStatusTable(payload, clock));
+      return 0;
+    }),
+  );
 }
 
 async function runLastCli(argv: readonly string[]): Promise<number> {

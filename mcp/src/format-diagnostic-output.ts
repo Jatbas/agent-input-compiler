@@ -100,18 +100,33 @@ function tokensExcludedLabel(saved: unknown): string {
   return formatInt(Number(saved));
 }
 
-function topTaskStr(v: unknown): string {
-  if (!Array.isArray(v) || v.length === 0) return "—";
-  return v
-    .map((row) => {
-      if (row === null || typeof row !== "object") return "";
-      const r = row as { taskClass?: string; count?: number };
-      const tc = r.taskClass ?? "";
-      const c = r.count ?? 0;
-      return `${tc} (${formatInt(c)})`;
-    })
-    .filter((s) => s.length > 0)
-    .join(", ");
+function topTaskRows(v: unknown, w: number): readonly string[] {
+  if (!Array.isArray(v) || v.length === 0) {
+    return [padRow("Top request types", "—", w)];
+  }
+  const rows = v
+    .filter(
+      (r): r is { taskClass: string; count: number } =>
+        r !== null && typeof r === "object" && "taskClass" in r && "count" in r,
+    )
+    .map((r) => ({
+      taskClass: String((r as { taskClass: string }).taskClass),
+      count: Number((r as { count: number }).count),
+    }));
+  if (rows.length === 0) return [padRow("Top request types", "—", w)];
+  const total = rows.reduce((acc, r) => acc + r.count, 0);
+  const valueWidths = [5, 6] as const;
+  const header = padMultiCol("Top request types", ["count", "share"], w, valueWidths);
+  const dataRows = rows.map((r) => {
+    const share = total > 0 ? (r.count / total) * 100 : 0;
+    return padMultiCol(
+      `  ${r.taskClass}`,
+      [formatInt(r.count), formatPct1(share)],
+      w,
+      valueWidths,
+    );
+  });
+  return [header, ...dataRows];
 }
 
 function formatCompact(n: number): string {
@@ -243,6 +258,7 @@ function formatSelectionMicroBlock(
 function lastCompilationSummary(
   clock: Clock,
   last: Record<string, unknown> | null | undefined,
+  labelWidth: number,
 ): string {
   if (last === null || last === undefined) return "—";
   const intent = String(last["intent"] ?? "");
@@ -250,7 +266,9 @@ function lastCompilationSummary(
   const ft = formatInt(Number(last["filesTotal"] ?? 0));
   const tok = formatInt(Number(last["tokensCompiled"] ?? 0));
   const when = relIso(clock, String(last["created_at"] ?? ""));
-  return `${intent} · ${fs_} / ${ft} files · ${tok} tokens · ${when}`;
+  const stats = `${fs_} / ${ft} files · ${tok} tokens · ${when}`;
+  const indent = " ".repeat(labelWidth + 2);
+  return `${intent}\n${indent}${stats}`;
 }
 
 export function formatStatusTable(
@@ -294,6 +312,7 @@ export function formatStatusTable(
       w,
     ),
     padRow("Tokens excluded", tokensExcludedLabel(payload["totalTokensSaved"]), w),
+    SEP,
     padRow(
       "Context window used (last run)",
       formatPct1(payload["budgetUtilizationPct"] as number | null),
@@ -305,18 +324,13 @@ export function formatStatusTable(
       formatPct1(payload["avgReductionPct"] as number | null),
       w,
     ),
+    SEP,
     padRow("Guard scans (lifetime)", guardByTypeStr(payload["guardByType"]), w),
-    padRow("Top request types", topTaskStr(payload["topTaskClasses"]), w),
-    padRow("Last compilation", lastCompilationSummary(clock, last), w),
+    ...topTaskRows(payload["topTaskClasses"], w),
+    padRow("Last compilation", lastCompilationSummary(clock, last, w), w),
+    SEP,
     padRow("Installation", installationLabel(payload["installationOk"]), w),
     ...notesRows,
-    padRow(
-      "Update available",
-      payload["updateAvailable"] === null || payload["updateAvailable"] === undefined
-        ? "—"
-        : String(payload["updateAvailable"]),
-      w,
-    ),
   ];
   return renderStandardReport({
     title: "Status = project-level AIC status.",
@@ -413,8 +427,11 @@ export function formatLastTable(
 export function formatChatSummaryTable(row: ConversationSummary, clock: Clock): string {
   const w = 30;
   const last = row.lastCompilationInConversation;
-  const lastLine =
-    last === null ? "—" : `${last.intent} · ${relIso(clock, last.created_at)}`;
+  const lastLine = (() => {
+    if (last === null) return "—";
+    const intent = last.intent.length > 60 ? `${last.intent.slice(0, 59)}…` : last.intent;
+    return `${intent} · ${relIso(clock, last.created_at)}`;
+  })();
   const bodyRows: readonly string[] = [
     padRow("Project path", row.projectRoot.length > 0 ? row.projectRoot : "—", w),
     padRow("Context builds", formatInt(row.compilationsInConversation), w),
@@ -428,10 +445,12 @@ export function formatChatSummaryTable(row: ConversationSummary, clock: Clock): 
       row.totalTokensSaved === null ? "—" : formatCompact(row.totalTokensSaved),
       w,
     ),
+    SEP,
     padRow("Cache hit rate", formatPct1(row.cacheHitRatePct), w),
     padRow("Avg context precision", formatPct1(row.avgReductionPct), w),
+    SEP,
     padRow("Last compilation", lastLine, w),
-    padRow("Top request types", topTaskStr(row.topTaskClasses), w),
+    ...topTaskRows(row.topTaskClasses, w),
   ];
   return renderStandardReport({
     title: "Chat = this conversation's AIC compilations.",

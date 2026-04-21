@@ -210,7 +210,7 @@ describe("MCP server", () => {
     expect(parsed["projectEnabled"]).toBe(false);
   });
 
-  it("aic_status_includes_updateAvailable", async () => {
+  it("aic_status_update_message_logged_to_stderr_when_update_available", async () => {
     const registryJson = JSON.stringify({ "dist-tags": { latest: "99.0.0" } });
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -231,16 +231,7 @@ describe("MCP server", () => {
       const client = new Client({ name: "test", version: "1.0" });
       await client.connect(transportClient);
       await new Promise<void>((r) => setTimeout(r, 150));
-      const result = await client.callTool({ name: "aic_status", arguments: {} });
-      const content = (result as { content?: { text?: string }[] }).content;
-      const text = Array.isArray(content)
-        ? content.map((c) => c?.text ?? "").join("")
-        : "";
-      const parsed = JSON.parse(text || "{}") as Record<string, unknown>;
-      expect(parsed["updateAvailable"]).toBe("99.0.0");
-      expect(parsed["updateMessage"]).toBe(
-        "A newer AIC version (99.0.0) is available. Run `rm -rf ~/.npm/_npx` then reload Cursor to update.",
-      );
+      expect(stderrSpy).toHaveBeenCalledWith(expect.stringContaining("99.0.0"));
     } finally {
       stderrSpy.mockRestore();
     }

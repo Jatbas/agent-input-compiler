@@ -477,7 +477,6 @@ export function createMcpServer(
                 configLoader,
                 projectRoot: startupScope.projectRoot,
                 budgetConfig,
-                updateInfo: updateInfoRef.current,
                 installScope,
                 installScopeWarnings,
                 timeRangeDays:
