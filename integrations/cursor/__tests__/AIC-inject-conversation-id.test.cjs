@@ -29,27 +29,75 @@ function hookPayload(obj) {
   return JSON.stringify({ cursor_version: "1", ...obj });
 }
 
-function inject_modelId_when_model_present() {
-  const stdin = hookPayload({
-    tool_name: "aic_compile",
-    tool_input: {
-      intent: "test intent",
-      projectRoot: "/some/project",
-    },
-    conversation_id: "conv-abc",
-    model: "claude-sonnet-4",
-  });
-  const stdout = runHook(stdin);
-  const out = JSON.parse(stdout);
-  if (out.permission !== "allow") {
-    throw new Error(`Expected permission "allow", got ${out.permission}`);
+function writeSessionModelJsonl(projectRoot, entries) {
+  const aicDir = path.join(projectRoot, ".aic");
+  fs.mkdirSync(aicDir, { recursive: true });
+  const body = entries.map((e) => JSON.stringify(e)).join("\n") + "\n";
+  fs.writeFileSync(path.join(aicDir, "session-models.jsonl"), body, "utf8");
+}
+
+function inject_modelId_from_session_cache() {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aic-inject-mcache-"));
+  try {
+    writeSessionModelJsonl(tempRoot, [
+      {
+        c: "conv-abc",
+        m: "claude-sonnet-4",
+        e: "cursor",
+        timestamp: "2026-04-21T00:00:00.000Z",
+      },
+    ]);
+    const stdin = hookPayload({
+      tool_name: "aic_compile",
+      tool_input: { intent: "test intent", projectRoot: tempRoot },
+      conversation_id: "conv-abc",
+      model: "claude-sonnet-4",
+    });
+    const stdout = runHook(stdin, { CURSOR_PROJECT_DIR: tempRoot });
+    const out = JSON.parse(stdout);
+    if (out.permission !== "allow") {
+      throw new Error(`Expected permission "allow", got ${out.permission}`);
+    }
+    if (!out.updated_input || out.updated_input.modelId !== "claude-sonnet-4") {
+      throw new Error(
+        `Expected updated_input.modelId "claude-sonnet-4" from cache, got ${JSON.stringify(out.updated_input?.modelId)}`,
+      );
+    }
+    console.log("inject_modelId_from_session_cache: pass");
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
   }
-  if (!out.updated_input || out.updated_input.modelId !== "claude-sonnet-4") {
-    throw new Error(
-      `Expected updated_input.modelId "claude-sonnet-4", got ${JSON.stringify(out.updated_input?.modelId)}`,
-    );
+}
+
+function inject_ignores_input_model_when_cache_empty_auto_mode() {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aic-inject-automode-"));
+  try {
+    const stdin = hookPayload({
+      tool_name: "aic_compile",
+      tool_input: { intent: "test intent", projectRoot: tempRoot },
+      conversation_id: "conv-auto",
+      model: "claude-opus-4-7",
+    });
+    const stdout = runHook(stdin, { CURSOR_PROJECT_DIR: tempRoot });
+    const out = JSON.parse(stdout);
+    if (out.permission !== "allow") {
+      throw new Error(`Expected permission "allow", got ${out.permission}`);
+    }
+    if (out.updated_input?.modelId !== undefined) {
+      throw new Error(
+        `Expected no modelId when cache is empty (Auto mode); got ${JSON.stringify(out.updated_input.modelId)}`,
+      );
+    }
+    const jsonlPath = path.join(tempRoot, ".aic", "session-models.jsonl");
+    if (fs.existsSync(jsonlPath)) {
+      throw new Error(
+        `preToolUse must not write session-models.jsonl; file exists: ${fs.readFileSync(jsonlPath, "utf8")}`,
+      );
+    }
+    console.log("inject_ignores_input_model_when_cache_empty_auto_mode: pass");
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
   }
-  console.log("inject_modelId_when_model_present: pass");
 }
 
 function inject_uses_session_id_fallback_for_conversation_id() {
@@ -71,34 +119,44 @@ function inject_uses_session_id_fallback_for_conversation_id() {
   console.log("inject_uses_session_id_fallback_for_conversation_id: pass");
 }
 
-function inject_allow_when_no_conversation_but_model() {
-  const stdin = hookPayload({
-    tool_name: "aic_compile",
-    tool_input: {
-      intent: "test intent",
-      projectRoot: "/some/project",
-    },
-    model: "cursor-model-1",
-  });
-  const stdout = runHook(stdin);
-  const out = JSON.parse(stdout);
-  if (out.permission !== "allow") {
-    throw new Error(`Expected permission "allow", got ${out.permission}`);
+function inject_allow_when_no_conversation_with_cached_model() {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aic-inject-nocid-"));
+  try {
+    writeSessionModelJsonl(tempRoot, [
+      {
+        c: "",
+        m: "cursor-model-1",
+        e: "cursor",
+        timestamp: "2026-04-21T00:00:00.000Z",
+      },
+    ]);
+    const stdin = hookPayload({
+      tool_name: "aic_compile",
+      tool_input: { intent: "test intent", projectRoot: tempRoot },
+      model: "cursor-model-1",
+    });
+    const stdout = runHook(stdin, { CURSOR_PROJECT_DIR: tempRoot });
+    const out = JSON.parse(stdout);
+    if (out.permission !== "allow") {
+      throw new Error(`Expected permission "allow", got ${out.permission}`);
+    }
+    if (!out.updated_input) {
+      throw new Error("Expected updated_input when cached model is present");
+    }
+    if (out.updated_input.modelId !== "cursor-model-1") {
+      throw new Error(
+        `Expected updated_input.modelId "cursor-model-1" from cache, got ${JSON.stringify(out.updated_input.modelId)}`,
+      );
+    }
+    if (out.updated_input.editorId !== "cursor") {
+      throw new Error(
+        `Expected updated_input.editorId "cursor", got ${JSON.stringify(out.updated_input.editorId)}`,
+      );
+    }
+    console.log("inject_allow_when_no_conversation_with_cached_model: pass");
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
   }
-  if (!out.updated_input) {
-    throw new Error("Expected updated_input when model is present");
-  }
-  if (out.updated_input.modelId !== "cursor-model-1") {
-    throw new Error(
-      `Expected updated_input.modelId "cursor-model-1", got ${JSON.stringify(out.updated_input.modelId)}`,
-    );
-  }
-  if (out.updated_input.editorId !== "cursor") {
-    throw new Error(
-      `Expected updated_input.editorId "cursor", got ${JSON.stringify(out.updated_input.editorId)}`,
-    );
-  }
-  console.log("inject_allow_when_no_conversation_but_model: pass");
 }
 
 function inject_replaces_weak_intent_with_prewarm_prompt() {
@@ -191,27 +249,37 @@ function inject_skips_when_prewarm_missing() {
   console.log("inject_skips_when_prewarm_missing: pass");
 }
 
-function inject_normalizes_default_to_auto() {
-  const stdin = hookPayload({
-    tool_name: "aic_compile",
-    tool_input: {
-      intent: "test intent",
-      projectRoot: "/some/project",
-    },
-    conversation_id: "conv-abc",
-    model: "default",
-  });
-  const stdout = runHook(stdin);
-  const out = JSON.parse(stdout);
-  if (out.permission !== "allow") {
-    throw new Error(`Expected permission "allow", got ${out.permission}`);
+function inject_omits_modelId_when_cache_has_auto_only() {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aic-inject-autoonly-"));
+  try {
+    writeSessionModelJsonl(tempRoot, [
+      {
+        c: "conv-abc",
+        m: "auto",
+        e: "cursor",
+        timestamp: "2026-04-21T00:00:00.000Z",
+      },
+    ]);
+    const stdin = hookPayload({
+      tool_name: "aic_compile",
+      tool_input: { intent: "test intent", projectRoot: tempRoot },
+      conversation_id: "conv-abc",
+      model: "default",
+    });
+    const stdout = runHook(stdin, { CURSOR_PROJECT_DIR: tempRoot });
+    const out = JSON.parse(stdout);
+    if (out.permission !== "allow") {
+      throw new Error(`Expected permission "allow", got ${out.permission}`);
+    }
+    if (out.updated_input?.modelId !== undefined) {
+      throw new Error(
+        `Expected no modelId when cache resolves to "auto", got ${JSON.stringify(out.updated_input.modelId)}`,
+      );
+    }
+    console.log("inject_omits_modelId_when_cache_has_auto_only: pass");
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
   }
-  if (!out.updated_input || out.updated_input.modelId !== "auto") {
-    throw new Error(
-      `Expected updated_input.modelId "auto", got ${JSON.stringify(out.updated_input?.modelId)}`,
-    );
-  }
-  console.log("inject_normalizes_default_to_auto: pass");
 }
 
 function mcp_envelope_routes_aic_tools_to_aic_dev_in_dev_mode() {
@@ -310,13 +378,14 @@ function call_mcp_tool_envelope_routes_to_aic_dev_in_dev_mode() {
   }
 }
 
-inject_modelId_when_model_present();
+inject_modelId_from_session_cache();
+inject_ignores_input_model_when_cache_empty_auto_mode();
 inject_uses_session_id_fallback_for_conversation_id();
-inject_allow_when_no_conversation_but_model();
+inject_allow_when_no_conversation_with_cached_model();
 inject_replaces_weak_intent_with_prewarm_prompt();
 inject_strips_ide_selection_from_prewarm();
 inject_skips_when_prewarm_missing();
-inject_normalizes_default_to_auto();
+inject_omits_modelId_when_cache_has_auto_only();
 mcp_envelope_routes_aic_tools_to_aic_dev_in_dev_mode();
 mcp_envelope_routes_aic_tools_to_aic_outside_dev_mode();
 call_mcp_tool_envelope_routes_to_aic_dev_in_dev_mode();

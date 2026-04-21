@@ -3,15 +3,11 @@
 // Copyright (c) 2025 AIC Contributors
 
 // preToolUse hook — injects conversation_id and modelId into AIC MCP tool inputs.
-// Also writes modelId to .aic/session-models.jsonl so Claude Code hooks can read it.
-
-const fs = require("fs");
-const path = require("path");
+// modelId is read from .aic/session-models.jsonl (written by beforeSubmitPrompt).
 
 const {
-  isValidModelId,
   normalizeModelId,
-  writeSessionModelCache,
+  readSessionModelCache,
 } = require("../../shared/session-model-cache.cjs");
 const { isCursorNativeHookPayload } = require("../is-cursor-native-hook-payload.cjs");
 const { isWeakAicCompileIntent } = require("../../shared/is-weak-aic-compile-intent.cjs");
@@ -125,19 +121,11 @@ process.stdin.on("end", () => {
     // isAicCompile
     const updated = { ...toolInput, editorId: "cursor" };
     if (idStr) updated.conversationId = idStr;
-    if (typeof input.model === "string") {
-      const trimmed = input.model.trim();
-      const normalized = normalizeModelId(trimmed);
-      if (isValidModelId(trimmed)) {
-        updated.modelId = normalized;
-        if (normalized !== "auto") {
-          const projectRoot = resolveProjectRoot(null, {
-            env: process.env,
-            toolInputOverride: toolInput?.projectRoot,
-          });
-          writeSessionModelCache(projectRoot, normalized, idStr || "", "cursor");
-        }
-      }
+    // Trust only beforeSubmitPrompt's cache; preToolUse input.model is the router-resolved model in Auto mode.
+    const cached = readSessionModelCache(projectRoot, idStr || "", "cursor");
+    const cachedModelId = cached !== null ? normalizeModelId(cached) : null;
+    if (cachedModelId && cachedModelId !== "auto") {
+      updated.modelId = cachedModelId;
     }
     const generationId = input.generation_id ?? input.generationId ?? "unknown";
     if (isWeakAicCompileIntent(toolInput?.intent)) {
