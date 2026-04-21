@@ -63,16 +63,8 @@ fs.mkdirSync(tarballs);
 fs.mkdirSync(projectDir);
 
 try {
-  execFileSync(
-    "node",
-    [path.join(mcpDir, "scripts", "bundle-standalone-uninstall.cjs")],
-    {
-      cwd: repoRoot,
-    },
-  );
-  execFileSync("node", [path.join(mcpDir, "scripts", "bundle-cursor-installer.cjs")], {
-    cwd: repoRoot,
-  });
+  execSync("pnpm run build", { cwd: sharedDir, stdio: "pipe" });
+  execSync("pnpm run build", { cwd: mcpDir, stdio: "pipe" });
 
   const bundledSharedFiles = fs.existsSync(bundledSharedDir)
     ? fs.readdirSync(bundledSharedDir).filter((f) => {
