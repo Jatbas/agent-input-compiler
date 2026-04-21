@@ -84,19 +84,19 @@ Editors with hook support run the integration layer: see [Cursor integration lay
 
 **Primary: MCP Server (`@jatbas/aic`)**
 
-| Feature              | Detail                                                                                                                                                                                                                                              |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **MCP Server**       | Primary interface: MCP tools (`aic_compile` plus the full set in **User interface** below). Invoked by the **trigger rule** or **integration hooks**.                                                                                               |
-| Editor adapters      | Cursor, Claude Code, Generic MCP fallback                                                                                                                                                                                                           |
-| Model adapters       | OpenAI, Anthropic, Generic fallback (auto-detected from request)                                                                                                                                                                                    |
-| Task Classifier      | Heuristic keyword/pattern matching → 6 task classes                                                                                                                                                                                                 |
-| Context selection    | `RelatedFilesBoostContextSelector` wrapping `HeuristicSelector` — path, import-graph, and recency signals; optional `toolOutputs.relatedFiles` merge into `heuristic.boostPatterns` before scoring (`shared/src/bootstrap/create-pipeline-deps.ts`) |
-| Context Guard        | Scans selected files for secrets, excluded paths, and prompt injection; excludes sensitive content from the compiled context                                                                                                                        |
-| Summarisation Ladder | 4-tier compression: full → signatures+docs → signatures → names                                                                                                                                                                                     |
-| Default Rule Packs   | `default.json`, `refactor.json`, `bugfix.json`, `feature.json`, `docs.json`, `test.json`                                                                                                                                                            |
-| SQLite Storage       | Local telemetry + cache metadata                                                                                                                                                                                                                    |
-| Output Caching       | Hash-based, TTL-configurable, auto-invalidating                                                                                                                                                                                                     |
-| Config System        | `aic.config.json` — all fields optional; zero-config works out of the box                                                                                                                                                                           |
+| Feature              | Detail                                                                                                                                                                                                                                                                                           |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **MCP Server**       | Primary interface: MCP tools (`aic_compile` plus the full set in **User interface** below). Invoked by the **trigger rule** or **integration hooks**.                                                                                                                                            |
+| Editor adapters      | Cursor, Claude Code, Generic MCP fallback                                                                                                                                                                                                                                                        |
+| Model adapters       | OpenAI, Anthropic, Generic fallback (auto-detected from request)                                                                                                                                                                                                                                 |
+| Task Classifier      | Heuristic keyword/pattern matching → 6 task classes                                                                                                                                                                                                                                              |
+| Context selection    | `RelatedFilesBoostContextSelector` wrapping `HeuristicSelector` — path, import-graph, and recency signals; optional `toolOutputs.relatedFiles` merge into `heuristic.boostPatterns` before scoring (`shared/src/bootstrap/create-pipeline-deps.ts`)                                              |
+| Context Guard        | Scans selected files for secrets, excluded paths, and prompt injection; excludes sensitive content from the compiled context                                                                                                                                                                     |
+| Summarisation Ladder | 4-tier compression: full → signatures+docs → signatures → names                                                                                                                                                                                                                                  |
+| Default Rule Packs   | `RulePackResolver` merges `built-in:default` + `built-in:<taskClass>` + optional project `aic-rules/<taskClass>.json` (`shared/src/core/load-rule-pack.ts`); shipped MCP `createRulePackProvider` (`mcp/src/server.ts`) returns empty built-in packs and loads project JSON when the file exists |
+| SQLite Storage       | Local telemetry + cache metadata                                                                                                                                                                                                                                                                 |
+| Output Caching       | Hash-based, TTL-configurable, auto-invalidating                                                                                                                                                                                                                                                  |
+| Config System        | `aic.config.json` — all fields optional; zero-config works out of the box                                                                                                                                                                                                                        |
 
 **User interface (MCP tools; diagnostic CLI)**
 
@@ -263,22 +263,21 @@ Merged rule-pack constraints are emitted during assembly (PromptAssembler / Step
 
 **Method:**
 
-1. Load `built-in:default` (always included)
-2. Load task-class-specific built-in pack (`built-in:<taskClass>` from the classifier result)
-3. Load advanced project-level packs from `./aic-rules/` matching task class (if present)
-4. Merge in priority order: project > task-specific > default (later overrides earlier)
+1. Resolve `built-in:default` and `built-in:<taskClass>` through `RulePackProvider.getBuiltInPack` (names from `shared/src/pipeline/rule-pack-resolver.ts`). The published MCP `createRulePackProvider` (`mcp/src/server.ts`) returns an empty `RulePack` for every built-in name; the merge step still runs.
+2. Resolve optional project `aic-rules/<taskClass>.json` through `getProjectPack` when the file exists (`shared/src/core/load-rule-pack.ts`).
+3. Merge in `RulePackResolver.resolve` order: built-in slots first, then project overlay when present (arrays concatenate + dedupe; scalars such as `budgetOverride` last-wins in the pack layer only).
 
 **Output:** Merged `RulePack { constraints: string[], includePatterns: GlobPattern[], excludePatterns: GlobPattern[], budgetOverride?: TokenCount }`
 
 **Example — `aic-rules/refactor.json` (Advanced Feature):**
 
-See [Project Plan §3.1](project-plan.md) for the full annotated rule pack example and [Project Plan §3.2](project-plan.md) for the advanced authoring guide. Custom rule packs are an **opt-in power-user feature**. AIC works out of the box with zero configuration using its tuned built-in defaults. Most standard users will never need to author custom rule packs or create an `aic-rules/` directory. The key fields are: `constraints` (string array), `includePatterns` / `excludePatterns` (glob arrays), optional `budgetOverride` (number), and optional `heuristic.boostPatterns` / `heuristic.penalizePatterns` (glob arrays).
+See [Project Plan §3.1](project-plan.md) for the full annotated rule pack example and [Project Plan §3.2](project-plan.md) for the advanced authoring guide. Custom rule packs are an **opt-in power-user feature**. AIC works out of the box with zero configuration: shipped MCP built-in merge slots are empty, and effective constraints or patterns come only from an optional `aic-rules/<taskClass>.json` when you add one. Most standard users will never need to author custom rule packs or create an `aic-rules/` directory. The key fields are: `constraints` (string array), `includePatterns` / `excludePatterns` (glob arrays), optional `budgetOverride` (number), and optional `heuristic.boostPatterns` / `heuristic.penalizePatterns` (glob arrays).
 
-**Merge behavior:** Arrays concatenated + deduplicated; scalar values (`budgetOverride`) use last-wins within the rule-pack layer only (project > task-specific > default). `CompilationRequest` has no budget field; the Budget Allocator reads `RulePack.budgetOverride` and config only (see `shared/src/pipeline/budget-allocator.ts`).
+**Merge behavior:** Arrays concatenated + deduplicated; scalar values (`budgetOverride`) use last-wins within the rule-pack layer only (project overlay after the built-in merge chain in `RulePackResolver`). `CompilationRequest` has no budget field; the Budget Allocator reads `RulePack.budgetOverride` and config only (see `shared/src/pipeline/budget-allocator.ts`).
 
 **Edge cases:**
 
-- Missing project rule pack → warning, continue with built-ins
+- Missing project rule pack → continue with the merged built-in slots only (empty constraints and patterns on the shipped MCP provider)
 - Malformed JSON → error with file path and parse error details
 
 ---
@@ -816,7 +815,7 @@ Full spec with annotated output example: [Project Plan §14](project-plan.md).
 
 ### Diagnostic stdout layout (CLI and prompt commands)
 
-The five read-only diagnostic CLIs (`status`, `last`, `chat-summary`, `quality`, `projects`) and the matching **show aic …** prompt commands print human tables built in `mcp/src/format-diagnostic-output.ts`. Each table shares the same outer shape from **`renderStandardReport`**: a **title** line (`Title = …`), a full-width **separator** line (`SEP` constant in that file), a **hero** paragraph (always non-empty for shipped formatters), another separator, and **body** rows, optionally followed by a closing separator and a **footnote** (single- or multi-line string). The `status`, `last`, `chat-summary`, and `quality` tables always emit the closing separator and footnote; the `projects` table (both empty and roster forms) omits both and ends on its last body row. **`padRow`** labels use width **30** for the status, last, chat, quality, and empty-projects bodies; the non-empty **projects** roster uses fixed column widths with at least two ASCII spaces between columns and **`truncatePath`** on the path cell. JSON field names and MCP tool payloads are unchanged — only stdout layout differs.
+The five read-only diagnostic CLIs (`status`, `last`, `chat-summary`, `quality`, `projects`) and the matching **show aic …** prompt commands print human tables built in `mcp/src/format-diagnostic-output.ts`. Each table shares the same outer shape from **`renderStandardReport`**: a **title** line (`Title = …`), a full-width **separator** line (`SEP` constant in that file), a **hero** paragraph (always non-empty for shipped formatters), another separator, and **body** rows; when the formatter emits them, a closing separator and **footnote** (single- or multi-line string) come next. The `status`, `last`, `chat-summary`, and `quality` tables always emit the closing separator and footnote; the `projects` table (both empty and roster forms) omits both and ends on its last body row. **`padRow`** labels use width **30** for the status, last, chat, quality, and empty-projects bodies; the non-empty **projects** roster uses fixed column widths with at least two ASCII spaces between columns and **`truncatePath`** on the path cell. JSON field names and MCP tool payloads are unchanged — only stdout layout differs.
 
 ### `aic_status` (MCP tool)
 
@@ -1084,7 +1083,7 @@ See [Project Plan §15 — Incremental Compilation Performance](project-plan.md)
 
 Full detail: [Project Plan §17](project-plan.md).
 
-- **`@jatbas/aic` (published MCP entrypoint):** `@modelcontextprotocol/sdk`, `zod`, workspace `@jatbas/aic-core` — see `mcp/package.json`.
+- **`@jatbas/aic` (published MCP entrypoint):** `@modelcontextprotocol/sdk`, `better-sqlite3`, `zod`, workspace `@jatbas/aic-core` — see `mcp/package.json`.
 - **`@jatbas/aic-core`:** `typescript`, `tiktoken`, `better-sqlite3`, `fast-glob`, `ignore`, `diff`, `commander`, `zod`, `web-tree-sitter`, and pinned `tree-sitter-*` grammars — see `shared/package.json`.
 - **Dev:** `vitest`, `tsx`, `eslint`, `prettier` (tooling versions per repo manifests).
 - No framework-level HTTP server (Express, Fastify) in the MCP surface — STDIO MCP plus optional registry version check as documented in §8b.
@@ -1164,7 +1163,7 @@ When the server process starts (via `npx @jatbas/aic@latest`, `pnpm aic`, or ano
 0. CLI dispatch (isEntry check)
    └─ If process.argv[1] resolves to server.js (isEntry = true):
       └─ argv[2] === "init" → run init flow
-      └─ argv[2] in CLI_DIAGNOSTIC_HANDLERS (status, last, chat-summary, projects):
+      └─ argv[2] in CLI_DIAGNOSTIC_HANDLERS (status, last, chat-summary, quality, projects):
             └─ Open database read-only (openDatabaseReadOnly)
             └─ runCliDiagnosticsAndExit(process.argv.slice(2))
             └─ process.exit(code) from runCliDiagnosticsAndExit
@@ -1208,9 +1207,11 @@ When the server process starts (via `npx @jatbas/aic@latest`, `pnpm aic`, or ano
          ▼
 8. Register MCP tools + resources
    └─ Tool: aic_compile
+   └─ Tool: aic_compile_spec
    └─ Tool: aic_inspect
    └─ Tool: aic_projects
    └─ Tool: aic_status
+   └─ Tool: aic_quality_report
    └─ Tool: aic_last
    └─ Tool: aic_model_test
    └─ Tool: aic_chat_summary
@@ -1228,7 +1229,7 @@ When the server process starts (via `npx @jatbas/aic@latest`, `pnpm aic`, or ano
 11. On MCP client connect (oninitialized / roots/list_changed)
     └─ Fetch workspace roots from client (roots/list)
     └─ For each root URI: convert file:// → absolute path
-    └─ Call installTriggerRule + installCursorHooks for each project root
+    └─ Call installTriggerRule + runEditorBootstrapIfNeeded for each project root
     └─ Bootstrap is idempotent — safe to re-run; skips when artifacts are already up to date
 ```
 
@@ -1246,7 +1247,7 @@ When the server process starts (via `npx @jatbas/aic@latest`, `pnpm aic`, or ano
 
 MCP tool handlers and `aic.config.json` loading validate inputs at the boundary using **Zod** (ADR-009). Validation produces branded types for the core pipeline. The core and pipeline never import Zod — they trust the branded types produced by the boundary layer.
 
-The **diagnostic CLI** entrypoint (`status`, `last`, `chat-summary`, `projects` in `mcp/src/cli-diagnostics.ts`) parses `process.argv` with manual checks (no Zod); it only reads the database and config surfaces those commands need.
+The **diagnostic CLI** entrypoint (`status`, `last`, `chat-summary`, `quality`, `projects` in `mcp/src/cli-diagnostics.ts`) parses `process.argv` with manual checks (no Zod); it only reads the database and config surfaces those commands need.
 
 ### `CompilationRequestSchema`
 
