@@ -435,6 +435,75 @@ describe("SpecificationCompilerImpl", () => {
     expect(order).toEqual(["transform", "compress"]);
   });
 
+  it("spec_compiler_embed_pass_appends_transform_after_verbatim_when_blocks_present", async () => {
+    const order: string[] = [];
+    const contentTransformerPipeline = {
+      transform: vi.fn(async (files: readonly SelectedFile[], _ctx: TransformContext) => {
+        order.push("transform");
+        return {
+          files: files.map((f) => ({ ...f })),
+          metadata: files.map(
+            (f): TransformMetadata => ({
+              filePath: f.path,
+              originalTokens: f.estimatedTokens,
+              transformedTokens: f.estimatedTokens,
+              transformersApplied: [],
+            }),
+          ),
+        };
+      }),
+    };
+    const summarisationLadder = {
+      compress: vi.fn(async (files: readonly SelectedFile[]) => {
+        order.push("compress");
+        return files;
+      }),
+    };
+    const impl = new SpecificationCompilerImpl(
+      measure,
+      contentTransformerPipeline as ContentTransformerPipeline,
+      summarisationLadder as SummarisationLadder,
+      languageProviders,
+    );
+    const input: SpecificationInput = {
+      types: [
+        {
+          name: "X",
+          path: toRelativePath("a.ts"),
+          content: "export const x = 1",
+          usage: "implements",
+          estimatedTokens: toTokenCount(100),
+        },
+      ],
+      codeBlocks: [
+        {
+          label: "embed-case",
+          content: "const x = 1",
+          estimatedTokens: measure("const x = 1"),
+        },
+      ],
+      prose: [],
+    };
+    await impl.compile(input, toTokenCount(1_000_000));
+    expect(order.join(",")).toBe("transform,compress,transform,compress");
+    expect(contentTransformerPipeline.transform.mock.calls.length).toBe(2);
+    const expectedContext: TransformContext = { directTargetPaths: [], rawMode: false };
+    for (const call of contentTransformerPipeline.transform.mock.calls) {
+      expect(call[1]).toEqual(expectedContext);
+    }
+    const second = contentTransformerPipeline.transform.mock.calls[1];
+    expect(second).toBeDefined();
+    if (second === undefined) {
+      throw new ConfigError(
+        "specification-compiler test: expected second transform call",
+      );
+    }
+    expect(second[0]).toHaveLength(1);
+    expect(String((second[0][0] as SelectedFile).path)).toContain(
+      "spec/aic-inline/code/",
+    );
+  });
+
   it("spec_compiler_transform_receives_spec_compile_context", async () => {
     const contentTransformerPipeline = {
       transform: vi.fn(async (files: readonly SelectedFile[], _ctx) => ({

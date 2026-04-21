@@ -17,6 +17,7 @@ import type {
 import { SPEC_USAGE_TO_INITIAL_TIER } from "@jatbas/aic-core/core/types/specification-compilation.types.js";
 import type { TokenCount } from "@jatbas/aic-core/core/types/units.js";
 import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
+import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toPercentage, toRelevanceScore } from "@jatbas/aic-core/core/types/scores.js";
 import type { SelectedFile } from "@jatbas/aic-core/core/types/selected-file.js";
 import type { TransformContext } from "@jatbas/aic-core/core/types/transform-types.js";
@@ -89,6 +90,24 @@ function computeVerbatimBatchBudget(
     0,
   );
   return toTokenCount(Math.min(Math.floor(Number(budget) * 0.2), sumVerbatimInputTokens));
+}
+
+function computeCodeProseBatchBudget(
+  budget: TokenCount,
+  sortedCode: readonly SpecCodeBlock[],
+  sortedProse: readonly SpecProseBlock[],
+  tokenCounter: (text: string) => TokenCount,
+): TokenCount {
+  const sumEmbedInputTokens =
+    sortedCode.reduce(
+      (s, b) => s + Number(tokenCounter(normalizeNewlines(b.content))),
+      0,
+    ) +
+    sortedProse.reduce(
+      (s, p) => s + Number(tokenCounter(normalizeNewlines(p.content))),
+      0,
+    );
+  return toTokenCount(Math.min(Math.floor(Number(budget) * 0.2), sumEmbedInputTokens));
 }
 
 function computeSignaturePathBatchBudget(
@@ -274,6 +293,123 @@ async function signaturePathAdjustedSpecificationInput(
     tokenCounter,
   );
   return { ...input, types: adjustedTypes };
+}
+
+function buildCodeProseEmbedRows(
+  sortedCode: readonly SpecCodeBlock[],
+  sortedProse: readonly SpecProseBlock[],
+  tokenCounter: (text: string) => TokenCount,
+): readonly SelectedFile[] {
+  const codeRows = sortedCode.map((block, i) => {
+    const resolvedContent = normalizeNewlines(block.content);
+    const path = toRelativePath(`spec/aic-inline/code/${String(i).padStart(3, "0")}.ts`);
+    return {
+      path,
+      language: specLanguageFromPath(String(path)),
+      estimatedTokens: tokenCounter(resolvedContent),
+      relevanceScore: toRelevanceScore(1),
+      tier: INCLUSION_TIER.L0,
+      resolvedContent,
+    };
+  });
+  const proseRows = sortedProse.map((block, i) => {
+    const resolvedContent = normalizeNewlines(block.content);
+    const path = toRelativePath(`spec/aic-inline/prose/${String(i).padStart(3, "0")}.md`);
+    return {
+      path,
+      language: specLanguageFromPath(String(path)),
+      estimatedTokens: tokenCounter(resolvedContent),
+      relevanceScore: toRelevanceScore(1),
+      tier: INCLUSION_TIER.L0,
+      resolvedContent,
+    };
+  });
+  return [...codeRows, ...proseRows];
+}
+
+function rehydrateSpecificationEmbedBlocks(
+  input: SpecificationInput,
+  sortedCode: readonly SpecCodeBlock[],
+  sortedProse: readonly SpecProseBlock[],
+  pathToRendered: ReadonlyMap<string, string>,
+  tokenCounter: (text: string) => TokenCount,
+): SpecificationInput {
+  const adjustedCodeSorted = sortedCode.map((block, i) => {
+    const pathKey = String(
+      toRelativePath(`spec/aic-inline/code/${String(i).padStart(3, "0")}.ts`),
+    );
+    const rendered = pathToRendered.get(pathKey) ?? normalizeNewlines(block.content);
+    return {
+      ...block,
+      content: rendered,
+      estimatedTokens: tokenCounter(rendered),
+    };
+  });
+  const adjustedProseSorted = sortedProse.map((block, i) => {
+    const pathKey = String(
+      toRelativePath(`spec/aic-inline/prose/${String(i).padStart(3, "0")}.md`),
+    );
+    const rendered = pathToRendered.get(pathKey) ?? normalizeNewlines(block.content);
+    return {
+      ...block,
+      content: rendered,
+      estimatedTokens: tokenCounter(rendered),
+    };
+  });
+  const codeByBlock = new Map(
+    sortedCode.map((b, i) => [b, adjustedCodeSorted[i] ?? b] as const),
+  );
+  const proseByBlock = new Map(
+    sortedProse.map((b, i) => [b, adjustedProseSorted[i] ?? b] as const),
+  );
+  return {
+    ...input,
+    codeBlocks: input.codeBlocks.map((b) => codeByBlock.get(b) ?? b),
+    prose: input.prose.map((b) => proseByBlock.get(b) ?? b),
+  };
+}
+
+async function codeAndProseAdjustedSpecificationInput(
+  tokenCounter: (text: string) => TokenCount,
+  contentTransformerPipeline: ContentTransformerPipeline,
+  summarisationLadder: SummarisationLadder,
+  languageProviders: readonly LanguageProvider[],
+  input: SpecificationInput,
+  budget: TokenCount,
+): Promise<SpecificationInput> {
+  const sortedCode = sortByLabel(input.codeBlocks);
+  const sortedProse = sortByLabel(input.prose);
+  if (sortedCode.length === 0 && sortedProse.length === 0) {
+    return input;
+  }
+  const batchBudget = computeCodeProseBatchBudget(
+    budget,
+    sortedCode,
+    sortedProse,
+    tokenCounter,
+  );
+  const rows = buildCodeProseEmbedRows(sortedCode, sortedProse, tokenCounter);
+  const specCompileTransformContext: TransformContext = {
+    directTargetPaths: [],
+    rawMode: false,
+  };
+  const transformResult = await contentTransformerPipeline.transform(
+    rows,
+    specCompileTransformContext,
+  );
+  const compressOut = await summarisationLadder.compress(
+    transformResult.files,
+    batchBudget,
+    undefined,
+  );
+  const pathToRendered = buildPathToRenderedMap(compressOut, languageProviders);
+  return rehydrateSpecificationEmbedBlocks(
+    input,
+    sortedCode,
+    sortedProse,
+    pathToRendered,
+    tokenCounter,
+  );
 }
 
 function typeKey(ref: SpecTypeRef): string {
@@ -602,10 +738,18 @@ export class SpecificationCompilerImpl implements SpecificationCompiler {
       afterVerbatim,
       budget,
     );
+    const afterEmbeds = await codeAndProseAdjustedSpecificationInput(
+      this.tokenCounter,
+      this.contentTransformerPipeline,
+      this.summarisationLadder,
+      this.languageProviders,
+      afterSignature,
+      budget,
+    );
     const totalTokensRaw = sumEstimatedTokens(input);
     const sortedTypes = sortTypes(input.types);
     const { compiled: compiledSpec, tiers } = runBudgetLoop(
-      afterSignature,
+      afterEmbeds,
       budget,
       this.tokenCounter,
     );
