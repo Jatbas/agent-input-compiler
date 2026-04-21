@@ -224,17 +224,13 @@ Use Node.js >= 22 (matching `engines.node`). Download the standalone uninstall s
 curl -fsSL -o aic-uninstall-standalone.cjs https://raw.githubusercontent.com/Jatbas/agent-input-compiler/main/integrations/aic-uninstall-standalone.cjs
 ```
 
-Run Cursor-oriented cleanup for a project directory:
+Run it against your project:
 
 ```bash
 node aic-uninstall-standalone.cjs --project-root /path/to/project
 ```
 
-Run the Claude uninstall entrypoint by passing `--claude` before other flags:
-
-```bash
-node aic-uninstall-standalone.cjs --claude --project-root /path/to/project
-```
+By default this removes artifacts for both editors. Pass `--cursor` to limit cleanup to Cursor only, or `--claude` to limit to Claude Code only.
 
 For `--global`, database removal, and the full flag list, see [Installation — Uninstall](documentation/installation.md#uninstall).
 

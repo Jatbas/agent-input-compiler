@@ -461,7 +461,7 @@ var require_resolve_project_root = __commonJS({
 
 // integrations/claude/uninstall.cjs
 var require_uninstall = __commonJS({
-  "integrations/claude/uninstall.cjs"() {
+  "integrations/claude/uninstall.cjs"(exports2, module2) {
     var path = require("node:path");
     var os = require("node:os");
     var { resolveGlobalKeepAicDatabase, tryCleanGlobalAicDir } =
@@ -505,8 +505,7 @@ var require_uninstall = __commonJS({
         process.stdout.write(
           "This is an AIC development project (devMode: true in aic.config.json). Skipping uninstall.\n",
         );
-        process.exit(0);
-        return;
+        return "devmode-skip";
       }
       if (force && devMode) {
         process.stdout.write("Force-uninstalling AIC development project.\n");
@@ -531,7 +530,7 @@ var require_uninstall = __commonJS({
       const changed = globalClaude.changed || projectAic.changed || globalAic.changed;
       if (!changed) {
         process.stdout.write("Nothing to remove. No need to restart Claude Code.\n");
-        return;
+        return "unchanged";
       }
       const parts = [...globalClaude.parts, ...projectAic.parts];
       if (globalAic.message) {
@@ -539,8 +538,12 @@ var require_uninstall = __commonJS({
       }
       parts.push("Restart Claude Code (or reload) to complete uninstall.");
       process.stdout.write(parts.join(" ") + "\n");
+      return "changed";
     }
-    run();
+    module2.exports = { run };
+    if (require.main === module2) {
+      if (run() === "devmode-skip") process.exit(0);
+    }
   },
 });
 
@@ -569,7 +572,7 @@ var require_aic_hook_scripts2 = __commonJS({
 
 // integrations/cursor/uninstall.cjs
 var require_uninstall2 = __commonJS({
-  "integrations/cursor/uninstall.cjs"() {
+  "integrations/cursor/uninstall.cjs"(exports2, module2) {
     var path = require("node:path");
     var fs = require("node:fs");
     var os = require("node:os");
@@ -694,7 +697,8 @@ var require_uninstall2 = __commonJS({
     function parseKeepProjectArtifacts(argv) {
       return argv.includes("--keep-project-artifacts");
     }
-    function run() {
+    function run(opts = {}) {
+      const skipGlobalClaude = opts.skipGlobalClaude === true;
       const argv = process.argv;
       const home = os.homedir();
       const globalCleanup = argv.includes("--global");
@@ -714,8 +718,7 @@ var require_uninstall2 = __commonJS({
         process.stdout.write(
           "This is an AIC development project (devMode: true in aic.config.json). Skipping uninstall.\n",
         );
-        process.exit(0);
-        return;
+        return "devmode-skip";
       }
       if (force && devMode) {
         process.stdout.write("Force-uninstalling AIC development project.\n");
@@ -742,7 +745,9 @@ var require_uninstall2 = __commonJS({
       let globalAic = { changed: false, message: null };
       if (globalCleanup) {
         removedGlobalMcp = tryStripMcp(globalMcpPath);
-        globalClaude = tryUninstallGlobalClaude(home);
+        if (!skipGlobalClaude) {
+          globalClaude = tryUninstallGlobalClaude(home);
+        }
         const keepDb = resolveGlobalKeepAicDatabase(argv, process.env);
         globalAic = tryCleanGlobalAicDir(home, keepDb);
       }
@@ -755,7 +760,7 @@ var require_uninstall2 = __commonJS({
         globalAic.changed;
       if (!changed) {
         process.stdout.write("Nothing to remove. No need to restart Cursor.\n");
-        return;
+        return "unchanged";
       }
       const parts = [];
       if (removedGlobalMcp) {
@@ -773,16 +778,28 @@ var require_uninstall2 = __commonJS({
       }
       parts.push("Restart Cursor to complete uninstall.");
       process.stdout.write(parts.join(" ") + "\n");
+      return "changed";
     }
-    run();
+    module2.exports = { run };
+    if (require.main === module2) {
+      if (run() === "devmode-skip") process.exit(0);
+    }
   },
 });
 
 // integrations/standalone-uninstall-entry.cjs
-var claudeIdx = process.argv.indexOf("--claude");
-if (claudeIdx >= 0) {
-  process.argv.splice(claudeIdx, 1);
-  require_uninstall();
+var claudeFlag = process.argv.includes("--claude");
+var cursorFlag = process.argv.includes("--cursor");
+process.argv = process.argv.filter((a) => a !== "--claude" && a !== "--cursor");
+if (claudeFlag && !cursorFlag) {
+  const { run } = require_uninstall();
+  if (run() === "devmode-skip") process.exit(0);
+} else if (cursorFlag && !claudeFlag) {
+  const { run } = require_uninstall2();
+  if (run() === "devmode-skip") process.exit(0);
 } else {
-  require_uninstall2();
+  const { run: runCursor } = require_uninstall2();
+  const { run: runClaude } = require_uninstall();
+  if (runCursor({ skipGlobalClaude: true }) === "devmode-skip") process.exit(0);
+  runClaude();
 }

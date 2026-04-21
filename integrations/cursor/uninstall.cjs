@@ -144,7 +144,8 @@ function parseKeepProjectArtifacts(argv) {
   return argv.includes("--keep-project-artifacts");
 }
 
-function run() {
+function run(opts = {}) {
+  const skipGlobalClaude = opts.skipGlobalClaude === true;
   const argv = process.argv;
   const home = os.homedir();
   const globalCleanup = argv.includes("--global");
@@ -164,8 +165,7 @@ function run() {
     process.stdout.write(
       "This is an AIC development project (devMode: true in aic.config.json). Skipping uninstall.\n",
     );
-    process.exit(0);
-    return;
+    return "devmode-skip";
   }
   if (force && devMode) {
     process.stdout.write("Force-uninstalling AIC development project.\n");
@@ -191,7 +191,9 @@ function run() {
   let globalAic = { changed: false, message: null };
   if (globalCleanup) {
     removedGlobalMcp = tryStripMcp(globalMcpPath);
-    globalClaude = tryUninstallGlobalClaude(home);
+    if (!skipGlobalClaude) {
+      globalClaude = tryUninstallGlobalClaude(home);
+    }
     const keepDb = resolveGlobalKeepAicDatabase(argv, process.env);
     globalAic = tryCleanGlobalAicDir(home, keepDb);
   }
@@ -204,7 +206,7 @@ function run() {
     globalAic.changed;
   if (!changed) {
     process.stdout.write("Nothing to remove. No need to restart Cursor.\n");
-    return;
+    return "unchanged";
   }
   const parts = [];
   if (removedGlobalMcp) {
@@ -222,6 +224,11 @@ function run() {
   }
   parts.push("Restart Cursor to complete uninstall.");
   process.stdout.write(parts.join(" ") + "\n");
+  return "changed";
 }
 
-run();
+module.exports = { run };
+
+if (require.main === module) {
+  if (run() === "devmode-skip") process.exit(0);
+}

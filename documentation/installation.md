@@ -459,7 +459,7 @@ Disable or remove the editor integration first where that applies (turn off the 
 
 **Default (no flags):** no **global** cleanup — `~/.claude/`, `~/.aic/`, and user-level **`~/.cursor/mcp.json`** are not touched **when those paths differ from `<project>`**. Project-local steps still run under **`<project>/.cursor/`** and **`<project>/.aic/`** (the project tree). If the resolved **`<project>`** is your home directory (or any root where `<project>/.cursor/mcp.json` is the same file as the global MCP config), default mode can still edit that `.cursor/` tree; pass **`--project-root`** to your checkout when you need a clear separation. **Global cleanup** (explicit user-level Cursor MCP, global Claude wiring, and `~/.aic/` maintenance) runs only with **`--global`**.
 
-The Cursor uninstall script can clear **global Claude Code AIC state** when you use **`--global`**, because first-compile bootstrap can install Claude hooks when the Claude Code extension is present under Cursor. Claude-only users can run the Claude uninstall script instead; both entrypoints accept the same flags and project-root resolution.
+The Cursor uninstall script can clear **global Claude Code AIC state** when you use **`--global`**, because first-compile bootstrap can install Claude hooks when the Claude Code extension is present under Cursor. Both entrypoints accept the same flags and project-root resolution. When using the standalone bundle, the default (no editor flag) runs both paths in sequence so you do not need to know which editor was used; pass **`--cursor`** or **`--claude`** to target a specific editor only.
 
 If **`aic.config.json`** under the same **`<project>`** as this run contains **`"devMode": true`**, uninstall prints a message and exits successfully **without changing any files**, unless you pass **`--force`** (which prints a notice on stdout and proceeds). Missing or invalid config is treated as not dev mode.
 
@@ -541,7 +541,7 @@ The repository commits `integrations/aic-uninstall-standalone.cjs`, a single Com
    curl -fsSL -o aic-uninstall-standalone.cjs https://raw.githubusercontent.com/Jatbas/agent-input-compiler/main/integrations/aic-uninstall-standalone.cjs
    ```
 
-3. Run it with `node`. Default behavior matches the Cursor uninstall script (`integrations/cursor/uninstall.cjs`). Pass **`--claude`** before other flags to run the Claude uninstall script instead (`integrations/claude/uninstall.cjs`).
+3. Run it with `node`. By default, both the Cursor and Claude Code uninstall paths run in sequence (Cursor first, then Claude Code). Pass **`--cursor`** to run only the Cursor path, or **`--claude`** to run only the Claude Code path.
 4. Use the same flags as the modular scripts: `--project-root`, `AIC_UNINSTALL_PROJECT_ROOT`, `--global`, `--remove-database`, `--keep-project-artifacts`, `--force`, and the legacy database argv forms described under **### Cursor** above.
 
 You do not need `npm install` or the rest of the `integrations/` tree; the bundle inlines shared helpers and JSON data.

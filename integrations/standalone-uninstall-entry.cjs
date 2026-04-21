@@ -3,10 +3,22 @@
 
 "use strict";
 
-const claudeIdx = process.argv.indexOf("--claude");
-if (claudeIdx >= 0) {
-  process.argv.splice(claudeIdx, 1);
-  require("./claude/uninstall.cjs");
+const claudeFlag = process.argv.includes("--claude");
+const cursorFlag = process.argv.includes("--cursor");
+
+process.argv = process.argv.filter((a) => a !== "--claude" && a !== "--cursor");
+
+if (claudeFlag && !cursorFlag) {
+  const { run } = require("./claude/uninstall.cjs");
+  if (run() === "devmode-skip") process.exit(0);
+} else if (cursorFlag && !claudeFlag) {
+  const { run } = require("./cursor/uninstall.cjs");
+  if (run() === "devmode-skip") process.exit(0);
 } else {
-  require("./cursor/uninstall.cjs");
+  // Default: run both. Cursor pass skips global Claude cleanup to avoid
+  // running tryUninstallGlobalClaude twice; the Claude pass handles it.
+  const { run: runCursor } = require("./cursor/uninstall.cjs");
+  const { run: runClaude } = require("./claude/uninstall.cjs");
+  if (runCursor({ skipGlobalClaude: true }) === "devmode-skip") process.exit(0);
+  runClaude();
 }

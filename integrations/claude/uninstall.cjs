@@ -52,8 +52,7 @@ function run() {
     process.stdout.write(
       "This is an AIC development project (devMode: true in aic.config.json). Skipping uninstall.\n",
     );
-    process.exit(0);
-    return;
+    return "devmode-skip";
   }
   if (force && devMode) {
     process.stdout.write("Force-uninstalling AIC development project.\n");
@@ -78,7 +77,7 @@ function run() {
   const changed = globalClaude.changed || projectAic.changed || globalAic.changed;
   if (!changed) {
     process.stdout.write("Nothing to remove. No need to restart Claude Code.\n");
-    return;
+    return "unchanged";
   }
   const parts = [...globalClaude.parts, ...projectAic.parts];
   if (globalAic.message) {
@@ -86,6 +85,11 @@ function run() {
   }
   parts.push("Restart Claude Code (or reload) to complete uninstall.");
   process.stdout.write(parts.join(" ") + "\n");
+  return "changed";
 }
 
-run();
+module.exports = { run };
+
+if (require.main === module) {
+  if (run() === "devmode-skip") process.exit(0);
+}
