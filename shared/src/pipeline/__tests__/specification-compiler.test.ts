@@ -628,8 +628,8 @@ describe("SpecificationCompilerImpl", () => {
     expect(batchCall[0]).toHaveLength(2);
     const row0 = batchCall[0][0] as SelectedFile;
     const row1 = batchCall[0][1] as SelectedFile;
-    expect(String(row0.path).endsWith("spec/aic-inline/code/000.ts")).toBe(true);
-    expect(String(row1.path).endsWith("spec/aic-inline/code/001.ts")).toBe(true);
+    expect(String(row0.path)).toMatch(/spec\/aic-inline\/code\/000\.ts$/);
+    expect(String(row1.path)).toMatch(/spec\/aic-inline\/code\/001\.ts$/);
     expect(row0.resolvedContent).toBe(norm(wireA));
     expect(row1.resolvedContent).toBe(norm(wireZ));
     const expectedContext: TransformContext = { directTargetPaths: [], rawMode: false };
