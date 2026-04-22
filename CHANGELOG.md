@@ -7,6 +7,19 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-04-22
+
+### Added
+
+- `BudgetFeedbackSource` port and `SqliteBudgetFeedbackReader` for rolling budget utilisation from `compilation_log`
+
+### Changed
+
+- Add SQLite migrations `007-last-non-general-intent-index` and `008-compilation-log-project-created-at-index` for faster `compilation_log` queries
+- Clarify whole-prompt cache hit semantics in compile documentation
+- Clarify budget feedback reader scope in project documentation
+- Document predecessor GitHub release cleanup in the `aic-release` skill
+
 ## [1.0.2] - 2026-04-22
 
 ### Changed
