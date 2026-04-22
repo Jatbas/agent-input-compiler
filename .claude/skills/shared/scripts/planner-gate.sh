@@ -52,9 +52,10 @@ run_gate() {
 
 FAILED=""
 
-run_gate "ambiguity-scan" bash "$SCRIPT_DIR/ambiguity-scan.sh" "$TARGET" || FAILED="${FAILED}ambiguity-scan "
-run_gate "validate-task"  bash "$SCRIPT_DIR/validate-task.sh"  "$TARGET" || FAILED="${FAILED}validate-task "
-run_gate "deferral-probe" bash "$SCRIPT_DIR/deferral-probe.sh" "$TARGET" || FAILED="${FAILED}deferral-probe "
+run_gate "ambiguity-scan"         bash "$SCRIPT_DIR/ambiguity-scan.sh"           "$TARGET" || FAILED="${FAILED}ambiguity-scan "
+run_gate "validate-task"          bash "$SCRIPT_DIR/validate-task.sh"            "$TARGET" || FAILED="${FAILED}validate-task "
+run_gate "deferral-probe"         bash "$SCRIPT_DIR/deferral-probe.sh"           "$TARGET" || FAILED="${FAILED}deferral-probe "
+run_gate "architectural-invariants" bash "$SCRIPT_DIR/architectural-invariants.sh" "$TARGET" || FAILED="${FAILED}architectural-invariants "
 
 if [[ -x "$SCRIPT_DIR/followup-propagation-check.sh" ]]; then
   run_gate "followup-propagation" bash "$SCRIPT_DIR/followup-propagation-check.sh" "$TARGET" || FAILED="${FAILED}followup-propagation "

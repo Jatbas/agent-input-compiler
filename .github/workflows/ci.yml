@@ -8,7 +8,7 @@ on:
       - "**/*.mdc"
       - "documentation/**"
       - ".cursor/rules/**"
-      - ".claude/**"
+      - ".claude/**/*.md"
       - "LICENSE"
   push:
     branches: [main]
@@ -17,7 +17,7 @@ on:
       - "**/*.mdc"
       - "documentation/**"
       - ".cursor/rules/**"
-      - ".claude/**"
+      - ".claude/**/*.md"
       - "LICENSE"
 
 env:

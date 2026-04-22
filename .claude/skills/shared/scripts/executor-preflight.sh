@@ -53,8 +53,9 @@ run_gate() {
 
 FAILED=""
 
-run_gate "ambiguity-scan" bash "$SCRIPT_DIR/ambiguity-scan.sh" "$TARGET" || FAILED="${FAILED}ambiguity-scan "
-run_gate "deferral-probe" bash "$SCRIPT_DIR/deferral-probe.sh" "$TARGET" || FAILED="${FAILED}deferral-probe "
+run_gate "ambiguity-scan"           bash "$SCRIPT_DIR/ambiguity-scan.sh"           "$TARGET" || FAILED="${FAILED}ambiguity-scan "
+run_gate "deferral-probe"           bash "$SCRIPT_DIR/deferral-probe.sh"           "$TARGET" || FAILED="${FAILED}deferral-probe "
+run_gate "architectural-invariants" bash "$SCRIPT_DIR/architectural-invariants.sh" "$TARGET" || FAILED="${FAILED}architectural-invariants "
 
 ART=$(printf '%s' "$ABS_TARGET" | sed 's/\\/\\\\/g; s/"/\\"/g')
 
