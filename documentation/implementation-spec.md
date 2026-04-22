@@ -904,6 +904,8 @@ Applying the full main-pipeline `ContentTransformerPipeline` / `SummarisationLad
 
 **Shipped utilization surface:** The `aic_status` tool exposes **`budgetMaxTokens`** from resolved config (when **`maxTokens` is `0`**, a **fixed** ceiling in `mcp/src/diagnostic-payloads.ts` without a **`conversationTokens`** term) and **`budgetUtilizationPct`** from the last **`compilation_log`** row’s **`tokensCompiled`** over that ceiling (see [§4c — `aic_status`](#aic_status-mcp-tool)); that pair is a **diagnostic** surface, not identical to each compile’s **`BudgetAllocator`** total when session clamping or non-default **`effectiveWindow`** applies.
 
+**Budget feedback storage (read-only, not in Step 3):** `BudgetFeedbackSource` and `SqliteBudgetFeedbackReader` in `shared/src/storage/sqlite-budget-feedback-reader.ts` expose **`getRollingBudgetUtilisation`** over historical **`compilation_log`** rows for injected callers; **`BudgetAllocator`** does not call that interface during **`runPipelineSteps`**, and shipped MCP composition does not yet wire the reader into tools. Utilization-based **auto-tuning** remains deferred per [Project Plan — Non-goals](project-plan.md#non-goals-phase-0-baseline) (**Agentic session management**) and the [§2.7 budget roadmap](project-plan.md#budget-allocation-shipped-auto-budget-overhead-aware-pipeline-and-roadmap).
+
 ---
 
 ### Trigger Rule Robustness

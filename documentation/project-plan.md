@@ -100,6 +100,8 @@ These are explicitly out of scope for the Phase 0 baseline described in this pla
 
 > **Session layer vs §2.7:** The Non-goals row lists **Phase 1+** items only: utilization-based **auto-tuning** and full main-pipeline transformer/ladder parity on **`spec.codeBlocks`**, **`spec.prose`**, and demoted type bodies beyond the shipped **`verbatim`** **and** **`signature-path`** synthetic pre-budget passes in **`SpecificationCompilerImpl`**. Persistent **`aic_compile_spec`** results in **`spec_compile_cache`** ship in the baseline; [§2.7 Agentic workflow support](#27-agentic-workflow-support) describes the full shipped agentic slice (**`AgenticSessionState`**, **`SpecificationCompilerImpl`** including that cache, effective-session cache rules, **`ConversationCompressor`**) versus the deferred **Phase 1+** tuning and remaining spec-body ladder work.
 
+> **BE03 (not started — observability only):** Builds on shipped **`BudgetFeedbackSource`** / **`SqliteBudgetFeedbackReader`** toward user-visible **`compilation_log`** utilisation observability, still **without** wiring that signal into **`BudgetAllocator`**. Utilization-based budget **auto-tuning** stays the **Phase 1+** item in the **Agentic session management** non-goal row above — not an implicit follow-on from read-only feedback.
+
 ---
 
 ## 2. Core Principles
