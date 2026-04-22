@@ -348,6 +348,8 @@ The trace is stored as JSON on `compilation_log.selection_trace_json` (`shared/s
 
 > **Compilation cache hit:** `runCacheHitPath` in `shared/src/pipeline/compilation-runner.ts` passes `selectionTrace: null` into the log row, so `aic_last.selection` is **null** even though the compile succeeded from cache.
 
+**MCP handler boundary:** A whole-prompt hit still executes `CompilationRunner.run` through RepoMap load, classification, and keying before `cacheStore.get`; it only omits `runPipelineSteps`. After `runner.run` resolves, `createCompileHandler` (`mcp/src/handlers/compile-handler.ts`) always calls `writeCompilationTelemetry`, `tryRecordQualitySnapshot`, and best-effort `last-compiled-prompt.txt` for that success path, including cache hits — the same persistence and observability as a miss, aside from selection trace and pipeline-derived guard findings.
+
 ---
 
 ### Step 5: Context Guard
