@@ -43,7 +43,7 @@ Do NOT move the task file yet — archiving to `done/` happens in §6b after a s
 
    Do NOT stage any `documentation/tasks/` paths — they are gitignored and not part of the commit.
 
-   Before committing, run `git status --porcelain` and compare against the touched-files list. Legitimate side-effects (auto-formatted, auto-ratcheted) → add to list and stage. Unrelated files → leave unstaged. Accidentally staged → `git reset HEAD <path>`.
+   Before committing, run `git status --porcelain` and compare against the touched-files list. The **only** side-effects that may be silently staged are (a) lint-staged / prettier reformatting of files **already on the list**, (b) benchmark baseline files the task file explicitly marks as auto-ratcheting (search the task for "baseline", "ratchet", or "auto-update"), and (c) generated artifacts named in a Config Changes or Build section of the task file. Anything else dirty in the worktree — test fixtures modified to pass new logic, integration snapshots you regenerated with `vitest -u`, sibling-test keyword adjustments, benchmark `expected-selection/*.json` that shrank because the new logic excludes more paths, adjacent refactors, or any file the task did not name — is a **Blocked diagnostic** per HARD RULE 9. Do not `git add` it. Do not rationalize it as a "legitimate side-effect". Stop and ask the user to extend scope, re-plan, or discard (see `SKILL.md` §Blocked Handling). Unrelated files → leave unstaged. Accidentally staged → `git reset HEAD <path>`.
 
    Conventional commit format: `type(scope): description`, max 72 chars, imperative, no period.
 
@@ -68,7 +68,7 @@ Compute the **auto-merge preconditions** in this exact order. All must hold:
 1. §4a full toolchain (`pnpm lint && pnpm typecheck && pnpm test && pnpm knip && pnpm lint:clones`) passed in §4, with no new findings from knip or lint:clones.
 2. §5c post-commit hygiene landed clean (exit of the loop at `git status --porcelain` shows no dirty touched files).
 3. `git status --porcelain` in the main workspace shows only expected, allowed files (gitignored paths: `documentation/tasks/`, `aic-progress.md`, `.aic/`). Anything else is a stop.
-4. The feature branch diff (`git diff main...HEAD --stat`) touches only files in the touched-files list built in §2 (plus legitimate side-effects already accounted for in §5c).
+4. The feature branch diff (`git diff main...HEAD --stat`) touches only files in the touched-files list built in §2 plus the narrow §5c Step 2 whitelist (lint-staged reformatting of already-listed files, task-declared auto-ratcheting baselines, task-declared generated artifacts). Any other file on the `--stat` output is a HARD RULE 9 violation — stop, do not merge, follow §Blocked Handling.
 5. The task file has no unresolved ambiguity, blocker, or follow-up flagged during §3/§4.
 
 **Auto-merge path (all preconditions hold):** print a one-line summary — `Merging <branch> → main (N files, +X/-Y). Commit: "<message>"` — and proceed straight to §6b Step 1. Do not ask.

@@ -4,6 +4,7 @@
 export const DEFAULT_NEGATIVE_PATTERNS: readonly string[] = [
   "!**/node_modules/**",
   "!.git/**",
+  "!**/.git/**",
   "!**/.aic/**",
   "!**/dist/**",
   "!**/build/**",

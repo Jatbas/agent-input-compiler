@@ -49,7 +49,7 @@ describe("RelatedFilesBoostContextSelector", () => {
     const task: TaskClassification = {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0),
-      matchedKeywords: [],
+      matchedKeywords: ["src"],
       subjectTokens: [],
       specificityScore: toConfidence(0),
       underspecificationIndex: toConfidence(0),

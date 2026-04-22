@@ -16,6 +16,12 @@ import { createProjectScope } from "@jatbas/aic-core/storage/create-project-scop
 import { createCachingFileContentReader } from "@jatbas/aic-core/adapters/caching-file-content-reader.js";
 import { createFullPipelineDeps } from "../../bootstrap/create-pipeline-deps.js";
 import { noopImportGraphFailureSink } from "@jatbas/aic-core/core/interfaces/import-graph-failure-sink.interface.js";
+import { buildSelectionTraceForLog } from "@jatbas/aic-core/core/build-selection-trace-for-log.js";
+import { runPipelineSteps } from "@jatbas/aic-core/core/run-pipeline-steps.js";
+import {
+  EXCLUSION_REASON,
+  type ExclusionReason,
+} from "@jatbas/aic-core/core/types/selection-trace.js";
 import { InspectRunner } from "@jatbas/aic-core/pipeline/inspect-runner.js";
 import { IgnoreAdapter } from "@jatbas/aic-core/adapters/ignore-adapter.js";
 import { initLanguageProviders } from "@jatbas/aic-core/adapters/init-language-providers.js";
@@ -122,6 +128,26 @@ describe("selection quality benchmarks", () => {
       "1.json",
     );
     const baseline = JSON.parse(fs.readFileSync(baselinePath, "utf8"));
+    const pipelineResult = await runPipelineSteps(deps, {
+      intent: request.intent,
+      projectRoot: request.projectRoot,
+    });
+    const selectionTrace = buildSelectionTraceForLog(pipelineResult);
+    expect(Array.isArray(baseline.expectedTraceExcluded)).toBe(true);
+    const traceReasonByPath = selectionTrace.excludedFiles.reduce<
+      Map<string, ExclusionReason>
+    >((acc, row) => new Map([...acc, [row.path, row.reason]]), new Map());
+    const goldExcluded = baseline.expectedTraceExcluded as readonly {
+      readonly path: string;
+      readonly reason: string;
+    }[];
+    expect(
+      goldExcluded.every(
+        (row) =>
+          row.reason === EXCLUSION_REASON.ZERO_SEMANTIC_SIGNAL &&
+          traceReasonByPath.get(row.path) === EXCLUSION_REASON.ZERO_SEMANTIC_SIGNAL,
+      ),
+    ).toBe(true);
     const actualPaths = trace.selectedFiles.map((f) => f.path as string).toSorted();
     const expectedPaths = (baseline.selectedPaths as string[]).toSorted();
     expect(actualPaths).toEqual(expectedPaths);

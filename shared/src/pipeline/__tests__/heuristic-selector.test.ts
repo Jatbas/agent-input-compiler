@@ -55,7 +55,7 @@ describe("HeuristicSelector", () => {
     const task: TaskClassification = {
       taskClass: TASK_CLASS.REFACTOR,
       confidence: toConfidence(0.8),
-      matchedKeywords: ["refactor"],
+      matchedKeywords: ["refactor", "util"],
       subjectTokens: [],
       specificityScore: toConfidence(0),
       underspecificationIndex: toConfidence(0),
@@ -88,7 +88,7 @@ describe("HeuristicSelector", () => {
     const task: TaskClassification = {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0),
-      matchedKeywords: [],
+      matchedKeywords: ["src"],
       subjectTokens: [],
       specificityScore: toConfidence(0),
       underspecificationIndex: toConfidence(0),
@@ -124,7 +124,7 @@ describe("HeuristicSelector", () => {
     const task: TaskClassification = {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0),
-      matchedKeywords: [],
+      matchedKeywords: ["src"],
       subjectTokens: [],
       specificityScore: toConfidence(0),
       underspecificationIndex: toConfidence(0),
@@ -158,7 +158,7 @@ describe("HeuristicSelector", () => {
     const task: TaskClassification = {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0),
-      matchedKeywords: [],
+      matchedKeywords: ["src"],
       subjectTokens: [],
       specificityScore: toConfidence(0),
       underspecificationIndex: toConfidence(0),
@@ -186,7 +186,7 @@ describe("HeuristicSelector", () => {
     const task: TaskClassification = {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0),
-      matchedKeywords: [],
+      matchedKeywords: ["src"],
       subjectTokens: [],
       specificityScore: toConfidence(0),
       underspecificationIndex: toConfidence(0),
@@ -215,7 +215,7 @@ describe("HeuristicSelector", () => {
     const task: TaskClassification = {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0),
-      matchedKeywords: [],
+      matchedKeywords: ["boost", "penalize", "neutral"],
       subjectTokens: [],
       specificityScore: toConfidence(0),
       underspecificationIndex: toConfidence(0),
@@ -257,7 +257,7 @@ describe("HeuristicSelector", () => {
     const task: TaskClassification = {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0),
-      matchedKeywords: [],
+      matchedKeywords: ["ts"],
       subjectTokens: [],
       specificityScore: toConfidence(0),
       underspecificationIndex: toConfidence(0),
@@ -285,7 +285,7 @@ describe("HeuristicSelector", () => {
     const task: TaskClassification = {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0),
-      matchedKeywords: [],
+      matchedKeywords: ["src"],
       subjectTokens: [],
       specificityScore: toConfidence(0),
       underspecificationIndex: toConfidence(0),
@@ -441,7 +441,7 @@ describe("HeuristicSelector", () => {
       {
         taskClass: TASK_CLASS.BUGFIX,
         confidence: toConfidence(0.8),
-        matchedKeywords: [],
+        matchedKeywords: ["ts"],
         subjectTokens: [],
         specificityScore: toConfidence(0),
         underspecificationIndex: toConfidence(0),
@@ -454,7 +454,7 @@ describe("HeuristicSelector", () => {
       {
         taskClass: TASK_CLASS.GENERAL,
         confidence: toConfidence(0),
-        matchedKeywords: [],
+        matchedKeywords: ["ts"],
         subjectTokens: [],
         specificityScore: toConfidence(0),
         underspecificationIndex: toConfidence(0),
@@ -500,7 +500,7 @@ describe("HeuristicSelector", () => {
       {
         taskClass: TASK_CLASS.GENERAL,
         confidence: toConfidence(0),
-        matchedKeywords: [],
+        matchedKeywords: ["util"],
         subjectTokens: [],
         specificityScore: toConfidence(0),
         underspecificationIndex: toConfidence(0),
@@ -521,7 +521,7 @@ describe("HeuristicSelector", () => {
     const task: TaskClassification = {
       taskClass: TASK_CLASS.GENERAL,
       confidence: toConfidence(0),
-      matchedKeywords: [],
+      matchedKeywords: ["src", "ts"],
       subjectTokens: [],
       specificityScore: toConfidence(0),
       underspecificationIndex: toConfidence(0),
@@ -571,6 +571,152 @@ describe("HeuristicSelector", () => {
     ).toBe(true);
   });
 
+  it("heuristic_selector_rejects_zero_semantic_signal_candidates", async () => {
+    const repo = makeRepo([
+      {
+        path: ".git/config",
+        tokens: 10,
+        lastModified: "2026-01-03T00:00:00.000Z",
+      },
+      {
+        path: "src/app.ts",
+        tokens: 50,
+        lastModified: "2026-01-01T00:00:00.000Z",
+      },
+      {
+        path: "lib/extra.ts",
+        tokens: 40,
+        lastModified: "2026-01-02T00:00:00.000Z",
+      },
+    ]);
+    const task: TaskClassification = {
+      taskClass: TASK_CLASS.GENERAL,
+      confidence: toConfidence(0),
+      matchedKeywords: ["src"],
+      subjectTokens: [],
+      specificityScore: toConfidence(0),
+      underspecificationIndex: toConfidence(0),
+    };
+    const openRulePack: RulePack = {
+      constraints: [],
+      includePatterns: [],
+      excludePatterns: [],
+    };
+    const selector = new HeuristicSelector(
+      noProviders,
+      { maxFiles: 20 },
+      stubScorer,
+      stubScorer,
+    );
+    const first = await selector.selectContext(
+      task,
+      repo,
+      toTokenCount(10000),
+      openRulePack,
+    );
+    expect(first.files.some((f) => f.path === toRelativePath(".git/config"))).toBe(false);
+    const gitExcluded = first.traceExcludedFiles.find(
+      (r) => r.path === toRelativePath(".git/config"),
+    );
+    expect(gitExcluded?.reason).toBe(EXCLUSION_REASON.ZERO_SEMANTIC_SIGNAL);
+    expect(first.files[0]?.path).toBe(toRelativePath("src/app.ts"));
+
+    const restrictedPack: RulePack = {
+      constraints: [],
+      includePatterns: [toGlobPattern("src/**")],
+      excludePatterns: [],
+    };
+    const second = await selector.selectContext(
+      task,
+      repo,
+      toTokenCount(10000),
+      restrictedPack,
+    );
+    const libRow = second.traceExcludedFiles.find(
+      (r) => r.path === toRelativePath("lib/extra.ts"),
+    );
+    expect(libRow?.reason).toBe(EXCLUSION_REASON.INCLUDE_PATTERN_MISMATCH);
+    expect(
+      second.traceExcludedFiles.some(
+        (r) =>
+          r.path === toRelativePath("lib/extra.ts") &&
+          r.reason === EXCLUSION_REASON.ZERO_SEMANTIC_SIGNAL,
+      ),
+    ).toBe(false);
+  });
+
+  it("weak_confidence_halves_weighted_recency_flipping_order_vs_high_confidence", async () => {
+    const repo = makeRepo([
+      {
+        path: "src/aaa/bbb/ccc/w.ts",
+        tokens: 100,
+        lastModified: "2026-01-01T00:00:00.000Z",
+      },
+      {
+        path: "src/z/w/new.ts",
+        tokens: 100,
+        lastModified: "2026-01-10T00:00:00.000Z",
+      },
+    ]);
+    const matchedKeywords = [
+      "aaa",
+      "bbb",
+      "ccc",
+      "src",
+      "k5",
+      "k6",
+      "k7",
+      "k8",
+      "k9",
+      "k10",
+    ];
+    const rulePack: RulePack = {
+      constraints: [],
+      includePatterns: [],
+      excludePatterns: [],
+      heuristic: {
+        boostPatterns: [],
+        penalizePatterns: [],
+      },
+    };
+    const selector = new HeuristicSelector(
+      noProviders,
+      { maxFiles: 20 },
+      stubScorer,
+      stubScorer,
+    );
+    const highConfidence: TaskClassification = {
+      taskClass: TASK_CLASS.GENERAL,
+      confidence: toConfidence(0.9),
+      matchedKeywords,
+      subjectTokens: [],
+      specificityScore: toConfidence(0),
+      underspecificationIndex: toConfidence(0),
+    };
+    const lowConfidence: TaskClassification = {
+      taskClass: TASK_CLASS.GENERAL,
+      confidence: toConfidence(0.3),
+      matchedKeywords,
+      subjectTokens: [],
+      specificityScore: toConfidence(0),
+      underspecificationIndex: toConfidence(0),
+    };
+    const highResult = await selector.selectContext(
+      highConfidence,
+      repo,
+      toTokenCount(1000),
+      rulePack,
+    );
+    const lowResult = await selector.selectContext(
+      lowConfidence,
+      repo,
+      toTokenCount(1000),
+      rulePack,
+    );
+    expect(highResult.files[0]?.path).toBe(toRelativePath("src/z/w/new.ts"));
+    expect(lowResult.files[0]?.path).toBe(toRelativePath("src/aaa/bbb/ccc/w.ts"));
+  });
+
   it("config_weights_override_per_task_defaults", async () => {
     const repo = makeRepo([
       { path: "old.ts", tokens: 100, lastModified: "2024-01-01T00:00:00.000Z" },
@@ -600,7 +746,7 @@ describe("HeuristicSelector", () => {
       {
         taskClass: TASK_CLASS.REFACTOR,
         confidence: toConfidence(0.8),
-        matchedKeywords: [],
+        matchedKeywords: ["ts"],
         subjectTokens: [],
         specificityScore: toConfidence(0),
         underspecificationIndex: toConfidence(0),

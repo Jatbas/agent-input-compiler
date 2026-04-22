@@ -10,6 +10,7 @@ const exclusionReasonSchema = z.enum([
   EXCLUSION_REASON.MAX_FILES,
   EXCLUSION_REASON.BUDGET_EXCEEDED,
   EXCLUSION_REASON.GUARD_BLOCKED,
+  EXCLUSION_REASON.ZERO_SEMANTIC_SIGNAL,
 ]);
 
 const selectionTraceSignalsSchema = z.object({

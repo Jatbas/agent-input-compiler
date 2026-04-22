@@ -1,12 +1,11 @@
 {
   "intent": "refactor auth module to use middleware pattern",
-  "selectedPaths": [
-    "package-lock.json",
-    "package.json",
-    "src/auth/config.json",
-    "src/auth/service.ts",
-    "src/index.ts",
-    "src/styles.css"
+  "selectedPaths": ["src/auth/service.ts", "src/index.ts"],
+  "expectedTraceExcluded": [
+    { "path": "package-lock.json", "reason": "zero_semantic_signal" },
+    { "path": "package.json", "reason": "zero_semantic_signal" },
+    { "path": "src/auth/config.json", "reason": "zero_semantic_signal" },
+    { "path": "src/styles.css", "reason": "zero_semantic_signal" }
   ],
   "blocks": [
     { "filePath": "src/auth/service.ts", "startLine": 15, "endLine": 30 },

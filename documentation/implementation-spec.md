@@ -320,7 +320,7 @@ The shipped config schema and `BudgetAllocator` do not apply **`windowRatio`** o
 
 **Heuristic scoring algorithm:**
 
-Final score = weighted sum of **five** normalised signals in `[0.0, 1.0]`: **path relevance**, **import proximity**, **symbol relevance**, **recency**, and **size penalty**. Per-task-class weights are defined in `DEFAULT_WEIGHTS_BY_TASK_CLASS` in `shared/src/pipeline/heuristic-selector.ts` (they are not a single global 0.4 / 0.3 / 0.2 / 0.1 split). Rule-pack `boostPatterns` add +0.2; `penalizePatterns` subtract −0.2 (clamped 0–1). Import proximity uses BFS depth from task-relevant seed files; symbol relevance uses `SymbolRelevanceScorer`; both score `0.0` when no `LanguageProvider` applies.
+Final score = weighted sum of **five** normalised signals in `[0.0, 1.0]`: **path relevance**, **import proximity**, **symbol relevance**, **recency**, and **size penalty**. Per-task-class weights are defined in `DEFAULT_WEIGHTS_BY_TASK_CLASS` in `shared/src/pipeline/heuristic-selector.ts` (they are not a single global 0.4 / 0.3 / 0.2 / 0.1 split). Rule-pack `boostPatterns` add +0.2; `penalizePatterns` subtract −0.2 (clamped 0–1). Import proximity uses BFS depth from task-relevant seed files; symbol relevance uses `SymbolRelevanceScorer`; both score `0.0` when no `LanguageProvider` applies. When `Number(task.confidence)` is strictly below `0.5`, the recency contribution that enters the weighted sum (`rec` times the per-class recency weight) is multiplied by `0.5`; the `recency` field recorded per file in selection traces remains the unscaled normalised rank.
 
 Full scoring detail with normalisation methods: [Project Plan §8](project-plan.md).
 
@@ -342,7 +342,7 @@ Integrators read the persisted selection trace from the **`aic_last`** MCP tool:
 
 After a compilation **cache miss**, `buildSelectionTraceForLog` in `shared/src/core/build-selection-trace-for-log.ts` builds `SelectionTrace` (`shared/src/core/types/selection-trace.ts`) from the pipeline result: `selectedFiles` lists each **pruned** path with numeric score and the same signal dimensions as Step 4 (`pathRelevance`, `importProximity`, `symbolRelevance`, `recency`, `sizePenalty`, `ruleBoostCount`, `rulePenaltyCount`). `excludedFiles` merges context-selector trace rows (`ContextResult.traceExcludedFiles`) with paths removed by Context Guard (`EXCLUSION_REASON.GUARD_BLOCKED`), sorted by descending score then path; at most **50** excluded rows are kept.
 
-Exclusion reason strings on trace rows match `EXCLUSION_REASON` in `selection-trace.ts`: `include_pattern_mismatch`, `exclude_pattern_match`, `max_files`, `budget_exceeded`, `guard_blocked`. `aic_last` validates persisted JSON with `SelectionTraceSchema` in `mcp/src/schemas/selection-trace.schema.ts`.
+Exclusion reason strings on trace rows match `EXCLUSION_REASON` in `selection-trace.ts`: `include_pattern_mismatch`, `exclude_pattern_match`, `max_files`, `budget_exceeded`, `guard_blocked`, `zero_semantic_signal`. `aic_last` validates persisted JSON with `SelectionTraceSchema` in `mcp/src/schemas/selection-trace.schema.ts`.
 
 The trace is stored as JSON on `compilation_log.selection_trace_json` (`shared/src/storage/sqlite-compilation-log-store.ts`; column added in `shared/src/storage/migrations/003-compilation-selection-trace.ts`).
 

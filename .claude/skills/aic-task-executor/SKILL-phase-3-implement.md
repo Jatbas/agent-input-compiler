@@ -148,6 +148,7 @@ For each step:
 3. If verification fails, fix the issue before moving to the next step.
 4. If you cannot fix it after 2 attempts, go to **Blocked diagnostic** (see §Blocked Handling in `SKILL.md`). The 2-attempt limit is for per-step `Verify`; the separate 3-attempt limit in §Autonomous execution applies to the full-toolchain gate in §4a.
 5. **Circuit breaker:** 3+ pieces of unlisted code (type casts, stubs, wrappers) to make it compile → **Blocked diagnostic** (see §Blocked Handling in `SKILL.md`). List each unlisted piece.
+6. **Scope tripwire (HARD RULE 9):** the moment the `Verify` output, a failing test, or any side-effect points you at a file outside the Files table (and outside the narrow §5c whitelist) as the fix location, STOP. Do not edit the file. Report: (a) the step, (b) the out-of-list file(s), (c) why the core change forces the edit (e.g. new exclusion floor drops a file in an unrelated test fixture, integration snapshot changes in a file not listed, benchmark's `expected-selection/*.json` narrows scope), (d) three explicit options — _extend scope_ (user adds the file(s) to the task's Files table and any matching Tests/Acceptance rows), _re-plan_ (promote the cluster to a sibling task via `aic-task-planner`), or _discard_. Wait for the user's choice. This is the HARD RULE that catches "legitimate side-effect" rationalization before it lands.
 
 **Per-file quick check (after writing each production file).** Run these 4 Grep commands on each production file you just wrote. Skip for test files.
 

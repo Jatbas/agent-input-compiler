@@ -10,34 +10,35 @@
 
 ## C.2 Mapping table
 
-| Report field                   | Template section                                                                  |
-| ------------------------------ | --------------------------------------------------------------------------------- |
-| EXISTING FILES                 | Files table (only "Create" for DOES NOT EXIST)                                    |
-| EXISTING SOLUTIONS             | Architecture Notes (reuse decisions)                                              |
-| SIBLING PATTERN                | Architecture Notes (reuse mandate) + Interface / Signature (structural pattern)   |
-| CONSUMER ANALYSIS              | Files table ("Modify" rows for broken consumers)                                  |
-| CALLER CHAIN ANALYSIS          | Files table ("Modify" rows for every file in chain) + Steps (closure restructure) |
-| APPROACH EVALUATION            | Architecture Notes (chosen approach + rationale)                                  |
-| INTERFACES                     | Interface / Signature (first code block)                                          |
-| CONSTRUCTOR + METHOD BEHAVIORS | Interface / Signature (second code block — class)                                 |
-| DEPENDENT TYPES                | Dependent Types (tiered: T0 verbatim, T1 table, T2 table)                         |
-| DEPENDENCIES + ESLINT CHANGES  | Config Changes                                                                    |
-| DESIGN DECISIONS               | Architecture Notes                                                                |
-| SYNC/ASYNC                     | Steps (implementation step must state this)                                       |
-| LIBRARY API CALLS              | Steps (exact function calls in implementation)                                    |
-| SCHEMA                         | Steps (SQL step references exact columns)                                         |
-| STEP PLAN                      | Steps (method-to-step assignment)                                                 |
-| TEST STRATEGY                  | Steps (test step specifies exact mocking)                                         |
-| CHANGE-PATTERN INSTANCES       | Architecture Notes (blast radius summary) + Steps (ensure all instances covered)  |
-| TEST IMPACT                    | Files table ("Modify" rows for affected tests) + Steps (assertion updates)        |
-| COPY TARGET AUDIT              | Steps (exclusion strategy) + Architecture Notes (bundle contents justification)   |
-| NON-TS ASSET PIPELINE          | Steps (build copy, CI build step, vitest alias) + Config Changes if needed        |
-| BEHAVIOR CHANGES               | Architecture Notes ("Behavior change:" bullets for each observable difference)    |
-| BINDING INVENTORY              | Steps ("use existing `name` (line N)" directives for reused bindings)             |
-| UNIT CONTRACT                  | Architecture Notes (`**Unit contract:**` bullet listing each numeric slot name)   |
-| PREDECESSOR CONTRACTS          | Architecture Notes (`**Predecessor contracts:**` bullet listing consumed outputs) |
-| SIBLING QUORUM                 | Architecture Notes (majority-pattern citation when ≥2 siblings examined)          |
-| RESEARCH DOCUMENT              | Header `> **Research:**` line (path to `documentation/research/` file)            |
+| Report field                   | Template section                                                                                                                                                                               |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| EXISTING FILES                 | Files table (only "Create" for DOES NOT EXIST)                                                                                                                                                 |
+| EXISTING SOLUTIONS             | Architecture Notes (reuse decisions)                                                                                                                                                           |
+| SIBLING PATTERN                | Architecture Notes (reuse mandate) + Interface / Signature (structural pattern)                                                                                                                |
+| CONSUMER ANALYSIS              | Files table ("Modify" rows for broken consumers)                                                                                                                                               |
+| CALLER CHAIN ANALYSIS          | Files table ("Modify" rows for every file in chain) + Steps (closure restructure)                                                                                                              |
+| APPROACH EVALUATION            | Architecture Notes (chosen approach + rationale)                                                                                                                                               |
+| INTERFACES                     | Interface / Signature (first code block)                                                                                                                                                       |
+| CONSTRUCTOR + METHOD BEHAVIORS | Interface / Signature (second code block — class)                                                                                                                                              |
+| DEPENDENT TYPES                | Dependent Types (tiered: T0 verbatim, T1 table, T2 table)                                                                                                                                      |
+| DEPENDENCIES + ESLINT CHANGES  | Config Changes                                                                                                                                                                                 |
+| DESIGN DECISIONS               | Architecture Notes                                                                                                                                                                             |
+| SYNC/ASYNC                     | Steps (implementation step must state this)                                                                                                                                                    |
+| LIBRARY API CALLS              | Steps (exact function calls in implementation)                                                                                                                                                 |
+| SCHEMA                         | Steps (SQL step references exact columns)                                                                                                                                                      |
+| STEP PLAN                      | Steps (method-to-step assignment)                                                                                                                                                              |
+| TEST STRATEGY                  | Steps (test step specifies exact mocking)                                                                                                                                                      |
+| CHANGE-PATTERN INSTANCES       | Architecture Notes (blast radius summary) + Steps (ensure all instances covered)                                                                                                               |
+| TEST IMPACT                    | Files table ("Modify" rows for affected tests) + Steps (assertion updates)                                                                                                                     |
+| COPY TARGET AUDIT              | Steps (exclusion strategy) + Architecture Notes (bundle contents justification)                                                                                                                |
+| NON-TS ASSET PIPELINE          | Steps (build copy, CI build step, vitest alias) + Config Changes if needed                                                                                                                     |
+| BEHAVIOR CHANGES               | Architecture Notes ("Behavior change:" bullets for each observable difference)                                                                                                                 |
+| FIXTURE SIMULATION             | Files table ("Modify" rows for ASSERTION FLIPS fixtures) + Architecture Notes (`**Auto-ratcheting artifacts:**` bullet for AUTO-RATCHET paths) + Follow-up Items (FIXTURE BLOCKED latent bugs) |
+| BINDING INVENTORY              | Steps ("use existing `name` (line N)" directives for reused bindings)                                                                                                                          |
+| UNIT CONTRACT                  | Architecture Notes (`**Unit contract:**` bullet listing each numeric slot name)                                                                                                                |
+| PREDECESSOR CONTRACTS          | Architecture Notes (`**Predecessor contracts:**` bullet listing consumed outputs)                                                                                                              |
+| SIBLING QUORUM                 | Architecture Notes (majority-pattern citation when ≥2 siblings examined)                                                                                                                       |
+| RESEARCH DOCUMENT              | Header `> **Research:**` line (path to `documentation/research/` file)                                                                                                                         |
 
 **Research auto-reference:** If a research document was produced/used, the `> **Research:**` line MUST appear in task header. No document → omit line entirely.
 
@@ -234,6 +235,15 @@ Exit 1 from `deferral-probe.sh` = fail. Closes the cross-task obligation leak ob
 
 AR. **SUCCESSOR-CONTRACT CLOSURE (mandatory — enforced by `followup-propagation-check.sh`):** Run `bash .claude/skills/shared/scripts/followup-propagation-check.sh <task-file>`. The script globs every other task file in `documentation/tasks/`, `documentation/tasks/done/`, `documentation/tasks/pending/`, extracts `## Follow-up Items` bullets referencing the current task's NNN as a successor, and for each referenced field asserts the field identifier appears somewhere in the current task file (Files table, Goal, Architecture Notes, Steps, Tests, Interface/Signature). Exit 1 from the script = fail. Fix by either expanding scope to cover the field (add a Files row / Step / Acceptance bullet that names it) or editing the originating task's Follow-up Items entry to name a different successor. Closes the 322→330 drift where task 322 advertised `classifierConfidence` against a later task, task 330 landed and passed without touching `quality_snapshots.classifier_confidence`, and no mechanical gate connected the two. HARD RULE 23 in `SKILL.md`.
 
+AS. **FIXTURE SIMULATION COVERAGE (mandatory — conditional on BEHAVIOR CHANGES having at least one entry in the Exploration Report; HARD RULE 25 in `SKILL.md`):** Read the Exploration Report's `FIXTURE SIMULATION` field. Fail the check if any of the following hold:
+
+1. `BEHAVIOR CHANGES` has ≥1 entry but `FIXTURE SIMULATION` is missing, empty, or reads "No fixture simulation required" — the simulation step was skipped.
+2. `Importers simulated:` is empty or lists only the primary unit test when the modified symbol is imported by integration tests (grep `shared/src/integration/__tests__/**` and `test/benchmarks/**` independently — every hit must appear).
+3. Any fixture classified `ASSERTION FLIPS` whose test file path does NOT appear in the task's `## Files` table as a Modify row — the ripple is declared but not resolved.
+4. Any fixture classified `AUTO-RATCHET` whose path does NOT appear verbatim under an `**Auto-ratcheting artifacts:**` bullet in `## Architecture Notes`. The bullet must list every auto-ratcheted path (exact string, one per line) so the executor's §5c Step 2 whitelist can match it byte-for-byte.
+5. Any fixture classified `FIXTURE BLOCKED — latent bug` without a named resolution path: either (a) the bug fix appears in the current task's Files table + Steps, or (b) a successor task NNN is named in `## Follow-up Items`, or (c) a justified workaround is documented in `## Architecture Notes` with the workaround's scope described literally (the specific fixture pattern substituted) — silent workarounds in test fixtures fail this check.
+   \*\*FAIL → write the missing Files rows / Architecture Notes bullet / Follow-up entry, then re-run C.5. Closes the executor Scope-tripwire firing class observed in task 342 (BF02) where three integration `defaultRulePack` helpers, an expected-selection benchmark, and 4+ unit-test fixture inputs were all discovered at execute time instead of plan time.
+
 **Step 1 wrapper (recommended invocation).** Rather than running A, validate-task, AQ, and AR as four separate scripts, invoke the wrapper once:
 
 ```
@@ -242,7 +252,7 @@ bash .claude/skills/shared/scripts/planner-gate.sh <task-file>
 
 The wrapper runs `ambiguity-scan.sh`, `validate-task.sh`, `deferral-probe.sh`, and `followup-propagation-check.sh` in that order, halts on the first non-zero exit, and appends a `{ "gate": "planner-gate", "status": "ok"|"fail", "target": "<abs-path>" }` record to `.aic/gate-log.jsonl`. `checkpoint-log.sh` reads this log and refuses to accept an `aic-task-planner task-finalized` checkpoint unless a `planner-gate` ok record for this target exists within the last 30 minutes. Emergency bypass is `CHECKPOINT_ALLOW_NO_GATE=1` and leaves an audit trail in `skill-log.jsonl`. B–AP and AR can still be run individually during iteration; the wrapper is the final gate before §6 finalize.
 
-**Step 2: Score rubric.** 0 (fail) or 1 (pass) per dimension. Checks: B (interface+signature), C (types), E (config), A (ambiguity), D (steps), H (branded), G (self-contained), J (tests), F (sync), K (library API), L (wiring), M (simplicity), N (consumers), O (conditional deps), P (siblings), Q (transformer benchmark), R (transformer safety), S (code block API), T (normalization), U (acceptance), V (test compat), W (caller chain), X (copy target), X2 (non-TS assets), Y (binding reuse), Z (behavior change), AA (doc impact), AB (tool execution), AC (file convention), AD (verify matchability), AE (metric naming coherence), AF (derived metric inputs), AG (existing-symbol signature), AH (change spec round-trip), AI (intra-bullet assignment), AJ (unit contract), AK (section edit resolution), AL (dual anchor), AM (goal traceability), AN (source citation fidelity), AO (exploration coverage), AP (prerequisite graph), AQ (deferred-field bookkeeping), AR (successor-contract closure). Conditional checks auto-pass when precondition unmet.
+**Step 2: Score rubric.** 0 (fail) or 1 (pass) per dimension. Checks: B (interface+signature), C (types), E (config), A (ambiguity), D (steps), H (branded), G (self-contained), J (tests), F (sync), K (library API), L (wiring), M (simplicity), N (consumers), O (conditional deps), P (siblings), Q (transformer benchmark), R (transformer safety), S (code block API), T (normalization), U (acceptance), V (test compat), W (caller chain), X (copy target), X2 (non-TS assets), Y (binding reuse), Z (behavior change), AA (doc impact), AB (tool execution), AC (file convention), AD (verify matchability), AE (metric naming coherence), AF (derived metric inputs), AG (existing-symbol signature), AH (change spec round-trip), AI (intra-bullet assignment), AJ (unit contract), AK (section edit resolution), AL (dual anchor), AM (goal traceability), AN (source citation fidelity), AO (exploration coverage), AP (prerequisite graph), AQ (deferred-field bookkeeping), AR (successor-contract closure), AS (fixture simulation coverage). Conditional checks auto-pass when precondition unmet.
 
 **Run order constraint (AN first).** Check AN must run and pass before any other mechanical check that reads cited content. If AN fails, re-running downstream checks against hallucinated sources wastes work — fix citations first, then re-run the full rubric.
 

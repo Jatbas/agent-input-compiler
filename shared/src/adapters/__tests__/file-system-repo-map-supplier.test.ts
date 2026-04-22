@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { describe, it, expect, afterEach } from "vitest";
@@ -12,6 +12,8 @@ import { toBytes, toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
 import { DEFAULT_NEGATIVE_PATTERNS } from "../default-ignore-patterns.js";
 import { FileSystemRepoMapSupplier } from "../file-system-repo-map-supplier.js";
+import { FastGlobAdapter } from "../fast-glob-adapter.js";
+import { IgnoreAdapter } from "../ignore-adapter.js";
 
 const MOCK_LAST_MODIFIED = toISOTimestamp("2020-01-01T00:00:00.000Z");
 
@@ -122,6 +124,67 @@ describe("FileSystemRepoMapSupplier", () => {
     const repoMap = await supplier.getRepoMap(projectRoot);
     expect(repoMap.files.length).toBe(0);
     expect(repoMap.totalTokens).toBe(toTokenCount(0));
+  });
+
+  it("file_system_repo_map_supplier_never_returns_dot_git_paths", async () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "aic-repomap-"));
+    const projectRoot = toAbsolutePath(tmpDir);
+    mkdirSync(join(tmpDir, ".git", "objects", "ab"), { recursive: true });
+    mkdirSync(join(tmpDir, ".git", "refs", "heads"), { recursive: true });
+    mkdirSync(join(tmpDir, ".git", "worktrees", "x"), { recursive: true });
+    writeFileSync(join(tmpDir, ".git", "HEAD"), "ref: refs/heads/main\n");
+    writeFileSync(join(tmpDir, ".git", "FETCH_HEAD"), "deadbeef\n");
+    writeFileSync(join(tmpDir, ".git", "refs", "heads", "main"), "deadbeef\n");
+    writeFileSync(join(tmpDir, ".git", "objects", "ab", "cdefghijklmnop"), "blob\n");
+    writeFileSync(
+      join(tmpDir, ".git", "worktrees", "x", "HEAD"),
+      "ref: refs/heads/main\n",
+    );
+    mkdirSync(join(tmpDir, "src"), { recursive: true });
+    writeFileSync(join(tmpDir, "src", "visible.ts"), "export const VISIBLE = 1;\n");
+    const supplier = new FileSystemRepoMapSupplier(
+      new FastGlobAdapter(),
+      new IgnoreAdapter(),
+    );
+    const repoMap = await supplier.getRepoMap(projectRoot);
+    expect(
+      repoMap.files.every(
+        (f) => !f.path.startsWith(".git/") && !f.path.includes("/.git/"),
+      ),
+    ).toBe(true);
+    expect(repoMap.files.some((f) => f.path === toRelativePath("src/visible.ts"))).toBe(
+      true,
+    );
+  });
+
+  it("file_system_repo_map_supplier_excludes_nested_packages_app_dot_git_tree", async () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "aic-repomap-"));
+    const projectRoot = toAbsolutePath(tmpDir);
+    mkdirSync(join(tmpDir, "packages", "app", ".git"), { recursive: true });
+    writeFileSync(
+      join(tmpDir, "packages", "app", ".git", "HEAD"),
+      "ref: refs/heads/main\n",
+    );
+    mkdirSync(join(tmpDir, "src"), { recursive: true });
+    writeFileSync(
+      join(tmpDir, "src", "visible.ts"),
+      "export const NESTED_GIT_VISIBLE = 1;\n",
+    );
+    const supplier = new FileSystemRepoMapSupplier(
+      new FastGlobAdapter(),
+      new IgnoreAdapter(),
+    );
+    const repoMap = await supplier.getRepoMap(projectRoot);
+    expect(
+      repoMap.files.every(
+        (f) =>
+          !f.path.startsWith("packages/app/.git/") &&
+          !f.path.includes("/packages/app/.git/"),
+      ),
+    ).toBe(true);
+    expect(repoMap.files.some((f) => f.path === toRelativePath("src/visible.ts"))).toBe(
+      true,
+    );
   });
 
   it("default_patterns_cover_ecosystems", () => {

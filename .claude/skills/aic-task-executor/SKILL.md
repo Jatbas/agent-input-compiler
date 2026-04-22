@@ -35,6 +35,7 @@ editors: all (Cursor Composer / Agent recommended for full fidelity)
 6. Verify external assumptions before implementing (read the actual `.d.ts`, run the actual tool, query the actual database).
 7. Evidence before claims: never report "fixed" or "passes" without fresh output from this run.
 8. Pre-flight mechanical gates are non-optional. Run `bash .claude/skills/shared/scripts/executor-preflight.sh <task-file>` in §2 before internalizing design decisions. Exit 1 = stop and tell the user; do not execute. The wrapper writes a success record to `.aic/gate-log.jsonl` and `checkpoint-log.sh` refuses to accept `setup-complete` without a fresh record — so skipping the gate is also a checkpoint violation. This is defense in depth against planner pass-through failures — the executor is the last line of defence before the task lands in production.
+9. Scope discipline — the task's Files table is a closed set. The only files you may edit outside that set are the narrow side-effects enumerated in `SKILL-phase-5-finalize.md` §5c Step 2 (lint-staged reformatting of already-listed files, benchmark baselines marked auto-ratcheting in the task file, and generated artifacts named in Config Changes). Everything else — test-fixture tweaks to placate new logic, sibling-test keyword injections, integration snapshots not declared in the task, adjacent refactors exposed by the change, or benchmark coverage that shrinks because the new behavior excludes more paths — is a **Blocked diagnostic** under §Blocked Handling. Report the proposed out-of-list file(s), the reason the core change needs them, and the options (extend scope with user approval, re-plan, or discard). Never silently expand the allowlist at §5c.
 
 ## GUIDANCE
 
@@ -47,6 +48,7 @@ Run as a single continuous flow. Do not pause to announce each step. Do not para
 
 - **Pre-flight blocker** — a check in §1 fails: missing template, task status not `Pending`, dependency not `Done`, `executor-preflight.sh` exit 1 (either sub-gate — ambiguity-scan or deferral-probe — fired), prerequisite mismatch, HEAD mismatch after worktree creation, or an unverifiable external assumption (§2.5).
 - **Ambiguous instruction** — a step cannot be executed literally.
+- **Scope growth** — making a step pass requires editing a file that is not in the task's Files table and is not one of the enumerated legitimate side-effects in `SKILL-phase-5-finalize.md` §5c Step 2. Stop the moment you notice it; do not open the file.
 - **Verification failure** — the full toolchain gate in §4a fails and you cannot resolve it within 3 attempts (then use `aic-systematic-debugging`). A per-step `Verify` (§3) that cannot be fixed after 2 attempts is a **Blocked diagnostic** — see Blocked Handling below.
 - **Blocked diagnostic** — three failed per-step `Verify` attempts, a circuit-breaker trip (§3), or a structural issue exposed by §4. Report the state and stop.
 - **Finalize issue** — §6a surfaces something that blocks auto-merge: see `SKILL-phase-5-finalize.md` §6a stop list (dirty tree outside task surface, failed gate regression, merge conflict, new knip / clone findings, or task-file ambiguity surfaced late).

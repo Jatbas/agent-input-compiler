@@ -7,6 +7,7 @@ import { DEFAULT_NEGATIVE_PATTERNS } from "../default-ignore-patterns.js";
 describe("default-ignore-patterns", () => {
   it("default_ignore_patterns_non_empty_and_contains_required", () => {
     expect(DEFAULT_NEGATIVE_PATTERNS.length).toBeGreaterThan(0);
+    expect(DEFAULT_NEGATIVE_PATTERNS.some((p) => p === "!**/.git/**")).toBe(true);
     const has = (sub: string): boolean =>
       DEFAULT_NEGATIVE_PATTERNS.some((p) => p.includes(sub));
     expect(has("node_modules")).toBe(true);

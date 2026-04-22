@@ -21,7 +21,7 @@ import type {
 } from "./context-selector-shared-types.js";
 import { INCLUSION_TIER, TASK_CLASS } from "@jatbas/aic-core/core/types/enums.js";
 import type { TaskClass } from "@jatbas/aic-core/core/types/enums.js";
-import { toRelevanceScore } from "@jatbas/aic-core/core/types/scores.js";
+import { type Confidence, toRelevanceScore } from "@jatbas/aic-core/core/types/scores.js";
 import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 import {
   EXCLUSION_REASON,
@@ -82,6 +82,14 @@ type TraceExcludedRow = {
   readonly reason: ExclusionReason;
 };
 
+type ScoreSignals = NonNullable<SelectedFile["scoreSignals"]>;
+
+type ScoredCandidate = {
+  readonly entry: FileEntry;
+  readonly score: number;
+  readonly signals: ScoreSignals;
+};
+
 function partitionCandidatesByRules(
   files: readonly FileEntry[],
   rulePack: RulePack,
@@ -132,6 +140,42 @@ function partitionCandidatesByRules(
   );
 }
 
+function partitionZeroSemanticSignal(scored: readonly ScoredCandidate[]): {
+  readonly eligible: readonly ScoredCandidate[];
+  readonly traceExcluded: readonly TraceExcludedRow[];
+} {
+  return scored.reduce<{
+    readonly eligible: readonly ScoredCandidate[];
+    readonly traceExcluded: readonly TraceExcludedRow[];
+  }>(
+    (acc, item) => {
+      const semanticSum =
+        item.signals.pathRelevance +
+        item.signals.importProximity +
+        item.signals.symbolRelevance +
+        item.signals.ruleBoostCount;
+      if (semanticSum === 0) {
+        return {
+          eligible: acc.eligible,
+          traceExcluded: [
+            ...acc.traceExcluded,
+            {
+              path: item.entry.path,
+              score: item.score,
+              reason: EXCLUSION_REASON.ZERO_SEMANTIC_SIGNAL,
+            },
+          ],
+        };
+      }
+      return {
+        eligible: [...acc.eligible, item],
+        traceExcluded: acc.traceExcluded,
+      };
+    },
+    { eligible: [], traceExcluded: [] },
+  );
+}
+
 function recencyRanksFromValues(recencyValues: readonly string[]): readonly number[] {
   if (recencyValues.length === 0) return [];
   const sortedRec = recencyValues.toSorted();
@@ -143,8 +187,6 @@ function recencyRanksFromValues(recencyValues: readonly string[]): readonly numb
   return recencyValues.map((v) => rankByVal.get(v) ?? 0);
 }
 
-type ScoreSignals = NonNullable<SelectedFile["scoreSignals"]>;
-
 function scoreAndSignalsForCandidate(
   entry: FileEntry,
   index: number,
@@ -155,17 +197,19 @@ function scoreAndSignalsForCandidate(
   symbolRelevanceScores: ReadonlyMap<RelativePath, number>,
   weights: ScoringWeights,
   rulePack: RulePack,
+  confidence: Confidence,
 ): { readonly score: number; readonly signals: ScoreSignals } {
   const pathRel = pathRelevances[index] ?? 0;
   const rec = recencyRanks[index] ?? 0;
   const sizeP = 1 - minMaxNorm(tokenValues, tokenValues[index] ?? 0);
   const importProx = importProximityScores.get(entry.path) ?? 0;
   const symbolRel = symbolRelevanceScores.get(entry.path) ?? 0;
+  const recencyWeightFactor = Number(confidence) < 0.5 ? 0.5 : 1;
   const baseScore =
     pathRel * weights.pathRelevance +
     importProx * weights.importProximity +
     symbolRel * weights.symbolRelevance +
-    rec * weights.recency +
+    rec * weights.recency * recencyWeightFactor +
     sizeP * weights.sizePenalty;
   const boostCount =
     rulePack.heuristic?.boostPatterns.filter((pat) => matchesGlob(entry.path, pat))
@@ -195,12 +239,6 @@ type BudgetFitAcc = {
   readonly files: readonly SelectedFile[];
   readonly totalTokens: number;
   readonly traceExcluded: readonly TraceExcludedRow[];
-};
-
-type ScoredCandidate = {
-  readonly entry: FileEntry;
-  readonly score: number;
-  readonly signals: ScoreSignals;
 };
 
 function reduceFitStep(
@@ -311,10 +349,13 @@ export class HeuristicSelector implements ContextSelector {
         symbolRelevanceScores,
         weights,
         rulePack,
+        task.confidence,
       );
       return { entry, score, signals };
     });
-    const sorted = scored.toSorted(
+    const { eligible, traceExcluded: zeroSemanticTraceExcluded } =
+      partitionZeroSemanticSignal(scored);
+    const sorted = eligible.toSorted(
       (a, b) => b.score - a.score || a.entry.path.localeCompare(b.entry.path),
     );
     const maxFiles = rulePack.maxFilesOverride ?? this.config.maxFiles;
@@ -324,7 +365,11 @@ export class HeuristicSelector implements ContextSelector {
       totalTokens: totalTokensNum,
       traceExcluded: budgetTraceExcluded,
     } = fitToBudgetWithTrace(sorted, budget, maxFiles);
-    const traceExcludedFiles = [...ruleTraceExcluded, ...budgetTraceExcluded];
+    const traceExcludedFiles = [
+      ...ruleTraceExcluded,
+      ...zeroSemanticTraceExcluded,
+      ...budgetTraceExcluded,
+    ];
     const truncated = files.length < candidates.length || totalTokensNum >= budgetNum;
     return {
       files,

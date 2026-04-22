@@ -9,6 +9,7 @@ export const EXCLUSION_REASON = {
   MAX_FILES: "max_files",
   BUDGET_EXCEEDED: "budget_exceeded",
   GUARD_BLOCKED: "guard_blocked",
+  ZERO_SEMANTIC_SIGNAL: "zero_semantic_signal",
 } as const;
 
 export type ExclusionReason = (typeof EXCLUSION_REASON)[keyof typeof EXCLUSION_REASON];
