@@ -23,8 +23,12 @@ import {
 const SEP_LINE =
   "──────────────────────────────────────────────────────────────────────────────";
 
-function hasPaddedLabelRow(output: string, label: string): boolean {
-  const prefix = `${label.padEnd(30, " ")}  `;
+function hasPaddedLabelRow(
+  output: string,
+  label: string,
+  labelWidth: number = 30,
+): boolean {
+  const prefix = `${label.padEnd(labelWidth, " ")}  `;
   return output.split("\n").some((line) => line.startsWith(prefix));
 }
 
@@ -72,10 +76,36 @@ describe("formatStatusTable", () => {
       },
       clock,
     );
-    expect(hasPaddedLabelRow(out, "Installation")).toBe(true);
+    expect(hasPaddedLabelRow(out, "Installation (global MCP server)", 32)).toBe(true);
     expect(out).toContain("OK");
-    expect(hasPaddedLabelRow(out, "Notes")).toBe(false);
-    expect(hasPaddedLabelRow(out, "Project")).toBe(false);
+    expect(hasPaddedLabelRow(out, "Notes", 32)).toBe(false);
+    expect(hasPaddedLabelRow(out, "Project", 32)).toBe(false);
+  });
+
+  it("format_status_today_label_reflects_aggregate_boundary", () => {
+    const clock = new SystemClock();
+    const out = formatStatusTable(
+      {
+        ...baseStatusPayload,
+        installationOk: true,
+        projectEnabled: true,
+      },
+      clock,
+    );
+    expect(hasPaddedLabelRow(out, "Context builds (today, UTC)", 32)).toBe(true);
+  });
+
+  it("format_status_installation_row_labeled_global_mcp", () => {
+    const clock = new SystemClock();
+    const out = formatStatusTable(
+      { ...baseStatusPayload, installationOk: true, projectEnabled: true },
+      clock,
+    );
+    const prefix = `${"Installation (global MCP server)".padEnd(32)}  `;
+    expect(out.split("\n").some((line) => line.startsWith(prefix))).toBe(true);
+    expect(
+      out.split("\n").some((line) => line.startsWith(`${"Installation".padEnd(32)} `)),
+    ).toBe(false);
   });
 
   it("status_table_issues_show_notes", () => {
@@ -91,7 +121,7 @@ describe("formatStatusTable", () => {
       clock,
     );
     expect(out).toContain("Issues detected");
-    expect(hasPaddedLabelRow(out, "Notes")).toBe(true);
+    expect(hasPaddedLabelRow(out, "Notes", 32)).toBe(true);
     expect(out).toContain(message);
   });
 
@@ -106,8 +136,36 @@ describe("formatStatusTable", () => {
       },
       clock,
     );
-    expect(hasPaddedLabelRow(out, "Time range")).toBe(true);
+    expect(hasPaddedLabelRow(out, "Time range", 32)).toBe(true);
     expect(out).toContain("Last 14 days");
+  });
+
+  it("format_status_guard_label_reflects_time_window", () => {
+    const clock = new SystemClock();
+    const out = formatStatusTable(
+      {
+        ...baseStatusPayload,
+        timeRangeDays: 14,
+        installationOk: true,
+        projectEnabled: true,
+      },
+      clock,
+    );
+    expect(hasPaddedLabelRow(out, "Guard scans (14d)", 32)).toBe(true);
+    expect(out.includes("Guard scans (lifetime)")).toBe(false);
+  });
+
+  it("format_status_guard_label_lifetime_when_no_window", () => {
+    const clock = new SystemClock();
+    const out = formatStatusTable(
+      {
+        ...baseStatusPayload,
+        installationOk: true,
+        projectEnabled: true,
+      },
+      clock,
+    );
+    expect(hasPaddedLabelRow(out, "Guard scans (lifetime)", 32)).toBe(true);
   });
 
   it("status_table_no_project_row", () => {
@@ -120,8 +178,8 @@ describe("formatStatusTable", () => {
       { ...baseStatusPayload, installationOk: true, projectEnabled: false },
       clock,
     );
-    expect(hasPaddedLabelRow(outTrue, "Project")).toBe(false);
-    expect(hasPaddedLabelRow(outFalse, "Project")).toBe(false);
+    expect(hasPaddedLabelRow(outTrue, "Project", 32)).toBe(false);
+    expect(hasPaddedLabelRow(outFalse, "Project", 32)).toBe(false);
   });
 
   it("status_table_includes_metric_footnote", () => {
@@ -131,9 +189,41 @@ describe("formatStatusTable", () => {
       clock,
     );
     expect(out).toContain(
-      "Avg context precision: % of repo content automatically filtered per context build.",
+      "Context precision (weighted): % of repo content automatically filtered per context build.",
     );
     expect(out).toContain("Context window used: % of token budget filled.");
+  });
+
+  it("format_status_context_precision_label_weighted", () => {
+    const clock = new SystemClock();
+    const statusOut = formatStatusTable(
+      {
+        ...baseStatusPayload,
+        compilationsTotal: 3,
+        totalTokensRaw: 9000,
+        totalTokensCompiled: 100,
+        cacheHitRatePct: 25.0,
+        avgReductionPct: 12.3,
+        installationOk: true,
+        projectEnabled: true,
+      },
+      clock,
+    );
+    const chatOut = formatChatSummaryTable(
+      minimalChatSummary({
+        compilationsInConversation: 2,
+        totalTokensRaw: 1000,
+        totalTokensCompiled: 100,
+        avgReductionPct: 50.0,
+        cacheHitRatePct: 10.0,
+      }),
+      clock,
+    );
+    expect(statusOut).toContain("Context precision (weighted)");
+    expect(statusOut).toContain("context precision (weighted).");
+    expect(chatOut).toContain("Context precision (weighted)");
+    expect(statusOut).not.toContain("Avg context precision");
+    expect(chatOut).not.toContain("Avg context precision");
   });
 
   it("status_table_standard_layout_and_idle_hero", () => {
@@ -167,6 +257,25 @@ describe("formatStatusTable", () => {
     expect(out).toContain("33.3%");
     expect(out).toContain("55.5%");
     expect(out).not.toMatch(/across \d+ files/);
+  });
+
+  it("format_status_raw_tokens_label_clarifies_cache_hit_sum", () => {
+    const clock = new SystemClock();
+    const out = formatStatusTable(
+      {
+        ...baseStatusPayload,
+        compilationsTotal: 3,
+        totalTokensRaw: 9000,
+        totalTokensCompiled: 100,
+        installationOk: true,
+        projectEnabled: true,
+      },
+      clock,
+    );
+    expect(out).toContain("Cumulative raw → sent tokens");
+    expect(out).toContain("cumulative raw → sent tokens");
+    expect(out).not.toContain("Repo size → context sent");
+    expect(out).not.toContain("repo size → context sent");
   });
 });
 
@@ -333,6 +442,20 @@ describe("formatChatSummaryTable", () => {
     const out = formatChatSummaryTable(minimalChatSummary({}), clock);
     assertStandardReportLayout(out);
     expect(out).toContain("No compilations recorded for this conversation yet.");
+  });
+
+  it("format_chat_summary_raw_tokens_row_uses_cumulative_label", () => {
+    const clock = fixedClock("2026-03-02T12:00:00.000Z");
+    const out = formatChatSummaryTable(
+      minimalChatSummary({
+        compilationsInConversation: 2,
+        totalTokensRaw: 4000,
+        totalTokensCompiled: 200,
+      }),
+      clock,
+    );
+    expect(out).toContain("Cumulative raw → sent tokens");
+    expect(out).not.toContain("Repo size → context sent");
   });
 });
 

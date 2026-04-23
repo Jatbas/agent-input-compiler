@@ -62,7 +62,7 @@ Status = project-level AIC status.
 AIC optimised context across 7,784 context builds; repo size → context sent 5.78B → 65.90M (88:1 ratio); 36.9% cache hit rate; 98.9% avg context precision.
 ──────────────────────────────────────────────────────────────────────────────
 Context builds (total)          7,784
-Context builds (today)          147
+Context builds (today, UTC)     147
 Repo size → context sent        5.78B → 65.90M (88:1 ratio)
 Tokens excluded                 5,718,696,860
 ──────────────────────────────────────────────────────────────────────────────

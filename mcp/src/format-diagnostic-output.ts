@@ -13,9 +13,13 @@ import type { SelectionTraceParsed } from "./schemas/selection-trace.schema.js";
 import { decrementUtcCalendarDay, enumerateUtcDaysInclusive } from "./utc-calendar.js";
 
 const METRIC_FOOTNOTE =
-  "Avg context precision: % of repo content automatically filtered per context build.";
+  "Context precision (weighted): % of repo content automatically filtered per context build.";
 
 const STATUS_METRIC_FOOTNOTE = `${METRIC_FOOTNOTE}\nContext window used: % of token budget filled.`;
+
+const STATUS_TABLE_LABEL_RAW_TO_SENT = "Cumulative raw → sent tokens";
+
+const STATUS_HERO_CLAUSE_RAW_TO_SENT = "cumulative raw → sent tokens";
 
 const LAST_METRIC_FOOTNOTE = "Context window used: % of token budget filled.";
 
@@ -174,7 +178,7 @@ function statusHeroLine(payload: Record<string, unknown>): string {
     return "No compilation aggregates yet for this project.";
   }
   const ratioPart = formatTokensWithRatio(totalTokensRaw, totalTokensCompiled);
-  return `AIC optimised context across ${formatInt(compilationsTotal)} context builds; repo size → context sent ${ratioPart}; ${formatPct1(cacheHitRatePct)} cache hit rate; ${formatPct1(avgReductionPct)} avg context precision.`;
+  return `AIC optimised context across ${formatInt(compilationsTotal)} context builds; ${STATUS_HERO_CLAUSE_RAW_TO_SENT} ${ratioPart}; ${formatPct1(cacheHitRatePct)} cache hit rate; ${formatPct1(avgReductionPct)} context precision (weighted).`;
 }
 
 function lastCompilationForwardedHero(
@@ -316,7 +320,7 @@ export function formatStatusTable(
   payload: Record<string, unknown>,
   clock: Clock,
 ): string {
-  const w = 30;
+  const w = 32;
   const last = payload["lastCompilation"] as Record<string, unknown> | null | undefined;
   const notes = payload["installationNotes"];
   const instOk = payload["installationOk"];
@@ -325,13 +329,14 @@ export function formatStatusTable(
       ? [padRow("Notes", notes, w)]
       : ([] as readonly string[]);
   const n = payload["timeRangeDays"];
-  const timeRangeRows: readonly string[] =
+  const hasStatusTimeWindow =
     typeof n === "number" &&
     Number.isInteger(n) &&
     n >= 1 &&
-    n <= STATUS_TIME_RANGE_DAYS_MAX
-      ? [padRow("Time range", statusTimeRangeValue(n), w)]
-      : [];
+    n <= STATUS_TIME_RANGE_DAYS_MAX;
+  const timeRangeRows: readonly string[] = hasStatusTimeWindow
+    ? [padRow("Time range", statusTimeRangeValue(n), w)]
+    : [];
   const bodyRows: readonly string[] = [
     ...timeRangeRows,
     padRow(
@@ -340,12 +345,12 @@ export function formatStatusTable(
       w,
     ),
     padRow(
-      "Context builds (today)",
+      "Context builds (today, UTC)",
       formatInt(Number(payload["compilationsToday"] ?? 0)),
       w,
     ),
     padRow(
-      "Repo size → context sent",
+      STATUS_TABLE_LABEL_RAW_TO_SENT,
       formatTokensWithRatio(
         Number(payload["totalTokensRaw"] ?? 0),
         Number(payload["totalTokensCompiled"] ?? 0),
@@ -361,16 +366,24 @@ export function formatStatusTable(
     ),
     padRow("Cache hit rate", formatPct1(payload["cacheHitRatePct"] as number | null), w),
     padRow(
-      "Avg context precision",
+      "Context precision (weighted)",
       formatPct1(payload["avgReductionPct"] as number | null),
       w,
     ),
     SEP,
-    padRow("Guard scans (lifetime)", guardByTypeStr(payload["guardByType"]), w),
+    padRow(
+      hasStatusTimeWindow ? `Guard scans (${String(n)}d)` : "Guard scans (lifetime)",
+      guardByTypeStr(payload["guardByType"]),
+      w,
+    ),
     ...topTaskRows(payload["topTaskClasses"], w),
     padRow("Last compilation", lastCompilationSummary(clock, last, w), w),
     SEP,
-    padRow("Installation", installationLabel(payload["installationOk"]), w),
+    padRow(
+      "Installation (global MCP server)",
+      installationLabel(payload["installationOk"]),
+      w,
+    ),
     ...notesRows,
   ];
   return renderStandardReport({
@@ -481,7 +494,7 @@ export function formatChatSummaryTable(row: ConversationSummary, clock: Clock): 
     padRow("Project path", row.projectRoot.length > 0 ? row.projectRoot : "—", w),
     padRow("Context builds", formatInt(row.compilationsInConversation), w),
     padRow(
-      "Repo size → context sent",
+      STATUS_TABLE_LABEL_RAW_TO_SENT,
       formatTokensWithRatio(row.totalTokensRaw, row.totalTokensCompiled),
       w,
     ),
@@ -492,7 +505,7 @@ export function formatChatSummaryTable(row: ConversationSummary, clock: Clock): 
     ),
     SEP,
     padRow("Cache hit rate", formatPct1(row.cacheHitRatePct), w),
-    padRow("Avg context precision", formatPct1(row.avgReductionPct), w),
+    padRow("Context precision (weighted)", formatPct1(row.avgReductionPct), w),
     SEP,
     padRow("Last compilation", lastLine, w),
     ...topTaskRows(row.topTaskClasses, w),
