@@ -50,3 +50,15 @@ bash .claude/skills/shared/scripts/cleanup-worktree.sh sweep
 ```
 
 Script exit 0 means no orphan directories remain. Exit 1 → stop and report.
+
+## Emit the `self-review-complete` checkpoint
+
+After the sweep succeeds, emit the review checkpoint. This is the ONLY checkpoint a review run emits — the four planning checkpoints (`setup-complete`, `task-picked`, `exploration-complete`, `task-finalized`) MUST be absent because the two entry points never interleave (see `SKILL.md §Autonomous execution`). Substitute `<abs-task-file>` with the absolute path to the reviewed (or rewritten) task file in the main workspace; for a multi-task review, cite the first reviewed task file and list the rest in the artifact note:
+
+```
+echo "CHECKPOINT: aic-task-planner/self-review-complete — complete"
+bash .claude/skills/shared/scripts/checkpoint-log.sh \
+  aic-task-planner self-review-complete <abs-task-file-or-summary-note>
+```
+
+The `self-review-complete` checkpoint is not gated by `planner-gate.sh` (review runs re-use §C.5/C.5b/C.5c/C.5d inline rather than the script wrapper) and is not subject to the phase-gap wall-clock enforcement (the gap gate only covers the planning flow's four checkpoints). `checkpoint-log.sh` will accept it as long as skill and phase names are spelled correctly.

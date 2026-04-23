@@ -8,7 +8,7 @@
 - `documentation/tasks/progress/aic-progress.md` (read from **main workspace**, not worktree — this file is gitignored)
 - `shared/package.json`
 - `eslint.config.mjs`
-- `.cursor/rules/AIC-architect.mdc`
+- `.cursor/rules/aic-architect.mdc`
 - The research document at the path in `> **Research:**` header (if present in the task file)
 
 **Validate** from the pre-read results:
@@ -43,7 +43,16 @@ bash .claude/skills/shared/scripts/cleanup-worktree.sh remove .git-worktrees/<di
 # then retry the `git worktree add` above
 ```
 
-**Install + build** in the worktree: `source .claude/skills/shared/scripts/ensure-supported-node.sh && pnpm install && pnpm build` (set `working_directory` to worktree path).
+**Install (build deferred)** in the worktree: `source .claude/skills/shared/scripts/ensure-supported-node.sh && pnpm install --prefer-offline --frozen-lockfile` (set `working_directory` to worktree path).
+
+- `--prefer-offline` reuses pnpm's global content-addressable store (`~/Library/pnpm/store` on macOS) instead of refetching every tarball, turning a cold install into a near-local copy. Saves roughly 20–60s per worktree depending on cache state.
+- `--frozen-lockfile` is the CI-equivalent strict mode — it fails loudly if `pnpm-lock.yaml` and `package.json` disagree instead of mutating the lockfile mid-execution. This is the correct default for a deterministic worktree; a plan that legitimately changes dependencies must have a dedicated step that explicitly removes the flag.
+- `pnpm build` is **deferred, not skipped.** Most tasks only need TypeScript source on disk — `pnpm lint`, `pnpm typecheck`, `pnpm test` (via vitest) and `pnpm knip` all read `src/` directly, so a cold `pnpm build` before §3 is wasted work (saves roughly 15–40s). Run `pnpm build` **lazily, on first demand**, when any of the following is true:
+  - A §3 step or §4a/§4b check invokes a compiled binary from `dist/` (e.g. `node mcp/dist/server.js`, `node integrations/claude/plugin/scripts/*.cjs` that requires rebuilt artifacts, any smoke test that spawns the published CLI).
+  - A §4b Dimension 21 "Non-TS assets" check needs to confirm the asset was copied to `dist/`.
+  - The task's Steps or Tests table explicitly references a `dist/` artifact.
+  - You modified `package.json` `files`, `tsconfig*.json`, or a bundler/packaging script and the verification needs to see the effect.
+- When in doubt, run it — `pnpm build` is cheap after the first typecheck populates `tsbuildinfo` caches. The optimization is not "never build," it is "don't build before you know you need it."
 
 **Supported-Node shim — prefix every `pnpm` or `node` invocation.** The repo pins `engines.node=">=22"` (`package.json`, `mcp/package.json`, `shared/package.json`) with `.npmrc engine-strict=true`. Cursor's bundled helper Node 22 at `/Applications/Cursor.app/.../helpers` already satisfies the floor, so under normal Cursor shells the shim is a no-op; it only mutates `PATH` if the active Node is older than 22 (e.g. a system Node pushed onto PATH by another tool). Each agent `Shell` call spawns a fresh shell — env vars do **not** persist — so you must prefix every pnpm/node invocation throughout this phase and later phases with `source .claude/skills/shared/scripts/ensure-supported-node.sh && ...`. This includes `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm knip`, `pnpm lint:clones`, and any direct `node script.js` call. **Concurrent-agent caveat:** `better-sqlite3` rebuilds its native binary for the active Node major on every `pnpm install`, so two agents on different Node majors (e.g. this agent on Node 22 and another on Node 24) will repeatedly clobber each other's `better_sqlite3.node` — keep concurrent agents on the same Node major. The MCP startup preflight surfaces an ABI mismatch with an actionable remediation message when this happens.
 
@@ -69,14 +78,20 @@ Run the wrapper against the task file (not the worktree copy — the task file l
 bash .claude/skills/shared/scripts/executor-preflight.sh <task-file>
 ```
 
-`executor-preflight.sh` runs two sub-gates in order, halts on the first non-zero exit, and writes a pass/fail record to `.aic/gate-log.jsonl`:
+`executor-preflight.sh` runs three sub-gates in parallel, waits for all, prints ordered per-gate results, and writes a pass/fail record to `.aic/gate-log.jsonl`:
 
 - `ambiguity-scan.sh` — enforces the banned-phrase set (Cat 1-8 + P) from `SKILL-guardrails.md "No ambiguity"`. Hedging ("if needed", "may want", "probably"), examples-as-instructions ("e.g.", "such as"), delegation ("decide whether", "alternatively"), vague qualifiers ("appropriate", "etc."), state hedges ("if not present"), escape clauses ("in a later task", "follow-up task", "populated later"), false alternatives, tool-conditional scope, and plan-failure patterns ("TBD", "implement later") all fail with exit 1.
 - `deferral-probe.sh` — catches the cross-task obligation leak observed in task 322: any hardcoded `null` / `false` / `0` / `""` / `''` / `[]` / `undefined` / `None` assigned to a task-introduced field must be either registered under `## Follow-up Items` with a named successor task (`task NNN` or `pending/NNN-*`), or justified as permanent in `## Architecture Notes` / `## Goal` with explicit wording (`remains null`, `stays null`, `always null`, `permanently null`, `never populated`). Exit 1 = unhonoured deferral.
+- `architectural-invariants.sh` — enforces the 8 planner-task discipline triggers defined in `.claude/skills/shared/prompts/architectural-invariants-reference.md` (DRY/SRP/LABEL/BRAND/DIP/OCP/SCOPE/PERSIST). Missing required discipline bullets fail with exit 1.
 
-Wrapper exit 1 → **stop and tell the user.** Quote the wrapper output (which sub-gate fired, file, line, pattern/field, fix hint) so the user can decide whether to fix the task file or authorise execution despite the finding. Do not guess; do not paper over. A failing gate here means the planner's Pass 2 §C.5 gates were skipped or bypassed — the correct response is to flag it to the user, not to silently execute an ambiguous or under-specified task file.
+Wrapper exit 1 → **stop and tell the user.** Quote the wrapper output (which sub-gate fired, file, line, pattern/field, fix hint) so the user can decide whether to fix the task file, re-plan, or discard. Do not guess; do not paper over. Do not execute implementation steps after a failing preflight gate. A failing gate here means the planner's Pass 2 §C.5 gates were skipped or bypassed — the correct response is to flag it to the user, not to silently execute an ambiguous or under-specified task file.
 
-**Checkpoint enforcement.** `checkpoint-log.sh` refuses to accept `aic-task-executor setup-complete` unless a fresh `{"gate":"executor-preflight","status":"ok"}` record exists in `.aic/gate-log.jsonl` for this target within 30 minutes. Do not attempt to emit `setup-complete` without a passing wrapper run. Emergency bypass is `CHECKPOINT_ALLOW_NO_GATE=1` and leaves an audit trail in `skill-log.jsonl` — only use it when a documented reason blocks the wrapper (e.g. a CI replay of a historical task) and always cite the reason to the user first.
+**Checkpoint enforcement.** `checkpoint-log.sh` refuses to accept `aic-task-executor setup-complete` unless a fresh executor-preflight success record exists in `.aic/gate-log.jsonl` within 30 minutes (success rows include `ts`, `gate`, `target`, `status`). Enforcement has two modes:
+
+- **Task-scoped (preferred, task-correct):** export `CHECKPOINT_TASK_FILE=<abs-path-to-task-file>` before invoking `checkpoint-log.sh`. The script compares the exported path against the `target` field of the latest `executor-preflight` `status:"ok"` record; a preflight success for a _different_ task will not satisfy the gate even if it is within the 30-minute window. Always use this mode — it is the only mode that cannot be fooled by an unrelated preflight from a concurrent agent or an earlier task in the same session.
+- **Recency-only (back-compat):** if `CHECKPOINT_TASK_FILE` is unset, the script falls back to the legacy behaviour and accepts any recent `executor-preflight` success. This path exists only so pre-existing callers keep working; do not rely on it.
+
+Emergency bypass is `CHECKPOINT_ALLOW_NO_GATE=1`; checkpoint records still append normally and bypass warnings are emitted to stderr. Use bypass only when a documented reason blocks the wrapper (e.g. a CI replay of a historical task) and always cite the reason to the user first.
 
 **Read the Interface / Signature section** (or Wiring Specification for composition roots). For interface-implementing components: the exact interface (first code block), class declaration, constructor parameters, and method signatures (second code block). Return types including readonly modifiers. For composition roots: every concrete class constructor signature (from the wiring code block), every exported function signature, and every external library API (class names, import paths, method calls) — these are ground truth.
 
@@ -150,4 +165,15 @@ Unverifiable assumption → **stop and report**: (1) the claim, (2) what you che
 
 ---
 
-Phase complete. Read `SKILL-phase-3-implement.md` and execute it immediately.
+**Emit the setup-complete checkpoint now.** Run this exactly — substitute only `<abs-task-file-path>` (the task file you ran preflight against in §2; omit `CHECKPOINT_TASK_FILE` only for ad-hoc tasks with no task file, in which case the gate falls back to recency-only):
+
+```
+echo "CHECKPOINT: aic-task-executor/setup-complete — complete"
+CHECKPOINT_TASK_FILE=<abs-task-file-path> \
+  bash .claude/skills/shared/scripts/checkpoint-log.sh \
+  aic-task-executor setup-complete <worktree-dir-or-short-note>
+```
+
+A non-zero exit means the gate rejected the checkpoint — re-read the stderr message, rerun `executor-preflight.sh` for the current task if recency expired, and try again. Do not proceed to Phase 3 until this command exits 0.
+
+Phase 1 complete. Read `SKILL-phase-3-implement.md` and execute it immediately.

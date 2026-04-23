@@ -13,9 +13,10 @@ editors: all (Cursor Composer / Agent recommended for full fidelity)
 - **Outputs:** One task file at `documentation/tasks/NNN-<slug>.md` (ID assigned by you at §6). This skill finalizes directly to `documentation/tasks/`; moving to `pending/`, `drafts/`, or `done/` is a downstream filesystem operation handled by the user or the executor.
 - **Non-skippable steps:** Classify intent → Pass 1 (explore) → user gate → Pass 2 (write + mechanical review + verification subagents) → §6 finalize.
 - **Mechanical gates:**
-  `bash .claude/skills/shared/scripts/validate-exploration.sh <exploration-report>` — Pass 1 end.
-  `bash .claude/skills/shared/scripts/planner-gate.sh <task-file>` — Pass 2 end (single entry point that runs `ambiguity-scan.sh`, `validate-task.sh`, `deferral-probe.sh`, `architectural-invariants.sh`, and `followup-propagation-check.sh` in order, aborting on the first non-zero exit and writing pass/fail to `.aic/gate-log.jsonl`). `checkpoint-log.sh` rejects `task-finalized` unless `.aic/gate-log.jsonl` contains a `planner-gate` ok record for this task file within the last 30 minutes — no bypass without `CHECKPOINT_ALLOW_NO_GATE=1`.
-- **Checkpoint lines:** After each phase, emit one line `CHECKPOINT: aic-task-planner/<phase> — complete` and append to `.aic/skill-log.jsonl` via `bash .claude/skills/shared/scripts/checkpoint-log.sh aic-task-planner <phase> <artifact-path>`. A successful run emits one checkpoint per phase entry in the process-overview table.
+  - **Run:** `bash .claude/skills/shared/scripts/validate-exploration.sh <exploration-report>` at Pass 1 end; `bash .claude/skills/shared/scripts/planner-gate.sh <task-file>` at Pass 2 end. `planner-gate.sh` is the single entry point — it runs every sub-gate in parallel and writes a `{"gate":"planner-gate"}` record to `.aic/gate-log.jsonl`. Sub-gates and their specific failure modes live in `SKILL-phase-3-write.md §C.5`.
+  - **Enforces:** `checkpoint-log.sh` rejects `task-finalized` unless `.aic/gate-log.jsonl` contains a `planner-gate` ok record for this task file within the last 30 minutes. Always export `CHECKPOINT_TASK_FILE=<abs-task-file>` on the `task-finalized` emission so the gate matches the specific target (not just any recent success) — see `SKILL-phase-3-write.md §6 step 7`.
+  - **Bypass:** `CHECKPOINT_ALLOW_NO_GATE=1` (emergency only; leaves an audit trail in `skill-log.jsonl`).
+- **Checkpoint lines:** After each phase, emit one line `CHECKPOINT: aic-task-planner/<phase> — complete` and append to `.aic/skill-log.jsonl` via `bash .claude/skills/shared/scripts/checkpoint-log.sh aic-task-planner <phase> <artifact-path>`. A successful run emits one checkpoint per phase entry in the process-overview table. The `task-finalized` emission MUST be made with `CHECKPOINT_TASK_FILE=<abs-task-file>` exported so the `planner-gate` match is task-scoped, not recency-only (HARD RULE for finalization; concurrent-agent / replanning safety).
 - **Subagent mode:** Recipe classification (HARD RULE 11) and Pass 2 verification (§C.5b–d) both dispatch subagents. See §Subagent dispatch below. Documentation recipe additionally dispatches parallel explorers/critics per `SKILL-recipes.md`.
 
 ## Severity vocabulary (only two tiers)
@@ -32,12 +33,26 @@ No other severity tiers. Do not invent a tier named "CRITICAL", "Cardinal Rule",
 3. Every file in the Files table is mandatory (no "optional" / "may add").
 4. **For code-component tasks** (adapter, storage, pipeline transformer, composition root, fix/patch with signature change, general-purpose with new class or function): every class and function has a TypeScript code block in Interface/Signature. Never describe a signature in prose. Documentation and release-pipeline recipes replace Interface/Signature per `SKILL-recipes.md` and are exempt.
 5. **For code-component tasks** (same scope as rule 4): exactly one interface + one implementation in Interface/Signature. Never "Option A / Option B". Recipe-specific section replacements (Change Specification, Publish specification, Behavior Change) have their own structure defined in `SKILL-recipes.md`.
-6. One file per step. Max two methods per step. Max ten files per task — split into multiple tasks otherwise.
+6. One file per step. Max two methods per step. Max ten files per task — split into multiple tasks otherwise. Mechanical check AT caps the Files-table row count at 10. Mechanical check AU caps per-step distinct source paths at 1 and per-step distinct `line N` anchors at 3 (fail at 4+ anchors). Violating either is an automatic `planner-gate` fail — no inline override; split the task.
 7. Recipe fit required. Every task matches a recipe in `SKILL-recipes.md` or the general-purpose recipe. No improvised structures.
 8. Never guess a library API or a wire format. Verify against `.d.ts` or official docs.
 9. No `eslint-disable`, `@ts-ignore`, `@ts-nocheck`, `--no-verify`. If a rule fires, fix the code.
 10. Before writing the task file, read the matching canonical example under `examples/` (`adapter-task-example.md`, `fix-patch-task-example.md`, …) and imitate its structure — section order, label vocabulary, acceptance-criteria style. See `.claude/skills/shared/examples/README.md`.
-11. Recipe classification is a routed decision — dispatch it via a subagent rendered from `.claude/skills/shared/prompts/ask-stronger-model.md` with the strongest available model. See `.claude/skills/shared/SKILL-routing.md`. Do not classify the recipe inline in the orchestrator.
+11. Recipe classification uses a **two-tier fast path**. Only the **ambiguous tier** routes to a stronger-model subagent; the **trivial tier** is decided inline in the orchestrator with a single structural predicate per branch. Record the tier taken and the evidence in the exploration log under `RECIPE`.
+
+    **Trivial tier (inline — single-predicate structural match required):**
+    - `adapter` — component is placed under `shared/src/adapters/**` AND the Interface/Signature wraps an external npm library behind a `core/interfaces/*.interface.ts` contract.
+    - `storage` — component is placed under `shared/src/storage/**` AND the class signature accepts `ExecutableDb` (or `Database`) AND the file name ends `-store.ts` or matches `*Store`.
+    - `pipeline transformer` — component is placed under `shared/src/pipeline/**` AND the class implements the `ContentTransformer` interface.
+    - `documentation` — every `Create`/`Modify` row is a `.md` file.
+    - `release-pipeline` — every `Create`/`Modify` row is in `integrations/**`, `mcp/scripts/bundle-*`, or is a top-level package manifest field (`files`, `bin`, `publishConfig`).
+
+    A match requires the stated predicate to hold byte-for-byte against the planned Files table and target directory; do NOT approximate. If the predicate holds, pick the recipe inline, record the one-line evidence, and skip the routed subagent.
+
+    **Ambiguous tier (routed — dispatch stronger-model subagent):** everything else — composition root vs general-purpose, fix-patch border cases, benchmark vs general-purpose, first-of-kind with novel placement, any multi-tier touch (e.g. partial adapter + partial pipeline), or anything the trivial-tier predicates cannot cleanly match. Dispatch a subagent rendered from `.claude/skills/shared/prompts/ask-stronger-model.md` with the strongest available model, pass it the full decision tree from `SKILL-phase-2-explore.md §A.1` item 5, and consume the routed verdict. See `.claude/skills/shared/SKILL-routing.md`.
+
+    Never improvise outside a recipe in either tier. When in doubt between trivial and ambiguous, pick ambiguous — a routing call is cheap, a misclassification is expensive.
+
 12. **Source citation fidelity.** Every `Source:` line in the Exploration Report, every verbatim-quoted code/schema block in the task file, AND every backtick-quoted path in the `## Files` table with Action = Modify/Verify/Delete/Replace/Rename must cite a path that exists on disk and content that appears in the cited file byte-for-byte. Mechanical check AN (`SKILL-phase-3-write.md §C.5`) covers `Source:` lines and AN-lite covers task-body `Source:` citations; AN-table (in `validate-task.sh`) covers the Files table. All three must run and pass before any other mechanical check that reads cited content. Hallucinated citations invalidate every downstream check that trusted them. Closes the drift observed in task 333 where the Files table cited `mcp/src/server.test.ts` (not on disk) while the real path `mcp/src/__tests__/server.test.ts` appeared only in the Tests section — the AN-lite check passed because no `Source:` line carried the wrong path.
 13. **Existing-symbol signature fidelity.** When the task's Interface/Signature redeclares an existing exported symbol, the declared signature must match the source file byte-for-byte unless the task includes an explicit `**Signature change:**` block showing `before:`/`after:`. Mechanical check AG.
 14. **Change Specification round-trip.** Every `Change Specification` block's `Required change` directive must, when applied to `Current text`, produce `Target text` without contradiction. Mechanical check AH.
@@ -55,7 +70,7 @@ No other severity tiers. Do not invent a tier named "CRITICAL", "Cardinal Rule",
     - Single backtick-quoted identifier rename inside running prose.
     - A single-line footnote or callout addition.
       Anything beyond that — adding a section, inserting a fenced code block, capturing CLI output into the doc, authoring prose that must match sibling-section style, or editing 3+ non-contiguous lines in the same document — must be deferred to `## Follow-up Items` with `aic-documentation-writer` named as the successor skill, OR justified as inline via a `**Documentation routing:**` bullet in `## Architecture Notes` (e.g., "inline because the change is a 1-line default copy update that does not require style matching"). Enforced by `validate-task.sh` check AR: if any Step contains `capture stdout`, `#### ` insertion language, `fenced sample` phrasing, `insert ... into README`, or `append ... section ... .md`, the check fires unless the task mentions `aic-documentation-writer` anywhere or carries the `**Documentation routing:**` bullet. Closes the drift observed in task 333 where a 15-line README sample insertion was bundled into a code task without routing to the documentation specialist — discovered only by human validation of the generated task file.
-25. **Behavior-change test-surface simulation.** When any Modify row changes the observable behavior of an existing function (not merely adds a new symbol, export, or type), every test file that imports the modified symbol — unit tests, integration tests, golden snapshots, selection benchmarks, fixture-driven runners — must be simulated against the new behavior before the task ships. This is done in Phase 2 sub-step 17c `FIXTURE SIMULATION` and enforced by Phase 3 mechanical check AS. Each fixture resolves to exactly one classification: (a) `UNCHANGED` — existing assertion still passes; (b) `ASSERTION FLIPS` — the assertion or expected output changes, so the test file becomes a Files table Modify row with the specific assertion delta described in its Steps; (c) `AUTO-RATCHET` — a baseline/golden file (e.g. `test/benchmarks/baseline.json`, integration snapshot) whose content is expected to regenerate mechanically, which must be declared under an `**Auto-ratcheting artifacts:**` bullet in Architecture Notes listing every such path. The executor's `aic-task-executor` `SKILL-phase-5-finalize.md` §5c Step 2 whitelist only auto-stages baselines listed in that bullet — any other baseline dirty in the worktree is a Blocked diagnostic for the executor. Missing fixture simulation is the single most common cause of executor Scope-tripwire fires (§3 step 6 in the executor). Closes the drift observed in task 342 (BF02) where the new zero-semantic-signal floor required edits to `heuristic-selector.test.ts` existing fixtures, three integration `defaultRulePack` helpers, and `test/benchmarks/expected-selection/1.json` — all predictable by simulation, none listed in the Files table, all discovered at execute time.
+25. **Behavior-change test-surface simulation.** When any Modify row changes the observable behavior of an existing function (not merely adds a new symbol, export, or type), every test file that imports the modified symbol — unit tests, integration tests, golden snapshots, selection benchmarks, fixture-driven runners — must be simulated against the new behavior before the task ships. This is done in Phase 2 sub-step 17c `FIXTURE SIMULATION` and enforced by two Phase 3 mechanical checks: **AS** (validates the Exploration Report's `FIXTURE SIMULATION` field end-to-end) and **AV** (task-file-inferred backstop that catches the case where 17c was skipped entirely — for every `Modify` row whose sibling `__tests__/<basename>.test.ts` exists on disk, the test path must appear somewhere in the task file). Each fixture resolves to exactly one classification: (a) `UNCHANGED` — existing assertion still passes; (b) `ASSERTION FLIPS` — the assertion or expected output changes, so the test file becomes a Files table Modify row with the specific assertion delta described in its Steps; (c) `AUTO-RATCHET` — a baseline/golden file (e.g. `test/benchmarks/baseline.json`, integration snapshot) whose content is expected to regenerate mechanically, which must be declared under an `**Auto-ratcheting artifacts:**` bullet in Architecture Notes listing every such path. The executor's `aic-task-executor` `SKILL-phase-5-finalize.md` §5c Step 2 whitelist only auto-stages baselines listed in that bullet — any other baseline dirty in the worktree is a Blocked diagnostic for the executor. Missing fixture simulation is the single most common cause of executor Scope-tripwire fires (§3 step 6 in the executor). Closes the drift observed in task 342 (BF02) where the new zero-semantic-signal floor required edits to `heuristic-selector.test.ts` existing fixtures, three integration `defaultRulePack` helpers, and `test/benchmarks/expected-selection/1.json` — all predictable by simulation, none listed in the Files table, all discovered at execute time. Also closes the drift observed in task 347 where four production files (`compilation-runner.ts`, `run-pipeline-steps.ts`, `handlers/compile-handler.ts`, `cli-diagnostics.ts`) each had a sibling test on disk and none were in the Files table — AV now fires mechanically on this shape.
 26. **Architectural invariants (DRY / SOLID / branded types / label alignment).** `architectural-invariants.sh` (wrapped by `planner-gate.sh`) enforces 8 defect-class triggers. The authoritative list of triggers, required bullets, and exemption grammar lives in `.claude/skills/shared/prompts/architectural-invariants-reference.md`. Read that file before you write the task; it is the single source of truth. When a trigger fires, the named bullet must appear anywhere in the task file matching `^(-[[:space:]]+)?\*\*<Name>:\*\*` — the script accepts `## Architecture Notes`, `## Steps`, a `## Files` row description cell, or `## Goal`.
 
     **Mechanical critic dispatch — no LLM decision.** After `planner-gate.sh` runs, read the latest `"gate":"architectural-invariants"` record in `.aic/gate-log.jsonl`. If `"critic_required": true`, the C.5b independent-verification subagent MUST render `.claude/skills/shared/prompts/critic-measurement-consistency.md` as a critic prompt. If `false`, MUST NOT. No other input influences this choice. The critic's HARD findings block `task-finalized` the same way other `C.5b` findings do.
@@ -77,6 +92,8 @@ Between user gates you run continuously: do not pause to ask "should I continue?
 2. **Phase 2 — Pass 1 complete** (`SKILL-phase-2-explore.md §A.5`): user reviews exploration decisions and says "proceed".
 3. **Phase 2 — scope tiers** (`SKILL-phase-2-explore.md §A.4c`, conditional): when exploration finds out-of-scope issues, present Minimal / Recommended / Comprehensive tiers and wait for the user's pick.
 4. **Blocker** — any exploration field marked `NOT VERIFIED — BLOCKER`, any LAYER BLOCKER = YES, any unresolved ambiguity, or the task cannot proceed without user input.
+
+Phase 7 is a **separate user-triggered entry point**, not a stage of the planning flow. It runs only when the user's request names existing task file(s) to review (phrasing like "review task 008", "review tasks", "review all tasks"). Phase 7 is skipped whenever the user request is to plan a new task, and it never runs automatically after §6 finalize. A planning run therefore never emits `self-review-complete`.
 
 There is **no user gate after Pass 2**. Once §C.5/§C.5b/§C.5c/§C.5d all PASS, §6 finalize runs immediately — task file is placed, worktree removed, announcement printed — without asking. Everything else runs through without intermediate questions.
 
@@ -105,21 +122,67 @@ There is **no user gate after Pass 2**. Once §C.5/§C.5b/§C.5c/§C.5d all PASS
 - `recipes/<recipe>.md` — recipe matching the task's component type.
 - `SKILL-guardrails.md` — guardrail reference applied during Pass 2.
 
+## Weak-model runbook (deterministic path)
+
+Follow this sequence exactly. Do not reorder.
+
+1. Read `SKILL-phase-0-setup.md` and execute it.
+2. Read `SKILL-phase-1-recommend.md` and execute it until the user picks.
+3. Read `SKILL-phase-2-explore.md` and execute Pass 1.
+4. Run `bash .claude/skills/shared/scripts/validate-exploration.sh <exploration-report>`.
+5. Emit checkpoint `exploration-complete` through `checkpoint-log.sh`.
+6. Wait for user "proceed" gate when Phase 2 requires it.
+7. Read `SKILL-phase-3-write.md` and execute Pass 2.
+8. Run `bash .claude/skills/shared/scripts/planner-gate.sh <task-file>`.
+9. Dispatch C.5b/C.5c/(C.5d if triggered) in one parallel batch.
+10. If all checks pass, execute §6 finalize immediately (no extra user gate).
+11. Emit checkpoint `task-finalized` through `checkpoint-log.sh`.
+
+If any check fails, fix the root cause, rerun the failed check/stage, and continue. Do not skip or mark failing checks `N/A`.
+
+## Canonical paths (copy exactly)
+
+- Rule file: `.cursor/rules/aic-architect.mdc`
+- Skill root: `.claude/skills/aic-task-planner/`
+- Shared scripts: `.claude/skills/shared/scripts/`
+- Gate wrapper: `.claude/skills/shared/scripts/planner-gate.sh`
+- Exploration gate: `.claude/skills/shared/scripts/validate-exploration.sh`
+- Checkpoint logger: `.claude/skills/shared/scripts/checkpoint-log.sh`
+- Gate log: `.aic/gate-log.jsonl`
+- Skill log: `.aic/skill-log.jsonl`
+- Output task path: `documentation/tasks/NNN-<slug>.md`
+
+## Failure triage map (script -> next action)
+
+- `validate-exploration.sh` fails -> fix the Exploration Report fields it names, rerun `validate-exploration.sh`, then continue.
+- `planner-gate.sh` fails -> read each failed gate block, fix all reported issues, rerun `planner-gate.sh` (not individual scripts for final pass).
+- `ambiguity-scan.sh` fails -> replace ambiguous wording with literal, testable instructions.
+- `validate-task.sh` fails -> fix section structure, path references, and check-specific findings (AL/AK/AP/AN-lite/AN-table/AR/AT/AU/AV).
+- `deferral-probe.sh` fails -> add named successor in `## Follow-up Items` or permanent-value justification in `## Architecture Notes` / `## Goal`.
+- `architectural-invariants.sh` fails -> add required `**<Name>:**` bullet(s) exactly as requested, rerun gate.
+- `followup-propagation-check.sh` fails -> mention each advertised successor field somewhere in the current task file.
+- `checkpoint-log.sh` rejects checkpoint -> satisfy missing gate record or minimum-gap timing, then re-emit checkpoint.
+
+AR namespace reminder for failure reading:
+
+- `AR` in `validate-task.sh` = documentation routing.
+- `AR` in `SKILL-phase-3-write.md` rubric = successor-contract closure.
+
 ## Process overview (phase dispatch)
 
 Phases live in separate files. Read the next phase file in full before executing it; do not summarise.
 
-| Phase                                    | File                         | Exits with checkpoint  |
-| ---------------------------------------- | ---------------------------- | ---------------------- |
-| 0. Setup + template read                 | `SKILL-phase-0-setup.md`     | `setup-complete`       |
-| 1. Recommend next task + user pick       | `SKILL-phase-1-recommend.md` | `task-picked`          |
-| 2. Pass 1 — Explore + Decide + user gate | `SKILL-phase-2-explore.md`   | `exploration-complete` |
-| 3. Pass 2 — Write + Verify + §6 finalize | `SKILL-phase-3-write.md`     | `task-finalized`       |
-| 7. Self-review (optional post-finalize)  | `SKILL-phase-7-review.md`    | `self-review-complete` |
-| — Guardrails reference                   | `SKILL-guardrails.md`        | —                      |
-| — Recipes reference                      | `SKILL-recipes.md`           | —                      |
+| Phase                                              | File                         | Exits with checkpoint  |
+| -------------------------------------------------- | ---------------------------- | ---------------------- |
+| 0. Setup + template read                           | `SKILL-phase-0-setup.md`     | `setup-complete`       |
+| 1. Recommend next task + user pick                 | `SKILL-phase-1-recommend.md` | `task-picked`          |
+| 2. Pass 1 — Explore + Decide + user gate           | `SKILL-phase-2-explore.md`   | `exploration-complete` |
+| 3. Pass 2 — Write + Verify + §6 finalize           | `SKILL-phase-3-write.md`     | `task-finalized`       |
+| 7. Review existing task(s) (user "review" request) | `SKILL-phase-7-review.md`    | `self-review-complete` |
+| — Guardrails reference                             | `SKILL-guardrails.md`        | —                      |
+| — Recipes reference                                | `SKILL-recipes.md`           | —                      |
 
-At every phase exit, emit the checkpoint line and call `checkpoint-log.sh`. A successful run emits four checkpoints (`setup-complete`, `task-picked`, `exploration-complete`, `task-finalized`) plus `self-review-complete` if Phase 7 runs.
+At every phase exit, emit the checkpoint line and call `checkpoint-log.sh`. A successful planning run emits exactly four checkpoints (`setup-complete`, `task-picked`, `exploration-complete`, `task-finalized`) and `self-review-complete` MUST be absent. A successful review run (entered via a user "review task NNN" / "review tasks" request — see `SKILL-phase-7-review.md`) emits exactly `self-review-complete`; the other four MUST be absent. The two entry points never interleave in one run.
 
 **Phase-gate wall-clock enforcement.** `checkpoint-log.sh` now rejects with exit code 3 if `aic-task-planner` emits `exploration-complete` within 5 seconds of the last `task-picked`, or `task-finalized` within 5 seconds of the last `exploration-complete`, or `task-picked` within 1 second of the last `setup-complete`. This prevents the previously-observed failure mode where all four checkpoints were batched at run end and the independent-verification subagents that are supposed to run _between_ gates never actually ran. If a checkpoint is rejected, do not re-run with `CHECKPOINT_ALLOW_RAPID=1` unless the run is a documented test or replay — the correct fix is to run the gate's real work (grep sweeps, subagent dispatch, self-review) before emitting.
 
@@ -127,8 +190,8 @@ At every phase exit, emit the checkpoint line and call `checkpoint-log.sh`. A su
 
 This skill dispatches subagents in three places:
 
-1. **HARD RULE 11 — recipe classification** (`SKILL-phase-2-explore.md §A.1` item 5): always routed via `.claude/skills/shared/prompts/ask-stronger-model.md` with the strongest available model. The decision-tree branches documented inline in §A.1 item 5 define the candidate recipes; the routed subagent returns the selected recipe + evidence. Do not walk the tree inline in the orchestrator. See `.claude/skills/shared/SKILL-routing.md`.
-2. **Pass 2 verification** (`SKILL-phase-3-write.md §C.5b–§C.5d`): `generalPurpose` subagents perform independent cross-check, convention probes, and adversarial re-planning.
+1. **HARD RULE 11 — recipe classification** (`SKILL-phase-2-explore.md §A.1` item 5): two-tier fast path. **Trivial tier** — inline predicate match for `adapter`, `storage`, `pipeline transformer`, `documentation`, `release-pipeline`; no subagent dispatched. **Ambiguous tier** — routed via `.claude/skills/shared/prompts/ask-stronger-model.md` with the strongest available model when no trivial predicate matches cleanly. Record `RECIPE_TIER: trivial|routed` and one-line evidence in the exploration log. See `.claude/skills/shared/SKILL-routing.md` and the HARD RULE 11 block in `## HARD RULES`.
+2. **Pass 2 verification** (`SKILL-phase-3-write.md §C.5b–§C.5d`): `generalPurpose` subagents perform independent cross-check, convention probes, and adversarial re-planning. **Dispatched in a single parallel batch** (one message, multiple `Task` tool calls) — their inputs are independently designed to be disjoint (C.5b gets exploration report, C.5c does not, C.5d does not read task file). Serial dispatch is a regression.
 3. **Documentation recipe** (`SKILL-recipes.md`): parallel explorers and critics per the documentation recipe's pipeline.
 
 No other phase dispatches subagents. All other work is sequential in the orchestrator.
@@ -144,14 +207,14 @@ No other phase dispatches subagents. All other work is sequential in the orchest
 
 - [ ] Task file ID assigned (NNN), placed at `documentation/tasks/NNN-<slug>.md`.
 - [ ] `validate-exploration.sh` passes on the exploration report — scripted coverage: mandatory sections incl. `SIBLING QUORUM`, `PREDECESSOR CONTRACTS`, `UNIT CONTRACT`; placeholders unfilled; `METHOD BEHAVIORS` definitive; `Source:` paths resolve on disk (AN).
-- [ ] `planner-gate.sh` passes on the task file — single wrapper that runs `ambiguity-scan.sh`, `validate-task.sh`, `deferral-probe.sh`, `architectural-invariants.sh`, and `followup-propagation-check.sh` in order and writes the success record `checkpoint-log.sh` requires before accepting `task-finalized`. Covers:
-  - `validate-task.sh`: empty parens, trailing prepositions, internal codes (Phase X / AK01 / /AB; `Task N` allowed), sections present, `Option A/B` banned, dual-anchor line references (AL), prerequisite graph (AP), SECTION EDIT resolution (AK), Unit contract when unit-hint slots appear (AJ), `Source:` paths resolve on disk (AN-lite), Files-table paths resolve on disk for Modify/Verify/Delete/Replace/Rename rows (AN-table, HARD RULE 12), documentation routing for multi-line doc changes (AR, HARD RULE 24).
+- [ ] `planner-gate.sh` passes on the task file — single wrapper that runs `ambiguity-scan.sh`, `validate-task.sh`, `deferral-probe.sh`, `architectural-invariants.sh`, and `followup-propagation-check.sh` in parallel and writes the success record `checkpoint-log.sh` requires before accepting `task-finalized`. Covers:
+  - `validate-task.sh`: empty parens, trailing prepositions, internal codes (Phase X / AK01 / /AB; `Task N` allowed), sections present, `Option A/B` banned, dual-anchor line references (AL), prerequisite graph (AP), SECTION EDIT resolution (AK), Unit contract when unit-hint slots appear (AJ), `Source:` paths resolve on disk (AN-lite), Files-table paths resolve on disk for Modify/Verify/Delete/Replace/Rename rows (AN-table, HARD RULE 12), documentation routing for multi-line doc changes (AR in `validate-task.sh`, HARD RULE 24), Files-table row cap ≤10 (AT, HARD RULE 6), per-step complexity cap — 1 distinct file path and <4 distinct line anchors (AU, HARD RULE 6), sibling-test coverage for every Modify row whose `<dir>/__tests__/<basename>.test.ts` exists on disk (AV, HARD RULE 25 backstop).
   - `ambiguity-scan.sh`: hedging, delegation, and plan-failure phrase enforcement (Cat 1–8 + P).
   - `deferral-probe.sh`: every hardcoded `null`/`false`/`0`/`""`/`''`/`[]`/`undefined`/`None` assignment to a task-introduced field is either registered under `## Follow-up Items` with a named successor task, or justified as permanent in `## Architecture Notes` / `## Goal` (check AQ).
   - `architectural-invariants.sh`: DRY-01 constants-reuse probe, SRP-01 display-layer compute, LABEL-01 formatter label-formula alignment, BRAND-01 branded-type invariant cite, DIP-01 `new X()` outside composition root, OCP-01 pipeline class modification, SCOPE-01 storage query scope, PERSIST-01 persisted/displayed metric parity (HARD RULE 26).
-  - `followup-propagation-check.sh`: every field advertised against this task by another task's `## Follow-up Items` is addressed somewhere in the task file (HARD RULE 23).
+  - `followup-propagation-check.sh`: every field advertised against this task by another task's `## Follow-up Items` is addressed somewhere in the task file (successor-contract closure; AR in `SKILL-phase-3-write.md`; HARD RULE 23).
 - [ ] Checks that are NOT script-enforced but are subagent/prose-enforced (§C.5b–d): AG existing-symbol signature fidelity, AH Change Specification round-trip, AI intra-bullet assignment consistency, AM goal-to-acceptance traceability, AO exploration-to-task coverage, plus pattern-claim verification and predecessor-contract probe.
-- [ ] Four checkpoint lines emitted (`setup-complete`, `task-picked`, `exploration-complete`, `task-finalized`).
+- [ ] Checkpoint lines match the entry point: a planning run emits exactly four (`setup-complete`, `task-picked`, `exploration-complete`, `task-finalized`) with `self-review-complete` absent; a review run (entered via a user "review task(s)" request) emits exactly `self-review-complete` with the other four absent.
 - [ ] `.aic/skill-log.jsonl` contains the matching entries.
 - [ ] Circuit breaker counters reset only after the task ships — no check was silently marked `N/A` to bypass verification (HARD RULE 21 / `SKILL-phase-3-write.md §C.6`).
 - [ ] Worktree + branch removed via `bash .claude/skills/shared/scripts/cleanup-worktree.sh remove <main>/.git-worktrees/plan-$EPOCH` (exit 0 required) and final `cleanup-worktree.sh sweep` reports 0 orphan directories (see `SKILL-phase-3-write.md §6`).

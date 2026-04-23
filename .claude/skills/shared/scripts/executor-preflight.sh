@@ -34,28 +34,57 @@ TS=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
 
 ABS_TARGET="$(cd "$(dirname "$TARGET")" && pwd)/$(basename "$TARGET")"
 
-run_gate() {
-  local name="$1"; shift
-  local out rc
-  set +e
-  out="$("$@" 2>&1)"
-  rc=$?
-  set -e
-  if [[ $rc -ne 0 ]]; then
-    echo "--- executor-preflight: $name FAILED (exit $rc) ---"
-    echo "$out"
-    echo "--- end $name ---"
-    return 1
-  fi
-  echo "executor-preflight: $name ok"
-  return 0
-}
+# Gates run in parallel (all independent readers; none share state except the
+# trailing JSONL write, which happens serially after wait). Ordered stdout is
+# preserved by capturing per-gate output to tempfiles and emitting them in the
+# declared order after every job has completed.
+
+TMPDIR_GATE="$(mktemp -d -t executor-preflight.XXXXXX)"
+trap 'rm -rf "$TMPDIR_GATE"' EXIT
+
+GATES=(
+  "ambiguity-scan:$SCRIPT_DIR/ambiguity-scan.sh"
+  "deferral-probe:$SCRIPT_DIR/deferral-probe.sh"
+  "architectural-invariants:$SCRIPT_DIR/architectural-invariants.sh"
+)
+
+PIDS=()
+NAMES=()
+for spec in "${GATES[@]}"; do
+  name="${spec%%:*}"
+  script="${spec#*:}"
+  out="$TMPDIR_GATE/$name.out"
+  rcf="$TMPDIR_GATE/$name.rc"
+  (
+    set +e
+    bash "$script" "$TARGET" >"$out" 2>&1
+    echo $? >"$rcf"
+  ) &
+  PIDS+=("$!")
+  NAMES+=("$name")
+done
+
+for pid in "${PIDS[@]}"; do
+  wait "$pid" || true
+done
 
 FAILED=""
-
-run_gate "ambiguity-scan"           bash "$SCRIPT_DIR/ambiguity-scan.sh"           "$TARGET" || FAILED="${FAILED}ambiguity-scan "
-run_gate "deferral-probe"           bash "$SCRIPT_DIR/deferral-probe.sh"           "$TARGET" || FAILED="${FAILED}deferral-probe "
-run_gate "architectural-invariants" bash "$SCRIPT_DIR/architectural-invariants.sh" "$TARGET" || FAILED="${FAILED}architectural-invariants "
+for name in "${NAMES[@]}"; do
+  out="$TMPDIR_GATE/$name.out"
+  rcf="$TMPDIR_GATE/$name.rc"
+  rc=1
+  if [[ -f "$rcf" ]]; then
+    rc=$(cat "$rcf")
+  fi
+  if [[ "$rc" -ne 0 ]]; then
+    echo "--- executor-preflight: $name FAILED (exit $rc) ---"
+    [[ -f "$out" ]] && cat "$out"
+    echo "--- end $name ---"
+    FAILED="${FAILED}${name} "
+  else
+    echo "executor-preflight: $name ok"
+  fi
+done
 
 ART=$(printf '%s' "$ABS_TARGET" | sed 's/\\/\\\\/g; s/"/\\"/g')
 

@@ -13,7 +13,7 @@ editors: all
 - **Outputs:** Updated `documentation/tasks/progress/aic-progress.md` (gitignored; per-operator).
 - **Non-skippable steps:** Read task file → update component tables → append daily-log line → refresh phase header metrics.
 - **Mechanical gates:** None scriptable (progress file is free-form). Use the reply contract below as a soft gate.
-- **Checkpoint lines:** `CHECKPOINT: aic-update-progress/complete` + `checkpoint-log.sh`.
+- **Checkpoint lines:** emit per phase; `checkpoint-log.sh`.
 - **Degraded mode:** Sequential, single-agent. No subagents.
 
 ## Severity vocabulary (only two tiers)

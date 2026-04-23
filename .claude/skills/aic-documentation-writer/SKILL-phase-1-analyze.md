@@ -13,7 +13,7 @@ Before spawning explorers, read in one parallel batch:
 - `SKILL-policies.md` (editorial content policies)
 - `../shared/SKILL-investigation.md` (runtime evidence checklist and codebase investigation depth — inject relevant content into Explorer 1 and Critic 2 prompts for runtime behavior claims)
 
-### 1b. Spawn 4 explorers in parallel (MANDATORY — Cardinal Rule 0)
+### 1b. Spawn 4 explorers in parallel (MANDATORY — HARD RULE 1)
 
 **You MUST make 4 Task tool calls here.** Build each explorer's prompt from the templates in `SKILL-dimensions.md`. Each explorer receives: the target document path, sibling document paths, and its specific investigation mandate. Do NOT skip this step or attempt to perform the exploration yourself.
 

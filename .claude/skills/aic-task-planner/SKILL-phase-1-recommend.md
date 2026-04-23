@@ -6,7 +6,7 @@
 - `documentation/project-plan.md`
 - `documentation/implementation-spec.md`
 - `documentation/security.md`
-- `.cursor/rules/AIC-architect.mdc`
+- `.cursor/rules/aic-architect.mdc`
 - `shared/package.json`
 - `eslint.config.mjs`
 - `SKILL-recipes.md` (this file's sibling — static reference)
@@ -50,5 +50,17 @@ If the user picks a component — either from the alternatives list or by naming
 Wait for confirmation. If the user confirms their pick, proceed to Pass 1 with that component.
 
 ---
+
+## Emit the `task-picked` checkpoint
+
+Run this exactly after the user has picked a component — substitute the picked component name (kebab-case, e.g. `quality-snapshot-store`):
+
+```
+echo "CHECKPOINT: aic-task-planner/task-picked — complete"
+bash .claude/skills/shared/scripts/checkpoint-log.sh \
+  aic-task-planner task-picked <component-name>
+```
+
+`checkpoint-log.sh` rejects this emission with exit 3 if fewer than 1 second has elapsed since the last `setup-complete`. Do not batch — emit `setup-complete` when §0 finishes, and emit `task-picked` only after the user has actually confirmed a pick.
 
 **Phase complete.** Read `SKILL-phase-2-explore.md` and execute it immediately.

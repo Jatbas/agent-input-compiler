@@ -223,7 +223,7 @@ When a topic is already covered by a dedicated document in `documentation/` or a
 - **Partial coverage by sibling:** Write only the aspects specific to the target document's context. For everything the sibling already covers, link to it: `[Document Title](relative-path-to-document.md) covers [X and Y]. This document addresses [Z] specifically for [context].`
 - **No sibling exists:** Write the full content as normal.
 
-This is mandatory (Cardinal Rule 5). Duplicated content across documents is the primary source of cross-document inconsistency — when one copy is updated, the other drifts. A link ensures a single source of truth.
+This is mandatory (HARD RULE 6). Duplicated content across documents is the primary source of cross-document inconsistency — when one copy is updated, the other drifts. A link ensures a single source of truth.
 
 ---
 

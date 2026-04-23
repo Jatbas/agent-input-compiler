@@ -16,9 +16,26 @@ Complete every item. Two batches minimize sequential tool-call rounds.
 2. **Read target database schema + normalization analysis** — if component touches a table, read migration file, record exact columns. Verify 1NF (no multi-value columns), 2NF (full composite PK dependency), 3NF (no transitive deps → lookup tables), no redundant derivable columns. Record in NORMALIZATION ANALYSIS. Violations in existing schema → flag as prerequisite fix or justified exception.
 3. **Check existing files** — Glob every file the recipe pattern would create. Record EXISTS / DOES NOT EXIST.
 4. **Verify every external library API** — read installed `.d.ts` under `node_modules/`, record exact class names, constructor signatures, method signatures, import paths. If not installed, search the web.
-5. **Check recipe fit (HARD RULE 11 — routed subagent, not inline)** — dispatch a subagent rendered from `.claude/skills/shared/prompts/ask-stronger-model.md` with the strongest available model. Pass the subagent the component description, its target package, the interface/signature snippet, and the decision tree below. The subagent returns `{ recipe: <name>, evidence: <one-sentence why> }`. Do not walk the tree in the orchestrator yourself; the orchestrator's role is to hand off the tree as input and consume the routed verdict.
+5. **Check recipe fit (HARD RULE 11 — two-tier fast path)** — first attempt the **trivial tier** (inline); only fall through to the **ambiguous tier** (routed subagent) when no trivial predicate matches byte-for-byte.
 
-   Decision tree (top-to-bottom, stop at first YES, each branch answered with evidence):
+   **Trivial tier — decide inline using exactly one predicate per branch.** If the predicate holds against the planned Files table and target directory, pick the recipe and skip the routed subagent. Do NOT approximate; a partial match falls through to the ambiguous tier.
+   - `adapter` — every source file is under `shared/src/adapters/**` AND the Interface/Signature wraps an external npm library behind a `core/interfaces/*.interface.ts` contract.
+   - `storage` — every source file is under `shared/src/storage/**` AND the class signature accepts `ExecutableDb` (or `Database`) AND the file name matches `*-store.ts` or `*Store`.
+   - `pipeline transformer` — every source file is under `shared/src/pipeline/**` AND the class implements `ContentTransformer`.
+   - `documentation` — every `Create`/`Modify` row is a `.md` file.
+   - `release-pipeline` — every `Create`/`Modify` row is in `integrations/**`, `mcp/scripts/bundle-*`, or a top-level package manifest field (`files`, `bin`, `publishConfig`).
+
+   On a trivial-tier match, record in the exploration log:
+
+   ```
+   RECIPE: <name>
+   RECIPE_TIER: trivial
+   RECIPE_EVIDENCE: <one-sentence predicate-match citation, e.g. "all rows under shared/src/storage/** and class takes ExecutableDb at line N">
+   ```
+
+   **Ambiguous tier — routed subagent.** When no trivial predicate matches, or the component spans multiple tiers (partial adapter + partial pipeline, first-of-kind at a novel path, borderline fix-patch vs new component, composition root vs general-purpose, benchmark vs general-purpose, etc.), dispatch a subagent rendered from `.claude/skills/shared/prompts/ask-stronger-model.md` with the strongest available model. Pass the subagent the component description, its target package, the interface/signature snippet, and the decision tree below. The subagent returns `{ recipe: <name>, evidence: <one-sentence why> }`.
+
+   Decision tree for the routed subagent (top-to-bottom, stop at first YES, each branch answered with evidence):
    - Bug/broken pattern without new component? → **fix/patch** (sub-check: if fix needs new class, use that recipe + fix items)
    - Wraps external library behind core interface? → **adapter**
    - Implements `*Store` + SQL against `ExecutableDb`? → **storage**
@@ -29,7 +46,15 @@ Complete every item. Two batches minimize sequential tool-call rounds.
    - Creates/edits `.md` documentation? → **documentation** (see `SKILL-recipes.md`)
    - None → **general-purpose** (requires full component characterization)
 
-   Never improvise outside a recipe. Record the subagent's chosen recipe + evidence sentence in the exploration log under `RECIPE`.
+   On a routed verdict, record:
+
+   ```
+   RECIPE: <name>
+   RECIPE_TIER: routed
+   RECIPE_EVIDENCE: <one-sentence why from subagent verdict>
+   ```
+
+   Never improvise outside a recipe. When in doubt between trivial and ambiguous, pick ambiguous.
 
 6. **Sibling analysis + shared code prediction** (mandatory — all recipes):
    - **Siblings with shared utilities:** Read closest sibling, identify shared imports/pattern. New component MUST reuse same utilities and pattern.
@@ -47,7 +72,7 @@ Complete every item. Two batches minimize sequential tool-call rounds.
    - Changing a function signature → grep for all callers and wrappers (extends item 14c).
    - Renaming a concept → grep for all string references to the old name. When files are renamed or copied-with-rename (e.g. by an install script), trace the **full transitive dependency graph**: (1) grep all references TO each renamed file (direct consumers), (2) grep all references FROM each renamed file to other files in the renamed set (sibling/internal references). A script that rewrites external consumer paths but not internal sibling paths is a bug. Verify the script handles both.
    - Adding a validation rule → grep for all places the validated value is produced.
-   - Changing a user-visible path string (CLI output line, formatter string, or any hardcoded path under `.aic/`, `~/.aic/`, or similar) → grep source, `documentation/`, `README.md`, `.claude/` (CLAUDE.md and skill files), and `.cursor/rules/` for the old path string. Also grep the cross-editor sync targets (`AIC-architect.mdc`, `CLAUDE_MD_TEMPLATE` in `install-trigger-rule.ts` and `integrations/claude/install.cjs`) — all must stay byte-identical for the prompt-command sections. Classify each hit as IN SCOPE or FOLLOW-UP.
+   - Changing a user-visible path string (CLI output line, formatter string, or any hardcoded path under `.aic/`, `~/.aic/`, or similar) → grep source, `documentation/`, `README.md`, `.claude/` (CLAUDE.md and skill files), and `.cursor/rules/` for the old path string. Also grep the cross-editor sync targets (`aic-architect.mdc`, `CLAUDE_MD_TEMPLATE` in `install-trigger-rule.ts` and `integrations/claude/install.cjs`) — all must stay byte-identical for the prompt-command sections. Classify each hit as IN SCOPE or FOLLOW-UP.
    - Adding a feature or guard to an editor-specific integration hook (any file under `integrations/<editor>/`) → glob `integrations/*/hooks/` and list every hook with the same event type across all other editors. For each parallel hook: read it and check whether the same behavioral gap exists. Classify as IN SCOPE (add to this task), PARTIAL (same file type but genuinely different concern — justify), or FOLLOW-UP (distinct editor scope, document as companion task). A FOLLOW-UP classification is only valid when the gap is confirmed absent in the parallel hook — never use it to defer a confirmed gap.
      For each instance found, classify as: IN SCOPE (this task fixes it), PARTIAL (this task touches the file but not this instance — justify why), or FOLLOW-UP (different file/concern, deferred). Record in CHANGE-PATTERN INSTANCES. Partial scope → justify why the instance is excluded.
 
@@ -69,7 +94,18 @@ Complete every item. Two batches minimize sequential tool-call rounds.
     **(14c)** Grep all direct callers of changed exported functions. Trace recursively to system boundary. Every file in chain → "Modify" row. Zero-arg closures wrapping functions gaining params → parameterize, inline, or restructure. Record in CALLER CHAIN ANALYSIS.
     **14b.** Scope-adjacent string reference scan (conditional — "Modify" files) — for every function name, type name, interface name, constant name, or package name being modified or renamed: grep the full codebase for string-literal occurrences beyond import statements. Check: dispatch tables using string keys (`Record<string, Handler>` entries), error messages referencing the name, log statements, test descriptions (`it("should ... [name] ...")`, `describe("[name]"...)`), comments in other files, documentation, and infrastructure configs (`vitest.config.ts` resolve aliases, `tsconfig.json` path mappings, `.github/workflows/*.yml` step commands, `package.json` scripts). Classify each as "in-scope fix" (add to task scope) or "follow-up" (report to user). Record in SCOPE-ADJACENT REFERENCES. **Pitfall:** `package.json` name changes break resolve aliases.
 
-15. **Existing test impact analysis** (mandatory) — grep `**/*.test.ts`, `**/*.test.js`, `**/__tests__/**` for references to affected files/behaviors. For each invalidated assertion: record test file, line, current value, correct value. Add as "Modify" rows. Record in TEST IMPACT.
+14d. **Shared test-surface scan** (mandatory — runs once; output consumed by items 15 and 17c) — perform a single Grep pass over the full test surface for every symbol, path, and behavior name touched by the task. Cover ALL of these globs in one search call so the results feed both downstream items without re-scanning:
+
+- `**/__tests__/**`
+- `**/*.test.ts`
+- `**/*.test.js`
+- `**/*.test.cjs`
+- `shared/src/integration/__tests__/**`
+- `test/benchmarks/**`
+
+Record the deduplicated file list under TEST SURFACE SCAN in the Exploration Report — one row per test file with a one-line importer/reference description. Items 15 and 17c then interpret this list from their own angle (test-impact vs fixture-simulation) without issuing their own grep passes.
+
+15. **Existing test impact analysis** (mandatory — consumes item 14d's TEST SURFACE SCAN) — from the already-scanned file list, classify each hit: does it contain an invalidated assertion against the modified code? For each invalidated assertion: record test file, line, current value, correct value. Add as "Modify" rows. Record in TEST IMPACT. Do NOT re-run the grep — operate on 14d's output.
     **15b.** Quantitative change scan — when countable quantities change: determine old/new count, grep for old count as literal in tests/scripts/config, grep for names encoding counts. Classify "in-scope fix" / "follow-up".
     **15c.** Test assertion ground-truth audit — for hardcoded literals in assertions, verify against actual source. Already wrong → record as `ALREADY STALE`. Run test file if possible.
     **15d.** Test runner wiring check — classify each test file as "IN TEST SUITE" / "EXCLUDED" from `pnpm test`. EXCLUDED tests need standalone "Verify:" lines. EXCLUDED + broken → flag as pre-existing gap.
@@ -89,7 +125,7 @@ Complete every item. Two batches minimize sequential tool-call rounds.
     - This is especially critical when: (a) a conditional is narrowed or widened, (b) a new always-available resource is introduced that changes effective reachability, (c) the combination of (a) and (b) creates a correctness requirement that did not exist before.
     - If no "Modify" rows change existing function logic (all modifications are pure additions — new functions, new exports, new imports), record "No behavior changes — modifications are additive only" and move on.
 
-17c. **Behavior-change fixture simulation** (mandatory — runs whenever item 17 recorded at least one BEHAVIOR CHANGES entry, HARD RULE 25 in `SKILL.md`) — for every entry in `BEHAVIOR CHANGES`: - Glob every test file that imports the modified symbol: `Grep` the workspace for the symbol name in `**/__tests__/**`, `**/*.test.ts`, `**/*.test.cjs`, `shared/src/integration/__tests__/**`, `test/benchmarks/**`, and any benchmark runner. Record the full list — do NOT stop at the first hit. - For each importer, enumerate the fixture inputs it feeds to the modified symbol: constructed `TaskClassification` objects, rule-pack helpers (`defaultRulePack`, `makeRepo`), golden snapshot expected outputs, benchmark `expected-selection/*.json` entries, integration assertions on output shape. - Simulate the new behavior (from item 17) against each fixture. Answer concretely: does the existing assertion still pass? Does the expected-output set change? Does a previously-selected path now get excluded? Does an ordering flip? - Classify each fixture into exactly one bucket: - `UNCHANGED` — new behavior produces the same assertion result. - `ASSERTION FLIPS` — the test file must be modified. Record the specific assertion delta (old literal vs new literal, or "remove `path` from expected set" / "add `path` to expected set"). This fixture becomes a Files table Modify row. - `AUTO-RATCHET` — the file is a baseline/golden artifact whose content regenerates mechanically via `vitest -u`, benchmark ratchet script, or similar. These must be declared in the task's `## Architecture Notes` under a `**Auto-ratcheting artifacts:**` bullet listing every such path. The executor's §5c Step 2 whitelist allows auto-staging only for declared paths. - **Pitfall: latent bugs in shared utilities.** When simulation shows a fixture failing for non-obvious reasons (e.g. `matchesGlob("**/*.ts", "src/foo/bar.ts")` unexpectedly returns false), this is a latent bug surfaced by the new behavior — record it as `FIXTURE BLOCKED — latent bug: <description>` and propose one of: (i) expand scope to fix the bug in this task, (ii) defer to a successor task with the bug noted in `## Follow-up Items`, (iii) justified workaround in Architecture Notes. Silent workarounds in test fixtures are rejected by Phase 3 check AS. - Record all findings in a FIXTURE SIMULATION field of the Exploration Report. This field feeds HARD RULE 18 (exploration-to-task coverage) and Phase 3 check AS. - If item 17 recorded "No behavior changes", record "No fixture simulation required — modifications are additive only" and move on.
+17c. **Behavior-change fixture simulation** (mandatory — runs whenever item 17 recorded at least one BEHAVIOR CHANGES entry, HARD RULE 25 in `SKILL.md`; consumes item 14d's TEST SURFACE SCAN for importer discovery) — for every entry in `BEHAVIOR CHANGES`: - **Sibling-test glob (first, mechanical, unskippable).** For every planned `Modify` row whose path is `<dir>/<basename>.ts` under `shared/src/` or `mcp/src/` (excluding `*.test.ts` and `*.interface.ts`), Glob the two canonical sibling paths: `<dir>/__tests__/<basename>.test.ts` and `<dir>/<basename>.test.ts`. Any sibling that exists on disk MUST be resolved in the task file — added as a Files-table Modify row, or named under an `**Auto-ratcheting artifacts:**` bullet, or justified via a `**Test-surface excluded:**` bullet (with the specific reason, e.g. "pure rename; no assertion touches the renamed identifier"). This sibling-glob is enforced mechanically by Phase 3 check AV — skipping it blocks finalization. Record the Modify-row → sibling-path mapping under a `__TESTS__ SIBLING INVENTORY:` subsection of FIXTURE SIMULATION before continuing with the steps below. - Consume item 14d's TEST SURFACE SCAN for the full list of test files that import the modified symbol — do NOT re-run the grep. If 14d did not cover a specific glob the task now needs (extremely rare), extend 14d's scan once and update its recorded output; never issue a parallel grep only for 17c. - For each importer, enumerate the fixture inputs it feeds to the modified symbol: constructed `TaskClassification` objects, rule-pack helpers (`defaultRulePack`, `makeRepo`), golden snapshot expected outputs, benchmark `expected-selection/*.json` entries, integration assertions on output shape. - Simulate the new behavior (from item 17) against each fixture. Answer concretely: does the existing assertion still pass? Does the expected-output set change? Does a previously-selected path now get excluded? Does an ordering flip? - Classify each fixture into exactly one bucket: - `UNCHANGED` — new behavior produces the same assertion result. - `ASSERTION FLIPS` — the test file must be modified. Record the specific assertion delta (old literal vs new literal, or "remove `path` from expected set" / "add `path` to expected set"). This fixture becomes a Files table Modify row. - `AUTO-RATCHET` — the file is a baseline/golden artifact whose content regenerates mechanically via `vitest -u`, benchmark ratchet script, or similar. These must be declared in the task's `## Architecture Notes` under a `**Auto-ratcheting artifacts:**` bullet listing every such path. The executor's §5c Step 2 whitelist allows auto-staging only for declared paths. - **Pitfall: latent bugs in shared utilities.** When simulation shows a fixture failing for non-obvious reasons (e.g. `matchesGlob("**/*.ts", "src/foo/bar.ts")` unexpectedly returns false), this is a latent bug surfaced by the new behavior — record it as `FIXTURE BLOCKED — latent bug: <description>` and propose one of: (i) expand scope to fix the bug in this task, (ii) defer to a successor task with the bug noted in `## Follow-up Items`, (iii) justified workaround in Architecture Notes. Silent workarounds in test fixtures are rejected by Phase 3 check AS. - Record all findings in a FIXTURE SIMULATION field of the Exploration Report. This field feeds HARD RULE 18 (exploration-to-task coverage) and Phase 3 check AS. - If item 17 recorded "No behavior changes", record "No fixture simulation required — modifications are additive only" and move on.
 
 18. **Speculative verification tool execution** (mandatory) — if any step/Files-row/criterion depends on tool output (`pnpm knip`, `pnpm lint`, `pnpm test`, etc.), run the tool during exploration and record exact output. Never defer with "if knip reports." Tool cannot run → resolve by static analysis or flag as **BLOCKER**. Record in SPECULATIVE TOOL EXECUTION.
 
@@ -111,7 +147,7 @@ Complete every item. Two batches minimize sequential tool-call rounds.
 
 20. **`shared/package.json`** — record dependencies and pinned versions.
 21. **`eslint.config.mjs`** — record restricted-import rules for target layer. Determine exact structural change if needed.
-22. **Installer-managed content sync** (conditional — touches `.cursor/rules/AIC-architect.mdc`, `.claude/CLAUDE.md`, install.cjs templates, or `mcp/src/install-trigger-rule.ts`) — diff shared sections. Drifted → add "Modify" rows. Record in INSTALLER SYNC. Source of truth: `AIC-architect.mdc`.
+22. **Installer-managed content sync** (conditional — touches `.cursor/rules/aic-architect.mdc`, `.claude/CLAUDE.md`, install.cjs templates, or `mcp/src/install-trigger-rule.ts`) — diff shared sections. Drifted → add "Modify" rows. Record in INSTALLER SYNC. Source of truth: `aic-architect.mdc`.
 23. **Documentation impact analysis** (mandatory — all non-documentation task types) — grep `documentation/`, `README.md`, and `CONTRIBUTING.md` for every entity the task creates, modifies, or renames: component names, interface names, function names, class names, file paths, type names. For each match, read the surrounding context (5 lines before and after) and classify the reference:
     - **WILL BECOME STALE** — the document describes specific details (behavior, signature, wiring, file path) that the task changes. After the task executes, the document will contain incorrect information.
     - **NEEDS UPDATE** — the document references the entity by a name or path being renamed, or describes behavior being modified. The reference is not yet wrong but will be after the task.
@@ -260,7 +296,13 @@ CHANGE-PATTERN INSTANCES (mandatory — item 8c):
 - Total: [N] — covers: [M of N] — partial justification: [reason]
 - Or: Isolated change.
 
-TEST IMPACT (mandatory — items 15, 15b, 15c, 15d):
+TEST SURFACE SCAN (mandatory — item 14d; single shared grep output consumed by items 15 and 17c):
+- Globs searched: [list — must include __tests__/**, *.test.ts, *.test.js, *.test.cjs, shared/src/integration/__tests__/**, test/benchmarks/**]
+- Symbols/paths queried: [list of every symbol, file path, behavior name touched by the task]
+- Test files with hits: [one row per file — `path` — [one-line importer/reference description]]
+- Or: No test surface touched (rare — justify: e.g. task is pure docs with no symbol reference).
+
+TEST IMPACT (mandatory — items 15, 15b, 15c, 15d; operates on TEST SURFACE SCAN output, not a fresh grep):
 - Side effects: [description]
 - Affected assertions: [test file]:[line] — current → required — reason
 - Quantitative: Old [N] → New [M] — grep results for literal [N]
@@ -328,7 +370,7 @@ TRANSFORMER DETAILS (conditional — pipeline transformer recipe only):
   token_count: [N], duration_ms: [N]
 
 INSTALLER SYNC (conditional — item 20):
-- Source of truth: `AIC-architect.mdc`
+- Source of truth: `aic-architect.mdc`
 - Templates: [each file — IN SYNC | DRIFT — section X]
 - Files table impact: [N "Modify" rows]
 - Or: N/A
@@ -371,14 +413,13 @@ If any field says "NOT VERIFIED — BLOCKER" or cannot be filled, **STOP and tel
 
 ## A.3 Mechanical self-verification
 
-Run these checks in parallel before presenting to the user:
+Run these checks in parallel before presenting to the user. **Source-citation byte-fidelity is NOT re-checked here** — Phase 3 check `AN` (`SKILL-phase-3-write.md §C.5`) re-reads every `Source:` path byte-for-byte and rejects any hallucinated citation. Running it twice is pure duplication; keep A.3 focused on name/type/Glob checks that AN does not cover:
 
-1. **Re-read each cited source file** — Read every path in a `Source:` line.
-2. **Grep interface/type names** — compare line counts against pasted blocks. Divergence → re-read and fix.
-3. **Grep branded type usage** — confirm each constructor parameter's branded type exists in `core/types/`.
-4. **Grep existing files** — Glob to confirm EXISTS/DOES NOT EXIST claims.
-5. **Cross-check library .d.ts** — re-read cited `node_modules/` paths, confirm signatures match.
-6. **Installer sync check** (conditional — INSTALLER SYNC present) — read source-of-truth and templates, confirm match. Drift found → fix report.
+1. **Grep interface/type names** — compare line counts against pasted blocks. Divergence → re-read and fix. (AN covers content fidelity; this covers structural integrity of the pasted block.)
+2. **Grep branded type usage** — confirm each constructor parameter's branded type exists in `core/types/`.
+3. **Grep existing files** — Glob to confirm EXISTS/DOES NOT EXIST claims.
+4. **Cross-check library .d.ts** — for any library API claim whose `Source:` points **outside** `node_modules/` (e.g. a hand-typed summary), re-read the cited `node_modules/` `.d.ts` path once to confirm the signatures match. Citations directly against `node_modules/` paths are covered by AN and can be skipped here.
+5. **Installer sync check** (conditional — INSTALLER SYNC present) — read source-of-truth and templates, confirm match. Drift found → fix report.
 
 Fix every discrepancy in the exploration file before proceeding.
 
@@ -471,5 +512,17 @@ Present a decisions-focused summary in chat (full report is in the worktree file
 **Wait for the user to say "proceed."** Do NOT continue to Pass 2 until they do.
 
 ---
+
+## Emit the `exploration-complete` checkpoint
+
+Run this exactly after `validate-exploration.sh` passes AND the user has said "proceed" — substitute the absolute path to the exploration report that the gate validated:
+
+```
+echo "CHECKPOINT: aic-task-planner/exploration-complete — complete"
+bash .claude/skills/shared/scripts/checkpoint-log.sh \
+  aic-task-planner exploration-complete <abs-exploration-report-path>
+```
+
+`checkpoint-log.sh` rejects this emission with exit 3 if fewer than 5 seconds have elapsed since the last `task-picked`. That gap exists because exploration must do real work — Pass 1 grep sweeps, source file reads, sibling-pattern analysis — between the two checkpoints. Batching them at run end is the previously-observed failure mode the gate blocks.
 
 **Phase complete.** Read `SKILL-phase-3-write.md` and execute it immediately.

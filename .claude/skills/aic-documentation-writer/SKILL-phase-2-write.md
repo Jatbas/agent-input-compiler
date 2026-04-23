@@ -32,7 +32,7 @@ Before writing target text, extract two artifacts from Phase 1 findings to stren
 
 ### 2c. Write the Change Specification target text
 
-**Deduplication gate (Cardinal Rule 5) — run BEFORE writing gap-fill content:**
+**Deduplication gate (HARD RULE 6) — run BEFORE writing gap-fill content:**
 
 For every gap identified by Explorer 4, check Explorer 4's sibling coverage classification:
 
@@ -104,7 +104,7 @@ Instead of producing only Change Specifications, produce a **Structured Audit Re
 
 - The audit report includes positive findings (what is correct), not just errors. A review that only reports problems gives no confidence about the rest of the document.
 - Corrections required (section 7) use the same Change Specification format as write/modify mode. They can be applied in Phase 4.
-- Every finding must have at least one evidence citation (Cardinal Rule 1). Findings without evidence are moved to Open Questions.
+- Every finding must have at least one evidence citation (HARD RULE 3). Findings without evidence are moved to Open Questions.
 
 ---
 

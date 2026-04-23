@@ -207,7 +207,7 @@ What questions would a reader have after reading this document that are not answ
 - For architecture docs: 'What are the alternatives considered?', 'What are the trade-offs?'
   Return: `[question a reader would have] — ANSWERED / UNANSWERED — [importance: critical / nice-to-have]`
 
-**D. Sibling coverage check (deduplication — Cardinal Rule 5):**
+**D. Sibling coverage check (deduplication — HARD RULE 6):**
 For every gap identified in checks A and C (UNDOCUMENTED items and UNANSWERED questions), determine whether a dedicated sibling document in `documentation/` or a root-level file (`README.md`, `CONTRIBUTING.md`) already covers the topic. Method:
 
 1. Glob `documentation/*.md` and check root-level `.md` files for filenames or content matching the gap topic (e.g. a gap about 'installation' matches `documentation/installation.md`; a gap about 'commands' may match `README.md`).

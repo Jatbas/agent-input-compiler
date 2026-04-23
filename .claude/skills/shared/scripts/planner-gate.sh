@@ -33,33 +33,62 @@ TS=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
 
 ABS_TARGET="$(cd "$(dirname "$TARGET")" && pwd)/$(basename "$TARGET")"
 
-run_gate() {
-  local name="$1"; shift
-  local out rc
-  set +e
-  out="$("$@" 2>&1)"
-  rc=$?
-  set -e
-  if [[ $rc -ne 0 ]]; then
-    echo "--- planner-gate: $name FAILED (exit $rc) ---"
-    echo "$out"
-    echo "--- end $name ---"
-    return 1
-  fi
-  echo "planner-gate: $name ok"
-  return 0
-}
+# Gates run in parallel (all independent readers; none share state except the
+# trailing JSONL write, which happens serially after wait). Ordered stdout is
+# preserved by capturing per-gate output to tempfiles and emitting them in the
+# declared order after every job has completed.
 
-FAILED=""
+TMPDIR_GATE="$(mktemp -d -t planner-gate.XXXXXX)"
+trap 'rm -rf "$TMPDIR_GATE"' EXIT
 
-run_gate "ambiguity-scan"         bash "$SCRIPT_DIR/ambiguity-scan.sh"           "$TARGET" || FAILED="${FAILED}ambiguity-scan "
-run_gate "validate-task"          bash "$SCRIPT_DIR/validate-task.sh"            "$TARGET" || FAILED="${FAILED}validate-task "
-run_gate "deferral-probe"         bash "$SCRIPT_DIR/deferral-probe.sh"           "$TARGET" || FAILED="${FAILED}deferral-probe "
-run_gate "architectural-invariants" bash "$SCRIPT_DIR/architectural-invariants.sh" "$TARGET" || FAILED="${FAILED}architectural-invariants "
+GATES=(
+  "ambiguity-scan:$SCRIPT_DIR/ambiguity-scan.sh"
+  "validate-task:$SCRIPT_DIR/validate-task.sh"
+  "deferral-probe:$SCRIPT_DIR/deferral-probe.sh"
+  "architectural-invariants:$SCRIPT_DIR/architectural-invariants.sh"
+)
 
 if [[ -x "$SCRIPT_DIR/followup-propagation-check.sh" ]]; then
-  run_gate "followup-propagation" bash "$SCRIPT_DIR/followup-propagation-check.sh" "$TARGET" || FAILED="${FAILED}followup-propagation "
+  GATES+=("followup-propagation:$SCRIPT_DIR/followup-propagation-check.sh")
 fi
+
+PIDS=()
+NAMES=()
+for spec in "${GATES[@]}"; do
+  name="${spec%%:*}"
+  script="${spec#*:}"
+  out="$TMPDIR_GATE/$name.out"
+  rcf="$TMPDIR_GATE/$name.rc"
+  (
+    set +e
+    bash "$script" "$TARGET" >"$out" 2>&1
+    echo $? >"$rcf"
+  ) &
+  PIDS+=("$!")
+  NAMES+=("$name")
+done
+
+for pid in "${PIDS[@]}"; do
+  wait "$pid" || true
+done
+
+FAILED=""
+for name in "${NAMES[@]}"; do
+  out="$TMPDIR_GATE/$name.out"
+  rcf="$TMPDIR_GATE/$name.rc"
+  rc=1
+  if [[ -f "$rcf" ]]; then
+    rc=$(cat "$rcf")
+  fi
+  if [[ "$rc" -ne 0 ]]; then
+    echo "--- planner-gate: $name FAILED (exit $rc) ---"
+    [[ -f "$out" ]] && cat "$out"
+    echo "--- end $name ---"
+    FAILED="${FAILED}${name} "
+  else
+    echo "planner-gate: $name ok"
+  fi
+done
 
 ART=$(printf '%s' "$ABS_TARGET" | sed 's/\\/\\\\/g; s/"/\\"/g')
 

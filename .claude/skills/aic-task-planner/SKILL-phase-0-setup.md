@@ -32,11 +32,14 @@ Run after §0b confirms task planning. **Skip** if §0b classified as analysis-o
    git worktree add -b plan/$EPOCH .git-worktrees/plan-$EPOCH main
    ```
 
-4. Install dependencies in the worktree (needed for `.d.ts` reads during exploration):
+4. Install dependencies in the worktree (needed for `.d.ts` reads during exploration). **Use `--prefer-offline --frozen-lockfile` — the main workspace has already populated pnpm's global content-addressed store from the same lockfile, so a fresh worktree install should hit the store exclusively and avoid the network entirely:**
 
    ```
-   source .claude/skills/shared/scripts/ensure-supported-node.sh && pnpm install
+   source .claude/skills/shared/scripts/ensure-supported-node.sh && \
+     pnpm install --prefer-offline --frozen-lockfile
    ```
+
+   Typical runtime: 2–5s when main's store is warm, vs 10–30s for a cold `pnpm install`. If `--frozen-lockfile` fails (lockfile drift since main was last installed), fall back to plain `pnpm install` and note the drift for the user — it usually means the main workspace needs a re-install before branching worktrees again.
 
    Run with `working_directory` set to the worktree absolute path.
 
@@ -47,5 +50,17 @@ Run after §0b confirms task planning. **Skip** if §0b classified as analysis-o
 6. After verification, assign final task number, copy to main workspace, clean up worktree. See §6.
 
 ---
+
+## Emit the `setup-complete` checkpoint
+
+Run this exactly — substitute the worktree directory (or a short free-text note if no worktree was created for an analysis-only path):
+
+```
+echo "CHECKPOINT: aic-task-planner/setup-complete — complete"
+bash .claude/skills/shared/scripts/checkpoint-log.sh \
+  aic-task-planner setup-complete <worktree-dir-or-short-note>
+```
+
+`checkpoint-log.sh` enforces a minimum 1-second gap between `setup-complete` and the next phase's `task-picked` emission. If you batched both at run end, the second call will be rejected with exit 3 — re-emit `task-picked` after phase 1 actually runs, not before.
 
 **Phase complete.** Read `SKILL-phase-1-recommend.md` and execute it immediately.

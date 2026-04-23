@@ -99,7 +99,7 @@ Context window used             0.3%
 Compiled                        2 min ago
 Editor                          claude-code
 Cache                           miss
-Guard (this run)                2 finding(s), 2 blocked
+Guard (this run)                2 findings across 5 files (2 files blocked)
 Compiled prompt                 Available (595 tokens) — .aic/last-compiled-prompt.txt (project root)
 ──────────────────────────────────────────────────────────────────────────────
 Context window used: % of token budget filled.

@@ -18,6 +18,7 @@ Every skill has an `examples/` directory containing at least one approved canoni
 | `aic-release`              | `aic-release/examples/release-log-example.md`                   | TODO      |
 | `aic-git-history-clean`    | `aic-git-history-clean/examples/clean-plan-example.tsv`         | TODO      |
 | `aic-systematic-debugging` | `aic-systematic-debugging/examples/debug-log-example.md`        | TODO      |
+| `aic-code-audit`           | `aic-code-audit/examples/bugs-phase-example.md`                 | TODO      |
 | `aic-update-changelog`     | `aic-update-changelog/examples/changelog-entry-example.md`      | TODO      |
 | `aic-update-progress`      | `aic-update-progress/examples/progress-update-example.md`       | TODO      |
 | `aic-roadmap-forge`        | `aic-roadmap-forge/examples/roadmap-entry-example.md`           | TODO      |

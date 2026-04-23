@@ -141,3 +141,25 @@ bash .claude/skills/shared/scripts/cleanup-worktree.sh sweep
 ```
 
 Both invocations must exit 0. Exit 1 from either → stop and report the script's stderr. Report to the user that the worktree and branch were deleted, the task file is back at its original path, and no changes were merged.
+
+---
+
+**Emit the terminal checkpoint now.** This is the final checkpoint line of the run — it closes out `.aic/skill-log.jsonl` for this task. Run exactly one of the following based on how the run ended:
+
+- **Clean merge (§6b completed):** status `complete`.
+
+  ```
+  echo "CHECKPOINT: aic-task-executor/finalized — complete"
+  bash .claude/skills/shared/scripts/checkpoint-log.sh \
+    aic-task-executor finalized "<merge-commit-and-task-note>"
+  ```
+
+- **Discard (§6c) or Blocked at §6a:** status `blocked` — the fourth positional argument is the status override, and the artifact note must carry the reason so operators can reconstruct why the run stopped.
+
+  ```
+  echo "CHECKPOINT: aic-task-executor/finalized — blocked"
+  bash .claude/skills/shared/scripts/checkpoint-log.sh \
+    aic-task-executor finalized "<reason-for-discard-or-block>" blocked
+  ```
+
+Do not end the session before this command exits 0. A missing terminal checkpoint is how "finished" runs end up looking unfinished in `show aic last`.

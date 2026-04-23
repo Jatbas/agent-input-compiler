@@ -174,6 +174,21 @@ If the existing core interface uses `string` for a parameter that should be bran
 
 No single step should implement more than **2 methods** or modify more than **1 file**. If a class has 4 methods, split implementation across 2+ steps (e.g. "Step 2: Implement parseImports", "Step 3: Implement extractSignaturesWithDocs and extractSignaturesOnly", "Step 4: Implement extractNames"). Large steps cause agents to rush and miss edge cases.
 
+## Function-restructure isolation
+
+When a step restructures a function's body — replacing a bare cast with a validation block, converting an early-return to an accumulation pattern, adding conditional branching to previously unconditional logic, or extracting local variables — that restructuring must be **the only edit in the step**. It cannot be bundled with additive edits (property additions to object literals, new fields in interfaces, new lines in return statements) in the same step.
+
+**Why:** A bare cast replacement (e.g. `return JSON.parse(raw) as T` → a validated extraction block) changes the function's control flow. An executor reading a multi-edit step naturally allocates attention across all bullets — the restructuring receives a share, not full focus. The result is an incorrect cast, a silent fallback, or a missed guard.
+
+**Detection:** The step body describes more than one distinct operation AND at least one of those operations uses language like: "derive a local … from the parsed object", "add conditional branching", "replace `…` with a block that …", "extract …", "coerce … or fall back to …", "refactor … to …". When matched: split into (a) a restructure-only step and (b) a follow-on step for the additive changes.
+
+**Red flags:**
+
+- A step extends `BlobPayload` (additive) AND restructures `parseBlobPayload` (control-flow change) AND updates `set`'s payload literal AND updates `get`'s return in one numbered step — four distinct operations, one of which is non-trivial.
+- A step says "In `parseBlobPayload`, after `JSON.parse`, derive a local numeric count … otherwise use `0`" alongside three property-addition bullets in the same step body.
+
+**Enforced by:** AU (step complexity cap) threshold and this guardrail's explicit pattern detection.
+
 ## One file per step (no exceptions)
 
 The step size limit says "max 1 file per step." This is absolute for all recipes including composition roots. If Step 1 needs to modify both `shared/package.json` and `mcp/package.json`, split into Step 1a and Step 1b. If a test step needs to export a function from the source file AND create the test file, split into two steps. No step touches two files. This prevents step-overlap ambiguity.
@@ -234,6 +249,24 @@ When a task changes existing behavior — whether fixing a bug, refactoring code
 - A fix task has no test that would fail if the fix were reverted
 
 **Enforced by:** Mechanical checks U (acceptance criteria achievability) and V (existing test compatibility), plus the fix/patch recipe's mandatory fix-verification test case.
+
+## Fixture-bound relational assertions
+
+Any test assertion that uses `toBeGreaterThan(0)` (or `> 0`, `>= 1`, `toBeGreaterThanOrEqual(1)`) on a value derived from running the actual pipeline against a fixture directory must be backed by explicit evidence that the fixture produces a non-zero result. "The pipeline selects files" is not evidence — cite the fixture path and confirm it contains files that will survive the pipeline's inclusion rules.
+
+**Required during exploration (FIXTURE SIMULATION field):** When a test strategy includes a relational lower-bound assertion on pipeline output (file count, pruned-file count, token count), the Exploration Report's FIXTURE SIMULATION section must list the fixture path and a concrete count of files it contains, or a sample of which files pass the context selector for that intent.
+
+**Required in the task file:** The Tests table's Mock / assert contract column must cite the specific fixture path and why its content guarantees the lower bound — not just the assertion form. `no mocks; expect(first.meta.filesSelected).toBeGreaterThan(0)` without citing the fixture content is insufficient. Write: `no mocks; fixture at <path> contains N files (confirmed in exploration); expect(first.meta.filesSelected).toBeGreaterThan(0)`.
+
+**Red flags:**
+
+- A test asserts `expect(result.meta.filesSelected).toBeGreaterThan(0)` where `result` came from `runner.run(makeRequest(fixtureRoot))` but the exploration report contains no count of files in `fixtureRoot`.
+- The Mock / assert contract says only the assertion literal, with no fixture-content evidence.
+- The fixture directory is referenced by a variable (`fixtureRoot`) without the planner ever reading the directory or citing a file count.
+
+**Fix:** During exploration, `ls` the fixture directory, count non-excluded files, and record the count. Write the count into the Tests table contract column. If the count is zero, the assertion will always fail — choose a different fixture or a different assertion.
+
+**Enforced by:** FIXTURE SIMULATION field in exploration and the AS check in C.5 mechanical review.
 
 ## Sync vs async for adapters
 

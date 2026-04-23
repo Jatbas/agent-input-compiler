@@ -86,7 +86,7 @@ Five phases, five checkpoints. Phase numbers 1 and 2 are intentionally unused �
 Templates in `prompts/`:
 
 - `explorer-gap.md`, `explorer-optimization.md`, `explorer-ecosystem.md` — three parallel explorers (always).
-- Explorer 4 (conditional 4th — specific document deep-read) has **no dedicated prompt template in `prompts/`**. Its full mandate, task definition, required output format, and scope rule are defined inline in `SKILL-phase-3-investigate.md` §Explorer 4. Render it by passing that section's contents verbatim as the subagent prompt (plus the target document path). Do not attempt to load a non-existent template file.
+- `explorer-deep-read.md` — conditional 4th explorer (deep-read); spawn rule defined in `SKILL-phase-3-investigate.md` §Explorer 4.
 - `critic-feasibility.md`, `critic-strategic-fit.md` — two critics, always spawned in parallel after §4.
 
 If a template filename differs from the above in `prompts/`, trust the file on disk but keep the role mapping here aligned.

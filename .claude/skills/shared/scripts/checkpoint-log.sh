@@ -121,12 +121,39 @@ EOF
     exit 3
   fi
 
+  local expected_target=""
+  if [[ -n "${CHECKPOINT_TASK_FILE:-}" ]]; then
+    if [[ ! -f "$CHECKPOINT_TASK_FILE" ]]; then
+      cat >&2 <<EOF
+checkpoint-log: rejecting ${expected_skill} ${expected_phase} — CHECKPOINT_TASK_FILE=$CHECKPOINT_TASK_FILE does not resolve to a file.
+checkpoint-log: export CHECKPOINT_TASK_FILE to the task file you just ran the gate against, or unset it to fall back to recency-only enforcement.
+EOF
+      exit 3
+    fi
+    expected_target="$(cd "$(dirname "$CHECKPOINT_TASK_FILE")" && pwd)/$(basename "$CHECKPOINT_TASK_FILE")"
+  fi
+
   local last_line=""
-  last_line=$(grep -F "\"gate\":\"${expected_gate}\"" "$GATE_LOG" 2>/dev/null | grep -F "\"status\":\"ok\"" | tail -1) || last_line=""
+  if [[ -n "$expected_target" ]]; then
+    local target_esc=""
+    target_esc=$(printf '%s' "$expected_target" | sed 's/\\/\\\\/g; s/"/\\"/g')
+    last_line=$(grep -F "\"gate\":\"${expected_gate}\"" "$GATE_LOG" 2>/dev/null \
+      | grep -F "\"status\":\"ok\"" \
+      | grep -F "\"target\":\"${target_esc}\"" \
+      | tail -1) || last_line=""
+  else
+    last_line=$(grep -F "\"gate\":\"${expected_gate}\"" "$GATE_LOG" 2>/dev/null \
+      | grep -F "\"status\":\"ok\"" \
+      | tail -1) || last_line=""
+  fi
 
   if [[ -z "$last_line" ]]; then
+    local target_hint=""
+    if [[ -n "$expected_target" ]]; then
+      target_hint=" for target $expected_target"
+    fi
     cat >&2 <<EOF
-checkpoint-log: rejecting ${expected_skill} ${expected_phase} — no successful ${expected_gate} record in $GATE_LOG.
+checkpoint-log: rejecting ${expected_skill} ${expected_phase} — no successful ${expected_gate} record${target_hint} in $GATE_LOG.
 checkpoint-log: run: bash .claude/skills/shared/scripts/${expected_gate}.sh <task-file>
 checkpoint-log: it must exit 0 before this checkpoint is accepted.
 checkpoint-log: emergency bypass: CHECKPOINT_ALLOW_NO_GATE=1.

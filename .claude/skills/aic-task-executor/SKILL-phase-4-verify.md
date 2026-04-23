@@ -4,17 +4,54 @@
 
 After completing all steps, run a single verification pass using tool output as objective evidence.
 
-**4a — Run toolchain.**
+**4a — Run toolchain (parallel).**
 
-Run the full toolchain in one command:
+Run the full toolchain as one parallel batch. All five jobs are pure readers on source files (no shared writes), so running them concurrently is safe and saves wall-clock time — on a cold typecheck + test run this is typically 1.8–2.5× faster than the old `&&` chain. Capture per-job output so failures remain identifiable and the log is not interleaved:
+
+Copy-paste the runner verbatim — there are no manual substitutions. `MAIN_ROOT` auto-resolves to the main workspace root (the parent of the common `.git` directory), which is where `pnpm knip` must run to avoid the worktree path-resolution false positives called out in §1.
 
 ```
-pnpm lint && pnpm typecheck && pnpm test && pnpm knip && pnpm lint:clones
+bash -c '
+  set +e
+  MAIN_ROOT="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")"
+  D=$(mktemp -d)
+  run() { local n=$1; shift; ("$@" >"$D/$n.log" 2>&1; echo $? >"$D/$n.rc") & }
+  run lint       bash -lc "source .claude/skills/shared/scripts/ensure-supported-node.sh && pnpm lint"
+  run typecheck  bash -lc "source .claude/skills/shared/scripts/ensure-supported-node.sh && pnpm typecheck"
+  run test       bash -lc "source .claude/skills/shared/scripts/ensure-supported-node.sh && pnpm test"
+  run knip       bash -lc "cd \"$MAIN_ROOT\" && source .claude/skills/shared/scripts/ensure-supported-node.sh && pnpm knip"
+  run clones     bash -lc "source .claude/skills/shared/scripts/ensure-supported-node.sh && pnpm lint:clones"
+  wait
+  FAIL=""
+  for n in lint typecheck test knip clones; do
+    rc=$(cat "$D/$n.rc")
+    if [ "$rc" -ne 0 ]; then
+      echo "--- $n FAILED (exit $rc) ---"; cat "$D/$n.log"; echo "--- end $n ---"
+      FAIL="$FAIL $n"
+    else
+      echo "--- $n ok ---"
+    fi
+  done
+  [ -z "$FAIL" ] || { echo "FAILED:$FAIL"; exit 1; }
+'
 ```
 
 **Confirm:** Zero errors + warnings. Test count not dropped. Each Tests table name in output. No new knip findings. Zero code clones.
 
-Runs ONCE. On failure, fix and re-run the full chain.
+Runs ONCE. On failure, re-read every `--- <job> FAILED ---` section (parallel execution surfaces ALL failures in one pass, not just the first — use this as a diagnostic advantage), fix all of them, then re-run the full parallel batch.
+
+**If you cannot run shell heredocs in your agent environment** (e.g. a restricted tool surface), fall back to the sequential form with the same Node and knip caveats. `MAIN_ROOT` auto-resolves; copy verbatim:
+
+```
+MAIN_ROOT="$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")" \
+  && source .claude/skills/shared/scripts/ensure-supported-node.sh && pnpm lint \
+  && source .claude/skills/shared/scripts/ensure-supported-node.sh && pnpm typecheck \
+  && source .claude/skills/shared/scripts/ensure-supported-node.sh && pnpm test \
+  && (cd "$MAIN_ROOT" && source .claude/skills/shared/scripts/ensure-supported-node.sh && pnpm knip) \
+  && source .claude/skills/shared/scripts/ensure-supported-node.sh && pnpm lint:clones
+```
+
+Parallel is the default; sequential is only a last-resort fallback and must be noted in §5a first-pass tracking ("§4a ran sequentially — tool surface restriction").
 
 **Known issue — knip false positives in `.git-worktrees/` paths.** Always run `pnpm knip` from the **main workspace root**, not the worktree (see §1 worktree caveat). §4a still runs before §5 finalize and §6 merge; knip simply runs against the main workspace's view of the worktree branch (it reads committed files from the branch). Do not investigate worktree-specific knip failures — they are path-resolution artifacts.
 
@@ -59,4 +96,14 @@ Once all dimensions are confirmed clean, proceed to §5.
 
 ---
 
-Phase complete. Read `SKILL-phase-5-finalize.md` and execute it immediately.
+**Emit the verification-complete checkpoint now.** Run this exactly:
+
+```
+echo "CHECKPOINT: aic-task-executor/verification-complete — complete"
+bash .claude/skills/shared/scripts/checkpoint-log.sh \
+  aic-task-executor verification-complete "<short-artifact-note>"
+```
+
+The artifact note is free-text (e.g. `"§4a lint typecheck test knip clones"`). Do not proceed to Phase 5 until this command exits 0.
+
+Phase 4 complete. Read `SKILL-phase-5-finalize.md` and execute it immediately.

@@ -52,20 +52,20 @@ Follow SKILL.md section 3d. For each reported issue:
 
 After fixing all critic-reported issues, run the mechanical checks:
 
-| Dim                           | Check                                                                                                                    | Evidence                                                                 |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ | ----------------------------------------------------- |
-| 1. Change spec compliance     | Re-read Change Spec vs edited document                                                                                   | Each change — APPLIED / MISSING                                          |
-| 2. Factual accuracy           | Grep codebase for every technical claim in edited sections                                                               | Each claim — VERIFIED / NOT FOUND / CONTRADICTED                         |
-| 3. Cross-doc consistency      | Grep sibling docs for key terms in edited sections                                                                       | Each term — CONSISTENT / DIVERGENT                                       |
-| 4. Link validity              | Glob for every `[text](path)` target                                                                                     | Each link — VALID / BROKEN                                               |
-| 5. Writing quality            | Critic 1 output — all issues resolved                                                                                    | Each issue — FIXED / ACCEPTED (with reason)                              |
-| 6. No regressions             | `git diff` — only intended sections changed                                                                              | Diff matches Change Spec only                                            |
-| 7. ToC-body match             | Verify every ToC entry ↔ body heading (including new headings)                                                           | Each entry — MATCHES / MISSING IN BODY / ORDER MISMATCH / MISSING IN TOC |
-| 8. Scope-adjacent consistency | Grep full document for key concepts from edited sections                                                                 | Each concept — CONSISTENT / STALE / CONTRADICTED                         |
-| 9. Pre-existing issue scan    | Grep for "GAP", "TODO", "FIXME", "will be added", "future task", stale phase heading references (``Phase (?:[A-Z]{1,2}   | [0-9]+(?:\.[0-9]+)?)\b`` — documentation-writer Dimension 9)             | Each marker — IN TARGET (fix) / OUTSIDE TARGET (info) |
-| 10. Content format compliance | 3+ definitions → table; new sections → ToC entry; placement follows document flow                                        | Each check — COMPLIANT / VIOLATION                                       |
-| 11. Cross-doc term ripple     | Grep `documentation/` for old values of replaced terms; classify as non-historical (fix/follow-up) or historical (leave) | Each old term — [file:line] — NON-HISTORICAL / HISTORICAL                |
-| 12. Intra-doc consistency     | Grep full document for same concepts described in edited sections; flag contradictions                                   | Each concept — CONSISTENT / CONTRADICTED                                 |
+| Dim                           | Check                                                                                                                                           | Evidence                                                                 |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| 1. Change spec compliance     | Re-read Change Spec vs edited document                                                                                                          | Each change — APPLIED / MISSING                                          |
+| 2. Factual accuracy           | Grep codebase for every technical claim in edited sections                                                                                      | Each claim — VERIFIED / NOT FOUND / CONTRADICTED                         |
+| 3. Cross-doc consistency      | Grep sibling docs for key terms in edited sections                                                                                              | Each term — CONSISTENT / DIVERGENT                                       |
+| 4. Link validity              | Glob for every `[text](path)` target                                                                                                            | Each link — VALID / BROKEN                                               |
+| 5. Writing quality            | Critic 1 output — all issues resolved                                                                                                           | Each issue — FIXED / ACCEPTED (with reason)                              |
+| 6. No regressions             | `git diff` — only intended sections changed                                                                                                     | Diff matches Change Spec only                                            |
+| 7. ToC-body match             | Verify every ToC entry ↔ body heading (including new headings)                                                                                  | Each entry — MATCHES / MISSING IN BODY / ORDER MISMATCH / MISSING IN TOC |
+| 8. Scope-adjacent consistency | Grep full document for key concepts from edited sections                                                                                        | Each concept — CONSISTENT / STALE / CONTRADICTED                         |
+| 9. Pre-existing issue scan    | Grep for "GAP", "TODO", "FIXME", "will be added", "future task", stale phase heading refs (regex `Phase (?:[A-Z]{1,2}\|[0-9]+(?:\.[0-9]+)?)\b`) | Each marker — IN TARGET (fix) / OUTSIDE TARGET (info)                    |
+| 10. Content format compliance | 3+ definitions → table; new sections → ToC entry; placement follows document flow                                                               | Each check — COMPLIANT / VIOLATION                                       |
+| 11. Cross-doc term ripple     | Grep `documentation/` for old values of replaced terms; classify as non-historical (fix/follow-up) or historical (leave)                        | Each old term — [file:line] — NON-HISTORICAL / HISTORICAL                |
+| 12. Intra-doc consistency     | Grep full document for same concepts described in edited sections; flag contradictions                                                          | Each concept — CONSISTENT / CONTRADICTED                                 |
 
 **Blocking:** Dims 1–7, 10, 11 (in-scope non-historical), 12. Dims 8, 9 are informational.
 
@@ -148,9 +148,9 @@ For each step:
 3. If verification fails, fix the issue before moving to the next step.
 4. If you cannot fix it after 2 attempts, go to **Blocked diagnostic** (see §Blocked Handling in `SKILL.md`). The 2-attempt limit is for per-step `Verify`; the separate 3-attempt limit in §Autonomous execution applies to the full-toolchain gate in §4a.
 5. **Circuit breaker:** 3+ pieces of unlisted code (type casts, stubs, wrappers) to make it compile → **Blocked diagnostic** (see §Blocked Handling in `SKILL.md`). List each unlisted piece.
-6. **Scope tripwire (HARD RULE 9):** the moment the `Verify` output, a failing test, or any side-effect points you at a file outside the Files table (and outside the narrow §5c whitelist) as the fix location, STOP. Do not edit the file. Report: (a) the step, (b) the out-of-list file(s), (c) why the core change forces the edit (e.g. new exclusion floor drops a file in an unrelated test fixture, integration snapshot changes in a file not listed, benchmark's `expected-selection/*.json` narrows scope), (d) three explicit options — _extend scope_ (user adds the file(s) to the task's Files table and any matching Tests/Acceptance rows), _re-plan_ (promote the cluster to a sibling task via `aic-task-planner`), or _discard_. Wait for the user's choice. This is the HARD RULE that catches "legitimate side-effect" rationalization before it lands.
+6. **Scope tripwire (HARD RULE 9).** If `Verify`, a failing test, or any side-effect points at a file outside the Files table (and outside the narrow `SKILL-phase-5-finalize.md §5c Step 2` whitelist) as the fix location, STOP. Do not open or edit the file. Follow §Blocked Handling in `SKILL.md`: report (a) the step, (b) the out-of-list file(s), (c) why the core change forces the edit (common patterns: unrelated test fixture captures a newly-excluded path, integration snapshot needs regeneration, benchmark's `expected-selection/*.json` narrows), (d) three options — extend scope / re-plan via `aic-task-planner` / discard. Wait for the user's choice.
 
-**Per-file quick check (after writing each production file).** Run these 4 Grep commands on each production file you just wrote. Skip for test files.
+**Per-file quick check (after writing each production file).** Run these 4 Grep commands on each production file you just wrote, **dispatched in a single parallel batch** (one assistant message with four `Grep` tool calls — not four sequential messages). They are independent read-only checks against the same file; serial dispatch is a regression. Skip for test files.
 
 1. Grep for `\.push\(|\.splice\(|\.sort\(|\.reverse\(` — mutating methods (table row 3)
 2. Grep for `/\*\*` — block comment style (table row 5)
@@ -168,7 +168,17 @@ If any match, fix in the same file before proceeding. Do NOT defer to §4b — f
 
 ---
 
-**Phase complete.**
+**Emit the implementation-complete checkpoint now.** Run this exactly:
 
-- **Pure documentation tasks:** §4-doc verification ran above. Skip `SKILL-phase-4-verify.md`. Read `SKILL-phase-5-finalize.md` and execute it immediately.
+```
+echo "CHECKPOINT: aic-task-executor/implementation-complete — complete"
+bash .claude/skills/shared/scripts/checkpoint-log.sh \
+  aic-task-executor implementation-complete "<short-artifact-note>"
+```
+
+The artifact note is free-text (e.g. `"task-347 BH01 allocator budget"`) — it ends up in `.aic/skill-log.jsonl` and is read by operators reconstructing what the run produced. Do not proceed until this command exits 0.
+
+**Phase 3 complete.**
+
+- **Pure documentation tasks:** §4-doc verification ran above. Skip `SKILL-phase-4-verify.md`. Read `SKILL-phase-5-finalize.md` and execute it immediately — there is no `verification-complete` checkpoint for pure-doc tasks (Phase 4 is the code-mode verification phase, which was substituted by §4-doc inside Phase 3).
 - **Code and mixed tasks:** Read `SKILL-phase-4-verify.md` and execute it immediately.

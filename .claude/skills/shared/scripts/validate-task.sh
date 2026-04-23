@@ -20,6 +20,17 @@ set -euo pipefail
 #   - AR: multi-line documentation changes in Steps must route to
 #     `aic-documentation-writer` via `## Follow-up Items` or justify inline
 #     authorship via a `**Documentation routing:**` bullet
+#   - AT: Files table ≤ 10 rows (HARD RULE 6 "Max ten files per task")
+#   - AU: Step complexity — each numbered step under `## Steps` may
+#     reference at most 1 distinct source path and fewer than 4 distinct
+#     `line N` anchors (HARD RULE 6 "One file per step. Max two methods
+#     per step."). Heuristic; ≥ 2 distinct paths or ≥ 4 line anchors fails.
+#   - AV: Test-surface coverage (HARD RULE 25, task-file-inferred) — for
+#     every `Modify` row whose path is a production `.ts` under `shared/src/`
+#     or `mcp/src/`, if a sibling `__tests__/<name>.test.ts` exists on
+#     disk, the test path must also appear somewhere in the task file
+#     (Files table, Architecture Notes bullet, Follow-up Items). An
+#     explicit `**Test-surface excluded:**` bullet naming the path opts out.
 
 if [[ $# -ne 1 ]]; then
   echo "Usage: $0 <task-file-path>" >&2
@@ -282,6 +293,177 @@ if [[ -n "$STEPS_DOC_BLOCK" ]]; then
     ISSUES=$((ISSUES + 1))
   fi
 fi
+
+# 14. Files-table row cap (AT) — HARD RULE 6 "Max ten files per task."
+# Count rows in the `## Files` table whose Action is a real action verb
+# (Create/Modify/Verify/Delete/Replace/Rename). Header and separator rows
+# are filtered by the action whitelist. Hard cap at 10 — no inline escape
+# hatch; exceeding it signals the task must be split.
+FILES_ROW_COUNT=$(awk '
+  BEGIN { in_files = 0; in_fence = 0; n = 0 }
+  /^```/ { in_fence = 1 - in_fence; next }
+  in_fence { next }
+  /^## Files/ { in_files = 1; next }
+  /^## / && in_files { in_files = 0 }
+  in_files && /^\|[[:space:]]*(Create|Modify|Verify|Delete|Replace|Rename)[[:space:]]*\|/ { n++ }
+  END { print n + 0 }
+' "$FILE")
+if [[ "${FILES_ROW_COUNT:-0}" -gt 10 ]]; then
+  echo "Files table exceeds HARD RULE 6 cap (AT) — ${FILES_ROW_COUNT} rows > 10 max. Split into multiple tasks."
+  ISSUES=$((ISSUES + 1))
+fi
+
+# 15. Step complexity (AU) — HARD RULE 6 "One file per step. Max two
+# methods per step." For every numbered step under `## Steps`, count
+# distinct backtick-quoted source paths (ending in .ts/.cjs/.mjs/.cts/.mts)
+# referenced in the step body that appear in the task's Files table as
+# an actionable row. Paths outside the Files table are treated as
+# references (pattern sources, cross-file context, fixture literals) and
+# ignored — only Files-table paths represent step targets. ≥ 2 distinct
+# Files-table paths in a single step fails. Separately count distinct
+# `line N` / `lines N-M` / `at line N` anchors; ≥ 4 distinct anchors in
+# one step heuristically indicates >2 methods touched, fail.
+AU_FILES_TABLE_PATHS=$(awk '
+  BEGIN { in_files = 0; in_fence = 0 }
+  /^```/ { in_fence = 1 - in_fence; next }
+  in_fence { next }
+  /^## Files/ { in_files = 1; next }
+  /^## / && in_files { in_files = 0 }
+  in_files && /^\|/ {
+    match($0, /`[^` 	]+\.(ts|cjs|mjs|cts|mts)`/)
+    if (RSTART > 0) print substr($0, RSTART + 1, RLENGTH - 2)
+  }
+' "$FILE")
+AU_RAW=$(awk '
+  BEGIN { in_steps = 0; in_fence = 0; step_num = 0; body = "" }
+  function flush(   tmp, tok, i) {
+    if (step_num == 0) { body = ""; return }
+    tmp = body
+    while (match(tmp, /`[^` 	]+\.(ts|cjs|mjs|cts|mts)`/)) {
+      tok = substr(tmp, RSTART + 1, RLENGTH - 2)
+      print "PATH " step_num " " tok
+      tmp = substr(tmp, RSTART + RLENGTH)
+    }
+    tmp = body
+    while (match(tmp, /line[s]?[[:space:]]+`?[0-9]+(-[0-9]+)?`?/)) {
+      tok = substr(tmp, RSTART, RLENGTH)
+      gsub(/`/, "", tok)
+      print "ANCHOR " step_num " " tok
+      tmp = substr(tmp, RSTART + RLENGTH)
+    }
+    body = ""
+  }
+  /^## Steps/ { in_steps = 1; next }
+  /^## / && in_steps { flush(); in_steps = 0 }
+  !in_steps { next }
+  /^```/ { in_fence = 1 - in_fence; body = body " " $0; next }
+  /^[0-9]+\.[[:space:]]/ {
+    flush()
+    step_num++
+    body = $0
+    next
+  }
+  { body = body " " $0 }
+  END { flush() }
+' "$FILE")
+AU_OUT=$(
+  {
+    echo "$AU_FILES_TABLE_PATHS" | awk 'NF { print "FT " $0 }'
+    echo "$AU_RAW"
+  } | awk '
+    BEGIN { }
+    $1 == "FT" { ft[$2] = 1; next }
+    $1 == "PATH" {
+      step = $2
+      path = $3
+      key = step "|" path
+      if (key in seen_pp) next
+      seen_pp[key] = 1
+      if (!(path in ft)) next
+      pp_count[step]++
+      if (pp_list[step] == "") pp_list[step] = "\n    " path
+      else pp_list[step] = pp_list[step] "\n    " path
+      next
+    }
+    $1 == "ANCHOR" {
+      step = $2
+      anch = $3
+      if ($4 != "") anch = anch " " $4
+      key = step "|" anch
+      if (key in seen_aa) next
+      seen_aa[key] = 1
+      aa_count[step]++
+      if (aa_list[step] == "") aa_list[step] = "\n    " anch
+      else aa_list[step] = aa_list[step] "\n    " anch
+    }
+    END {
+      for (s in pp_count) if (pp_count[s] >= 2) {
+        print "step " s " references " pp_count[s] " distinct source paths (HARD RULE 6 — one file per step):" pp_list[s]
+      }
+      for (s in aa_count) if (aa_count[s] >= 4) {
+        print "step " s " references " aa_count[s] " distinct line anchors — likely touches >2 methods (HARD RULE 6):" aa_list[s]
+      }
+    }
+  '
+)
+if [[ -n "$AU_OUT" ]]; then
+  echo "step complexity (AU):"
+  echo "$AU_OUT"
+  ISSUES=$((ISSUES + 1))
+fi
+
+# 16. Test-surface sibling coverage (AV) — HARD RULE 25 task-file
+# inferred layer. For every `Modify` row whose path is a non-test .ts
+# file under `shared/src/` or `mcp/src/`, infer the candidate sibling
+# test path `<dir>/__tests__/<basename>.test.ts`. If that sibling exists
+# on disk, the task must mention the sibling path anywhere — Files
+# table, Architecture Notes, Follow-up Items — OR declare an explicit
+# `**Test-surface excluded:**` bullet naming the sibling and the reason
+# (e.g. "type-only rename; no assertion touches the renamed identifier").
+while IFS= read -r raw; do
+  [[ -z "$raw" ]] && continue
+  LN="${raw%%|*}"
+  REST="${raw#*|}"
+  ACTION=$(echo "$REST" | sed -nE 's/^[[:space:]]*\|[[:space:]]*([A-Za-z]+)[[:space:]]*\|.*/\1/p')
+  PATH_REF=$(echo "$REST" | sed -nE 's/^[[:space:]]*\|[[:space:]]*[A-Za-z]+[[:space:]]*\|[[:space:]]*`([^`]+)`.*/\1/p')
+  [[ "$ACTION" != "Modify" ]] && continue
+  [[ -z "$PATH_REF" ]] && continue
+  case "$PATH_REF" in
+    *.test.ts|*.test.cjs|*.test.mjs|*.interface.ts) continue ;;
+    shared/src/*|mcp/src/*) ;;
+    *) continue ;;
+  esac
+  case "$PATH_REF" in
+    *.ts) ;;
+    *) continue ;;
+  esac
+  DIR=$(dirname "$PATH_REF")
+  STEM=$(basename "$PATH_REF" .ts)
+  CAND1="${DIR}/__tests__/${STEM}.test.ts"
+  CAND2="${DIR}/${STEM}.test.ts"
+  for CAND in "$CAND1" "$CAND2"; do
+    [[ -f "${PROJECT_ROOT}/${CAND}" ]] || continue
+    if grep -qF "\`${CAND}\`" "$FILE"; then
+      continue
+    fi
+    if grep -qF "${CAND}" "$FILE"; then
+      continue
+    fi
+    if grep -qE "^-[[:space:]]+\*\*Test-surface excluded:\*\*" "$FILE" \
+       && grep -qF "${CAND}" "$FILE"; then
+      continue
+    fi
+    echo "test-surface sibling not in task (AV) at ${FILE}:${LN}: Modify ${PATH_REF} has sibling test ${CAND} on disk but the test path is not listed in the Files table, Architecture Notes, or a **Test-surface excluded:** bullet"
+    ISSUES=$((ISSUES + 1))
+  done
+done < <(awk '
+  BEGIN { in_files = 0; in_fence = 0 }
+  /^```/ { in_fence = 1 - in_fence; next }
+  in_fence { next }
+  /^## Files/ { in_files = 1; next }
+  /^## / && in_files { in_files = 0 }
+  in_files && /^\|/ { print NR "|" $0 }
+' "$FILE")
 
 if [[ $ISSUES -gt 0 ]]; then
   echo ""

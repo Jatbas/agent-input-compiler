@@ -6,9 +6,9 @@
 
 Read `SKILL-dimensions.md` for the critic prompt templates. Use the **standard critic templates** for write/modify mode, or the **audit-mode critic templates** for audit mode. Each critic's prompt is built from the template plus the specific document and target text (or audit report).
 
-### 3b. Spawn critics in parallel (MANDATORY — Cardinal Rule 0)
+### 3b. Spawn critics in parallel (MANDATORY — HARD RULE 1)
 
-**You MUST make 3-5 Task tool calls here.** Do NOT perform critic analysis yourself — that violates Cardinal Rule 2 (Producer-Critic Separation). **In write/modify mode:** spawn 3-4 critics (Critics 1-4) scoped to edited sections. **In audit mode:** spawn 4-5 critics (Critics 1-5) scoped to the full document.
+**You MUST make 3-5 Task tool calls here.** Do NOT perform critic analysis yourself — that violates HARD RULE 1 (Dispatch the critics). **In write/modify mode:** spawn 3-4 critics (Critics 1-4) scoped to edited sections. **In audit mode:** spawn 4-5 critics (Critics 1-5) scoped to the full document.
 
 **Critic 1 — Editorial quality** (`generalPurpose` subagent):
 
@@ -61,7 +61,7 @@ If any critic reports zero issues ("No problems found", "All claims verified", "
 Read all critic outputs. For each reported issue:
 
 - **Editorial issues (Critic 1):** In write/modify mode: fix the target text. In audit mode: add to the Corrections Required section of the Audit Report. Re-read context around each fix to ensure the fix itself does not introduce new problems.
-- **Factual issues — NOT FOUND or CONTRADICTED (Critic 2):** Investigate. Read the source file to determine whether the document or the codebase is correct. For normal documents: fix the target text (write/modify) or add to Corrections Required (audit) to match the code (never change code; see Cardinal Rule 7). For prescriptive documents (project-plan, implementation-spec, architecture, security): STOP, report the incongruency to the user with both locations, and ask how to proceed per Cardinal Rule 7.
+- **Factual issues — NOT FOUND or CONTRADICTED (Critic 2):** Investigate. Read the source file to determine whether the document or the codebase is correct. For normal documents: fix the target text (write/modify) or add to Corrections Required (audit) to match the code (never change code; see HARD RULE 5). For prescriptive documents (project-plan, implementation-spec, architecture, security): STOP, report the incongruency to the user with both locations, and ask how to proceed per HARD RULE 5.
 - **Consistency divergences (Critic 3):** Fix the target text (write/modify) or add to Corrections Required (audit) to align with the authoritative source. If the sibling document is wrong, note as a follow-up item (do not edit sibling documents outside scope).
 - **Reader simulation findings (Critic 4):** In write/modify mode: for issues in the edited sections, fix them (add definitions, clarify prerequisites, simplify jargon); for issues in surrounding context, note as follow-up items. In audit mode: all findings go into the Section-by-section Assessment or Corrections Required.
 - **Audit completeness findings (Critic 5, audit mode only):** For each finding, investigate: re-read the document section, re-check the audit report. If the critic is correct (section was missed, classification is wrong, gap was overlooked), update the Audit Report accordingly. If the critic is wrong (the audit did cover it), note the false positive for transparency.
@@ -73,7 +73,7 @@ Compare Explorer 1's factual findings against Critic 2's factual findings:
 - **Both ACCURATE/VERIFIED:** Strong confidence. No action needed.
 - **Explorer 1 ACCURATE but Critic 2 NOT FOUND:** Critic may have searched differently. Re-read the source file. If the claim is correct, note the discrepancy for transparency.
 - **Explorer 1 ACCURATE but Critic 2 CONTRADICTED:** Serious discrepancy. Read the source file to resolve. The more specific citation wins. If unresolvable, flag in Open Questions.
-- **Explorer 1 INACCURATE and Critic 2 CONTRADICTED:** Strong agreement — the document claim is wrong. For normal documents: fix the target text to match the code (never change code). For prescriptive documents: STOP and ask the user how to proceed per Cardinal Rule 7.
+- **Explorer 1 INACCURATE and Critic 2 CONTRADICTED:** Strong agreement — the document claim is wrong. For normal documents: fix the target text to match the code (never change code). For prescriptive documents: STOP and ask the user how to proceed per HARD RULE 5.
 - **Either UNCERTAIN:** The claim needs manual verification. Do not include it in target text without resolution.
 
 ### 3f. Backward feedback loop

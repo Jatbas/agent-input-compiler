@@ -23,8 +23,6 @@ editors: all (Cursor Composer / Agent recommended for full fidelity)
 - **HARD RULE** — enforced by script or by explicit rules in §HARD RULES.
 - **GUIDANCE** — best practice.
 
-"**Cardinal Rule N**" is a legacy alias used in this skill's phase files and in `SKILL-standards.md` for the correspondingly numbered entry in §HARD RULES above (Cardinal Rule 0 = HARD RULE 1 _Dispatch the critics_ with its "MANDATORY" invocation in Phase 3 §3b; Cardinal Rule 5 = HARD RULE 6 _Deduplicate_; Cardinal Rule 7 = HARD RULE 5 _No code changes_; etc.). It is the same severity tier (HARD RULE) — not a third tier — so the two-tier rule still holds. Do not introduce new Cardinal-Rule numbers; add or amend the entries in §HARD RULES directly.
-
 ## HARD RULES
 
 1. **Dispatch the critics.** Editorial + factual + cross-doc are always dispatched. Reader is conditional (see rule 1a). Audit completeness (`critic-audit.md`) is dispatched in **audit mode only** (see Phase 3 §3b Critic 5). Every critic has its own prompt template in `prompts/`.
@@ -48,7 +46,7 @@ editors: all (Cursor Composer / Agent recommended for full fidelity)
 
 Run phases continuously. Do not pause between phases to summarise; emit checkpoint lines and move on. The only points you stop and wait for the user are:
 
-- **Prescriptive-document contradiction (Cardinal Rule 7).** Any critic (Critic 2 factual, Critic 3 cross-doc, double-blind reconciliation in §3e) finds a contradiction between a prescriptive document — `project-plan.md`, `implementation-spec.md`, architecture, security — and the code. Stop, report both locations, ask the user how to proceed. Never edit a prescriptive document autonomously to match code.
+- **Prescriptive-document contradiction (HARD RULE 5).** Any critic (Critic 2 factual, Critic 3 cross-doc, double-blind reconciliation in §3e) finds a contradiction between a prescriptive document — `project-plan.md`, `implementation-spec.md`, architecture, security — and the code. Stop, report both locations, ask the user how to proceed. Never edit a prescriptive document autonomously to match code.
 - **Unresolvable factual claim.** After the allowed revision loops (`SKILL-phase-3-review.md §3f`, max 2 loops), Critic 2 still reports `NOT FOUND` or `CONTRADICTED` for a claim and investigation cannot resolve it — escalate to `aic-researcher` and wait for its answer. `UNCERTAIN` claims that survive are moved to Open Questions, not a stop.
 - **Scope ambiguity surfaced mid-run.** Phase 1 analysis or a critic reveals that the requested change touches documents outside the initial target set in a way that requires a user decision (e.g. sibling document is authoritative and wrong).
 - **Finalize gate failure.** Phase 4 `ambiguity-scan.sh` / `evidence-scan.sh` / HARD RULE 4 grep fails and the failure cannot be fixed by a bounded edit on the touched documents.
