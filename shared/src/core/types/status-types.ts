@@ -24,6 +24,18 @@ export interface StatusRequest {
   readonly dbPath: FilePath;
 }
 
+export interface LastCompilationSnapshot {
+  readonly intent: string;
+  readonly filesSelected: number;
+  readonly filesTotal: number;
+  readonly tokensCompiled: number;
+  readonly tokenReductionPct: number;
+  readonly created_at: string;
+  readonly editorId: string;
+  readonly modelId: string | null;
+  readonly allocatedTotalBudget: number;
+}
+
 export interface StatusAggregates {
   readonly compilationsTotal: number;
   readonly compilationsToday: number;
@@ -38,21 +50,10 @@ export interface StatusAggregates {
     readonly taskClass: string;
     readonly count: number;
   }[];
-  readonly lastCompilation: {
-    readonly intent: string;
-    readonly filesSelected: number;
-    readonly filesTotal: number;
-    readonly tokensCompiled: number;
-    readonly tokenReductionPct: number;
-    readonly created_at: string;
-    readonly editorId: string;
-    readonly modelId: string | null;
-  } | null;
+  readonly lastCompilation: LastCompilationSnapshot | null;
   readonly installationOk: boolean | null;
   readonly installationNotes: string | null;
 }
-
-export type LastCompilationSnapshot = NonNullable<StatusAggregates["lastCompilation"]>;
 
 export interface ProjectListItem {
   readonly projectId: ProjectId;
@@ -74,16 +75,7 @@ export interface ConversationSummary {
   readonly totalTokensRaw: number;
   readonly totalTokensCompiled: number;
   readonly totalTokensSaved: number | null;
-  readonly lastCompilationInConversation: {
-    readonly intent: string;
-    readonly filesSelected: number;
-    readonly filesTotal: number;
-    readonly tokensCompiled: number;
-    readonly tokenReductionPct: number;
-    readonly created_at: string;
-    readonly editorId: string;
-    readonly modelId: string | null;
-  } | null;
+  readonly lastCompilationInConversation: LastCompilationSnapshot | null;
   readonly topTaskClasses: readonly {
     readonly taskClass: string;
     readonly count: number;

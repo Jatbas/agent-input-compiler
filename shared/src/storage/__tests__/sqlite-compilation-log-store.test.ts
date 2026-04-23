@@ -21,6 +21,7 @@ import {
 import { migration } from "../migrations/001-consolidated-schema.js";
 import { migration as migration003 } from "../migrations/003-compilation-selection-trace.js";
 import { migration as migration006 } from "../migrations/006-classifier-scores.js";
+import { migration as migration009 } from "../migrations/009-compilation-log-total-budget.js";
 import { SqliteCompilationLogStore } from "../sqlite-compilation-log-store.js";
 import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import {
@@ -42,6 +43,7 @@ describe("SqliteCompilationLogStore", () => {
     migration.up(db);
     migration003.up(db);
     migration006.up(db);
+    migration009.up(db);
     db.prepare(
       "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
     ).run(
@@ -77,6 +79,7 @@ describe("SqliteCompilationLogStore", () => {
       classifierConfidence: null,
       specificityScore: null,
       underspecificationIndex: null,
+      totalBudget: toTokenCount(32000),
     };
     store.record(entry);
     const row = db
@@ -110,6 +113,7 @@ describe("SqliteCompilationLogStore", () => {
       classifierConfidence: null,
       specificityScore: null,
       underspecificationIndex: null,
+      totalBudget: toTokenCount(32000),
     };
     store.record(entry);
     const row = db
@@ -167,6 +171,7 @@ describe("SqliteCompilationLogStore", () => {
       classifierConfidence: null,
       specificityScore: null,
       underspecificationIndex: null,
+      totalBudget: toTokenCount(32000),
     };
     store.record(entry);
     const row = db
@@ -214,6 +219,7 @@ describe("SqliteCompilationLogStore", () => {
       classifierConfidence: null,
       specificityScore: null,
       underspecificationIndex: null,
+      totalBudget: toTokenCount(32000),
     };
     store.record(entry);
     const row = db
@@ -248,6 +254,7 @@ describe("SqliteCompilationLogStore", () => {
       classifierConfidence: null,
       specificityScore: null,
       underspecificationIndex: null,
+      totalBudget: toTokenCount(32000),
     };
     store.record(entry);
     const row = db
@@ -282,6 +289,7 @@ describe("SqliteCompilationLogStore", () => {
       classifierConfidence: null,
       specificityScore: null,
       underspecificationIndex: null,
+      totalBudget: toTokenCount(32000),
     };
     store.record(entry);
     const row = db
@@ -314,6 +322,7 @@ describe("SqliteCompilationLogStore", () => {
       classifierConfidence: null,
       specificityScore: null,
       underspecificationIndex: null,
+      totalBudget: toTokenCount(32000),
     };
     store.record(entry);
     const row = db
@@ -371,6 +380,7 @@ describe("SqliteCompilationLogStore", () => {
       classifierConfidence: null,
       specificityScore: null,
       underspecificationIndex: null,
+      totalBudget: toTokenCount(32000),
     };
     store.record(entry);
     const raw = db
@@ -427,6 +437,7 @@ describe("SqliteCompilationLogStore", () => {
       classifierConfidence: toConfidence(0.5),
       specificityScore: toConfidence(0.333),
       underspecificationIndex: toConfidence(0.5),
+      totalBudget: toTokenCount(32000),
     };
     store.record(entry);
     const row = db

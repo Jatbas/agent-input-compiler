@@ -33,6 +33,7 @@ import {
   RESERVED_RESPONSE_DEFAULT,
   TEMPLATE_OVERHEAD_DEFAULT,
 } from "@jatbas/aic-core/pipeline/budget-allocator.js";
+import { resolveBudgetUtilizationPercent } from "@jatbas/aic-core/core/resolve-display-total-budget.js";
 import type { InstallScope } from "./detect-install-scope.js";
 import { enumerateUtcDaysInclusive } from "./utc-calendar.js";
 
@@ -58,13 +59,20 @@ export function buildStatusPayload(input: {
           ),
         });
   const rawMaxTokens = input.budgetConfig.getMaxTokens();
-  const budgetMaxTokens =
+  const defaultCeiling =
     Number(rawMaxTokens) === 0
       ? CONTEXT_WINDOW_DEFAULT - RESERVED_RESPONSE_DEFAULT - TEMPLATE_OVERHEAD_DEFAULT
       : Number(rawMaxTokens);
+  const budgetMaxTokens =
+    summary.lastCompilation !== null
+      ? summary.lastCompilation.allocatedTotalBudget
+      : defaultCeiling;
   const budgetUtilizationPct =
     summary.lastCompilation !== null
-      ? (summary.lastCompilation.tokensCompiled / budgetMaxTokens) * 100
+      ? resolveBudgetUtilizationPercent(
+          summary.lastCompilation.tokensCompiled,
+          summary.lastCompilation.allocatedTotalBudget,
+        )
       : null;
   return {
     ...summary,
@@ -89,6 +97,7 @@ function snapshotToConversationLast(
     created_at: last.created_at,
     editorId: last.editorId,
     modelId: last.modelId,
+    allocatedTotalBudget: last.allocatedTotalBudget,
   };
 }
 
@@ -148,6 +157,7 @@ export function buildLastPayload(input: {
   readonly db: ExecutableDb;
   readonly clock: Clock;
   readonly conversationIdForLast: string | null;
+  readonly budgetConfig: BudgetConfig;
 }): {
   readonly compilationCount: number;
   readonly lastCompilation: Record<string, unknown> | null;
@@ -156,6 +166,7 @@ export function buildLastPayload(input: {
     readonly guardPassed: null;
   };
   readonly selection: SelectionTraceParsed | null;
+  readonly lastBudgetMaxTokens: number;
 } {
   const startupStore = new SqliteStatusStore(input.projectId, input.db, input.clock);
   const store = resolveSqliteStatusStoreForLastTool(
@@ -165,6 +176,15 @@ export function buildLastPayload(input: {
     input.conversationIdForLast,
   );
   const summary = store.getSummary();
+  const rawMaxTokens = input.budgetConfig.getMaxTokens();
+  const defaultCeiling =
+    Number(rawMaxTokens) === 0
+      ? CONTEXT_WINDOW_DEFAULT - RESERVED_RESPONSE_DEFAULT - TEMPLATE_OVERHEAD_DEFAULT
+      : Number(rawMaxTokens);
+  const lastBudgetMaxTokens =
+    summary.lastCompilation !== null
+      ? summary.lastCompilation.allocatedTotalBudget
+      : defaultCeiling;
   const traceRow = store.getLastCompilationRowWithTraceForLastTool();
   const last = summary.lastCompilation;
   const mapped = last === null ? null : snapshotToConversationLast(last);
@@ -176,6 +196,7 @@ export function buildLastPayload(input: {
           cacheHit: traceRow?.cache_hit === 1,
           guardFindingCount: traceRow?.guard_finding_count ?? null,
           guardBlockCount: traceRow?.guard_block_count ?? null,
+          guardScannedFileCount: mapped.filesSelected,
         };
   const selection =
     traceRow === null ? null : parseSelectionTraceColumn(traceRow.selection_trace_json);
@@ -187,6 +208,7 @@ export function buildLastPayload(input: {
       guardPassed: null,
     },
     selection,
+    lastBudgetMaxTokens,
   };
 }
 

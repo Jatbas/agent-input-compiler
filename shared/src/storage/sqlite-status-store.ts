@@ -21,6 +21,7 @@ import type {
 import { toProjectId } from "@jatbas/aic-core/core/types/identifiers.js";
 import { type AbsolutePath, toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import { TRIGGER_SOURCE } from "@jatbas/aic-core/core/types/enums.js";
+import { resolveDisplayTotalBudgetDenominator } from "@jatbas/aic-core/core/resolve-display-total-budget.js";
 
 export function listProjectsFromDb(db: ExecutableDb): readonly ProjectListItem[] {
   const rows = db
@@ -53,6 +54,7 @@ type LastCompilationRow = {
   created_at: string;
   editor_id: string;
   model_id: string | null;
+  total_budget: number | null;
 };
 
 type LastCompilationRowWithTrace = LastCompilationRow & {
@@ -71,6 +73,7 @@ function mapLastCompilationRow(row: LastCompilationRow): {
   created_at: string;
   editorId: string;
   modelId: string | null;
+  allocatedTotalBudget: number;
 } {
   return {
     intent: row.intent,
@@ -81,6 +84,10 @@ function mapLastCompilationRow(row: LastCompilationRow): {
     created_at: row.created_at,
     editorId: row.editor_id,
     modelId: row.model_id,
+    allocatedTotalBudget: resolveDisplayTotalBudgetDenominator(
+      row.total_budget,
+      row.model_id,
+    ),
   };
 }
 
@@ -153,7 +160,7 @@ export class SqliteStatusStore implements StatusStore, GlobalStatusQueries {
       .prepare(
         `SELECT intent, files_selected, files_total, tokens_compiled,
          COALESCE(CAST((tokens_raw - tokens_compiled) AS REAL) * 100.0 / NULLIF(tokens_raw, 0), 0) AS token_reduction_pct,
-         created_at, editor_id, model_id
+         created_at, editor_id, model_id, total_budget
          FROM compilation_log WHERE conversation_id = ? AND (trigger_source IS NULL OR trigger_source != ?) AND project_id = ?
          ORDER BY created_at DESC LIMIT 1`,
       )
@@ -273,7 +280,7 @@ export class SqliteStatusStore implements StatusStore, GlobalStatusQueries {
       .all(...scopeParams()) as { taskClass: string; count: number }[];
     const topTaskClasses = topRows.map(mapTaskClassRow);
     const lastSql =
-      "SELECT intent, files_selected, files_total, tokens_compiled, COALESCE(CAST((tokens_raw - tokens_compiled) AS REAL) * 100.0 / NULLIF(tokens_raw, 0), 0) AS token_reduction_pct, created_at, editor_id, model_id FROM compilation_log WHERE" +
+      "SELECT intent, files_selected, files_total, tokens_compiled, COALESCE(CAST((tokens_raw - tokens_compiled) AS REAL) * 100.0 / NULLIF(tokens_raw, 0), 0) AS token_reduction_pct, created_at, editor_id, model_id, total_budget FROM compilation_log WHERE" +
       triggerFilter +
       timeSql +
       projectSuffix +
@@ -373,7 +380,7 @@ export class SqliteStatusStore implements StatusStore, GlobalStatusQueries {
   getLastCompilationForProject(projectId: ProjectId): LastCompilationSnapshot | null {
     const lastRows = this.db
       .prepare(
-        "SELECT intent, files_selected, files_total, tokens_compiled, COALESCE(CAST((tokens_raw - tokens_compiled) AS REAL) * 100.0 / NULLIF(tokens_raw, 0), 0) AS token_reduction_pct, created_at, editor_id, model_id FROM compilation_log WHERE (trigger_source IS NULL OR trigger_source != ?) AND project_id = ? ORDER BY created_at DESC LIMIT 1",
+        "SELECT intent, files_selected, files_total, tokens_compiled, COALESCE(CAST((tokens_raw - tokens_compiled) AS REAL) * 100.0 / NULLIF(tokens_raw, 0), 0) AS token_reduction_pct, created_at, editor_id, model_id, total_budget FROM compilation_log WHERE (trigger_source IS NULL OR trigger_source != ?) AND project_id = ? ORDER BY created_at DESC LIMIT 1",
       )
       .all(TRIGGER_SOURCE.INTERNAL_TEST, projectId) as LastCompilationRow[];
     const lastRow = lastRows[0];
@@ -401,7 +408,7 @@ export class SqliteStatusStore implements StatusStore, GlobalStatusQueries {
       .prepare(
         `SELECT cl.intent, cl.files_selected, cl.files_total, cl.tokens_compiled,
          COALESCE(CAST((cl.tokens_raw - cl.tokens_compiled) AS REAL) * 100.0 / NULLIF(cl.tokens_raw, 0), 0) AS token_reduction_pct,
-         cl.created_at, cl.editor_id, cl.model_id, cl.selection_trace_json, cl.cache_hit,
+         cl.created_at, cl.editor_id, cl.model_id, cl.total_budget, cl.selection_trace_json, cl.cache_hit,
          te.guard_findings AS guard_finding_count, te.guard_blocks AS guard_block_count
          FROM compilation_log cl
          LEFT JOIN telemetry_events te ON te.compilation_id = cl.id

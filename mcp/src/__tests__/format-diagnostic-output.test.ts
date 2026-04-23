@@ -205,13 +205,125 @@ describe("formatLastTable", () => {
           cacheHit: true,
         },
         promptSummary: { tokenCount: null, guardPassed: null },
+        lastBudgetMaxTokens: 5_000,
       },
       clock,
-      5_000,
     );
     assertStandardReportLayout(out);
     expect(out).toContain("AIC served this compilation from cache");
-    expect(out).toContain("5.0% of budget used");
+    expect(out).toContain("tokens compiled");
+    expect(out).toContain("token budget");
+    expect(out).toMatch(/5\.0.*token budget/);
+  });
+
+  it("format_last_hero_uses_labeled_token_and_file_subjects", () => {
+    const clock = fixedClock("2026-03-02T12:00:00.000Z");
+    const out = formatLastTable(
+      {
+        compilationCount: 1,
+        lastCompilation: {
+          intent: "probe",
+          filesSelected: 3,
+          filesTotal: 120,
+          tokensCompiled: 9000,
+          tokenReductionPct: 72,
+          created_at: "2026-03-02T11:00:00.000Z",
+          editorId: "cursor",
+          cacheHit: false,
+        },
+        promptSummary: { tokenCount: null, guardPassed: null },
+        lastBudgetMaxTokens: 12_000,
+      },
+      clock,
+    );
+    assertStandardReportLayout(out);
+    expect(out).toContain("files forwarded");
+    expect(out).toContain("tokens compiled");
+    expect(out).toContain("token budget");
+    expect(out).toContain("token reduction");
+    expect(out).toMatch(/token reduction[^\n]*72\.0%/);
+    expect(out).not.toMatch(/\d+\.\d% excluded\)/);
+  });
+
+  it("format_last_hero_cache_hit_labels_budget_not_files", () => {
+    const clock = fixedClock("2026-03-02T12:00:00.000Z");
+    const out = formatLastTable(
+      {
+        compilationCount: 1,
+        lastCompilation: {
+          intent: "probe",
+          filesSelected: 0,
+          filesTotal: 200,
+          tokensCompiled: 250,
+          tokenReductionPct: 0,
+          created_at: "2026-03-02T11:00:00.000Z",
+          editorId: "cursor",
+          cacheHit: true,
+        },
+        promptSummary: { tokenCount: null, guardPassed: null },
+        lastBudgetMaxTokens: 5_000,
+      },
+      clock,
+    );
+    assertStandardReportLayout(out);
+    expect(out).toContain("tokens compiled");
+    expect(out).toContain("token budget");
+    expect(out).not.toContain("files forwarded");
+  });
+
+  it("format_last_guard_label_disambiguates_findings_and_files", () => {
+    const clock = fixedClock("2026-03-02T12:00:00.000Z");
+    const out = formatLastTable(
+      {
+        compilationCount: 1,
+        lastCompilation: {
+          intent: "p",
+          filesSelected: 3,
+          filesTotal: 5,
+          guardFindingCount: 2,
+          guardBlockCount: 1,
+          tokensCompiled: 100,
+          tokenReductionPct: 0,
+          created_at: "2026-03-02T11:00:00.000Z",
+          editorId: "cursor",
+          cacheHit: false,
+        },
+        promptSummary: { tokenCount: null, guardPassed: null },
+        lastBudgetMaxTokens: 5_000,
+      },
+      clock,
+    );
+    assertStandardReportLayout(out);
+    expect(out).toMatch(/Guard \(this run\)[^\n]*2 findings/);
+    expect(out).toMatch(/across[^\n]*3/);
+    expect(out).toMatch(/1 file blocked/);
+    expect(out).not.toMatch(/2 finding\(s\), 1 blocked/);
+  });
+
+  it("format_last_guard_label_short_form_without_scanned", () => {
+    const clock = fixedClock("2026-03-02T12:00:00.000Z");
+    const out = formatLastTable(
+      {
+        compilationCount: 1,
+        lastCompilation: {
+          intent: "p",
+          filesTotal: 1,
+          guardFindingCount: 2,
+          guardBlockCount: 1,
+          tokensCompiled: 0,
+          tokenReductionPct: 0,
+          created_at: "2026-03-02T11:00:00.000Z",
+          editorId: "cursor",
+        },
+        promptSummary: { tokenCount: null, guardPassed: null },
+        lastBudgetMaxTokens: 5_000,
+      },
+      clock,
+    );
+    assertStandardReportLayout(out);
+    expect(out).toMatch(/Guard \(this run\)[^\n]*2 findings/);
+    expect(out).toMatch(/1 file blocked/);
+    expect(out).not.toMatch(/across/);
   });
 });
 

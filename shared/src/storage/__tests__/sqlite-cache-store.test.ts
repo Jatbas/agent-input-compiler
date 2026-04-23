@@ -31,6 +31,7 @@ function makeEntry(overrides: Partial<CachedCompilation> = {}): CachedCompilatio
     expiresAt: toISOTimestamp("2026-03-25T10:00:00.000Z"),
     fileTreeHash: "abc123",
     configHash: "config-hash",
+    filesSelected: 3,
     ...overrides,
   };
 }
@@ -73,6 +74,7 @@ describe("SqliteCacheStore", () => {
     expect(got?.expiresAt).toBe(entry.expiresAt);
     expect(got?.fileTreeHash).toBe(entry.fileTreeHash);
     expect(got?.configHash).toBe(entry.configHash);
+    expect(got?.filesSelected).toBe(entry.filesSelected);
   });
 
   it("get missing key returns null", () => {

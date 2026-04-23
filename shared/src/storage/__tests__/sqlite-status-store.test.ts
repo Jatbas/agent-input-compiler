@@ -13,6 +13,8 @@ import {
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
 import { migration } from "../migrations/001-consolidated-schema.js";
 import { migration as migration003 } from "../migrations/003-compilation-selection-trace.js";
+import { migration as migration009 } from "../migrations/009-compilation-log-total-budget.js";
+import { resolveDisplayTotalBudgetDenominator } from "@jatbas/aic-core/core/resolve-display-total-budget.js";
 import { SqliteStatusStore, listProjectsFromDb } from "../sqlite-status-store.js";
 
 const stubClock: Clock = {
@@ -98,6 +100,7 @@ describe("SqliteStatusStore", () => {
     db = new Database(":memory:");
     migration.up(db);
     migration003.up(db);
+    migration009.up(db);
     db.prepare(
       "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
     ).run(
@@ -172,6 +175,9 @@ describe("SqliteStatusStore", () => {
       expect(summary.lastCompilation.created_at).toBe("2026-02-25T12:00:00.000Z");
       expect(summary.lastCompilation.editorId).toBe("cursor");
       expect(summary.lastCompilation.modelId).toBe("gpt-4");
+      expect(summary.lastCompilation.allocatedTotalBudget).toBe(
+        resolveDisplayTotalBudgetDenominator(null, "gpt-4"),
+      );
     }
   });
 
@@ -349,6 +355,9 @@ describe("SqliteStatusStore", () => {
       expect(result.lastCompilationInConversation.created_at).toBe(
         "2026-02-26T12:01:00.000Z",
       );
+      expect(result.lastCompilationInConversation.allocatedTotalBudget).toBe(
+        resolveDisplayTotalBudgetDenominator(null, null),
+      );
     }
     expect(result.topTaskClasses).toHaveLength(2);
     const refactor = result.topTaskClasses.find((t) => t.taskClass === "refactor");
@@ -419,6 +428,9 @@ describe("SqliteStatusStore", () => {
     expect(summary.lastCompilation).not.toBeNull();
     if (summary.lastCompilation !== null) {
       expect(summary.lastCompilation.intent).toBe("user intent");
+      expect(summary.lastCompilation.allocatedTotalBudget).toBe(
+        resolveDisplayTotalBudgetDenominator(null, null),
+      );
     }
   });
 
@@ -443,12 +455,17 @@ describe("SqliteStatusStore", () => {
     expect(result.lastCompilationInConversation).not.toBeNull();
     if (result.lastCompilationInConversation !== null) {
       expect(result.lastCompilationInConversation.intent).toBe("user compilation");
+      expect(result.lastCompilationInConversation.allocatedTotalBudget).toBe(
+        resolveDisplayTotalBudgetDenominator(null, null),
+      );
     }
   });
 
   it("getGlobalSummary_empty_db", () => {
     db = new Database(":memory:");
     migration.up(db);
+    migration003.up(db);
+    migration009.up(db);
     db.prepare(
       "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
     ).run(
@@ -530,6 +547,9 @@ describe("SqliteStatusStore", () => {
     expect(last).not.toBeNull();
     if (last !== null) {
       expect(last.intent).toBe("last for A");
+      expect(last.allocatedTotalBudget).toBe(
+        resolveDisplayTotalBudgetDenominator(null, null),
+      );
     }
     const otherLast = store.getLastCompilationForProject(OTHER_PROJECT_ID);
     expect(otherLast).toBeNull();

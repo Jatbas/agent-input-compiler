@@ -38,4 +38,5 @@ export interface CompilationLogEntry {
   readonly classifierConfidence: Confidence | null;
   readonly specificityScore: Confidence | null;
   readonly underspecificationIndex: Confidence | null;
+  readonly totalBudget: TokenCount | null;
 }

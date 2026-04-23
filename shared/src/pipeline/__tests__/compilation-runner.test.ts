@@ -811,8 +811,10 @@ describe("CompilationRunner", () => {
       null,
     );
     const request = makeRequest(fixtureRoot);
-    await runner.run(request);
+    const first = await runner.run(request);
     const second = await runner.run(request);
+    expect(second.meta.filesSelected).toBe(first.meta.filesSelected);
+    expect(first.meta.filesSelected).toBeGreaterThan(0);
     expect(second.meta.cacheHit).toBe(true);
     expect(recordedLogEntries.length).toBe(2);
     expect(recordedGuardCalls.length).toBe(2);

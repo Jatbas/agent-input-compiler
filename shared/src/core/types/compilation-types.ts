@@ -65,6 +65,7 @@ export interface CompilationMeta {
   readonly guard: GuardResult | null;
   readonly contextCompleteness: Confidence;
   readonly classifierConfidence: Confidence | null;
+  readonly totalBudget: TokenCount;
 }
 
 export interface CachedCompilation {
@@ -75,4 +76,5 @@ export interface CachedCompilation {
   readonly expiresAt: ISOTimestamp;
   readonly fileTreeHash: string;
   readonly configHash: string;
+  readonly filesSelected: number;
 }

@@ -43,6 +43,7 @@ function metaOverrides(overrides: Partial<CompilationMeta>): CompilationMeta {
     guard: null,
     contextCompleteness: toConfidence(1),
     classifierConfidence: toConfidence(1),
+    totalBudget: toTokenCount(0),
     ...overrides,
   };
 }

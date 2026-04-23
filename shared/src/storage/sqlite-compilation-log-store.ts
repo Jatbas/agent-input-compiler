@@ -18,8 +18,8 @@ export class SqliteCompilationLogStore implements CompilationLogStore {
         id, intent, task_class, files_selected, files_total,
         tokens_raw, tokens_compiled, cache_hit,
         duration_ms, editor_id, model_id, session_id, config_hash, created_at, trigger_source, conversation_id, project_id, selection_trace_json,
-        classifier_confidence, specificity_score, underspecification_index
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        classifier_confidence, specificity_score, underspecification_index, total_budget
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     );
     stmt.run(
       entry.id,
@@ -43,6 +43,7 @@ export class SqliteCompilationLogStore implements CompilationLogStore {
       entry.classifierConfidence,
       entry.specificityScore,
       entry.underspecificationIndex,
+      entry.totalBudget === null ? null : Number(entry.totalBudget),
     );
   }
 }

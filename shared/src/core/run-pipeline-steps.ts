@@ -112,7 +112,7 @@ function buildSpecRepoMap(repoMap: RepoMap): RepoMap {
   };
 }
 
-function deriveSessionContext(
+export function deriveSessionBudgetContext(
   request: PipelineStepsRequest,
   deps: PipelineStepsDeps,
 ): SessionBudgetContext | undefined {
@@ -200,7 +200,7 @@ export async function runPipelineSteps(
 ): Promise<PipelineStepsResult> {
   const task = deps.intentClassifier.classify(request.intent);
   const rulePack = deps.rulePackResolver.resolve(task, request.projectRoot);
-  const sessionContext = deriveSessionContext(request, deps);
+  const sessionContext = deriveSessionBudgetContext(request, deps);
   const totalBudget = deps.budgetAllocator.allocate(
     rulePack,
     task.taskClass,

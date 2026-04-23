@@ -11,6 +11,7 @@ import { migration as migration005 } from "@jatbas/aic-core/storage/migrations/0
 import { migration as migration006 } from "@jatbas/aic-core/storage/migrations/006-classifier-scores.js";
 import { migration as migration007 } from "@jatbas/aic-core/storage/migrations/007-last-non-general-intent-index.js";
 import { migration as migration008 } from "@jatbas/aic-core/storage/migrations/008-compilation-log-project-created-at-index.js";
+import { migration as migration009 } from "@jatbas/aic-core/storage/migrations/009-compilation-log-total-budget.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
 
@@ -33,6 +34,7 @@ export function openDatabase(dbPath: string, clock: Clock): ExecutableDb {
     migration006,
     migration007,
     migration008,
+    migration009,
   ]);
   return db;
 }

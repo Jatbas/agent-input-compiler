@@ -25,12 +25,12 @@ const MAX_CONTEXT_WINDOW = 10_000_000;
 // Cap response body to avoid memory exhaustion on a malicious or broken response.
 const MAX_RESPONSE_BYTES = 10 * 1024 * 1024; // 10 MB
 
-// NORMALIZATION CONTRACT — must match normalizeForLookup in compilation-runner.ts exactly:
+// NORMALIZATION CONTRACT — must match normalizeForLookup in shared/src/core/resolve-display-total-budget.ts exactly:
 // 1. Strip first vendor/ prefix if present.
 // 2. Strip trailing 8-digit date suffix (-YYYYMMDD) if present.
 // 3. Lowercase.
 // 4. Reorder claude-{semver}-{role} to claude-{role}-{semver} (handles version-role order from some editors).
-// If this logic changes, update compilation-runner.ts in lockstep.
+// If this logic changes, update resolve-display-total-budget.ts in lockstep.
 function stripVendorPrefix(id) {
   const slash = id.indexOf("/");
   return slash !== -1 ? id.slice(slash + 1) : id;

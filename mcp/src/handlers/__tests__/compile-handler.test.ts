@@ -1411,6 +1411,7 @@ describe("compile-handler", () => {
             classifierConfidence: null,
             specificityScore: null,
             underspecificationIndex: null,
+            totalBudget: null,
           };
           scope.compilationLogStore.record(entry);
           return Promise.resolve({
@@ -1498,6 +1499,7 @@ describe("compile-handler", () => {
               classifierConfidence: null,
               specificityScore: null,
               underspecificationIndex: null,
+              totalBudget: null,
             };
             scope.compilationLogStore.record(entry);
             return Promise.resolve({

@@ -16,13 +16,7 @@ import {
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
 import type { BudgetConfig } from "@jatbas/aic-core/core/interfaces/budget-config.interface.js";
 import type { TaskClass } from "@jatbas/aic-core/core/types/enums.js";
-import type { TokenCount } from "@jatbas/aic-core/core/types/units.js";
 import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
-import {
-  CONTEXT_WINDOW_DEFAULT,
-  RESERVED_RESPONSE_DEFAULT,
-  TEMPLATE_OVERHEAD_DEFAULT,
-} from "@jatbas/aic-core/pipeline/budget-allocator.js";
 import { SystemClock } from "@jatbas/aic-core/adapters/system-clock.js";
 import { NodePathAdapter } from "@jatbas/aic-core/adapters/node-path-adapter.js";
 import {
@@ -66,13 +60,6 @@ export function readPackageVersion(): {
   } catch {
     return { packageName: "@jatbas/aic", packageVersion: "0.0.0" };
   }
-}
-
-function effectiveBudgetCeilingForDisplay(rawMaxTokens: TokenCount): number {
-  const n = Number(rawMaxTokens);
-  return n === 0
-    ? CONTEXT_WINDOW_DEFAULT - RESERVED_RESPONSE_DEFAULT - TEMPLATE_OVERHEAD_DEFAULT
-    : n;
 }
 
 export function createDefaultBudgetConfig(): BudgetConfig {
@@ -310,20 +297,15 @@ async function runStatusCli(argv: readonly string[]): Promise<number> {
 async function runLastCli(argv: readonly string[]): Promise<number> {
   return withGlobalReadonlyDb((db) =>
     runWithProjectFromArgv(db, argv, ({ clock, projectId, db: storeDb }) => {
+      const budget = createDefaultBudgetConfig();
       const payload = buildLastPayload({
         projectId,
         db: storeDb,
         clock,
         conversationIdForLast: null,
+        budgetConfig: budget,
       });
-      const budget = createDefaultBudgetConfig();
-      process.stdout.write(
-        formatLastTable(
-          payload,
-          clock,
-          effectiveBudgetCeilingForDisplay(budget.getMaxTokens()),
-        ),
-      );
+      process.stdout.write(formatLastTable(payload, clock));
       return 0;
     }),
   );

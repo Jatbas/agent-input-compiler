@@ -25,6 +25,7 @@ interface BlobPayload {
   readonly compiledPrompt: string;
   readonly tokenCount: number;
   readonly configHash: string;
+  readonly filesSelected: number;
 }
 
 function blobPath(cacheDir: AbsolutePath, key: string): string {
@@ -39,9 +40,31 @@ function readBlobFile(filePath: string): string | null {
   }
 }
 
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 function parseBlobPayload(raw: string): BlobPayload | null {
   try {
-    return JSON.parse(raw) as BlobPayload;
+    const parsed: unknown = JSON.parse(raw);
+    const rec: Record<string, unknown> = isPlainRecord(parsed) ? parsed : {};
+    const rawFs = rec["filesSelected"];
+    const filesSelected = typeof rawFs === "number" && Number.isFinite(rawFs) ? rawFs : 0;
+    const compiledPrompt = rec["compiledPrompt"];
+    const tokenCountRaw = rec["tokenCount"];
+    const configHash = rec["configHash"];
+    if (typeof compiledPrompt !== "string" || typeof configHash !== "string") {
+      return null;
+    }
+    if (typeof tokenCountRaw !== "number" || !Number.isFinite(tokenCountRaw)) {
+      return null;
+    }
+    return {
+      compiledPrompt,
+      tokenCount: tokenCountRaw,
+      configHash,
+      filesSelected,
+    };
   } catch {
     return null;
   }
@@ -85,6 +108,7 @@ export class SqliteCacheStore implements CacheStore {
       expiresAt: sqliteDatetimeToIso(row.expires_at),
       fileTreeHash: row.file_tree_hash,
       configHash: payload.configHash,
+      filesSelected: payload.filesSelected,
     };
   }
 
@@ -118,6 +142,7 @@ export class SqliteCacheStore implements CacheStore {
       compiledPrompt: entry.compiledPrompt,
       tokenCount: entry.tokenCount,
       configHash: entry.configHash,
+      filesSelected: entry.filesSelected,
     };
     fs.writeFileSync(filePath, JSON.stringify(payload), "utf8");
     const createdSql = isoToSqliteDatetime(entry.createdAt);

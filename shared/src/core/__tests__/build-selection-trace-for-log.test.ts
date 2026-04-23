@@ -145,4 +145,31 @@ describe("buildSelectionTraceForLog", () => {
     expect(trace.selectedFiles[0]?.signals.rulePenaltyCount).toBe(0);
     expect(trace.selectedFiles[0]?.signals.pathRelevance).toBe(0);
   });
+
+  it("selection_trace_builder_excludes_dot_git_paths_from_selected_and_excluded", () => {
+    const r = stubPipelineResult({
+      prunedPaths: [".git/config", "src/ok.ts"],
+      selectedPaths: [".git/config", "src/ok.ts"],
+      safePaths: ["src/ok.ts"],
+      contextExcluded: [
+        {
+          path: toRelativePath("packages/app/.git/HEAD"),
+          score: 0.1,
+          reason: EXCLUSION_REASON.EXCLUDE_PATTERN_MATCH,
+        },
+      ],
+    });
+    const trace = buildSelectionTraceForLog(r);
+    expect(
+      trace.selectedFiles.some((s) => s.path === toRelativePath(".git/config")),
+    ).toBe(false);
+    expect(
+      trace.excludedFiles.some(
+        (e) => e.path === toRelativePath("packages/app/.git/HEAD"),
+      ),
+    ).toBe(false);
+    expect(trace.selectedFiles.some((s) => s.path === toRelativePath("src/ok.ts"))).toBe(
+      true,
+    );
+  });
 });

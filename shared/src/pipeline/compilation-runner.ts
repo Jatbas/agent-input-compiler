@@ -19,6 +19,7 @@ import type { IdGenerator } from "@jatbas/aic-core/core/interfaces/id-generator.
 import type { AgenticSessionState } from "@jatbas/aic-core/core/interfaces/agentic-session-state.interface.js";
 import type {
   PipelineStepsDeps,
+  PipelineStepsRequest,
   PipelineStepsResult,
 } from "@jatbas/aic-core/core/run-pipeline-steps.js";
 import type { RepoMap, FileEntry } from "@jatbas/aic-core/core/types/repo-map.js";
@@ -41,7 +42,10 @@ import { toTokenCount, toStepIndex } from "@jatbas/aic-core/core/types/units.js"
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
 import type { Confidence } from "@jatbas/aic-core/core/types/scores.js";
 import { toPercentage, toConfidence } from "@jatbas/aic-core/core/types/scores.js";
-import { runPipelineSteps } from "@jatbas/aic-core/core/run-pipeline-steps.js";
+import {
+  runPipelineSteps,
+  deriveSessionBudgetContext,
+} from "@jatbas/aic-core/core/run-pipeline-steps.js";
 import { buildSelectionTraceForLog } from "@jatbas/aic-core/core/build-selection-trace-for-log.js";
 import type { SelectionTrace } from "@jatbas/aic-core/core/types/selection-trace.js";
 import {
@@ -50,7 +54,12 @@ import {
   buildSummarisationTiers,
 } from "@jatbas/aic-core/core/token-summary.js";
 import { canonicalRelatedPathsForSelectionCache } from "./related-files-boost-context-selector.js";
-import { MODEL_CONTEXT_WINDOWS } from "@jatbas/aic-core/data/model-context-windows.js";
+import { resolveModelDerivedEffectiveWindowTokens } from "@jatbas/aic-core/core/resolve-display-total-budget.js";
+
+export {
+  normalizeForLookup,
+  lookupContextWindow,
+} from "@jatbas/aic-core/core/resolve-display-total-budget.js";
 
 // conversationId as session key gives each editor conversation its own cache entries.
 function resolveEffectiveSessionId(request: CompilationRequest): SessionId | null {
@@ -73,11 +82,12 @@ function buildCacheHitMeta(
   cached: CachedCompilation,
   taskClass: TaskClass,
   classifierConfidence: Confidence | null,
+  totalBudget: TokenCount,
 ): CompilationMeta {
   return {
     intent: request.intent,
     taskClass,
-    filesSelected: 0,
+    filesSelected: cached.filesSelected,
     filesTotal: repoMap.totalFiles,
     tokensRaw: repoMap.totalTokens,
     tokensCompiled: cached.tokenCount,
@@ -91,6 +101,7 @@ function buildCacheHitMeta(
     guard: null,
     contextCompleteness: toConfidence(1),
     classifierConfidence,
+    totalBudget,
   };
 }
 
@@ -120,6 +131,7 @@ function buildFreshMeta(
     guard: r.guardResult,
     contextCompleteness: toConfidence(1),
     classifierConfidence: r.task.confidence,
+    totalBudget: r.budget,
   };
 }
 
@@ -201,6 +213,7 @@ function buildLogEntry(
     conversationId,
     selectionTrace,
     ...classifier,
+    totalBudget: meta.totalBudget,
   };
 }
 
@@ -247,6 +260,7 @@ function runCacheHitPath(
   task: TaskClassification,
   sessionId: SessionId | null,
   configHashOrNull: string | null,
+  totalBudget: TokenCount,
 ): { compiledPrompt: string; meta: CompilationMeta; compilationId: UUIDv7 } {
   const meta = buildCacheHitMeta(
     request,
@@ -254,6 +268,7 @@ function runCacheHitPath(
     cached,
     task.taskClass,
     task.confidence,
+    totalBudget,
   );
   const compilationId = recordCompilationAndFindings(
     compilationLogStore,
@@ -299,40 +314,21 @@ function recordSessionStepIfNeeded(
   });
 }
 
-// Must match normalizeModelId in fetch-model-context-windows.cjs exactly — update both in lockstep.
-export function normalizeForLookup(id: string): string {
-  const withoutVendor = id.includes("/") ? id.slice(id.indexOf("/") + 1) : id;
-  const base = withoutVendor.toLowerCase().replace(/-\d{8}$/, "");
-  const m = /^(claude)-(\d+\.\d+)-([a-z]+)/.exec(base);
-  if (m !== null) return `${m[1]}-${m[3]}-${m[2]}`;
-  return base;
-}
-
-export function lookupContextWindow(normalizedId: string): number | undefined {
-  const walk = (candidate: string): number | undefined => {
-    if (candidate.length === 0) return undefined;
-    const found = MODEL_CONTEXT_WINDOWS[candidate];
-    if (found !== undefined) return found;
-    const lastDash = candidate.lastIndexOf("-");
-    if (lastDash === -1) return undefined;
-    return walk(candidate.slice(0, lastDash));
+function buildPipelineBudgetRequest(request: CompilationRequest): PipelineStepsRequest {
+  const effectiveSessionId = resolveEffectiveSessionId(request);
+  const contextWindow = resolveModelDerivedEffectiveWindowTokens(request.modelId);
+  return {
+    intent: request.intent,
+    projectRoot: request.projectRoot,
+    ...(effectiveSessionId !== null ? { sessionId: effectiveSessionId } : {}),
+    ...(request.stepIndex !== undefined ? { stepIndex: request.stepIndex } : {}),
+    ...(request.stepIntent !== undefined ? { stepIntent: request.stepIntent } : {}),
+    ...(request.conversationTokens !== undefined
+      ? { conversationTokens: request.conversationTokens }
+      : {}),
+    ...(contextWindow !== undefined ? { contextWindow } : {}),
+    ...(request.toolOutputs !== undefined ? { toolOutputs: request.toolOutputs } : {}),
   };
-  return walk(normalizedId);
-}
-
-function resolveModelDerivedContextWindow(
-  modelId: string | null,
-): TokenCount | undefined {
-  const MODEL_EFFECTIVE_FACTOR = 0.65;
-  const lookupId = modelId !== null ? normalizeForLookup(modelId) : null;
-  const rawWindow = lookupId !== null ? lookupContextWindow(lookupId) : undefined;
-  if (rawWindow === undefined && lookupId !== null && lookupId !== "auto") {
-    process.stderr.write(
-      `[aic] unknown model context window: ${modelId ?? ""} (normalized: ${lookupId}) — falling back to 128K\n`,
-    );
-  }
-  if (rawWindow === undefined) return undefined;
-  return toTokenCount(Math.floor(rawWindow * MODEL_EFFECTIVE_FACTOR));
 }
 
 function completeFreshPathAfterPipeline(
@@ -360,6 +356,7 @@ function completeFreshPathAfterPipeline(
     expiresAt: clock.addMinutes(60),
     fileTreeHash,
     configHash,
+    filesSelected: r.prunedFiles.length,
   });
   const meta = buildFreshMeta(request, r, durationMs);
   const trace = buildSelectionTraceForLog(r);
@@ -403,20 +400,7 @@ function runFreshPath(
 ): Promise<{ compiledPrompt: string; meta: CompilationMeta; compilationId: UUIDv7 }> {
   const start = clock.now();
   const depsWithSession = { ...deps, agenticSessionState };
-  const effectiveSessionId = resolveEffectiveSessionId(request);
-  const contextWindow = resolveModelDerivedContextWindow(request.modelId);
-  const pipelineRequest = {
-    intent: request.intent,
-    projectRoot: request.projectRoot,
-    ...(effectiveSessionId !== null ? { sessionId: effectiveSessionId } : {}),
-    ...(request.stepIndex !== undefined ? { stepIndex: request.stepIndex } : {}),
-    ...(request.stepIntent !== undefined ? { stepIntent: request.stepIntent } : {}),
-    ...(request.conversationTokens !== undefined
-      ? { conversationTokens: request.conversationTokens }
-      : {}),
-    ...(contextWindow !== undefined ? { contextWindow } : {}),
-    ...(request.toolOutputs !== undefined ? { toolOutputs: request.toolOutputs } : {}),
-  };
+  const pipelineRequest = buildPipelineBudgetRequest(request);
   return runPipelineSteps(depsWithSession, pipelineRequest, repoMap).then((r) =>
     completeFreshPathAfterPipeline(
       r,
@@ -435,6 +419,17 @@ function runFreshPath(
       agenticSessionState,
     ),
   );
+}
+
+function allocateBudgetForCacheHit(
+  deps: PipelineStepsDeps,
+  request: CompilationRequest,
+  task: TaskClassification,
+): TokenCount {
+  const pipelineRequest = buildPipelineBudgetRequest(request);
+  const rulePack = deps.rulePackResolver.resolve(task, request.projectRoot);
+  const sessionContext = deriveSessionBudgetContext(pipelineRequest, deps);
+  return deps.budgetAllocator.allocate(rulePack, task.taskClass, sessionContext);
 }
 
 export class CompilationRunner implements ICompilationRunner {
@@ -477,6 +472,7 @@ export class CompilationRunner implements ICompilationRunner {
     );
     const cached = this.cacheStore.get(key);
     if (cached !== null) {
+      const allocatedTotal = allocateBudgetForCacheHit(this.deps, request, task);
       return runCacheHitPath(
         this.compilationLogStore,
         this.guardStore,
@@ -488,6 +484,7 @@ export class CompilationRunner implements ICompilationRunner {
         task,
         sessionId,
         configHashOrNull,
+        allocatedTotal,
       );
     }
     return runFreshPath(

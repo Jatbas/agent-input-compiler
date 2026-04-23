@@ -44,11 +44,7 @@ import type {
 } from "@jatbas/aic-core/core/types/compilation-types.js";
 import { writeCompilationTelemetry } from "@jatbas/aic-core/core/write-compilation-telemetry.js";
 import { SqliteQualitySnapshotStore } from "@jatbas/aic-core/storage/sqlite-quality-snapshot-store.js";
-import {
-  CONTEXT_WINDOW_DEFAULT,
-  RESERVED_RESPONSE_DEFAULT,
-  TEMPLATE_OVERHEAD_DEFAULT,
-} from "@jatbas/aic-core/pipeline/budget-allocator.js";
+import { resolveDisplayTotalBudgetDenominator } from "@jatbas/aic-core/core/resolve-display-total-budget.js";
 import { recordToolInvocation } from "../record-tool-invocation.js";
 import { ensureProjectInit } from "../init-project.js";
 import { installTriggerRule } from "../install-trigger-rule.js";
@@ -277,13 +273,13 @@ function tryRecordQualitySnapshot(
   result: Awaited<ReturnType<CompilationRunner["run"]>>,
 ): void {
   const qualityStore = new SqliteQualitySnapshotStore(scope.projectId, scope.db);
-  const rawMax = configResult.config.contextBudget.maxTokens;
-  const budgetCeiling =
-    Number(rawMax) === 0
-      ? CONTEXT_WINDOW_DEFAULT - RESERVED_RESPONSE_DEFAULT - TEMPLATE_OVERHEAD_DEFAULT
-      : Number(rawMax);
+  const modelForLookup = result.meta.modelId === "" ? null : result.meta.modelId;
+  const denominator =
+    Number(result.meta.totalBudget) > 0
+      ? Number(result.meta.totalBudget)
+      : resolveDisplayTotalBudgetDenominator(null, modelForLookup);
   const budgetUtilisation =
-    budgetCeiling > 0 ? Number(result.meta.tokensCompiled) / budgetCeiling : 0;
+    denominator > 0 ? Number(result.meta.tokensCompiled) / denominator : 0;
   const selectionRatio =
     result.meta.filesTotal > 0 ? result.meta.filesSelected / result.meta.filesTotal : 0;
   const tiers = result.meta.summarisationTiers;

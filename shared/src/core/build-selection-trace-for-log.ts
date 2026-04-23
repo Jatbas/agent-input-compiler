@@ -2,6 +2,7 @@
 // Copyright (c) 2025 AIC Contributors
 
 import type { PipelineStepsResult } from "@jatbas/aic-core/core/run-pipeline-steps.js";
+import { isDefaultIgnoreGitScopePath } from "./selection-trace-default-git-suppress.js";
 import {
   EXCLUSION_REASON,
   type SelectionTrace,
@@ -22,11 +23,13 @@ const ZERO_SIGNALS: SelectionTraceSelectedRow["signals"] = {
 const EXCLUDED_CAP = 50;
 
 export function buildSelectionTraceForLog(r: PipelineStepsResult): SelectionTrace {
-  const selectedFiles: readonly SelectionTraceSelectedRow[] = r.prunedFiles.map((f) => ({
-    path: f.path,
-    score: Number(f.relevanceScore),
-    signals: f.scoreSignals ?? ZERO_SIGNALS,
-  }));
+  const selectedFiles: readonly SelectionTraceSelectedRow[] = r.prunedFiles
+    .map((f) => ({
+      path: f.path,
+      score: Number(f.relevanceScore),
+      signals: f.scoreSignals ?? ZERO_SIGNALS,
+    }))
+    .filter((row) => !isDefaultIgnoreGitScopePath(row.path));
   const safePaths = new Set(r.safeFiles.map((f) => f.path));
   const guardExcluded: readonly SelectionTraceExcludedRow[] = r.selectedFiles
     .filter((f) => !safePaths.has(f.path))
@@ -36,8 +39,10 @@ export function buildSelectionTraceForLog(r: PipelineStepsResult): SelectionTrac
       reason: EXCLUSION_REASON.GUARD_BLOCKED,
     }));
   const mergedExcluded: readonly SelectionTraceExcludedRow[] = [
-    ...r.contextResult.traceExcludedFiles,
-    ...guardExcluded,
+    ...r.contextResult.traceExcludedFiles.filter(
+      (e) => !isDefaultIgnoreGitScopePath(e.path),
+    ),
+    ...guardExcluded.filter((e) => !isDefaultIgnoreGitScopePath(e.path)),
   ];
   const sortedExcluded = mergedExcluded.toSorted((a, b) => {
     if (b.score !== a.score) return b.score - a.score;

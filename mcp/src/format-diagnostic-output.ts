@@ -87,13 +87,35 @@ function cacheHitLabel(hit: unknown): string {
   return "—";
 }
 
-function guardThisRunLabel(findingCount: unknown, blockCount: unknown): string | null {
+function guardThisRunLabel(
+  findingCount: unknown,
+  filesBlockedCount: unknown,
+  scannedFileCount: unknown,
+): string | null {
   if (findingCount === null || findingCount === undefined) return null;
   const findings = Number(findingCount);
   if (!Number.isFinite(findings)) return null;
   if (findings === 0) return "passed";
-  const blocks = Number.isFinite(Number(blockCount)) ? Number(blockCount) : 0;
-  return `${formatInt(findings)} finding(s), ${formatInt(blocks)} blocked`;
+  const blocks = Number.isFinite(Number(filesBlockedCount))
+    ? Number(filesBlockedCount)
+    : 0;
+  const findingsStr =
+    findings === 1 ? `${formatInt(findings)} finding` : `${formatInt(findings)} findings`;
+  const blockedClause =
+    blocks === 1
+      ? `${formatInt(blocks)} file blocked`
+      : `${formatInt(blocks)} files blocked`;
+  const useLongForm = (() => {
+    if (scannedFileCount === null || scannedFileCount === undefined) return false;
+    const n = Number(scannedFileCount);
+    return Number.isFinite(n) && n >= 0;
+  })();
+  if (!useLongForm) {
+    return `${findingsStr} (${blockedClause})`;
+  }
+  const nScanned = Number(scannedFileCount);
+  const fileWord = nScanned === 1 ? "file" : "files";
+  return `${findingsStr} across ${formatInt(nScanned)} ${fileWord} (${blockedClause})`;
 }
 
 function tokensExcludedLabel(saved: unknown): string {
@@ -159,18 +181,29 @@ function lastCompilationForwardedHero(
   last: Record<string, unknown>,
   fs_: number,
   ft: number,
+  compiled: number,
+  budgetMaxTokens: number,
   budgetPct: number | null,
 ): string {
-  const exclusionRate =
+  const tokenReductionRaw =
     last["tokenReductionPct"] !== null && last["tokenReductionPct"] !== undefined
       ? Number(last["tokenReductionPct"])
       : null;
-  const details = [
-    budgetPct !== null ? `${budgetPct.toFixed(1)}% of budget` : null,
-    exclusionRate !== null ? `${exclusionRate.toFixed(1)}% excluded` : null,
-  ].filter((s): s is string => s !== null);
-  const detailStr = details.length > 0 ? ` (${details.join(", ")})` : "";
-  return `AIC optimised context by intent: ${formatInt(fs_)} of ${formatInt(ft)} files forwarded${detailStr}.`;
+  const tokenReductionClause =
+    tokenReductionRaw !== null && Number.isFinite(tokenReductionRaw)
+      ? `token reduction ${tokenReductionRaw.toFixed(1)}% (raw to compiled)`
+      : null;
+  const budgetParen =
+    budgetPct !== null && Number.isFinite(budgetPct)
+      ? ` (${budgetPct.toFixed(1)}% of token budget)`
+      : "";
+  const tokenBlock = `tokens compiled ${formatInt(compiled)} of ${formatInt(budgetMaxTokens)} allocated${budgetParen}`;
+  const clauses = [
+    `files forwarded ${formatInt(fs_)} of ${formatInt(ft)}`,
+    tokenBlock,
+    ...(tokenReductionClause !== null ? [tokenReductionClause] : []),
+  ];
+  return `AIC optimised context by intent: ${clauses.join("; ")}.`;
 }
 
 function heroLineLast(
@@ -185,11 +218,18 @@ function heroLineLast(
   const compiled = Number(last["tokensCompiled"] ?? 0);
   const budgetPct = budgetMaxTokens > 0 ? (compiled / budgetMaxTokens) * 100 : null;
   if (fs_ > 0) {
-    return lastCompilationForwardedHero(last, fs_, ft, budgetPct);
+    return lastCompilationForwardedHero(
+      last,
+      fs_,
+      ft,
+      compiled,
+      budgetMaxTokens,
+      budgetPct,
+    );
   }
   if (last["cacheHit"] === true && budgetMaxTokens > 0) {
     const cacheBudgetPct = (compiled / budgetMaxTokens) * 100;
-    return `AIC served this compilation from cache — ${cacheBudgetPct.toFixed(1)}% of budget used.`;
+    return `AIC served this compilation from cache — tokens compiled ${formatInt(compiled)} of ${formatInt(budgetMaxTokens)} allocated; ${cacheBudgetPct.toFixed(1)}% of token budget used.`;
   }
   if (budgetPct !== null && Number.isFinite(budgetPct)) {
     return `This compilation selected no files — ${budgetPct.toFixed(1)}% of budget used.`;
@@ -379,12 +419,13 @@ export function formatLastTable(
       readonly guardPassed: null;
     };
     readonly selection?: SelectionTraceParsed | null;
+    readonly lastBudgetMaxTokens?: number;
   },
   clock: Clock,
-  budgetMaxTokens: number,
 ): string {
   const w = 30;
   const last = payload.lastCompilation;
+  const budgetMaxTokens = Number(payload.lastBudgetMaxTokens ?? 0);
   const detailRows =
     last === null
       ? LAST_EMPTY_DETAIL
@@ -399,9 +440,12 @@ export function formatLastTable(
   );
   const cacheHit = last?.["cacheHit"];
   const cacheStr = cacheHitLabel(cacheHit);
+  const scannedForGuard =
+    last?.["guardScannedFileCount"] ?? last?.["filesSelected"] ?? null;
   const guardLabel = guardThisRunLabel(
     last?.["guardFindingCount"],
     last?.["guardBlockCount"],
+    scannedForGuard,
   );
   const guardRow: readonly string[] =
     guardLabel !== null ? [padRow("Guard (this run)", guardLabel, w)] : [];

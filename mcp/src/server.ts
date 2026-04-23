@@ -365,6 +365,7 @@ export function createMcpServer(
       db: startupScope.db,
       clock: startupScope.clock,
       conversationIdForLast: lastConversationIdRef.current,
+      budgetConfig,
     });
   const compileHandler = createCompileHandler(
     (projectRootArg: AbsolutePath) => registry.getOrCreate(projectRootArg),

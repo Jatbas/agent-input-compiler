@@ -19,6 +19,7 @@ import { migration as migration005 } from "../migrations/005-quality-snapshots.j
 import { migration as migration006 } from "../migrations/006-classifier-scores.js";
 import { migration as migration007 } from "../migrations/007-last-non-general-intent-index.js";
 import { migration as migration008 } from "../migrations/008-compilation-log-project-created-at-index.js";
+import { migration as migration009 } from "../migrations/009-compilation-log-total-budget.js";
 
 const clock: Clock = {
   now(): ReturnType<typeof toISOTimestamp> {
@@ -170,7 +171,7 @@ describe("SqliteMigrationRunner", () => {
     db.close();
   });
 
-  it("migration_runner_includes_005_through_008", () => {
+  it("migration_runner_includes_005_through_009", () => {
     const db = new Database(":memory:");
     const runner = new SqliteMigrationRunner(clock);
     runner.run(db, [
@@ -182,6 +183,7 @@ describe("SqliteMigrationRunner", () => {
       migration006,
       migration007,
       migration008,
+      migration009,
     ]);
     const ids = db.prepare("SELECT id FROM schema_migrations ORDER BY id").all() as {
       id: string;
@@ -192,6 +194,7 @@ describe("SqliteMigrationRunner", () => {
     expect(ids.map((r) => r.id)).toContain(
       "008-compilation-log-project-created-at-index",
     );
+    expect(ids.map((r) => r.id)).toContain("009-compilation-log-total-budget");
     db.close();
   });
 
