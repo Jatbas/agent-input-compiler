@@ -52,35 +52,35 @@ The result is a smaller, more relevant, and more inspectable input.
 
 ### Real captured output
 
-The examples below mirror the **shared stdout frame** printed by the diagnostic CLI (`status`, `last`, `chat-summary`, `projects`, `quality` — or `pnpm aic` when developing this repo with `devMode`): each table starts with a title line and full-width rule, then a **hero** line (always present), another rule, fixed-width **body** rows (`padRow` labels are 30 characters wide except the multi-column **projects** roster), and an optional closing rule plus **footnote** (both omitted on the **projects** roster, which ends after its body rows). Values are **representative** (not a single verbatim session); totals come from your **local** database (`~/.aic/aic.sqlite`) and the **current project**, so your output will not match these figures exactly.
+The examples below mirror the **shared stdout frame** printed by the diagnostic CLI (`status`, `last`, `chat-summary`, `projects`, `quality` — or `pnpm aic` when developing this repo with `devMode`): each table starts with a title line and full-width rule, then a **hero** line (always present), another rule, fixed-width **body** rows (`padRow` labels are **32** characters wide in **`show aic status`** and **30** characters wide in the other diagnostic tables except the multi-column **projects** roster), and an optional closing rule plus **footnote** (both omitted on the **projects** roster, which ends after its body rows). Values are **representative** (not a single verbatim session); totals come from your **local** database (`~/.aic/aic.sqlite`) and the **current project**, so your output will not match these figures exactly.
 
 #### `show aic status`
 
 ```text
 Status = project-level AIC status.
 ──────────────────────────────────────────────────────────────────────────────
-AIC optimised context across 7,784 context builds; repo size → context sent 5.78B → 65.90M (88:1 ratio); 36.9% cache hit rate; 98.9% avg context precision.
+AIC optimised context across 7,784 context builds; cumulative raw → sent tokens 5.78B → 65.90M (88:1 ratio); 36.9% cache hit rate; 98.9% context precision (weighted).
 ──────────────────────────────────────────────────────────────────────────────
-Context builds (total)          7,784
-Context builds (today, UTC)     147
-Repo size → context sent        5.78B → 65.90M (88:1 ratio)
-Tokens excluded                 5,718,696,860
+Context builds (total)            7,784
+Context builds (today, UTC)       147
+Cumulative raw → sent tokens      5.78B → 65.90M (88:1 ratio)
+Tokens excluded                   5,718,696,860
 ──────────────────────────────────────────────────────────────────────────────
-Context window used (last run)  0.5%
-Cache hit rate                  36.9%
-Avg context precision           98.9%
+Context window used (last run)    0.5%
+Cache hit rate                    36.9%
+Context precision (weighted)      98.9%
 ──────────────────────────────────────────────────────────────────────────────
-Guard scans (lifetime)          command-injection: 648,063, excluded-file: 59, prompt-injection: 3,185, secret: 16
-Top request types               count  share
-  general                       4,530  70.3%
-  docs                            994  15.4%
-  bugfix                          921  14.3%
-Last compilation                fix SqliteSpecCompileCacheStore migration
-                                5 / 629 files · 595 tokens · 2 min ago
+Guard scans (lifetime)            command-injection: 648,063, excluded-file: 59, prompt-injection: 3,185, secret: 16
+Top request types                 count  share
+  general                         4,530  70.3%
+  docs                              994  15.4%
+  bugfix                            921  14.3%
+Last compilation                  fix SqliteSpecCompileCacheStore migration
+                                  5 / 629 files · 595 tokens · 2 min ago
 ──────────────────────────────────────────────────────────────────────────────
-Installation                    OK
+Installation (global MCP server)  OK
 ──────────────────────────────────────────────────────────────────────────────
-Avg context precision: % of repo content automatically filtered per context build.
+Context precision (weighted): % of repo content automatically filtered per context build.
 Context window used: % of token budget filled.
 ```
 
@@ -267,7 +267,7 @@ Run the phrases in [Commands](#commands) above, then check the following.
 
 What to look for:
 
-- **Installation: OK** in `show aic status`
+- **Installation (global MCP server):** OK in `show aic status` (health reflects the MCP server session, not an isolated project slice)
 - a recent compilation in `show aic last` (send a normal coding message first if nothing has compiled yet), including the **Cache** row (`hit` / `miss` / `—`)
 - per-conversation compilation stats in `show aic chat summary` after AIC has recorded at least one compilation for the current editor conversation (in Cursor, Task-tool subagent compilations are reparented to the parent chat via the `subagentStop` hook so they count on that thread)
 - selected file count, compiled tokens, and context precision figures that make sense for the task

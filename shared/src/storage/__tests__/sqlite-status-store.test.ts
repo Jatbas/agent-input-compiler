@@ -646,6 +646,35 @@ describe("SqliteStatusStore", () => {
     expect(fromDb).toEqual(fromMethod);
   });
 
+  it("list_projects_last_seen_uses_max_compilation_created_at", () => {
+    db = new Database(":memory:");
+    migration.up(db);
+    migration003.up(db);
+    migration009.up(db);
+    store = new SqliteStatusStore(
+      TEST_PROJECT_ID,
+      db as unknown as ExecutableDb,
+      stubClock,
+    );
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(
+      TEST_PROJECT_ID,
+      "/test/project",
+      "2026-01-01T00:00:00.000Z",
+      "2026-04-24T12:00:00.000Z",
+    );
+    insertCompilationLog(db, "018c3d4e-0000-7000-8000-0000000000d1", {
+      created_at: "2026-04-20T10:00:00.000Z",
+    });
+    const list = listProjectsFromDb(db as unknown as ExecutableDb);
+    const item = list.find((p) => p.projectId === TEST_PROJECT_ID);
+    expect(item?.lastSeenAt).toBe("2026-04-20T10:00:00.000Z");
+    expect(
+      store.listProjects().find((p) => p.projectId === TEST_PROJECT_ID)?.lastSeenAt,
+    ).toBe("2026-04-20T10:00:00.000Z");
+  });
+
   it("sqlite_status_store_summary_and_conversation", () => {
     setup();
     insertCompilationLog(db, "018c3d4e-0000-7000-8000-000000000080", {

@@ -9,9 +9,11 @@
 - `.cursor/rules/aic-architect.mdc`
 - `shared/package.json`
 - `eslint.config.mjs`
-- `SKILL-recipes.md` (this file's sibling — static reference)
-- `SKILL-guardrails.md` (this file's sibling — static reference)
+- `recipes/README.md` (index of recipe quick cards — do NOT pre-load `SKILL-recipes.md`; pick the matching `recipes/<name>.md` in Phase 2 item 5 and read only that card)
+- `SKILL-guardrails.md` (sibling — read for "Fix:" hints during Pass 2; do NOT re-read the banned-phrase lists, `ambiguity-scan.sh` is the enforcer)
 - Research document from `documentation/research/` (optional — include if §0b produced one, or if the user provided a path)
+
+Do NOT pre-load `SKILL-drift-catalog.md` or `SKILL-recipes.md`. They are large reference appendices — load on demand only (catalog when a gate fires, recipes monolith only when a quick card explicitly defers to it).
 
 ## Rank unblocked components
 

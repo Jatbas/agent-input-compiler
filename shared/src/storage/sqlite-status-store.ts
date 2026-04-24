@@ -26,7 +26,7 @@ import { resolveDisplayTotalBudgetDenominator } from "@jatbas/aic-core/core/reso
 export function listProjectsFromDb(db: ExecutableDb): readonly ProjectListItem[] {
   const rows = db
     .prepare(
-      `SELECT p.project_id, p.project_root, p.last_seen_at, COUNT(cl.id) as compilation_count
+      `SELECT p.project_id, p.project_root, COALESCE(MAX(cl.created_at), p.last_seen_at) AS last_seen_at, COUNT(cl.id) as compilation_count
          FROM projects p
          LEFT JOIN compilation_log cl ON cl.project_id = p.project_id AND (cl.trigger_source IS NULL OR cl.trigger_source != ?)
          GROUP BY p.project_id`,
@@ -341,7 +341,7 @@ export class SqliteStatusStore implements StatusStore, GlobalStatusQueries {
         ? (
             this.db
               .prepare(
-                `SELECT p.project_id, p.project_root, p.last_seen_at, COUNT(cl.id) as compilation_count
+                `SELECT p.project_id, p.project_root, COALESCE(MAX(cl.created_at), p.last_seen_at) AS last_seen_at, COUNT(cl.id) as compilation_count
                FROM projects p
                LEFT JOIN compilation_log cl ON cl.project_id = p.project_id AND (cl.trigger_source IS NULL OR cl.trigger_source != ?)${joinTimeSql}
                GROUP BY p.project_id`,

@@ -2,7 +2,7 @@
 
 **Goal:** Gather every fact, verify mechanically, resolve every decision, present for user review.
 
-**Note:** `shared/package.json`, `eslint.config.mjs`, `SKILL-recipes.md`, `SKILL-guardrails.md` were pre-read in Phase 1 (`SKILL-phase-1-recommend.md`) — do not re-read.
+**Note:** `shared/package.json`, `eslint.config.mjs`, `recipes/README.md`, `SKILL-guardrails.md` were pre-read in Phase 1 (`SKILL-phase-1-recommend.md`) — do not re-read. The matching recipe quick card `recipes/<name>.md` is read once in item 5 below (Recipe classification). `SKILL-recipes.md` (long-form appendix) and `SKILL-drift-catalog.md` are NOT pre-read — load on demand only.
 
 ## A.1 Mandatory exploration checklist
 

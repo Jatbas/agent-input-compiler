@@ -32,113 +32,22 @@ Every implementation file with non-trivial logic **must** have a corresponding `
 
 ## No ambiguity
 
-Every file in the Files table is **mandatory**. Never mark a file as "optional" or say "may be added in this task or a follow-up." If you're unsure whether to include something, ask the user. The executor must never have to decide scope.
+Every file in the Files table is **mandatory** — never "optional" / "may be added". The rule: **the executor follows instructions, never makes choices.** If any sentence requires the executor to decide between alternatives, pick an approach, or interpret vague guidance — the planner hasn't finished designing.
 
-This extends to **all instructions**, not just the Files table. The rule is simple: **the executor follows instructions, never makes choices.** If any sentence in the task file requires the executor to decide between alternatives, pick an approach, or interpret vague guidance — the planner hasn't finished designing.
+Banned patterns are mechanically enforced by `ambiguity-scan.sh` (ground truth). The full phrase lists live there; this section lists the **fix per category** so you can rewrite faster when a gate fires. The only safe zone for non-imperative wording is Architecture Notes explaining rationale.
 
-Below are the **banned patterns**, organized by category. If ANY pattern appears in a step instruction, verify line, test description, or implementation note, it is a violation. The only safe zone is Architecture Notes explaining rationale (not giving instructions).
+| Category                        | What it looks like (examples)                                                                   | Fix                                                                                         |
+| ------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| **1. Hedging**                  | `if needed`, `may`, `might`, `could`, `probably`, `should work`, `try to`, `ideally`            | Decide yes or no; write the definitive instruction or remove the sentence.                  |
+| **2. Examples-as-instructions** | `e.g.`, `for example`, `such as`, `something like`, `similar to`, `or similar`, `or equivalent` | Replace the example with the literal instruction: `(e.g. process.cwd())` → `process.cwd()`. |
+| **3. Delegation of choice**     | `decide whether`, `choose between`, `alternatively`, `up to you`, `optionally`                  | Go back to Pass 1 (A.4 decisions), decide, write one instruction.                           |
+| **4. Vague qualifiers**         | `appropriate`, `suitable`, `reasonable`, `etc.`, `some`, `various`, `and so on`                 | Replace with the specific value, name, count, or list.                                      |
+| **5. Conditional state hedges** | `if not present`, `if not already`, `add if not present`, `if missing`                          | State the known fact: "file exists at v1.0.21" or "create at v1.0.21".                      |
+| **6. Escape clauses**           | `or skip`, `if possible`, `in a later task`, `if feasible`, `mock or skip`                      | In scope → write the instruction; out of scope → don't mention it.                          |
+| **7. False alternatives**       | `X or Y`, `or use`, `either...or` (implementation alternatives)                                 | Pick one. If genuinely uncertain, ask the user in A.4.                                      |
+| **8. Tool-conditional scope**   | `if knip reports`, `if lint shows`, `run [tool] and add`                                        | Run the tool in exploration (item 18); record output; write the exact scope.                |
 
-### Category 1: Hedging — uncertain obligation
-
-These signal the planner isn't sure whether something should be done:
-
-> `if needed`, `if necessary`, `if required`, `if appropriate`, `if desired`, `if applicable`,
-> `as needed`, `as necessary`, `as appropriate`, `as desired`, `as required`, `as applicable`,
-> `may`, `may be`, `may want`, `may need`, `may be added`, `may require`,
-> `might`, `might want`, `might need`, `might be`,
-> `could`, `you could`, `one could`, `could also`,
-> `should work`, `should be fine`, `should suffice`,
-> `probably`, `likely`, `presumably`, `possibly`, `potentially`, `perhaps`,
-> `try to`, `attempt to`, `aim to`,
-> `ideally`, `preferably`,
-> `feel free to`, `don't hesitate to`
-
-**Fix:** Decide yes or no. If yes, write the definitive instruction. If no, remove it.
-
-### Category 2: Examples-as-instructions — delegation via illustration
-
-These present a suggestion instead of a directive. The executor must guess whether to use the example literally or adapt it:
-
-> `e.g.`, `eg.`, `eg `, `for example`, `for instance`, `such as` (in instructions),
-> `something like`, `along the lines of`, `along these lines`,
-> `similar to` (when suggesting approach), `like` (when suggesting approach),
-> `or similar`, `or equivalent`, `or comparable`, `or analogous`,
-> `or something like`, `some kind of`, `some sort of`, `some form of`
-
-**Fix:** Replace the example with the definitive instruction. `(e.g. process.cwd())` becomes `process.cwd()`.
-
-### Category 3: Delegation of choice — executor must decide
-
-These explicitly hand a design decision to the executor:
-
-> `decide whether`, `decide if`, `choose between`, `pick one`, `select` (as instruction),
-> `depending on`, `depends on`, `based on your preference`,
-> `up to you`, `your choice`, `your call`, `at your discretion`,
-> `alternatively`, `or alternatively`,
-> `whichever`, `whatever works`, `however you prefer`,
-> `or optionally`, `optionally`, `optional` (for mandatory instructions)
-
-**Fix:** Go back to Pass 1 (A.4 decisions), make the decision, write one instruction.
-
-### Category 4: Vague qualifiers — unresolved specificity
-
-These hide the fact that the planner hasn't determined the exact value:
-
-> `appropriate` (without specifying what), `suitable`, `relevant`, `proper` (without specifying what),
-> `reasonable`, `sensible`, `adequate`,
-> `some` (when count is known), `various`, `several` (when list is known),
-> `etc.`, `and so on`, `and so forth`, `and more`, `...` (trailing, in prose)
-
-**Fix:** Replace with the specific value, name, count, or list.
-
-### Category 5: Conditional state hedges — known state treated as unknown
-
-After the exploration checklist, the planner knows the codebase state. These pretend otherwise:
-
-> `if not present`, `if not already`, `if it doesn't exist`, `if missing`,
-> `if not installed`, `add if not present`, `create if not exists`,
-> `if type is extended`, `if needed later`, `if required in future`,
-> `or document`, `or document behaviour`, `or document behavior`
-
-**Fix:** State the known fact: "already at 1.0.21" or "add at 1.0.21". "File exists" or "file does not exist — create it."
-
-**Idempotent operations:** When describing `mkdir`, `CREATE TABLE IF NOT EXISTS`, or similar operations that are idempotent by design, do not restate the conditional in prose ("create directory if missing"). Instead, specify the idempotent API call directly: "`fs.mkdirSync(dir, { recursive: true, mode: 0o700 })`" — the `recursive: true` flag makes the call idempotent without a prose hedge. For SQL, `IF NOT EXISTS` is a keyword in the DDL statement, not prose — it belongs inside the SQL code block, not in the step instruction text.
-
-### Category 6: Escape clauses — deferral or opt-out
-
-These give the executor permission to skip work:
-
-> `or skip`, `or ignore`, `or leave for later`,
-> `or a follow-up`, `in a later task`, `in a future task`,
-> `if possible`, `where possible`, `when possible`, `if feasible`,
-> `if time permits`, `if practical`,
-> `mock or skip`, `mock or conditional`
-
-**Fix:** If the work is in scope, write the instruction. If it's out of scope, don't mention it at all.
-
-### Category 7: False alternatives in instructions
-
-These present two implementation paths where the planner should have chosen one:
-
-> `X or Y` (two implementation options in one sentence),
-> `or use`, `or another`, `or any`,
-> `either...or` (presenting implementation alternatives)
-
-**Fix:** Pick one. If genuinely uncertain, ask the user during Pass 1 decisions (A.4).
-
-### Category 8: Tool-conditional scope — deferring decisions to executor tool runs
-
-These make the scope of a step, Files table entry, or acceptance criterion depend on the output of a tool the executor must run, instead of resolving the scope during exploration:
-
-> `if knip reports`, `if knip flags`, `if lint shows`, `if lint reports`,
-> `if test shows`, `if test fails`, `if typecheck reports`,
-> `if [tool] reports`, `if [tool] flags`, `if [tool] shows`,
-> `run [tool] and add`, `run [tool] to determine`, `check [tool] output`,
-> `if [tool] reports unused`, `add entries ... if [tool]`
-
-This also covers **implicit** tool-conditional scope: a Files table description that says "add ignore entries for X, Y, Z if knip reports unused" or a step that says "fix any lint errors that appear" without listing them.
-
-**Fix:** Run the verification tool during exploration (`SKILL-phase-2-explore.md §A.1` item 18 — Speculative verification tool execution). Record the output. Write the exact scope — specific file paths, specific ignore entries, specific lint errors to fix. If the tool cannot be run (artifact does not exist yet), resolve by static analysis of tool config (e.g., read knip.json entry patterns to determine what it would flag). If static analysis is insufficient, flag as a BLOCKER and tell the user. Never write a conditional that the executor must resolve by running a tool.
+**Idempotent operations (Category 5 nuance).** When describing `mkdir`, `CREATE TABLE IF NOT EXISTS`, or similar operations that are idempotent by design, do not restate the conditional in prose ("create directory if missing"). Specify the idempotent API call directly — `fs.mkdirSync(dir, { recursive: true, mode: 0o700 })` — the `recursive: true` flag makes the call idempotent without a prose hedge. For SQL, `IF NOT EXISTS` is a keyword inside the DDL code block, not prose.
 
 ## Single definition
 
@@ -178,16 +87,9 @@ No single step should implement more than **2 methods** or modify more than **1 
 
 When a step restructures a function's body — replacing a bare cast with a validation block, converting an early-return to an accumulation pattern, adding conditional branching to previously unconditional logic, or extracting local variables — that restructuring must be **the only edit in the step**. It cannot be bundled with additive edits (property additions to object literals, new fields in interfaces, new lines in return statements) in the same step.
 
-**Why:** A bare cast replacement (e.g. `return JSON.parse(raw) as T` → a validated extraction block) changes the function's control flow. An executor reading a multi-edit step naturally allocates attention across all bullets — the restructuring receives a share, not full focus. The result is an incorrect cast, a silent fallback, or a missed guard.
+**Detection:** The step body describes more than one distinct operation AND at least one uses language like: "derive a local … from the parsed object", "add conditional branching", "replace `…` with a block that …", "extract …", "coerce … or fall back to …", "refactor … to …". When matched: split into (a) a restructure-only step and (b) a follow-on step for the additive changes.
 
-**Detection:** The step body describes more than one distinct operation AND at least one of those operations uses language like: "derive a local … from the parsed object", "add conditional branching", "replace `…` with a block that …", "extract …", "coerce … or fall back to …", "refactor … to …". When matched: split into (a) a restructure-only step and (b) a follow-on step for the additive changes.
-
-**Red flags:**
-
-- A step extends `BlobPayload` (additive) AND restructures `parseBlobPayload` (control-flow change) AND updates `set`'s payload literal AND updates `get`'s return in one numbered step — four distinct operations, one of which is non-trivial.
-- A step says "In `parseBlobPayload`, after `JSON.parse`, derive a local numeric count … otherwise use `0`" alongside three property-addition bullets in the same step body.
-
-**Enforced by:** AU (step complexity cap) threshold and this guardrail's explicit pattern detection.
+**Enforced by:** AU (step complexity cap) and this guardrail's pattern detection. Historical failures: see `SKILL-drift-catalog.md §Function-restructure isolation`.
 
 ## One file per step (no exceptions)
 
@@ -213,23 +115,13 @@ If a component wraps a heavy or environment-specific resource (WASM grammar, ext
 - The composition root's **`main()`** decides at runtime whether to create each dependency, based on observable project state
 - Bootstrap functions stay **sync** — only `main()` (which is already async) handles async resource initialization
 
-**Enforced by:** A.4 design decisions (constructor parameters, "Conditional dependencies" check) and the composition root recipe in `SKILL-recipes.md`.
+**Enforced by:** A.4 design decisions and the composition root recipe in `SKILL-recipes.md`. Historical failures: see `SKILL-drift-catalog.md §Conditional dependency loading`.
 
 ## Composition root modification snippet
 
-When a task modifies an existing function in a composition root (e.g. `initLanguageProviders()`, `createMcpServer()`), the step must include a **concrete code block** showing the function's expected state after the change — not just prose saying "extend the function." If the function needs structural changes (e.g. converting an early-return to an accumulation pattern), the first task to make that change must show the full before/after. Subsequent tasks that add incremental entries show only the new lines plus the updated return statement.
+When a task modifies an existing function in a composition root (e.g. `initLanguageProviders()`, `createMcpServer()`), the step must include a **concrete code block** showing the function's expected state after the change — not just prose saying "extend the function." If the function needs structural changes (single-case → multi-case, sync → async, early-return → accumulation), the first task to make that change shows the full before/after body; subsequent tasks adding incremental entries show only the new lines plus the updated return statement. Code blocks must respect project conventions (immutability: ternary-spread, no `.push()`).
 
-**Red flags:**
-
-- A step says "extend `functionName()` to add X" without a code block
-- A step modifies a function but doesn't show what it looks like after the modification
-- A structural refactoring (single-case to multi-case, sync to async, early-return to accumulation) is buried in prose rather than shown in code
-
-**Required pattern:**
-
-- The first task that restructures a function shows the **complete function body** as a code block
-- Incremental tasks show the **new entry** as a code block plus the **updated return statement**
-- The code block respects project conventions (immutability: ternary-spread, no `.push()`)
+Historical failures: see `SKILL-drift-catalog.md §Composition root modification snippet`.
 
 ## Behavioral change verification
 
@@ -256,17 +148,11 @@ Any test assertion that uses `toBeGreaterThan(0)` (or `> 0`, `>= 1`, `toBeGreate
 
 **Required during exploration (FIXTURE SIMULATION field):** When a test strategy includes a relational lower-bound assertion on pipeline output (file count, pruned-file count, token count), the Exploration Report's FIXTURE SIMULATION section must list the fixture path and a concrete count of files it contains, or a sample of which files pass the context selector for that intent.
 
-**Required in the task file:** The Tests table's Mock / assert contract column must cite the specific fixture path and why its content guarantees the lower bound — not just the assertion form. `no mocks; expect(first.meta.filesSelected).toBeGreaterThan(0)` without citing the fixture content is insufficient. Write: `no mocks; fixture at <path> contains N files (confirmed in exploration); expect(first.meta.filesSelected).toBeGreaterThan(0)`.
+**Required in the task file:** The Tests table's Mock / assert contract column must cite the specific fixture path and why its content guarantees the lower bound. `no mocks; expect(first.meta.filesSelected).toBeGreaterThan(0)` without fixture evidence is insufficient. Write: `no mocks; fixture at <path> contains N files (confirmed in exploration); expect(first.meta.filesSelected).toBeGreaterThan(0)`.
 
-**Red flags:**
+**Fix:** During exploration, `ls` the fixture directory, count non-excluded files, record the count into the Tests table contract column. If the count is zero, the assertion will always fail — choose a different fixture or assertion.
 
-- A test asserts `expect(result.meta.filesSelected).toBeGreaterThan(0)` where `result` came from `runner.run(makeRequest(fixtureRoot))` but the exploration report contains no count of files in `fixtureRoot`.
-- The Mock / assert contract says only the assertion literal, with no fixture-content evidence.
-- The fixture directory is referenced by a variable (`fixtureRoot`) without the planner ever reading the directory or citing a file count.
-
-**Fix:** During exploration, `ls` the fixture directory, count non-excluded files, and record the count. Write the count into the Tests table contract column. If the count is zero, the assertion will always fail — choose a different fixture or a different assertion.
-
-**Enforced by:** FIXTURE SIMULATION field in exploration and the AS check in C.5 mechanical review.
+**Enforced by:** FIXTURE SIMULATION field in exploration and AS check. Historical failures: see `SKILL-drift-catalog.md §Fixture-bound relational assertions`.
 
 ## Sync vs async for adapters
 
@@ -274,36 +160,28 @@ When a task wraps an external library, the step that implements the adapter must
 
 ## Dispatch pattern
 
-If any method in the task has 3+ branches — dispatching on an enum, a type discriminator, **or ordered predicate matching** (path prefix tiers, conditional scoring maps, node-type checks) — the Architecture Notes must specify the dispatch pattern. The step instructions must show the dispatch map structure as a code block. If/else-if chains with 3+ branches are banned by ESLint. Two patterns are available:
+If any method in the task has 3+ branches — dispatching on an enum, a type discriminator, **or ordered predicate matching** (path prefix tiers, conditional scoring maps, node-type checks) — the Architecture Notes must specify the dispatch pattern and the step instructions must show the dispatch map as a code block. If/else-if chains with 3+ branches are banned by ESLint. Two patterns are available:
 
-- **`Record<Enum, Handler>`** — for exhaustive enum dispatch (compile-time safety that all variants are covered).
-- **Handler array** (`readonly { matches: predicate; score/handler: value }[]`) — for predicate-based dispatch (e.g. AST node types, path prefix tiers) where you cannot index by a single key, or where ordering matters (most specific match first).
+- **`Record<Enum, Handler>`** — for exhaustive enum dispatch (compile-time safety).
+- **Handler array** (`readonly { matches: predicate; score/handler: value }[]`) — for predicate-based dispatch where ordering matters (most specific first).
 
-**Detection heuristic:** Any algorithm sketch containing a list of "X => value, Y => value, Z => value, else => default" with 3+ entries is a dispatch pattern. This includes scoring tier maps (path prefix => score), conditional classification tables, and feature flag routing.
-
-The planner must choose one and write it into the task. The executor must not decide.
+The planner chooses one and writes it into the task. Detection heuristic and historical failures: see `SKILL-drift-catalog.md §Dispatch pattern`.
 
 ## Optional field access
 
-When the implementation reads a field from a dependent type and that field is declared optional (`?:`), the step instructions must explicitly specify optional chaining (`?.`) and a fallback value. Never write `obj.optionalField.method()` in step text — write `obj.optionalField?.method() ?? fallback`.
+When the implementation reads a field from a dependent type and that field is declared optional (`?:`), step instructions must specify optional chaining (`?.`) and a fallback. Never write `obj.optionalField.method()` — write `obj.optionalField?.method() ?? fallback`.
 
-**Detection:** During exploration (A.1 item 9), the planner reads every dependent type and flags optional fields the implementation accesses. These are recorded in the OPTIONAL FIELD HAZARDS section of the Exploration Report. During writing (Pass 2), every field access in step instructions is cross-checked against this list.
+**Detection:** During exploration (A.1 item 9), the planner reads every dependent type and flags optional fields the implementation accesses into the OPTIONAL FIELD HAZARDS section. Pass 2 cross-checks every field access against this list.
 
-**Red flags:**
-
-- A step says `rulePack.heuristic.boostPatterns` but `heuristic` is `heuristic?:` — runtime error when undefined
-- A step says `config.weights.pathRelevance` but `weights` is `weights?:` — same issue
-- The exploration report lists a Tier 1 type member as `heuristic` without noting it is optional
-
-**Enforced by:** A.1 item 9 (flag optional fields), Exploration Report OPTIONAL FIELD HAZARDS section, C.5 check B (verify step instructions handle optional fields).
+**Enforced by:** A.1 item 9, Exploration Report OPTIONAL FIELD HAZARDS, C.5 check B. Historical failures: see `SKILL-drift-catalog.md §Optional field access`.
 
 ## Never guess library APIs or protocol behavior
 
-Every external library class name, import path, constructor signature, and method call in the task file must be verified against installed `.d.ts` files or official documentation. Never write a library API from memory. If you cannot read the `.d.ts` files (package not installed, no type definitions available), this is a **blocker** — stop and tell the user.
+Every external library class name, import path, constructor signature, and method call in the task file must be verified against installed `.d.ts` files or official documentation. Never write a library API from memory. If the `.d.ts` cannot be read (package not installed, no types available), this is a **blocker** — stop and tell the user.
 
-Common failure: writing `Server` when the actual class is `McpServer`, or writing `import from "@pkg"` when the actual subpath is `import from "@pkg/server/mcp.js"`. These errors produce tasks that look correct but fail during execution.
+**Protocol and transport behavior must also be verified.** When a task involves sending/receiving data over a transport (stdio, HTTP, WebSocket), do not assume the wire format. Read the transport's `.d.ts`/source to determine the exact framing. The task must either (a) specify the exact wire format with evidence, or (b) use the library's own client SDK to avoid framing concerns entirely.
 
-**Protocol and transport behavior must also be verified.** When a task involves sending/receiving data over a transport (stdio, HTTP, WebSocket, etc.), do not assume the wire format. Read the transport's `.d.ts` or source to determine the exact framing (content-length headers, newline-delimited, binary length prefix, etc.). Common failure: assuming MCP stdio uses newline-delimited JSON when it actually uses LSP-style `Content-Length` header framing. If the test strategy involves communicating with a transport, the task must either (a) specify the exact wire format with evidence from `.d.ts`/source, or (b) use the library's own client SDK to avoid framing concerns entirely.
+Historical failures: see `SKILL-drift-catalog.md §Never guess library APIs or protocol behavior`.
 
 ## Recipe fit required
 
