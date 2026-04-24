@@ -15,7 +15,7 @@ You are scanning files for security vulnerabilities, privacy violations, and sto
 
 ## How to scan
 
-Read each file in scope. Only report findings you can confirm with a direct `file:line` citation. If you suspect a violation but cannot confirm it, put it in Discarded candidates.
+Prioritize static-analysis hits, production files, storage/security/MCP boundary files, and high-risk directories before tests or leaf utilities. Only report findings you can confirm with a direct `file:line` citation. If you suspect a violation but cannot confirm it, put it in Discarded candidates. If the scope is too large for the budget, list skipped partitions in the Pass list as "not inspected" rather than claiming they passed.
 
 ## Checks
 

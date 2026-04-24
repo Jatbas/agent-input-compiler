@@ -15,7 +15,7 @@ You are scanning files for architectural violations, type-safety defects, and de
 
 ## How to scan
 
-Read each file in scope. For each check below, grep and read the relevant code. Only report findings you can confirm with a direct `file:line` citation — if you cannot confirm, do not report.
+Prioritize static-analysis hits, production files, boundary files, and high-risk directories before tests or leaf utilities. For each check below, grep and read the relevant code. Only report findings you can confirm with a direct `file:line` citation. If the scope is too large for the budget, list skipped partitions in the Pass list as "not inspected" rather than claiming they passed.
 
 ## Checks
 

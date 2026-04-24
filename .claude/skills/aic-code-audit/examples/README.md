@@ -1,8 +1,8 @@
 # aic-code-audit examples
 
-| Example                 | Status                                                         |
-| ----------------------- | -------------------------------------------------------------- |
-| `bugs-phase-example.md` | TODO — canonical Phase BUGS table produced by a real audit run |
+| Example                 | Status                                      |
+| ----------------------- | ------------------------------------------- |
+| `bugs-phase-example.md` | Canonical Phase BUGS table and audit shapes |
 
 ## What the example should show
 

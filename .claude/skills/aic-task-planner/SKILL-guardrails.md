@@ -264,11 +264,7 @@ For adapter, storage, and pipeline tasks, the existing rule applies: paste all d
 
 For each step's Verify line, confirm the verification is actionable against the current codebase state at that step. If verification says "file X that imports Y fails lint" but file X doesn't exist yet, rewrite to: "Run `pnpm lint` — passes with zero errors." If `pnpm typecheck` is listed as verification but the step introduces symbols defined in a later step, the verification will fail — reorder steps or change the verify instruction.
 
-**Node smoke command correctness:** `node -e "fn() === 'value'"` always exits 0 — the comparison result is discarded. `node -e "console.log(fn() === 'value')"` prints `false` but still exits 0. Neither is a guard. Use `assert.strictEqual`:
-
-```
-node -e "const assert = require('assert'); assert.strictEqual(require('./path').fn(args), expected)"
-```
+**Node smoke command correctness:** `node -e "fn() === 'value'"` always exits 0 (comparison result discarded); `node -e "console.log(...)"` prints `false` but still exits 0. Neither is a guard. Use `assert.strictEqual` — see `SKILL-drift-catalog.md §Node smoke command correctness` for the exact invocation.
 
 ## Plan failure patterns
 
@@ -339,29 +335,18 @@ When a task adds, renames, or removes a hook in `integrations/<editor>/hooks/`, 
 
 ## Rename/move: transitive reference rewriting
 
-When a task renames, moves, or copies-with-rename any file, the planner must trace the **full transitive dependency graph** — not just direct consumers of the renamed file, but also internal references between files in the renamed set.
-
-**The failure mode:** File A and file B are both renamed. B contains `require("./A")`. The plan rewrites external callers of A and B but does not rewrite B's internal reference to A. At runtime B crashes with MODULE_NOT_FOUND.
+When a task renames, moves, or copies-with-rename any file, the planner traces the **full transitive dependency graph** — not just direct consumers of the renamed file, but also internal references between files in the renamed set.
 
 **Required during exploration (item 8c):**
 
 1. Identify every file being renamed or moved.
-2. For each file, grep for all references TO it (direct consumers — one hop).
-3. For each file, grep for all references FROM it to other files in the renamed set (sibling references — second hop).
-4. If a script performs the rename (install script, build script), read the script and verify it rewrites BOTH external references (step 2) AND internal sibling references (step 3). A regex that only matches one import pattern (e.g. `require("../../shared/...")`) but misses another (e.g. `require("./...")`) is a bug the task must fix.
+2. For each file, grep for all references TO it (one hop — external callers).
+3. For each file, grep for all references FROM it to other files in the renamed set (second hop — sibling references).
+4. If a script performs the rename, read it and verify it rewrites BOTH external references AND internal sibling references.
 
-**Required in the task file:**
+**Required in the task file:** the rename script is in the Files table with explicit mention of both rewrite passes; tests verify deployed files contain correct internal references. A presence-only test (`names.includes("AIC-foo.cjs")`) misses broken internal requires — add a content test (`content.includes('require("./AIC-bar.cjs")')`).
 
-- The Files table must include the script that performs the rename, with explicit mention of both rewrite passes.
-- Tests must verify that deployed files contain correct internal references — not just that files exist with the right names. A presence-only test (`names.includes("AIC-foo.cjs")`) misses broken internal requires; add a content test (`content.includes('require("./AIC-bar.cjs")')`) for files with sibling dependencies.
-
-**Red flags:**
-
-- A task renames files deployed by a script but only tests file presence, not internal reference correctness
-- A task adds a regex rewrite for one import pattern but does not analyze whether other patterns exist in the affected files
-- The exploration report lists "require paths" but only traces one hop of the dependency graph
-
-**Enforced by:** Exploration (A.1 item 8c rename bullet) and mechanical review C.5.
+**Enforced by:** Exploration (A.1 item 8c rename bullet) and C.5. Historical failures: see `SKILL-drift-catalog.md §Rename/move`.
 
 ## Final ambiguity sweep
 
@@ -426,32 +411,21 @@ When task prose claims `mirroring <path> style`, `follows the pattern in <path>`
 
 ## Sibling quorum
 
-Relying on a single "closest sibling" as the canonical pattern codifies any outlier that happens to live next to the new component. The planner must examine at least two siblings in the same directory (or the same layer when the directory has only one) and pick the majority pattern. When the two siblings disagree, read a third to break the tie.
+Relying on a single "closest sibling" codifies outliers. The planner examines **at least two siblings** in the same directory (or layer, when the directory has one), picks the majority pattern, and reads a third to break ties.
 
-**Required during exploration (item 6 quorum rule):**
+**Required during exploration (item 6 quorum rule):** enumerate every sibling examined by file path; compare structural features pairwise; record agreement/disagreement; when they disagree, name the outlier and cite why it is treated as legacy. If only one sibling exists in the layer, mark it `SOLE SIBLING — treated as canonical`.
 
-- Enumerate every sibling examined by file path.
-- Compare structural features pairwise.
-- Record agreement or disagreement, and — when they disagree — name the outlier and cite why it is treated as legacy/non-canonical.
-- When only one sibling exists in the entire layer, mark it `SOLE SIBLING — treated as canonical` in the exploration report.
-
-**Enforced by:** Exploration item 6 (SIBLING QUORUM field) and mechanical check P (sibling reuse).
+**Enforced by:** Exploration item 6 (SIBLING QUORUM field) and mechanical check P. Historical failures: see `SKILL-drift-catalog.md §Sibling quorum — layout pattern`.
 
 ## Predecessor contract discipline
 
-When a task names another task under `Depends on:` or `Prerequisite:`, the current task consumes contracts from the predecessor — new columns, enum values, methods, schema fields, config keys, null-vs-zero semantics. The planner must enumerate these contracts during exploration (item 24) and thread them through the current task's design.
+When a task names another task under `Depends on:` or `Prerequisite:`, the current task consumes contracts from the predecessor — new columns, enum values, methods, schema fields, config keys, null-vs-zero semantics. Enumerate them during exploration (item 24) and thread them through the current task's design.
 
 **Rule:** The current task must NOT construct input that violates the predecessor's declared nullability, read a column name the predecessor did not write, assume a non-null value when the predecessor writes null, or assume an enum value the predecessor did not define.
 
-**Red flags:**
+**Fix:** Record every consumed contract in Architecture Notes under `**Predecessor contracts:**` with the exact semantics copied from the predecessor (including nullability and stability). Design tests and step instructions around those semantics — tests for null paths MUST exercise the null case, not assume future population.
 
-- Task 323 writes tests that assert `classifier_confidence` is populated; Task 322 (predecessor) persists `classifier_confidence = NULL` unconditionally. The test will never exercise the non-null path.
-- Task N claims a new method on interface I exists; the predecessor's Interface/Signature for I shows the method is still pending. Planning order is wrong.
-- Task N binds a column the predecessor's migration did not declare. Runtime `no such column` error.
-
-**Fix:** Record every consumed contract in Architecture Notes under `**Predecessor contracts:**`, with the exact semantics copied from the predecessor (including nullability and stability). Design tests and step instructions around those semantics — tests for null paths MUST exercise the null case, not assume future population.
-
-**Enforced by:** Exploration item 24 (PREDECESSOR CONTRACTS field), mechanical check AP (`SKILL-phase-3-write.md §C.5`), and the Predecessor-contract probe in `§C.5b`.
+**Enforced by:** Exploration item 24 (PREDECESSOR CONTRACTS field), mechanical check AP, and C.5b Predecessor-contract probe. Historical failures: see `SKILL-drift-catalog.md §HARD RULE 20`.
 
 ## Circuit breaker (planner)
 

@@ -15,7 +15,7 @@ editors: all
 - **Mechanical gates:**
   Static analysis runs before subagents. If `pnpm typecheck` or `pnpm lint` exits with parse errors, stop — the tree must compile before an audit is meaningful.
   Before registering any finding: confirm it is a real bug, not a false positive (see §Finding validation).
-- **Checkpoint lines:** emit per phase; `bash checkpoint-log.sh aic-code-audit <phase> <artifact>` — three arguments required (skill, phase, artifact path or description).
+- **Checkpoint lines:** emit per phase; `bash .claude/skills/shared/scripts/checkpoint-log.sh aic-code-audit <phase> <artifact>` — three arguments required (skill, phase, artifact path or description).
 - **Degraded mode:** No subagents → run the three check lists sequentially inline as self-review using the same prompt files as rubrics. Every other rule still applies.
 
 ## Severity vocabulary (four tiers)
@@ -72,9 +72,9 @@ Run continuously from scope resolution through Phase BUGS registration. Stop onl
    - **Directory or glob:** collect matching `.ts` files, excluding `__tests__/`, `node_modules/`, `.aic/`.
    - **Phase name** (e.g. "Phase BH", "audit Phase BH", "did BH land correctly?"): read all task files for that phase from `documentation/tasks/done/` (glob `done/*bh*.md` — lowercase, no leading-dash assumption; adapt the pattern to match the phase label, e.g. `done/*auth*.md` for Phase AUTH). Extract every path in their `## Files` tables with Action = Create/Modify/Replace. Use that as the scope. Emit: "Auditing N files touched by Phase BH".
    - **No scope provided:** default to `shared/src/` and `mcp/src/`.
-     Pick scratch slug `.aic/runs/aic-code-audit-<utc-timestamp>/`. Emit to user: "Auditing N files in <scope>". Checkpoint: `bash checkpoint-log.sh aic-code-audit scope-resolved ".aic/runs/<run-id>/"`.
+     Pick scratch slug `.aic/runs/aic-code-audit-<utc-timestamp>/`. Emit to user: "Auditing N files in <scope>". Write the newline-separated resolved file list to `.aic/runs/<run-id>/scope-files.txt`. Checkpoint: `bash .claude/skills/shared/scripts/checkpoint-log.sh aic-code-audit scope-resolved ".aic/runs/<run-id>/"`.
 
-2. **Static analysis** — Always run `pnpm typecheck` (uses the project tsconfig; catches all type errors regardless of scope). For ESLint: run `npx eslint <directory-or-glob>` where `<directory-or-glob>` is the root directory or glob pattern from Phase 1 (pass the directory so ESLint applies its own traversal); if scope covers both `shared/` and `mcp/` in their entirety, use `pnpm lint` instead. Capture full stdout+stderr to `.aic/runs/<run-id>/static-analysis.txt`. Parse and count errors. If parse errors exist, stop (see §Autonomous execution). Typecheck and lint errors are high-confidence findings — carry them into Phase 3 as pre-confirmed candidates. Checkpoint: `bash checkpoint-log.sh aic-code-audit static-analysis-complete ".aic/runs/<run-id>/static-analysis.txt"`.
+2. **Static analysis** — Always run `pnpm typecheck` (uses the project tsconfig; catches all type errors regardless of scope). For ESLint: if scope covers both `shared/` and `mcp/` in their entirety, use `pnpm lint`; if scope came from one or more directories/globs, run `npx eslint <directory-or-glob>` for each original scope expression; if scope came from a generated file list such as a phase audit, load `.aic/runs/<run-id>/scope-files.txt` into a Bash array and run `npx eslint --no-error-on-unmatched-pattern -- "${files[@]}"` so paths stay quoted on macOS and Linux. Capture full stdout+stderr to `.aic/runs/<run-id>/static-analysis.txt`. Parse and count errors. If parse errors exist, stop (see §Autonomous execution). Typecheck and lint errors are high-confidence findings — carry them into Phase 3 as pre-confirmed candidates. Checkpoint: `bash .claude/skills/shared/scripts/checkpoint-log.sh aic-code-audit static-analysis-complete ".aic/runs/<run-id>/static-analysis.txt"`.
 
 3. **Parallel subagent dispatch** — Before dispatch, define the substitution values:
    - `{{SCOPE_FILES}}` — newline-separated list of absolute file paths resolved in Phase 1.
@@ -82,21 +82,23 @@ Run continuously from scope resolution through Phase BUGS registration. Stop onl
    - `{{OUTPUT_PATH}}` — subagent-specific: `.aic/runs/<run-id>/arch-invariants.md`, `.aic/runs/<run-id>/behavioral-logic.md`, `.aic/runs/<run-id>/security-privacy.md`.
    - `{{BUDGET}}` — 20 tool calls per subagent.
 
-   Spawn three subagents simultaneously using templates in `prompts/`. For each:
+   If `{{SCOPE_FILES}}` contains more files than a subagent can inspect within `{{BUDGET}}`, partition the scope by directory and risk first: production files before tests, storage/security/MCP boundary files before leaf utilities, and files with static-analysis hits before clean files. The parent agent owns merging skipped partitions into a follow-up audit instead of letting a subagent claim full coverage it did not perform.
+
+   Spawn three subagents simultaneously using templates under `.claude/skills/aic-code-audit/prompts/`. For each:
    a. Read the template.
    b. Substitute all four placeholders with the values defined above.
    c. Verify `grep -q '{{' <rendered>` returns nothing before dispatch.
    Templates:
-   - `prompts/arch-invariants.md` → dimensions A, T, D (architecture, types, determinism/immutability)
-   - `prompts/behavioral-logic.md` → dimensions E, V + logic correctness (errors, tests, null gaps, async)
-   - `prompts/security-privacy.md` → dimensions X, S (security, storage SQL boundary)
-     Checkpoint: `bash checkpoint-log.sh aic-code-audit subagents-complete ".aic/runs/<run-id>/"`.
+   - `.claude/skills/aic-code-audit/prompts/arch-invariants.md` → dimensions A, T, D (architecture, types, determinism/immutability)
+   - `.claude/skills/aic-code-audit/prompts/behavioral-logic.md` → dimensions E, V + logic correctness (errors, tests, null gaps, async)
+   - `.claude/skills/aic-code-audit/prompts/security-privacy.md` → dimensions X, S (security, storage SQL boundary)
+     Checkpoint: `bash .claude/skills/shared/scripts/checkpoint-log.sh aic-code-audit subagents-complete ".aic/runs/<run-id>/"`.
 
-4. **Finding validation** — For each candidate finding from the three subagent reports and from static analysis: confirm with a direct file read at the cited `file:line`. If the code at that location does not match the finding description, discard as false positive. Pre-confirmed static analysis errors are already valid. Document discarded findings in `.aic/runs/<run-id>/discarded.txt` with reason. Checkpoint: `bash checkpoint-log.sh aic-code-audit findings-validated ".aic/runs/<run-id>/discarded.txt"`.
+4. **Finding validation** — For each candidate finding from the three subagent reports and from static analysis: confirm with a direct file read at the cited `file:line`. If the code at that location does not match the finding description, discard as false positive. Pre-confirmed static analysis errors are already valid. Document discarded findings in `.aic/runs/<run-id>/discarded.txt` with reason. Checkpoint: `bash .claude/skills/shared/scripts/checkpoint-log.sh aic-code-audit findings-validated ".aic/runs/<run-id>/discarded.txt"`.
 
-5. **Blast radius trace** — For each confirmed finding: grep the codebase for all callers, importers, and string-literal references. Record every affected file. If the same root cause appears in multiple files, group them into one entry. Detect chains: if fixing bug A requires bug B to be fixed first, mark them linked. Assign severity tier and Next Skill per §Severity vocabulary and §Next Skill routing. Write the merged findings (one entry per root cause with blast radius) to `.aic/runs/<run-id>/merged-findings.md`. Run `bash "$(git rev-parse --show-toplevel)/.claude/skills/shared/scripts/evidence-scan.sh" "$(git rev-parse --show-toplevel)/.aic/runs/<run-id>/merged-findings.md"` — every entry must cite `file:line`. Checkpoint: `bash checkpoint-log.sh aic-code-audit blast-radius-traced ".aic/runs/<run-id>/merged-findings.md"`.
+5. **Blast radius trace** — For each confirmed finding: grep the codebase for all callers, importers, and string-literal references. Record every affected file. If the same root cause appears in multiple files, group them into one entry. Detect chains: if fixing bug A requires bug B to be fixed first, mark them linked. Assign severity tier and Next Skill per §Severity vocabulary and §Next Skill routing. Write the merged findings (one entry per root cause with blast radius) to `.aic/runs/<run-id>/merged-findings.md` using a `## Findings` heading and one bullet per root cause, each with at least one `file:line` citation. Run `bash "$(git rev-parse --show-toplevel)/.claude/skills/shared/scripts/evidence-scan.sh" "$(git rev-parse --show-toplevel)/.aic/runs/<run-id>/merged-findings.md"` — every entry must cite `file:line`. Checkpoint: `bash .claude/skills/shared/scripts/checkpoint-log.sh aic-code-audit blast-radius-traced ".aic/runs/<run-id>/merged-findings.md"`.
 
-6. **Register in Phase BUGS** — Read `.aic/runs/<run-id>/merged-findings.md` (written in Phase 5). Read `documentation/tasks/progress/aic-progress.md`. If `## Phase BUGS — Discovered Defects` section is absent, append it with the table header from §Phase BUGS entry format. Determine the next BUGS-NN ID by counting existing rows. Append one row per confirmed finding. Then update the header block: the header block is the large dense paragraph at the top of the file (before the `---` separator). Append one sentence to the end of that paragraph in the form: `**Audit <YYYY-MM-DD>:** Found N defects (X Critical, Y High, Z Medium) in <scope> — see Phase BUGS.` Run `bash checkpoint-log.sh aic-code-audit registered "documentation/tasks/progress/aic-progress.md"`. Then run `rm -rf .aic/runs/<run-id>/`.
+6. **Register in Phase BUGS** — Read `.aic/runs/<run-id>/merged-findings.md` (written in Phase 5). Read `documentation/tasks/progress/aic-progress.md`. If `## Phase BUGS — Discovered Defects` section is absent, append it with the table header from §Phase BUGS entry format. Determine the next BUGS-NN ID by counting existing rows. Append one row per confirmed finding. Then update the header block: the header block is the large dense paragraph at the top of the file (before the `---` separator). Append one sentence to the end of that paragraph in the form: `**Audit <YYYY-MM-DD>:** Found N defects (X Critical, Y High, Z Medium) in <scope> — see Phase BUGS.` Run `bash .claude/skills/shared/scripts/checkpoint-log.sh aic-code-audit registered "documentation/tasks/progress/aic-progress.md"`. Then run `rm -rf .aic/runs/<run-id>/`.
 
 ## Phase BUGS entry format
 
@@ -105,17 +107,18 @@ The Phase BUGS section in `aic-progress.md` uses this table:
 ```markdown
 ## Phase BUGS — Discovered Defects
 
-| Bug                | Severity | Blast Radius                                                       | Status     | Next Skill                 | Description                                                                             |
-| ------------------ | -------- | ------------------------------------------------------------------ | ---------- | -------------------------- | --------------------------------------------------------------------------------------- |
-| BUGS-01            | Critical | 4 files: `compilation-runner.ts`, `run-pipeline-steps.ts`, 2 tests | Discovered | `aic-systematic-debugging` | Null dereference when budget returns 0 — caller chain unguarded                         |
-| BUGS-02 (chain: 3) | High     | 9 files in `adapters/` and `storage/`                              | Discovered | `aic-task-planner`         | `Date.now()` called directly — Clock not injected; BUGS-02a–02c are the three sub-sites |
-| BUGS-03            | Medium   | 2 files: `compilation-log-store.ts`, its test                      | Discovered | `aic-task-planner`         | Missing `project_id` scope in `compilation_log` query                                   |
+| Bug                | Severity | Blast Radius                                                       | Evidence                                         | Status     | Next Skill                 | Description                                                                            |
+| ------------------ | -------- | ------------------------------------------------------------------ | ------------------------------------------------ | ---------- | -------------------------- | -------------------------------------------------------------------------------------- |
+| BUGS-01            | Critical | 4 files: `compilation-runner.ts`, `run-pipeline-steps.ts`, 2 tests | `shared/src/pipeline/compilation-runner.ts:42`   | Discovered | `aic-systematic-debugging` | Null dereference when budget returns 0 — caller chain unguarded                        |
+| BUGS-02 (chain: 3) | High     | 9 files in `adapters/` and `storage/`                              | `shared/src/adapters/foo-adapter.ts:12`          | Discovered | `aic-task-planner`         | `Date.now()` called directly — Clock not injected; BUGS-02a–BUGS-02c are the sub-sites |
+| BUGS-03            | Medium   | 2 files: `compilation-log-store.ts`, its test                      | `shared/src/storage/compilation-log-store.ts:88` | Discovered | `aic-task-planner`         | Missing `project_id` scope in `compilation_log` query                                  |
 ```
 
 Rules for the table:
 
 - **Bug column:** `BUGS-NN` for standalone; `BUGS-NN (chain: N)` for linked root causes.
 - **Blast Radius column:** list file names (not full paths) plus count. If >5 files, list the 3 most critical and add "+ N more".
+- **Evidence column:** at least one confirmed `file:line` citation from the root cause. Use additional citations only when needed to disambiguate the blast radius.
 - **Status column:** always `Discovered` when the audit writes the row. The user or a subsequent skill updates it.
 - **Next Skill column:** exactly `\`aic-systematic-debugging\``or`\`aic-task-planner\``. No other values.
 - **Description column:** one line — root cause, not symptom.

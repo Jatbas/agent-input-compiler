@@ -15,7 +15,7 @@ You are scanning files for correctness bugs, error-handling defects, missing tes
 
 ## How to scan
 
-Read each file in scope. Only report findings you can confirm with a direct `file:line` citation. If you suspect a bug but cannot confirm it with evidence, put it in the Discarded candidates section with your reasoning.
+Prioritize static-analysis hits, production files, boundary files, and high-risk directories before tests or leaf utilities. Only report findings you can confirm with a direct `file:line` citation. If you suspect a bug but cannot confirm it with evidence, put it in the Discarded candidates section with your reasoning. If the scope is too large for the budget, list skipped partitions in the Pass list as "not inspected" rather than claiming they passed.
 
 ## Checks
 
