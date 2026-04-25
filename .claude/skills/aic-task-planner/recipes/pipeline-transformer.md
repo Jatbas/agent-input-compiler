@@ -1,10 +1,10 @@
-# Recipe: Pipeline transformer (Phase L `ContentTransformer`)
+# Recipe: Pipeline transformer (`ContentTransformer`)
 
 Full detail: `../SKILL-recipes.md` lines 198–262.
 
 ## Quick Card
 
-- **When to use:** The task implements `ContentTransformer` — a pipeline-layer component with no adapters, no storage, no external deps; pure string/regex logic.
+- **When to use:** The task implements `ContentTransformer` — a pipeline-layer component with no adapters, no storage, no external deps; pure content transformation logic.
 - **Files:**
   - Create: `shared/src/pipeline/<name>.ts`
   - Create: `shared/src/pipeline/__tests__/<name>.test.ts`
@@ -18,7 +18,7 @@ Full detail: `../SKILL-recipes.md` lines 198–262.
   - Format-specific: `jsonCompactor`, `lockFileSkipper`, then new ones.
   - Non-format-specific: new ones first, then `whitespaceNormalizer`, `commentStripper` last (cleanup runs after content-stripping).
 - **File-type safety tests — HARD:** Each transformer must test semantic safety for the file types it handles. Python indentation, YAML structure, JSX syntax must remain intact.
-- **Benchmark verification step — HARD:** Every transformer task includes a penultimate step running `pnpm test shared/src/integration/__tests__/token-reduction-benchmark.test.ts`. The test auto-ratchets `baseline.json` when tokens decrease.
+- **Benchmark verification step — HARD:** Every transformer task includes the relevant integration benchmark before final verification. For token-changing transformers, run `pnpm test shared/src/integration/__tests__/token-reduction-benchmark.test.ts` and declare any deterministic `baseline.json` ratchet in Architecture Notes.
 - **Sibling reuse:** Check existing transformers before writing parsing helpers.
 
 ## Mechanical checks

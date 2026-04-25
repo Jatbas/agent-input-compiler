@@ -31,9 +31,14 @@ export {
 
 export {
   type Percentage,
+  type Ratio01,
+  type Percentage100,
   type Confidence,
   type RelevanceScore,
   toPercentage,
+  toRatio01,
+  toPct100,
+  pct100FromRatio01,
   toConfidence,
   toRelevanceScore,
 } from "./scores.js";

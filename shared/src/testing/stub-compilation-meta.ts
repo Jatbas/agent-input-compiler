@@ -4,7 +4,7 @@
 // Temporary stub — remove when real CompilationRunner is wired.
 import type { CompilationMeta } from "@jatbas/aic-core/core/types/compilation-types.js";
 import { toTokenCount, toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
-import { toPercentage, toConfidence } from "@jatbas/aic-core/core/types/scores.js";
+import { toRatio01, toConfidence } from "@jatbas/aic-core/core/types/scores.js";
 import {
   TASK_CLASS,
   EDITOR_ID,
@@ -18,7 +18,7 @@ export const STUB_COMPILATION_META: CompilationMeta = {
   filesTotal: 0,
   tokensRaw: toTokenCount(0),
   tokensCompiled: toTokenCount(0),
-  tokenReductionPct: toPercentage(0),
+  tokenReductionPct: toRatio01(0),
   cacheHit: false,
   durationMs: toMilliseconds(0),
   modelId: "",

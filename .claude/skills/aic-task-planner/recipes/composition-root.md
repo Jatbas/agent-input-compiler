@@ -1,13 +1,13 @@
-# Recipe: Composition root (wiring at `mcp/src/`)
+# Recipe: Composition root (wiring boundary)
 
 Full detail: `../SKILL-recipes.md` lines 103–196.
 
 ## Quick Card
 
-- **When to use:** The task instantiates concrete classes, opens databases, connects transports, registers handlers, or starts a process. The one layer allowed to use `new` for infrastructure.
+- **When to use:** The task instantiates concrete classes, opens databases, connects transports, registers handlers, or starts a process. The composition boundary is the one layer allowed to use `new` for infrastructure.
 - **Files:**
-  - Create/Modify: `mcp/src/server.ts` (primary wiring site).
-  - Create: `mcp/src/__tests__/server.test.ts` (or the matching test file).
+  - Create/Modify: the repo's primary wiring site (`mcp/src/server.ts` in this project).
+  - Create/Modify: the matching integration or server test file.
   - Modify: package.json files if exports/dependencies change.
 - **Template replaces Interface/Signature with "Wiring Specification":**
   1. Code block listing every concrete class instantiated, with constructor signatures copied verbatim from source.

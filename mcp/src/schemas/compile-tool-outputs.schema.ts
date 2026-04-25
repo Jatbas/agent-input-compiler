@@ -3,51 +3,54 @@
 
 import { z } from "zod";
 
-export const aicCompileSanitizedMetaSchema = z.object({
-  intent: z.string(),
-  taskClass: z.enum(["refactor", "bugfix", "feature", "docs", "test", "general"]),
-  filesSelected: z.number().int().min(0),
-  filesTotal: z.number().int().min(0),
-  tokensRaw: z.number().int().min(0),
-  tokensCompiled: z.number().int().min(0),
-  tokenReductionPct: z.number(),
-  cacheHit: z.boolean(),
-  durationMs: z.number().int().min(0),
-  modelId: z.string(),
-  editorId: z.enum(["cursor", "claude-code", "cursor-claude-code", "generic"]),
-  transformTokensSaved: z.number().int().min(0),
-  summarisationTiers: z.object({
-    L0: z.number().int().min(0),
-    L1: z.number().int().min(0),
-    L2: z.number().int().min(0),
-    L3: z.number().int().min(0),
-  }),
-  contextCompleteness: z.number(),
-  classifierConfidence: z.number().nullable(),
-  guard: z.union([
-    z.null(),
-    z.object({
-      passed: z.boolean(),
-      findings: z.array(
-        z.object({
-          severity: z.enum(["block", "warn"]),
-          type: z.enum([
-            "secret",
-            "excluded-file",
-            "prompt-injection",
-            "command-injection",
-          ]),
-          line: z.number().int().optional(),
-          message: z.string(),
-          pattern: z.string().optional(),
-        }),
-      ),
-      filesBlocked: z.array(z.string()),
-      filesRedacted: z.array(z.string()),
-      filesWarned: z.array(z.string()),
+export const aicCompileSanitizedMetaSchema = z
+  .object({
+    intent: z.string(),
+    taskClass: z.enum(["refactor", "bugfix", "feature", "docs", "test", "general"]),
+    filesSelected: z.number().int().min(0),
+    filesTotal: z.number().int().min(0),
+    tokensRaw: z.number().int().min(0),
+    tokensCompiled: z.number().int().min(0),
+    tokenReductionPct: z.number(),
+    cacheHit: z.boolean(),
+    durationMs: z.number().int().min(0),
+    modelId: z.string(),
+    editorId: z.enum(["cursor", "claude-code", "cursor-claude-code", "generic"]),
+    transformTokensSaved: z.number().int().min(0),
+    totalBudget: z.number().int().min(0),
+    summarisationTiers: z.object({
+      L0: z.number().int().min(0),
+      L1: z.number().int().min(0),
+      L2: z.number().int().min(0),
+      L3: z.number().int().min(0),
     }),
-  ]),
-});
+    contextCompleteness: z.number(),
+    classifierConfidence: z.number().nullable(),
+    guard: z.union([
+      z.null(),
+      z.object({
+        passed: z.boolean(),
+        findings: z.array(
+          z.object({
+            severity: z.enum(["block", "warn"]),
+            type: z.enum([
+              "secret",
+              "excluded-file",
+              "prompt-injection",
+              "command-injection",
+            ]),
+            line: z.number().int().optional(),
+            message: z.string(),
+            pattern: z.string().optional(),
+          }),
+        ),
+        filesBlocked: z.array(z.string()),
+        filesRedacted: z.array(z.string()),
+        filesWarned: z.array(z.string()),
+      }),
+    ]),
+  })
+  .strict();
 
 const aicCompileReparentBranchSchema = z
   .object({

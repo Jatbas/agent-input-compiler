@@ -41,7 +41,7 @@ import type { InclusionTier } from "@jatbas/aic-core/core/types/enums.js";
 import { toTokenCount, toStepIndex } from "@jatbas/aic-core/core/types/units.js";
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
 import type { Confidence } from "@jatbas/aic-core/core/types/scores.js";
-import { toPercentage, toConfidence } from "@jatbas/aic-core/core/types/scores.js";
+import { toRatio01, toConfidence } from "@jatbas/aic-core/core/types/scores.js";
 import {
   runPipelineSteps,
   deriveSessionBudgetContext,
@@ -91,7 +91,7 @@ function buildCacheHitMeta(
     filesTotal: repoMap.totalFiles,
     tokensRaw: repoMap.totalTokens,
     tokensCompiled: cached.tokenCount,
-    tokenReductionPct: toPercentage(0),
+    tokenReductionPct: toRatio01(0),
     cacheHit: true,
     durationMs: toMilliseconds(0),
     modelId: request.modelId ?? "",
@@ -121,7 +121,7 @@ function buildFreshMeta(
     tokensRaw: r.repoMap.totalTokens,
     tokensCompiled: r.promptTotal,
     tokenReductionPct:
-      rawNum > 0 ? toPercentage((rawNum - r.promptTotal) / rawNum) : toPercentage(0),
+      rawNum > 0 ? toRatio01((rawNum - r.promptTotal) / rawNum) : toRatio01(0),
     cacheHit: false,
     durationMs,
     modelId: request.modelId ?? "",

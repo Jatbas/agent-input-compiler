@@ -17,7 +17,7 @@ import {
   INCLUSION_TIER,
   TASK_CLASS,
 } from "@jatbas/aic-core/core/types/enums.js";
-import { toPercentage, toConfidence } from "@jatbas/aic-core/core/types/scores.js";
+import { toRatio01, toConfidence } from "@jatbas/aic-core/core/types/scores.js";
 import { GUARD_FINDING_TYPE, GUARD_SEVERITY } from "@jatbas/aic-core/core/types/enums.js";
 
 function metaOverrides(overrides: Partial<CompilationMeta>): CompilationMeta {
@@ -28,7 +28,7 @@ function metaOverrides(overrides: Partial<CompilationMeta>): CompilationMeta {
     filesTotal: 0,
     tokensRaw: toTokenCount(0),
     tokensCompiled: toTokenCount(0),
-    tokenReductionPct: toPercentage(0),
+    tokenReductionPct: toRatio01(0),
     cacheHit: false,
     durationMs: toMilliseconds(0),
     modelId: "",

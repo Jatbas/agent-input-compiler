@@ -5,11 +5,7 @@ Full detail: `../SKILL-recipes.md` lines 264–344.
 ## Quick Card
 
 - **When to use:** Gold enrichment, new benchmark task, metric evolution, or fixture enrichment. Test infrastructure only — no production code.
-- **Files:**
-  - Create/Modify: `test/benchmarks/expected-selection/<N>.json`
-  - Create/Modify: `test/benchmarks/repos/<N>/...`
-  - Create/Modify: `shared/src/integration/__tests__/<benchmark>.test.ts`
-  - Modify: `test/benchmarks/baseline.json` only if token counts change.
+- **Files:** derive from the benchmark family under test; common rows are gold-data JSON under `test/benchmarks/**`, fixture files under `test/benchmarks/repos/**`, the integration test that consumes the fixture, and `test/benchmarks/baseline.json` only when measured token counts deterministically change.
 - **Template replaces Interface/Signature with "Gold Data Schema":**
   1. TypeScript interface describing the gold-data JSON shape.
   2. Complete example JSON entry with every field.
@@ -18,7 +14,7 @@ Full detail: `../SKILL-recipes.md` lines 264–344.
 - **Gold data integrity — HARD:** Every annotation must be verifiable against the fixture repo. Read every referenced fixture file during exploration; record line ranges of functional landmarks. Never write gold annotations from assumption.
 - **Fixture stability — HARD:** Changes to fixture files cascade — document impact on existing gold data and `baseline.json`.
 - **Step granularity:** One gold file per step; one fixture change per step; one test file per step; include an existing-benchmark regression step; final verification.
-- **Sibling reuse:** Mirror the closest existing benchmark test's wiring pattern exactly (see `selection-quality-benchmark.test.ts`, `token-reduction-benchmark.test.ts`).
+- **Sibling reuse:** Mirror the closest existing benchmark test's wiring pattern exactly; cite at least two sibling benchmark tests when the family has more than one.
 
 ## Exploration specifics
 
@@ -27,7 +23,7 @@ Beyond the standard checklist:
 - Read every existing gold-data file; record current schema shape.
 - Read every existing benchmark test; record wiring pattern.
 - Read every fixture file referenced by gold data; record line numbers of functions/classes/exports.
-- Run the pipeline (`pnpm test` on selection-quality benchmark); read actual `PipelineTrace` output shape.
+- Run the benchmark's existing test command; read the actual output shape before writing gold data.
 - Check baseline impact (will token counts or paths change?).
 
 ## Mechanical checks

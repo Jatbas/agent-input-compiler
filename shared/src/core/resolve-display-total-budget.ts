@@ -21,6 +21,13 @@ export function normalizeForLookup(id: string): string {
 }
 
 export function lookupContextWindow(normalizedId: string): number | undefined {
+  return lookupContextWindowWithMatchedId(normalizedId).window;
+}
+
+function lookupContextWindowWithMatchedId(normalizedId: string): {
+  readonly window: number | undefined;
+  readonly matchedId: string | null;
+} {
   const walk = (candidate: string): number | undefined => {
     if (candidate.length === 0) return undefined;
     const found = MODEL_CONTEXT_WINDOWS[candidate];
@@ -29,14 +36,37 @@ export function lookupContextWindow(normalizedId: string): number | undefined {
     if (lastDash === -1) return undefined;
     return walk(candidate.slice(0, lastDash));
   };
-  return walk(normalizedId);
+  const candidateWalk = (candidate: string): string | null => {
+    if (candidate.length === 0) return null;
+    const found = MODEL_CONTEXT_WINDOWS[candidate];
+    if (found !== undefined) return candidate;
+    const lastDash = candidate.lastIndexOf("-");
+    if (lastDash === -1) return null;
+    return candidateWalk(candidate.slice(0, lastDash));
+  };
+  const matchedId = candidateWalk(normalizedId);
+  if (matchedId === null) return { window: undefined, matchedId: null };
+  return { window: walk(matchedId), matchedId };
 }
 
 export function resolveModelDerivedEffectiveWindowTokens(
   modelId: string | null,
 ): TokenCount | undefined {
   const lookupId = modelId !== null ? normalizeForLookup(modelId) : null;
-  const rawWindow = lookupId !== null ? lookupContextWindow(lookupId) : undefined;
+  const lookupResult =
+    lookupId !== null
+      ? lookupContextWindowWithMatchedId(lookupId)
+      : { window: undefined, matchedId: null };
+  const rawWindow = lookupResult.window;
+  if (
+    lookupId !== null &&
+    lookupResult.matchedId !== null &&
+    lookupResult.matchedId !== lookupId
+  ) {
+    process.stderr.write(
+      `[aic] model context window walk-down: ${lookupId} -> ${lookupResult.matchedId}\n`,
+    );
+  }
   if (rawWindow === undefined && lookupId !== null && lookupId !== "auto") {
     process.stderr.write(
       `[aic] unknown model context window: ${modelId ?? ""} (normalized: ${lookupId}) — falling back to 128K\n`,

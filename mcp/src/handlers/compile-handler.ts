@@ -31,6 +31,7 @@ import {
   type SessionId,
   toConversationId,
 } from "@jatbas/aic-core/core/types/identifiers.js";
+import { toPercentage } from "@jatbas/aic-core/core/types/scores.js";
 import {
   type AbsolutePath,
   type FilePath,
@@ -288,7 +289,7 @@ function tryRecordQualitySnapshot(
       id: scope.idGenerator.generate(),
       compilationId: result.compilationId,
       createdAt: scope.clock.now(),
-      tokenReductionRatio: result.meta.tokenReductionPct,
+      tokenReductionRatio: toPercentage(Number(result.meta.tokenReductionPct)),
       selectionRatio,
       budgetUtilisation,
       cacheHit: result.meta.cacheHit,

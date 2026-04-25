@@ -105,6 +105,15 @@ Complete every item. Two batches minimize sequential tool-call rounds.
 
 Record the deduplicated file list under TEST SURFACE SCAN in the Exploration Report — one row per test file with a one-line importer/reference description. Items 15 and 17c then interpret this list from their own angle (test-impact vs fixture-simulation) without issuing their own grep passes.
 
+14e. **Boundary contract mirror scan** (mandatory when a task changes an exported type, structured payload field, DTO, runtime JSON shape, cache blob, telemetry event, diagnostic payload, or tool/API response) — TypeScript importer scans miss manual mirrors. For every changed contract, grep the full codebase for:
+
+- the changed type name;
+- every added, removed, or renamed field name;
+- at least two stable sibling field names from the same object shape;
+- boundary terms: `z.object`, `outputSchema`, `inputSchema`, `structuredContent`, `JSON.stringify`, `schema`, `validator`, `payload`, `registerTool`, `descriptor`, `tool`, `response`, `metadata`, `cache`, `telemetry`.
+
+Read each hit that defines, validates, serializes, formats, parses, or tests the same object shape. Classify it as `IN SCOPE` (schema/validator/descriptor/test must change), `COMPATIBLE` (the mirror already accepts the new shape; cite why), or `FOLLOW-UP` (different boundary or release surface; name the successor skill/task). Record every hit in BOUNDARY CONTRACT MIRRORS. A task that changes a runtime contract and records no mirrors must state the grep commands and zero-hit evidence.
+
 15. **Existing test impact analysis** (mandatory — consumes item 14d's TEST SURFACE SCAN) — from the already-scanned file list, classify each hit: does it contain an invalidated assertion against the modified code? For each invalidated assertion: record test file, line, current value, correct value. Add as "Modify" rows. Record in TEST IMPACT. Do NOT re-run the grep — operate on 14d's output.
     **15b.** Quantitative change scan — when countable quantities change: determine old/new count, grep for old count as literal in tests/scripts/config, grep for names encoding counts. Classify "in-scope fix" / "follow-up".
     **15c.** Test assertion ground-truth audit — for hardcoded literals in assertions, verify against actual source. Already wrong → record as `ALREADY STALE`. Run test file if possible.
@@ -129,7 +138,7 @@ Record the deduplicated file list under TEST SURFACE SCAN in the Exploration Rep
 
 - **Sibling-test glob (first, mechanical, unskippable).** For every planned `Modify` row whose path is `<dir>/<basename>.ts` under `shared/src/` or `mcp/src/` (excluding `*.test.ts` and `*.interface.ts`), Glob both canonical sibling paths: `<dir>/__tests__/<basename>.test.ts` and `<dir>/<basename>.test.ts`. Every sibling that exists on disk MUST be resolved in the task file — as a Files-table Modify row, OR an `**Auto-ratcheting artifacts:**` entry, OR a `**Test-surface excluded:**` bullet with a specific reason. Record the mapping under `__TESTS__ SIBLING INVENTORY:` inside FIXTURE SIMULATION. Enforced by Phase 3 check AV.
 - **Importer list.** Consume item 14d's TEST SURFACE SCAN output — do NOT re-run the grep. If 14d missed a glob the task needs, extend 14d's scan once and update its recorded output.
-- **Fixture enumeration.** For each importer, list fixture inputs it feeds to the modified symbol: constructed `TaskClassification` objects, rule-pack helpers (`defaultRulePack`, `makeRepo`), golden snapshots, `test/benchmarks/expected-selection/*.json` entries, integration assertions.
+- **Fixture enumeration.** For each importer, list fixture inputs it feeds to the modified symbol: constructed domain objects, rule-pack or repo helpers, golden snapshots, benchmark gold-data entries, integration assertions.
 - **Simulate the new behavior.** For each fixture answer concretely: does the existing assertion still pass? Does the expected-output set change? Does a previously-selected path now get excluded? Does an ordering flip?
 - **Classify each fixture** into exactly one bucket:
   - `UNCHANGED` — new behavior produces the same assertion result.
@@ -138,7 +147,7 @@ Record the deduplicated file list under TEST SURFACE SCAN in the Exploration Rep
   - `FIXTURE BLOCKED` — fixture fails for non-obvious reasons (latent bug surfaced by new behavior). Propose one of: (i) fix in this task, (ii) defer to successor task under `## Follow-up Items`, (iii) justified workaround in Architecture Notes. Silent workarounds are rejected by check AS.
 - **Record** all findings in the FIXTURE SIMULATION field. Feeds HARD RULE 18 and Phase 3 check AS. If item 17 recorded "No behavior changes", record "No fixture simulation required — modifications are additive only" and move on.
 
-Historical failures (task 342 BF02, task 347): see `SKILL-drift-catalog.md §HARD RULE 25` and `§AS`, `§AV`.
+Historical failures and concrete examples live in `SKILL-drift-catalog.md §HARD RULE 25`, `§AS`, and `§AV`.
 
 18. **Speculative verification tool execution** (mandatory) — if any step/Files-row/criterion depends on tool output (`pnpm knip`, `pnpm lint`, `pnpm test`, etc.), run the tool during exploration and record exact output. Never defer with "if knip reports." Tool cannot run → resolve by static analysis or flag as **BLOCKER**. Record in SPECULATIVE TOOL EXECUTION.
 
@@ -314,6 +323,13 @@ TEST SURFACE SCAN (mandatory — item 14d; single shared grep output consumed by
 - Symbols/paths queried: [list of every symbol, file path, behavior name touched by the task]
 - Test files with hits: [one row per file — `path` — [one-line importer/reference description]]
 - Or: No test surface touched (rare — justify: e.g. task is pure docs with no symbol reference).
+
+BOUNDARY CONTRACT MIRRORS (mandatory — item 14e when a runtime contract, payload, schema, descriptor, cache blob, telemetry event, or API/tool response shape changes):
+- Contract changed: [type/payload/field] — Greps: [type name, changed field names, sibling field names, boundary terms]
+- [file]:[line] — [schema/validator/descriptor/formatter/parser/test/manual mirror] — CLASSIFICATION: IN SCOPE — Files table impact: [Modify row path]
+- [file]:[line] — [mirror type] — CLASSIFICATION: COMPATIBLE — Evidence: [why it already accepts the new shape]
+- [file]:[line] — [mirror type] — CLASSIFICATION: FOLLOW-UP — Successor: [task NNN / named skill] — Reason: [boundary genuinely separate]
+- Or: No boundary mirrors found — grep commands run: [commands] — zero-hit evidence: [summary].
 
 TEST IMPACT (mandatory — items 15, 15b, 15c, 15d; operates on TEST SURFACE SCAN output, not a fresh grep):
 - Side effects: [description]

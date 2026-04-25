@@ -8,7 +8,7 @@ import type {
   ConversationId,
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import type { TokenCount, Milliseconds } from "@jatbas/aic-core/core/types/units.js";
-import type { Percentage, Confidence } from "@jatbas/aic-core/core/types/scores.js";
+import type { Ratio01, Confidence } from "@jatbas/aic-core/core/types/scores.js";
 import type {
   TaskClass,
   EditorId,
@@ -24,7 +24,7 @@ export interface CompilationLogEntry {
   readonly filesTotal: number;
   readonly tokensRaw: TokenCount;
   readonly tokensCompiled: TokenCount;
-  readonly tokenReductionPct: Percentage;
+  readonly tokenReductionPct: Ratio01;
   readonly cacheHit: boolean;
   readonly durationMs: Milliseconds;
   readonly editorId: EditorId;

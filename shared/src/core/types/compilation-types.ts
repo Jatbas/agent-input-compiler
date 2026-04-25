@@ -11,7 +11,7 @@ import type {
   Milliseconds,
   StepIndex,
 } from "@jatbas/aic-core/core/types/units.js";
-import type { Percentage, Confidence } from "@jatbas/aic-core/core/types/scores.js";
+import type { Ratio01, Confidence } from "@jatbas/aic-core/core/types/scores.js";
 import type {
   SessionId,
   ConversationId,
@@ -55,7 +55,7 @@ export interface CompilationMeta {
   readonly filesTotal: number;
   readonly tokensRaw: TokenCount;
   readonly tokensCompiled: TokenCount;
-  readonly tokenReductionPct: Percentage;
+  readonly tokenReductionPct: Ratio01;
   readonly cacheHit: boolean;
   readonly durationMs: Milliseconds;
   readonly modelId: string;

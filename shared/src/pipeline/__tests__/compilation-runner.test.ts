@@ -3,7 +3,7 @@
 
 import * as path from "node:path";
 import * as fs from "node:fs";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toGlobPattern } from "@jatbas/aic-core/core/types/paths.js";
 import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
@@ -51,6 +51,7 @@ import {
   lookupContextWindow,
   normalizeForLookup,
 } from "../compilation-runner.js";
+import { resolveModelDerivedEffectiveWindowTokens } from "@jatbas/aic-core/core/resolve-display-total-budget.js";
 import { MODEL_CONTEXT_WINDOWS } from "@jatbas/aic-core/data/model-context-windows.js";
 import { IntentClassifier } from "../intent-classifier.js";
 import { RulePackResolver } from "../rule-pack-resolver.js";
@@ -1244,5 +1245,29 @@ describe("lookupContextWindow", () => {
 
   it("lookup_returns_undefined_for_unknown", () => {
     expect(lookupContextWindow("unknown-model-xyz")).toBeUndefined();
+  });
+});
+
+describe("resolveModelDerivedEffectiveWindowTokens", () => {
+  it("writes_warning_when_model_lookup_walks_down", () => {
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+
+    resolveModelDerivedEffectiveWindowTokens("claude-sonnet-4.6-preview");
+
+    expect(stderrSpy).toHaveBeenCalledWith(
+      "[aic] model context window walk-down: claude-sonnet-4.6-preview -> claude-sonnet-4.6\n",
+    );
+    stderrSpy.mockRestore();
+  });
+
+  it("does_not_write_walk_down_warning_for_exact_match", () => {
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+
+    resolveModelDerivedEffectiveWindowTokens("claude-sonnet-4.6");
+
+    expect(stderrSpy).not.toHaveBeenCalledWith(
+      expect.stringContaining("model context window walk-down"),
+    );
+    stderrSpy.mockRestore();
   });
 });

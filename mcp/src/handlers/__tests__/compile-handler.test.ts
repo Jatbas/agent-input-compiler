@@ -30,6 +30,7 @@ import {
   ErrorCode,
   type CallToolResult,
 } from "@modelcontextprotocol/sdk/types.js";
+import { AicCompileToolRegisteredOutputSchema } from "../../schemas/compile-tool-outputs.schema.js";
 import * as initProject from "../../init-project.js";
 import { createCompileHandler } from "../compile-handler.js";
 import { MCP_INTENT_OMITTED_DEFAULT } from "../../schemas/compilation-request.js";
@@ -41,7 +42,12 @@ import {
   toConversationId,
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import { toMilliseconds, toTokenCount } from "@jatbas/aic-core/core/types/units.js";
-import { toConfidence, toPercentage } from "@jatbas/aic-core/core/types/scores.js";
+import {
+  type Percentage100,
+  pct100FromRatio01,
+  toConfidence,
+  toRatio01,
+} from "@jatbas/aic-core/core/types/scores.js";
 import {
   type AbsolutePath,
   type FilePath,
@@ -304,6 +310,48 @@ describe("compile-handler", () => {
       const parsed = JSON.parse(first.text) as { conversationId: string | null };
       expect(parsed.conversationId).toBe("conv-echo-test");
       expectStructuredContentMatchesText(result);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it("registered_output_schema_accepts_meta_totalBudget", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+    try {
+      const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
+      const handler = createCompileHandler(
+        getScope,
+        (_scope: ProjectScope) => makeSuccessRunner("compiled"),
+        { hash: (): string => "" },
+        getSessionId,
+        getEditorId,
+        getModelId,
+        [],
+        enabledConfigLoader,
+        () => {},
+        () => null,
+        () => false,
+      );
+      const result = await handler(
+        {
+          intent: "test",
+          projectRoot: tmpDir,
+          modelId: null,
+          configPath: null,
+        },
+        undefined,
+      );
+      const parseResult = AicCompileToolRegisteredOutputSchema.safeParse(
+        result.structuredContent,
+      );
+      expect(parseResult.success).toBe(true);
+      const totalBudgetFromParsed =
+        parseResult.success &&
+        parseResult.data.meta !== undefined &&
+        "totalBudget" in parseResult.data.meta
+          ? parseResult.data.meta.totalBudget
+          : null;
+      expect(totalBudgetFromParsed).toBe(STUB_COMPILATION_META.totalBudget);
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
@@ -1397,7 +1445,7 @@ describe("compile-handler", () => {
             filesTotal: 0,
             tokensRaw: toTokenCount(0),
             tokensCompiled: toTokenCount(0),
-            tokenReductionPct: toPercentage(0),
+            tokenReductionPct: toRatio01(0),
             cacheHit: false,
             durationMs: toMilliseconds(0),
             editorId: request.editorId,
@@ -1485,7 +1533,7 @@ describe("compile-handler", () => {
               filesTotal: 0,
               tokensRaw: toTokenCount(0),
               tokensCompiled: toTokenCount(0),
-              tokenReductionPct: toPercentage(0),
+              tokenReductionPct: toRatio01(0),
               cacheHit: false,
               durationMs: toMilliseconds(0),
               editorId: request.editorId,
@@ -1545,6 +1593,97 @@ describe("compile-handler", () => {
           .get(projectId) as { classifier_confidence: number | null } | undefined;
         expect(row).toBeDefined();
         expect(row!.classifier_confidence).toBeCloseTo(0.625, 5);
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it("pct100_from_ratio01_returns_expected_value", () => {
+      expect(Number(pct100FromRatio01(toRatio01(0.5)))).toBe(50);
+    });
+
+    it("ratio01_is_not_assignable_to_percentage100", () => {
+      const takesPct100 = (value: Percentage100): number => Number(value);
+      // @ts-expect-error Ratio01 and Percentage100 are distinct nominal types.
+      const result = takesPct100(toRatio01(0.5));
+      expect(result).toBe(0.5);
+    });
+
+    it("compile_persists_token_reduction_ratio_from_meta", async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+      try {
+        const { scope, projectId } = createScopeWithRealDb(tmpDir);
+        const getScope = (_projectRoot: AbsolutePath) => scope;
+        const runner = {
+          run: (request: CompilationRequest) => {
+            const entry = {
+              id: scope.idGenerator.generate(),
+              intent: request.intent,
+              taskClass: TASK_CLASS.GENERAL,
+              filesSelected: 0,
+              filesTotal: 0,
+              tokensRaw: toTokenCount(0),
+              tokensCompiled: toTokenCount(0),
+              tokenReductionPct: toRatio01(0),
+              cacheHit: false,
+              durationMs: toMilliseconds(0),
+              editorId: request.editorId,
+              modelId: request.modelId ?? "",
+              sessionId: null as ReturnType<typeof toSessionId> | null,
+              configHash: null,
+              createdAt: scope.clock.now(),
+              conversationId: request.conversationId ?? null,
+              triggerSource: null,
+              selectionTrace: null,
+              classifierConfidence: null,
+              specificityScore: null,
+              underspecificationIndex: null,
+              totalBudget: null,
+            };
+            scope.compilationLogStore.record(entry);
+            return Promise.resolve({
+              compiledPrompt: "",
+              meta: {
+                ...STUB_COMPILATION_META,
+                tokenReductionPct: toRatio01(0.375),
+              },
+              compilationId: entry.id,
+            });
+          },
+        };
+        const getSessionId = (): ReturnType<typeof toSessionId> =>
+          toSessionId("00000000-0000-7000-8000-000000000002");
+        const getEditorId = () => EDITOR_ID.GENERIC;
+        const getModelId = (): string | null => null;
+        const handler = createCompileHandler(
+          getScope,
+          (_s: ProjectScope) => runner,
+          { hash: (): string => "" },
+          getSessionId,
+          getEditorId,
+          getModelId,
+          [],
+          enabledConfigLoader,
+          () => {},
+          () => null,
+          () => false,
+        );
+        await handler(
+          {
+            intent: "token reduction snapshot persistence probe",
+            projectRoot: tmpDir,
+            modelId: null,
+            configPath: null,
+          },
+          undefined,
+        );
+        const row = scope.db
+          .prepare(
+            "SELECT token_reduction_ratio FROM quality_snapshots WHERE project_id = ? ORDER BY created_at DESC LIMIT 1",
+          )
+          .get(projectId) as { token_reduction_ratio: number | null } | undefined;
+        expect(row).toBeDefined();
+        expect(row!.token_reduction_ratio).toBeCloseTo(0.375, 5);
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }
