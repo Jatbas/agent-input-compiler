@@ -316,7 +316,11 @@ async function runChatSummaryCli(argv: readonly string[]): Promise<number> {
     runWithProjectFromArgv(db, argv, ({ clock, projectId, projectRoot, db: storeDb }) => {
       const store = new SqliteStatusStore(projectId, storeDb, clock);
       const summary = store.getSummary();
-      const row = buildProjectScopedChatSummaryCliRow(String(projectRoot), summary);
+      const row = buildProjectScopedChatSummaryCliRow(
+        String(projectRoot),
+        summary,
+        clock,
+      );
       process.stdout.write(formatChatSummaryTable(row, clock));
       return 0;
     }),

@@ -34,6 +34,7 @@ export interface LastCompilationSnapshot {
   readonly editorId: string;
   readonly modelId: string | null;
   readonly allocatedTotalBudget: number;
+  readonly durationMs: number | null;
 }
 
 export interface StatusAggregates {
@@ -53,6 +54,9 @@ export interface StatusAggregates {
   readonly lastCompilation: LastCompilationSnapshot | null;
   readonly installationOk: boolean | null;
   readonly installationNotes: string | null;
+  readonly sessionTimeMs: number | null;
+  readonly activeConversationId: string | null;
+  readonly activeConversationCreatedAt: string | null;
 }
 
 export interface ProjectListItem {
@@ -80,4 +84,5 @@ export interface ConversationSummary {
     readonly taskClass: string;
     readonly count: number;
   }[];
+  readonly elapsedMs: number | null;
 }

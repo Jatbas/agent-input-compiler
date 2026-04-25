@@ -272,4 +272,109 @@ describe("cli-diagnostics", () => {
     fs.rmSync(homeTmp, { recursive: true, force: true });
     fs.rmSync(projectTmp, { recursive: true, force: true });
   });
+
+  it("cli_last_prints_compiled_in_row", async () => {
+    const homeTmp = fs.mkdtempSync(path.join(os.tmpdir(), "aic-cli-home-"));
+    const aicDir = path.join(homeTmp, ".aic");
+    fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
+    const dbPath = path.join(aicDir, "aic.sqlite");
+    const clock = new SystemClock();
+    const db = openDatabase(dbPath, clock);
+    const pid = toProjectId("018f0000-0000-7000-8000-00000000aa07");
+    const projectTmp = fs.mkdtempSync(path.join(os.tmpdir(), "aic-cli-proj-"));
+    const normalised = new NodePathAdapter().normalise(toAbsolutePath(projectTmp));
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(pid, normalised, "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z");
+    closeDatabase(db);
+    process.env["HOME"] = homeTmp;
+    process.chdir(projectTmp);
+    const chunks: string[] = [];
+    vi.spyOn(process.stdout, "write").mockImplementation((msg) => {
+      chunks.push(String(msg));
+      return true;
+    });
+    const exitMock = vi
+      .spyOn(process, "exit")
+      .mockImplementation(() => undefined as never);
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    runCliDiagnosticsAndExit(["last", "--project", projectTmp]);
+    await vi.waitFor(() => {
+      expect(exitMock).toHaveBeenCalledWith(0);
+    });
+    expect(chunks.join("")).toContain("Compiled in");
+    fs.rmSync(homeTmp, { recursive: true, force: true });
+    fs.rmSync(projectTmp, { recursive: true, force: true });
+  });
+
+  it("cli_status_prints_session_time_row", async () => {
+    const homeTmp = fs.mkdtempSync(path.join(os.tmpdir(), "aic-cli-home-"));
+    const aicDir = path.join(homeTmp, ".aic");
+    fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
+    const dbPath = path.join(aicDir, "aic.sqlite");
+    const clock = new SystemClock();
+    const db = openDatabase(dbPath, clock);
+    const pid = toProjectId("018f0000-0000-7000-8000-00000000aa08");
+    const projectTmp = fs.mkdtempSync(path.join(os.tmpdir(), "aic-cli-proj-"));
+    const normalised = new NodePathAdapter().normalise(toAbsolutePath(projectTmp));
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(pid, normalised, "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z");
+    closeDatabase(db);
+    process.env["HOME"] = homeTmp;
+    process.chdir(projectTmp);
+    const chunks: string[] = [];
+    vi.spyOn(process.stdout, "write").mockImplementation((msg) => {
+      chunks.push(String(msg));
+      return true;
+    });
+    const exitMock = vi
+      .spyOn(process, "exit")
+      .mockImplementation(() => undefined as never);
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue({ ok: false }) as typeof globalThis.fetch;
+    runCliDiagnosticsAndExit(["status", "--project", projectTmp]);
+    await vi.waitFor(() => {
+      expect(exitMock).toHaveBeenCalledWith(0);
+    });
+    expect(chunks.join("")).toContain("Session time");
+    fs.rmSync(homeTmp, { recursive: true, force: true });
+    fs.rmSync(projectTmp, { recursive: true, force: true });
+  });
+
+  it("cli_chat_summary_prints_elapsed_row", async () => {
+    const homeTmp = fs.mkdtempSync(path.join(os.tmpdir(), "aic-cli-home-"));
+    const aicDir = path.join(homeTmp, ".aic");
+    fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
+    const dbPath = path.join(aicDir, "aic.sqlite");
+    const clock = new SystemClock();
+    const db = openDatabase(dbPath, clock);
+    const pid = toProjectId("018f0000-0000-7000-8000-00000000aa09");
+    const projectTmp = fs.mkdtempSync(path.join(os.tmpdir(), "aic-cli-proj-"));
+    const normalised = new NodePathAdapter().normalise(toAbsolutePath(projectTmp));
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(pid, normalised, "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z");
+    closeDatabase(db);
+    process.env["HOME"] = homeTmp;
+    process.chdir(projectTmp);
+    const chunks: string[] = [];
+    vi.spyOn(process.stdout, "write").mockImplementation((msg) => {
+      chunks.push(String(msg));
+      return true;
+    });
+    const exitMock = vi
+      .spyOn(process, "exit")
+      .mockImplementation(() => undefined as never);
+    vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    runCliDiagnosticsAndExit(["chat-summary", "--project", projectTmp]);
+    await vi.waitFor(() => {
+      expect(exitMock).toHaveBeenCalledWith(0);
+    });
+    expect(chunks.join("")).toContain("Elapsed");
+    fs.rmSync(homeTmp, { recursive: true, force: true });
+    fs.rmSync(projectTmp, { recursive: true, force: true });
+  });
 });

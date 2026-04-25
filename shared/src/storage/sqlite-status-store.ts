@@ -21,6 +21,7 @@ import type {
 import { toProjectId } from "@jatbas/aic-core/core/types/identifiers.js";
 import { type AbsolutePath, toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import { TRIGGER_SOURCE } from "@jatbas/aic-core/core/types/enums.js";
+import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
 import { resolveDisplayTotalBudgetDenominator } from "@jatbas/aic-core/core/resolve-display-total-budget.js";
 
 export function listProjectsFromDb(db: ExecutableDb): readonly ProjectListItem[] {
@@ -55,6 +56,7 @@ type LastCompilationRow = {
   editor_id: string;
   model_id: string | null;
   total_budget: number | null;
+  duration_ms: number | null;
 };
 
 type LastCompilationRowWithTrace = LastCompilationRow & {
@@ -74,6 +76,7 @@ function mapLastCompilationRow(row: LastCompilationRow): {
   editorId: string;
   modelId: string | null;
   allocatedTotalBudget: number;
+  durationMs: number | null;
 } {
   return {
     intent: row.intent,
@@ -88,14 +91,92 @@ function mapLastCompilationRow(row: LastCompilationRow): {
       row.total_budget,
       row.model_id,
     ),
+    durationMs: row.duration_ms,
   };
 }
+
+const SESSION_TIME_CAP_MS = 4 * 60 * 60 * 1000;
 
 function mapTaskClassRow(r: { taskClass: string; count: number }): {
   readonly taskClass: string;
   readonly count: number;
 } {
   return { taskClass: r.taskClass, count: r.count };
+}
+
+type CompilationLogScopeBinders = {
+  readonly timeSql: string;
+  readonly timeParams: readonly ISOTimestamp[];
+  readonly triggerFilter: string;
+  readonly projectSuffix: string;
+  readonly scopeParams: () => unknown[];
+  readonly todayParams: (todayDate: string) => unknown[];
+};
+
+function compilationLogScopeBinders(
+  projectId: ProjectId | null,
+  notBeforeInclusive: ISOTimestamp | null,
+): CompilationLogScopeBinders {
+  const timeSql = notBeforeInclusive !== null ? " AND created_at >= ? " : "";
+  const timeParams: readonly ISOTimestamp[] =
+    notBeforeInclusive !== null ? [notBeforeInclusive] : [];
+  const triggerFilter = " (trigger_source IS NULL OR trigger_source != ?) ";
+  const projectSuffix = projectId !== null ? " AND project_id = ?" : "";
+  const scopeParams = (): unknown[] => [
+    TRIGGER_SOURCE.INTERNAL_TEST,
+    ...timeParams,
+    ...(projectId !== null ? [projectId] : []),
+  ];
+  const todayParams = (todayDate: string): unknown[] => [
+    todayDate,
+    TRIGGER_SOURCE.INTERNAL_TEST,
+    ...timeParams,
+    ...(projectId !== null ? [projectId] : []),
+  ];
+  return { timeSql, timeParams, triggerFilter, projectSuffix, scopeParams, todayParams };
+}
+
+function readTelemetryDisabledForCompilationScope(
+  db: ExecutableDb,
+  projectId: ProjectId | null,
+  clTimeSql: string,
+  timeParams: readonly ISOTimestamp[],
+): boolean {
+  const telemetrySql =
+    projectId !== null
+      ? `SELECT COUNT(*) as c FROM telemetry_events te JOIN compilation_log cl ON te.compilation_id = cl.id WHERE cl.project_id = ? AND (cl.trigger_source IS NULL OR cl.trigger_source != ?)${clTimeSql}`
+      : `SELECT COUNT(*) as c FROM telemetry_events te JOIN compilation_log cl ON te.compilation_id = cl.id WHERE (cl.trigger_source IS NULL OR cl.trigger_source != ?)${clTimeSql}`;
+  const telemetryParams: unknown[] =
+    projectId !== null
+      ? [projectId, TRIGGER_SOURCE.INTERNAL_TEST, ...timeParams]
+      : [TRIGGER_SOURCE.INTERNAL_TEST, ...timeParams];
+  const telemetryCountRow = db.prepare(telemetrySql).all(...telemetryParams) as {
+    c: number;
+  }[];
+  return (telemetryCountRow[0]?.c ?? 0) === 0;
+}
+
+function readGuardByTypeForCompilationScope(
+  db: ExecutableDb,
+  projectId: ProjectId | null,
+  clTimeSql: string,
+  timeParams: readonly ISOTimestamp[],
+): Record<string, number> {
+  const guardSql =
+    projectId !== null
+      ? `SELECT gf.type, COUNT(*) as cnt FROM guard_findings gf JOIN compilation_log cl ON gf.compilation_id = cl.id WHERE cl.project_id = ? AND (cl.trigger_source IS NULL OR cl.trigger_source != ?)${clTimeSql} GROUP BY gf.type`
+      : `SELECT gf.type, COUNT(*) as cnt FROM guard_findings gf JOIN compilation_log cl ON gf.compilation_id = cl.id WHERE (cl.trigger_source IS NULL OR cl.trigger_source != ?)${clTimeSql} GROUP BY gf.type`;
+  const guardParams: unknown[] =
+    projectId !== null
+      ? [projectId, TRIGGER_SOURCE.INTERNAL_TEST, ...timeParams]
+      : [TRIGGER_SOURCE.INTERNAL_TEST, ...timeParams];
+  const guardRows = db.prepare(guardSql).all(...guardParams) as {
+    type: string;
+    cnt: number;
+  }[];
+  return Object.fromEntries(
+    guardRows.map((row): [string, number] => [row.type, row.cnt]),
+  );
 }
 
 export class SqliteStatusStore implements StatusStore, GlobalStatusQueries {
@@ -160,7 +241,7 @@ export class SqliteStatusStore implements StatusStore, GlobalStatusQueries {
       .prepare(
         `SELECT intent, files_selected, files_total, tokens_compiled,
          COALESCE(CAST((tokens_raw - tokens_compiled) AS REAL) * 100.0 / NULLIF(tokens_raw, 0), 0) AS token_reduction_pct,
-         created_at, editor_id, model_id, total_budget
+         created_at, editor_id, model_id, total_budget, duration_ms
          FROM compilation_log WHERE conversation_id = ? AND (trigger_source IS NULL OR trigger_source != ?) AND project_id = ?
          ORDER BY created_at DESC LIMIT 1`,
       )
@@ -177,6 +258,18 @@ export class SqliteStatusStore implements StatusStore, GlobalStatusQueries {
       .prepare("SELECT project_root FROM projects WHERE project_id = ?")
       .all(this.projectId) as { project_root: string }[];
     const projectRoot = projectRootRows[0]?.project_root ?? "";
+    const elapsedRows = this.db
+      .prepare(
+        "SELECT created_at FROM session_state WHERE session_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT 1",
+      )
+      .all(conversationId, this.projectId) as { created_at: string }[];
+    const elapsedCreatedAt = elapsedRows[0]?.created_at ?? null;
+    const elapsedMs =
+      elapsedCreatedAt === null
+        ? null
+        : Number(
+            this.clock.durationMs(toISOTimestamp(elapsedCreatedAt), this.clock.now()),
+          );
 
     return {
       conversationId,
@@ -189,30 +282,80 @@ export class SqliteStatusStore implements StatusStore, GlobalStatusQueries {
       totalTokensSaved,
       lastCompilationInConversation,
       topTaskClasses,
+      elapsedMs,
     };
+  }
+
+  private getProjectSessionSummary(notBeforeInclusive: ISOTimestamp | null): {
+    readonly sessionTimeMs: number | null;
+    readonly activeConversationId: string | null;
+    readonly activeConversationCreatedAt: string | null;
+  } {
+    const sessionWindowClause =
+      notBeforeInclusive === null ? "" : " AND last_activity_at >= ? ";
+    const sessionParams: readonly unknown[] =
+      notBeforeInclusive === null
+        ? [this.projectId]
+        : [this.projectId, notBeforeInclusive];
+    const sessionRows = this.db
+      .prepare(
+        `SELECT
+           COUNT(*) AS session_count,
+           COALESCE(SUM(
+             CASE
+               WHEN elapsed_ms < 0 THEN 0
+               WHEN elapsed_ms > ? THEN ?
+               ELSE elapsed_ms
+             END
+           ), 0) AS session_time_ms
+         FROM (
+           SELECT CAST((julianday(last_activity_at) - julianday(created_at)) * 86400000.0 AS INTEGER) AS elapsed_ms
+           FROM session_state
+           WHERE project_id = ?${sessionWindowClause}
+         )`,
+      )
+      .all(SESSION_TIME_CAP_MS, SESSION_TIME_CAP_MS, ...sessionParams) as {
+      session_count: number;
+      session_time_ms: number;
+    }[];
+    const sessionRow = sessionRows[0];
+    const sessionTimeMs =
+      (sessionRow?.session_count ?? 0) > 0 ? (sessionRow?.session_time_ms ?? 0) : null;
+    const conversationRows = this.db
+      .prepare(
+        "SELECT conversation_id FROM compilation_log WHERE project_id = ? AND conversation_id IS NOT NULL AND (trigger_source IS NULL OR trigger_source != ?) ORDER BY created_at DESC LIMIT 1",
+      )
+      .all(this.projectId, TRIGGER_SOURCE.INTERNAL_TEST) as {
+      conversation_id: string;
+    }[];
+    const activeConversationId = conversationRows[0]?.conversation_id ?? null;
+    const activeConversationCreatedRows =
+      activeConversationId === null
+        ? []
+        : (this.db
+            .prepare(
+              "SELECT created_at FROM session_state WHERE session_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT 1",
+            )
+            .all(activeConversationId, this.projectId) as { created_at: string }[]);
+    const activeConversationCreatedAt =
+      activeConversationCreatedRows[0]?.created_at ?? null;
+    return { sessionTimeMs, activeConversationId, activeConversationCreatedAt };
   }
 
   private getAggregatesForScope(
     projectId: ProjectId | null,
     notBeforeInclusive: ISOTimestamp | null,
   ): StatusAggregates {
-    const timeSql = notBeforeInclusive !== null ? " AND created_at >= ? " : "";
-    const timeParams: readonly ISOTimestamp[] =
-      notBeforeInclusive !== null ? [notBeforeInclusive] : [];
-    const triggerFilter = " (trigger_source IS NULL OR trigger_source != ?) ";
-    const projectSuffix = projectId !== null ? " AND project_id = ?" : "";
-    const scopeParams = (): unknown[] => [
-      TRIGGER_SOURCE.INTERNAL_TEST,
-      ...timeParams,
-      ...(projectId !== null ? [projectId] : []),
-    ];
+    const scope = compilationLogScopeBinders(projectId, notBeforeInclusive);
+    const {
+      timeSql,
+      timeParams,
+      triggerFilter,
+      projectSuffix,
+      scopeParams,
+      todayParams,
+    } = scope;
     const todayDate = this.clock.now().slice(0, 10);
-    const todayParams = (): unknown[] => [
-      todayDate,
-      TRIGGER_SOURCE.INTERNAL_TEST,
-      ...timeParams,
-      ...(projectId !== null ? [projectId] : []),
-    ];
     const compilationsTotalRow = this.db
       .prepare(
         `SELECT COUNT(*) as c FROM compilation_log WHERE${triggerFilter}${timeSql}${projectSuffix}`,
@@ -223,7 +366,7 @@ export class SqliteStatusStore implements StatusStore, GlobalStatusQueries {
       .prepare(
         `SELECT COUNT(*) as c FROM compilation_log WHERE date(created_at) = date(?) AND${triggerFilter}${timeSql}${projectSuffix}`,
       )
-      .all(...todayParams()) as { c: number }[];
+      .all(...todayParams(todayDate)) as { c: number }[];
     const compilationsToday = compilationsTodayRow[0]?.c ?? 0;
     const cacheRateRow = this.db
       .prepare(
@@ -246,32 +389,17 @@ export class SqliteStatusStore implements StatusStore, GlobalStatusQueries {
         ? ((totalTokensRaw - totalTokensCompiled) / totalTokensRaw) * 100
         : null;
     const clTimeSql = notBeforeInclusive !== null ? " AND cl.created_at >= ?" : "";
-    const telemetrySql =
-      projectId !== null
-        ? `SELECT COUNT(*) as c FROM telemetry_events te JOIN compilation_log cl ON te.compilation_id = cl.id WHERE cl.project_id = ? AND (cl.trigger_source IS NULL OR cl.trigger_source != ?)${clTimeSql}`
-        : `SELECT COUNT(*) as c FROM telemetry_events te JOIN compilation_log cl ON te.compilation_id = cl.id WHERE (cl.trigger_source IS NULL OR cl.trigger_source != ?)${clTimeSql}`;
-    const telemetryParams: unknown[] =
-      projectId !== null
-        ? [projectId, TRIGGER_SOURCE.INTERNAL_TEST, ...timeParams]
-        : [TRIGGER_SOURCE.INTERNAL_TEST, ...timeParams];
-    const telemetryCountRow = this.db.prepare(telemetrySql).all(...telemetryParams) as {
-      c: number;
-    }[];
-    const telemetryDisabled = (telemetryCountRow[0]?.c ?? 0) === 0;
-    const guardSql =
-      projectId !== null
-        ? `SELECT gf.type, COUNT(*) as cnt FROM guard_findings gf JOIN compilation_log cl ON gf.compilation_id = cl.id WHERE cl.project_id = ? AND (cl.trigger_source IS NULL OR cl.trigger_source != ?)${clTimeSql} GROUP BY gf.type`
-        : `SELECT gf.type, COUNT(*) as cnt FROM guard_findings gf JOIN compilation_log cl ON gf.compilation_id = cl.id WHERE (cl.trigger_source IS NULL OR cl.trigger_source != ?)${clTimeSql} GROUP BY gf.type`;
-    const guardParams: unknown[] =
-      projectId !== null
-        ? [projectId, TRIGGER_SOURCE.INTERNAL_TEST, ...timeParams]
-        : [TRIGGER_SOURCE.INTERNAL_TEST, ...timeParams];
-    const guardRows = this.db.prepare(guardSql).all(...guardParams) as {
-      type: string;
-      cnt: number;
-    }[];
-    const guardByType = Object.fromEntries(
-      guardRows.map((row): [string, number] => [row.type, row.cnt]),
+    const telemetryDisabled = readTelemetryDisabledForCompilationScope(
+      this.db,
+      projectId,
+      clTimeSql,
+      timeParams,
+    );
+    const guardByType = readGuardByTypeForCompilationScope(
+      this.db,
+      projectId,
+      clTimeSql,
+      timeParams,
     );
     const topRows = this.db
       .prepare(
@@ -280,7 +408,7 @@ export class SqliteStatusStore implements StatusStore, GlobalStatusQueries {
       .all(...scopeParams()) as { taskClass: string; count: number }[];
     const topTaskClasses = topRows.map(mapTaskClassRow);
     const lastSql =
-      "SELECT intent, files_selected, files_total, tokens_compiled, COALESCE(CAST((tokens_raw - tokens_compiled) AS REAL) * 100.0 / NULLIF(tokens_raw, 0), 0) AS token_reduction_pct, created_at, editor_id, model_id, total_budget FROM compilation_log WHERE" +
+      "SELECT intent, files_selected, files_total, tokens_compiled, COALESCE(CAST((tokens_raw - tokens_compiled) AS REAL) * 100.0 / NULLIF(tokens_raw, 0), 0) AS token_reduction_pct, created_at, editor_id, model_id, total_budget, duration_ms FROM compilation_log WHERE" +
       triggerFilter +
       timeSql +
       projectSuffix +
@@ -300,6 +428,14 @@ export class SqliteStatusStore implements StatusStore, GlobalStatusQueries {
       sessionRow === undefined ? null : sessionRow.installation_ok === 1;
     const installationNotes =
       sessionRow === undefined ? null : (sessionRow.installation_notes ?? null);
+    const projectSessionSummary =
+      projectId === null
+        ? {
+            sessionTimeMs: null,
+            activeConversationId: null,
+            activeConversationCreatedAt: null,
+          }
+        : this.getProjectSessionSummary(notBeforeInclusive);
     return {
       compilationsTotal,
       compilationsToday,
@@ -314,6 +450,9 @@ export class SqliteStatusStore implements StatusStore, GlobalStatusQueries {
       lastCompilation,
       installationOk,
       installationNotes,
+      sessionTimeMs: projectSessionSummary.sessionTimeMs,
+      activeConversationId: projectSessionSummary.activeConversationId,
+      activeConversationCreatedAt: projectSessionSummary.activeConversationCreatedAt,
     };
   }
 
@@ -380,7 +519,7 @@ export class SqliteStatusStore implements StatusStore, GlobalStatusQueries {
   getLastCompilationForProject(projectId: ProjectId): LastCompilationSnapshot | null {
     const lastRows = this.db
       .prepare(
-        "SELECT intent, files_selected, files_total, tokens_compiled, COALESCE(CAST((tokens_raw - tokens_compiled) AS REAL) * 100.0 / NULLIF(tokens_raw, 0), 0) AS token_reduction_pct, created_at, editor_id, model_id, total_budget FROM compilation_log WHERE (trigger_source IS NULL OR trigger_source != ?) AND project_id = ? ORDER BY created_at DESC LIMIT 1",
+        "SELECT intent, files_selected, files_total, tokens_compiled, COALESCE(CAST((tokens_raw - tokens_compiled) AS REAL) * 100.0 / NULLIF(tokens_raw, 0), 0) AS token_reduction_pct, created_at, editor_id, model_id, total_budget, duration_ms FROM compilation_log WHERE (trigger_source IS NULL OR trigger_source != ?) AND project_id = ? ORDER BY created_at DESC LIMIT 1",
       )
       .all(TRIGGER_SOURCE.INTERNAL_TEST, projectId) as LastCompilationRow[];
     const lastRow = lastRows[0];
@@ -408,7 +547,7 @@ export class SqliteStatusStore implements StatusStore, GlobalStatusQueries {
       .prepare(
         `SELECT cl.intent, cl.files_selected, cl.files_total, cl.tokens_compiled,
          COALESCE(CAST((cl.tokens_raw - cl.tokens_compiled) AS REAL) * 100.0 / NULLIF(cl.tokens_raw, 0), 0) AS token_reduction_pct,
-         cl.created_at, cl.editor_id, cl.model_id, cl.total_budget, cl.selection_trace_json, cl.cache_hit,
+         cl.created_at, cl.editor_id, cl.model_id, cl.total_budget, cl.duration_ms, cl.selection_trace_json, cl.cache_hit,
          te.guard_findings AS guard_finding_count, te.guard_blocks AS guard_block_count
          FROM compilation_log cl
          LEFT JOIN telemetry_events te ON te.compilation_id = cl.id

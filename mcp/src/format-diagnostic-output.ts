@@ -49,6 +49,25 @@ function formatPct1(p: number | null | undefined): string {
   return `${p.toFixed(1)}%`;
 }
 
+function formatCompileDurationMs(durationMs: number | null): string {
+  if (durationMs === null) return "—";
+  if (durationMs < 1000) return `${formatInt(durationMs)} ms`;
+  return `${(durationMs / 1000).toFixed(1)} s`;
+}
+
+function formatElapsedDurationMs(durationMs: number | null): string {
+  if (durationMs === null) return "—";
+  const clampedMs = durationMs < 0 ? 0 : durationMs;
+  const totalSeconds = Math.floor(clampedMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours >= 1) {
+    return `${formatInt(hours)}h ${formatInt(minutes)}m`;
+  }
+  return `${formatInt(minutes)}m ${formatInt(seconds)}s`;
+}
+
 function relIso(clock: Clock, iso: string): string {
   const ms = clock.durationMs(toISOTimestamp(iso), clock.now());
   const sec = Math.floor(ms / 1000);
@@ -377,6 +396,11 @@ export function formatStatusTable(
       w,
     ),
     ...topTaskRows(payload["topTaskClasses"], w),
+    padRow(
+      "Session time",
+      formatElapsedDurationMs((payload["sessionTimeMs"] as number | null) ?? null),
+      w,
+    ),
     padRow("Last compilation", lastCompilationSummary(clock, last, w), w),
     SEP,
     padRow(
@@ -408,6 +432,11 @@ function lastRowsWhenPresent(
     padRow("Intent", String(last["intent"] ?? "—"), w),
     padRow("Files", `${formatInt(fs_)} selected / ${formatInt(ft)} total`, w),
     padRow("Tokens compiled", formatInt(compiled), w),
+    padRow(
+      "Compiled in",
+      formatCompileDurationMs((last["durationMs"] as number | null) ?? null),
+      w,
+    ),
     padRow("Context window used", formatPct1(budgetPct), w),
     padRow("Compiled", relIso(clock, String(last["created_at"] ?? "")), w),
     padRow("Editor", String(last["editorId"] ?? "—"), w),
@@ -418,6 +447,7 @@ const LAST_EMPTY_DETAIL: readonly string[] = [
   "Intent",
   "Files",
   "Tokens compiled",
+  "Compiled in",
   "Context window used",
   "Compiled",
   "Editor",
@@ -508,6 +538,7 @@ export function formatChatSummaryTable(row: ConversationSummary, clock: Clock): 
     padRow("Context precision (weighted)", formatPct1(row.avgReductionPct), w),
     SEP,
     padRow("Last compilation", lastLine, w),
+    padRow("Elapsed", formatElapsedDurationMs(row.elapsedMs), w),
     ...topTaskRows(row.topTaskClasses, w),
   ];
   return renderStandardReport({

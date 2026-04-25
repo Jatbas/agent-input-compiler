@@ -62,6 +62,7 @@ const baseStatusPayload: Record<string, unknown> = {
   guardByType: {},
   topTaskClasses: [],
   lastCompilation: null,
+  sessionTimeMs: null,
 };
 
 describe("formatStatusTable", () => {
@@ -293,9 +294,100 @@ function minimalChatSummary(
     totalTokensSaved: null,
     lastCompilationInConversation: null,
     topTaskClasses: [],
+    elapsedMs: null,
     ...overrides,
   };
 }
+
+describe("duration formatting rows", () => {
+  it("format_last_compiled_in_duration_units", () => {
+    const clock = fixedClock("2026-03-02T12:00:00.000Z");
+    const outMs = formatLastTable(
+      {
+        compilationCount: 1,
+        lastCompilation: {
+          intent: "probe",
+          filesSelected: 1,
+          filesTotal: 2,
+          tokensCompiled: 10,
+          durationMs: 340,
+          tokenReductionPct: 50,
+          created_at: "2026-03-02T11:59:00.000Z",
+          editorId: "cursor",
+          cacheHit: false,
+        },
+        promptSummary: { tokenCount: null, guardPassed: null },
+        lastBudgetMaxTokens: 1_000,
+      },
+      clock,
+    );
+    const outSec = formatLastTable(
+      {
+        compilationCount: 1,
+        lastCompilation: {
+          intent: "probe",
+          filesSelected: 1,
+          filesTotal: 2,
+          tokensCompiled: 10,
+          durationMs: 1200,
+          tokenReductionPct: 50,
+          created_at: "2026-03-02T11:59:00.000Z",
+          editorId: "cursor",
+          cacheHit: false,
+        },
+        promptSummary: { tokenCount: null, guardPassed: null },
+        lastBudgetMaxTokens: 1_000,
+      },
+      clock,
+    );
+    expect(outMs).toContain("Compiled in");
+    expect(outMs).toContain("340 ms");
+    expect(outSec).toContain("Compiled in");
+    expect(outSec).toContain("1.2 s");
+  });
+
+  it("format_status_session_time_humanized", () => {
+    const clock = fixedClock("2026-03-02T12:00:00.000Z");
+    const outHour = formatStatusTable(
+      {
+        ...baseStatusPayload,
+        installationOk: true,
+        projectEnabled: true,
+        sessionTimeMs: 3_900_000,
+      },
+      clock,
+    );
+    const outMinute = formatStatusTable(
+      {
+        ...baseStatusPayload,
+        installationOk: true,
+        projectEnabled: true,
+        sessionTimeMs: 90_000,
+      },
+      clock,
+    );
+    expect(outHour).toContain("Session time");
+    expect(outHour).toContain("1h 5m");
+    expect(outMinute).toContain("Session time");
+    expect(outMinute).toContain("1m 30s");
+  });
+
+  it("format_chat_summary_elapsed_humanized", () => {
+    const clock = fixedClock("2026-03-02T12:00:00.000Z");
+    const outHour = formatChatSummaryTable(
+      minimalChatSummary({ elapsedMs: 3_900_000 }),
+      clock,
+    );
+    const outMinute = formatChatSummaryTable(
+      minimalChatSummary({ elapsedMs: 90_000 }),
+      clock,
+    );
+    expect(outHour).toContain("Elapsed");
+    expect(outHour).toContain("1h 5m");
+    expect(outMinute).toContain("Elapsed");
+    expect(outMinute).toContain("1m 30s");
+  });
+});
 
 describe("formatLastTable", () => {
   it("last_table_cache_hit_zero_files_hero", () => {

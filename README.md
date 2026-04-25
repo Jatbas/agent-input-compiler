@@ -75,6 +75,7 @@ Top request types                 count  share
   general                         4,530  70.3%
   docs                              994  15.4%
   bugfix                            921  14.3%
+Session time                      18h 42m
 Last compilation                  fix SqliteSpecCompileCacheStore migration
                                   5 / 629 files · 595 tokens · 2 min ago
 ──────────────────────────────────────────────────────────────────────────────
@@ -95,6 +96,7 @@ Context builds                  7,666
 Intent                          task 318 spec-compile-cache migration 004 SqliteSpecCompileCacheStore
 Files                           5 selected / 567 total
 Tokens compiled                 595
+Compiled in                     2.4 s
 Context window used             0.3%
 Compiled                        2 min ago
 Editor                          claude-code
@@ -114,18 +116,19 @@ AIC optimised context by intent across 42 compilations (88:1 ratio, 40.0% cache 
 ──────────────────────────────────────────────────────────────────────────────
 Project path                    /dev/AIC
 Context builds                  42
-Repo size → context sent        8.80M → 100,000 (88:1 ratio)
+Cumulative raw → sent tokens    8.80M → 100,000 (88:1 ratio)
 Tokens excluded                 5.00M
 ──────────────────────────────────────────────────────────────────────────────
 Cache hit rate                  40.0%
-Avg context precision           55.2%
+Context precision (weighted)    55.2%
 ──────────────────────────────────────────────────────────────────────────────
 Last compilation                refactor diagnostic output · 2 min ago
+Elapsed                         3h 12m
 Top request types               count  share
   refactor                         20  62.5%
   general                          12  37.5%
 ──────────────────────────────────────────────────────────────────────────────
-Avg context precision: % of repo content automatically filtered per context build.
+Context precision (weighted): % of repo content automatically filtered per context build.
 ```
 
 #### `show aic projects`

@@ -111,6 +111,29 @@ AIC tightens the hallucination surface by surfacing relevant project code in com
 
 ---
 
+## Optional repo skills (maintainers)
+
+This repository ships optional Agent Skills under `.claude/skills/<skill-name>/`. Each `SKILL.md` states purpose, inputs, outputs, gates, and checkpoints. They support maintainers working in this repo; they are not required to use the published MCP server as an end user. Full folder names and one-line purposes below match each skill's QUICK CARD in its `SKILL.md`.
+
+| Skill folder               | Purpose (from `SKILL.md`)                                                                                                                                 | When to use (from `SKILL.md`)                                                                                                                                     |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `aic-task-planner`         | Produce a task file an agent executor can follow without improvisation.                                                                                   | New feature, refactor, bug fix, benchmark, config change, release pipeline.                                                                                       |
+| `aic-task-executor`        | Execute a task file in an isolated worktree, verify, squash-merge to `main`, archive the task, update progress.                                           | Execute a pending task file from `documentation/tasks/pending/`, or a direct fully specified instruction (ambiguous requests go to task planner first).           |
+| `aic-documentation-writer` | Produce or modify documentation with evidence-backed claims, structural integrity, and cross-doc consistency.                                             | Writing new user-facing docs; modifying existing docs; auditing docs for staleness or drift.                                                                      |
+| `aic-researcher`           | Answer a question with citations. Never guess. Always dispatch parallel explorers.                                                                        | Standalone research questions; pre-planning research that will feed the task planner; validating a hypothesis before coding.                                      |
+| `aic-update-changelog`     | Keep `CHANGELOG.md` accurate and user-facing.                                                                                                             | After a significant commit or feature lands; before cutting a release; when asked what is in the latest release; when a prior release needs a deprecation banner. |
+| `aic-update-progress`      | After a task is merged, update the progress file accurately.                                                                                              | Immediately after the task executor merges a worktree; after a manual hot-fix lands on the working branch.                                                        |
+| `aic-code-audit`           | Discover real bugs across a file surface area, trace blast radius, and register findings in Phase BUGS so the user knows exactly which skill to use next. | Proactive audit of a directory, layer, or the whole repo; pre-release sweep; post-incident audit; generating a batch of tracked defects for a new initiative.     |
+| `aic-pr-review`            | Produce a structured PR review with HARD / SOFT findings, each cited.                                                                                     | A pending PR on GitHub; a feature branch awaiting merge; a community contribution needing evaluation.                                                             |
+| `aic-systematic-debugging` | Find and fix bugs without guessing. Investigate root cause before proposing changes.                                                                      | Any bug report; any failing test; any unexpected CI or runtime behaviour.                                                                                         |
+| `aic-roadmap-forge`        | Propose the next phase(s) for `aic-progress.md`, backed by evidence and reviewed adversarially.                                                           | Before starting a major new initiative; when the progress file is near-complete and the next direction is unclear; periodic roadmap review.                       |
+| `aic-git-history-clean`    | Rewrite a range of commits into a clean, feature-centric history before publishing or sharing.                                                            | Preparing a feature branch for merge into `main`; cleaning history before cutting a release; rewriting imported history from a fork before merging.               |
+| `aic-release`              | Cut a release end-to-end. Single entry point. Run unattended.                                                                                             | The user asks to cut a release, publish, or ship a concrete version; every published package needs a release.                                                     |
+
+See also [CONTRIBUTING.md — Read the relevant docs](../CONTRIBUTING.md#5-read-the-relevant-docs).
+
+---
+
 ## See also
 
 - [Installation & Delivery](installation.md) — install steps, prerequisites, verification (including the **show aic …** prompt commands — now including **show aic quality** — which always run the Bash CLI and relay stdout; never the MCP diagnostic tools — plus the MCP-only **run aic model test** probe), and troubleshooting when hooks or MCP fail.

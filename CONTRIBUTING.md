@@ -2,7 +2,7 @@
 
 Contributions are welcome. This guide is for people **developing the AIC codebase** (not only installing and using AIC as an end user).
 
-> The architecture is deliberate; small, focused changes are more likely to be reviewed and merged quickly.
+> The architecture is deliberate; small, focused changes are reviewed and merged faster than broad refactors.
 
 ## Table of contents
 
@@ -69,7 +69,7 @@ GitHub Actions (`.github/workflows/ci.yml`) on pull requests and pushes to `main
 
 At minimum, read [architecture.md](documentation/architecture.md) and [implementation-spec.md](documentation/implementation-spec.md) so your changes match the project's design and rules.
 
-For optional Agent Skill workflows in this repo, including planning, execution, documentation, research, changelog and internal progress updates, internal git history cleanup, and releasing, see the skill packages under `.claude/skills/`.
+For optional Agent Skill workflows in this repo, see `.claude/skills/` (each subfolder is one skill; `SKILL.md` is the contract). Packages include task planning (`aic-task-planner`), isolated task execution (`aic-task-executor`), evidence-backed documentation (`aic-documentation-writer`), cited research notes (`aic-researcher`), changelog hygiene (`aic-update-changelog`), progress file updates (`aic-update-progress`), surface-area audits that register Phase BUGS (`aic-code-audit`), structured PR review from a diff (`aic-pr-review`), systematic single-bug investigation (`aic-systematic-debugging`), roadmap proposals for the progress file (`aic-roadmap-forge`), git history rewrite plans (`aic-git-history-clean`), and full release orchestration (`aic-release`).
 
 ### Other useful commands
 
@@ -128,7 +128,7 @@ To run the MCP server from your clone instead of the published package:
 | **MCP server code** (`mcp/src/**`)                         | Restart the AIC dev server.                                                                                                       |
 | **Core / pipeline / adapters / storage** (`shared/src/**`) | Restart the AIC dev server. `tsx` picks up changes at next start — no separate build needed.                                      |
 
-> Restart the dev MCP process (reload MCP or restart the editor — whichever your setup uses) so the server is respawned. A full `pnpm build` is only needed before publishing or running the compiled MCP server (`mcp/dist/server.js`).
+> Restart the dev MCP process so the server is respawned: reload MCP in the editor, or restart the editor when reload does not pick up the change. A full `pnpm build` is only needed before publishing or running the compiled MCP server (`mcp/dist/server.js`).
 
 ## Branches and RFC
 
@@ -138,7 +138,7 @@ Use a descriptive branch before substantial work.
 
 **Pattern:** `(kind) firstnamelastname/short-slug`
 
-- **firstnamelastname:** first and last name run together, lowercase, no spaces (e.g. Jorge Santos → `jorgesantos`).
+- **firstnamelastname:** first and last name run together, lowercase, no spaces (`Jorge Santos` maps to `jorgesantos`).
 - **short-slug:** lowercase, hyphenated.
 
 **Example:** `(feature) jorgesantos/new-feature-that-will-do-whatever`
