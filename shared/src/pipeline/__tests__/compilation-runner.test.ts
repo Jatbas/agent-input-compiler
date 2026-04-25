@@ -3,6 +3,7 @@
 
 import * as path from "node:path";
 import * as fs from "node:fs";
+import { tmpdir } from "node:os";
 import { describe, it, expect, vi } from "vitest";
 import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toGlobPattern } from "@jatbas/aic-core/core/types/paths.js";
@@ -37,6 +38,7 @@ import {
 import {
   toUUIDv7,
   toConversationId,
+  toProjectId,
   toSessionId,
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import { toStepIndex } from "@jatbas/aic-core/core/types/units.js";
@@ -76,6 +78,9 @@ import { StructuralMapBuilder } from "../structural-map-builder.js";
 import { TiktokenAdapter } from "@jatbas/aic-core/adapters/tiktoken-adapter.js";
 import { TypeScriptProvider } from "@jatbas/aic-core/adapters/typescript-provider.js";
 import { GenericProvider } from "@jatbas/aic-core/adapters/generic-provider.js";
+import Database from "better-sqlite3";
+import { SqliteCacheStore } from "@jatbas/aic-core/storage/sqlite-cache-store.js";
+import { migration } from "@jatbas/aic-core/storage/migrations/001-consolidated-schema.js";
 
 const FIXED_TS = "2026-01-01T00:00:00.000Z";
 
@@ -375,6 +380,136 @@ describe("CompilationRunner", () => {
     const second = await runner.run(request);
     expect(second.meta.cacheHit).toBe(true);
     expect(second.compiledPrompt).toBe(first.compiledPrompt);
+  }, 30_000);
+
+  it("stale cache metadata is cleaned on read failure", async () => {
+    const cacheDir = fs.mkdtempSync(path.join(tmpdir(), "aic-runner-cache-"));
+    const db = new Database(":memory:");
+    migration.up(db);
+    const projectId = toProjectId("018f0000-0000-7000-8000-000000000121");
+    db.prepare(
+      "INSERT INTO projects (project_id, project_root, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+    ).run(projectId, fixtureRoot, FIXED_TS, FIXED_TS);
+    const realStore = new SqliteCacheStore(
+      projectId,
+      db,
+      toAbsolutePath(cacheDir),
+      mockClock,
+    );
+    const noPersistStore: CacheStore = {
+      get(key: string): CachedCompilation | null {
+        return realStore.get(key);
+      },
+      set(): void {},
+      invalidate(key: string): void {
+        realStore.invalidate(key);
+      },
+      invalidateAll(): void {
+        realStore.invalidateAll();
+      },
+      purgeExpired(): void {
+        realStore.purgeExpired();
+      },
+    };
+    const configStore: ConfigStore = {
+      getLatestHash: () => null,
+      writeSnapshot() {},
+    };
+    const stringHasher: StringHasher = {
+      hash(input: string) {
+        return `h-${input.length}`;
+      },
+    };
+    const { guardStore, compilationLogStore } = createGuardAndLogMocks();
+    const deps = {
+      intentClassifier,
+      rulePackResolver,
+      budgetAllocator,
+      contextSelector: heuristicSelector,
+      contextGuard,
+      contentTransformerPipeline,
+      summarisationLadder,
+      languageProviders,
+      lineLevelPruner: new LineLevelPruner(tiktokenAdapter, fileContentReader),
+      promptAssembler,
+      intentAwareFileDiscoverer: new IntentAwareFileDiscoverer(),
+      repoMapSupplier: mockRepoMapSupplier,
+      tokenCounter: tiktokenAdapter,
+      specFileDiscoverer: new SpecFileDiscoverer(),
+      conversationCompressor: new ConversationCompressorImpl(),
+      heuristicMaxFiles: 0,
+      structuralMapBuilder: new StructuralMapBuilder(),
+    };
+    let observedCacheKey = "";
+    const captureStore: CacheStore = {
+      get(key: string): CachedCompilation | null {
+        observedCacheKey = key;
+        return null;
+      },
+      set(): void {},
+      invalidate(): void {},
+      invalidateAll(): void {},
+      purgeExpired(): void {},
+    };
+    const captureRunner = new CompilationRunner(
+      deps,
+      mockClock,
+      captureStore,
+      configStore,
+      stringHasher,
+      guardStore,
+      compilationLogStore,
+      mockIdGenerator,
+      null,
+    );
+    const request = makeRequest(fixtureRoot);
+    await captureRunner.run(request);
+    expect(observedCacheKey.length).toBeGreaterThan(0);
+    const staleKey = observedCacheKey;
+    const staleEntry: CachedCompilation = {
+      key: staleKey,
+      compiledPrompt: "stale",
+      tokenCount: toTokenCount(5),
+      createdAt: toISOTimestamp(FIXED_TS),
+      expiresAt: toISOTimestamp("2099-01-01T00:00:00.000Z"),
+      fileTreeHash: "h-347",
+      configHash: "",
+      filesSelected: 1,
+    };
+    realStore.set(staleEntry);
+    const staleRowsBefore = db
+      .prepare("SELECT file_path FROM cache_metadata WHERE cache_key = ?")
+      .all(staleKey) as { file_path: string }[];
+    expect(staleRowsBefore).toHaveLength(1);
+    const stalePath = staleRowsBefore[0]!.file_path;
+    fs.writeFileSync(stalePath, "{", "utf8");
+
+    const runner = new CompilationRunner(
+      deps,
+      mockClock,
+      noPersistStore,
+      configStore,
+      stringHasher,
+      guardStore,
+      compilationLogStore,
+      mockIdGenerator,
+      null,
+    );
+
+    const first = await runner.run(request);
+    expect(first.meta.cacheHit).toBe(false);
+    const staleRowsAfterFirst = db
+      .prepare("SELECT cache_key FROM cache_metadata WHERE cache_key = ?")
+      .all(staleKey) as { cache_key: string }[];
+    expect(staleRowsAfterFirst).toHaveLength(0);
+
+    const second = await runner.run(request);
+    expect(second.meta.cacheHit).toBe(false);
+    expect(second.compiledPrompt.length).toBeGreaterThan(0);
+    expect(second.meta.filesSelected).toBeGreaterThan(0);
+
+    db.close();
+    fs.rmSync(cacheDir, { recursive: true, force: true });
   }, 30_000);
 
   it("compilation_runner_fresh_vs_cache_trace", async () => {

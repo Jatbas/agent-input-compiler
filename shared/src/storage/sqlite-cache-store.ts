@@ -97,9 +97,15 @@ export class SqliteCacheStore implements CacheStore {
       return null;
     }
     const raw = readBlobFile(row.file_path);
-    if (raw === null) return null;
+    if (raw === null) {
+      this.deleteStaleEntryForKey(key);
+      return null;
+    }
     const payload = parseBlobPayload(raw);
-    if (payload === null) return null;
+    if (payload === null) {
+      this.deleteStaleEntryForKey(key);
+      return null;
+    }
     return {
       key: row.cache_key,
       compiledPrompt: payload.compiledPrompt,

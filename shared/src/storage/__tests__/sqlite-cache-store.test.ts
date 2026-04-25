@@ -119,6 +119,10 @@ describe("SqliteCacheStore", () => {
     if (row === undefined) return;
     unlinkSync(row.file_path);
     expect(store.get("blob-missing")).toBeNull();
+    const rowsAfter = db
+      .prepare("SELECT cache_key FROM cache_metadata WHERE cache_key = ?")
+      .all("blob-missing") as { cache_key: string }[];
+    expect(rowsAfter).toHaveLength(0);
   });
 
   it("get when blob corrupt: get returns null when row exists and blob exists but JSON is invalid", () => {
@@ -132,6 +136,10 @@ describe("SqliteCacheStore", () => {
     if (row === undefined) return;
     writeFileSync(row.file_path, "not valid json", "utf8");
     expect(store.get("blob-corrupt")).toBeNull();
+    const rowsAfter = db
+      .prepare("SELECT cache_key FROM cache_metadata WHERE cache_key = ?")
+      .all("blob-corrupt") as { cache_key: string }[];
+    expect(rowsAfter).toHaveLength(0);
   });
 
   it("purgeExpired deletes expired rows and blob files", () => {
