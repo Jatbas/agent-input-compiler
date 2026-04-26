@@ -163,7 +163,11 @@ describe("InspectRunner", () => {
       compress: () => Promise.resolve([...ladderFiles]),
     };
     const mockPromptAssembler = {
-      assemble: () => Promise.resolve(assembledText),
+      assemble: () =>
+        Promise.resolve({
+          prompt: assembledText,
+          renderedOverheadTokens: toTokenCount(0),
+        }),
     };
     const mockRepoMapSupplier = { getRepoMap: () => Promise.resolve(fixedRepoMap) };
     const mockClock = { now: () => fixedTimestamp };
@@ -231,7 +235,11 @@ describe("InspectRunner", () => {
       compress: () => Promise.resolve([...ladderFiles]),
     };
     const mockPromptAssembler = {
-      assemble: () => Promise.resolve(assembledText),
+      assemble: () =>
+        Promise.resolve({
+          prompt: assembledText,
+          renderedOverheadTokens: toTokenCount(0),
+        }),
     };
     const mockRepoMapSupplier = { getRepoMap: () => Promise.resolve(fixedRepoMap) };
     const mockClock = { now: () => fixedTimestamp };
@@ -290,7 +298,11 @@ describe("InspectRunner", () => {
       compress: () => Promise.resolve([...ladderFiles]),
     };
     const mockPromptAssembler = {
-      assemble: () => Promise.resolve(assembledText),
+      assemble: () =>
+        Promise.resolve({
+          prompt: assembledText,
+          renderedOverheadTokens: toTokenCount(0),
+        }),
     };
     const stubError = new Error("RepoMap not available");
     const mockRepoMapSupplier = { getRepoMap: () => Promise.reject(stubError) };

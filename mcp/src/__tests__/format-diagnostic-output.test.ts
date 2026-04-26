@@ -294,7 +294,7 @@ function minimalChatSummary(
     totalTokensSaved: null,
     lastCompilationInConversation: null,
     topTaskClasses: [],
-    elapsedMs: null,
+    sessionElapsedMs: null,
     ...overrides,
   };
 }
@@ -372,20 +372,20 @@ describe("duration formatting rows", () => {
     expect(outMinute).toContain("1m 30s");
   });
 
-  it("format_chat_summary_elapsed_humanized", () => {
+  it("format_chat_summary_session_time_humanized", () => {
     const clock = fixedClock("2026-03-02T12:00:00.000Z");
     const outHour = formatChatSummaryTable(
-      minimalChatSummary({ elapsedMs: 3_900_000 }),
+      minimalChatSummary({ sessionElapsedMs: 3_900_000 }),
       clock,
     );
-    const outMinute = formatChatSummaryTable(
-      minimalChatSummary({ elapsedMs: 90_000 }),
+    const outNull = formatChatSummaryTable(
+      minimalChatSummary({ sessionElapsedMs: null }),
       clock,
     );
-    expect(outHour).toContain("Elapsed");
+    expect(outHour).toContain("Session time");
     expect(outHour).toContain("1h 5m");
-    expect(outMinute).toContain("Elapsed");
-    expect(outMinute).toContain("1m 30s");
+    expect(outNull).toContain("Session time");
+    expect(outNull).toContain("—");
   });
 });
 
@@ -802,7 +802,7 @@ describe("formatQualityReportLines", () => {
       },
       clock,
     );
-    expect(out).toMatch(/docs\s+\s*0\s+0\.0%\s+—/);
+    expect(out).toMatch(/  docs\s+0\s+0\.0%\s+—/);
   });
 
   it("format_quality_sparkline_all_zeros", () => {

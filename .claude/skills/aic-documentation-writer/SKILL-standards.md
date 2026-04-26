@@ -484,15 +484,15 @@ Explorer 1 and Critic 2 agree on every factual claim, or disagreements are resol
 
 **Threshold:** Zero unresolved factual discrepancies between Explorer 1 and Critic 2.
 
-### Gate 8: Audit coverage (audit mode only)
+### Gate 8: Audit coverage (deep audit mode only)
 
-Every `##` section in the target document must have at least one explorer finding in the Audit Report's Section-by-Section Assessment. Sections with zero findings indicate the audit skipped them — the explorers must re-investigate before the report is finalized.
+Every `##` section in the target document must have at least one explorer finding in the Audit Report's Section-by-Section Assessment. Sections with zero findings indicate the audit skipped them — the explorers must re-investigate before the report is finalized. In scoped or triage audit mode, apply this gate only to the scoped sections and mark other sections OUT OF SCOPE.
 
-**Threshold:** Zero sections with no findings. Every section has status CLEAN (with evidence), ISSUES FOUND (with details), or NEEDS INVESTIGATION (with explanation).
+**Threshold:** Zero in-scope sections with no findings. Every in-scope section has status CLEAN (with evidence), ISSUES FOUND (with details), or NEEDS INVESTIGATION (with explanation).
 
-### Gate 9: Audit completeness (audit mode only)
+### Gate 9: Audit completeness (deep audit mode only)
 
-Critic 5 (audit completeness) must find zero MISSED_SECTION or WRONG_CLASSIFICATION issues in the Audit Report, or those issues must be resolved by updating the report. Other Critic 5 finding types (MISSED_GAP, SEVERITY_MISMATCH, VERDICT_CHALLENGE) must be evaluated and either accepted with justification or resolved.
+Critic 5 (audit completeness) must find zero MISSED_SECTION or WRONG_CLASSIFICATION issues in the Audit Report, or those issues must be resolved by updating the report. Other Critic 5 finding types (MISSED_GAP, SEVERITY_MISMATCH, VERDICT_CHALLENGE) must be evaluated and either accepted with justification or resolved. Scoped and triage audits skip this gate unless the user explicitly requested a full audit.
 
 **Threshold:** Zero unresolved MISSED_SECTION findings. Zero unresolved WRONG_CLASSIFICATION findings. All other Critic 5 findings evaluated.
 
@@ -540,7 +540,7 @@ These dimensions are run during Phase 4 (direct invocation) or by the executor's
 
 **Dimension 10 — Content format compliance:** Verify: (a) any group of 3+ definitions uses a table; (b) any new section has a ToC entry; (c) new section placement follows document flow logic.
 
-**Dimension 11 — Cross-doc term ripple:** For every term that was replaced (old value to new value), grep ALL sibling documents (`documentation/`, `README.md`, `CONTRIBUTING.md`) for the old value. Classify each match as non-historical (should use new value) or historical (leave as-is). Non-historical matches within the task's scoped files must be fixed. Out-of-scope matches are reported as follow-up items.
+**Dimension 11 — Cross-doc term ripple:** For every term that was replaced (old value to new value), grep the Phase 1 sibling document set for the old value. Classify each match as non-historical (should use new value) or historical (leave as-is). Non-historical matches within the task's scoped files must be fixed. Out-of-scope matches are reported as follow-up items.
 
 **Dimension 12 — Intra-document consistency:** For each concept described in the edited sections, grep the FULL document for other sections describing the same concept. Verify they agree. Flag contradictions where sections use different verbs or descriptions for the same mechanism.
 

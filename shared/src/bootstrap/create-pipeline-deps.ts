@@ -183,7 +183,7 @@ export function createPipelineDeps(
     fileContentReader,
   );
   const lineLevelPruner = new LineLevelPruner(tiktokenAdapter, fileContentReader);
-  const promptAssembler = new PromptAssembler(fileContentReader);
+  const promptAssembler = new PromptAssembler(fileContentReader, tiktokenAdapter);
   const structuralMapBuilder = new StructuralMapBuilder();
   const intentAwareFileDiscoverer = new IntentAwareFileDiscoverer();
   const specFileDiscoverer = new SpecFileDiscoverer();

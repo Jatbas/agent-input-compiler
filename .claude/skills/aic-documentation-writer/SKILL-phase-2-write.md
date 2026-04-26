@@ -75,22 +75,23 @@ Before proceeding to Phase 3:
 
 **This subsection replaces 2c-2d when mode = Audit.** The main agent writes the report — no subagents in this phase.
 
-Instead of producing only Change Specifications, produce a **Structured Audit Report** that covers the entire document. The report is the primary deliverable. See `SKILL-standards.md §Audit Report Format` for the mandatory structure.
+Instead of producing only Change Specifications, produce a **Structured Audit Report**. In deep audit mode, cover the entire document. In scoped or triage audit mode, cover the Phase 1 scope and state which sections were not deeply reviewed. The report is the primary deliverable. See `SKILL-standards.md §Audit Report Format` for the mandatory structure.
 
 **Report sections (in order):**
 
-1. **Executive summary** — One-paragraph verdict: PASS (no corrections required), ADVISORY (observations but no factual or structural errors), or FAIL (corrections required). Include severity counts: N critical, M moderate, K informational.
+1. **Executive summary** — One-paragraph verdict: PASS (no corrections required), ADVISORY (observations but no factual or structural errors), or FAIL (corrections required). Include audit depth and severity counts: N critical, M moderate, K informational.
 
-2. **Section-by-section assessment** — For every `##` section in the target document, a status line:
+2. **Section-by-section assessment** — For every `##` section in deep audit mode, or every scoped section in scoped/triage mode, add a status line:
    - CLEAN: all claims verified, no issues found (cite evidence)
    - ISSUES FOUND: list each issue with severity and evidence
    - NEEDS INVESTIGATION: claims that could not be verified (list with reasons)
+   - OUT OF SCOPE: section not deeply reviewed because Phase 1 classified the document as scoped or triage
 
-3. **Factual accuracy inventory** — Every technical claim from Explorer 1, with its classification and file:line citation. Group by document section. This is the full inventory — not a summary. Include ACCURATE findings, not just errors.
+3. **Factual accuracy inventory** — Every technical claim from Explorer 1 within the selected audit depth, with its classification and file:line citation. Group by document section. In deep audit mode this is the full inventory, not a summary. Include ACCURATE findings, not just errors.
 
 4. **Structural integrity** — ToC-body match, parallel section symmetry, stale markers, intra-document consistency (from Explorer 2).
 
-5. **Writing quality assessment** — Audience classification, tone profile, quality baseline metrics (from Explorer 3). This section does not produce changes — it characterizes the document's current state.
+5. **Writing quality assessment** — Audience classification, exposure classification, audit depth, tone profile, quality baseline metrics (from Explorer 3). This section does not produce changes — it characterizes the document's current state.
 
 6. **Completeness assessment** — Coverage, gaps, cross-reference map (from Explorer 4). For each gap, include the sibling coverage classification (COVERED BY SIBLING / PARTIALLY COVERED / NOT COVERED).
 
@@ -102,7 +103,7 @@ Instead of producing only Change Specifications, produce a **Structured Audit Re
 
 **Key principles:**
 
-- The audit report includes positive findings (what is correct), not just errors. A review that only reports problems gives no confidence about the rest of the document.
+- The audit report includes positive findings (what is correct), not just errors. A review that only reports problems gives no confidence about the reviewed scope.
 - Corrections required (section 7) use the same Change Specification format as write/modify mode. They can be applied in Phase 4.
 - Every finding must have at least one evidence citation (HARD RULE 3). Findings without evidence are moved to Open Questions.
 

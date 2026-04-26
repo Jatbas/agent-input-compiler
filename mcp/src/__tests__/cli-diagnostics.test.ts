@@ -339,7 +339,7 @@ describe("cli-diagnostics", () => {
     await vi.waitFor(() => {
       expect(exitMock).toHaveBeenCalledWith(0);
     });
-    expect(chunks.join("")).toContain("Session time");
+    expect(chunks.join("")).toContain("Sessions total time");
     fs.rmSync(homeTmp, { recursive: true, force: true });
     fs.rmSync(projectTmp, { recursive: true, force: true });
   });
@@ -373,7 +373,7 @@ describe("cli-diagnostics", () => {
     await vi.waitFor(() => {
       expect(exitMock).toHaveBeenCalledWith(0);
     });
-    expect(chunks.join("")).toContain("Elapsed");
+    expect(chunks.join("")).toContain("Session time");
     fs.rmSync(homeTmp, { recursive: true, force: true });
     fs.rmSync(projectTmp, { recursive: true, force: true });
   });

@@ -27,6 +27,7 @@ import type { ContextResult } from "@jatbas/aic-core/core/types/selected-file.js
 import type { GuardResult } from "@jatbas/aic-core/core/types/guard-types.js";
 import type { TransformResult } from "@jatbas/aic-core/core/types/transform-types.js";
 import type { SelectedFile } from "@jatbas/aic-core/core/types/selected-file.js";
+import type { AssembledPrompt } from "@jatbas/aic-core/core/types/assembled-prompt.js";
 import type { TokenCount, StepIndex } from "@jatbas/aic-core/core/types/units.js";
 import type { SessionId, ISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
 import type { ToolOutput } from "@jatbas/aic-core/core/types/compilation-types.js";
@@ -34,6 +35,7 @@ import type { SessionBudgetContext } from "@jatbas/aic-core/core/types/session-b
 import type { ProjectProfile } from "@jatbas/aic-core/core/types/project-profile.js";
 import { computeProjectProfile } from "@jatbas/aic-core/pipeline/compute-project-profile.js";
 import { CONTEXT_WINDOW_DEFAULT } from "@jatbas/aic-core/pipeline/budget-allocator.js";
+import { nextInclusionTier } from "@jatbas/aic-core/pipeline/summarisation-ladder.js";
 import { toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 
 export const MAX_FILES_UPPER_BOUND = 300;
@@ -158,6 +160,85 @@ function computeOverheadTokens(
 ): number {
   return (
     structuralMapTokens + sessionContextTokens + specTokens + constraintsTokens + 100
+  );
+}
+
+function indexLargestEscalatable(files: readonly SelectedFile[]): number {
+  return files.reduce((bestIdx: number, f: SelectedFile, i: number) => {
+    if (nextInclusionTier(f.tier) === null) return bestIdx;
+    if (bestIdx < 0) return i;
+    const prev = files[bestIdx];
+    if (prev === undefined) return i;
+    return Number(f.estimatedTokens) > Number(prev.estimatedTokens) ? i : bestIdx;
+  }, -1);
+}
+
+async function compressPruneAssemble(
+  deps: PipelineStepsDeps,
+  task: TaskClassification,
+  transformInputFiles: readonly SelectedFile[],
+  codeBudget: TokenCount,
+  rulePackConstraints: readonly string[],
+  specLadderFiles: readonly SelectedFile[],
+  sessionContextSummary: string,
+  structuralMap: string,
+): Promise<{
+  readonly ladderFiles: readonly SelectedFile[];
+  readonly prunedFiles: readonly SelectedFile[];
+  readonly assembled: AssembledPrompt;
+  readonly promptTotal: TokenCount;
+}> {
+  const ladderFiles = await deps.summarisationLadder.compress(
+    transformInputFiles,
+    codeBudget,
+    task.subjectTokens,
+  );
+  const prunedFiles =
+    task.subjectTokens.length > 0
+      ? await deps.lineLevelPruner.prune(ladderFiles, task.subjectTokens)
+      : ladderFiles;
+  const assembled = await deps.promptAssembler.assemble(
+    task,
+    prunedFiles,
+    rulePackConstraints,
+    specLadderFiles,
+    sessionContextSummary,
+    structuralMap,
+  );
+  const promptTotal = deps.tokenCounter.countTokens(assembled.prompt);
+  return { ladderFiles, prunedFiles, assembled, promptTotal };
+}
+
+type CompressPruneAssembleResult = Awaited<ReturnType<typeof compressPruneAssemble>>;
+
+async function maybeEscalatedThirdPass(
+  deps: PipelineStepsDeps,
+  task: TaskClassification,
+  pass2: CompressPruneAssembleResult,
+  pass2Over: boolean,
+  escIdx: number,
+  tightenedCodeBudget: TokenCount,
+  rulePackConstraints: readonly string[],
+  specLadderFiles: readonly SelectedFile[],
+  sessionContextSummary: string,
+  structuralMap: string,
+): Promise<CompressPruneAssembleResult> {
+  if (!pass2Over || escIdx < 0) return pass2;
+  const escalated = pass2.ladderFiles.map((f, i) => {
+    if (i !== escIdx) return f;
+    const next = nextInclusionTier(f.tier);
+    if (next === null) return f;
+    return { ...f, tier: next };
+  });
+  return compressPruneAssemble(
+    deps,
+    task,
+    escalated,
+    tightenedCodeBudget,
+    rulePackConstraints,
+    specLadderFiles,
+    sessionContextSummary,
+    structuralMap,
   );
 }
 
@@ -289,24 +370,48 @@ export async function runPipelineSteps(
     safeFiles,
     TRANSFORM_CONTEXT,
   );
-  const ladderFiles = await deps.summarisationLadder.compress(
+  const pass1 = await compressPruneAssemble(
+    deps,
+    task,
     transformResult.files,
     codeBudget,
-    task.subjectTokens,
-  );
-  const prunedFiles =
-    task.subjectTokens.length > 0
-      ? await deps.lineLevelPruner.prune(ladderFiles, task.subjectTokens)
-      : ladderFiles;
-  const assembledPrompt = await deps.promptAssembler.assemble(
-    task,
-    prunedFiles,
     rulePack.constraints,
     specLadderFiles,
     sessionContextSummary,
     structuralMap,
   );
-  const promptTotal = deps.tokenCounter.countTokens(assembledPrompt);
+  const pass1Over = Number(pass1.promptTotal) > Number(totalBudget);
+  const tightenedCodeBudget = pass1Over
+    ? toTokenCount(
+        Math.max(0, Number(codeBudget) - Number(pass1.assembled.renderedOverheadTokens)),
+      )
+    : codeBudget;
+  const pass2 = pass1Over
+    ? await compressPruneAssemble(
+        deps,
+        task,
+        transformResult.files,
+        tightenedCodeBudget,
+        rulePack.constraints,
+        specLadderFiles,
+        sessionContextSummary,
+        structuralMap,
+      )
+    : pass1;
+  const pass2Over = Number(pass2.promptTotal) > Number(totalBudget);
+  const escIdx = pass2Over ? indexLargestEscalatable(pass2.ladderFiles) : -1;
+  const final = await maybeEscalatedThirdPass(
+    deps,
+    task,
+    pass2,
+    pass2Over,
+    escIdx,
+    tightenedCodeBudget,
+    rulePack.constraints,
+    specLadderFiles,
+    sessionContextSummary,
+    structuralMap,
+  );
   return {
     task,
     rulePack,
@@ -318,9 +423,9 @@ export async function runPipelineSteps(
     guardResult,
     safeFiles,
     transformResult,
-    ladderFiles,
-    prunedFiles,
-    assembledPrompt,
-    promptTotal,
+    ladderFiles: final.ladderFiles,
+    prunedFiles: final.prunedFiles,
+    assembledPrompt: final.assembled.prompt,
+    promptTotal: final.promptTotal,
   };
 }

@@ -258,18 +258,6 @@ export class SqliteStatusStore implements StatusStore, GlobalStatusQueries {
       .prepare("SELECT project_root FROM projects WHERE project_id = ?")
       .all(this.projectId) as { project_root: string }[];
     const projectRoot = projectRootRows[0]?.project_root ?? "";
-    const elapsedRows = this.db
-      .prepare(
-        "SELECT created_at FROM session_state WHERE session_id = ? AND project_id = ? ORDER BY created_at DESC LIMIT 1",
-      )
-      .all(conversationId, this.projectId) as { created_at: string }[];
-    const elapsedCreatedAt = elapsedRows[0]?.created_at ?? null;
-    const elapsedMs =
-      elapsedCreatedAt === null
-        ? null
-        : Number(
-            this.clock.durationMs(toISOTimestamp(elapsedCreatedAt), this.clock.now()),
-          );
 
     return {
       conversationId,
@@ -282,7 +270,7 @@ export class SqliteStatusStore implements StatusStore, GlobalStatusQueries {
       totalTokensSaved,
       lastCompilationInConversation,
       topTaskClasses,
-      elapsedMs,
+      sessionElapsedMs: this.getSessionElapsedMsForId(conversationId),
     };
   }
 
@@ -540,6 +528,27 @@ export class SqliteStatusStore implements StatusStore, GlobalStatusQueries {
 
   getSummary(filter?: StatusSummaryFilter): StatusAggregates {
     return this.getAggregatesForScope(this.projectId, filter?.notBeforeInclusive ?? null);
+  }
+
+  getSessionElapsedMsForId(sessionId: string): number | null {
+    const rows = this.db
+      .prepare(
+        "SELECT created_at, last_activity_at FROM session_state WHERE session_id = ? AND project_id = ?",
+      )
+      .all(sessionId, this.projectId) as {
+      created_at: string;
+      last_activity_at: string;
+    }[];
+    const row = rows[0];
+    if (row === undefined) return null;
+    // last_activity_at equals created_at when the session is still active (not yet updated at end)
+    const effectiveEnd =
+      row.last_activity_at === row.created_at
+        ? this.clock.now()
+        : toISOTimestamp(row.last_activity_at);
+    const raw = this.clock.durationMs(toISOTimestamp(row.created_at), effectiveEnd);
+    if (raw < 0) return 0;
+    return raw > SESSION_TIME_CAP_MS ? SESSION_TIME_CAP_MS : raw;
   }
 
   getLastCompilationRowWithTraceForLastTool(): LastCompilationRowWithTrace | null {

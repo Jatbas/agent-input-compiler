@@ -18,9 +18,9 @@ Reference file for the documentation-writer skill. Read this before spawning exp
 
 **Instructions:**
 
-1. Read the target document fully.
+1. Read the assigned audit scope fully. In deep audit mode, this is the entire target document.
 2. For every technical claim — interface names, type names, file paths, ADR references, component descriptions, architecture claims, commands, package names, version numbers, configuration values — grep the codebase to verify.
-3. Cross-reference the ENTIRE document, not just sections marked for editing. Scope-adjacent claims matter — a correct edit can create inconsistency with unchanged sections.
+3. Cross-reference the assigned scope plus surrounding context. Scope-adjacent claims matter — a correct edit can create inconsistency with unchanged sections.
 4. For each claim, classify as:
    - ACCURATE: grep found matching evidence at specific file:line
    - INACCURATE: grep found contradicting evidence (document says X, code says Y)
@@ -55,7 +55,7 @@ If UNCERTAIN, also state: `Ambiguity: [what makes this unclear].`
 "You are a structural and consistency analyst. Your job is to analyze the document's internal structure, cross-document consistency, and identify stale or mismatched content.
 
 **Target document:** [path]
-**Sibling documents:** [list of all .md files in documentation/, plus README.md and CONTRIBUTING.md at the repo root]
+**Sibling documents:** [exposure-aware sibling set from Phase 1]
 
 **Instructions — perform ALL of these checks:**
 
@@ -75,7 +75,7 @@ Check if the target document has a structural sibling in `documentation/` or at 
 If found: compare section structure heading-by-heading, compare depth (word count per corresponding section), flag missing/mismatched sections.
 
 **C. Cross-documentation term ripple:**
-For every key term, command, package name, file path, or reference in the target document, grep ALL sibling documents (`documentation/`, `README.md`, `CONTRIBUTING.md`) for the same term. Flag any document that uses the term differently or has a stale reference. Classify each as: NON-HISTORICAL (current description, should match) or HISTORICAL (log entry, changelog, leave as-is).
+For every key term, command, package name, file path, or reference in the target document, grep all Phase 1 sibling documents for the same term. Flag any document that uses the term differently or has a stale reference. Classify each as: NON-HISTORICAL (current description, should match) or HISTORICAL (log entry, changelog, leave as-is).
 
 **D. ToC-body structure match:**
 Parse the Table of Contents (if present) and all body headings. Verify: every ToC entry has a matching body heading in the correct order, every body heading appears in the ToC. Report mismatches.
@@ -176,7 +176,7 @@ Cite 3 representative sentences that exemplify the document's voice.
 "You are a completeness analyst. Your job is to determine what SHOULD be in this document but is NOT, and to build a map of how this document relates to other documentation.
 
 **Target document:** [path]
-**Sibling documents:** [list of all .md files in documentation/, plus README.md and CONTRIBUTING.md at the repo root]
+**Sibling documents:** [exposure-aware sibling set from Phase 1]
 
 **Instructions:**
 
@@ -314,14 +314,14 @@ If UNCERTAIN: `Ambiguity: [what makes this unclear — multiple candidates, uncl
 "You are an independent consistency checker. You have NO prior context about how this document was analyzed. Your only job is to verify that terms and concepts in the edited sections are used consistently across all documentation. The producer may have been shallow or optimistic. Verify independently — read the actual files, do not accept claims at face value.
 
 **Document:** [path]
-**Sibling documents:** [list of all .md files in documentation/, plus README.md and CONTRIBUTING.md at the repo root]
+**Sibling documents:** [exposure-aware sibling set from Phase 1]
 **Edited sections:** [list of sections that were changed]
 
 **Instructions:**
 
 1. Read the edited sections.
 2. Extract every key term, component name, status claim, architecture description, and technical concept.
-3. For each extracted term/concept, grep ALL sibling documents. Check:
+3. For each extracted term/concept, grep all Phase 1 sibling documents. Check:
    - Is the same term used for the same concept? Or does a sibling use a different name?
    - Does a sibling describe the same concept differently (conflicting architecture claims)?
    - Are status claims consistent (e.g., this doc says 'Done' but another says 'In progress')?
@@ -371,30 +371,30 @@ For mirror document: `[section] — TARGET has [X] / MIRROR has [Y] — ALIGNED 
 
 ## Audit-Mode Critic Templates (Phase 3)
 
-Use these templates instead of the standard critic templates when mode = Audit. The key difference: scope is the **entire document**, not just edited sections. Critics investigate the existing text for issues, not proposed changes.
+Use these templates instead of the standard critic templates when mode = Audit. The key difference: critics investigate existing text for issues, not proposed changes. Deep audits cover the entire document; scoped and triage audits cover the Phase 1 selected sections.
 
-### Audit Critic 1 — Editorial Quality (Full Document)
+### Audit Critic 1 — Editorial Quality (Audit Scope)
 
 **Subagent type:** `generalPurpose`
 
 **Prompt template:**
 
-"You are an independent editorial reviewer auditing an entire document. You have NO prior context about any analysis performed on this document. Your job is to find writing quality issues across EVERY section. You are not helpful — you are critical. The producer may have been shallow or optimistic. Verify independently — read the actual files, do not accept claims at face value.
+"You are an independent editorial reviewer auditing the selected documentation scope. You have NO prior context about any analysis performed on this document. Your job is to find writing quality issues across every in-scope section. You are not helpful — you are critical. The producer may have been shallow or optimistic. Verify independently — read the actual files, do not accept claims at face value.
 
 **Document:** [path]
 
-**Instructions — check EVERY section of the document for ALL of the following:**
+**Instructions — check EVERY in-scope section for ALL of the following:**
 
 1. **Voice and tone consistency:** Does the document maintain a consistent voice throughout? Flag sections where the tone shifts (more formal, more casual, more or less technical). A tonal shift may indicate the section was written at a different time or by a different process.
-2. **Sentence variety:** Is the sentence structure varied? Flag monotonous patterns like 'X does Y. Z does W. A does B.' — three or more consecutive sentences with identical structure. Check every section, not just a sample.
-3. **Paragraph cohesion:** One idea per paragraph? Smooth transitions between paragraphs? No orphan sentences. Check every paragraph, not just a sample.
-4. **Paragraph density:** Flag paragraphs that pack multiple distinct points into one block. Specifically: paragraphs discussing two or more editors with different behaviors must be split (one paragraph per editor, bold label prefix). General statements followed by editor-specific qualifications must be separate paragraphs. See SKILL-standards.md §Paragraph density and §Editor-specific content formatting. Check every section.
+2. **Sentence variety:** Is the sentence structure varied? Flag monotonous patterns like 'X does Y. Z does W. A does B.' — three or more consecutive sentences with identical structure. Check every in-scope section, not just a sample.
+3. **Paragraph cohesion:** One idea per paragraph? Smooth transitions between paragraphs? No orphan sentences. Check every in-scope paragraph, not just a sample.
+4. **Paragraph density:** Flag paragraphs that pack multiple distinct points into one block. Specifically: paragraphs discussing two or more editors with different behaviors must be split (one paragraph per editor, bold label prefix). General statements followed by editor-specific qualifications must be separate paragraphs. See SKILL-standards.md §Paragraph density and §Editor-specific content formatting. Check every in-scope section.
 5. **Detail consistency:** Is the level of detail consistent across parallel sections? Flag sections that are suddenly more or less detailed than their structural siblings.
 6. **Ambiguous references:** Any pronouns without clear antecedents? Any 'this', 'it', 'these' that could refer to multiple things?
 7. **Heading hierarchy:** Do heading levels make sense throughout? No skip-level headings (## to ####)?
-8. **Audience awareness:** Identify the document's audience from the opening section. Then verify every section uses appropriate language for that audience. Flag user-facing text with internal implementation details, or developer text that over-simplifies. Also flag **ambient noise** per SKILL-policies.md §Omit ambient / obvious knowledge (generic skill invocation, generic Git, no repo-specific fact).
-9. **Editor-specific formatting:** When content diverges by editor (Cursor, Claude Code), verify each editor gets its own paragraph with a bold label prefix (`**Cursor:**`, `**Claude Code:**`). Flag inline run-on patterns like 'Cursor: X. Claude Code: Y.' in a single paragraph. Check every section.
-10. **Parallel section symmetry:** Identify ALL sections that describe the same concept for different targets (e.g. editor-specific sections). For each pair, compare:
+8. **Audience awareness:** Identify the document's audience from the opening section. Then verify every in-scope section uses appropriate language for that audience. Flag user-facing text with internal implementation details, or developer text that over-simplifies. Also flag **ambient noise** per SKILL-policies.md §Omit ambient / obvious knowledge (generic skill invocation, generic Git, no repo-specific fact).
+9. **Editor-specific formatting:** When content diverges by editor (Cursor, Claude Code), verify each editor gets its own paragraph with a bold label prefix (`**Cursor:**`, `**Claude Code:**`). Flag inline run-on patterns like 'Cursor: X. Claude Code: Y.' in a single paragraph. Check every in-scope section.
+10. **Parallel section symmetry:** Identify all in-scope sections that describe the same concept for different targets, including editor-specific sections. For each pair, compare:
 
 - Shared-concept ordering: same order?
 - Shared-concept naming: same heading names?
@@ -402,32 +402,32 @@ Use these templates instead of the standard critic templates when mode = Audit. 
 - Information density: comparable word counts per subsection?
 
 11. **Formatting consistency:** Bullet style, code block usage, bold/italic conventions, table formatting — consistent throughout?
-12. **Redundant heading prefixes:** Check every subsection heading under its parent. Flag headings that repeat the parent section's name as a prefix (e.g. '### Uninstall: Cursor' under '## Uninstall'). The parent context is already established by nesting. Check every heading in the document.
-13. **Prose-table duplication:** For every table in the document, check whether the 1-3 paragraphs or bullet lists immediately before it restate the same information. Flag duplications where prose and table carry identical content. See SKILL-standards.md §Prose-table anti-duplication. Check every table in the document.
-14. **Note formatting:** Identify paragraphs that function as supplementary asides — caveats, scope boundaries, clarifications, background context that is not the section's primary content. These MUST use markdown blockquote format (`>`). Flag: (a) plain paragraphs that serve as notes but lack the `>` prefix, (b) sequential notes rendered as separate blockquotes instead of a unified block joined with `>` blank lines, (c) sections with more than 1 note block — too many notes means the content is miscategorized, (d) blockquotes that are actually labels or commands introducing a code block, table, or image — these are misclassified; convert to a subheading when the label introduces a distinct content block, or bold text when it is a short inline annotation (see SKILL-standards.md §Notes and asides, §Bold labels vs subheadings). Check every section.
+12. **Redundant heading prefixes:** Check every in-scope subsection heading under its parent. Flag headings that repeat the parent section's name as a prefix, such as '### Uninstall: Cursor' under '## Uninstall'. The parent context is already established by nesting.
+13. **Prose-table duplication:** For every in-scope table, check whether the 1-3 paragraphs or bullet lists immediately before it restate the same information. Flag duplications where prose and table carry identical content. See SKILL-standards.md §Prose-table anti-duplication.
+14. **Note formatting:** Identify in-scope paragraphs that function as supplementary asides — caveats, scope boundaries, clarifications, background context that is not the section's primary content. These MUST use markdown blockquote format (`>`). Flag: (a) plain paragraphs that serve as notes but lack the `>` prefix, (b) sequential notes rendered as separate blockquotes instead of a unified block joined with `>` blank lines, (c) sections with more than 1 note block — too many notes means the content is miscategorized, (d) blockquotes that are actually labels or commands introducing a code block, table, or image — these are misclassified; convert to a subheading when the label introduces a distinct content block, or bold text when it is a short inline annotation (see SKILL-standards.md §Notes and asides, §Bold labels vs subheadings).
 
-**Anti-agreement mandate:** You are reviewing a full document. Finding zero issues is NOT credible. For each major section, describe the strongest concern. If you genuinely cannot find a concern in a section after exhaustive analysis, explain exactly what you checked.
+**Anti-agreement mandate:** You are reviewing the assigned audit scope. Finding zero issues is NOT credible for a substantial scope. For each major in-scope section, describe the strongest concern. If you genuinely cannot find a concern in a section after exhaustive analysis, explain exactly what you checked.
 
 **Output:** Report each issue with the exact section and line or paragraph. Format: `[section/line] — [issue type] — [description]. Suggested fix: [specific suggestion].` Group findings by document section. End with: 'Editorial issues found: N across M sections.'"
 
 ---
 
-### Audit Critic 2 — Factual Re-verification (Full Document)
+### Audit Critic 2 — Factual Re-verification (Audit Scope)
 
 **Subagent type:** `explore`, `fast` model
 
 **Prompt template:**
 
-"You are an independent fact-checker auditing an entire document. You have NO prior context about how this document was analyzed. Your only job is to verify every technical claim in the ENTIRE document against the actual codebase. The producer may have been shallow or optimistic. Verify independently — read the actual code, do not accept claims at face value.
+"You are an independent fact-checker auditing the selected documentation scope. You have NO prior context about how this document was analyzed. Your only job is to verify every technical claim in the assigned audit scope against the actual codebase. The producer may have been shallow or optimistic. Verify independently — read the actual code, do not accept claims at face value.
 
 **Document:** [path]
 
 **Instructions:**
 
-1. Read the ENTIRE document, section by section.
+1. Read the assigned audit scope section by section. In deep audit mode, this is the entire document. In scoped or triage mode, this is the Phase 1 selected section list.
 2. For every technical claim — interface names, type names, file paths, ADR references, component descriptions, architecture claims, commands, package names, version numbers, configuration values — grep the codebase to verify.
 3. For runtime behavior claims, apply the **Runtime Evidence Checklist** from `shared/SKILL-investigation.md` (the main agent has pre-read this file): read actual deployed files (not just source), trace bootstrap code paths, query the database, and check `.d.ts` types for library APIs. A claim that matches source but not deployed reality is CONTRADICTED.
-4. Check EVERY section, not just a sample. Full-document coverage is mandatory.
+4. Check EVERY in-scope section, not just a sample. Full-document coverage is mandatory only in deep audit mode.
 5. For each claim, classify as:
    - VERIFIED: grep found matching evidence at specific file:line
    - NOT FOUND: grep returned 0 matches
@@ -449,22 +449,22 @@ If UNCERTAIN: `Ambiguity: [what makes this unclear — multiple candidates, uncl
 
 ---
 
-### Audit Critic 3 — Cross-Document Consistency (Full Document)
+### Audit Critic 3 — Cross-Document Consistency (Audit Scope)
 
 **Subagent type:** `explore`, `fast` model
 
 **Prompt template:**
 
-"You are an independent consistency checker auditing an entire document. You have NO prior context about how this document was analyzed. Your only job is to verify that terms and concepts across the ENTIRE document are used consistently with all sibling documentation. The producer may have been shallow or optimistic. Verify independently — read the actual files, do not accept claims at face value.
+"You are an independent consistency checker auditing the selected documentation scope. You have NO prior context about how this document was analyzed. Your only job is to verify that terms and concepts across the assigned audit scope are used consistently with relevant sibling documentation. The producer may have been shallow or optimistic. Verify independently — read the actual files, do not accept claims at face value.
 
 **Document:** [path]
-**Sibling documents:** [list of all .md files in documentation/, plus README.md and CONTRIBUTING.md at the repo root]
+**Sibling documents:** [exposure-aware sibling set from Phase 1]
 
 **Instructions:**
 
-1. Read the ENTIRE document.
-2. Extract every key term, component name, status claim, architecture description, and technical concept from ALL sections.
-3. For each extracted term/concept, grep ALL sibling documents. Check:
+1. Read the assigned audit scope. In deep audit mode, this is the entire document.
+2. Extract every key term, component name, status claim, architecture description, and technical concept from in-scope sections.
+3. For each extracted term/concept, grep all relevant sibling documents. Check:
    - Is the same term used for the same concept? Or does a sibling use a different name?
    - Does a sibling describe the same concept differently (conflicting architecture claims)?
    - Are status claims consistent (e.g., this doc says 'Done' but another says 'In progress')?
@@ -484,19 +484,19 @@ For mirror document: `[section] — TARGET has [X] / MIRROR has [Y] — ALIGNED 
 
 ---
 
-### Audit Critic 4 — Reader Simulation (Full Document)
+### Audit Critic 4 — Reader Simulation (Audience Scope)
 
 **Subagent type:** `generalPurpose`
 
-**Condition:** Spawn for user-facing documents (installation guides, getting started docs, user-facing READMEs) and for mixed-audience documents (Explorer 3 classified as "Mixed"). Skip only for pure developer references (implementation specs, project plans, architecture docs). For mixed-audience documents, scope your review to the user-facing sections identified in Explorer 3's section-level classification.
+**Condition:** Spawn for user-facing documents (installation guides, getting started docs, user-facing READMEs) and for mixed-audience documents (Explorer 3 classified as "Mixed"). Skip only for pure developer references, planning docs, prescriptive docs, and internal working docs. For mixed-audience documents, scope your review to the user-facing sections identified in Explorer 3's section-level classification.
 
 **Prompt template:**
 
-"You are a first-time reader of this ENTIRE document. You have NEVER seen this project before. You know nothing about its architecture, terminology, or conventions. The producer may have been shallow or optimistic — do not assume the text is correct or clear just because it exists. Read the document from top to bottom, mentally following every instruction as if you were actually performing the steps for the first time.
+"You are a first-time reader of the assigned user-facing scope. You have NEVER seen this project before. You know nothing about its architecture, terminology, or conventions. The producer may have been shallow or optimistic — do not assume the text is correct or clear just because it exists. Read the assigned scope from top to bottom, mentally following every instruction as if you were actually performing the steps for the first time.
 
 **Document:** [path]
 
-**For EVERY section, report:**
+**For EVERY in-scope user-facing section, report:**
 
 1. **Undefined terms:** Words or concepts used without prior definition or link to a definition. Example: 'Run the AIC server' when 'AIC server' has not been explained.
 2. **Unclear prerequisites:** Steps that assume something is already done but the document does not say what. Example: 'Configure your editor' without saying what needs to be configured.
@@ -506,7 +506,7 @@ For mirror document: `[section] — TARGET has [X] / MIRROR has [Y] — ALIGNED 
 6. **Assumed environment:** Commands or paths that assume a specific OS, shell, or tool version without stating it. Example: using `brew install` without noting this is macOS-specific.
 7. **Information ordering:** Points where a concept is used before it is explained. The document should introduce concepts before relying on them.
 
-**Anti-agreement mandate:** You are reading an entire technical document as a complete novice. Finding zero issues is NOT credible. A genuine first-time reader ALWAYS has questions. For every section, identify at least one point of confusion or friction. If a section is genuinely clear, explain exactly what makes it clear and what a reader would need to know before reading it.
+**Anti-agreement mandate:** You are reading the assigned user-facing scope as a complete novice. Finding zero issues is NOT credible for a substantial user-facing scope. A genuine first-time reader has questions. For every in-scope section, identify at least one point of confusion or friction. If a section is genuinely clear, explain exactly what makes it clear and what a reader would need to know before reading it.
 
 **Output:** Report each finding with the exact sentence or paragraph. Format: `[section/paragraph] — [finding type] — [what is unclear and what would help].` Group findings by document section. End with: 'Reader simulation findings: N across M sections.'"
 
@@ -516,7 +516,7 @@ For mirror document: `[section] — TARGET has [X] / MIRROR has [Y] — ALIGNED 
 
 **Subagent type:** `generalPurpose`
 
-**Condition:** Spawn ONLY in audit mode. Does NOT run in write/modify mode.
+**Condition:** Spawn ONLY in deep audit mode. Does NOT run in write/modify, scoped audit, or triage audit mode.
 
 **Prompt template:**
 

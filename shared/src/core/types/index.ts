@@ -89,6 +89,7 @@ export type { CodeChunk } from "./code-chunk.js";
 export type { ExportedSymbol } from "./exported-symbol.js";
 export type { TaskClassification } from "./task-classification.js";
 export type { RulePack } from "./rule-pack.js";
+export type { AssembledPrompt } from "./assembled-prompt.js";
 export type { SelectedFile, ContextResult } from "./selected-file.js";
 export type { GuardFinding, GuardResult } from "./guard-types.js";
 export type {

@@ -34,6 +34,16 @@ Run all 13 dimensions from the executor's `4-doc-c` table:
 
 Dimensions 1-7, 10, 12, and 13 must be clean. Dimensions 8-9 are informational. Dimension 11 is blocking within scoped files only.
 
+Run `ambiguity-scan.sh` according to the Phase 1 regime classification:
+
+| Regime                                                   | Ambiguity result                                                |
+| -------------------------------------------------------- | --------------------------------------------------------------- |
+| Public / prescriptive / planning                         | Blocking; fix bounded failures before finalizing                |
+| Executable pending task file                             | Blocking; task instructions must be literal                     |
+| Internal working log, notes, research, done-task history | Advisory unless the user explicitly requested ambiguity cleanup |
+
+Run `evidence-scan.sh` for every touched document that makes code-related claims. Evidence scan remains blocking for public, prescriptive, planning, and normal developer-reference documents. For internal working docs, it is blocking only for changed lines and claims used as evidence in the final report.
+
 #### 4c. Present results
 
 Report to the user:
@@ -51,13 +61,13 @@ Report to the user:
 
 Present the Structured Audit Report to the user as a formatted dashboard:
 
-1. **Executive summary first** — the verdict (PASS / ADVISORY / FAIL) and severity counts
+1. **Executive summary first** — the verdict (PASS / ADVISORY / FAIL), severity counts, and audit depth (deep / scoped / triage)
 2. **Section-by-section assessment** — status per document section with key findings
 3. **Corrections required** — each correction with its Change Specification and severity
 4. **Observations** — informational findings
 5. **Open questions** — unresolved claims
 
-Do not present the full factual accuracy inventory or structural integrity details unless the user asks — these are available on request. Lead with what matters: verdict, corrections, and observations.
+Do not present the full factual accuracy inventory or structural integrity details unless the user asks — these are available on request. Lead with what matters: verdict, corrections, observations, and any internal-doc advisory signals that were intentionally not treated as blockers.
 
 #### 4e. Apply approved corrections
 

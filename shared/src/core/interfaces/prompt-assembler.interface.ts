@@ -3,6 +3,7 @@
 
 import type { TaskClassification } from "@jatbas/aic-core/core/types/task-classification.js";
 import type { SelectedFile } from "@jatbas/aic-core/core/types/selected-file.js";
+import type { AssembledPrompt } from "@jatbas/aic-core/core/types/assembled-prompt.js";
 
 export interface PromptAssembler {
   assemble(
@@ -12,5 +13,5 @@ export interface PromptAssembler {
     specFiles?: readonly SelectedFile[],
     sessionContextSummary?: string,
     structuralMap?: string,
-  ): Promise<string>;
+  ): Promise<AssembledPrompt>;
 }

@@ -564,7 +564,7 @@ export function formatChatSummaryTable(row: ConversationSummary, clock: Clock): 
     padRow("Context precision (weighted)", formatPct1(row.avgReductionPct), w),
     SEP,
     padRow("Last compilation", lastLine, w),
-    padRow("Elapsed", formatElapsedDurationMs(row.elapsedMs), w),
+    padRow("Session time", formatElapsedDurationMs(row.sessionElapsedMs), w),
     ...topTaskRows(row.topTaskClasses, w),
   ];
   return renderStandardReport({
@@ -664,9 +664,6 @@ const QUALITY_FOOTNOTE = [
   '                 are "general".',
 ].join("\n");
 
-// sub-item width shared across tier and class rows so values align in one column
-const QUALITY_SUB_W = 14;
-
 const SPARK_STEPS = "▁▂▃▄▅▆▇█";
 
 function renderSparkline(nums: readonly number[]): string {
@@ -728,24 +725,24 @@ function utcWeekdayAbbrevFromUtcDay(day: string): string {
   return names[idx] ?? "???";
 }
 
-function qualityTierMixRows(tier: unknown): readonly string[] {
+function qualityTierMixRows(tier: unknown, w: number): readonly string[] {
   if (tier === null || typeof tier !== "object" || Array.isArray(tier)) {
     return [
-      "Tier mix",
-      padRow("  full", "—", QUALITY_SUB_W),
-      padRow("  sig+doc", "—", QUALITY_SUB_W),
-      padRow("  sigs", "—", QUALITY_SUB_W),
-      padRow("  names", "—", QUALITY_SUB_W),
+      padRow("Tier mix", "share", w),
+      padRow("  full", "—", w),
+      padRow("  sig+doc", "—", w),
+      padRow("  sigs", "—", w),
+      padRow("  names", "—", w),
     ];
   }
   const r = tier as Record<string, unknown>;
   const pct = (k: string): string => formatPct1(qualityPayloadNumber(r, k) * 100);
   return [
-    "Tier mix",
-    padRow("  full", pct("l0"), QUALITY_SUB_W),
-    padRow("  sig+doc", pct("l1"), QUALITY_SUB_W),
-    padRow("  sigs", pct("l2"), QUALITY_SUB_W),
-    padRow("  names", pct("l3"), QUALITY_SUB_W),
+    padRow("Tier mix", "share", w),
+    padRow("  full", pct("l0"), w),
+    padRow("  sig+doc", pct("l1"), w),
+    padRow("  sigs", pct("l2"), w),
+    padRow("  names", pct("l3"), w),
   ];
 }
 
@@ -818,7 +815,7 @@ export function formatQualityReportLines(
       const countStr = formatInt(cCount);
       const shareStr = formatPct1(cCount === 0 ? 0 : (cCount / compilations) * 100);
       const budgetStr = cCount === 0 ? "—" : formatPct1(budgetU * 100);
-      return padMultiCol(tc, [countStr, shareStr, budgetStr], w, valueWidths);
+      return padMultiCol(`  ${tc}`, [countStr, shareStr, budgetStr], w, valueWidths);
     });
   })();
   const endDayInclusive = clock.now().slice(0, 10);
@@ -854,7 +851,7 @@ export function formatQualityReportLines(
     padRow("Median selection ratio", formatPct1(mSel * 100), w),
     padRow("Median budget used", formatPct1(mBu * 100), w),
     padRow("Cache hit rate", formatPct1(cacheHit * 100), w),
-    ...qualityTierMixRows(payload["tierDistribution"]),
+    ...qualityTierMixRows(payload["tierDistribution"], w),
     taskClassHeader,
     ...taskClassRows,
     ...classifierRows,

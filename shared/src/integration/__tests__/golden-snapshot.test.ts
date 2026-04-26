@@ -180,7 +180,7 @@ function createRunner(fixtureRoot: ReturnType<typeof toAbsolutePath>): InspectRu
     tokenCounter,
     fileContentReader,
   );
-  const promptAssembler = new PromptAssembler(fileContentReader);
+  const promptAssembler = new PromptAssembler(fileContentReader, tiktokenAdapter);
   const deps = {
     intentClassifier,
     rulePackResolver,

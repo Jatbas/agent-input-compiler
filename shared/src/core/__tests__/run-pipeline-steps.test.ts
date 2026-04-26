@@ -18,7 +18,12 @@ import type { SessionStep } from "@jatbas/aic-core/core/types/session-dedup-type
 import type { SelectedFile } from "@jatbas/aic-core/core/types/selected-file.js";
 import type { ToolOutput } from "@jatbas/aic-core/core/types/compilation-types.js";
 import { toAbsolutePath, toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
-import { toTokenCount, toStepIndex, toBytes } from "@jatbas/aic-core/core/types/units.js";
+import {
+  toTokenCount,
+  toStepIndex,
+  toBytes,
+  type TokenCount,
+} from "@jatbas/aic-core/core/types/units.js";
 import { toSessionId, toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
 import {
   INCLUSION_TIER,
@@ -138,7 +143,10 @@ function createDeps(overrides: {
         .mockImplementation((files: readonly unknown[]) => Promise.resolve([...files])),
     },
     promptAssembler: {
-      assemble: vi.fn().mockResolvedValue(""),
+      assemble: vi.fn().mockResolvedValue({
+        prompt: "",
+        renderedOverheadTokens: toTokenCount(0),
+      }),
     },
     specFileDiscoverer: {
       discover: vi.fn().mockReturnValue(minimalContextResult()),
@@ -508,5 +516,63 @@ describe("runPipelineSteps", () => {
     const selectContext = deps.contextSelector.selectContext as ReturnType<typeof vi.fn>;
     const rp = selectContext.mock.calls[0]?.[3] as RulePack;
     expect(rp.maxFilesOverride).toBe(204);
+  });
+
+  it("run_pipeline_steps_recompresses_when_prompt_total_exceeds_budget", async () => {
+    const allocateSpy = vi.fn().mockReturnValue(toTokenCount(500));
+    const compressSpy = vi.fn().mockResolvedValue([]);
+    const assembleSpy = vi
+      .fn()
+      .mockResolvedValueOnce({
+        prompt: "FIRST",
+        renderedOverheadTokens: toTokenCount(50),
+      })
+      .mockResolvedValueOnce({
+        prompt: "SECOND_SMALL",
+        renderedOverheadTokens: toTokenCount(5),
+      });
+    const countSpy = vi.fn().mockImplementation((text: string) => {
+      if (text === "FIRST") return toTokenCount(600);
+      if (text === "SECOND_SMALL") return toTokenCount(80);
+      return toTokenCount(0);
+    });
+    const deps = createDeps({
+      budgetAllocatorAllocate: allocateSpy,
+    });
+    deps.summarisationLadder.compress = compressSpy;
+    deps.promptAssembler.assemble = assembleSpy;
+    deps.tokenCounter.countTokens = countSpy;
+    const transformFiles: readonly SelectedFile[] = [
+      {
+        path: toRelativePath("a.ts"),
+        language: "ts",
+        estimatedTokens: toTokenCount(100),
+        relevanceScore: toRelevanceScore(0.5),
+        tier: INCLUSION_TIER.L0,
+      },
+    ];
+    deps.contentTransformerPipeline.transform = vi.fn().mockResolvedValue({
+      files: transformFiles,
+      metadata: [],
+    });
+    deps.contextSelector.selectContext = vi.fn().mockResolvedValue({
+      files: transformFiles,
+      totalTokens: toTokenCount(100),
+      truncated: false,
+      traceExcludedFiles: [],
+    });
+    deps.contextGuard.scan = vi.fn().mockResolvedValue({
+      result: minimalGuardResult(),
+      safeFiles: transformFiles,
+    });
+    const r = await runPipelineSteps(deps, {
+      intent: "x",
+      projectRoot: PROJECT_ROOT,
+    });
+    expect(compressSpy).toHaveBeenCalledTimes(2);
+    const secondBudget = compressSpy.mock.calls[1]?.[1] as TokenCount | undefined;
+    expect(Number(secondBudget)).toBe(350);
+    expect(Number(r.promptTotal)).toBe(80);
+    expect(r.assembledPrompt).toBe("SECOND_SMALL");
   });
 });

@@ -98,29 +98,29 @@ Run continuously from scope resolution through Phase BUGS registration. Stop onl
 
 5. **Blast radius trace** — For each confirmed finding: grep the codebase for all callers, importers, and string-literal references. Record every affected file. If the same root cause appears in multiple files, group them into one entry. Detect chains: if fixing bug A requires bug B to be fixed first, mark them linked. Assign severity tier and Next Skill per §Severity vocabulary and §Next Skill routing. Write the merged findings (one entry per root cause with blast radius) to `.aic/runs/<run-id>/merged-findings.md` using a `## Findings` heading and one bullet per root cause, each with at least one `file:line` citation. Run `bash "$(git rev-parse --show-toplevel)/.claude/skills/shared/scripts/evidence-scan.sh" "$(git rev-parse --show-toplevel)/.aic/runs/<run-id>/merged-findings.md"` — every entry must cite `file:line`. Checkpoint: `bash .claude/skills/shared/scripts/checkpoint-log.sh aic-code-audit blast-radius-traced ".aic/runs/<run-id>/merged-findings.md"`.
 
-6. **Register in Phase BUGS** — Read `.aic/runs/<run-id>/merged-findings.md` (written in Phase 5). Read `documentation/tasks/progress/aic-progress.md`. If `## Phase BUGS — Discovered Defects` section is absent, append it with the table header from §Phase BUGS entry format. Determine the next BUGS-NN ID by counting existing rows. Append one row per confirmed finding. Then update the header block: the header block is the large dense paragraph at the top of the file (before the `---` separator). Append one sentence to the end of that paragraph in the form: `**Audit <YYYY-MM-DD>:** Found N defects (X Critical, Y High, Z Medium) in <scope> — see Phase BUGS.` Run `bash .claude/skills/shared/scripts/checkpoint-log.sh aic-code-audit registered "documentation/tasks/progress/aic-progress.md"`. Then run `rm -rf .aic/runs/<run-id>/`.
+6. **Register in Phase BUGS** — Read `.aic/runs/<run-id>/merged-findings.md` (written in Phase 5). Read `documentation/tasks/progress/aic-progress.md`. If `## Phase BUGS — Discovered Defects` section is absent, append it with the standard progress table header from §Phase BUGS entry format. Determine the next BUGS-NN ID by counting existing rows. Append one row per confirmed finding. Then update the header block: the header block is the large dense paragraph at the top of the file (before the `---` separator). Append one sentence to the end of that paragraph in the form: `**Audit <YYYY-MM-DD>:** Found N defects (X Critical, Y High, Z Medium) in <scope> — see Phase BUGS.` Run `bash .claude/skills/shared/scripts/checkpoint-log.sh aic-code-audit registered "documentation/tasks/progress/aic-progress.md"`. Then run `rm -rf .aic/runs/<run-id>/`.
 
 ## Phase BUGS entry format
 
-The Phase BUGS section in `aic-progress.md` uses this table:
+The Phase BUGS section in `aic-progress.md` uses the same progress-table shape as other phases:
 
 ```markdown
 ## Phase BUGS — Discovered Defects
 
-| Bug                | Severity | Blast Radius                                                       | Evidence                                         | Status     | Next Skill                 | Description                                                                            |
-| ------------------ | -------- | ------------------------------------------------------------------ | ------------------------------------------------ | ---------- | -------------------------- | -------------------------------------------------------------------------------------- |
-| BUGS-01            | Critical | 4 files: `compilation-runner.ts`, `run-pipeline-steps.ts`, 2 tests | `shared/src/pipeline/compilation-runner.ts:42`   | Discovered | `aic-systematic-debugging` | Null dereference when budget returns 0 — caller chain unguarded                        |
-| BUGS-02 (chain: 3) | High     | 9 files in `adapters/` and `storage/`                              | `shared/src/adapters/foo-adapter.ts:12`          | Discovered | `aic-task-planner`         | `Date.now()` called directly — Clock not injected; BUGS-02a–BUGS-02c are the sub-sites |
-| BUGS-03            | Medium   | 2 files: `compilation-log-store.ts`, its test                      | `shared/src/storage/compilation-log-store.ts:88` | Discovered | `aic-task-planner`         | Missing `project_id` scope in `compilation_log` query                                  |
+| Component                                        | Status     | Package                                                           | Deps                                             | Skill                      | Description                                                                            |
+| ------------------------------------------------ | ---------- | ----------------------------------------------------------------- | ------------------------------------------------ | -------------------------- | -------------------------------------------------------------------------------------- |
+| BUGS-01 [Critical]: Budget zero null dereference | Discovered | 4 files: `compilation-runner.ts`, `run-pipeline-steps.ts` + tests | `shared/src/pipeline/compilation-runner.ts:42`   | `aic-systematic-debugging` | Null dereference when budget returns 0 — caller chain unguarded                        |
+| BUGS-02 [High] (chain: 3): Direct wall-clock use | Discovered | 9 files in `adapters/` and `storage/`                             | `shared/src/adapters/foo-adapter.ts:12`          | `aic-task-planner`         | `Date.now()` called directly — Clock not injected; BUGS-02a–BUGS-02c are the sub-sites |
+| BUGS-03 [Medium]: Missing project scope          | Discovered | 2 files: `compilation-log-store.ts`, its test                     | `shared/src/storage/compilation-log-store.ts:88` | `aic-task-planner`         | Missing `project_id` scope in `compilation_log` query                                  |
 ```
 
 Rules for the table:
 
-- **Bug column:** `BUGS-NN` for standalone; `BUGS-NN (chain: N)` for linked root causes.
-- **Blast Radius column:** list file names (not full paths) plus count. If >5 files, list the 3 most critical and add "+ N more".
-- **Evidence column:** at least one confirmed `file:line` citation from the root cause. Use additional citations only when needed to disambiguate the blast radius.
+- **Component column:** `BUGS-NN [Severity]: Short title` for standalone; `BUGS-NN [Severity] (chain: N): Short title` for linked root causes.
+- **Package column:** list affected files or package areas plus count. If >5 files, list the 3 most critical and add "+ N more".
+- **Deps column:** at least one confirmed `file:line` evidence citation from the root cause. Use additional citations only when needed to disambiguate the blast radius.
 - **Status column:** always `Discovered` when the audit writes the row. The user or a subsequent skill updates it.
-- **Next Skill column:** exactly `\`aic-systematic-debugging\``or`\`aic-task-planner\``. No other values.
+- **Skill column:** exactly `\`aic-systematic-debugging\``or`\`aic-task-planner\``. No other values.
 - **Description column:** one line — root cause, not symptom.
 
 ## Next Skill routing

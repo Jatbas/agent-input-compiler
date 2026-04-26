@@ -284,7 +284,7 @@ function createRunner(fixtureRoot: ReturnType<typeof toAbsolutePath>): Compilati
     tokenCounter,
     fileContentReader,
   );
-  const promptAssembler = new PromptAssembler(fileContentReader);
+  const promptAssembler = new PromptAssembler(fileContentReader, tiktokenAdapter);
   const cacheStore = createInMemoryCacheStore();
   const configStore: ConfigStore = {
     getLatestHash: () => null,
@@ -466,5 +466,71 @@ describe("BG03 large-window bookend and prose-density integration", () => {
         Number(m.transformedTokens) < Number(m.originalTokens),
     );
     expect(hasProseDensityReduction).toBe(true);
+  }, 60_000);
+
+  it("full_pipeline_never_exceeds_total_budget_on_24_file_opus_window", async () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-bi01-budget-"));
+    const fixtureRoot = writeBg03SyntheticRepo(tmpDir);
+    const repoMap = buildBg03RepoMap(fixtureRoot);
+    const mockRepoMapSupplier: RepoMapSupplier = {
+      getRepoMap() {
+        return Promise.resolve(repoMap);
+      },
+    };
+    const fileContentReader: FileContentReader = {
+      getContent(pathRel: ReturnType<typeof toRelativePath>): Promise<string> {
+        const full = path.join(fixtureRoot as string, pathRel as string);
+        return fs.promises.readFile(full, "utf8");
+      },
+    };
+    const rulePackProvider: RulePackProvider = {
+      getBuiltInPack(_name: string): RulePack {
+        return {
+          constraints: [],
+          includePatterns: [],
+          excludePatterns: [],
+          heuristic: {
+            boostPatterns: [toGlobPattern("**/*.md"), toGlobPattern("**/*.ts")],
+            penalizePatterns: [],
+          },
+        };
+      },
+      getProjectPack(): RulePack | null {
+        return null;
+      },
+    };
+    const budgetConfig: BudgetConfig = {
+      getMaxTokens() {
+        return toTokenCount(0);
+      },
+      getBudgetForTaskClass() {
+        return null;
+      },
+      getContextWindow() {
+        return null;
+      },
+    };
+    const partial = createPipelineDeps(
+      fileContentReader,
+      rulePackProvider,
+      budgetConfig,
+      undefined,
+      { maxFiles: 0 },
+      [],
+      noopImportGraphFailureSink,
+    );
+    const deps = { ...partial, repoMapSupplier: mockRepoMapSupplier };
+    const derivedWindow = resolveModelDerivedEffectiveWindowTokens("claude-opus-4.6");
+    if (derivedWindow === undefined) {
+      throw new ConfigError(
+        "BI01 integration test requires claude-opus-4.6 model window",
+      );
+    }
+    const r = await runPipelineSteps(deps, {
+      intent: "consolidate module exports for bg03 synthetic fixture",
+      projectRoot: fixtureRoot,
+      contextWindow: derivedWindow,
+    });
+    expect(Number(r.promptTotal)).toBeLessThanOrEqual(Number(r.budget));
   }, 60_000);
 });

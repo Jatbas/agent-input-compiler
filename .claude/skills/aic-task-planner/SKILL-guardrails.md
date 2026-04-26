@@ -379,7 +379,7 @@ Line numbers become stale between plan time and execute time — upstream edits 
 
 **Required form:**
 
-- `line 49 (where `show aic status|last|chat-summary|projects` appears)` ✓
+- `line 49 (where `show aic status|last|chat-summary|quality|projects` appears)` ✓
 - `lines 54-57 (the `'aic:show-last'` bullet block)` ✓
 - `line 178 (table header `| Command ... | Description |`)` ✓
 

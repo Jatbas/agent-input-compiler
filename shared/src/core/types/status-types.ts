@@ -84,5 +84,5 @@ export interface ConversationSummary {
     readonly taskClass: string;
     readonly count: number;
   }[];
-  readonly elapsedMs: number | null;
+  readonly sessionElapsedMs: number | null;
 }

@@ -4,6 +4,7 @@
 import { describe, it, expect } from "vitest";
 import { PromptAssembler } from "../prompt-assembler.js";
 import type { FileContentReader } from "@jatbas/aic-core/core/interfaces/file-content-reader.interface.js";
+import type { TokenCounter } from "@jatbas/aic-core/core/interfaces/token-counter.interface.js";
 import type { TaskClassification } from "@jatbas/aic-core/core/types/task-classification.js";
 import type { SelectedFile } from "@jatbas/aic-core/core/types/selected-file.js";
 import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
@@ -23,6 +24,10 @@ function makeFile(path: string): SelectedFile {
   };
 }
 
+const lenTokenCounter: TokenCounter = {
+  countTokens: (text: string) => toTokenCount(text.length),
+};
+
 describe("PromptAssembler", () => {
   const task: TaskClassification = {
     taskClass: TASK_CLASS.FEATURE,
@@ -37,8 +42,8 @@ describe("PromptAssembler", () => {
     const reader: FileContentReader = {
       getContent: (path) => Promise.resolve(`content of ${path as string}`),
     };
-    const assembler = new PromptAssembler(reader);
-    const result = await assembler.assemble(
+    const assembler = new PromptAssembler(reader, lenTokenCounter);
+    const { prompt: result } = await assembler.assemble(
       task,
       [makeFile("src/a.ts")],
       ["use TypeScript"],
@@ -59,8 +64,8 @@ describe("PromptAssembler", () => {
     const reader: FileContentReader = {
       getContent: () => Promise.resolve(""),
     };
-    const assembler = new PromptAssembler(reader);
-    const result = await assembler.assemble(task, [makeFile("x.ts")], []);
+    const assembler = new PromptAssembler(reader, lenTokenCounter);
+    const { prompt: result } = await assembler.assemble(task, [makeFile("x.ts")], []);
     expect(result).not.toContain("## Constraints");
     expect(result).not.toContain("## Output Format");
   });
@@ -69,8 +74,8 @@ describe("PromptAssembler", () => {
     const reader: FileContentReader = {
       getContent: (path) => Promise.resolve(path as string),
     };
-    const assembler = new PromptAssembler(reader);
-    const result = await assembler.assemble(
+    const assembler = new PromptAssembler(reader, lenTokenCounter);
+    const { prompt: result } = await assembler.assemble(
       task,
       [makeFile("first.ts"), makeFile("second.ts")],
       [],
@@ -89,12 +94,12 @@ describe("PromptAssembler", () => {
         return Promise.resolve("content");
       },
     };
-    const assembler = new PromptAssembler(reader);
+    const assembler = new PromptAssembler(reader, lenTokenCounter);
     const fileWithPrevious = {
       ...makeFile("src/seen.ts"),
       previouslyShownAtStep: toStepIndex(2),
     };
-    const result = await assembler.assemble(task, [fileWithPrevious], []);
+    const { prompt: result } = await assembler.assemble(task, [fileWithPrevious], []);
     expect(result).toContain("Previously shown in step 2");
     expect(getContentCalls).not.toContain("src/seen.ts");
   });
@@ -108,13 +113,13 @@ describe("PromptAssembler", () => {
             : "code content here",
         ),
     };
-    const assembler = new PromptAssembler(reader);
+    const assembler = new PromptAssembler(reader, lenTokenCounter);
     const codeFile = makeFile("src/a.ts");
     const specFile = {
       ...makeFile("documentation/readme.md"),
       path: toRelativePath("documentation/readme.md"),
     };
-    const result = await assembler.assemble(task, [codeFile], [], [specFile]);
+    const { prompt: result } = await assembler.assemble(task, [codeFile], [], [specFile]);
     expect(result).toContain("## Specification");
     expect(result).toContain("### documentation/readme.md");
     expect(result).toContain("spec content here");
@@ -127,14 +132,23 @@ describe("PromptAssembler", () => {
 
   it("prompt_assembler_no_spec_when_empty", async () => {
     const reader: FileContentReader = { getContent: () => Promise.resolve("") };
-    const assembler = new PromptAssembler(reader);
-    const resultOmitted = await assembler.assemble(task, [makeFile("x.ts")], []);
+    const assembler = new PromptAssembler(reader, lenTokenCounter);
+    const { prompt: resultOmitted } = await assembler.assemble(
+      task,
+      [makeFile("x.ts")],
+      [],
+    );
     expect(resultOmitted).not.toContain("## Specification");
     expect(resultOmitted).toContain("## Task");
     expect(resultOmitted).toContain("## Task Classification");
     expect(resultOmitted).toContain("## Context");
     expect(resultOmitted).not.toContain("## Output Format");
-    const resultEmpty = await assembler.assemble(task, [makeFile("x.ts")], [], []);
+    const { prompt: resultEmpty } = await assembler.assemble(
+      task,
+      [makeFile("x.ts")],
+      [],
+      [],
+    );
     expect(resultEmpty).not.toContain("## Specification");
   });
 
@@ -146,7 +160,7 @@ describe("PromptAssembler", () => {
         return Promise.resolve("spec body");
       },
     };
-    const assembler = new PromptAssembler(reader);
+    const assembler = new PromptAssembler(reader, lenTokenCounter);
     const specFile = {
       ...makeFile("documentation/plan.md"),
       path: toRelativePath("documentation/plan.md"),
@@ -157,8 +171,8 @@ describe("PromptAssembler", () => {
 
   it("prompt_assembler_session_context_section_emitted", async () => {
     const reader: FileContentReader = { getContent: () => Promise.resolve("") };
-    const assembler = new PromptAssembler(reader);
-    const result = await assembler.assemble(
+    const assembler = new PromptAssembler(reader, lenTokenCounter);
+    const { prompt: result } = await assembler.assemble(
       task,
       [],
       [],
@@ -171,17 +185,17 @@ describe("PromptAssembler", () => {
 
   it("prompt_assembler_session_context_omitted_when_empty", async () => {
     const reader: FileContentReader = { getContent: () => Promise.resolve("") };
-    const assembler = new PromptAssembler(reader);
-    const resultEmpty = await assembler.assemble(task, [], [], undefined, "");
-    const resultUndefined = await assembler.assemble(task, [], []);
+    const assembler = new PromptAssembler(reader, lenTokenCounter);
+    const { prompt: resultEmpty } = await assembler.assemble(task, [], [], undefined, "");
+    const { prompt: resultUndefined } = await assembler.assemble(task, [], []);
     expect(resultEmpty).not.toContain("## Session context");
     expect(resultUndefined).not.toContain("## Session context");
   });
 
   it("assemble_includes_project_structure_when_provided", async () => {
     const reader: FileContentReader = { getContent: () => Promise.resolve("") };
-    const assembler = new PromptAssembler(reader);
-    const result = await assembler.assemble(
+    const assembler = new PromptAssembler(reader, lenTokenCounter);
+    const { prompt: result } = await assembler.assemble(
       task,
       [],
       [],
@@ -199,9 +213,16 @@ describe("PromptAssembler", () => {
 
   it("assemble_omits_project_structure_when_empty", async () => {
     const reader: FileContentReader = { getContent: () => Promise.resolve("") };
-    const assembler = new PromptAssembler(reader);
-    const resultNoArg = await assembler.assemble(task, [], []);
-    const resultEmpty = await assembler.assemble(task, [], [], undefined, undefined, "");
+    const assembler = new PromptAssembler(reader, lenTokenCounter);
+    const { prompt: resultNoArg } = await assembler.assemble(task, [], []);
+    const { prompt: resultEmpty } = await assembler.assemble(
+      task,
+      [],
+      [],
+      undefined,
+      undefined,
+      "",
+    );
     expect(resultNoArg).not.toContain("## Project structure");
     expect(resultEmpty).not.toContain("## Project structure");
   });
@@ -214,12 +235,12 @@ describe("PromptAssembler", () => {
         return Promise.resolve("raw content");
       },
     };
-    const assembler = new PromptAssembler(reader);
+    const assembler = new PromptAssembler(reader, lenTokenCounter);
     const fileWithResolved = {
       ...makeFile("src/resolved.ts"),
       resolvedContent: "resolved text",
     };
-    const result = await assembler.assemble(task, [fileWithResolved], []);
+    const { prompt: result } = await assembler.assemble(task, [fileWithResolved], []);
     expect(result).toContain("resolved text");
     expect(result).toContain("### src/resolved.ts");
     expect(getContentCalls).not.toContain("src/resolved.ts");
@@ -229,8 +250,12 @@ describe("PromptAssembler", () => {
     const reader: FileContentReader = {
       getContent: (path) => Promise.resolve(`content of ${path as string}`),
     };
-    const assembler = new PromptAssembler(reader);
-    const result = await assembler.assemble(task, [makeFile("a.ts")], ["C1", "C2", "C3"]);
+    const assembler = new PromptAssembler(reader, lenTokenCounter);
+    const { prompt: result } = await assembler.assemble(
+      task,
+      [makeFile("a.ts")],
+      ["C1", "C2", "C3"],
+    );
     expect(result).toContain("## Constraints (key)");
     expect(result).toContain("- C1");
     expect(result).toContain("- C2");
@@ -242,8 +267,12 @@ describe("PromptAssembler", () => {
 
   it("prompt_assembler_constraints_preamble_top_three_only", async () => {
     const reader: FileContentReader = { getContent: () => Promise.resolve("") };
-    const assembler = new PromptAssembler(reader);
-    const result = await assembler.assemble(task, [], ["A", "B", "C", "D", "E"]);
+    const assembler = new PromptAssembler(reader, lenTokenCounter);
+    const { prompt: result } = await assembler.assemble(
+      task,
+      [],
+      ["A", "B", "C", "D", "E"],
+    );
     const preambleEnd = result.indexOf("## Context");
     const preamble = result.slice(0, preambleEnd);
     expect(result).toContain("## Constraints (key)");
@@ -260,15 +289,15 @@ describe("PromptAssembler", () => {
 
   it("prompt_assembler_constraints_preamble_omitted_when_empty", async () => {
     const reader: FileContentReader = { getContent: () => Promise.resolve("") };
-    const assembler = new PromptAssembler(reader);
-    const result = await assembler.assemble(task, [], []);
+    const assembler = new PromptAssembler(reader, lenTokenCounter);
+    const { prompt: result } = await assembler.assemble(task, [], []);
     expect(result).not.toContain("## Constraints (key)");
   });
 
   it("prompt_assembler_constraints_preamble_one_or_two", async () => {
     const reader: FileContentReader = { getContent: () => Promise.resolve("") };
-    const assembler = new PromptAssembler(reader);
-    const resultOne = await assembler.assemble(task, [], ["Only one"]);
+    const assembler = new PromptAssembler(reader, lenTokenCounter);
+    const { prompt: resultOne } = await assembler.assemble(task, [], ["Only one"]);
     const preambleOneEnd = resultOne.indexOf("## Context");
     const preambleOne = resultOne.slice(0, preambleOneEnd);
     expect(resultOne).toContain("## Constraints (key)");
@@ -276,7 +305,7 @@ describe("PromptAssembler", () => {
     const bulletCountOne = (preambleOne.match(/^- /gm) ?? []).length;
     expect(bulletCountOne).toBe(1);
 
-    const resultTwo = await assembler.assemble(task, [], ["First", "Second"]);
+    const { prompt: resultTwo } = await assembler.assemble(task, [], ["First", "Second"]);
     const preambleTwoEnd = resultTwo.indexOf("## Context");
     const preambleTwo = resultTwo.slice(0, preambleTwoEnd);
     expect(preambleTwo).toContain("- First");
@@ -289,8 +318,8 @@ describe("PromptAssembler", () => {
     const reader: FileContentReader = {
       getContent: () => Promise.resolve("file content"),
     };
-    const assembler = new PromptAssembler(reader);
-    const result = await assembler.assemble(
+    const assembler = new PromptAssembler(reader, lenTokenCounter);
+    const { prompt: result } = await assembler.assemble(
       task,
       [makeFile("src/a.ts")],
       ["use TypeScript"],
@@ -308,7 +337,7 @@ describe("PromptAssembler", () => {
     const reader: FileContentReader = {
       getContent: (path) => Promise.resolve(`body:${path as string}`),
     };
-    const assembler = new PromptAssembler(reader);
+    const assembler = new PromptAssembler(reader, lenTokenCounter);
     const files = [
       makeFile("src/top.ts"),
       makeFile("src/b.ts"),
@@ -316,7 +345,7 @@ describe("PromptAssembler", () => {
       makeFile("src/d.ts"),
       makeFile("src/e.ts"),
     ];
-    const result = await assembler.assemble(task, files, []);
+    const { prompt: result } = await assembler.assemble(task, files, []);
     expect(result).toContain("## Context (reinforced)");
     const heading = "### src/top.ts [Tier: L0]";
     expect(result.split(heading).length - 1).toBe(2);
@@ -331,9 +360,9 @@ describe("PromptAssembler", () => {
     const reader: FileContentReader = {
       getContent: () => Promise.resolve("x"),
     };
-    const assembler = new PromptAssembler(reader);
+    const assembler = new PromptAssembler(reader, lenTokenCounter);
     const files = [makeFile("a.ts"), makeFile("b.ts"), makeFile("c.ts")];
-    const result = await assembler.assemble(task, files, []);
+    const { prompt: result } = await assembler.assemble(task, files, []);
     expect(result).not.toContain("## Context (reinforced)");
   });
 
@@ -345,7 +374,7 @@ describe("PromptAssembler", () => {
         return Promise.resolve(`body:${path as string}`);
       },
     };
-    const assembler = new PromptAssembler(reader);
+    const assembler = new PromptAssembler(reader, lenTokenCounter);
     const files = [
       { ...makeFile("src/skip.ts"), previouslyShownAtStep: toStepIndex(1) },
       makeFile("src/keep.ts"),
@@ -353,12 +382,25 @@ describe("PromptAssembler", () => {
       makeFile("src/d.ts"),
       makeFile("src/e.ts"),
     ];
-    const result = await assembler.assemble(task, files, []);
+    const { prompt: result } = await assembler.assemble(task, files, []);
     expect(result).toContain("## Context (reinforced)");
     const heading = "### src/keep.ts [Tier: L0]";
     expect(result.split(heading).length - 1).toBe(2);
     expect(result).toContain("### src/skip.ts [Tier: L0] — Previously shown in step 1");
     expect(getContentCalls.filter((p) => p === "src/keep.ts").length).toBe(2);
     expect(getContentCalls).not.toContain("src/skip.ts");
+  });
+
+  it("prompt_assembler_emits_rendered_overhead_tokens", async () => {
+    const reader: FileContentReader = {
+      getContent: () => Promise.resolve("X".repeat(100)),
+    };
+    const assembler = new PromptAssembler(reader, lenTokenCounter);
+    const minimal = await assembler.assemble(task, [makeFile("one.ts")], []);
+    const withConstraints = await assembler.assemble(task, [makeFile("one.ts")], ["c1"]);
+    expect(Number(minimal.renderedOverheadTokens)).toBeGreaterThan(0);
+    expect(Number(withConstraints.renderedOverheadTokens)).toBeGreaterThan(
+      Number(minimal.renderedOverheadTokens),
+    );
   });
 });

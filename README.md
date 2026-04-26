@@ -59,25 +59,29 @@ The examples below mirror the **shared stdout frame** printed by the diagnostic 
 ```text
 Status = project-level AIC status.
 ──────────────────────────────────────────────────────────────────────────────
-AIC optimised context across 7,784 context builds; cumulative raw → sent tokens 5.78B → 65.90M (88:1 ratio); 36.9% cache hit rate; 98.9% context precision (weighted).
+AIC optimised context across 8,743 context builds; cumulative raw → sent tokens 6.80B → 100.57M (68:1 ratio); 37.1% cache hit rate; 98.5% context precision (weighted).
 ──────────────────────────────────────────────────────────────────────────────
-Context builds (total)            7,784
-Context builds (today, UTC)       147
-Cumulative raw → sent tokens      5.78B → 65.90M (88:1 ratio)
-Tokens excluded                   5,718,696,860
+Context builds (total)            8,743
+Context builds (today, UTC)       94
+Cumulative raw → sent tokens      6.80B → 100.57M (68:1 ratio)
+Tokens excluded                   6,695,482,938
 ──────────────────────────────────────────────────────────────────────────────
-Context window used (last run)    0.5%
-Cache hit rate                    36.9%
-Context precision (weighted)      98.9%
+Context window used (last run)    72.4%
+Cache hit rate                    37.1%
+Context precision (weighted)      98.5%
 ──────────────────────────────────────────────────────────────────────────────
-Guard scans (lifetime)            command-injection: 648,063, excluded-file: 59, prompt-injection: 3,185, secret: 16
+Guard scans (lifetime)                 count
+  command-injection                  670,061
+  excluded-file                           59
+  prompt-injection                     4,743
+  secret                                  16
 Top request types                 count  share
-  general                         4,530  70.3%
-  docs                              994  15.4%
-  bugfix                            921  14.3%
-Session time                      18h 42m
-Last compilation                  fix SqliteSpecCompileCacheStore migration
-                                  5 / 629 files · 595 tokens · 2 min ago
+  general                         5,043  69.9%
+  docs                            1,098  15.2%
+  bugfix                          1,072  14.9%
+Sessions total time               509h 14m
+Last compilation                  fix session time always showing — in status
+                                  4 / 591 files · 1,842 tokens · 2 min ago
 ──────────────────────────────────────────────────────────────────────────────
 Installation (global MCP server)  OK
 ──────────────────────────────────────────────────────────────────────────────
@@ -90,16 +94,17 @@ Context window used: % of token budget filled.
 ```text
 Last = most recent compilation.
 ──────────────────────────────────────────────────────────────────────────────
-AIC optimised context by intent: 5 of 567 files forwarded (0.3% of budget, 99.9% excluded).
+AIC optimised context by intent: files forwarded 5 of 567; tokens compiled 595 of 123,500 allocated (0.5% of token budget); token reduction 99.9% (raw to compiled).
 ──────────────────────────────────────────────────────────────────────────────
 Context builds                  7,666
 Intent                          task 318 spec-compile-cache migration 004 SqliteSpecCompileCacheStore
 Files                           5 selected / 567 total
 Tokens compiled                 595
 Compiled in                     2.4 s
-Context window used             0.3%
+Context window used             0.5%
 Compiled                        2 min ago
 Editor                          claude-code
+Session time                    2h 14m
 Cache                           miss
 Guard (this run)                2 findings across 5 files (2 files blocked)
 Compiled prompt                 Available (595 tokens) — .aic/last-compiled-prompt.txt (project root)
@@ -123,7 +128,7 @@ Cache hit rate                  40.0%
 Context precision (weighted)    55.2%
 ──────────────────────────────────────────────────────────────────────────────
 Last compilation                refactor diagnostic output · 2 min ago
-Elapsed                         3h 12m
+Session time                    3h 12m
 Top request types               count  share
   refactor                         20  62.5%
   general                          12  37.5%

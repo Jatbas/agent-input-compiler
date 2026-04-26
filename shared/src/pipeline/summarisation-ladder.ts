@@ -19,7 +19,7 @@ const TIER_ORDER: readonly InclusionTier[] = [
   INCLUSION_TIER.L3,
 ];
 
-function nextTier(tier: InclusionTier): InclusionTier | null {
+export function nextInclusionTier(tier: InclusionTier): InclusionTier | null {
   const i = TIER_ORDER.indexOf(tier);
   return i >= 0 && i < TIER_ORDER.length - 1 ? (TIER_ORDER[i + 1] ?? null) : null;
 }
@@ -240,7 +240,7 @@ function demoteLoop(
     if (lowestIdx === undefined) return working;
     const file = working[lowestIdx];
     if (file === undefined) return working;
-    const next = nextTier(file.tier);
+    const next = nextInclusionTier(file.tier);
     if (next === null) return working;
     const newTokens = tokenAtTier(file, next);
     working[lowestIdx] = { ...file, tier: next, estimatedTokens: newTokens };

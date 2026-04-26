@@ -5,7 +5,6 @@ import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { ProjectId } from "@jatbas/aic-core/core/types/identifiers.js";
 import {
   toConversationId,
-  toISOTimestamp,
   type ConversationId,
 } from "@jatbas/aic-core/core/types/identifiers.js";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
@@ -281,7 +280,7 @@ export function buildChatSummaryToolPayload(input: {
     totalTokensSaved: null,
     lastCompilationInConversation: null,
     topTaskClasses: [],
-    elapsedMs: null,
+    sessionElapsedMs: null,
   };
   return summary ?? empty;
 }
@@ -296,17 +295,9 @@ export function buildProjectScopedChatSummaryCliRow(
   projectRootDisplay: string,
   summary: StatusAggregates,
   clock: Clock,
+  sessionElapsedMs: number | null,
 ): ConversationSummary {
   const last = summary.lastCompilation;
-  const elapsedMs =
-    summary.activeConversationId === null || summary.activeConversationCreatedAt === null
-      ? null
-      : Number(
-          clock.durationMs(
-            toISOTimestamp(summary.activeConversationCreatedAt),
-            clock.now(),
-          ),
-        );
   return {
     conversationId: "",
     projectRoot: projectRootDisplay,
@@ -319,7 +310,7 @@ export function buildProjectScopedChatSummaryCliRow(
     lastCompilationInConversation:
       last === null ? null : snapshotToConversationLast(last),
     topTaskClasses: summary.topTaskClasses,
-    elapsedMs,
+    sessionElapsedMs,
   };
 }
 

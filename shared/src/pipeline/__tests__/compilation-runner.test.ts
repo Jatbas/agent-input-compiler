@@ -247,7 +247,7 @@ describe("CompilationRunner", () => {
     tokenCounter,
     fileContentReader,
   );
-  const promptAssembler = new PromptAssembler(fileContentReader);
+  const promptAssembler = new PromptAssembler(fileContentReader, tiktokenAdapter);
 
   const fixedCompilationId = toUUIDv7("00000000-0000-7000-8000-000000000001");
   const mockIdGenerator: IdGenerator = {

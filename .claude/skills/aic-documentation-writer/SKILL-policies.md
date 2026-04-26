@@ -77,7 +77,7 @@ The distinction: describe **what each editor does**, not **how it compares** on 
 
 ## Document regime classification
 
-Documents fall into three regimes. The regime controls (a) how code/doc disagreements are handled, and (b) whether phase-sequencing and roadmap language is treated as stale or as intentional content.
+Documents fall into five regimes. The regime controls (a) how code/doc disagreements are handled, (b) whether phase-sequencing and roadmap language is treated as stale or intentional content, and (c) how much review depth is required.
 
 ### Planning documents (direction, not contract)
 
@@ -101,11 +101,59 @@ Prescriptive documents describe what the code is held to today, plus explicit de
 
 When these disagree with code: STOP and ask the user. Never change the document or the code without explicit direction.
 
+### Public documents (external reader contract)
+
+- `README.md`
+- `CONTRIBUTING.md`
+- `documentation/installation.md`
+- `documentation/best-practices.md`
+- Any document linked from `README.md`, package metadata (`homepage`, `repository`, published package `files`), or install output that an end user is expected to read
+
+Public documents are optimized for first-time readers and published users. They get full writing-quality gates, reader simulation when user-facing or mixed, hard ambiguity scanning, and hard evidence scanning for code-related claims.
+
 ### Normal documents (code is source of truth)
 
-Everything else — guides, integration layers, best-practices, installation docs.
+Developer references that are neither prescriptive nor public-reader entrypoints — integration layers, technical references, and maintainer guides.
 
 When these disagree with code: change the document to match the code. The code wins, even if it looks buggy. Note suspected bugs as follow-up items.
+
+### Internal working documents (planning record)
+
+- `documentation/tasks/**`
+- `documentation/research/**`
+- `documentation/notes/**`
+- Scratch or run artifacts under `.aic/runs/**`
+
+Internal working documents are not public-facing product documentation. Treat them as planning records, task history, and investigation notebooks. Do not audit their historical prose for public-doc polish unless the user explicitly asks for a hygiene pass.
+
+Rules for this regime:
+
+- Factual claims about current code still require verification when the claim is edited or used as evidence.
+- Ambiguity scan findings are advisory for progress logs and historical notes. Report the count and representative patterns; do not block finalization on them.
+- Executable task files are the exception: pending task files must still pass task-planner ambiguity rules because the executor follows them literally.
+- Broad documentation audits include internal working documents only in the triage pass unless the user names them directly.
+
+### Exposure detection
+
+Before choosing audit depth, classify each target by checking all available signals:
+
+1. Path-based regime from this section.
+2. `git check-ignore --no-index <path>` to detect ignored working areas.
+3. `git ls-files <path>` because tracked files can still match ignore patterns.
+4. Package exposure from root and package `package.json` metadata (`homepage`, `repository`, `files`) and public entrypoints.
+5. Inbound links from `README.md`, `CONTRIBUTING.md`, installation docs, or package-shipped docs.
+
+If signals disagree, choose the stricter regime for blocking factual claims, but keep ambiguity and reader-simulation gates proportional to the target's audience. Example: tracked `documentation/tasks/progress/aic-progress.md` remains an internal working document even though it is versioned.
+
+### Broad audit depth
+
+When the user asks for "audit docs" without naming targets, run a triage audit first:
+
+1. Build the candidate inventory from `README.md`, root docs, `documentation/**/*.md`, and explicitly attached paths.
+2. Classify each candidate by regime and exposure.
+3. Deep-audit public and prescriptive documents first.
+4. Run a targeted consistency scan on normal developer references that share key terms with deep-audited docs.
+5. Include internal working documents only as advisory context unless the user explicitly asks to audit them.
 
 ---
 
