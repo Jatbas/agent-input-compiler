@@ -1045,6 +1045,33 @@ describe("MCP server", () => {
     closeSpy.mockRestore();
   });
 
+  it("createMcpServer_backfills_before_startSession_so_current_session_stays_open", () => {
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
+    const projectRoot = toAbsolutePath(tmpDir);
+    const staleStart = toISOTimestamp("2026-02-28T10:00:00.000Z");
+    const startupTs = toISOTimestamp("2026-02-28T12:00:00.000Z");
+    const mockClock = {
+      now: (): typeof startupTs => startupTs,
+      addMinutes: (_m: number): typeof startupTs => startupTs,
+      durationMs: (_s: typeof startupTs, _e: typeof startupTs) => toMilliseconds(0),
+    };
+    const db = openDatabase(":memory:", mockClock);
+    const staleId = toSessionId("018c3d4e-0000-7000-8000-00000000aa00");
+    db.prepare(
+      "INSERT INTO server_sessions (session_id, started_at, stopped_at, stop_reason, pid, version, installation_ok, installation_notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    ).run(staleId, staleStart, null, null, 99999, "0.1.0", 1, "");
+    server = createMcpServer(projectRoot, db, mockClock);
+    const openCount = db
+      .prepare("SELECT COUNT(*) as n FROM server_sessions WHERE stopped_at IS NULL")
+      .get() as { n: number };
+    expect(openCount.n).toBe(1);
+    const stale = db
+      .prepare("SELECT stopped_at, stop_reason FROM server_sessions WHERE session_id = ?")
+      .get(staleId) as { stopped_at: string | null; stop_reason: string | null };
+    expect(stale.stopped_at).toBe(startupTs);
+    expect(stale.stop_reason).toBe(STOP_REASON.CRASH);
+  });
+
   it("server_sessions_row_has_integrity", async () => {
     tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
     const projectRoot = toAbsolutePath(tmpDir);

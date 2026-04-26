@@ -1,6 +1,6 @@
 # Agent Input Compiler (AIC) — Project Plan
 
-## Editor-Agnostic · Model-Agnostic · Zero-Config · Enterprise-Ready
+## Editor-agnostic · Model-agnostic · Minimal configuration
 
 ---
 
@@ -68,7 +68,7 @@
 
 AIC is a **local-first context compilation layer** that runs as an **MCP server**. When invoked, it classifies intent, selects the right files, compresses intelligently, enforces constraints, and returns a leaner, better-scoped prompt that the editor uses as context. AIC's core pipeline is **editor-agnostic** — it works with any MCP-compatible tool. Effective delivery of that compiled context to the model requires an **integration layer** that is specific to each editor (see [§2.2.1 Integration Layer](#221-integration-layer--enforcement)).
 
-**Key value proposition:** Significant context compression via heuristic file selection and content transformation, deterministic outputs, and a pluggable architecture that requires zero configuration to start and zero refactoring to extend. The architecture is designed to scale from single-shot compilations to multi-step agentic workflows via an optional session layer (see [§2.7 Agentic Workflow Support](#27-agentic-workflow-support)).
+**What AIC delivers:** Significant context compression via heuristic file selection and content transformation, deterministic outputs, and a pluggable architecture that requires zero configuration to start and zero refactoring to extend. The architecture is designed to scale from single-shot compilations to multi-step agentic workflows via an optional session layer (see [§2.7 Agentic Workflow Support](#27-agentic-workflow-support)).
 
 **Setup:** Add one entry to your editor's MCP config. That's it.
 
@@ -679,7 +679,7 @@ The core pipeline through **prompt assembly** (conceptual Steps 1–8 in the imp
 
 ### Extended `CompilationRequest` (backward-compatible)
 
-All session fields are optional. Existing single-shot callers (non-agentic editors, direct MCP tool calls) continue to work identically — they simply don't send session parameters. When session fields are absent, the pipeline behaves exactly as it does today.
+All session fields are optional. Existing single-shot callers (non-agentic editors, direct MCP tool calls) continue to work identically — they do not send session parameters. When session fields are absent, the pipeline behaves exactly as it does today.
 
 ```typescript
 interface CompilationRequest {
@@ -1597,7 +1597,7 @@ interface FileEntry {
 | `.gitignore`, `.dockerignore`, `.eslintignore` | `ignore`     |
 | `LICENSE`, `LICENCE`                           | `text`       |
 
-3. **No match:** If neither extension nor filename matches, `language` is set to `"unknown"`. Unknown-language files are still included in RepoMap and scored by `HeuristicSelector` — they simply cannot benefit from import-graph walking or L1/L2 signature extraction.
+3. **No match:** If neither extension nor filename matches, `language` is set to `"unknown"`. Unknown-language files are still included in RepoMap and scored by `HeuristicSelector` — they cannot benefit from import-graph walking or L1/L2 signature extraction.
 
 ```typescript
 interface CodeChunk {
@@ -3152,7 +3152,7 @@ The following metrics are intended to be derived from opt-in anonymous payloads 
 - **Measure:** Correlation between `cache_hit` (which proxy-indicates a successful compilation) and the `heuristic_signals` averages (`path_avg`, `import_avg`, `recency_avg`, `size_avg`).
 - **Action:** If a signal (`recency_avg`) consistently correlates poorly with successful compilations, adjust its weight in the `HeuristicSelector` scoring formula.
 
-#### 4. "Is Context Guard useful, or just slowing things down?"
+#### 4. "Is Context Guard useful, or adding avoidable latency?"
 
 - **Measure:** Count of `guard_blocks > 0`, grouped by `guard_block_types`.
 - **Action:** If guard blocks are exceptionally rare, consider making it asynchronous or optional to save processing time. If `secret` blocks are frequent, prioritize security features and market the capability heavily to enterprises.

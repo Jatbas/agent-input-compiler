@@ -48,11 +48,11 @@ The MCP schema (`mcp/src/schemas/compilation-request.ts`, summarized in [Impleme
 
 **Claude Code:** Hook settings are read from the same files by all three deployment modes:
 
-| Mode                                                            | Hook support                   | Settings source                                                                                                                         |
-| --------------------------------------------------------------- | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| **CLI** (`claude`)                                              | Full 18-event hook lifecycle   | `~/.claude/settings.json` + `.claude/settings.json`                                                                                     |
-| **VS Code extension** (`anthropic.claude-code`)                 | Same hooks via shared settings | Same files — settings shared between CLI and extension ([IDE integrations docs](https://code.claude.com/docs/en/ide-integrations))      |
-| **Cursor extension** (`cursor:extension/anthropic.claude-code`) | Same                           | Same files — supported install target ([IDE integrations docs](https://code.claude.com/docs/en/ide-integrations#install-the-extension)) |
+| Mode                                                            | Hook support                                                          | Settings source                                                                                                                         |
+| --------------------------------------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| **CLI** (`claude`)                                              | Full Claude Code hook lifecycle (all hook events the product exposes) | `~/.claude/settings.json` + `.claude/settings.json`                                                                                     |
+| **VS Code extension** (`anthropic.claude-code`)                 | Same hooks via shared settings                                        | Same files — settings shared between CLI and extension ([IDE integrations docs](https://code.claude.com/docs/en/ide-integrations))      |
+| **Cursor extension** (`cursor:extension/anthropic.claude-code`) | Same                                                                  | Same files — supported install target ([IDE integrations docs](https://code.claude.com/docs/en/ide-integrations#install-the-extension)) |
 
 One set of hook scripts, one settings file. All three modes pick them up without any mode-specific code. The VS Code docs explicitly confirm: "Claude Code settings in `~/.claude/settings.json`: shared between the extension and CLI. Use for allowed commands, environment variables, hooks, and MCP servers." ([source](https://code.claude.com/docs/en/ide-integrations#configure-settings))
 
@@ -511,12 +511,22 @@ No context injection — this hook produces no stdout. Exit 0 always (telemetry 
 
 ## 9. MCP compile invocation from hooks
 
+**Claude Code:** `aic-session-start.cjs` and `aic-prompt-compile.cjs` call `callAicCompile` from `aic-compile-helper.cjs` for full `aic_compile` runs. `aic-subagent-inject.cjs` uses the same helper with `triggerSource: "subagent_start"` for `compilation_log` telemetry. `aic-subagent-stop.cjs` issues a narrow stdio `tools/call` `aic_compile` reparent sequence (reparent-only path; no full pipeline). `aic-pre-compact.cjs` also uses the helper. Compile gates and PreToolUse behaviour are in §7.
+
 ### 9.1 Shared helper — `aic-compile-helper.cjs`
 
 The shared helper mediates between a hook script and the AIC MCP server via MCP stdio. Its signature in `integrations/claude/hooks/aic-compile-helper.cjs` is:
 
 ```js
-callAicCompile(intent, projectRoot, conversationId, timeoutMs, triggerSource, modelId);
+callAicCompile(
+  intent,
+  projectRoot,
+  conversationId,
+  timeoutMs,
+  triggerSource,
+  modelId,
+  explicitEditorId,
+);
 ```
 
 **Emergency bypass:** Before spawning the MCP server, the helper checks `aic.config.json` via `isCompileGateSkipped()` (from `integrations/shared/read-project-dev-mode.cjs`). When **both** `devMode` and `skipCompileGate` are `true`, it returns `null` immediately without any I/O. This prevents all compilation hooks (SessionStart, UserPromptSubmit, SubagentStart) from hanging on a broken MCP server. Remove `skipCompileGate` from the config immediately after resolving the issue.
@@ -551,6 +561,16 @@ The snippet omits the outer `jsonrpc` / `id` envelope; the helper always supplie
 Without a resolvable `conversationId`, `compilation_log` rows from Claude Code hooks have null `conversation_id`, and `aic_chat_summary` cannot aggregate them. Prefer transcript- or direct-`conversation_id`-derived ids. `resolveConversationIdFallback` may use validated `session_id` or `generation_id` only when they pass printable-ASCII length checks — they stabilise telemetry when the transcript UUID is unavailable; they are not interchangeable with the transcript filename id as the long-term conversation key when the host supplies the latter.
 
 **Cold start:** Each hook invocation spawns a new process. Resolution order in `integrations/claude/hooks/aic-compile-helper.cjs`: when `mcp/src/server.ts` and `shared/package.json` both exist, the helper runs `sh -c` with `pnpm --filter @jatbas/aic-core build` (stderr to the shell's stderr) then `npx tsx` on `mcp/src/server.ts`. When only `mcp/src/server.ts` exists, it runs `npx` with arguments `tsx` and that path. Otherwise it runs `npx` with `@jatbas/aic` (published package). On a cold filesystem cache the dev-oriented path is often ~500–1500ms before the first response. §10 hook entries use **30s**; the helper uses **25s** only when `timeoutMs` is omitted — shipped compile hooks pass **30s**, so runtime matches §10. For hook-spawned stdio versus Claude Code's registered MCP client, see §4.1 **Two transports to the same server**. §11 describes the HTTP hook path that avoids per-invocation spawn cost.
+
+### 9.2 Session compile and UserPromptSubmit
+
+`aic-session-start.cjs` calls `callAicCompile` with a fixed session-wide intent, **30s** timeout, `triggerSource` **`"session_start"`**, optional `modelId`, and `explicitEditorId` from the hook envelope. `aic-prompt-compile.cjs` calls `callAicCompile` with the classified user intent, **30s**, `triggerSource` **`"prompt_submit"`**, optional `modelId`, and `explicitEditorId`. Both paths use the `conversationId` resolution described in §9.1. Registration and command paths appear in §10.
+
+### 9.3 Subagent telemetry and reparent
+
+`aic-subagent-inject.cjs` calls `callAicCompile` with a derived subagent intent, **30s**, `triggerSource` **`"subagent_start"`**, and optional `modelId`. When `callAicCompile` returns `null`, the hook script still writes `{}` to stdout so the subagent can start (best-effort telemetry).
+
+`aic-subagent-stop.cjs` does **not** use `callAicCompile`; it builds stdio JSON-RPC (`initialize`, `notifications/initialized`, `tools/call` on **`aic_compile`** with `triggerSource: "subagent_stop"`, parent `conversationId`, and `reparentFromConversationId` for the child) via `execSync` in `integrations/claude/hooks/aic-subagent-stop.cjs` (reparent-only tool response, not a full compile).
 
 ---
 

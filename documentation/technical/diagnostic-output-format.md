@@ -17,6 +17,8 @@ Update this document when:
 
 This document describes the layout and design patterns for the diagnostic CLI output produced by `mcp/src/format-diagnostic-output.ts`. It covers the shared render frame, the two row-building primitives, label widths per command, the sub-section pattern, section separators, the per-command body structure for all five commands, session-time scope differences, and duration formatting.
 
+Tool contracts and payload fields live in [implementation-spec.md — Diagnostic stdout layout](../implementation-spec.md#diagnostic-stdout-layout-cli-and-prompt-commands).
+
 Source of truth: [`mcp/src/format-diagnostic-output.ts`](../../mcp/src/format-diagnostic-output.ts).
 
 ## Shared render frame

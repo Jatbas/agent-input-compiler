@@ -20,6 +20,7 @@ Contributions are welcome. This guide is for people **developing the AIC codebas
   - [RFC for non-trivial changes](#rfc-for-non-trivial-changes)
 - [Good contribution types](#good-contribution-types)
 - [Contribution expectations](#contribution-expectations)
+- [Issues and pull requests](#issues-and-pull-requests)
 - [Pull request checklist](#pull-request-checklist)
 
 ## Development setup
@@ -63,11 +64,11 @@ pnpm test
 pnpm lint
 ```
 
-GitHub Actions (`.github/workflows/ci.yml`) on pull requests and pushes to `main` runs `pnpm install --frozen-lockfile`, a lockfile vulnerability scan with `google/osv-scanner-action@v1` on `pnpm-lock.yaml`, then `pnpm lint`, `pnpm build`, `pnpm typecheck`, and `pnpm test`.
+GitHub Actions (`.github/workflows/ci.yml`) on pull requests and pushes to `main` runs `pnpm install --frozen-lockfile`, a lockfile vulnerability scan with `google/osv-scanner-action/osv-scanner-action@v2.3.5` on `pnpm-lock.yaml`, then `pnpm lint`, `pnpm build`, `pnpm typecheck`, and `pnpm test`.
 
 ### 5. Read the relevant docs
 
-At minimum, read [architecture.md](documentation/architecture.md) and [implementation-spec.md](documentation/implementation-spec.md) so your changes match the project's design and rules.
+At minimum, read [architecture.md](documentation/architecture.md) and [implementation-spec.md](documentation/implementation-spec.md) so your changes match the project's design and rules. For day-to-day usage patterns, see [best-practices.md](documentation/best-practices.md). All SQL and schema migrations belong in `shared/src/storage/` only (see [project-plan.md](documentation/project-plan.md) storage and migration ADRs and the schema sections in [implementation-spec.md](documentation/implementation-spec.md)).
 
 For optional Agent Skill workflows in this repo, see `.claude/skills/` (each subfolder is one skill; `SKILL.md` is the contract). Packages include task planning (`aic-task-planner`), isolated task execution (`aic-task-executor`), evidence-backed documentation (`aic-documentation-writer`), cited research notes (`aic-researcher`), changelog hygiene (`aic-update-changelog`), progress file updates (`aic-update-progress`), surface-area audits that register Phase BUGS (`aic-code-audit`), structured PR review from a diff (`aic-pr-review`), systematic single-bug investigation (`aic-systematic-debugging`), roadmap proposals for the progress file (`aic-roadmap-forge`), git history rewrite plans (`aic-git-history-clean`), and full release orchestration (`aic-release`).
 

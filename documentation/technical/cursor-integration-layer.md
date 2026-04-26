@@ -572,7 +572,9 @@ telemetry only. `subagentStop` does not inject context; it exists for reparent o
 
 ## 9. MCP compile invocation from hooks
 
-**Cursor:** `AIC-compile-context.cjs`, `AIC-subagent-compile.cjs`, and `AIC-subagent-stop.cjs` spawn MCP and call `aic_compile` directly. All other compilation goes through the model after the preToolUse gate when §7.3 is enforcing (default unless the emergency bypass is active — both `devMode` and `skipCompileGate` true in `aic.config.json`). Because `beforeSubmitPrompt` cannot emit `additional_context`, session-wide snapshot injection uses `AIC-compile-context.cjs`.
+**Cursor:** Under `.cursor/hooks/`, **`AIC-compile-context.cjs`**, **`AIC-subagent-compile.cjs`**, and **`AIC-subagent-stop.cjs`** each spawn the MCP server over stdio JSON-RPC. The first two issue full **`aic_compile`** requests (session-wide context on `sessionStart`, subagent telemetry on `subagentStart`). The third issues a **reparent-only** `aic_compile` request when parent and child conversation ids are both known (`triggerSource: "subagent_stop"` — see §9.3).
+
+**Gate and session shape:** Other compile paths reach the handler only after **`preToolUse`** when §7.3 is enforcing (default unless the emergency bypass is active — both `devMode` and `skipCompileGate` true in `aic.config.json`). Because `beforeSubmitPrompt` cannot emit `additional_context`, session-wide snapshot injection uses **`AIC-compile-context.cjs`** on **`sessionStart`**.
 
 ### 9.1 Session compile — `AIC-compile-context.cjs`
 

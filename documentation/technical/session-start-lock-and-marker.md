@@ -23,7 +23,7 @@ JSONL caches (`session-models.jsonl`, `prompt-log.jsonl`, `session-log.jsonl`) a
 | `.aic/.session-start-lock`       | Exclusive SessionStart-in-progress lock                    | `acquireSessionLock` creates with `fs.openSync(path, "wx")`; `releaseSessionLock` unlinks | none                                                   | `wx` fails if the path already exists |
 | `.aic/.session-context-injected` | Records `session_id` after successful SessionStart compile | `writeSessionMarker` after `callAicCompile` succeeds                                      | `isSessionAlreadyInjected` in `aic-prompt-compile.cjs` | Trimmed UTF-8 equals `session_id`     |
 
-Implementation: `integrations/shared/session-markers.cjs` (mirrored under `.cursor/hooks/session-markers.cjs`). Exports: `acquireSessionLock`, `releaseSessionLock`, `writeSessionMarker`, `readSessionMarker`, `clearSessionMarker`, `isSessionAlreadyInjected`.
+Implementation: `integrations/shared/session-markers.cjs` (mirrored under `.cursor/hooks/AIC-session-markers.cjs`). Exports: `acquireSessionLock`, `releaseSessionLock`, `writeSessionMarker`, `readSessionMarker`, `clearSessionMarker`, `isSessionAlreadyInjected`.
 
 **Hook order (Claude Code):**
 

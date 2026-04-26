@@ -342,6 +342,8 @@ Use the README for orientation. Use the docs below for implementation detail.
 | [`implementation-spec.md`](documentation/implementation-spec.md) | Detailed pipeline and implementation behavior                |
 | [`project-plan.md`](documentation/project-plan.md)               | Product architecture, ADRs, and full configuration reference |
 
+**Maintainer technical references** (`documentation/technical/`): [Diagnostic output format](documentation/technical/diagnostic-output-format.md) (CLI table layout and `SEP`), [MCP server and shared CJS boundary](documentation/technical/mcp-and-shared-cjs-boundary.md), [Integrations shared modules](documentation/technical/integrations-shared-modules.md), [AIC JSONL caches](documentation/technical/aic-jsonl-caches.md), [Cursor integration layer](documentation/technical/cursor-integration-layer.md), [Claude Code integration layer](documentation/technical/claude-code-integration-layer.md), [Session start lock and marker](documentation/technical/session-start-lock-and-marker.md).
+
 ---
 
 ## Contributing

@@ -210,6 +210,7 @@ export function createMcpServer(
   }
   const sessionId = toSessionId(startupScope.idGenerator.generate());
   const startedAt = startupScope.clock.now();
+  startupScope.sessionTracker.backfillCrashedSessions(startedAt);
   startupScope.sessionTracker.startSession(
     sessionId,
     startedAt,
@@ -218,7 +219,6 @@ export function createMcpServer(
     installationOk,
     installationNotes,
   );
-  startupScope.sessionTracker.backfillCrashedSessions(startedAt);
   const runnerCache = new Map<
     string,
     { runner: CompilationRunner; closeable: WatchingRepoMapSupplier }
