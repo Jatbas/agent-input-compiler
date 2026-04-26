@@ -83,7 +83,7 @@ Cursor runtime → injects as context
 
 All event hooks are **authored** in `integrations/cursor/hooks/`. The installer deploys them to `.cursor/hooks/` per project and does not modify `mcp/` or `shared/` on disk — but hooks may call the MCP tool, and the server uses `mcp/` and `shared/` at runtime (`subagent_stop` reparent updates `compilation_log` via `shared/src/storage/reparent-subagent-compilations.ts`).
 
-`AIC-compile-context.cjs`, `AIC-subagent-compile.cjs`, and `AIC-subagent-stop.cjs` each spawn the MCP server via `execSync` and JSON-RPC to call `aic_compile`. Every other hook is pure Node (gate, inject, tracker, blockers, telemetry).
+`AIC-compile-context.cjs`, `AIC-subagent-compile.cjs`, and `AIC-subagent-stop.cjs` each spawn the MCP server via `execFileSync("npx", …)` (argv-only — no shell parsing of paths) and JSON-RPC to call `aic_compile`. Every other hook is pure Node (gate, inject, tracker, blockers, telemetry).
 
 ### 4.3 Input field mapping
 
@@ -302,9 +302,9 @@ AIC registers **12** hook **command** entries across **10** event types (some ty
    (`conversationId`, `generationId`, first 200 chars as `title`, `model`, `timestamp`).
    Age-based pruning of that file is not performed inside this hook; it runs when the AIC MCP server process starts, via `shared/src/maintenance/prune-jsonl-by-timestamp.ts` (same helper as `.aic/session-log.jsonl` and `.aic/session-models.jsonl`).
 
-2. **Gate prewarm:** Writes the full `prompt` text to a per-generation temp file so
+2. **Gate prewarm:** Writes the full `prompt` text to a per-generation temp file under `os.tmpdir()` (`aic-prompt-<generation_id>`) so
    `AIC-require-aic-compile.cjs` can include the exact intent in its deny message when the
-   enforcement path runs (§7.3). Without this, the deny message falls back to a generic placeholder, reducing the chance the model
+   enforcement path runs (§7.3). On POSIX, new files use owner-only mode `0o600`. Without this, the deny message falls back to a generic placeholder, reducing the chance the model
    uses the correct intent for `aic_compile`. When the emergency bypass is active (`devMode` + `skipCompileGate` both true in `aic.config.json`), §7.3 returns allow before deny logic, so the exact-intent deny path does not run.
 
 **Always returns `{ continue: true }`** — this hook must never block prompt submission.
@@ -598,7 +598,7 @@ if (
 
 Omitting `conversationId` when resolution fails leaves `compilation_log.conversation_id` null and breaks `aic_chat_summary` rollups for that compile.
 
-**Cold start:** `execSync` spawns the MCP server (~500–1500ms TS compile on cold cache; **2–5s** warm round-trip, up to **~10s** first run; 20s hook timeout). The published package drops TS compile overhead (~200–500ms cold).
+**Cold start:** `execFileSync("npx", …)` spawns the MCP server (~500–1500ms TS compile on cold cache; **2–5s** warm round-trip, up to **~10s** first run; 20s hook timeout). The published package drops TS compile overhead (~200–500ms cold).
 
 ### 9.2 Subagent telemetry — `AIC-subagent-compile.cjs`
 
@@ -606,7 +606,7 @@ Same spawn pattern for a best-effort `compilation_log` row; on failure the hook 
 
 ### 9.3 Subagent reparent — `AIC-subagent-stop.cjs`
 
-Same `execSync` + JSON-RPC spawn pattern as §9.2. The tool response is `{ reparented: true, rowsUpdated: N }` JSON text (not `compiledPrompt`). On failure the hook still prints `{}` so the parent session continues. All other hooks are pure Node (under ~50ms), except the three in §9 opening paragraph.
+Same `execFileSync("npx", …)` + JSON-RPC spawn pattern as §9.2. The tool response is `{ reparented: true, rowsUpdated: N }` JSON text (not `compiledPrompt`). On failure the hook still prints `{}` so the parent session continues. All other hooks are pure Node (under ~50ms), except the three in §9 opening paragraph.
 
 ---
 
@@ -667,7 +667,7 @@ Cursor does not currently expose an HTTP hook type. When it does, the round-trip
 }
 ```
 
-Benefits over the current `execSync` + child process approach:
+Benefits over the current per-invocation `execFileSync("npx", …)` child process approach:
 
 - Zero cold start — MCP server already has SQLite connection, pipeline initialized, tiktoken loaded
 - No `npx tsx` overhead — pre-compiled JS already running

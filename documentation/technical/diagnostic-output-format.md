@@ -82,7 +82,8 @@ The `projects` roster does not use `padRow` or `padMultiCol` when projects are p
 A sub-section is a header row followed by indented data rows. The header uses `padRow` or `padMultiCol` with the column label(s) on the same line as the section label. Each data row uses the same primitive with `"  " + value` as its label (two-space indent), at the same `w`.
 
 ```
-padMultiCol("Guard scans (lifetime)", ["count"], w, [10])  ← header
+padMultiCol("Guard scans (lifetime)", ["count"], w, [10])  ← header when no status time window
+padMultiCol("Guard scans (7d)",       ["count"], w, [10])  ← example when window active — N matches CLI `Nd` / `--window`
 padMultiCol("  command-injection",    [count],   w, [10])  ← sub-row
 padMultiCol("  secret",               [count],   w, [10])  ← sub-row
 ```

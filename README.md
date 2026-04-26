@@ -89,6 +89,8 @@ Context precision (weighted): % of repo content automatically filtered per conte
 Context window used: % of token budget filled.
 ```
 
+A **rolling time window** on status (`show aic status 7d` or `status --window 7`) adds a **Time range** body row (`Last 7 days` when **N** is 7) and switches the guard block header from **`Guard scans (lifetime)`** to **`Guard scans (Nd)`** (same **N** as the window) so the label matches the guard aggregate window. See [`implementation-spec.md` — `aic_status`](documentation/implementation-spec.md#aic_status-mcp-tool) and [`mcp/src/format-diagnostic-output.ts`](mcp/src/format-diagnostic-output.ts).
+
 #### `show aic last`
 
 ```text

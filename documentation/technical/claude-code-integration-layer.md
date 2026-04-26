@@ -296,6 +296,8 @@ AIC uses nine of them for integration work (see §8). Known product bugs and wor
 
 **File:** `.claude/hooks/aic-prompt-compile.cjs`
 
+When this hook writes a gate prewarm fragment under `os.tmpdir()` (`aic-prompt-cc-*`), new files use POSIX mode `0o600` (owner-only), matching the Cursor `beforeSubmitPrompt` hygiene in [§7.2 there](cursor-integration-layer.md#72-beforesubmitprompt--prompt-logging-and-gate-prewarm).
+
 ---
 
 ### 7.2 SessionStart — bootstrapping and post-compaction
@@ -581,7 +583,7 @@ On a cold filesystem cache the dev-oriented path is often ~500–1500ms before t
 
 `aic-subagent-inject.cjs` calls `callAicCompile` with a derived subagent intent, **30s**, `triggerSource` **`"subagent_start"`**, and optional `modelId`. When `callAicCompile` returns `null`, the hook script still writes `{}` to stdout so the subagent can start (best-effort telemetry).
 
-`aic-subagent-stop.cjs` does **not** use `callAicCompile`; it builds stdio JSON-RPC (`initialize`, `notifications/initialized`, `tools/call` on **`aic_compile`** with `triggerSource: "subagent_stop"`, parent `conversationId`, and `reparentFromConversationId` for the child) via `execSync` in `integrations/claude/hooks/aic-subagent-stop.cjs` (reparent-only tool response, not a full compile).
+`aic-subagent-stop.cjs` does **not** use `callAicCompile`; it builds stdio JSON-RPC (`initialize`, `notifications/initialized`, `tools/call` on **`aic_compile`** with `triggerSource: "subagent_stop"`, parent `conversationId`, and `reparentFromConversationId` for the child) via `execFileSync("npx", …)` in `integrations/claude/hooks/aic-subagent-stop.cjs` (reparent-only tool response, not a full compile).
 
 ---
 
