@@ -614,6 +614,7 @@ describe("HeuristicSelector", () => {
       toTokenCount(10000),
       openRulePack,
     );
+    expect(first.truncated).toBe(false);
     expect(first.files.some((f) => f.path === toRelativePath(".git/config"))).toBe(false);
     const gitExcluded = first.traceExcludedFiles.find(
       (r) => r.path === toRelativePath(".git/config"),

@@ -32,6 +32,23 @@ function mockIdGenerator(ids: readonly string[]): { generate(): UUIDv7 } {
   };
 }
 
+function mockIdGeneratorThrowsAfter(
+  ids: readonly string[],
+  throwAfterCount: number,
+): { generate(): UUIDv7 } {
+  let delegated = 0;
+  const inner = mockIdGenerator(ids);
+  return {
+    generate(): UUIDv7 {
+      if (delegated < throwAfterCount) {
+        delegated += 1;
+        return inner.generate();
+      }
+      throw new AicError("mock id generator throw", "TEST_SETUP");
+    },
+  };
+}
+
 function mockClock(timestamps: readonly string[]): Clock {
   let index = 0;
   return {
@@ -165,5 +182,35 @@ describe("SqliteGuardStore", () => {
     store.write(compId, []);
     const got = store.queryByCompilation(compId);
     expect(got).toEqual([]);
+  });
+
+  it("sqlite_guard_store_write_rolls_back_on_mid_batch_failure", () => {
+    const compId = toUUIDv7("018c3d4e-0000-7000-8000-0000000000aa");
+    const idGen = mockIdGenerator(["id-1", "id-2"]);
+    const clock = mockClock([
+      "2026-02-25T10:00:00.000Z",
+      "2026-02-25T10:01:00.000Z",
+      "2026-02-25T10:02:00.000Z",
+    ]);
+    const store = setup(idGen, clock);
+    ensureCompilationExists(compId);
+    store.write(compId, [
+      makeFinding({ message: "first-a", file: toRelativePath("a.ts") }),
+      makeFinding({ message: "first-b", file: toRelativePath("b.ts") }),
+    ]);
+    const store2 = new SqliteGuardStore(
+      db,
+      mockIdGeneratorThrowsAfter(["id-3"], 1),
+      clock,
+    );
+    expect(() =>
+      store2.write(compId, [
+        makeFinding({ message: "second-a", file: toRelativePath("c.ts") }),
+        makeFinding({ message: "second-b", file: toRelativePath("d.ts") }),
+      ]),
+    ).toThrow(AicError);
+    const got = store2.queryByCompilation(compId);
+    expect(got).toHaveLength(2);
+    expect(got.map((g) => g.message)).toEqual(["first-a", "first-b"]);
   });
 });

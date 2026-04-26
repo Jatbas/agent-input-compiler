@@ -18,4 +18,12 @@ describe("matchesGlob", () => {
       expect(matchesGlob(row.path, row.pattern)).toBe(true);
     });
   });
+
+  it("matches_glob_mid_path_double_star", () => {
+    expect(matchesGlob("src/foo/bar.ts", "src/**/*.ts")).toBe(true);
+    expect(matchesGlob("a/b/generated/x.ts", "**/generated/**")).toBe(true);
+    expect(matchesGlob("src/foo.ts", "src/**/*.ts")).toBe(true);
+    expect(matchesGlob("lib/x.ts", "src/**/*.ts")).toBe(false);
+    expect(matchesGlob("src/foo.ts", "src/**")).toBe(true);
+  });
 });

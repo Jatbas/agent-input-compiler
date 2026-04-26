@@ -18,26 +18,33 @@ export class SqliteGuardStore implements GuardStore {
   ) {}
 
   write(compilationId: UUIDv7, findings: readonly GuardFinding[]): void {
-    this.db
-      .prepare("DELETE FROM guard_findings WHERE compilation_id = ?")
-      .run(compilationId);
-    const insert = this.db.prepare(
-      `INSERT INTO guard_findings (id, compilation_id, type, severity, file, line, message, pattern, created_at)
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      this.db
+        .prepare("DELETE FROM guard_findings WHERE compilation_id = ?")
+        .run(compilationId);
+      const insert = this.db.prepare(
+        `INSERT INTO guard_findings (id, compilation_id, type, severity, file, line, message, pattern, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    );
-    const created_at = this.clock.now();
-    for (const f of findings) {
-      insert.run(
-        this.idGenerator.generate(),
-        compilationId,
-        f.type,
-        f.severity,
-        f.file,
-        f.line ?? null,
-        f.message,
-        f.pattern ?? null,
-        created_at,
       );
+      const created_at = this.clock.now();
+      for (const f of findings) {
+        insert.run(
+          this.idGenerator.generate(),
+          compilationId,
+          f.type,
+          f.severity,
+          f.file,
+          f.line ?? null,
+          f.message,
+          f.pattern ?? null,
+          created_at,
+        );
+      }
+      this.db.exec("COMMIT");
+    } catch (caught: unknown) {
+      this.db.exec("ROLLBACK");
+      throw caught;
     }
   }
 

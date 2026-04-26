@@ -370,7 +370,7 @@ export class HeuristicSelector implements ContextSelector {
       ...zeroSemanticTraceExcluded,
       ...budgetTraceExcluded,
     ];
-    const truncated = files.length < candidates.length || totalTokensNum >= budgetNum;
+    const truncated = files.length < sorted.length || totalTokensNum >= budgetNum;
     return {
       files,
       totalTokens: toTokenCount(totalTokensNum),
