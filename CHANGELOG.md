@@ -7,6 +7,36 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-04-27
+
+### Added
+
+- `aic-code-audit` skill and refreshed task workflow documentation
+- Architectural invariants gate with critic validation in shared skill scripts
+- Reinforcement transforms assembly tests for prose density in the pipeline
+- Duration rows in MCP diagnostics; refreshed skills templates
+- Budget cache metadata and guard labeling in MCP diagnostics
+
+### Changed
+
+- MCP prompt assembly uses token accounting aligned with the implementation specification
+- Hardened pipeline glob matching and semantic selection thresholds
+- Refreshed implementation specification and storage-driven project activity documentation
+- Trimmed planner guardrails; corrected code audit validation steps in documentation
+- Documented integration spawn behavior, status labels, and security posture
+
+### Fixed
+
+- Transactional storage guard writes and pipeline glob alignment
+- Integration inject failures exit nonzero; hardened temporary-file handling for inject paths
+- Claude pre-tool gate exits nonzero on unexpected failures; removed tracked progress artefact from the tree
+- Sanitized MCP handler stderr; tightened SQLite path containment checks
+- Backfilled crashed sessions in MCP maintenance; aligned audited documentation links
+- Purged stale budget cache entries after blob read failures in storage
+- Widened MCP `aic_compile` schema; shallow model-context matches log a warning
+- Refined cumulative status labels for guards and installation scope in diagnostics output
+- Pinned postcss to a patched version
+
 ## [1.0.3] - 2026-04-22
 
 ### Added
