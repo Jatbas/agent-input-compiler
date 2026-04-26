@@ -51,14 +51,16 @@ export function buildStatusPayload(input: {
 }): Record<string, unknown> {
   const statusConfigResult = input.configLoader.load(input.projectRoot, null);
   const statusStore = new SqliteStatusStore(input.projectId, input.db, input.clock);
-  const summary =
+  const filter =
     input.timeRangeDays === null
-      ? statusStore.getGlobalSummary()
-      : statusStore.getGlobalSummary({
+      ? undefined
+      : {
           notBeforeInclusive: input.clock.addMinutes(
             -Number(input.timeRangeDays) * 24 * 60,
           ),
-        });
+        };
+  const summary = statusStore.getGlobalSummary(filter);
+  const projectSummary = statusStore.getSummary(filter);
   const rawMaxTokens = input.budgetConfig.getMaxTokens();
   const defaultCeiling =
     Number(rawMaxTokens) === 0
@@ -77,6 +79,9 @@ export function buildStatusPayload(input: {
       : null;
   return {
     ...summary,
+    sessionTimeMs: projectSummary.sessionTimeMs,
+    activeConversationId: projectSummary.activeConversationId,
+    activeConversationCreatedAt: projectSummary.activeConversationCreatedAt,
     budgetMaxTokens,
     budgetUtilizationPct,
     installScope: input.installScope,
@@ -169,6 +174,8 @@ export function buildLastPayload(input: {
   };
   readonly selection: SelectionTraceParsed | null;
   readonly lastBudgetMaxTokens: number;
+  readonly budgetUtilizationPct: number | null;
+  readonly sessionElapsedMs: number | null;
 } {
   const startupStore = new SqliteStatusStore(input.projectId, input.db, input.clock);
   const store = resolveSqliteStatusStoreForLastTool(
@@ -202,6 +209,14 @@ export function buildLastPayload(input: {
         };
   const selection =
     traceRow === null ? null : parseSelectionTraceColumn(traceRow.selection_trace_json);
+  const budgetUtilizationPct =
+    last === null
+      ? null
+      : resolveBudgetUtilizationPercent(last.tokensCompiled, last.allocatedTotalBudget);
+  const sessionElapsedMs =
+    summary.activeConversationId === null
+      ? null
+      : store.getSessionElapsedMsForId(summary.activeConversationId);
   return {
     compilationCount: summary.compilationsTotal,
     lastCompilation: lastPayload,
@@ -211,6 +226,8 @@ export function buildLastPayload(input: {
     },
     selection,
     lastBudgetMaxTokens,
+    budgetUtilizationPct,
+    sessionElapsedMs,
   };
 }
 

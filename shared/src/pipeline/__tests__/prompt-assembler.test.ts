@@ -303,4 +303,62 @@ describe("PromptAssembler", () => {
     expect(result).not.toContain("valid JSON object");
     expect(result).not.toContain("plain text");
   });
+
+  it("prompt_assembler_bookends_top_relevance_file_when_context_large", async () => {
+    const reader: FileContentReader = {
+      getContent: (path) => Promise.resolve(`body:${path as string}`),
+    };
+    const assembler = new PromptAssembler(reader);
+    const files = [
+      makeFile("src/top.ts"),
+      makeFile("src/b.ts"),
+      makeFile("src/c.ts"),
+      makeFile("src/d.ts"),
+      makeFile("src/e.ts"),
+    ];
+    const result = await assembler.assemble(task, files, []);
+    expect(result).toContain("## Context (reinforced)");
+    const heading = "### src/top.ts [Tier: L0]";
+    expect(result.split(heading).length - 1).toBe(2);
+    const firstCtx = result.indexOf("## Context");
+    const reinforced = result.indexOf("## Context (reinforced)");
+    expect(firstCtx).toBeGreaterThanOrEqual(0);
+    expect(reinforced).toBeGreaterThan(firstCtx);
+    expect(result.indexOf(heading, reinforced)).toBeGreaterThanOrEqual(0);
+  });
+
+  it("prompt_assembler_skips_reinforcement_below_threshold", async () => {
+    const reader: FileContentReader = {
+      getContent: () => Promise.resolve("x"),
+    };
+    const assembler = new PromptAssembler(reader);
+    const files = [makeFile("a.ts"), makeFile("b.ts"), makeFile("c.ts")];
+    const result = await assembler.assemble(task, files, []);
+    expect(result).not.toContain("## Context (reinforced)");
+  });
+
+  it("prompt_assembler_bookend_skips_previously_shown_placeholders", async () => {
+    const getContentCalls: string[] = [];
+    const reader: FileContentReader = {
+      getContent: (path) => {
+        getContentCalls.push(path as string);
+        return Promise.resolve(`body:${path as string}`);
+      },
+    };
+    const assembler = new PromptAssembler(reader);
+    const files = [
+      { ...makeFile("src/skip.ts"), previouslyShownAtStep: toStepIndex(1) },
+      makeFile("src/keep.ts"),
+      makeFile("src/c.ts"),
+      makeFile("src/d.ts"),
+      makeFile("src/e.ts"),
+    ];
+    const result = await assembler.assemble(task, files, []);
+    expect(result).toContain("## Context (reinforced)");
+    const heading = "### src/keep.ts [Tier: L0]";
+    expect(result.split(heading).length - 1).toBe(2);
+    expect(result).toContain("### src/skip.ts [Tier: L0] — Previously shown in step 1");
+    expect(getContentCalls.filter((p) => p === "src/keep.ts").length).toBe(2);
+    expect(getContentCalls).not.toContain("src/skip.ts");
+  });
 });

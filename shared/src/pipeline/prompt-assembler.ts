@@ -44,6 +44,28 @@ function buildConstraintsPreamble(constraints: readonly string[]): readonly stri
     : [];
 }
 
+function firstFileNeedingContent(files: readonly SelectedFile[]): SelectedFile | null {
+  const found = files.find((f) => f.previouslyShownAtStep === undefined);
+  return found ?? null;
+}
+
+async function buildReinforcedContextParts(
+  fileContentReader: FileContentReader,
+  files: readonly SelectedFile[],
+): Promise<readonly string[]> {
+  if (files.length < 5) return [];
+  const target = firstFileNeedingContent(files);
+  if (target === null) return [];
+  const [body] = await fetchContextContents(fileContentReader, [target]);
+  return [
+    "## Context (reinforced)",
+    "",
+    `### ${target.path} [Tier: ${target.tier}]`,
+    body ?? "",
+    "",
+  ];
+}
+
 export class PromptAssembler implements IPromptAssembler {
   constructor(private readonly fileContentReader: FileContentReader) {}
 
@@ -84,6 +106,10 @@ export class PromptAssembler implements IPromptAssembler {
       constraints.length > 0
         ? ["## Constraints", ...constraints.map((c) => `- ${c}`), ""]
         : [];
+    const reinforcedParts = await buildReinforcedContextParts(
+      this.fileContentReader,
+      files,
+    );
     const sections = [
       "## Task",
       intent,
@@ -97,6 +123,7 @@ export class PromptAssembler implements IPromptAssembler {
       ...constraintsPreamble,
       "## Context",
       ...contextParts,
+      ...reinforcedParts,
       ...constraintSection,
     ];
     return sections.join("\n").trimEnd();

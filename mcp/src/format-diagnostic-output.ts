@@ -23,6 +23,11 @@ const STATUS_HERO_CLAUSE_RAW_TO_SENT = "cumulative raw → sent tokens";
 
 const LAST_METRIC_FOOTNOTE = "Context window used: % of token budget filled.";
 
+const LAST_NEAR_CEILING_BUDGET_UTIL_THRESHOLD_PCT = 90;
+
+const LAST_NEAR_CEILING_SOFT_LINE =
+  "⚠ budget utilisation ≥ 90% — review `aic_last` selection trace or tighten intent";
+
 const SEP =
   "──────────────────────────────────────────────────────────────────────────────";
 
@@ -91,11 +96,18 @@ function statusTimeRangeValue(n: number): string {
   return `Last ${String(n)} days`;
 }
 
-function guardByTypeStr(v: unknown): string {
-  if (v === null || typeof v !== "object" || Array.isArray(v)) return "None";
+function guardByTypeRows(label: string, v: unknown, w: number): readonly string[] {
+  if (v === null || typeof v !== "object" || Array.isArray(v)) {
+    return [padRow(label, "None", w)];
+  }
   const entries = Object.entries(v as Record<string, number>);
-  if (entries.length === 0) return "None";
-  return entries.map(([k, c]) => `${k}: ${formatInt(c)}`).join(", ");
+  if (entries.length === 0) return [padRow(label, "None", w)];
+  const valueWidth = 10;
+  const header = padMultiCol(label, ["count"], w, [valueWidth]);
+  const dataRows = entries.map(([k, c]) =>
+    padMultiCol(`  ${k}`, [formatInt(c)], w, [valueWidth]),
+  );
+  return [header, ...dataRows];
 }
 
 function installationLabel(instOk: unknown): string {
@@ -390,14 +402,14 @@ export function formatStatusTable(
       w,
     ),
     SEP,
-    padRow(
+    ...guardByTypeRows(
       hasStatusTimeWindow ? `Guard scans (${String(n)}d)` : "Guard scans (lifetime)",
-      guardByTypeStr(payload["guardByType"]),
+      payload["guardByType"],
       w,
     ),
     ...topTaskRows(payload["topTaskClasses"], w),
     padRow(
-      "Session time",
+      "Sessions total time",
       formatElapsedDurationMs((payload["sessionTimeMs"] as number | null) ?? null),
       w,
     ),
@@ -423,6 +435,7 @@ function lastRowsWhenPresent(
   clock: Clock,
   w: number,
   budgetMaxTokens: number,
+  sessionElapsedMs: number | null,
 ): readonly string[] {
   const fs_ = Number(last["filesSelected"] ?? 0);
   const ft = Number(last["filesTotal"] ?? 0);
@@ -440,6 +453,7 @@ function lastRowsWhenPresent(
     padRow("Context window used", formatPct1(budgetPct), w),
     padRow("Compiled", relIso(clock, String(last["created_at"] ?? "")), w),
     padRow("Editor", String(last["editorId"] ?? "—"), w),
+    padRow("Session time", formatElapsedDurationMs(sessionElapsedMs), w),
   ];
 }
 
@@ -451,6 +465,7 @@ const LAST_EMPTY_DETAIL: readonly string[] = [
   "Context window used",
   "Compiled",
   "Editor",
+  "Session time",
 ].map((label) => padRow(label, "—", 30));
 
 export function formatLastTable(
@@ -463,16 +478,19 @@ export function formatLastTable(
     };
     readonly selection?: SelectionTraceParsed | null;
     readonly lastBudgetMaxTokens?: number;
+    readonly budgetUtilizationPct?: number | null;
+    readonly sessionElapsedMs?: number | null;
   },
   clock: Clock,
 ): string {
   const w = 30;
   const last = payload.lastCompilation;
   const budgetMaxTokens = Number(payload.lastBudgetMaxTokens ?? 0);
+  const sessionElapsedMs = payload.sessionElapsedMs ?? null;
   const detailRows =
     last === null
       ? LAST_EMPTY_DETAIL
-      : lastRowsWhenPresent(last, clock, w, budgetMaxTokens);
+      : lastRowsWhenPresent(last, clock, w, budgetMaxTokens, sessionElapsedMs);
   const tc = payload.promptSummary.tokenCount;
   const promptRow = padRow(
     "Compiled prompt",
@@ -504,11 +522,19 @@ export function formatLastTable(
     ...selectionRows,
     promptRow,
   ];
+  const util = payload.budgetUtilizationPct ?? null;
+  const nearCeiling =
+    util !== null &&
+    Number.isFinite(util) &&
+    util >= LAST_NEAR_CEILING_BUDGET_UTIL_THRESHOLD_PCT;
+  const lastFootnote = nearCeiling
+    ? `${LAST_METRIC_FOOTNOTE}\n${LAST_NEAR_CEILING_SOFT_LINE}`
+    : LAST_METRIC_FOOTNOTE;
   return renderStandardReport({
     title: "Last = most recent compilation.",
     hero: heroLineLast(last, budgetMaxTokens),
     rows: bodyRows,
-    footnote: LAST_METRIC_FOOTNOTE,
+    footnote: lastFootnote,
   });
 }
 

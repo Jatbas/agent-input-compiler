@@ -28,6 +28,7 @@ import { ContextGuard } from "@jatbas/aic-core/pipeline/context-guard.js";
 import { Base64InlineDataStripper } from "@jatbas/aic-core/pipeline/base64-inline-data-stripper.js";
 import { LongStringLiteralTruncator } from "@jatbas/aic-core/pipeline/long-string-literal-truncator.js";
 import { DocstringTrimmer } from "@jatbas/aic-core/pipeline/docstring-trimmer.js";
+import { ProseDensityTransformer } from "@jatbas/aic-core/pipeline/prose-density-transformer.js";
 import { ImportDeduplicator } from "@jatbas/aic-core/pipeline/import-deduplicator.js";
 import { LicenseHeaderStripper } from "@jatbas/aic-core/pipeline/license-header-stripper.js";
 import { WhitespaceNormalizer } from "@jatbas/aic-core/pipeline/whitespace-normalizer.js";
@@ -147,12 +148,14 @@ export function createPipelineDeps(
   const base64InlineDataStripper = new Base64InlineDataStripper();
   const longStringLiteralTruncator = new LongStringLiteralTruncator();
   const docstringTrimmer = new DocstringTrimmer();
+  const proseDensityTransformer = new ProseDensityTransformer();
   const importDeduplicator = new ImportDeduplicator();
   const transformers = [
     licenseHeaderStripper,
     base64InlineDataStripper,
     longStringLiteralTruncator,
     docstringTrimmer,
+    proseDensityTransformer,
     importDeduplicator,
     whitespaceNormalizer,
     testStructureExtractor,

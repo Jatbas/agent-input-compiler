@@ -3,10 +3,14 @@
 
 import * as path from "node:path";
 import * as fs from "node:fs";
-import { describe, it, expect } from "vitest";
+import * as os from "node:os";
+import { describe, it, expect, afterEach } from "vitest";
 import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import { toGlobPattern } from "@jatbas/aic-core/core/types/paths.js";
 import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import { runPipelineSteps } from "@jatbas/aic-core/core/run-pipeline-steps.js";
+import { resolveModelDerivedEffectiveWindowTokens } from "@jatbas/aic-core/core/resolve-display-total-budget.js";
+import { noopImportGraphFailureSink } from "@jatbas/aic-core/core/interfaces/import-graph-failure-sink.interface.js";
 import { toTokenCount, toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
 import { toBytes } from "@jatbas/aic-core/core/types/units.js";
 import { toISOTimestamp } from "@jatbas/aic-core/core/types/identifiers.js";
@@ -52,6 +56,8 @@ import { TiktokenAdapter } from "@jatbas/aic-core/adapters/tiktoken-adapter.js";
 import { Sha256Adapter } from "@jatbas/aic-core/adapters/sha256-adapter.js";
 import { TypeScriptProvider } from "@jatbas/aic-core/adapters/typescript-provider.js";
 import { GenericProvider } from "@jatbas/aic-core/adapters/generic-provider.js";
+import { createPipelineDeps } from "../../bootstrap/create-pipeline-deps.js";
+import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
 
 const FIXED_TS = "2026-01-01T00:00:00.000Z";
 
@@ -64,6 +70,80 @@ function defaultRulePack(): RulePack {
       boostPatterns: [toGlobPattern("**/*.ts")],
       penalizePatterns: [],
     },
+  };
+}
+
+const BG03_README_SHAPED_MD =
+  "# Title\n\nPara    with    spaces.\n\n\n\n\nNext.\n\nSee https://example.com/" +
+  "x".repeat(100) +
+  "/y\n";
+
+const BG03_ANCHOR_MD = `---\ntitle: BG03\n---\n\n${BG03_README_SHAPED_MD}`;
+
+function firstTripleHeadingAfterSection(
+  prompt: string,
+  sectionTitle: string,
+): string | null {
+  const marker = `${sectionTitle}\n`;
+  const idx = prompt.indexOf(marker);
+  if (idx === -1) return null;
+  const tail = prompt.slice(idx + marker.length);
+  const nextHdr = tail.search(/\n## /);
+  const windowText = nextHdr === -1 ? tail : tail.slice(0, nextHdr);
+  const hit = windowText.split("\n").find((line) => line.startsWith("### "));
+  return hit ?? null;
+}
+
+function writeBg03SyntheticRepo(root: string): ReturnType<typeof toAbsolutePath> {
+  fs.mkdirSync(path.join(root, "docs"), { recursive: true });
+  fs.mkdirSync(path.join(root, "src"), { recursive: true });
+  fs.writeFileSync(path.join(root, "000-bg03-anchor.md"), BG03_ANCHOR_MD, "utf8");
+  for (let i = 0; i < 5; i += 1) {
+    fs.writeFileSync(
+      path.join(root, "docs", `extra-${i}.md`),
+      BG03_README_SHAPED_MD,
+      "utf8",
+    );
+  }
+  for (let i = 0; i < 24; i += 1) {
+    const n = i < 10 ? `0${i}` : String(i);
+    fs.writeFileSync(
+      path.join(root, "src", `mod-${n}.ts`),
+      `export const bg03_${i} = ${i};\n`,
+      "utf8",
+    );
+  }
+  return toAbsolutePath(root);
+}
+
+function buildBg03RepoMap(fixtureRoot: ReturnType<typeof toAbsolutePath>): RepoMap {
+  const relStrings = [
+    "000-bg03-anchor.md",
+    ...[0, 1, 2, 3, 4].map((i) => `docs/extra-${i}.md`),
+    ...Array.from({ length: 24 }, (_, i) => {
+      const n = i < 10 ? `0${i}` : String(i);
+      return `src/mod-${n}.ts`;
+    }),
+  ];
+  const files: FileEntry[] = relStrings.map((rel) => {
+    const full = path.join(fixtureRoot as string, rel);
+    const raw = fs.readFileSync(full, "utf8");
+    return {
+      path: toRelativePath(rel),
+      language: rel.endsWith(".md") ? "markdown" : "ts",
+      sizeBytes: toBytes(Buffer.byteLength(raw, "utf8")),
+      estimatedTokens: toTokenCount(80),
+      lastModified: toISOTimestamp(FIXED_TS),
+    };
+  });
+  const totalTokens = toTokenCount(
+    files.reduce((sum, f) => sum + Number(f.estimatedTokens), 0),
+  );
+  return {
+    root: fixtureRoot,
+    files,
+    totalFiles: files.length,
+    totalTokens,
   };
 }
 
@@ -291,4 +371,100 @@ describe("full pipeline", () => {
     expect(second.meta.cacheHit).toBe(true);
     expect(second.meta.durationMs).toEqual(toMilliseconds(0));
   }, 15_000);
+});
+
+describe("BG03 large-window bookend and prose-density integration", () => {
+  let tmpDir: string | undefined;
+
+  afterEach(() => {
+    if (tmpDir !== undefined) {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+      tmpDir = undefined;
+    }
+  });
+
+  it("full_pipeline_bookends_top_file_and_compresses_prose_at_1m_window", async () => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-bg03-"));
+    const fixtureRoot = writeBg03SyntheticRepo(tmpDir);
+    const repoMap = buildBg03RepoMap(fixtureRoot);
+    const mockRepoMapSupplier: RepoMapSupplier = {
+      getRepoMap() {
+        return Promise.resolve(repoMap);
+      },
+    };
+    const fileContentReader: FileContentReader = {
+      getContent(pathRel: ReturnType<typeof toRelativePath>): Promise<string> {
+        const full = path.join(fixtureRoot as string, pathRel as string);
+        return fs.promises.readFile(full, "utf8");
+      },
+    };
+    const rulePackProvider: RulePackProvider = {
+      getBuiltInPack(_name: string): RulePack {
+        return {
+          constraints: [],
+          includePatterns: [],
+          excludePatterns: [],
+          heuristic: {
+            boostPatterns: [toGlobPattern("**/*.md"), toGlobPattern("**/*.ts")],
+            penalizePatterns: [],
+          },
+        };
+      },
+      getProjectPack(): RulePack | null {
+        return null;
+      },
+    };
+    const budgetConfig: BudgetConfig = {
+      getMaxTokens() {
+        return toTokenCount(0);
+      },
+      getBudgetForTaskClass() {
+        return null;
+      },
+      getContextWindow() {
+        return null;
+      },
+    };
+    const partial = createPipelineDeps(
+      fileContentReader,
+      rulePackProvider,
+      budgetConfig,
+      undefined,
+      { maxFiles: 0 },
+      [],
+      noopImportGraphFailureSink,
+    );
+    const deps = { ...partial, repoMapSupplier: mockRepoMapSupplier };
+    const derivedWindow = resolveModelDerivedEffectiveWindowTokens("claude-opus-4.6");
+    if (derivedWindow === undefined) {
+      throw new ConfigError(
+        "BG03 integration test requires claude-opus-4.6 model window",
+      );
+    }
+    const r = await runPipelineSteps(deps, {
+      intent: "consolidate module exports for bg03 synthetic fixture",
+      projectRoot: fixtureRoot,
+      contextWindow: derivedWindow,
+    });
+    expect(r.prunedFiles.length).toBeGreaterThanOrEqual(5);
+    const prompt = r.assembledPrompt;
+    expect(prompt).toContain("## Context (reinforced)");
+    const mainHeading = firstTripleHeadingAfterSection(prompt, "## Context");
+    const reinforcedHeading = firstTripleHeadingAfterSection(
+      prompt,
+      "## Context (reinforced)",
+    );
+    expect(mainHeading).not.toBeNull();
+    expect(reinforcedHeading).not.toBeNull();
+    expect(mainHeading).toBe(reinforcedHeading);
+    const mdMeta = r.transformResult.metadata.filter((m) =>
+      (m.filePath as string).endsWith(".md"),
+    );
+    const hasProseDensityReduction = mdMeta.some(
+      (m) =>
+        m.transformersApplied.includes("prose-density") &&
+        Number(m.transformedTokens) < Number(m.originalTokens),
+    );
+    expect(hasProseDensityReduction).toBe(true);
+  }, 60_000);
 });

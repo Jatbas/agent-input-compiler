@@ -366,9 +366,9 @@ describe("duration formatting rows", () => {
       },
       clock,
     );
-    expect(outHour).toContain("Session time");
+    expect(outHour).toContain("Sessions total time");
     expect(outHour).toContain("1h 5m");
-    expect(outMinute).toContain("Session time");
+    expect(outMinute).toContain("Sessions total time");
     expect(outMinute).toContain("1m 30s");
   });
 
@@ -525,6 +525,77 @@ describe("formatLastTable", () => {
     expect(out).toMatch(/Guard \(this run\)[^\n]*2 findings/);
     expect(out).toMatch(/1 file blocked/);
     expect(out).not.toMatch(/across/);
+  });
+
+  it("format_last_flags_near_ceiling_budget_utilisation", () => {
+    const clock = fixedClock("2026-03-02T12:00:00.000Z");
+    const nearCeilingLine =
+      "⚠ budget utilisation ≥ 90% — review `aic_last` selection trace or tighten intent";
+    const baseLast = {
+      intent: "x",
+      filesSelected: 1,
+      filesTotal: 2,
+      tokensCompiled: 1000,
+      tokenReductionPct: 0,
+      created_at: "2026-03-02T11:00:00.000Z",
+      editorId: "cursor",
+      cacheHit: false,
+    };
+    const high = formatLastTable(
+      {
+        compilationCount: 1,
+        lastCompilation: { ...baseLast, tokensCompiled: 9_500 },
+        promptSummary: { tokenCount: null, guardPassed: null },
+        lastBudgetMaxTokens: 10_000,
+        budgetUtilizationPct: 95,
+      },
+      clock,
+    );
+    assertStandardReportLayout(high);
+    expect(high).toContain(nearCeilingLine);
+    const atThreshold = formatLastTable(
+      {
+        compilationCount: 1,
+        lastCompilation: { ...baseLast, tokensCompiled: 9_000 },
+        promptSummary: { tokenCount: null, guardPassed: null },
+        lastBudgetMaxTokens: 10_000,
+        budgetUtilizationPct: 90,
+      },
+      clock,
+    );
+    expect(atThreshold).toContain(nearCeilingLine);
+    const below = formatLastTable(
+      {
+        compilationCount: 1,
+        lastCompilation: baseLast,
+        promptSummary: { tokenCount: null, guardPassed: null },
+        lastBudgetMaxTokens: 10_000,
+        budgetUtilizationPct: 89,
+      },
+      clock,
+    );
+    expect(below).not.toContain(nearCeilingLine);
+    const nullUtil = formatLastTable(
+      {
+        compilationCount: 1,
+        lastCompilation: {
+          intent: "probe",
+          filesSelected: 0,
+          filesTotal: 200,
+          tokensCompiled: 250,
+          tokenReductionPct: 0,
+          created_at: "2026-03-02T11:00:00.000Z",
+          editorId: "cursor",
+          cacheHit: true,
+        },
+        promptSummary: { tokenCount: null, guardPassed: null },
+        lastBudgetMaxTokens: 5_000,
+        budgetUtilizationPct: null,
+      },
+      clock,
+    );
+    assertStandardReportLayout(nullUtil);
+    expect(nullUtil).not.toContain(nearCeilingLine);
   });
 });
 
