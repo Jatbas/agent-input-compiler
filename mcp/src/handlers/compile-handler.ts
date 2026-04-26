@@ -431,7 +431,7 @@ export function createCompileHandler(
     try {
       await fs.promises.writeFile(lastPromptPath, result.compiledPrompt, "utf8");
     } catch {
-      // Non-fatal — do not fail the request
+      process.stderr.write("Compiled prompt file write failed\n");
     }
     return buildSuccessResponse(
       result,

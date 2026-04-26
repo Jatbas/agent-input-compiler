@@ -319,6 +319,55 @@ describe("compile-handler", () => {
     }
   });
 
+  it("stderr_on_compiled_prompt_write_failure", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+    const stderrSpy = vi
+      .spyOn(process.stderr, "write")
+      .mockImplementation((): boolean => true);
+    const writeFileSpy = vi
+      .spyOn(fs.promises, "writeFile")
+      .mockRejectedValueOnce(new Error("write failed"));
+    try {
+      const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
+      const handler = createCompileHandler(
+        getScope,
+        (_scope: ProjectScope) => makeSuccessRunner("ok"),
+        { hash: (): string => "" },
+        getSessionId,
+        getEditorId,
+        getModelId,
+        [],
+        enabledConfigLoader,
+        () => {},
+        () => null,
+        () => false,
+      );
+      const result = await handler(
+        {
+          intent: "test",
+          projectRoot: tmpDir,
+          modelId: null,
+          configPath: null,
+        },
+        undefined,
+      );
+      const stderrArgs = stderrSpy.mock.calls.flat();
+      expect(
+        stderrArgs.some(
+          (arg): arg is string =>
+            typeof arg === "string" && arg.includes("Compiled prompt file write failed"),
+        ),
+      ).toBe(true);
+      const items = result.content as readonly { type: string; text: string }[];
+      const parsed = JSON.parse(items[0]!.text) as { readonly compiledPrompt: string };
+      expect(parsed.compiledPrompt).toContain("ok");
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+      stderrSpy.mockRestore();
+      writeFileSpy.mockRestore();
+    }
+  });
+
   it("response_includes_conversation_id_when_provided", async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
     try {
