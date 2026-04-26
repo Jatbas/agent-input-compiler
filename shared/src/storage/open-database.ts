@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
+import * as fs from "node:fs";
+import * as path from "node:path";
 import Database from "better-sqlite3";
 import { SqliteMigrationRunner } from "@jatbas/aic-core/storage/sqlite-migration-runner.js";
 import { migration as migration001 } from "@jatbas/aic-core/storage/migrations/001-consolidated-schema.js";
@@ -14,8 +16,48 @@ import { migration as migration008 } from "@jatbas/aic-core/storage/migrations/0
 import { migration as migration009 } from "@jatbas/aic-core/storage/migrations/009-compilation-log-total-budget.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import type { ExecutableDb } from "@jatbas/aic-core/core/interfaces/executable-db.interface.js";
+import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
+import type { FilePath } from "@jatbas/aic-core/core/types/paths.js";
 
-export function openDatabase(dbPath: string, clock: Clock): ExecutableDb {
+function resolvedDbPathForContainment(dbPath: string): string {
+  const absoluteDb = path.resolve(dbPath);
+  if (!fs.existsSync(absoluteDb)) {
+    const parent = path.dirname(absoluteDb);
+    const base = path.basename(absoluteDb);
+    return path.join(fs.realpathSync(parent), base);
+  }
+  return fs.realpathSync(absoluteDb);
+}
+
+function isResolvedPathWithinContainmentRoot(
+  resolvedDb: string,
+  resolvedRoot: string,
+): boolean {
+  if (resolvedDb === resolvedRoot) {
+    return true;
+  }
+  const boundary = resolvedRoot.endsWith(path.sep)
+    ? resolvedRoot
+    : `${resolvedRoot}${path.sep}`;
+  return resolvedDb.startsWith(boundary);
+}
+
+function assertDbPathContained(dbPath: string, mustStayWithinDir: FilePath): void {
+  const resolvedRoot = fs.realpathSync(path.resolve(mustStayWithinDir));
+  const resolvedDb = resolvedDbPathForContainment(dbPath);
+  if (!isResolvedPathWithinContainmentRoot(resolvedDb, resolvedRoot)) {
+    throw new ConfigError("database path escapes containment directory");
+  }
+}
+
+export function openDatabase(
+  dbPath: string,
+  clock: Clock,
+  containment?: { readonly mustStayWithinDir: FilePath },
+): ExecutableDb {
+  if (containment !== undefined && dbPath !== ":memory:") {
+    assertDbPathContained(dbPath, containment.mustStayWithinDir);
+  }
   const db = new Database(dbPath) as unknown as ExecutableDb;
   // enforce FK constraints regardless of better-sqlite3 version defaults
   db.prepare("PRAGMA foreign_keys = ON").run();
@@ -39,7 +81,13 @@ export function openDatabase(dbPath: string, clock: Clock): ExecutableDb {
   return db;
 }
 
-export function openDatabaseReadOnly(dbPath: string): ExecutableDb {
+export function openDatabaseReadOnly(
+  dbPath: string,
+  containment?: { readonly mustStayWithinDir: FilePath },
+): ExecutableDb {
+  if (containment !== undefined) {
+    assertDbPathContained(dbPath, containment.mustStayWithinDir);
+  }
   return new Database(dbPath, {
     readonly: true,
     fileMustExist: true,

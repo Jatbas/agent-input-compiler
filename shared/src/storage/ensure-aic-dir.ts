@@ -73,6 +73,13 @@ function ensureGitignore(projectRoot: AbsolutePath): void {
   ensureIgnoreFile(projectRoot, ".gitignore", entries);
 }
 
+function assertProjectAicDirContained(rootReal: string, aicReal: string): void {
+  const rel = path.relative(rootReal, aicReal);
+  if (rel.length === 0 || rel.startsWith("..") || path.isAbsolute(rel)) {
+    throw new ConfigError("project .aic directory resolves outside project root");
+  }
+}
+
 export function ensurePrettierignore(projectRoot: AbsolutePath): void {
   ensureIgnoreFile(projectRoot, ".prettierignore", AIC_IGNORE_ENTRIES);
 }
@@ -81,9 +88,38 @@ export function ensureEslintignore(projectRoot: AbsolutePath): void {
   ensureIgnoreFile(projectRoot, ".eslintignore", AIC_IGNORE_ENTRIES);
 }
 
+export function getContainedProjectAicRootIfPresent(
+  projectRoot: AbsolutePath,
+): AbsolutePath | null {
+  const aicDir = path.join(projectRoot, ".aic");
+  if (!fs.existsSync(aicDir)) {
+    return null;
+  }
+  const rootReal = fs.realpathSync(projectRoot);
+  const aicReal = fs.realpathSync(aicDir);
+  assertProjectAicDirContained(rootReal, aicReal);
+  return toAbsolutePath(aicReal);
+}
+
 export function ensureAicDir(projectRoot: AbsolutePath): AbsolutePath {
   const aicDir = path.join(projectRoot, ".aic");
   fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
+  const rootReal = fs.realpathSync(projectRoot);
+  const aicReal = fs.realpathSync(aicDir);
+  assertProjectAicDirContained(rootReal, aicReal);
   ensureGitignore(projectRoot);
-  return toAbsolutePath(aicDir);
+  return toAbsolutePath(aicReal);
+}
+
+export function joinUnderProjectAic(
+  projectRoot: AbsolutePath,
+  ...segments: readonly string[]
+): string {
+  for (const segment of segments) {
+    if (segment.includes("..")) {
+      throw new ConfigError("invalid .aic path segment");
+    }
+  }
+  const base = ensureAicDir(projectRoot);
+  return path.join(base, ...segments);
 }

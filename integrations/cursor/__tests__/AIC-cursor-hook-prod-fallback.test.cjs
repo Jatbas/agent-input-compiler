@@ -31,17 +31,25 @@ function prod_fallback_present(hookName) {
 
 function dev_path_retained(hookName) {
   const src = readHook(hookName);
-  assert.ok(src.includes("npx tsx"), `${hookName}: missing dev path 'npx tsx'`);
+  assert.ok(src.includes("tsx"), `${hookName}: missing dev argv token 'tsx'`);
+  assert.ok(
+    src.includes('execFileSync("npx"'),
+    `${hookName}: missing execFileSync npx spawn`,
+  );
   console.log(`dev_path_retained (${hookName}): pass`);
 }
 
-function server_cmd_used_in_execsync(hookName) {
+function server_spawn_uses_execfile_with_npx(hookName) {
   const src = readHook(hookName);
   assert.ok(
-    src.includes("execSync(serverCmd"),
-    `${hookName}: execSync must use 'serverCmd' variable, not hardcoded string`,
+    src.includes('execFileSync("npx"'),
+    `${hookName}: must use execFileSync with npx`,
   );
-  console.log(`server_cmd_used_in_execsync (${hookName}): pass`);
+  assert.ok(
+    src.includes('["tsx", serverScript]'),
+    hookName + ": dev argv must list tsx then serverScript",
+  );
+  console.log(`server_spawn_uses_execfile_with_npx (${hookName}): pass`);
 }
 
 const hooks = [
@@ -54,7 +62,7 @@ for (const hook of hooks) {
   isDev_check_present(hook);
   prod_fallback_present(hook);
   dev_path_retained(hook);
-  server_cmd_used_in_execsync(hook);
+  server_spawn_uses_execfile_with_npx(hook);
 }
 
 console.log("All AIC-cursor-hook-prod-fallback tests passed.");

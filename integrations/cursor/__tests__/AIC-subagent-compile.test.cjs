@@ -59,13 +59,13 @@ function subagent_compile_imports_write_compile_recency() {
 
 function subagent_compile_calls_write_compile_recency_after_exec() {
   const src = readHook("AIC-subagent-compile.cjs");
-  const execIdx = src.indexOf("execSync(serverCmd");
+  const execIdx = src.indexOf('execFileSync("npx"');
   const recencyIdx = src.indexOf("writeCompileRecency(projectRoot)");
   assert.ok(
     execIdx !== -1 && recencyIdx !== -1,
-    "expected execSync and writeCompileRecency",
+    "expected execFileSync and writeCompileRecency",
   );
-  assert.ok(recencyIdx > execIdx, "writeCompileRecency should follow execSync block");
+  assert.ok(recencyIdx > execIdx, "writeCompileRecency should follow execFileSync block");
   console.log("subagent_compile_calls_write_compile_recency_after_exec: pass");
 }
 

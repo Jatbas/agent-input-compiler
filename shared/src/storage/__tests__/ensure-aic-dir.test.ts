@@ -9,6 +9,7 @@ import {
   existsSync,
   statSync,
   realpathSync,
+  symlinkSync,
 } from "node:fs";
 
 function findRepoRootForIgnoreJson(startDir: string): string {
@@ -35,6 +36,7 @@ import {
   ensureAicDir,
   ensureEslintignore,
   ensurePrettierignore,
+  getContainedProjectAicRootIfPresent,
 } from "../ensure-aic-dir.js";
 
 const EXPECTED_GITIGNORE_CONTENT = AIC_IGNORE_ENTRIES.map((e) => `${e}\n`).join("");
@@ -64,6 +66,34 @@ describe("ensureAicDir", () => {
   function makeTmpDir(): string {
     return mkdtempSync(join(realpathSync(tmpdir()), "aic-test-gitignore-"));
   }
+
+  it("rejects_symlinked_aic_outside_project", () => {
+    if (platform() === "win32") return;
+    const project = mkdtempSync(join(realpathSync(tmpdir()), "aic-symlink-proj-"));
+    const external = mkdtempSync(join(realpathSync(tmpdir()), "aic-symlink-ext-"));
+    dirs[dirs.length] = project;
+    dirs[dirs.length] = external;
+    symlinkSync(external, join(project, ".aic"), "dir");
+    expect(() => ensureAicDir(toAbsolutePath(project))).toThrow(ConfigError);
+  });
+
+  it("getContainedProjectAicRootIfPresent_returns_null_when_no_aic", () => {
+    const tmp = makeTmpDir();
+    dirs[dirs.length] = tmp;
+    expect(getContainedProjectAicRootIfPresent(toAbsolutePath(tmp))).toBe(null);
+  });
+
+  it("getContainedProjectAicRootIfPresent_rejects_symlinked_aic_outside_project", () => {
+    if (platform() === "win32") return;
+    const project = mkdtempSync(join(realpathSync(tmpdir()), "aic-get-contained-proj-"));
+    const external = mkdtempSync(join(realpathSync(tmpdir()), "aic-get-contained-ext-"));
+    dirs[dirs.length] = project;
+    dirs[dirs.length] = external;
+    symlinkSync(external, join(project, ".aic"), "dir");
+    expect(() => getContainedProjectAicRootIfPresent(toAbsolutePath(project))).toThrow(
+      ConfigError,
+    );
+  });
 
   it("creates .aic directory with 0700 permissions", () => {
     const tmp = makeTmpDir();

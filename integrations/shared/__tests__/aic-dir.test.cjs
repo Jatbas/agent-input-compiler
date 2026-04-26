@@ -53,7 +53,23 @@ function appendJsonl_appends_line() {
   }
 }
 
+function ensureAicDir_rejects_symlink_escape() {
+  const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), "aic-dir-"));
+  const external = fs.mkdtempSync(path.join(os.tmpdir(), "aic-dir-ext-"));
+  try {
+    fs.symlinkSync(external, path.join(projectRoot, ".aic"), "dir");
+    assert.throws(
+      () => ensureAicDir(projectRoot),
+      (err) => err instanceof Error && err.message === "invalid project .aic directory",
+    );
+  } finally {
+    fs.rmSync(projectRoot, { recursive: true, force: true });
+    fs.rmSync(external, { recursive: true, force: true });
+  }
+}
+
 const cases = [
+  ...(process.platform !== "win32" ? [ensureAicDir_rejects_symlink_escape] : []),
   getAicDir_returns_join,
   ensureAicDir_creates_with_0o700,
   ensureAicDir_idempotent,

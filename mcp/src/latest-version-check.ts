@@ -2,8 +2,11 @@
 // Copyright (c) 2025 AIC Contributors
 
 import * as fs from "node:fs";
-import * as path from "node:path";
 import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import {
+  ensureAicDir,
+  joinUnderProjectAic,
+} from "@jatbas/aic-core/storage/ensure-aic-dir.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import type { Milliseconds } from "@jatbas/aic-core/core/types/units.js";
 import { toMilliseconds } from "@jatbas/aic-core/core/types/units.js";
@@ -57,14 +60,6 @@ export interface UpdateInfo {
   readonly updateAvailable: string | null;
   readonly currentVersion: string;
   readonly updateMessage: string | null;
-}
-
-function ensureAicDir(projectRoot: AbsolutePath): string {
-  const aicDir = path.join(projectRoot, ".aic");
-  if (!fs.existsSync(aicDir)) {
-    fs.mkdirSync(aicDir, { recursive: true, mode: 0o700 });
-  }
-  return aicDir;
 }
 
 function readValidCache(
@@ -171,14 +166,12 @@ function writeUpdateSideEffectFiles(
   }
 }
 
-function cachePathsForProject(
-  projectRoot: AbsolutePath,
-  persistSideEffects: boolean,
-): { readonly cachePath: string; readonly messagePath: string } {
-  const cachePath = persistSideEffects
-    ? path.join(ensureAicDir(projectRoot), CACHE_FILENAME)
-    : path.join(projectRoot, ".aic", CACHE_FILENAME);
-  const messagePath = path.join(projectRoot, ".aic", MESSAGE_FILENAME);
+function cachePathsForProject(projectRoot: AbsolutePath): {
+  readonly cachePath: string;
+  readonly messagePath: string;
+} {
+  const cachePath = joinUnderProjectAic(projectRoot, CACHE_FILENAME);
+  const messagePath = joinUnderProjectAic(projectRoot, MESSAGE_FILENAME);
   return { cachePath, messagePath };
 }
 
@@ -212,10 +205,7 @@ export async function getUpdateInfo(
   const persistSideEffects = options === undefined || options.persistSideEffects;
   try {
     const now = clock.now();
-    const { cachePath, messagePath } = cachePathsForProject(
-      projectRoot,
-      persistSideEffects,
-    );
+    const { cachePath, messagePath } = cachePathsForProject(projectRoot);
     const latestVersion = await resolveRegistryLatest(
       persistSideEffects,
       packageName,
@@ -244,8 +234,8 @@ export async function getUpdateInfo(
   } catch {
     if (persistSideEffects) {
       try {
-        const messagePath = path.join(projectRoot, ".aic", MESSAGE_FILENAME);
-        if (fs.existsSync(path.join(projectRoot, ".aic"))) {
+        const messagePath = joinUnderProjectAic(projectRoot, MESSAGE_FILENAME);
+        if (fs.existsSync(ensureAicDir(projectRoot))) {
           writeMessageFile(messagePath, "");
         }
       } catch {

@@ -12,13 +12,22 @@ function getAicDir(projectRoot) {
 function ensureAicDir(projectRoot) {
   const dir = path.join(projectRoot, ".aic");
   fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-  return dir;
+  const rootReal = fs.realpathSync(projectRoot);
+  const aicReal = fs.realpathSync(dir);
+  const rel = path.relative(rootReal, aicReal);
+  if (rel.length === 0 || rel.startsWith("..") || path.isAbsolute(rel)) {
+    throw new Error("invalid project .aic directory");
+  }
+  return aicReal;
 }
 
 function appendJsonl(projectRoot, filename, entry) {
   try {
-    ensureAicDir(projectRoot);
-    const filePath = path.join(projectRoot, ".aic", filename);
+    if (String(filename).includes("..")) {
+      return;
+    }
+    const base = ensureAicDir(projectRoot);
+    const filePath = path.join(base, filename);
     fs.appendFileSync(filePath, JSON.stringify(entry) + "\n", "utf8");
   } catch {
     // non-fatal, do not throw

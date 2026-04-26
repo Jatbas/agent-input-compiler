@@ -2,7 +2,6 @@
 // Copyright (c) 2025 AIC Contributors
 
 import * as fs from "node:fs";
-import * as path from "node:path";
 import {
   McpError,
   ErrorCode,
@@ -37,6 +36,7 @@ import {
   type FilePath,
   toRelativePath,
 } from "@jatbas/aic-core/core/types/paths.js";
+import { joinUnderProjectAic } from "@jatbas/aic-core/storage/ensure-aic-dir.js";
 import { toStepIndex, toTokenCount } from "@jatbas/aic-core/core/types/units.js";
 import type { GuardResult } from "@jatbas/aic-core/core/types/guard-types.js";
 import type {
@@ -424,9 +424,8 @@ export function createCompileHandler(
       (msg) => process.stderr.write(msg),
     );
     tryRecordQualitySnapshot(scope, configResult, result);
-    const lastPromptPath = path.join(
+    const lastPromptPath = joinUnderProjectAic(
       request.projectRoot,
-      ".aic",
       "last-compiled-prompt.txt",
     );
     try {
@@ -501,8 +500,8 @@ export function createCompileHandler(
         const sanitized = sanitizeError(err);
         throw new McpError(ErrorCode.InternalError, sanitized.message);
       }
-      const label = err instanceof Error ? err.message : String(err);
-      process.stderr.write(`[aic] compile-handler unexpected error: ${label}\n`);
+      const { message } = sanitizeError(err);
+      process.stderr.write(`[aic] compile-handler unexpected error: ${message}\n`);
       throw new McpError(ErrorCode.InternalError, "Internal error");
     }
   };

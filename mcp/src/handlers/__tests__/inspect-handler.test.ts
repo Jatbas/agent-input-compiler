@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
+import { mkdtempSync, realpathSync, rmSync, symlinkSync } from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { describe, it, expect } from "vitest";
@@ -22,7 +23,7 @@ import {
   toConfidence,
   toRelevanceScore,
 } from "@jatbas/aic-core/core/types/scores.js";
-import { toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toAbsolutePath, toRelativePath } from "@jatbas/aic-core/core/types/paths.js";
 import { INCLUSION_TIER, TASK_CLASS } from "@jatbas/aic-core/core/types/enums.js";
 
 const stubTrace: PipelineTrace = {
@@ -98,6 +99,40 @@ const args = {
 };
 
 describe("handleInspect", () => {
+  it("inspect_handler_rejects_symlinked_aic_outside_project", async () => {
+    if (os.platform() === "win32") return;
+    const project = mkdtempSync(
+      path.join(realpathSync(os.homedir()), "aic-inspect-symlink-proj-"),
+    );
+    const external = mkdtempSync(
+      path.join(realpathSync(os.tmpdir()), "aic-inspect-symlink-ext-"),
+    );
+    try {
+      symlinkSync(external, path.join(project, ".aic"), "dir");
+      const result = await handleInspect(
+        { intent: "test intent", projectRoot: toAbsolutePath(project) },
+        makeInspectRunner(stubTrace),
+        stubLogStore,
+        stubClock,
+        stubIdGen,
+        getSessionId,
+      );
+      const block = result.content[0];
+      if (block === undefined || block.type !== "text") {
+        expect.fail("expected text content block");
+      }
+      const parsed = JSON.parse(block.text) as {
+        code?: string;
+        trace?: unknown;
+      };
+      expect(parsed.trace).toBeUndefined();
+      expect(parsed.code).toBe("CONFIG_INVALID");
+    } finally {
+      rmSync(project, { recursive: true, force: true });
+      rmSync(external, { recursive: true, force: true });
+    }
+  });
+
   it("inspect_handler_strips_resolved_content_from_all_selected_files", async () => {
     const result = await handleInspect(
       args,

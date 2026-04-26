@@ -663,10 +663,11 @@ export default tseslint.config(
     },
   },
 
-  // ─── Storage: ensure-aic-dir, create-project-scope, ensure-project-id may use node:fs/node:path ───
+  // ─── Storage: ensure-aic-dir, open-database, create-project-scope, ensure-project-id may use node:fs/node:path ───
   {
     files: [
       "shared/src/storage/ensure-aic-dir.ts",
+      "shared/src/storage/open-database.ts",
       "shared/src/storage/create-project-scope.ts",
       "shared/src/storage/ensure-project-id.ts",
     ],

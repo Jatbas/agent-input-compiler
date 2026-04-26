@@ -2,8 +2,10 @@
 // Copyright (c) 2025 AIC Contributors
 
 import * as fs from "node:fs";
-import * as path from "node:path";
-import { ensureAicDir } from "@jatbas/aic-core/storage/ensure-aic-dir.js";
+import {
+  ensureAicDir,
+  joinUnderProjectAic,
+} from "@jatbas/aic-core/storage/ensure-aic-dir.js";
 import { toProjectId, type ProjectId } from "@jatbas/aic-core/core/types/identifiers.js";
 import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
@@ -28,7 +30,7 @@ export function reconcileProjectId(
   idGenerator: IdGenerator,
   normaliser: ProjectRootNormaliser,
 ): ProjectId {
-  const filePath = path.join(projectRoot, ".aic", PROJECT_ID_FILENAME);
+  const filePath = joinUnderProjectAic(projectRoot, PROJECT_ID_FILENAME);
   const normalisedRoot = normaliser.normalise(projectRoot);
   const now = clock.now();
   const rootRows = db

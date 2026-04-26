@@ -2,8 +2,8 @@
 // Copyright (c) 2025 AIC Contributors
 
 import { closeSync, fstatSync, openSync, readFileSync, readSync } from "node:fs";
-import * as path from "node:path";
 import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import { joinUnderProjectAic } from "@jatbas/aic-core/storage/ensure-aic-dir.js";
 import {
   reduceSessionModelJsonlState,
   selectSessionModelIdFromJsonlContent,
@@ -36,7 +36,7 @@ export function readSessionModelIdFromSessionModelsJsonl(
   conversationId: string | null,
   editorId: string,
 ): string | null {
-  const jsonlPath = path.join(projectRoot, ".aic", "session-models.jsonl");
+  const jsonlPath = joinUnderProjectAic(projectRoot, "session-models.jsonl");
   const fdOrNull = openSessionModelsJsonlReadFd(jsonlPath);
   if (fdOrNull === null) {
     return null;

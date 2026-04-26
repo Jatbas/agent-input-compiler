@@ -13,11 +13,13 @@ function withCv(obj) {
 }
 
 function runHook(stdinJson) {
-  const originalExecSync = childProcess.execSync;
+  const originalExecFileSync = childProcess.execFileSync;
   let capturedCmd = null;
+  let capturedArgs = null;
   let capturedInput = null;
-  childProcess.execSync = (cmd, opts) => {
-    capturedCmd = cmd;
+  childProcess.execFileSync = (file, args, opts) => {
+    capturedCmd = file;
+    capturedArgs = args;
     capturedInput = opts.input;
   };
   try {
@@ -35,20 +37,22 @@ function runHook(stdinJson) {
       delete require.cache[hookPath];
     }
   } finally {
-    childProcess.execSync = originalExecSync;
+    childProcess.execFileSync = originalExecFileSync;
   }
-  return { capturedCmd, capturedInput };
+  return { capturedCmd, capturedArgs, capturedInput };
 }
 
 function reparents_when_conversation_id_present() {
-  const { capturedCmd, capturedInput } = runHook(
+  const { capturedCmd, capturedArgs, capturedInput } = runHook(
     withCv({
       cwd: "/tmp/test-project",
       conversation_id: "parent-abc",
       agent_transcript_path: "/home/user/.cursor/conversations/child-xyz.jsonl",
     }),
   );
-  assert.notStrictEqual(capturedCmd, null, "Expected execSync to be called");
+  assert.notStrictEqual(capturedCmd, null, "Expected execFileSync to be called");
+  assert.strictEqual(capturedCmd, "npx");
+  assert.strictEqual(capturedArgs[0], "tsx");
   const lines = capturedInput.split("\n").filter((l) => l.trim());
   const toolsCall = JSON.parse(lines[2]);
   const args = toolsCall.params.arguments;
@@ -59,7 +63,7 @@ function reparents_when_conversation_id_present() {
 }
 
 function reparents_using_parent_conversation_id_fallback() {
-  const { capturedCmd, capturedInput } = runHook(
+  const { capturedCmd, capturedArgs, capturedInput } = runHook(
     withCv({
       cwd: "/tmp/test-project",
       parent_conversation_id: "parent-fallback",
@@ -69,8 +73,10 @@ function reparents_using_parent_conversation_id_fallback() {
   assert.notStrictEqual(
     capturedCmd,
     null,
-    "Expected execSync to be called via fallback field",
+    "Expected execFileSync to be called via fallback field",
   );
+  assert.strictEqual(capturedCmd, "npx");
+  assert.strictEqual(capturedArgs[0], "tsx");
   const lines = capturedInput.split("\n").filter((l) => l.trim());
   const toolsCall = JSON.parse(lines[2]);
   const args = toolsCall.params.arguments;
@@ -89,7 +95,7 @@ function skips_when_both_id_fields_absent() {
   assert.strictEqual(
     capturedCmd,
     null,
-    "Expected execSync NOT to be called when both ID fields absent",
+    "Expected execFileSync NOT to be called when both ID fields absent",
   );
   console.log("skips_when_both_id_fields_absent: pass");
 }
@@ -105,7 +111,7 @@ function skips_when_ids_identical() {
   assert.strictEqual(
     capturedCmd,
     null,
-    "Expected execSync NOT to be called when IDs are identical",
+    "Expected execFileSync NOT to be called when IDs are identical",
   );
   console.log("skips_when_ids_identical: pass");
 }
@@ -120,7 +126,7 @@ function skips_when_no_agent_transcript_path() {
   assert.strictEqual(
     capturedCmd,
     null,
-    "Expected execSync NOT to be called when agent_transcript_path absent",
+    "Expected execFileSync NOT to be called when agent_transcript_path absent",
   );
   console.log("skips_when_no_agent_transcript_path: pass");
 }
@@ -142,7 +148,7 @@ function cursor_subagent_stop_noop_when_no_cursor_version() {
   assert.strictEqual(
     capturedCmd,
     null,
-    "Expected execSync NOT to be called without cursor_version",
+    "Expected execFileSync NOT to be called without cursor_version",
   );
   console.log("cursor_subagent_stop_noop_when_no_cursor_version: pass");
 }

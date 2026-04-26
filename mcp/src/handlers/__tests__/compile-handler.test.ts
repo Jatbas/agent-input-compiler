@@ -243,6 +243,47 @@ describe("compile-handler", () => {
     };
   }
 
+  it("stderr_redacts_absolute_path_on_unknown_compile_error", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+    try {
+      const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+      const rejectingRunner = {
+        run: (): Promise<never> =>
+          Promise.reject(new Error("boom /Users/example/leak/path")),
+      };
+      const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
+      const handler = createCompileHandler(
+        getScope,
+        (_scope: ProjectScope) => rejectingRunner,
+        { hash: (): string => "" },
+        getSessionId,
+        getEditorId,
+        getModelId,
+        [],
+        enabledConfigLoader,
+        () => {},
+        () => null,
+        () => false,
+      );
+      try {
+        await handler(
+          { intent: "test", projectRoot: tmpDir, modelId: null, configPath: null },
+          undefined,
+        );
+        expect.fail("expected handler to reject");
+      } catch (e) {
+        expect(e).toBeInstanceOf(McpError);
+        expect((e as McpError).message).toContain("Internal error");
+      }
+      const combined = stderrSpy.mock.calls.map((c) => String(c[0])).join("");
+      expect(combined).toContain("[path]");
+      expect(combined).not.toContain("/Users/example/leak/path");
+      stderrSpy.mockRestore();
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
   it("prompt_log_written_after_successful_compile", async () => {
     const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
     try {

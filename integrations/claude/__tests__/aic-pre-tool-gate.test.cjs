@@ -284,6 +284,46 @@ function allow_when_subdir_cwd_has_aic_config_in_parent() {
   }
 }
 
+function deny_when_gate_throws_unexpected_error_BUGS09() {
+  const gatePath = path.join(__dirname, "..", "hooks", "aic-pre-tool-gate.cjs");
+  const prewarmModPath = path.join(
+    __dirname,
+    "..",
+    "..",
+    "shared",
+    "read-aic-prewarm-prompt.cjs",
+  );
+  delete require.cache[gatePath];
+  delete require.cache[prewarmModPath];
+  const prewarmMod = require(prewarmModPath);
+  const origRead = prewarmMod.readAicPrewarmPrompt;
+  prewarmMod.readAicPrewarmPrompt = () => {
+    throw new Error("simulated unexpected pre-tool-gate dependency failure");
+  };
+  const { run: runWithThrowingPrewarm } = require(gatePath);
+  setup();
+  const start = Date.now();
+  const out = runWithThrowingPrewarm(makePayload());
+  const elapsed = Date.now() - start;
+  prewarmMod.readAicPrewarmPrompt = origRead;
+  delete require.cache[gatePath];
+  delete require.cache[prewarmModPath];
+  const parsed = JSON.parse(out);
+  if (parsed.hookSpecificOutput?.permissionDecision !== "deny") {
+    throw new Error(
+      `BUGS-09 regression: expected deny on unexpected gate error, got ${out}`,
+    );
+  }
+  const reason = parsed.hookSpecificOutput?.permissionDecisionReason ?? "";
+  if (!reason.includes("compile_gate_error")) {
+    throw new Error(`Expected compile_gate_error in reason, got: ${reason}`);
+  }
+  if (elapsed < 400) {
+    throw new Error(`Expected sibling poll before deny path, got ${elapsed}ms`);
+  }
+  console.log("deny_when_gate_throws_unexpected_error_BUGS09: pass");
+}
+
 async function runAll() {
   allow_when_recent_compile();
   deny_when_no_compile();
@@ -297,6 +337,7 @@ async function runAll() {
   deny_when_turn_start_but_not_compiled();
   allow_tool_search_for_aic_compile_schema();
   allow_when_subdir_cwd_has_aic_config_in_parent();
+  deny_when_gate_throws_unexpected_error_BUGS09();
   console.log("All aic-pre-tool-gate tests passed.");
 }
 

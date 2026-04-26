@@ -6,7 +6,7 @@
 // Reparents compilation_log entries from the subagent's conversation_id
 // to the parent's conversation_id so all compilations in a chat session
 // are tracked under one conversation.
-const { execSync } = require("child_process");
+const { execFileSync } = require("node:child_process");
 const fs = require("fs");
 const path = require("path");
 
@@ -91,16 +91,21 @@ if (!isCursorNativeHookPayload(hookInput)) {
     const stdinPayload = `${initRequest}\n${initNotification}\n${compileRequest}\n`;
     const serverScript = path.join(projectRoot, "mcp", "src", "server.ts");
     const isDev = fs.existsSync(serverScript);
-    const serverCmd = isDev ? 'npx tsx "' + serverScript + '"' : "npx -y @jatbas/aic";
+    // prod argv mirrors npx -y @jatbas/aic (structural test anchor)
 
     try {
-      execSync(serverCmd, {
+      const execOpts = {
         cwd: projectRoot,
         timeout: 10000,
         encoding: "utf-8",
         input: stdinPayload,
         stdio: ["pipe", "pipe", "pipe"],
-      });
+      };
+      if (isDev) {
+        execFileSync("npx", ["tsx", serverScript], execOpts);
+      } else {
+        execFileSync("npx", ["-y", "@jatbas/aic"], execOpts);
+      }
     } catch {
       // Best-effort — never block returning from subagent
     }

@@ -3,7 +3,7 @@
 // Copyright (c) 2025 AIC Contributors
 // SubagentStop hook — reparents subagent compilation_log entries to parent conversation.
 
-const { execSync } = require("child_process");
+const { execFileSync } = require("node:child_process");
 const fs = require("fs");
 const path = require("path");
 const {
@@ -44,7 +44,6 @@ function run(stdinStr) {
   ) {
     const serverScript = path.join(projectRoot, "mcp", "src", "server.ts");
     const isDev = fs.existsSync(serverScript);
-    const serverInvocation = isDev ? `npx tsx "${serverScript}"` : "npx -y @jatbas/aic";
 
     const initRequest = JSON.stringify({
       jsonrpc: "2.0",
@@ -80,7 +79,7 @@ function run(stdinStr) {
     const stdinPayload = `${initRequest}\n${initNotification}\n${compileRequest}\n`;
 
     try {
-      execSync(serverInvocation, {
+      execFileSync("npx", isDev ? ["tsx", serverScript] : ["-y", "@jatbas/aic"], {
         cwd: projectRoot,
         timeout: 10000,
         input: stdinPayload,

@@ -6,7 +6,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
-import { toAbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import { toAbsolutePath, toFilePath } from "@jatbas/aic-core/core/types/paths.js";
 import type { ProjectId } from "@jatbas/aic-core/core/types/identifiers.js";
 import {
   STATUS_TIME_RANGE_DAYS_MAX,
@@ -190,12 +190,17 @@ async function runCliDiagnosticsAsync(argv: readonly string[]): Promise<number> 
 }
 
 function openGlobalDbOrExit(): { readonly db: ExecutableDb } | { readonly code: number } {
-  const dbPath = path.join(os.homedir(), ".aic", "aic.sqlite");
+  const globalAicDir = path.join(os.homedir(), ".aic");
+  const dbPath = path.join(globalAicDir, "aic.sqlite");
   if (!fs.existsSync(dbPath)) {
     process.stderr.write(`AIC database not found at ${dbPath}\n`);
     return { code: 1 };
   }
-  return { db: openDatabaseReadOnly(dbPath) };
+  return {
+    db: openDatabaseReadOnly(dbPath, {
+      mustStayWithinDir: toFilePath(globalAicDir),
+    }),
+  };
 }
 
 function resolveProjectIdForAbsoluteRoot(

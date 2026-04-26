@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // Copyright (c) 2025 AIC Contributors
 
-import * as path from "node:path";
 import type { InspectRunner } from "@jatbas/aic-core/core/interfaces/inspect-runner.interface.js";
 import type { ToolInvocationLogStore } from "@jatbas/aic-core/core/interfaces/tool-invocation-log-store.interface.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
@@ -10,6 +9,7 @@ import type { SessionId } from "@jatbas/aic-core/core/types/identifiers.js";
 import { AicError } from "@jatbas/aic-core/core/errors/aic-error.js";
 import { sanitizeError } from "@jatbas/aic-core/core/errors/sanitize-error.js";
 import { toFilePath } from "@jatbas/aic-core/core/types/paths.js";
+import { joinUnderProjectAic } from "@jatbas/aic-core/storage/ensure-aic-dir.js";
 import { recordToolInvocation } from "../record-tool-invocation.js";
 import { validateProjectRoot, validateConfigPath } from "../validate-project-root.js";
 
@@ -44,16 +44,14 @@ export async function handleInspect(
     "aic_inspect",
     args,
   );
-  const dbPath = toFilePath(path.join(projectRoot, ".aic", "aic.sqlite"));
-
-  const request = {
-    intent: args.intent,
-    projectRoot,
-    configPath,
-    dbPath,
-  } as const;
-
   try {
+    const dbPath = toFilePath(joinUnderProjectAic(projectRoot, "aic.sqlite"));
+    const request = {
+      intent: args.intent,
+      projectRoot,
+      configPath,
+      dbPath,
+    } as const;
     const result = await inspectRunner.inspect(request);
     // strip file content to prevent response self-flooding
     const sanitizedTrace = {

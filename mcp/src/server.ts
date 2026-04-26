@@ -45,6 +45,7 @@ import { NodePathAdapter } from "@jatbas/aic-core/adapters/node-path-adapter.js"
 import { SystemClock } from "@jatbas/aic-core/adapters/system-clock.js";
 import { ScopeRegistry } from "@jatbas/aic-core/storage/scope-registry.js";
 import { openDatabase, closeDatabase } from "@jatbas/aic-core/storage/open-database.js";
+import { getContainedProjectAicRootIfPresent } from "@jatbas/aic-core/storage/ensure-aic-dir.js";
 import type { CacheStore } from "@jatbas/aic-core/core/interfaces/cache-store.interface.js";
 import type { CompilationRunner } from "@jatbas/aic-core/core/interfaces/compilation-runner.interface.js";
 import type { SessionTracker } from "@jatbas/aic-core/core/interfaces/session-tracker.interface.js";
@@ -72,11 +73,7 @@ import {
   LoadConfigFromFile,
   applyConfigResult,
 } from "@jatbas/aic-core/config/load-config-from-file.js";
-import {
-  McpError,
-  ErrorCode,
-  type ToolAnnotations,
-} from "@modelcontextprotocol/sdk/types.js";
+import { type ToolAnnotations } from "@modelcontextprotocol/sdk/types.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CompilationRunner as CompilationRunnerImpl } from "@jatbas/aic-core/pipeline/compilation-runner.js";
@@ -110,6 +107,7 @@ import {
   buildProjectsPayload,
   buildQualityReportPayload,
 } from "./diagnostic-payloads.js";
+import { rethrowUnexpectedMcpToolError } from "./unexpected-mcp-tool-error.js";
 import { EditorModelConfigReaderAdapter } from "@jatbas/aic-core/adapters/editor-model-config-reader.js";
 import { ModelDetectorDispatch } from "@jatbas/aic-core/adapters/model-detector-dispatch.js";
 
@@ -171,12 +169,6 @@ export function registerShutdownHandler(
 }
 
 export type BatchExitRef = { stdinEnded: boolean; pendingToolCalls: number };
-
-function rethrowAsMcpError(toolName: string, err: unknown): never {
-  const label = err instanceof Error ? err.message : String(err);
-  process.stderr.write(`[aic] ${toolName} unexpected error: ${label}\n`);
-  throw new McpError(ErrorCode.InternalError, "Internal error");
-}
 
 export function createMcpServer(
   projectRoot: AbsolutePath,
@@ -515,7 +507,7 @@ export function createMcpServer(
           content: [{ type: "text" as const, text: JSON.stringify(payload) }],
         });
       } catch (err) {
-        rethrowAsMcpError("quality_report", err);
+        rethrowUnexpectedMcpToolError("quality_report", err);
       }
     },
   );
@@ -564,7 +556,7 @@ export function createMcpServer(
           content: [{ type: "text" as const, text: JSON.stringify(payload) }],
         });
       } catch (err) {
-        rethrowAsMcpError("chat_summary", err);
+        rethrowUnexpectedMcpToolError("chat_summary", err);
       }
     },
   );
@@ -640,15 +632,19 @@ export function processListedWorkspaceRootsForBootstrap(
 export async function main(): Promise<void> {
   const bootstrapMode = resolveBootstrapMode();
   const projectRoot = toAbsolutePath(process.cwd());
+  const containedAicRoot = getContainedProjectAicRootIfPresent(projectRoot);
+  const cwdAicDb: string | null =
+    containedAicRoot === null ? null : path.join(containedAicRoot, "aic.sqlite");
   const globalAicDir = path.join(os.homedir(), ".aic");
   const globalDbPath = path.join(globalAicDir, "aic.sqlite");
   fs.mkdirSync(globalAicDir, { recursive: true, mode: 0o700 });
-  const cwdAicDb = path.join(process.cwd(), ".aic", "aic.sqlite");
-  if (!fs.existsSync(globalDbPath) && fs.existsSync(cwdAicDb)) {
+  if (!fs.existsSync(globalDbPath) && cwdAicDb !== null && fs.existsSync(cwdAicDb)) {
     fs.copyFileSync(cwdAicDb, globalDbPath);
   }
   const clock = new SystemClock();
-  const db = openDatabase(globalDbPath, clock);
+  const db = openDatabase(globalDbPath, clock, {
+    mustStayWithinDir: toFilePath(globalAicDir),
+  });
   const batchExitRef: BatchExitRef = {
     stdinEnded: false,
     pendingToolCalls: 0,

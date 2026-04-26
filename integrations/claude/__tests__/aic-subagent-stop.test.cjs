@@ -13,11 +13,13 @@ function freshHook() {
 }
 
 function reparents_when_both_ids_present() {
-  const originalExecSync = childProcess.execSync;
-  let capturedCmd = null;
+  const originalExecFileSync = childProcess.execFileSync;
+  let capturedFile = null;
+  let capturedArgs = null;
   let capturedInput = null;
-  childProcess.execSync = (cmd, opts) => {
-    capturedCmd = cmd;
+  childProcess.execFileSync = (file, args, opts) => {
+    capturedFile = file;
+    capturedArgs = args;
     capturedInput = opts.input;
   };
   try {
@@ -29,7 +31,19 @@ function reparents_when_both_ids_present() {
         agent_transcript_path: "/home/user/.claude/conversations/child-xyz.jsonl",
       }),
     );
-    if (capturedCmd === null) throw new Error("Expected execSync to be called");
+    if (capturedFile === null) throw new Error("Expected execFileSync to be called");
+    if (capturedFile !== "npx") {
+      throw new Error(`Expected file "npx", got ${capturedFile}`);
+    }
+    if (capturedArgs[0] === "tsx") {
+      if (typeof capturedArgs[1] !== "string" || !capturedArgs[1].includes("server.ts")) {
+        throw new Error("Expected dev argv tsx then server script path");
+      }
+    } else if (capturedArgs[0] !== "-y" || capturedArgs[1] !== "@jatbas/aic") {
+      throw new Error(
+        `Expected prod argv [-y,@jatbas/aic] or dev [tsx,script], got ${JSON.stringify(capturedArgs)}`,
+      );
+    }
     const lines = capturedInput.split("\n").filter((l) => l.trim());
     const toolsCall = JSON.parse(lines[2]);
     const args = toolsCall.params.arguments;
@@ -48,14 +62,14 @@ function reparents_when_both_ids_present() {
     }
     console.log("reparents_when_both_ids_present: pass");
   } finally {
-    childProcess.execSync = originalExecSync;
+    childProcess.execFileSync = originalExecFileSync;
   }
 }
 
 function reparent_uses_session_id_fallback_for_parent() {
-  const originalExecSync = childProcess.execSync;
+  const originalExecFileSync = childProcess.execFileSync;
   let capturedInput = null;
-  childProcess.execSync = (_cmd, opts) => {
+  childProcess.execFileSync = (_file, _args, opts) => {
     capturedInput = opts.input;
   };
   try {
@@ -67,7 +81,7 @@ function reparent_uses_session_id_fallback_for_parent() {
         agent_transcript_path: "/home/user/.claude/conversations/child-xyz.jsonl",
       }),
     );
-    if (capturedInput === null) throw new Error("Expected execSync to be called");
+    if (capturedInput === null) throw new Error("Expected execFileSync to be called");
     const lines = capturedInput.split("\n").filter((l) => l.trim());
     const toolsCall = JSON.parse(lines[2]);
     const args = toolsCall.params.arguments;
@@ -83,14 +97,14 @@ function reparent_uses_session_id_fallback_for_parent() {
     }
     console.log("reparent_uses_session_id_fallback_for_parent: pass");
   } finally {
-    childProcess.execSync = originalExecSync;
+    childProcess.execFileSync = originalExecFileSync;
   }
 }
 
 function skips_reparent_when_no_transcript_path() {
-  const originalExecSync = childProcess.execSync;
+  const originalExecFileSync = childProcess.execFileSync;
   let called = false;
-  childProcess.execSync = () => {
+  childProcess.execFileSync = () => {
     called = true;
   };
   try {
@@ -102,17 +116,19 @@ function skips_reparent_when_no_transcript_path() {
       }),
     );
     if (called)
-      throw new Error("Expected execSync NOT to be called when transcript_path absent");
+      throw new Error(
+        "Expected execFileSync NOT to be called when transcript_path absent",
+      );
     console.log("skips_reparent_when_no_transcript_path: pass");
   } finally {
-    childProcess.execSync = originalExecSync;
+    childProcess.execFileSync = originalExecFileSync;
   }
 }
 
 function skips_reparent_when_ids_identical() {
-  const originalExecSync = childProcess.execSync;
+  const originalExecFileSync = childProcess.execFileSync;
   let called = false;
-  childProcess.execSync = () => {
+  childProcess.execFileSync = () => {
     called = true;
   };
   try {
@@ -125,17 +141,17 @@ function skips_reparent_when_ids_identical() {
       }),
     );
     if (called)
-      throw new Error("Expected execSync NOT to be called when IDs are identical");
+      throw new Error("Expected execFileSync NOT to be called when IDs are identical");
     console.log("skips_reparent_when_ids_identical: pass");
   } finally {
-    childProcess.execSync = originalExecSync;
+    childProcess.execFileSync = originalExecFileSync;
   }
 }
 
 function skips_reparent_when_no_agent_transcript_path() {
-  const originalExecSync = childProcess.execSync;
+  const originalExecFileSync = childProcess.execFileSync;
   let called = false;
-  childProcess.execSync = () => {
+  childProcess.execFileSync = () => {
     called = true;
   };
   try {
@@ -148,18 +164,18 @@ function skips_reparent_when_no_agent_transcript_path() {
     );
     if (called)
       throw new Error(
-        "Expected execSync NOT to be called when agent_transcript_path absent",
+        "Expected execFileSync NOT to be called when agent_transcript_path absent",
       );
     console.log("skips_reparent_when_no_agent_transcript_path: pass");
   } finally {
-    childProcess.execSync = originalExecSync;
+    childProcess.execFileSync = originalExecFileSync;
   }
 }
 
 function subagent_stop_noop_when_cursor_version_present() {
-  const originalExecSync = childProcess.execSync;
+  const originalExecFileSync = childProcess.execFileSync;
   let called = false;
-  childProcess.execSync = () => {
+  childProcess.execFileSync = () => {
     called = true;
   };
   try {
@@ -173,11 +189,13 @@ function subagent_stop_noop_when_cursor_version_present() {
       }),
     );
     if (called) {
-      throw new Error("Expected execSync NOT to be called when cursor_version present");
+      throw new Error(
+        "Expected execFileSync NOT to be called when cursor_version present",
+      );
     }
     console.log("subagent_stop_noop_when_cursor_version_present: pass");
   } finally {
-    childProcess.execSync = originalExecSync;
+    childProcess.execFileSync = originalExecFileSync;
   }
 }
 

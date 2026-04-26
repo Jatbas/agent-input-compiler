@@ -2,8 +2,8 @@
 // Copyright (c) 2025 AIC Contributors
 
 import * as fs from "node:fs";
-import * as path from "node:path";
 import type { AbsolutePath } from "@jatbas/aic-core/core/types/paths.js";
+import { joinUnderProjectAic } from "@jatbas/aic-core/storage/ensure-aic-dir.js";
 import type { Clock } from "@jatbas/aic-core/core/interfaces/clock.interface.js";
 import { isValidTimestamp } from "./cache-field-validators.js";
 
@@ -25,7 +25,7 @@ export function pruneJsonlByTimestamp(
   clock: Clock,
   logFileName: string,
 ): void {
-  const logPath = path.join(projectRoot, ".aic", logFileName);
+  const logPath = joinUnderProjectAic(projectRoot, logFileName);
   try {
     if (!fs.existsSync(logPath)) return;
     const cutoff = clock.addMinutes(-RETENTION_MINUTES);

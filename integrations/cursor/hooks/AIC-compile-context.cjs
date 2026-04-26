@@ -8,7 +8,7 @@
 // additional_context. This runs before the model sees anything — deterministic.
 // conversationId uses transcript/direct resolution first, then deterministic fallback
 // (parent_conversation_id, session_id, generation_id) when primary fields are absent.
-const { execSync } = require("child_process");
+const { execFileSync } = require("node:child_process");
 const fs = require("fs");
 const path = require("path");
 
@@ -102,16 +102,19 @@ const compileRequest = JSON.stringify({
 const stdinPayload = `${initRequest}\n${initNotification}\n${compileRequest}\n`;
 const serverScript = path.join(projectRoot, "mcp", "src", "server.ts");
 const isDev = fs.existsSync(serverScript);
-const serverCmd = isDev ? 'npx tsx "' + serverScript + '"' : "npx -y @jatbas/aic";
+// prod argv mirrors npx -y @jatbas/aic (structural test anchor)
 
 try {
-  const stdout = execSync(serverCmd, {
+  const execOpts = {
     cwd: projectRoot,
     timeout: 20000,
     encoding: "utf-8",
     input: stdinPayload,
     stdio: ["pipe", "pipe", "pipe"],
-  });
+  };
+  const stdout = isDev
+    ? execFileSync("npx", ["tsx", serverScript], execOpts)
+    : execFileSync("npx", ["-y", "@jatbas/aic"], execOpts);
 
   let compiledPrompt = null;
   for (const line of stdout.split("\n")) {

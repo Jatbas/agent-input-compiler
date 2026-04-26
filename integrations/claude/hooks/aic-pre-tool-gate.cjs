@@ -129,7 +129,14 @@ function run(stdinStr) {
       },
     });
   } catch {
-    return "{}";
+    return JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: "deny",
+        permissionDecisionReason:
+          'BLOCKED[compile_gate_error]: The aic_compile gate hit an unexpected error. Call aic_compile first with { "intent": "<your task>", "projectRoot": "<workspace>" }; if this persists, reinstall AIC.',
+      },
+    });
   }
 }
 

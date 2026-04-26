@@ -10,6 +10,7 @@ import {
   ensureAicDir,
   ensureEslintignore,
   ensurePrettierignore,
+  joinUnderProjectAic,
 } from "@jatbas/aic-core/storage/ensure-aic-dir.js";
 import { PROJECT_ID_FILENAME } from "@jatbas/aic-core/storage/ensure-project-id.js";
 import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
@@ -30,7 +31,7 @@ export function ensureProjectInit(
   }
   ensureAicDir(projectRoot);
   if (clock !== undefined && idGenerator !== undefined) {
-    const projectIdPath = path.join(projectRoot, ".aic", PROJECT_ID_FILENAME);
+    const projectIdPath = joinUnderProjectAic(projectRoot, PROJECT_ID_FILENAME);
     if (!fs.existsSync(projectIdPath)) {
       const uuid = idGenerator.generate();
       fs.writeFileSync(projectIdPath, uuid, "utf8");
