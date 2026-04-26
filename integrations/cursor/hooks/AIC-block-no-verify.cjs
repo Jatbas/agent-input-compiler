@@ -16,10 +16,20 @@ process.stdin.on("data", (chunk) => {
   raw += chunk;
 });
 process.stdin.on("end", () => {
+  let parsedInput;
   try {
-    const input = JSON.parse(raw);
-    if (!isCursorNativeHookPayload(input)) {
-      process.exit(0);
+    parsedInput = JSON.parse(raw);
+  } catch {
+    process.stdout.write(JSON.stringify({ permission: "allow" }));
+    return;
+  }
+  const input = parsedInput;
+  if (!isCursorNativeHookPayload(input)) {
+    process.exit(0);
+  }
+  try {
+    if (process.env.AIC_INTEGRATION_TEST_BLOCK_NO_VERIFY_INTERNAL_THROW === "1") {
+      throw new Error("integration-test-throw");
     }
     const cmd = (input.command || "").trim();
     // Extract only the git segment (before pipes/semicolons) to avoid false positives
@@ -46,6 +56,14 @@ process.stdin.on("end", () => {
 
     process.stdout.write(JSON.stringify({ permission: "allow" }));
   } catch {
-    process.stdout.write(JSON.stringify({ permission: "allow" }));
+    process.stdout.write(
+      JSON.stringify({
+        permission: "deny",
+        user_message:
+          "BLOCKED[block_no_verify_handler_error]: AIC beforeShellExecution hook failed. Retry the shell command.",
+        agent_message:
+          "BLOCKED[block_no_verify_handler_error]: AIC beforeShellExecution hook failed. Retry the shell command.",
+      }),
+    );
   }
 });

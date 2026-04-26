@@ -687,4 +687,76 @@ non_aic_mcp_envelope_passes_through_unchanged();
 fallback_to_config_name_when_no_cursor_mcps_dir();
 payload_without_cursor_version_noop();
 multi_session_runtime_ids_isolated();
+
+function inject_malformed_json_returns_allow_only() {
+  const result = spawnSync("node", [hookPath], {
+    input: "{",
+    encoding: "utf8",
+    env: { ...process.env },
+  });
+  if (result.status !== 0) {
+    throw new Error(`Expected status 0, got ${result.status}`);
+  }
+  if (result.stdout.trim() !== JSON.stringify({ permission: "allow" })) {
+    throw new Error(
+      `Expected allow-only stdout, got ${JSON.stringify(result.stdout.trim())}`,
+    );
+  }
+  console.log("inject_malformed_json_returns_allow_only: pass");
+}
+
+function inject_integration_env_throw_returns_deny() {
+  const stdin = hookPayload({
+    tool_name: "aic_compile",
+    tool_input: { intent: "x", projectRoot: process.cwd() },
+    conversation_id: "cid-throw-env",
+  });
+  const result = spawnSync("node", [hookPath], {
+    input: stdin,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      AIC_INTEGRATION_TEST_INJECT_INTERNAL_THROW: "1",
+    },
+  });
+  const out = JSON.parse(result.stdout.trim());
+  const msg =
+    "BLOCKED[inject_handler_error]: AIC MCP argument injection failed. Retry the tool call.";
+  if (out.permission !== "deny") {
+    throw new Error(`Expected permission deny, got ${JSON.stringify(out.permission)}`);
+  }
+  if (out.user_message !== msg || out.agent_message !== msg) {
+    throw new Error(`Expected paired deny messages, got ${JSON.stringify(out)}`);
+  }
+  console.log("inject_integration_env_throw_returns_deny: pass");
+}
+
+function inject_integration_env_unset_still_allows_compile() {
+  const stdin = hookPayload({
+    tool_name: "aic_compile",
+    tool_input: { intent: "x", projectRoot: process.cwd() },
+    conversation_id: "cid-throw-env",
+  });
+  const env = { ...process.env };
+  delete env.AIC_INTEGRATION_TEST_INJECT_INTERNAL_THROW;
+  const result = spawnSync("node", [hookPath], {
+    input: stdin,
+    encoding: "utf8",
+    env,
+  });
+  const out = JSON.parse(result.stdout.trim());
+  if (out.permission !== "allow") {
+    throw new Error(`Expected permission allow, got ${JSON.stringify(out.permission)}`);
+  }
+  if (!out.updated_input || out.updated_input.conversationId !== "cid-throw-env") {
+    throw new Error(
+      `Expected updated_input.conversationId cid-throw-env, got ${JSON.stringify(out.updated_input)}`,
+    );
+  }
+  console.log("inject_integration_env_unset_still_allows_compile: pass");
+}
+
+inject_malformed_json_returns_allow_only();
+inject_integration_env_throw_returns_deny();
+inject_integration_env_unset_still_allows_compile();
 console.log("All tests passed.");

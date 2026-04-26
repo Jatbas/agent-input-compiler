@@ -45,7 +45,7 @@ if (require.main === module) {
       if (out != null) process.stdout.write(out);
       process.exit(0);
     })
-    .catch(() => process.exit(0));
+    .catch(() => process.exit(1));
 }
 
 module.exports = { run };

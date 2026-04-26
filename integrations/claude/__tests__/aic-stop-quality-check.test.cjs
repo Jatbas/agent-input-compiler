@@ -51,6 +51,9 @@ function block_on_lint_failure() {
       throw new Error("Expected block output, got ''");
     }
     const obj = JSON.parse(out);
+    if (obj.reason.indexOf(badFile) !== -1) {
+      throw new Error(`reason must not embed absolute fixture path: ${obj.reason}`);
+    }
     if (obj.decision !== "block" || typeof obj.reason !== "string") {
       throw new Error(`Expected { decision: 'block', reason }, got ${out}`);
     }

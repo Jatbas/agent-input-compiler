@@ -24,10 +24,20 @@ process.stdin.on("data", (chunk) => {
   raw += chunk;
 });
 process.stdin.on("end", () => {
+  let parsedInput;
   try {
-    const input = JSON.parse(raw);
-    if (!isCursorNativeHookPayload(input)) {
-      return;
+    parsedInput = JSON.parse(raw);
+  } catch {
+    process.stdout.write(JSON.stringify({ permission: "allow" }));
+    return;
+  }
+  const input = parsedInput;
+  if (!isCursorNativeHookPayload(input)) {
+    return;
+  }
+  try {
+    if (process.env.AIC_INTEGRATION_TEST_INJECT_INTERNAL_THROW === "1") {
+      throw new Error("integration-test-throw");
     }
     const conversationId =
       input.conversation_id ?? input.conversationId ?? process.env.AIC_CONVERSATION_ID;
@@ -146,6 +156,14 @@ process.stdin.on("end", () => {
       process.stdout.write(JSON.stringify({ permission: "allow" }));
     }
   } catch {
-    process.stdout.write(JSON.stringify({ permission: "allow" }));
+    process.stdout.write(
+      JSON.stringify({
+        permission: "deny",
+        user_message:
+          "BLOCKED[inject_handler_error]: AIC MCP argument injection failed. Retry the tool call.",
+        agent_message:
+          "BLOCKED[inject_handler_error]: AIC MCP argument injection failed. Retry the tool call.",
+      }),
+    );
   }
 });

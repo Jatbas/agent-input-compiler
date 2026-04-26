@@ -251,10 +251,13 @@ process.stdout.write(
 process.stdout.write(
   JSON.stringify({
     decision: "block",
-    reason: "Fix lint/typecheck errors: ...",
+    reason:
+      "Fix lint and typecheck errors on the files you edited. Run pnpm lint and pnpm typecheck.",
   }),
 );
 ```
+
+The sample shows the both-fail case. If only ESLint fails, `reason` is `Fix lint errors on the files you edited. Run pnpm lint and pnpm typecheck.`; if only typecheck fails, `reason` uses `typecheck` in place of `lint` in that pattern. The hook never appends eslint or `tsc` stderr to `reason`.
 
 ([Stop decision control](https://code.claude.com/docs/en/hooks#stop-decision-control))
 
@@ -426,13 +429,17 @@ Lock file layout (`.session-start-lock`), merge options, and ordering with this 
 
 **Reference:** [hooks#stop](https://code.claude.com/docs/en/hooks#stop)
 
-**Purpose:** Before Claude reports "done", run ESLint and `tsc --noEmit` on every file the agent touched this session (from the tracker in §7.5). If either fails, block the stop and feed the error back so Claude auto-fixes before finishing. The `Stop` hook uses `decision: "block"` (see §6.5) which prevents Claude from finishing, with `reason` shown as an error — Claude continues the conversation and fixes the errors before stopping again.
+**Purpose:** Before Claude reports "done", read the touched-file list from the tracker in §7.5. Run ESLint with those `.ts` / `.js` paths and run `tsc --noEmit` once at the project root (TypeScript does not receive a per-file path list).
+
+If either command exits non-zero, the hook returns JSON with `decision: "block"` and the generic `reason` pattern in §6.5 (failed stages only, fixed `pnpm` lines, no subprocess stderr in the string). Claude Code surfaces that payload as the stop denial so the agent can fix issues and try stopping again.
 
 **Matcher:** `Stop` does not support matchers — fires on every stop.
 
 **Input fields used:** `input.session_id` → temp file key (to load the edited-files list)
 
 **Implementation note:** If the temp file for this `session_id` does not exist (no files were edited, or the tracker missed it), exit 0 immediately — do not block.
+
+**Implementation note:** If `tsconfig.json` is absent at the project root, the hook does not invoke `tsc` (treated as success); ESLint alone can still produce `decision: "block"`.
 
 **File:** `.claude/hooks/aic-stop-quality-check.cjs`
 

@@ -588,6 +588,17 @@ async function helper_malicious_cache_rejected() {
   console.log("helper_malicious_cache_rejected: pass");
 }
 
+async function rebuild_path_uses_spawn_sync_pnpm_not_sh() {
+  const src = fs.readFileSync(helperPath, "utf8");
+  if (!src.includes('spawnSync("pnpm"')) {
+    throw new Error("Expected helper to use spawnSync with pnpm for rebuild path");
+  }
+  if (src.includes('spawnCmd = needsBuild ? "sh"')) {
+    throw new Error("sh -c rebuild branch must not remain in helper source");
+  }
+  console.log("rebuild_path_uses_spawn_sync_pnpm_not_sh: pass");
+}
+
 (async () => {
   await happy_path_returns_compiled_prompt();
   await conversationId_forwarded_when_provided();
@@ -603,5 +614,6 @@ async function helper_malicious_cache_rejected() {
   await modelId_from_conversation_scoped_cache();
   await modelId_cache_default_normalized_on_read();
   await helper_malicious_cache_rejected();
+  await rebuild_path_uses_spawn_sync_pnpm_not_sh();
   console.log("All tests passed.");
 })();

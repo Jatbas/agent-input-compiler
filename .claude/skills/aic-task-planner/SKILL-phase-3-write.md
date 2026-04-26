@@ -224,32 +224,30 @@ Handling findings from the parallel batch:
 - For each genuine finding, fix the root cause, re-run the corresponding C.5 rubric check, and re-spawn **only the verification stage whose finding triggered the fix** (not all three). Do not re-run a stage that already returned PASS.
 - The circuit breaker in §C.6 counts re-runs across stages — three failures of the same check id across any combination of C.5/C.5b/C.5c/C.5d is still the soft cap.
 
+### Verification optimisation boundary
+
+`planner-gate.sh` now writes a structured `"gates"` manifest on each `"gate":"planner-gate"` record. C.5b and C.5c MUST read that latest record before building prompts and MUST treat those mechanical gate results as already-run evidence. Do not ask subagents to redo the full ambiguity, validate-task, deferral, architectural-invariants, or follow-up-propagation scripts. Subagents verify the residual judgement work: factual synthesis against source, missing blast radius, stale scope, and architectural consistency that the shell gates cannot decide.
+
+There is no "skip verification" fast path. For a small task, optimise by shrinking C.5b/C.5c to the residual checks that match the task's triggers, while still dispatching both stages in the same parallel batch. C.5d remains skipped only when its trigger is structurally unmet.
+
 ## C.5b Independent verification agent
 
 Spawn a `generalPurpose` subagent with:
 
-1. **Role:** "Independent task-file reviewer. No prior context. Find factual errors by cross-checking against source files and the exploration report."
-2. **Inputs:** Task file path + every referenced source file path (interfaces, types, migrations, `.d.ts`, modified files) + the Exploration Report (as a read-only appendix for evidence comparison — the reviewer checks task claims against this primary evidence but does not anchor on exploration framing).
-3. **Checks** (report FOUND/NOT_FOUND, MATCH/MISMATCH, COMPATIBLE/INVALIDATED):
-   - API calls: extract `.methodName(`/`new ClassName(` → Grep interface/`.d.ts`
-   - SQL columns: verify against migration `CREATE TABLE`
-   - SQL normalization: 1NF, 2NF, 3NF, lookup tables
-   - File paths: Glob every "Modify" row → EXISTS/DOES NOT EXIST
-   - Signature match: class methods vs interface source
-   - Acceptance criteria vs test assertions
-   - Test assertion ground-truth: literals vs actual source → CORRECT/STALE
-   - Test runner wiring: IN TEST SUITE/EXCLUDED
-   - Coverage completeness: CHANGE-PATTERN INSTANCES → in Files table
-   - Boundary-contract mirror completeness (AW): IN SCOPE schemas, validators, descriptors, structured-output tests, parser tests, and manual payload mirrors → in Files table; COMPATIBLE rows cite evidence; FOLLOW-UP rows name a successor.
-   - Test impact completeness: invalidated tests → in Files table
-   - Caller chain completeness: chain files → in Files table
-   - Copy target audit, binding reuse, behavior change completeness, doc impact completeness
+1. **Role:** "Independent synthesis reviewer. No prior context. Use source files, the exploration report, and the latest planner-gate manifest to find factual drift that shell gates cannot decide."
+2. **Inputs:** Task file path + every referenced source file path (interfaces, types, migrations, `.d.ts`, modified files) + the Exploration Report + the latest `"gate":"planner-gate"` JSON line for this task. The reviewer checks task claims against primary source evidence and treats the gate manifest as proof that mechanical scripts already ran.
+3. **Residual checks only** (report FOUND/NOT_FOUND, MATCH/MISMATCH, COMPATIBLE/INVALIDATED):
+   - Synthesis-vs-exploration check: compare each Step and Architecture Note against the Exploration Report. Flag steps that overstate exploration evidence, omit explored edge cases, or cite facts absent from the report.
+   - Acceptance criteria vs test assertions: every goal clause has a concrete acceptance proof tied to a named test, symbol, file, or command.
+   - Test assertion ground-truth for task-specific literals: only inspect literals introduced or changed by this task; validate against source or fixture evidence.
+   - Coverage completeness: every IN-SCOPE exploration finding from CHANGE-PATTERN INSTANCES, BOUNDARY CONTRACT MIRRORS, CONSUMER ANALYSIS, CALLER CHAIN ANALYSIS, TEST IMPACT, BEHAVIOR CHANGES, FIXTURE SIMULATION, and OPTIONAL FIELD HAZARDS is resolved in the task.
+   - Boundary-contract mirror judgement (AW): for changed runtime contracts, verify that compatible/follow-up classifications are credible and that IN SCOPE mirrors are represented in Files and Steps.
+   - Behavior-change completeness: every behavior change has a `**Behavior change:**` Architecture Note and a test or fixture simulation result that proves the intended observable outcome.
+   - Documentation impact judgement: STALE/UPDATE classifications are credible, and any deferred doc work names the successor skill.
    - **Metric naming coherence** (AE): for every new field whose name implies a semantic (`*Index`, `*Score`, `*Confidence`, `*Rate`, `*Distance`, `*Probability`, etc.), read the formula and state whether the formula computes what the name describes. If not, report MISMATCH with a proposed rename or formula change.
    - **Derived metric input persistence** (AF): for every derived value persisted to storage, enumerate its independent inputs and verify each is also persisted OR the task justifies the loss.
-   - **Verify pattern matchability** (AD): for every grep-based `Verify:` line, assert that the pattern could match real output. Flag vacuous greps (pattern never appears in any produced file or diagnostic).
    - **Pattern-claim verification** (AG-companion): whenever the task prose claims "mirroring `<path>` style", "follows the pattern in `<path>`", or equivalent imitation language, Read the cited pattern file and enumerate structural features (export shape — `z.object()` vs shape-object-with-`as const`; factory signature; parameter order; default-value conventions; return-type wrapper). Compare byte-for-byte. Any divergent structural feature = MISMATCH, report per-feature. See `SKILL-drift-catalog.md §C.5b Pattern-claim verification`.
    - **Predecessor-contract check** (mandatory — `Depends on:` / `Prerequisite:` header): Read every prerequisite task's `## Interface / Signature`, `## Step` bodies, and `## Architecture Notes`. Enumerate output contracts (column names + nullability, enum values, interface methods, schema fields, config keys, null-vs-zero semantics, default-value semantics). For each, Grep the current task for consistent consumption — the task must not construct input that violates declared nullability, read a column the predecessor did not write, assume a non-null value when the predecessor writes null, or assume an enum value the predecessor did not define. Each mismatch = INVALIDATED with the predecessor line cited. See `SKILL-drift-catalog.md §HARD RULE 20`.
-   - **Synthesis-vs-exploration check:** Compare each Step and Architecture Note against the Exploration Report. Flag: steps that overstate exploration evidence (e.g., exploration said "uncertain" but step treats as established), steps that omit explored edge cases or caveats, and facts referenced in steps that do not appear in the exploration report.
 4. **Output:** Structured findings list. Summary: "PASS — all N confirmed" or "FAIL — M of N errors" with specifics.
 
 **FAIL:** Fix root cause, re-run corresponding C.5 check. Re-spawn only C.5b (not C.5c/d) unless the same fix plausibly invalidates their findings. Do NOT proceed until this stage returns PASS.
@@ -257,9 +255,9 @@ Spawn a `generalPurpose` subagent with:
 
 ## C.5c Independent Codebase Verification
 
-Dispatched **in parallel with C.5b** (see `## C.5b / C.5c / C.5d` above). Spawn a `generalPurpose` subagent with task file path, project root, `.cursor/rules/aic-architect.mdc`. Do NOT provide exploration report.
+Dispatched **in parallel with C.5b** (see `## C.5b / C.5c / C.5d` above). Spawn a `generalPurpose` subagent with task file path, project root, `.cursor/rules/aic-architect.mdc`, and the latest `"gate":"planner-gate"` JSON line for this task. Do NOT provide exploration report.
 
-**Category 1 — Dependency probes** ("Modify" rows with signature changes):
+**Category 1 — Dependency probes** (run only when the task changes an exported signature, exported type shape, runtime contract field, composition-root wiring, or file copy/bundle behavior):
 
 1. `MISSING_CALLER` — callers of changed functions not in Files table
 2. `MISSING_CONSUMER` — **any file that uses the modified interface/type** not in Files table. Re-run all four 14a grep patterns independently (imports, return-type annotations, type arguments, variable/parameter annotations) against the entire workspace (`shared/src/`, `mcp/src/`, `integrations/`) without reading the task file or exploration report. Every hit that constructs or returns the type must appear in the Files table when the type's required-field shape changed.
@@ -267,7 +265,9 @@ Dispatched **in parallel with C.5b** (see `## C.5b / C.5c / C.5d` above). Spawn 
 4. `CLOSURE_BREAK` — zero-arg closures wrapping functions gaining params
 5. `MISSING_BOUNDARY_MIRROR` — changed runtime contract field appears beside sibling fields in schema/validator/descriptor/structured-output files not in Files table. Grep changed field names, sibling field names, and boundary terms (`z.object`, `outputSchema`, `structuredContent`, `JSON.stringify`, `schema`, `validator`, `payload`, `registerTool`, `descriptor`) independently of the task file.
 
-**Category 2 — Convention probes** ("Create" rows): 6. `NAMING` — kebab-case, `*.interface.ts`, `*.test.ts` 7. `LAYER` — correct directory for declared layer 8. `ISP` — interface methods ≤ 5 9. `MIGRATION`/`DDL` — storage class → migration required 10. `WIRING` — new implementor → wire in `mcp/src/server.ts` 11. `BOUNDARY` — no hexagonal violations 12. `BRANDED` — domain-value params use branded types 13. `UNTESTED` — new class/function → test case in Tests table 14. `DIR_IMPACT` — test files with count assertions on affected dirs 15. `STALE_ASSERTION` — hardcoded counts vs actual disk state 16. `TEST_EXCLUDED` — test files not in `pnpm test` 17. `BUNDLE_TESTS` — recursive copy sources with test files 18. `REDUNDANT_BINDING`/`SHADOW_BINDING` — binding conflicts 19. `MISSING_ASSET_COPY`/`CI_NO_BUILD`/`VITEST_ALIAS_STALE` — non-TS asset pipeline
+**Category 2 — Convention probes not already enforced by the gate manifest:** 6. `WIRING` — new implementor has an explicit composition-root path or a documented reason it is not wired yet 7. `UNTESTED` — new class/function has a task-specific test case with assertions, not only generic final verification 8. `DIR_IMPACT` — test files with count assertions on affected dirs stay valid 9. `STALE_ASSERTION` — hardcoded counts or literals introduced by this task match actual disk/source state 10. `TEST_EXCLUDED` — task-specific tests not covered by `pnpm test` have standalone verification 11. `BUNDLE_TESTS` — recursive copy sources exclude test files and non-production directories 12. `REDUNDANT_BINDING`/`SHADOW_BINDING` — new bindings in modified files do not duplicate existing locals 13. `MISSING_ASSET_COPY`/`CI_NO_BUILD`/`VITEST_ALIAS_STALE` — runtime non-TS assets are copied and resolvable.
+
+Do not re-run naming, layer, Files-table existence, ambiguity, prerequisite graph, or architectural-invariants grammar checks that the planner-gate manifest reports as passed. If a manifest gate failed, C.5c is not reached; fix C.5 first.
 
 **Output:** `SUMMARY: PASS (0 findings) | FAIL (N dependency + M convention findings)`
 

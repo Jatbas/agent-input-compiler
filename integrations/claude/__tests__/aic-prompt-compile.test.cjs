@@ -4,6 +4,7 @@
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
+const { spawnSync } = require("node:child_process");
 
 const hooksDir = path.join(__dirname, "..", "hooks");
 const hookPath = path.join(hooksDir, "aic-prompt-compile.cjs");
@@ -474,6 +475,70 @@ async function writes_editor_runtime_marker_on_success() {
   console.log("writes_editor_runtime_marker_on_success: pass");
 }
 
+async function prompt_compile_driver_exits_nonzero_when_helper_rejects() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-prompt-compile-exit-"));
+  const preloadPath = path.join(tmpDir, "preload-force-helper-reject.cjs");
+  const strictEqual = require("assert").strictEqual;
+  try {
+    fs.writeFileSync(
+      preloadPath,
+      [
+        "'use strict';",
+        "const abs = process.env.AIC_HELPER_ABS;",
+        "delete require.cache[abs];",
+        'require.cache[abs] = { exports: { callAicCompile: () => Promise.reject(new Error("forced")) }, loaded: true, id: abs };',
+        "",
+      ].join("\n"),
+    );
+    const helperAbs = require.resolve("./aic-compile-helper.cjs", { paths: [hooksDir] });
+    const result = spawnSync(process.execPath, ["-r", preloadPath, hookPath], {
+      env: { ...process.env, AIC_HELPER_ABS: helperAbs },
+      input: JSON.stringify({ prompt: "PIC", session_id: "s-pic-exit", cwd: "/tmp" }),
+      encoding: "utf8",
+    });
+    strictEqual(result.status, 1);
+    console.log("prompt_compile_driver_exits_nonzero_when_helper_rejects: pass");
+  } finally {
+    try {
+      fs.unlinkSync(preloadPath);
+    } catch {}
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
+async function cc_prewarm_temp_file_mode_is_owner_only_unix() {
+  const CONV_ID = "prompt-compile-cc-mode-test-id";
+  const PROJECT_ROOT = "/tmp/aic-prompt-compile-cc-mode-test";
+  const prompt = "secret intent text";
+  const prewarmPath = path.join(os.tmpdir(), `aic-prompt-cc-${CONV_ID}`);
+  const key = mockHelper("compiled text");
+  delete require.cache[require.resolve(hookPath)];
+  const { run } = require(hookPath);
+  try {
+    await run(
+      JSON.stringify({
+        prompt,
+        cwd: PROJECT_ROOT,
+        transcript_path: `/tmp/.claude/conversations/${CONV_ID}.jsonl`,
+      }),
+    );
+    if (process.platform !== "win32") {
+      const st = fs.statSync(prewarmPath);
+      if ((st.mode & 0o777) !== 0o600) {
+        throw new Error(
+          `Expected prewarm file mode 0o600, got 0o${(st.mode & 0o777).toString(8)}`,
+        );
+      }
+    }
+  } finally {
+    try {
+      fs.unlinkSync(prewarmPath);
+    } catch {}
+    cleanup(key);
+  }
+  console.log("cc_prewarm_temp_file_mode_is_owner_only_unix: pass");
+}
+
 (async () => {
   await plain_text_stdout_when_helper_returns_prompt();
   await exit_0_silent_when_helper_returns_null();
@@ -488,6 +553,8 @@ async function writes_editor_runtime_marker_on_success() {
   await prompt_compile_noop_when_cursor_version_present();
   await writes_turn_markers_and_recency_on_success();
   await writes_editor_runtime_marker_on_success();
+  await cc_prewarm_temp_file_mode_is_owner_only_unix();
   await model_sourced_from_env_var_before_transcript();
+  await prompt_compile_driver_exits_nonzero_when_helper_rejects();
   console.log("All tests passed.");
 })();

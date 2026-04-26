@@ -73,6 +73,7 @@ for pid in "${PIDS[@]}"; do
 done
 
 FAILED=""
+GATE_RESULTS=""
 for name in "${NAMES[@]}"; do
   out="$TMPDIR_GATE/$name.out"
   rcf="$TMPDIR_GATE/$name.rc"
@@ -80,7 +81,9 @@ for name in "${NAMES[@]}"; do
   if [[ -f "$rcf" ]]; then
     rc=$(cat "$rcf")
   fi
+  status="ok"
   if [[ "$rc" -ne 0 ]]; then
+    status="fail"
     echo "--- planner-gate: $name FAILED (exit $rc) ---"
     [[ -f "$out" ]] && cat "$out"
     echo "--- end $name ---"
@@ -88,22 +91,29 @@ for name in "${NAMES[@]}"; do
   else
     echo "planner-gate: $name ok"
   fi
+  NAME_ESC=$(printf '%s' "$name" | sed 's/\\/\\\\/g; s/"/\\"/g')
+  ENTRY="{\"name\":\"${NAME_ESC}\",\"status\":\"${status}\",\"exitCode\":${rc}}"
+  if [[ -z "$GATE_RESULTS" ]]; then
+    GATE_RESULTS="$ENTRY"
+  else
+    GATE_RESULTS="${GATE_RESULTS},${ENTRY}"
+  fi
 done
 
 ART=$(printf '%s' "$ABS_TARGET" | sed 's/\\/\\\\/g; s/"/\\"/g')
 
 if [[ -n "$FAILED" ]]; then
   FAIL_ESC=$(printf '%s' "${FAILED% }" | sed 's/"/\\"/g')
-  printf '{"ts":"%s","gate":"planner-gate","target":"%s","status":"fail","failed":"%s"}\n' \
-    "$TS" "$ART" "$FAIL_ESC" >> "$LOG"
+  printf '{"ts":"%s","gate":"planner-gate","target":"%s","status":"fail","failed":"%s","gates":[%s]}\n' \
+    "$TS" "$ART" "$FAIL_ESC" "$GATE_RESULTS" >> "$LOG"
   echo ""
   echo "planner-gate: FAILED gates: ${FAILED% }"
   echo "planner-gate: fix the task and re-run. checkpoint-log.sh will reject task-finalized without a fresh success record."
   exit 1
 fi
 
-printf '{"ts":"%s","gate":"planner-gate","target":"%s","status":"ok"}\n' \
-  "$TS" "$ART" >> "$LOG"
+printf '{"ts":"%s","gate":"planner-gate","target":"%s","status":"ok","gates":[%s]}\n' \
+  "$TS" "$ART" "$GATE_RESULTS" >> "$LOG"
 
 echo ""
 echo "planner-gate: all gates passed — success recorded in $LOG"

@@ -66,7 +66,7 @@ async function run(stdinStr) {
       fs.writeFileSync(
         path.join(os.tmpdir(), `aic-prompt-cc-${ccId}`),
         intent.slice(0, 10000),
-        "utf8",
+        { encoding: "utf8", mode: 0o600 },
       );
     } catch {
       /* non-fatal */
@@ -142,7 +142,7 @@ if (require.main === module) {
       if (out != null) process.stdout.write(out);
       process.exit(0);
     })
-    .catch(() => process.exit(0));
+    .catch(() => process.exit(1));
 }
 
 module.exports = { run };

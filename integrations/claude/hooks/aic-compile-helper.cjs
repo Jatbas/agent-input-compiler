@@ -5,7 +5,7 @@
 // Claude Code protocol adapter — calls AIC MCP server via stdio JSON-RPC and returns compiled prompt.
 // Uses async spawn to keep stdin open until the tools/call response arrives;
 // server.ts exits on stdin EOF before async handlers complete (race condition).
-const { spawn } = require("child_process");
+const { spawn, spawnSync } = require("child_process");
 const crypto = require("crypto");
 const fs = require("fs");
 const os = require("os");
@@ -104,15 +104,16 @@ function callAicCompile(
   const hasSharedPkg =
     isDev && fs.existsSync(path.join(projectRoot, "shared", "package.json"));
   const needsBuild = hasSharedPkg && isRebuildNeeded(projectRoot);
-  const spawnCmd = needsBuild ? "sh" : "npx";
-  const spawnArgs = needsBuild
-    ? [
-        "-c",
-        `pnpm --filter @jatbas/aic-core build >&2 && touch '${getStampPath(projectRoot)}' && npx tsx '${serverPath}'`,
-      ]
-    : isDev
-      ? ["tsx", serverPath]
-      : ["@jatbas/aic"];
+  if (needsBuild) {
+    const buildResult = spawnSync("pnpm", ["--filter", "@jatbas/aic-core", "build"], {
+      cwd: projectRoot,
+      stdio: ["ignore", "inherit", "inherit"],
+    });
+    if (buildResult.status !== 0) return Promise.resolve(null);
+    fs.writeFileSync(getStampPath(projectRoot), "", { flag: "a" });
+  }
+  const spawnCmd = "npx";
+  const spawnArgs = isDev ? ["tsx", serverPath] : ["@jatbas/aic"];
   const editorId = resolveEditorId(explicitEditorId);
   let resolved = null;
   const normalizedModelId = isValidModelId(modelId)

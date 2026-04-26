@@ -3,6 +3,8 @@
 
 const path = require("path");
 const fs = require("fs");
+const os = require("os");
+const { spawnSync } = require("node:child_process");
 
 const hooksDir = path.join(__dirname, "..", "hooks");
 const hookPath = path.join(hooksDir, "aic-pre-compact.cjs");
@@ -155,6 +157,37 @@ async function does_not_write_compile_recency_when_helper_returns_null() {
   console.log("does_not_write_compile_recency_when_helper_returns_null: pass");
 }
 
+async function pre_compact_driver_exits_nonzero_when_helper_rejects() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-pre-compact-exit-"));
+  const preloadPath = path.join(tmpDir, "preload-force-helper-reject.cjs");
+  const strictEqual = require("assert").strictEqual;
+  try {
+    fs.writeFileSync(
+      preloadPath,
+      [
+        "'use strict';",
+        "const abs = process.env.AIC_HELPER_ABS;",
+        "delete require.cache[abs];",
+        'require.cache[abs] = { exports: { callAicCompile: () => Promise.reject(new Error("forced")) }, loaded: true, id: abs };',
+        "",
+      ].join("\n"),
+    );
+    const helperAbs = require.resolve("./aic-compile-helper.cjs", { paths: [hooksDir] });
+    const result = spawnSync(process.execPath, ["-r", preloadPath, hookPath], {
+      env: { ...process.env, AIC_HELPER_ABS: helperAbs },
+      input: JSON.stringify({ session_id: "s-pre-exit", cwd: "/tmp" }),
+      encoding: "utf8",
+    });
+    strictEqual(result.status, 1);
+    console.log("pre_compact_driver_exits_nonzero_when_helper_rejects: pass");
+  } finally {
+    try {
+      fs.unlinkSync(preloadPath);
+    } catch {}
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
 (async () => {
   await plain_text_stdout_when_helper_returns_prompt();
   await exit_0_silent_when_helper_returns_null();
@@ -162,5 +195,6 @@ async function does_not_write_compile_recency_when_helper_returns_null() {
   await pre_compact_passes_session_id_when_transcript_missing();
   await writes_compile_recency_on_success();
   await does_not_write_compile_recency_when_helper_returns_null();
+  await pre_compact_driver_exits_nonzero_when_helper_rejects();
   console.log("All tests passed.");
 })();

@@ -83,9 +83,9 @@ function run(stdinStr) {
       if (eslintResult.exitCode !== 0) parts.push("lint");
       if (tscResult.exitCode !== 0) parts.push("typecheck");
       const reason =
-        "Fix lint/typecheck errors:\n" +
-        (eslintResult.stderr ? eslintResult.stderr + "\n" : "") +
-        (tscResult.stderr ? tscResult.stderr : "");
+        "Fix " +
+        parts.join(" and ") +
+        " errors on the files you edited. Run pnpm lint and pnpm typecheck.";
       return JSON.stringify({ decision: "block", reason });
     }
     return "";

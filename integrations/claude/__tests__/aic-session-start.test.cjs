@@ -4,6 +4,7 @@
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
+const { spawnSync } = require("node:child_process");
 
 const hooksDir = path.join(__dirname, "..", "hooks");
 const hookPath = path.join(hooksDir, "aic-session-start.cjs");
@@ -393,6 +394,39 @@ async function session_start_noop_when_cursor_version_present() {
   console.log("session_start_noop_when_cursor_version_present: pass");
 }
 
+async function session_start_driver_exits_nonzero_when_acquire_throws() {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "aic-session-start-exit-"));
+  const preloadPath = path.join(tmpDir, "preload-force-lock-throw.cjs");
+  const strictEqual = require("assert").strictEqual;
+  try {
+    fs.writeFileSync(
+      preloadPath,
+      [
+        "'use strict';",
+        "const abs = process.env.AIC_MARKERS_ABS;",
+        "delete require.cache[abs];",
+        'require.cache[abs] = { exports: { acquireSessionLock: () => { throw new Error("forced"); }, releaseSessionLock: () => {}, writeSessionMarker: () => {} }, loaded: true, id: abs };',
+        "",
+      ].join("\n"),
+    );
+    const markersAbs = require.resolve("../../shared/session-markers.cjs", {
+      paths: [hooksDir],
+    });
+    const result = spawnSync(process.execPath, ["-r", preloadPath, hookPath], {
+      env: { ...process.env, AIC_MARKERS_ABS: markersAbs },
+      input: JSON.stringify({ session_id: "s-exit", cwd: "/tmp" }),
+      encoding: "utf8",
+    });
+    strictEqual(result.status, 1);
+    console.log("session_start_driver_exits_nonzero_when_acquire_throws: pass");
+  } finally {
+    try {
+      fs.unlinkSync(preloadPath);
+    } catch {}
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
 (async () => {
   await output_format_hookSpecificOutput_when_helper_returns_text();
   await session_start_passes_conversationId_when_in_input();
@@ -407,5 +441,6 @@ async function session_start_noop_when_cursor_version_present() {
   await session_start_sets_cursor_claude_editor_id_for_cursor_envelope();
   await session_start_falls_back_to_last_conversation_id_when_envelope_empty();
   await session_start_noop_when_cursor_version_present();
+  await session_start_driver_exits_nonzero_when_acquire_throws();
   console.log("All tests passed.");
 })();

@@ -100,7 +100,10 @@ process.stdin.on("end", () => {
     const model = input.model || "";
 
     if (prompt.length > 0) {
-      fs.writeFileSync(promptFile(generationId), prompt, "utf8");
+      fs.writeFileSync(promptFile(generationId), prompt, {
+        encoding: "utf8",
+        mode: 0o600,
+      });
 
       const ts = new Date().toISOString();
       appendPromptLog(projectRoot, {
