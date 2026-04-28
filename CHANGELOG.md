@@ -7,6 +7,22 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-04-28
+
+### Added
+
+- Executor gate rejects task-specific acceptance criteria without proof artifacts
+
+### Changed
+
+- Document ignore paths used when selecting files for compiled context
+
+### Fixed
+
+- Fail the clone-detection lint when jscpd reports duplicate segments
+- MCP project resolution skips treating the home directory as an implicit project root
+- MCP handler restores aic_compile projectRoot fallback and propagates McpError consistently
+
 ## [1.0.4] - 2026-04-27
 
 ### Added
