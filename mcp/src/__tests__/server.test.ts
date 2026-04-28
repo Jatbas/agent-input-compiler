@@ -25,6 +25,7 @@ import { ConfigError } from "@jatbas/aic-core/core/errors/config-error.js";
 import { toAbsolutePath, toFilePath } from "@jatbas/aic-core/core/types/paths.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { ListRootsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
 type McpServerWithClose = ReturnType<typeof createMcpServer>;
 
@@ -364,6 +365,38 @@ describe("MCP server", () => {
         parsed["lastCompilation"].modelId === null ||
           typeof parsed["lastCompilation"].modelId === "string",
       ).toBe(true);
+    }
+  });
+
+  it("compile_omitted_projectRoot_uses_registered_default", async () => {
+    tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
+    const listedDir = fs.mkdtempSync(path.join(os.homedir(), "aic-mcp-"));
+    const clock = new SystemClock();
+    const db = openDatabase(":memory:", clock);
+    server = createMcpServer(toAbsolutePath(tmpDir), db, clock);
+    const [transportServer, transportClient] = InMemoryTransport.createLinkedPair();
+    await server.connect(transportServer);
+    const client = new Client(
+      { name: "test", version: "1.0" },
+      { capabilities: { roots: {} } },
+    );
+    client.setRequestHandler(ListRootsRequestSchema, () => ({
+      roots: [{ uri: pathToFileURL(listedDir).href }],
+    }));
+    await client.connect(transportClient);
+    try {
+      const result = await client.callTool({
+        name: "aic_compile",
+        arguments: { intent: "omitted project root" },
+      });
+      const content = (result as { content?: { text?: string }[] }).content;
+      const text = Array.isArray(content)
+        ? content.map((c) => c?.text ?? "").join("")
+        : "";
+      const parsed = JSON.parse(text || "{}") as { meta?: { filesTotal?: number } };
+      expect(parsed.meta?.filesTotal).toBeGreaterThanOrEqual(0);
+    } finally {
+      fs.rmSync(listedDir, { recursive: true, force: true });
     }
   });
 

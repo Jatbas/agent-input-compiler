@@ -13,19 +13,24 @@ function trimEnvValue(env: NodeJS.ProcessEnv, key: string): string {
   return String(v).trim();
 }
 
+function resolveNonHome(candidate: string, homeResolved: string): string | null {
+  if (candidate === "") {
+    return null;
+  }
+  const resolved = path.resolve(candidate);
+  return resolved === homeResolved ? null : resolved;
+}
+
 export function resolveSyncMcpPrimaryProjectRoot(
   cwd: string,
   env: NodeJS.ProcessEnv,
-  _homedir: string,
+  homedir: string,
 ): string {
-  const cursor = trimEnvValue(env, "CURSOR_PROJECT_DIR");
-  if (cursor !== "") {
-    return path.resolve(cursor);
-  }
-  const aicRoot = trimEnvValue(env, "AIC_PROJECT_ROOT");
-  if (aicRoot !== "") {
-    return path.resolve(aicRoot);
-  }
+  const homeResolved = path.resolve(homedir);
+  const cursor = resolveNonHome(trimEnvValue(env, "CURSOR_PROJECT_DIR"), homeResolved);
+  if (cursor !== null) return cursor;
+  const aicRoot = resolveNonHome(trimEnvValue(env, "AIC_PROJECT_ROOT"), homeResolved);
+  if (aicRoot !== null) return aicRoot;
   return path.resolve(cwd);
 }
 

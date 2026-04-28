@@ -17,6 +17,17 @@ describe("resolveSyncMcpPrimaryProjectRoot_cursor_dir", () => {
     const result = resolveSyncMcpPrimaryProjectRoot(home, env, home);
     expect(result).toBe(path.resolve(proj));
   });
+
+  it("skips home CURSOR_PROJECT_DIR and uses AIC_PROJECT_ROOT", () => {
+    const home = os.homedir();
+    const proj = path.join(home, "proj");
+    const env = {
+      CURSOR_PROJECT_DIR: home,
+      AIC_PROJECT_ROOT: proj,
+    } as NodeJS.ProcessEnv;
+    const result = resolveSyncMcpPrimaryProjectRoot(home, env, home);
+    expect(result).toBe(path.resolve(proj));
+  });
 });
 
 describe("resolveSyncMcpPrimaryProjectRoot_fallback_cwd", () => {
