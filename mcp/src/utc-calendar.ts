@@ -16,40 +16,51 @@ export function daysInMonthUtc(year: number, month1to12: number): number {
   return 31;
 }
 
-export function incrementUtcCalendarDay(day: string): string {
+type UtcCalendarDayParts = {
+  readonly year: number;
+  readonly month: number;
+  readonly day: number;
+};
+
+function parseUtcCalendarDay(day: string): UtcCalendarDayParts | null {
   const segs = day.split("-");
-  const y = Number(segs[0]);
-  const mo = Number(segs[1]);
-  const d = Number(segs[2]);
-  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) {
+  const year = Number(segs[0]);
+  const month = Number(segs[1]);
+  const parsedDay = Number(segs[2]);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(parsedDay)) {
+    return null;
+  }
+  return { year, month, day: parsedDay };
+}
+
+export function incrementUtcCalendarDay(day: string): string {
+  const parsed = parseUtcCalendarDay(day);
+  if (parsed === null) {
     return day;
   }
-  const dim = daysInMonthUtc(y, mo);
-  if (d < dim) {
-    return `${String(y)}-${pad2Utc(mo)}-${pad2Utc(d + 1)}`;
+  const dim = daysInMonthUtc(parsed.year, parsed.month);
+  if (parsed.day < dim) {
+    return `${String(parsed.year)}-${pad2Utc(parsed.month)}-${pad2Utc(parsed.day + 1)}`;
   }
-  if (mo < 12) {
-    return `${String(y)}-${pad2Utc(mo + 1)}-01`;
+  if (parsed.month < 12) {
+    return `${String(parsed.year)}-${pad2Utc(parsed.month + 1)}-01`;
   }
-  return `${String(y + 1)}-01-01`;
+  return `${String(parsed.year + 1)}-01-01`;
 }
 
 export function decrementUtcCalendarDay(day: string): string {
-  const segs = day.split("-");
-  const y = Number(segs[0]);
-  const mo = Number(segs[1]);
-  const d = Number(segs[2]);
-  if (!Number.isFinite(y) || !Number.isFinite(mo) || !Number.isFinite(d)) {
+  const parsed = parseUtcCalendarDay(day);
+  if (parsed === null) {
     return day;
   }
-  if (d > 1) {
-    return `${String(y)}-${pad2Utc(mo)}-${pad2Utc(d - 1)}`;
+  if (parsed.day > 1) {
+    return `${String(parsed.year)}-${pad2Utc(parsed.month)}-${pad2Utc(parsed.day - 1)}`;
   }
-  if (mo > 1) {
-    const prevMo = mo - 1;
-    return `${String(y)}-${pad2Utc(prevMo)}-${pad2Utc(daysInMonthUtc(y, prevMo))}`;
+  if (parsed.month > 1) {
+    const prevMo = parsed.month - 1;
+    return `${String(parsed.year)}-${pad2Utc(prevMo)}-${pad2Utc(daysInMonthUtc(parsed.year, prevMo))}`;
   }
-  return `${String(y - 1)}-12-31`;
+  return `${String(parsed.year - 1)}-12-31`;
 }
 
 export function enumerateUtcDaysInclusive(

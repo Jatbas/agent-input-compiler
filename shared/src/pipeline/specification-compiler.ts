@@ -567,6 +567,26 @@ type ScoredRef = {
   readonly name: string;
 };
 
+type UsageScoredRef = ScoredRef & {
+  readonly usageRank: number;
+};
+
+function scoredRefsForTier(
+  sortedTypes: readonly SpecTypeRef[],
+  tiers: Readonly<Record<string, SpecInclusionTier>>,
+  tier: SpecInclusionTier,
+  measure: (s: string) => TokenCount,
+): readonly ScoredRef[] {
+  return sortedTypes
+    .filter((t) => tiers[typeKey(t)] === tier)
+    .map((t) => ({
+      t,
+      frag: measure(typeFragment(t, tier)),
+      path: String(t.path),
+      name: t.name,
+    }));
+}
+
 function selectByScoredFragPathName(
   candidates: readonly ScoredRef[],
   first: ScoredRef,
@@ -587,15 +607,13 @@ function pickVerbatimDemotion(
   tiers: Readonly<Record<string, SpecInclusionTier>>,
   measure: (s: string) => TokenCount,
 ): SpecTypeRef | null {
-  const pool = sortedTypes.filter((t) => tiers[typeKey(t)] === "verbatim");
-  if (pool.length === 0) return null;
-  const scored = pool.map((t) => ({
-    t,
-    usageRank: VERBATIM_USAGE_RANK[t.usage],
-    frag: measure(typeFragment(t, "verbatim")),
-    path: String(t.path),
-    name: t.name,
-  }));
+  const scored: readonly UsageScoredRef[] = scoredRefsForTier(
+    sortedTypes,
+    tiers,
+    "verbatim",
+    measure,
+  ).map((ref) => ({ ...ref, usageRank: VERBATIM_USAGE_RANK[ref.t.usage] }));
+  if (scored.length === 0) return null;
   const minUsage = Math.min(...scored.map((s) => s.usageRank));
   const tiered = scored.filter((s) => s.usageRank === minUsage);
   const first = tiered[0];
@@ -608,14 +626,7 @@ function pickSignatureDemotion(
   tiers: Readonly<Record<string, SpecInclusionTier>>,
   measure: (s: string) => TokenCount,
 ): SpecTypeRef | null {
-  const pool = sortedTypes.filter((t) => tiers[typeKey(t)] === "signature-path");
-  if (pool.length === 0) return null;
-  const scored = pool.map((t) => ({
-    t,
-    frag: measure(typeFragment(t, "signature-path")),
-    path: String(t.path),
-    name: t.name,
-  }));
+  const scored = scoredRefsForTier(sortedTypes, tiers, "signature-path", measure);
   const first = scored[0];
   if (first === undefined) return null;
   return selectByScoredFragPathName(scored, first);

@@ -1,3 +1,5 @@
 {
-  "ignore": ["**/__tests__/**", "**/*.test.ts", "**/*.md"]
+  "exitCode": 1,
+  "ignore": ["**/__tests__/**", "**/*.test.ts", "**/*.md"],
+  "threshold": 0
 }
