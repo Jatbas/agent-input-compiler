@@ -89,7 +89,7 @@ Context precision (weighted): % of repo content automatically filtered per conte
 Context window used: % of token budget filled.
 ```
 
-A **rolling time window** on status (`show aic status 7d` or `status --window 7`) adds a **Time range** body row (`Last 7 days` when **N** is 7) and switches the guard block header from **`Guard scans (lifetime)`** to **`Guard scans (Nd)`** (same **N** as the window) so the label matches the guard aggregate window. See [`implementation-spec.md` — `aic_status`](documentation/implementation-spec.md#aic_status-mcp-tool) and [`mcp/src/format-diagnostic-output.ts`](mcp/src/format-diagnostic-output.ts).
+> A **rolling time window** on status (`show aic status 7d` or `status --window 7`) adds a **Time range** body row (`Last 7 days` when **N** is 7) and switches the guard block header from **`Guard scans (lifetime)`** to **`Guard scans (Nd)`** (same **N** as the window) so the label matches the guard aggregate window. See [`implementation-spec.md` — `aic_status`](documentation/implementation-spec.md#aic_status-mcp-tool) and [`mcp/src/format-diagnostic-output.ts`](mcp/src/format-diagnostic-output.ts).
 
 #### `show aic last`
 
@@ -231,6 +231,8 @@ The plugin starts the MCP server and registers hooks so every project gets compi
 Add `"enabled": false` to `aic.config.json` in the project root. AIC returns immediately with no compilation and no database writes. Set it back to `true` (or remove the field) to re-enable. The `show aic status` command reflects the current state.
 
 For the full list of available configuration options, see [§6 Configuration in the Project Plan](documentation/project-plan.md#6-configuration--aicconfigjson).
+
+To drop generated or runtime folders from **compiled context** (`.gitignore` vs `aic-rules/…` `excludePatterns` vs `guard.allowPatterns`), see [Ignoring files and folders](documentation/project-plan.md#ignoring-files-and-folders).
 
 ### Other editors
 

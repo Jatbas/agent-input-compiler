@@ -275,6 +275,8 @@ Merged rule-pack constraints are emitted during assembly (PromptAssembler / Step
 
 See [Project Plan §3.1](project-plan.md) for the full annotated rule pack example and [Project Plan §3.2](project-plan.md) for the advanced authoring guide. Custom rule packs are an **opt-in power-user feature**. AIC works out of the box with zero configuration: shipped MCP built-in merge slots are empty, and effective constraints or patterns come only from an optional `aic-rules/<taskClass>.json` when you add one. Most standard users will never need to author custom rule packs or create an `aic-rules/` directory. The key fields are: `constraints` (string array), `includePatterns` / `excludePatterns` (glob arrays), optional `budgetOverride` (number), and optional `heuristic.boostPatterns` / `heuristic.penalizePatterns` (glob arrays).
 
+**Ignoring paths:** `.gitignore` and built-in scan negatives control what enters the supplier `RepoMap`; merged rule-pack `includePatterns` / `excludePatterns` control **selection** afterward; `guard.allowPatterns` in `aic.config.json` only affects Context Guard content scanners. User-facing guide: [Project Plan — Ignoring files and folders](project-plan.md#ignoring-files-and-folders).
+
 **Merge behavior:** Arrays concatenated + deduplicated; scalar values (`budgetOverride`) use last-wins within the rule-pack layer only (project overlay after the built-in merge chain in `RulePackResolver`). `CompilationRequest` has no budget field; the Budget Allocator reads `RulePack.budgetOverride` and config only (see `shared/src/pipeline/budget-allocator.ts`).
 
 **Edge cases:**
@@ -314,7 +316,7 @@ The shipped config schema and `BudgetAllocator` do not apply **`windowRatio`** o
 
 **Composition:** `PipelineStepsDeps.contextSelector` is `RelatedFilesBoostContextSelector` delegating to `HeuristicSelector` (`shared/src/bootstrap/create-pipeline-deps.ts`). The sections below describe scoring inside `HeuristicSelector`; tool-output path boosts are merged into `heuristic.boostPatterns` in the outer wrapper before that logic runs.
 
-**Input:** TaskClassification + RepoMap + **codeBudget** (not raw total budget) + RulePack (for include/exclude/boost/penalize patterns) + optional `toolOutputs` from `PipelineStepsRequest` + `config.contextSelector` (injected via `HeuristicSelector` constructor; carries `maxFiles` and scoring weights) + effective `maxFilesOverride` from `runPipelineSteps` when auto mode applies
+**Input:** TaskClassification + RepoMap + **codeBudget** (not raw total budget) + RulePack (for include/exclude/boost/penalize patterns) + optional `toolOutputs` from `PipelineStepsRequest` + resolved **`maxFiles`** cap (injected into `HeuristicSelector` as `heuristicMaxFiles`; shipped `aic.config.json` supplies only this selector knob — patterns live in rule packs) + effective `maxFilesOverride` from `runPipelineSteps` when auto mode applies
 
 **Tool-output related paths:** When `toolOutputs` is defined and `dedupeRelatedPathsInOrder` yields at least one path (`shared/src/pipeline/related-files-boost-context-selector.ts`), each path is escaped for glob metacharacters, converted with `toGlobPattern`, and appended to `heuristic.boostPatterns` via `mergeRulePackWithRelatedBoosts`. Candidates are scored after `includePatterns` / `excludePatterns` filtering; each **file** gains +0.2 per `boostPatterns` entry that matches its path via `matchesGlob` (including patterns derived from tool-output related paths) and −0.2 per matching `penalizePatterns` entry, clamped in `scoreCandidate` (`shared/src/pipeline/heuristic-selector.ts`). **`matchesGlob`** (`shared/src/pipeline/glob-match.ts`) treats leading **`**/<tail>`** patterns (no second `**`later in the pattern) as matching that suffix at any nesting depth via`pathMatchesLeadingDoubleStarTail`. Patterns whose first `**` is not only at the repository-relative start—such as **`src/**/\*.ts`** or **`**/generated/**`**—evaluate each `**` as spanning nested path segments at that anchor. The inner `HeuristicSelector.selectContext`accepts an optional`toolOutputs` parameter but does not read it (`\_toolOutputs`); boosting from tool outputs happens only in the wrapper. When `toolOutputs` is omitted or yields no related paths, the wrapper forwards the original rule pack unchanged.
 
@@ -328,8 +330,8 @@ Full scoring detail with normalisation methods: [Project Plan §8](project-plan.
 
 **Constraints applied:**
 
-- `includePatterns` from rule pack (whitelist)
-- `excludePatterns` from rule pack + config (blacklist)
+- `includePatterns` from merged **rule pack** (whitelist)
+- `excludePatterns` from merged **rule pack** (blacklist) — shipped `load-config-from-file.ts` does **not** load include/exclude globs from `aic.config.json`; use `aic-rules/<taskClass>.json` ([Project Plan — Ignoring files and folders](project-plan.md#ignoring-files-and-folders))
 - `maxFiles` from config (default **0** = auto via `resolveAutoMaxFiles`: base from `ceil(sqrt(totalFiles))` in **[5, 40]**, scaled by effective context window ÷ **128_000**, final clamp **[5, 300]**; positive = fixed cap), merged via `maxFilesOverride` on the `RulePack` passed to discovery/selection
 
 **Language awareness:** Import-graph walking and symbol relevance delegate to the registered `LanguageProvider` list. For files with no provider, those signals score `0` and the file relies on the remaining signals. File language detection is extension-based with a filename fallback for extensionless files; see [Project Plan §8 — Language Detection](project-plan.md) for the full mapping table.
