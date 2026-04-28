@@ -32,6 +32,7 @@ import {
   AicCompileToolRegisteredOutputSchema,
 } from "./schemas/compile-tool-outputs.schema.js";
 import { createCompileHandler } from "./handlers/compile-handler.js";
+import { resolveSyncMcpPrimaryProjectRoot } from "./resolve-mcp-compile-project-root.js";
 import { createCompileSpecHandler } from "./handlers/compile-spec-handler.js";
 import { createModelTestHandler } from "./handlers/model-test-handler.js";
 import { SessionContext } from "./handlers/session-context-cache.js";
@@ -359,6 +360,18 @@ export function createMcpServer(
       conversationIdForLast: lastConversationIdRef.current,
       budgetConfig,
     });
+  const listWorkspaceRoots = async (): Promise<readonly string[]> => {
+    try {
+      const caps = server.server.getClientCapabilities();
+      if (caps?.roots === undefined) {
+        return [];
+      }
+      const result = await server.server.listRoots();
+      return result.roots.map((r) => fileURLToPath(r.uri));
+    } catch {
+      return [];
+    }
+  };
   const compileHandler = createCompileHandler(
     (projectRootArg: AbsolutePath) => registry.getOrCreate(projectRootArg),
     getRunner,
@@ -372,6 +385,7 @@ export function createMcpServer(
     getUpdateMessage,
     getConfigUpgraded,
     bootstrapIntegrationMode,
+    listWorkspaceRoots,
   );
   const aicCompileHandler =
     batchExit !== undefined
@@ -631,7 +645,9 @@ export function processListedWorkspaceRootsForBootstrap(
 
 export async function main(): Promise<void> {
   const bootstrapMode = resolveBootstrapMode();
-  const projectRoot = toAbsolutePath(process.cwd());
+  const projectRoot = toAbsolutePath(
+    resolveSyncMcpPrimaryProjectRoot(process.cwd(), process.env, os.homedir()),
+  );
   const containedAicRoot = getContainedProjectAicRootIfPresent(projectRoot);
   const cwdAicDb: string | null =
     containedAicRoot === null ? null : path.join(containedAicRoot, "aic.sqlite");

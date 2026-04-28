@@ -32,6 +32,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { AicCompileToolRegisteredOutputSchema } from "../../schemas/compile-tool-outputs.schema.js";
 import * as initProject from "../../init-project.js";
+import { BOOTSTRAP_INTEGRATION } from "../../editor-integration-dispatch.js";
 import { createCompileHandler } from "../compile-handler.js";
 import { MCP_INTENT_OMITTED_DEFAULT } from "../../schemas/compilation-request.js";
 import {
@@ -2256,6 +2257,140 @@ describe("compile-handler", () => {
         expect(capturedRequests[0]!.intent).toBe(
           "restore pipeline context after omitted mcp intent",
         );
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe("BUGS-17 compile projectRoot", () => {
+    it("compile_handler_rethrows_mcp_invalid_params", async () => {
+      vi.spyOn(process, "cwd").mockReturnValue(os.homedir());
+      const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
+      const handler = createCompileHandler(
+        getScope,
+        (_scope: ProjectScope) => makeSuccessRunner("ok"),
+        { hash: (): string => "" },
+        getSessionId,
+        getEditorId,
+        getModelId,
+        [],
+        enabledConfigLoader,
+        () => {},
+        () => null,
+        () => false,
+      );
+      try {
+        await handler(
+          {
+            intent: "test",
+            projectRoot: os.homedir(),
+            modelId: null,
+            configPath: null,
+          },
+          undefined,
+        );
+        expect.fail("expected InvalidParams");
+      } catch (e) {
+        expect(e).toBeInstanceOf(McpError);
+        expect((e as McpError).code).toBe(ErrorCode.InvalidParams);
+        expect((e as McpError).message).toContain("not the home directory");
+      }
+    });
+
+    it("compile_handler_fallback_list_roots", async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+      vi.spyOn(process, "cwd").mockReturnValue(os.homedir());
+      try {
+        const captured: CompilationRequest[] = [];
+        const { getScope, getSessionId, getEditorId, getModelId } = makeDeps();
+        const handler = createCompileHandler(
+          getScope,
+          (_scope: ProjectScope) => ({
+            run: (req: CompilationRequest) => {
+              captured.push(req);
+              return Promise.resolve({
+                compiledPrompt: "ok",
+                meta: STUB_COMPILATION_META,
+                compilationId: toUUIDv7("00000000-0000-7000-8000-000000000099"),
+              });
+            },
+          }),
+          { hash: (): string => "" },
+          getSessionId,
+          getEditorId,
+          getModelId,
+          [],
+          enabledConfigLoader,
+          () => {},
+          () => null,
+          () => false,
+          BOOTSTRAP_INTEGRATION.AUTO,
+          async () => [tmpDir],
+        );
+        await handler(
+          {
+            intent: "test",
+            projectRoot: os.homedir(),
+            modelId: null,
+            configPath: null,
+          },
+          undefined,
+        );
+        expect(captured).toHaveLength(1);
+        expect(captured[0]!.projectRoot).toBe(toAbsolutePath(tmpDir));
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    });
+
+    it("compile_handler_list_roots_replaces_home_default", async () => {
+      const tmpDir = fs.mkdtempSync(path.join(os.homedir(), "aic-compile-test-"));
+      vi.spyOn(process, "cwd").mockReturnValue(os.homedir());
+      try {
+        const fixedTs = toISOTimestamp("2026-03-07T12:00:00.000Z");
+        const mockClock = {
+          now: (): typeof fixedTs => fixedTs,
+          addMinutes: (_m: number): typeof fixedTs => fixedTs,
+          durationMs: (_s: typeof fixedTs, _e: typeof fixedTs) => toMilliseconds(0),
+        };
+        const mockIdGenerator = {
+          generate: (): ReturnType<typeof toUUIDv7> =>
+            toUUIDv7("00000000-0000-7000-8000-000000000001"),
+        };
+        const getScopeSpy = vi.fn((projectRootArg: AbsolutePath) => {
+          expect(projectRootArg).toBe(toAbsolutePath(tmpDir));
+          return mockScopeForHandler(mockClock, mockIdGenerator, projectRootArg);
+        });
+        const getSessionId = (): ReturnType<typeof toSessionId> =>
+          toSessionId("00000000-0000-7000-8000-000000000002");
+        const getEditorId = () => EDITOR_ID.GENERIC;
+        const getModelId = (): string | null => null;
+        const handler = createCompileHandler(
+          getScopeSpy,
+          (_scope: ProjectScope) => makeSuccessRunner("ok"),
+          { hash: (): string => "" },
+          getSessionId,
+          getEditorId,
+          getModelId,
+          [],
+          enabledConfigLoader,
+          () => {},
+          () => null,
+          () => false,
+          BOOTSTRAP_INTEGRATION.AUTO,
+          async () => [tmpDir],
+        );
+        await handler(
+          {
+            intent: "test",
+            projectRoot: os.homedir(),
+            modelId: null,
+            configPath: null,
+          },
+          undefined,
+        );
+        expect(getScopeSpy).toHaveBeenCalledWith(toAbsolutePath(tmpDir));
       } finally {
         fs.rmSync(tmpDir, { recursive: true, force: true });
       }

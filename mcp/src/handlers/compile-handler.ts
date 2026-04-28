@@ -2,6 +2,8 @@
 // Copyright (c) 2025 AIC Contributors
 
 import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import {
   McpError,
   ErrorCode,
@@ -54,6 +56,10 @@ import {
   type BootstrapIntegrationMode,
   runEditorBootstrapIfNeeded,
 } from "../editor-integration-dispatch.js";
+import {
+  pickFirstNonHomeRootFromList,
+  resolveSyncMcpPrimaryProjectRoot,
+} from "../resolve-mcp-compile-project-root.js";
 import { validateProjectRoot, validateConfigPath } from "../validate-project-root.js";
 import { readSessionModelIdFromSessionModelsJsonl } from "@jatbas/aic-core/maintenance/read-session-model-jsonl.js";
 import {
@@ -305,6 +311,17 @@ function tryRecordQualitySnapshot(
   }
 }
 
+function resolveCompileProjectRootAfterEnvSync(argsProjectRoot: string): string {
+  const homedirResolved = path.resolve(os.homedir());
+  const resolvedFromArgs = path.resolve(String(argsProjectRoot).trim());
+  if (resolvedFromArgs === homedirResolved) {
+    return path.resolve(
+      resolveSyncMcpPrimaryProjectRoot(process.cwd(), process.env, os.homedir()),
+    );
+  }
+  return resolvedFromArgs;
+}
+
 export function createCompileHandler(
   getScope: (projectRoot: AbsolutePath) => ProjectScope,
   getRunner: (scope: ProjectScope, configPath: FilePath | null) => CompilationRunner,
@@ -318,6 +335,7 @@ export function createCompileHandler(
   getUpdateMessage: () => string | null,
   getConfigUpgraded: () => boolean,
   bootstrapIntegrationMode: BootstrapIntegrationMode = BOOTSTRAP_INTEGRATION.AUTO,
+  listWorkspaceRoots?: () => Promise<readonly string[]>,
 ): (args: CompileHandlerArgs, _extra: unknown) => Promise<CallToolResult> {
   const initDoneForProject = new Set<string>();
   const runWhenEnabled = async (
@@ -443,7 +461,14 @@ export function createCompileHandler(
   };
   return async (args, _extra): Promise<CallToolResult> => {
     try {
-      const projectRoot = validateProjectRoot(args.projectRoot);
+      const homedirResolved = path.resolve(os.homedir());
+      const afterSync = resolveCompileProjectRootAfterEnvSync(args.projectRoot);
+      const effectiveRootString =
+        afterSync === homedirResolved && listWorkspaceRoots !== undefined
+          ? (pickFirstNonHomeRootFromList(await listWorkspaceRoots(), os.homedir()) ??
+            afterSync)
+          : afterSync;
+      const projectRoot = validateProjectRoot(effectiveRootString);
       const scope = getScope(projectRoot);
       if (
         args.triggerSource === TRIGGER_SOURCE.SUBAGENT_STOP &&
@@ -493,6 +518,9 @@ export function createCompileHandler(
       }
       return await runWhenEnabled(args, projectRoot, scope, configPath, configResult);
     } catch (err) {
+      if (err instanceof McpError) {
+        throw err;
+      }
       if (err instanceof TimeoutError) {
         throw new McpError(ErrorCode.InternalError, "Compilation timed out after 30s");
       }
