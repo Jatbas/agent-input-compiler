@@ -134,6 +134,8 @@ Work through the **Steps** section in order.
 
 **Test steps:** Every Tests table row → one test case with that exact name. No extras, no skips. Use Dependent Types for test data. If the Tests table has a third column (`Mock / assert contract`), implement the mocks and assertions exactly as specified: exact mock signatures (`Clock → ISO literal`), inline seed data, and literal assertion values (`expect(result.x).toEqual(<literal>)`). No "close enough" assertions, no improvised mocks. If the contract is genuinely wrong or unimplementable, stop and report (HARD RULE 5).
 
+**Acceptance evidence map (start now, finalize in §4b dim 22).** Read `## Goal`, `## Behavior Change`, `## Tests`, and `## Acceptance Criteria` before editing. Create a working map with one row per task-specific Acceptance Criteria bullet: `criterion → expected proof artifact → implementation step that will satisfy it`. Proof artifacts are named tests, command output, source symbols, schema/descriptor fields, payload fields, log lines, migration/schema rows, MCP tools, or file paths. Generic toolchain bullets (`pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm knip`) stay in the map as generic invariants but do not prove task behavior. While implementing each step, update the map with the file/test/symbol/payload evidence the step creates. If a criterion requires editing a file outside the Files table, invoke the scope tripwire below instead of silently expanding scope.
+
 **Test structure by task layer:**
 
 - **Storage tests:** In-memory DB (`new Database(":memory:")`), run migration, create store with `ExecutableDb` + mock `Clock`/`IdGenerator`. Use branded factories for test data.
@@ -145,10 +147,11 @@ For each step:
 
 1. Do exactly what the step says.
 2. Run the **Verify** command listed in that step.
-3. If verification fails, fix the issue before moving to the next step.
-4. If you cannot fix it after 2 attempts, go to **Blocked diagnostic** (see §Blocked Handling in `SKILL.md`). The 2-attempt limit is for per-step `Verify`; the separate 3-attempt limit in §Autonomous execution applies to the full-toolchain gate in §4a.
-5. **Circuit breaker:** 3+ pieces of unlisted code (type casts, stubs, wrappers) to make it compile → **Blocked diagnostic** (see §Blocked Handling in `SKILL.md`). List each unlisted piece.
-6. **Scope tripwire (HARD RULE 9).** If `Verify`, a failing test, or any side-effect points at a file outside the Files table (and outside the narrow `SKILL-phase-5-finalize.md §5c Step 2` whitelist) as the fix location, STOP. Do not open or edit the file. Follow §Blocked Handling in `SKILL.md`: report (a) the step, (b) the out-of-list file(s), (c) why the core change forces the edit (common patterns: unrelated test fixture captures changed behavior, integration snapshot needs regeneration, benchmark expected-output/golden artifact narrows or expands, schema/validator/descriptor mirror rejects a changed payload), (d) three options — extend scope / re-plan via `aic-task-planner` / discard. Wait for the user's choice.
+3. Update the acceptance evidence map for any criterion this step satisfies; record concrete evidence, not "covered by tests".
+4. If verification fails, fix the issue before moving to the next step.
+5. If you cannot fix it after 2 attempts, go to **Blocked diagnostic** (see §Blocked Handling in `SKILL.md`). The 2-attempt limit is for per-step `Verify`; the separate 3-attempt limit in §Autonomous execution applies to the full-toolchain gate in §4a.
+6. **Circuit breaker:** 3+ pieces of unlisted code (type casts, stubs, wrappers) to make it compile → **Blocked diagnostic** (see §Blocked Handling in `SKILL.md`). List each unlisted piece.
+7. **Scope tripwire (HARD RULE 9).** If `Verify`, a failing test, any acceptance criterion, or any side-effect points at a file outside the Files table (and outside the narrow `SKILL-phase-5-finalize.md §5c Step 3` whitelist) as the fix location, STOP. Do not open or edit the file. Follow §Blocked Handling in `SKILL.md`: report (a) the step, (b) the out-of-list file(s), (c) why the core change forces the edit (common patterns: unrelated test fixture captures changed behavior, integration snapshot needs regeneration, benchmark expected-output/golden artifact narrows or expands, schema/validator/descriptor mirror rejects a changed payload), (d) three options — extend scope / re-plan via `aic-task-planner` / discard. Wait for the user's choice.
 
 **Per-file quick check (after writing each production file).** Run these 4 Grep commands on each production file you just wrote, **dispatched in a single parallel batch** (one assistant message with four `Grep` tool calls — not four sequential messages). They are independent read-only checks against the same file; serial dispatch is a regression. Skip for test files.
 

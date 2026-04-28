@@ -17,6 +17,7 @@ When all dimensions are confirmed clean, complete these three sub-steps in order
 - **Intra-doc consistency** (doc/mixed): dim-12 findings — same-document contradictions
 - **Parallel section notes** (doc/mixed): sibling section asymmetry flagged by Critic 1
 - Review findings and fixes applied (if any)
+- **Task Conformance Review:** every task-specific Acceptance Criteria bullet from §4b dim 22 is mapped to a concrete proof artifact, or the run is blocked.
 - Any concerns or follow-up items
 
 **5b — Update progress.**
@@ -27,13 +28,22 @@ Use the `aic-update-progress` skill to update `documentation/tasks/progress/aic-
 
 **Daily log deduplication:** Grep for `### YYYY-MM-DD` with today's date. If exists, append to existing entry. If not, create new heading. Verify exactly one heading for today after edit.
 
-**5c — Commit and prepare the merge proposal.**
+**5c — Task conformance review, commit, and prepare the merge proposal.**
 
 Do NOT move the task file yet — archiving to `done/` happens in §6b after a successful merge so the `done/` directory never contains an unmerged task. Run these sequentially in one flow:
 
-1. **Worktree guard:** `git rev-parse --abbrev-ref HEAD` in worktree. Must match stored branch → if not, **Blocked diagnostic**.
+1. **Task Conformance Review:** Re-read the task file, the touched-files list from §2, the final diff stat, the §4a output, and the §4b dim 22 acceptance evidence map. All of these must be true before staging:
+   - Every Files-table entry is touched as expected, or is explicitly verification-only / no-diff by task design.
+   - Every task-specific Acceptance Criteria bullet has a concrete proof artifact in the §4b dim 22 map.
+   - Every `## Behavior Change` claim has a named test, command output, payload/schema evidence, or source symbol proof.
+   - No acceptance criterion requires an out-of-list file or side-effect outside the §5c Step 3 whitelist.
+   - Generic toolchain success is recorded as generic verification only, never as the proof for a task-specific behavior.
 
-2. **Stage only touched files and commit in the worktree.**
+   Any failure is a **Blocked diagnostic**. Do not stage, commit, or merge until the user extends scope, re-plans, or discards.
+
+2. **Worktree guard:** `git rev-parse --abbrev-ref HEAD` in worktree. Must match stored branch → if not, **Blocked diagnostic**.
+
+3. **Stage only touched files and commit in the worktree.**
 
    Use the touched-files list built in §2 — never `git add -A`. Stage each file explicitly:
 
@@ -47,7 +57,7 @@ Do NOT move the task file yet — archiving to `done/` happens in §6b after a s
 
    Conventional commit format: `type(scope): description`, max 72 chars, imperative, no period.
 
-3. **Post-commit hygiene check.** Lint-staged may auto-format, leaving dirty files. Sub-steps (b)–(d) exist **only** to validate an amend; they never run on a clean commit.
+4. **Post-commit hygiene check.** Lint-staged may auto-format, leaving dirty files. Sub-steps (b)–(d) exist **only** to validate an amend; they never run on a clean commit.
 
    a. Run `git status --porcelain`. **If the output is empty, OR every dirty entry is outside the touched-files list, jump directly to (e) — do not run (b), (c), or (d).** The §4a gate from Phase 4 already validated lint + typecheck + test on this tree; re-running them on an unchanged tree is ~48s of wasted wall-clock and is explicitly forbidden here.
    b. **Reached only when a file in the touched-files list is dirty.** Stage those dirty touched files and amend: `git add <files> && git commit --amend --no-edit`.
@@ -68,8 +78,9 @@ Compute the **auto-merge preconditions** in this exact order. All must hold:
 1. §4a full toolchain (`pnpm lint && pnpm typecheck && pnpm test && pnpm knip && pnpm lint:clones`) passed in §4, with no new findings from knip or lint:clones.
 2. §5c post-commit hygiene landed clean (exit of the loop at `git status --porcelain` shows no dirty touched files).
 3. `git status --porcelain` in the main workspace shows only expected, allowed files (gitignored paths: `documentation/tasks/`, `aic-progress.md`, `.aic/`). Anything else is a stop.
-4. The feature branch diff (`git diff main...HEAD --stat`) touches only files in the touched-files list built in §2 plus the narrow §5c Step 2 whitelist (lint-staged reformatting of already-listed files, task-declared auto-ratcheting benchmark artifacts, task-declared generated artifacts, and strict-decrease benchmark baseline ratchets). Any other file on the `--stat` output is a HARD RULE 9 violation — stop, do not merge, follow §Blocked Handling.
-5. The task file has no unresolved ambiguity, blocker, or follow-up flagged during §3/§4.
+4. The feature branch diff (`git diff main...HEAD --stat`) touches only files in the touched-files list built in §2 plus the narrow §5c Step 3 whitelist (lint-staged reformatting of already-listed files, task-declared auto-ratcheting benchmark artifacts, task-declared generated artifacts, and strict-decrease benchmark baseline ratchets). Any other file on the `--stat` output is a HARD RULE 9 violation — stop, do not merge, follow §Blocked Handling.
+5. The Task Conformance Review in §5c Step 1 passed: every task-specific Acceptance Criteria bullet and Behavior Change claim has concrete proof, and no proof obligation requires out-of-scope files.
+6. The task file has no unresolved ambiguity, blocker, or follow-up flagged during §3/§4.
 
 **Auto-merge path (all preconditions hold):** print a one-line summary — `Merging <branch> → main (N files, +X/-Y). Commit: "<message>"` — and proceed straight to §6b Step 1. Do not ask.
 

@@ -31,6 +31,11 @@ set -euo pipefail
 #     disk, the test path must also appear somewhere in the task file
 #     (Files table, Architecture Notes bullet, Follow-up Items). An
 #     explicit `**Test-surface excluded:**` bullet naming the path opts out.
+#   - AX: Composition-root placement feasibility — server.ts after/before
+#     wiring instructions must include a placement bullet and cannot target
+#     a call inside createMcpServer "after createMcpServer returns".
+#   - AY: Acceptance proof contract — task-specific acceptance criteria must
+#     name concrete proof artifacts; generic toolchain bullets alone fail.
 
 if [[ $# -ne 1 ]]; then
   echo "Usage: $0 <task-file-path>" >&2
@@ -464,6 +469,82 @@ done < <(awk '
   /^## / && in_files { in_files = 0 }
   in_files && /^\|/ { print NR "|" $0 }
 ' "$FILE")
+
+# 17. Composition-root placement feasibility (AX)
+# Composition-root tasks often need "insert A after anchor B and before anchor C"
+# instructions. The ambiguity scan catches vague choices, not impossible control
+# flow such as placing code inside createMcpServer after createMcpServer returns.
+SERVER_TS_MOD=$(awk '
+  BEGIN { in_files = 0; in_fence = 0 }
+  /^```/ { in_fence = 1 - in_fence; next }
+  in_fence { next }
+  /^## Files/ { in_files = 1; next }
+  /^## / && in_files { in_files = 0 }
+  in_files && /^\|/ && /Modify/ && /`mcp\/src\/server\.ts`/ { found = 1 }
+  END { print found ? "yes" : "" }
+' "$FILE")
+if [[ -n "$SERVER_TS_MOD" ]]; then
+  STEPS_PROSE=$(awk '
+    BEGIN { in_steps = 0; fence = 0 }
+    /^## Steps/ { in_steps = 1; next }
+    /^## / && in_steps { in_steps = 0 }
+    /^```/ { fence = 1 - fence; next }
+    in_steps && fence == 0 { print }
+  ' "$FILE")
+  IMPOSSIBLE_PLACEMENT=$(printf '%s\n' "$STEPS_PROSE" |
+    grep -inE "after .*createMcpServer.*returns?.*createCompileHandler|createCompileHandler.*after .*createMcpServer.*returns?" || true)
+  if [[ -n "$IMPOSSIBLE_PLACEMENT" ]]; then
+    echo "composition-root placement impossible (AX) — instruction targets createCompileHandler inside createMcpServer after createMcpServer returns:"
+    echo "$IMPOSSIBLE_PLACEMENT"
+    ISSUES=$((ISSUES + 1))
+  fi
+  ORDERED_WIRING=$(printf '%s\n' "$STEPS_PROSE" |
+    grep -inE "\b(after|before)\b.*\b(after|before)\b.*(createCompileHandler|registerTool|new McpServer|listRoots)|\b(createCompileHandler|registerTool|new McpServer|listRoots)\b.*\b(after|before)\b.*\b(after|before)\b" || true)
+  if [[ -n "$ORDERED_WIRING" ]] &&
+     ! grep -qE "^(-[[:space:]]+)?\*\*Composition root placement:\*\*" "$FILE"; then
+    echo "composition-root placement missing (AX) — ordered server.ts wiring instructions need a **Composition root placement:** bullet naming the target function, after-anchor, before-anchor, and insertion point:"
+    echo "$ORDERED_WIRING"
+    ISSUES=$((ISSUES + 1))
+  fi
+fi
+
+# 18. Acceptance proof contract (AY)
+# Acceptance Criteria are the executor's post-implementation obligations. Generic
+# toolchain bullets are necessary, but cannot be the only proof that the task's
+# behavior changed as intended.
+AC_BULLETS=0
+AC_NON_GENERIC_PROOF=0
+AC_MISSING_PROOF=""
+while IFS='|' read -r tag ln generic proof line; do
+  [[ "$tag" == "BULLET" ]] || continue
+  AC_BULLETS=$((AC_BULLETS + 1))
+  if [[ "$generic" == "0" && "$proof" == "1" ]]; then
+    AC_NON_GENERIC_PROOF=$((AC_NON_GENERIC_PROOF + 1))
+  fi
+  if [[ "$generic" == "0" && "$proof" == "0" ]]; then
+    AC_MISSING_PROOF="${AC_MISSING_PROOF}${ln}: ${line}"$'\n'
+  fi
+done < <(awk '
+  BEGIN { in_acc = 0; fence = 0 }
+  /^```/ { fence = 1 - fence; next }
+  /^## Acceptance/ { in_acc = 1; next }
+  /^## / && in_acc { in_acc = 0 }
+  in_acc && fence == 0 && /^[[:space:]]*[-*][[:space:]]+(\[[ xX]\][[:space:]]+)?/ {
+    line = $0
+    generic = line ~ /(pnpm[[:space:]]+(lint|typecheck|test|knip)|lint reports zero|typecheck passes|test suite passes|knip reports|generic invariant|all tests pass)/
+    proof = line ~ /(Proof:|`[^`]+`|[A-Za-z_][A-Za-z0-9_]*_[A-Za-z0-9_]+|schema|descriptor|payload|field|column|table|migration|CLI output|command output|log line|JSON field|MCP tool)/ || line ~ /[.](test[.](ts|js|cjs|mjs)|ts|js|cjs|mjs|json|md)/
+    print "BULLET|" NR "|" (generic ? 1 : 0) "|" (proof ? 1 : 0) "|" line
+  }
+' "$FILE")
+if [[ "$AC_BULLETS" -gt 0 && "$AC_NON_GENERIC_PROOF" -eq 0 ]]; then
+  echo "acceptance proof missing (AY) — ## Acceptance Criteria contains no task-specific bullet with a concrete proof artifact; generic toolchain success alone is not proof"
+  ISSUES=$((ISSUES + 1))
+fi
+if [[ -n "$AC_MISSING_PROOF" ]]; then
+  echo "acceptance criteria without proof artifact (AY) — add Proof: with a named test, command output, source symbol, schema/descriptor field, payload field, log line, migration/schema row, MCP tool, or file path:"
+  printf '%s' "$AC_MISSING_PROOF"
+  ISSUES=$((ISSUES + 1))
+fi
 
 if [[ $ISSUES -gt 0 ]]; then
   echo ""
